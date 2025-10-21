@@ -19,7 +19,7 @@ class TestDecodeBase64Image:
         png_data = base64.b64decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         )
-        b64_str = base64.b64encode(png_data).decode('utf-8')
+        b64_str = base64.b64encode(png_data).decode("utf-8")
         data_uri = f"data:image/png;base64,{b64_str}"
 
         image_bytes, fmt = decode_base64_image(data_uri)
@@ -31,20 +31,20 @@ class TestDecodeBase64Image:
     def test_svg_xml_data_uri(self):
         """Test decoding SVG data URI with image/svg+xml MIME type."""
         svg_content = '<svg xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40"/></svg>'
-        b64_data = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+        b64_data = base64.b64encode(svg_content.encode("utf-8")).decode("utf-8")
         data_uri = f"data:image/svg+xml;base64,{b64_data}"
 
         image_bytes, fmt = decode_base64_image(data_uri)
 
         assert image_bytes is not None
         assert fmt == "svg"
-        assert b'<svg' in image_bytes
+        assert b"<svg" in image_bytes
 
     def test_jpeg_data_uri(self):
         """Test decoding JPEG data URI."""
         # Use a small valid JPEG (just the header)
         jpeg_data = base64.b64decode("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBw==")
-        b64_str = base64.b64encode(jpeg_data).decode('utf-8')
+        b64_str = base64.b64encode(jpeg_data).decode("utf-8")
         data_uri = f"data:image/jpeg;base64,{b64_str}"
 
         image_bytes, fmt = decode_base64_image(data_uri)
@@ -104,10 +104,10 @@ class TestParseImageDataUri:
         result = parse_image_data_uri(data_uri)
 
         assert result is not None
-        assert result['mime_type'] == "image/png"
-        assert result['format'] == "png"
-        assert result['encoding'] == "base64"
-        assert result['data'] == "iVBORw0KG"
+        assert result["mime_type"] == "image/png"
+        assert result["format"] == "png"
+        assert result["encoding"] == "base64"
+        assert result["data"] == "iVBORw0KG"
 
     def test_svg_xml_data_uri(self):
         """Test parsing SVG data URI with image/svg+xml."""
@@ -116,9 +116,9 @@ class TestParseImageDataUri:
         result = parse_image_data_uri(data_uri)
 
         assert result is not None
-        assert result['mime_type'] == "image/svg+xml"
-        assert result['format'] == "svg"
-        assert result['encoding'] == "base64"
+        assert result["mime_type"] == "image/svg+xml"
+        assert result["format"] == "svg"
+        assert result["encoding"] == "base64"
 
     def test_data_uri_with_charset(self):
         """Test parsing data URI with charset parameter."""
@@ -127,10 +127,10 @@ class TestParseImageDataUri:
         result = parse_image_data_uri(data_uri)
 
         assert result is not None
-        assert result['mime_type'] == "text/plain"
-        assert result['encoding'] == "base64"
-        assert result['charset'] == "utf-8"
-        assert "charset=utf-8" in result['params']
+        assert result["mime_type"] == "text/plain"
+        assert result["encoding"] == "base64"
+        assert result["charset"] == "utf-8"
+        assert "charset=utf-8" in result["params"]
 
     def test_data_uri_without_base64(self):
         """Test parsing data URI without base64 encoding."""
@@ -139,9 +139,9 @@ class TestParseImageDataUri:
         result = parse_image_data_uri(data_uri)
 
         assert result is not None
-        assert result['mime_type'] == "text/plain"
-        assert result['encoding'] == "url"
-        assert result['data'] == "Hello%20World"
+        assert result["mime_type"] == "text/plain"
+        assert result["encoding"] == "url"
+        assert result["data"] == "Hello%20World"
 
     def test_data_uri_with_multiple_parameters(self):
         """Test parsing data URI with multiple parameters."""
@@ -150,10 +150,10 @@ class TestParseImageDataUri:
         result = parse_image_data_uri(data_uri)
 
         assert result is not None
-        assert result['mime_type'] == "image/png"
-        assert result['encoding'] == "base64"
-        assert len(result['params']) == 2
-        assert "base64" in result['params']
+        assert result["mime_type"] == "image/png"
+        assert result["encoding"] == "base64"
+        assert len(result["params"]) == 2
+        assert "base64" in result["params"]
 
     def test_malformed_data_uri_returns_none(self):
         """Test that malformed data URI returns None."""
@@ -176,4 +176,4 @@ class TestParseImageDataUri:
         result = parse_image_data_uri(data_uri)
 
         assert result is not None
-        assert result['format'] == "jpg"
+        assert result["format"] == "jpg"

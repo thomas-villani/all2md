@@ -395,9 +395,7 @@ FIXTURE_SPECS: list[FixtureTarget] = [
     ),
 ]
 
-
 FIXTURE_MAP = {spec.name: spec for spec in FIXTURE_SPECS}
-
 
 GROUPS: dict[str, tuple[str, ...]] = {
     "textual": (

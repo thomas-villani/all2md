@@ -24,13 +24,11 @@ class TestReadDocumentAsMarkdownImpl:
         # Create config with validated allowlists
         config = MCPConfig(
             read_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
+            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
         )
 
         # Create input (source is auto-detected as file path)
-        input_data = ReadDocumentAsMarkdownInput(
-            source=str(test_file)
-        )
+        input_data = ReadDocumentAsMarkdownInput(source=str(test_file))
 
         # Execute
         result = read_document_as_markdown_impl(input_data, config)
@@ -47,10 +45,7 @@ class TestReadDocumentAsMarkdownImpl:
         config = MCPConfig()
 
         # Plain HTML content (auto-detected)
-        input_data = ReadDocumentAsMarkdownInput(
-            source="<h1>Test</h1><p>Content</p>",
-            format_hint="html"
-        )
+        input_data = ReadDocumentAsMarkdownInput(source="<h1>Test</h1><p>Content</p>", format_hint="html")
 
         result = read_document_as_markdown_impl(input_data, config)
 
@@ -68,12 +63,9 @@ class TestReadDocumentAsMarkdownImpl:
 
         # Create base64-encoded HTML
         html_content = b"<h1>Base64 Test</h1>"
-        base64_content = base64.b64encode(html_content).decode('ascii')
+        base64_content = base64.b64encode(html_content).decode("ascii")
 
-        input_data = ReadDocumentAsMarkdownInput(
-            source=base64_content,
-            format_hint="html"
-        )
+        input_data = ReadDocumentAsMarkdownInput(source=base64_content, format_hint="html")
 
         result = read_document_as_markdown_impl(input_data, config)
 
@@ -98,14 +90,10 @@ class TestReadDocumentAsMarkdownImpl:
         ]
 
         # Use valid base64 content (doesn't need to be valid PDF for this test)
-        dummy_content = base64.b64encode(b"dummy PDF content").decode('ascii')
+        dummy_content = base64.b64encode(b"dummy PDF content").decode("ascii")
 
         for malicious_spec in malicious_specs:
-            input_data = ReadDocumentAsMarkdownInput(
-                source=dummy_content,
-                format_hint="pdf",
-                pdf_pages=malicious_spec
-            )
+            input_data = ReadDocumentAsMarkdownInput(source=dummy_content, format_hint="pdf", pdf_pages=malicious_spec)
 
             with pytest.raises(ValueError, match="Invalid page range format"):
                 read_document_as_markdown_impl(input_data, config)
@@ -115,19 +103,13 @@ class TestReadDocumentAsMarkdownImpl:
         from all2md.mcp.security import prepare_allowlist_dirs
 
         # This would require a real PDF file, so we'll mock it
-        config = MCPConfig(
-            read_allowlist=prepare_allowlist_dirs([str(tmp_path)])
-        )
+        config = MCPConfig(read_allowlist=prepare_allowlist_dirs([str(tmp_path)]))
 
         # Create a dummy PDF file
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4\ntest content")
 
-        input_data = ReadDocumentAsMarkdownInput(
-            source=str(test_file),
-            format_hint="pdf",
-            pdf_pages="1-3"
-        )
+        input_data = ReadDocumentAsMarkdownInput(source=str(test_file), format_hint="pdf", pdf_pages="1-3")
 
         # This will fail without actual PDF parsing, but tests the parameter passing
         with pytest.raises(All2MdError):
@@ -137,10 +119,7 @@ class TestReadDocumentAsMarkdownImpl:
         """Test that server-level flavor is used."""
         config = MCPConfig(flavor="commonmark")
 
-        input_data = ReadDocumentAsMarkdownInput(
-            source="# Test\n\nContent",
-            format_hint="markdown"
-        )
+        input_data = ReadDocumentAsMarkdownInput(source="# Test\n\nContent", format_hint="markdown")
 
         result = read_document_as_markdown_impl(input_data, config)
 
@@ -160,14 +139,10 @@ class TestSaveDocumentFromMarkdownImpl:
 
         output_file = tmp_path / "output.html"
 
-        config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
-        )
+        config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]))
 
         input_data = SaveDocumentFromMarkdownInput(
-            format="html",
-            source="# Test Output\n\nSome content",
-            filename=str(output_file)
+            format="html", source="# Test Output\n\nSome content", filename=str(output_file)
         )
 
         result = save_document_from_markdown_impl(input_data, config)
@@ -183,14 +158,10 @@ class TestSaveDocumentFromMarkdownImpl:
 
         output_file = tmp_path / "output.pdf"
 
-        config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
-        )
+        config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]))
 
         input_data = SaveDocumentFromMarkdownInput(
-            format="pdf",
-            source="# Test PDF\n\nContent",
-            filename=str(output_file)
+            format="pdf", source="# Test PDF\n\nContent", filename=str(output_file)
         )
 
         result = save_document_from_markdown_impl(input_data, config)
@@ -204,16 +175,9 @@ class TestSaveDocumentFromMarkdownImpl:
 
         output_file = tmp_path / "output.html"
 
-        config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
-            flavor="commonmark"
-        )
+        config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]), flavor="commonmark")
 
-        input_data = SaveDocumentFromMarkdownInput(
-            format="html",
-            source="# Test\n\nContent",
-            filename=str(output_file)
-        )
+        input_data = SaveDocumentFromMarkdownInput(format="html", source="# Test\n\nContent", filename=str(output_file))
 
         result = save_document_from_markdown_impl(input_data, config)
 
@@ -230,8 +194,7 @@ class TestToolsErrorHandling:
 
         # Intentionally malformed input to trigger error
         input_data = ReadDocumentAsMarkdownInput(
-            source="not-a-valid-document",
-            format_hint="pdf"  # Can't parse random text as PDF
+            source="not-a-valid-document", format_hint="pdf"  # Can't parse random text as PDF
         )
 
         with pytest.raises(All2MdError):
@@ -241,17 +204,13 @@ class TestToolsErrorHandling:
         """Test that rendering errors are properly caught and re-raised."""
         from all2md.mcp.security import prepare_allowlist_dirs
 
-        config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
-        )
+        config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]))
 
         output_file = tmp_path / "output.invalid"
 
         # Invalid format for rendering
         input_data = SaveDocumentFromMarkdownInput(
-            format="invalid_format",  # type: ignore[arg-type]
-            source="# Test",
-            filename=str(output_file)
+            format="invalid_format", source="# Test", filename=str(output_file)  # type: ignore[arg-type]
         )
 
         with pytest.raises(All2MdError):

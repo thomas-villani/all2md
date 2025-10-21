@@ -24,6 +24,7 @@ try:
     import docx
     from docx import Document as DocxDocument
     from pptx import Presentation
+
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
@@ -32,6 +33,7 @@ except ImportError:
 
 try:
     from reportlab.platypus import SimpleDocTemplate  # noqa: F401
+
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
@@ -93,42 +95,42 @@ def create_sample_ast_document():
         metadata={"title": "Test Document", "author": "Test Suite"},
         children=[
             Heading(level=1, content=[Text(content="Main Title")]),
-            Paragraph(content=[
-                Text(content="This is a paragraph with "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" and "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=" text.")
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="This is a paragraph with "),
+                    Strong(content=[Text(content="bold")]),
+                    Text(content=" and "),
+                    Emphasis(content=[Text(content="italic")]),
+                    Text(content=" text."),
+                ]
+            ),
             Heading(level=2, content=[Text(content="Lists")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Third item")])])
-            ]),
+            List(
+                ordered=False,
+                items=[
+                    ListItem(children=[Paragraph(content=[Text(content="First item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Third item")])]),
+                ],
+            ),
             Heading(level=2, content=[Text(content="Code")]),
             CodeBlock(content='print("Hello, World!")', language="python"),
             Heading(level=2, content=[Text(content="Table")]),
             Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Value")])
-                ]),
+                header=TableRow(
+                    cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Value")])]
+                ),
                 rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Item A")]),
-                        TableCell(content=[Text(content="100")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Item B")]),
-                        TableCell(content=[Text(content="200")])
-                    ])
-                ]
+                    TableRow(
+                        cells=[TableCell(content=[Text(content="Item A")]), TableCell(content=[Text(content="100")])]
+                    ),
+                    TableRow(
+                        cells=[TableCell(content=[Text(content="Item B")]), TableCell(content=[Text(content="200")])]
+                    ),
+                ],
             ),
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="A quoted passage.")])
-            ])
-        ]
+            BlockQuote(children=[Paragraph(content=[Text(content="A quoted passage.")])]),
+        ],
     )
 
 
@@ -166,11 +168,7 @@ class TestFromAst:
     def test_from_ast_to_html_standalone(self):
         """Test rendering AST to standalone HTML."""
         doc = create_sample_ast_document()
-        result = from_ast(
-            doc,
-            "html",
-            renderer_options=HtmlRendererOptions(standalone=True)
-        )
+        result = from_ast(doc, "html", renderer_options=HtmlRendererOptions(standalone=True))
 
         assert isinstance(result, str)
         assert "<!DOCTYPE html>" in result
@@ -183,11 +181,7 @@ class TestFromAst:
     def test_from_ast_to_html_fragment(self):
         """Test rendering AST to HTML fragment."""
         doc = create_sample_ast_document()
-        result = from_ast(
-            doc,
-            "html",
-            renderer_options=HtmlRendererOptions(standalone=False)
-        )
+        result = from_ast(doc, "html", renderer_options=HtmlRendererOptions(standalone=False))
 
         assert isinstance(result, str)
         assert "<!DOCTYPE html>" not in result
@@ -199,11 +193,7 @@ class TestFromAst:
         doc = create_sample_ast_document()
 
         # Test with emphasis symbol preference
-        result = from_ast(
-            doc,
-            "markdown",
-            renderer_options=MarkdownOptions(emphasis_symbol="_")
-        )
+        result = from_ast(doc, "markdown", renderer_options=MarkdownOptions(emphasis_symbol="_"))
 
         assert "_italic_" in result
 
@@ -212,11 +202,7 @@ class TestFromAst:
         doc = create_sample_ast_document()
 
         # Apply remove-images transform
-        result = from_ast(
-            doc,
-            "markdown",
-            transforms=["remove-images"]
-        )
+        result = from_ast(doc, "markdown", transforms=["remove-images"])
 
         assert isinstance(result, str)
         assert "Main Title" in result
@@ -236,7 +222,7 @@ class TestFromAst:
         doc = create_sample_ast_document()
         output_file = tmp_path / "test.md"
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             result = from_ast(doc, "markdown", output=f)
 
         assert result is None
@@ -273,7 +259,7 @@ class TestFromAst:
 
         # Verify it's a valid DOCX (ZIP signature)
         assert len(result) > 0
-        assert result.startswith(b'PK')  # ZIP signature for DOCX files
+        assert result.startswith(b"PK")  # ZIP signature for DOCX files
 
     @pytest.mark.skipif(not REPORTLAB_AVAILABLE, reason="reportlab not installed")
     def test_from_ast_to_pdf(self, tmp_path):
@@ -292,12 +278,7 @@ class TestFromAst:
         doc = create_sample_ast_document()
         base_options = MarkdownOptions(emphasis_symbol="*")
 
-        result = from_ast(
-            doc,
-            "markdown",
-            renderer_options=base_options,
-            emphasis_symbol="_"  # Override
-        )
+        result = from_ast(doc, "markdown", renderer_options=base_options, emphasis_symbol="_")  # Override
 
         assert "_italic_" in result
 
@@ -364,11 +345,7 @@ class TestFromMarkdown:
         md_file = tmp_path / "test.md"
         md_file.write_text("# Title\n\nContent")
 
-        result = from_markdown(
-            str(md_file),
-            "html",
-            parser_options=MarkdownParserOptions(flavor="commonmark")
-        )
+        result = from_markdown(str(md_file), "html", parser_options=MarkdownParserOptions(flavor="commonmark"))
 
         assert isinstance(result, str)
         assert "Title" in result
@@ -378,11 +355,7 @@ class TestFromMarkdown:
         md_file = tmp_path / "test.md"
         md_file.write_text("# Title\n\nContent")
 
-        result = from_markdown(
-            str(md_file),
-            "html",
-            renderer_options=HtmlRendererOptions(standalone=True)
-        )
+        result = from_markdown(str(md_file), "html", renderer_options=HtmlRendererOptions(standalone=True))
 
         assert isinstance(result, str)
         assert "<!DOCTYPE html>" in result
@@ -392,11 +365,7 @@ class TestFromMarkdown:
         md_file = tmp_path / "test.md"
         md_file.write_text("# Title\n\n![Image](test.png)\n\nContent")
 
-        result = from_markdown(
-            str(md_file),
-            "html",
-            transforms=["remove-images"]
-        )
+        result = from_markdown(str(md_file), "html", transforms=["remove-images"])
 
         assert isinstance(result, str)
         assert "Title" in result
@@ -435,7 +404,7 @@ class TestFromMarkdown:
 
         # Verify it's a valid DOCX
         assert len(result) > 0
-        assert result.startswith(b'PK')  # ZIP signature
+        assert result.startswith(b"PK")  # ZIP signature
 
 
 @pytest.mark.integration
@@ -480,11 +449,7 @@ class TestConvert:
         md_file.write_text("# Test\n\nContent")
         output_file = tmp_path / "output.html"
 
-        result = convert(
-            str(md_file),
-            output=output_file,
-            source_format="markdown"
-        )
+        result = convert(str(md_file), output=output_file, source_format="markdown")
 
         assert result is None
         assert output_file.exists()
@@ -501,7 +466,7 @@ class TestConvert:
             source_format="markdown",
             target_format="html",
             parser_options=MarkdownParserOptions(),
-            renderer_options=HtmlRendererOptions(standalone=False)
+            renderer_options=HtmlRendererOptions(standalone=False),
         )
 
         assert isinstance(result, str)
@@ -513,12 +478,7 @@ class TestConvert:
         md_file = tmp_path / "test.md"
         md_file.write_text("# Title\n\n![Image](test.png)\n\nContent")
 
-        result = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="html",
-            transforms=["remove-images"]
-        )
+        result = convert(str(md_file), source_format="markdown", target_format="html", transforms=["remove-images"])
 
         assert isinstance(result, str)
         assert "Title" in result
@@ -528,11 +488,7 @@ class TestConvert:
         """Test convert with bytes input."""
         html_bytes = b"<h1>Title</h1><p>Content</p>"
 
-        result = convert(
-            html_bytes,
-            source_format="html",
-            target_format="markdown"
-        )
+        result = convert(html_bytes, source_format="html", target_format="markdown")
 
         assert isinstance(result, str)
         assert "Title" in result
@@ -542,11 +498,7 @@ class TestConvert:
         html_content = b"<h1>Test</h1><p>Content</p>"
         html_io = BytesIO(html_content)
 
-        result = convert(
-            html_io,
-            source_format="html",
-            target_format="markdown"
-        )
+        result = convert(html_io, source_format="html", target_format="markdown")
 
         assert isinstance(result, str)
         assert "Test" in result
@@ -557,12 +509,7 @@ class TestConvert:
         md_file.write_text("# Title\n\nContent")
         output_file = tmp_path / "output.html"
 
-        result = convert(
-            str(md_file),
-            output=output_file,
-            source_format="markdown",
-            target_format="html"
-        )
+        result = convert(str(md_file), output=output_file, source_format="markdown", target_format="html")
 
         assert result is None
         assert output_file.exists()
@@ -573,13 +520,8 @@ class TestConvert:
         md_file.write_text("# Title\n\nContent")
         output_file = tmp_path / "output.html"
 
-        with open(output_file, 'w') as f:
-            result = convert(
-                str(md_file),
-                output=f,
-                source_format="markdown",
-                target_format="html"
-            )
+        with open(output_file, "w") as f:
+            result = convert(str(md_file), output=f, source_format="markdown", target_format="html")
 
         assert result is None
         assert output_file.exists()
@@ -591,12 +533,7 @@ class TestConvert:
         md_file.write_text("# Document\n\n**Important** content.")
         output_file = tmp_path / "output.docx"
 
-        result = convert(
-            str(md_file),
-            output=output_file,
-            source_format="markdown",
-            target_format="docx"
-        )
+        result = convert(str(md_file), output=output_file, source_format="markdown", target_format="docx")
 
         assert result is None
         assert output_file.exists()
@@ -610,12 +547,7 @@ class TestConvert:
         md_file = tmp_path / "test.md"
         md_file.write_text("# Title\n\nContent")
 
-        result = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="markdown",
-            flavor="commonmark"
-        )
+        result = convert(str(md_file), source_format="markdown", target_format="markdown", flavor="commonmark")
 
         assert isinstance(result, str)
         assert "Title" in result
@@ -629,7 +561,7 @@ class TestConvert:
             source_format="html",
             target_format="markdown",
             convert_nbsp=True,  # HtmlOptions (parser)
-            emphasis_symbol="_"  # MarkdownOptions (renderer)
+            emphasis_symbol="_",  # MarkdownOptions (renderer)
         )
 
         assert isinstance(result, str)
@@ -642,21 +574,12 @@ class TestConvert:
 
         # Markdown -> HTML
         html_file = tmp_path / "temp.html"
-        convert(
-            str(md_file),
-            output=html_file,
-            source_format="markdown",
-            target_format="html"
-        )
+        convert(str(md_file), output=html_file, source_format="markdown", target_format="html")
         html_content = html_file.read_text()
         assert "Title" in html_content
 
         # HTML -> Markdown
-        recovered_markdown = convert(
-            str(html_file),
-            source_format="html",
-            target_format="markdown"
-        )
+        recovered_markdown = convert(str(html_file), source_format="html", target_format="markdown")
         assert isinstance(recovered_markdown, str)
         assert "Title" in recovered_markdown
         assert "**Bold**" in recovered_markdown or "bold" in recovered_markdown.lower()
@@ -666,6 +589,7 @@ class TestConvert:
         """Test converting DOCX to Markdown."""
         # Create a simple DOCX file
         from docx import Document as CreateDoc
+
         doc = CreateDoc()
         doc.add_heading("Test Document", level=1)
         doc.add_paragraph("This is a test paragraph.")
@@ -716,11 +640,7 @@ class TestAPIEdgeCases:
         """Test from_ast with multiple transforms."""
         doc = create_sample_ast_document()
 
-        result = from_ast(
-            doc,
-            "markdown",
-            transforms=["remove-images", "heading-offset"]
-        )
+        result = from_ast(doc, "markdown", transforms=["remove-images", "heading-offset"])
 
         assert isinstance(result, str)
         # After heading offset, h1 becomes h2
@@ -733,11 +653,7 @@ class TestAPIEdgeCases:
         html_file.write_text("<h1>HTML</h1>")
 
         # Convert HTML to markdown (should process HTML properly)
-        result = convert(
-            str(html_file),
-            source_format="html",
-            target_format="markdown"
-        )
+        result = convert(str(html_file), source_format="html", target_format="markdown")
 
         # Should convert HTML to markdown
         assert isinstance(result, str)
@@ -771,6 +687,7 @@ class TestAPIConsistency:
 
         # Direct conversion
         from all2md import to_markdown
+
         direct = to_markdown(str(html_file))
 
         # Via AST
@@ -839,11 +756,7 @@ class TestProgressCallbackIntegration:
             events.append(event)
 
         # Convert with transforms and progress callback
-        markdown = to_markdown(
-            str(html_file),
-            transforms=["remove-images"],
-            progress_callback=progress_handler
-        )
+        markdown = to_markdown(str(html_file), transforms=["remove-images"], progress_callback=progress_handler)
 
         assert "Title" in markdown
 
@@ -859,11 +772,7 @@ class TestProgressCallbackIntegration:
         def progress_handler(event):
             events.append(event)
 
-        result = from_ast(
-            doc,
-            "markdown",
-            progress_callback=progress_handler
-        )
+        result = from_ast(doc, "markdown", progress_callback=progress_handler)
 
         assert isinstance(result, str)
         assert "Main Title" in result
@@ -885,10 +794,7 @@ class TestProgressCallbackIntegration:
             events.append(event)
 
         result = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="html",
-            progress_callback=progress_handler
+            str(md_file), source_format="markdown", target_format="html", progress_callback=progress_handler
         )
 
         assert isinstance(result, str)
@@ -911,10 +817,7 @@ class TestProgressCallbackIntegration:
             raise RuntimeError("Callback failed!")
 
         # Should not raise - callback errors are logged
-        markdown = to_markdown(
-            str(html_file),
-            progress_callback=failing_callback
-        )
+        markdown = to_markdown(str(html_file), progress_callback=failing_callback)
 
         # Conversion should complete successfully
         assert "Title" in markdown
@@ -1021,12 +924,12 @@ class TestIntegration:
         doc.save(str(docx_file))
 
         # HTML with images
-        html_content = '''<html><body>
+        html_content = """<html><body>
             <h1>HTML with Images</h1>
             <img src="image1.png" alt="Image 1">
             <p>Text between images</p>
             <img src="image2.jpg" alt="Image 2">
-        </body></html>'''
+        </body></html>"""
         html_file = self.temp_dir / "images.html"
         html_file.write_text(html_content)
 
@@ -1105,7 +1008,7 @@ class TestIntegration:
         """Test error handling in integration scenarios."""
         # Test with non-existent file
         with pytest.raises(FileNotFoundError):
-            with open("/non/existent/file.docx", 'rb') as f:
+            with open("/non/existent/file.docx", "rb") as f:
                 to_markdown(f)
 
         # Test with unsupported file type - should fall back to text parsing
@@ -1128,6 +1031,7 @@ class TestIntegration:
         except Exception as e:
             # Should be a meaningful error (including custom All2MdError)
             from all2md.exceptions import MalformedFileError
+
             assert isinstance(e, (ValueError, IOError, OSError, MalformedFileError, All2MdError))
 
     def test_performance_with_large_documents(self):
@@ -1207,10 +1111,10 @@ class TestIntegration:
     def test_option_inheritance_and_precedence(self):
         """Test basic HTML parsing through parse_file."""
         # Create simple test HTML (avoiding features that trigger bugs)
-        html_content = '''<html><body>
+        html_content = """<html><body>
             <h1>Option Test</h1>
             <p>Text with bold and italic</p>
-        </body></html>'''
+        </body></html>"""
         html_file = self.temp_dir / "options.html"
         html_file.write_text(html_content)
 
@@ -1268,7 +1172,7 @@ class TestNewAPI:
             parser_options=base_parser_options,
             renderer_options=md_opts,
             use_hash_headings=True,  # Override the False setting
-            source_format="html"
+            source_format="html",
         )
 
         assert_markdown_valid(result)
@@ -1283,7 +1187,7 @@ class TestNewAPI:
             source_format="html",
             use_hash_headings=True,
             convert_nbsp=False,
-            emphasis_symbol="_"  # MarkdownOptions field
+            emphasis_symbol="_",  # MarkdownOptions field
         )
 
         assert_markdown_valid(result)
@@ -1325,19 +1229,14 @@ class TestNewAPI:
     def test_format_specific_options_mapping(self):
         """Test that format-specific options are properly handled."""
         # Test with PDF options (even if we can't fully test PDF conversion here)
-        pdf_options = PdfOptions(
-            pages=[0],
-            attachment_mode="alt_text"
-        )
+        pdf_options = PdfOptions(pages=[0], attachment_mode="alt_text")
 
         # This should work with the options system even if PDF processing fails
         simple_text = b"Simple text content"
         text_io = BytesIO(simple_text)
 
         result = to_markdown(
-            text_io,
-            parser_options=pdf_options,
-            source_format="txt"  # Force as text since we don't have real PDF
+            text_io, parser_options=pdf_options, source_format="txt"  # Force as text since we don't have real PDF
         )
 
         assert result.strip() == "Simple text content"
@@ -1385,10 +1284,7 @@ class TestNewAPI:
         html_io = BytesIO(html_content)
 
         result = to_markdown(
-            html_io,
-            source_format="html",
-            emphasis_symbol="_",  # Should affect italic rendering
-            bullet_symbols="*-+"
+            html_io, source_format="html", emphasis_symbol="_", bullet_symbols="*-+"  # Should affect italic rendering
         )
 
         assert_markdown_valid(result)
@@ -1397,7 +1293,7 @@ class TestNewAPI:
     def test_comprehensive_detection_strategy(self):
         """Test the comprehensive detection with multiple fallback layers."""
         # Test 1: Extension + MIME type detection for uncommon extension
-        with tempfile.NamedTemporaryFile(suffix='.unknown', delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(suffix=".unknown", delete=False) as tmp:
             html_content = b"<html><body><h1>Unknown Extension</h1></body></html>"
             tmp.write(html_content)
             tmp.flush()
@@ -1421,7 +1317,7 @@ class TestNewAPI:
         import logging
 
         # Enable debug logging to capture detection flow
-        logger = logging.getLogger('all2md')
+        logger = logging.getLogger("all2md")
         logger.setLevel(logging.DEBUG)
 
         # Create in-memory log capture
@@ -1439,8 +1335,8 @@ class TestNewAPI:
 
             # Check that logs show filename detection succeeded
             # The actual log message is "Format detected from filename: html"
-            log_messages = [msg for msg in log_capture if 'Format detected from' in msg]
-            assert any('html' in msg for msg in log_messages), f"Log messages: {log_messages}"
+            log_messages = [msg for msg in log_capture if "Format detected from" in msg]
+            assert any("html" in msg for msg in log_messages), f"Log messages: {log_messages}"
 
         finally:
             logger.removeHandler(handler)

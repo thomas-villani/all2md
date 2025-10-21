@@ -22,6 +22,7 @@ def require_tomli_w() -> None:
     if tomli_w is None:
         pytest.skip("tomli_w is required for this test")
 
+
 from all2md.cli.commands import handle_config_generate_command, handle_config_show_command
 from all2md.cli.config import (
     discover_config_file,
@@ -54,7 +55,7 @@ class TestConfigDiscovery:
             config_file.write_text("[pdf]\ndetect_columns = true")
 
             # Mock cwd to return temp directory
-            with patch('pathlib.Path.cwd', return_value=temp_path):
+            with patch("pathlib.Path.cwd", return_value=temp_path):
                 discovered = discover_config_file()
 
                 assert discovered is not None
@@ -71,8 +72,8 @@ class TestConfigDiscovery:
             config_file.write_text('{"pdf": {"detect_columns": true}}')
 
             # Mock both cwd (empty) and home (has config)
-            with patch('pathlib.Path.cwd', return_value=Path(tempfile.mkdtemp())):
-                with patch('pathlib.Path.home', return_value=temp_path):
+            with patch("pathlib.Path.cwd", return_value=Path(tempfile.mkdtemp())):
+                with patch("pathlib.Path.home", return_value=temp_path):
                     discovered = discover_config_file()
 
                     assert discovered is not None
@@ -89,7 +90,7 @@ class TestConfigDiscovery:
             toml_file.write_text("[pdf]\ndetect_columns = true")
             json_file.write_text('{"pdf": {"detect_columns": false}}')
 
-            with patch('pathlib.Path.cwd', return_value=temp_path):
+            with patch("pathlib.Path.cwd", return_value=temp_path):
                 discovered = discover_config_file()
 
                 # Should prefer TOML
@@ -108,8 +109,8 @@ class TestConfigDiscovery:
                 cwd_config.write_text("[pdf]\ndetect_columns = true")
                 home_config.write_text("[pdf]\ndetect_columns = false")
 
-                with patch('pathlib.Path.cwd', return_value=cwd_path):
-                    with patch('pathlib.Path.home', return_value=home_path):
+                with patch("pathlib.Path.cwd", return_value=cwd_path):
+                    with patch("pathlib.Path.home", return_value=home_path):
                         discovered = discover_config_file()
 
                         # Should use cwd config
@@ -122,8 +123,8 @@ class TestConfigDiscovery:
                 cwd_path = Path(cwd_dir)
                 home_path = Path(home_dir)
 
-                with patch('pathlib.Path.cwd', return_value=cwd_path):
-                    with patch('pathlib.Path.home', return_value=home_path):
+                with patch("pathlib.Path.cwd", return_value=cwd_path):
+                    with patch("pathlib.Path.home", return_value=home_path):
                         discovered = discover_config_file()
 
                         assert discovered is None
@@ -213,7 +214,7 @@ class TestConfigGenerateDefaults:
     """Validate default config generation."""
 
     def test_generate_config_json_defaults(self, capsys):
-        exit_code = handle_config_generate_command(['--format', 'json'])
+        exit_code = handle_config_generate_command(["--format", "json"])
         assert exit_code == 0
 
         output = capsys.readouterr().out
@@ -224,7 +225,7 @@ class TestConfigGenerateDefaults:
         assert "renderer_pdf" in data
 
     def test_generate_config_toml_defaults(self, capsys):
-        exit_code = handle_config_generate_command(['--format', 'toml'])
+        exit_code = handle_config_generate_command(["--format", "toml"])
         assert exit_code == 0
 
         output = capsys.readouterr().out
@@ -297,7 +298,7 @@ class TestConfigGenerateDefaults:
 
             # JSON array at root
             config_file = temp_path / "config.json"
-            config_file.write_text('[1, 2, 3]')
+            config_file.write_text("[1, 2, 3]")
 
             with pytest.raises(argparse.ArgumentTypeError) as exc_info:
                 load_config_file(config_file)
@@ -436,7 +437,7 @@ class TestConfigPriority:
             with open(config_file, "wb") as f:
                 tomli_w.dump({"test": "auto"}, f)
 
-            with patch('pathlib.Path.cwd', return_value=temp_path):
+            with patch("pathlib.Path.cwd", return_value=temp_path):
                 loaded = load_config_with_priority()
                 print(loaded)
                 assert loaded["test"] == "auto"
@@ -449,19 +450,23 @@ class TestConfigCommands:
 
     def test_config_generate_writes_json(self, tmp_path):
         """Generating configuration to a file should succeed."""
-        output_path = tmp_path / 'generated.json'
+        output_path = tmp_path / "generated.json"
 
-        exit_code = handle_config_generate_command([
-            '--format', 'json',
-            '--out', str(output_path),
-        ])
+        exit_code = handle_config_generate_command(
+            [
+                "--format",
+                "json",
+                "--out",
+                str(output_path),
+            ]
+        )
 
         assert exit_code == 0
         assert output_path.exists()
 
-        data = json.loads(output_path.read_text(encoding='utf-8'))
-        assert data['attachment_mode'] in {"alt_text", "skip", "download", "base64"}
-        assert 'pdf' in data
+        data = json.loads(output_path.read_text(encoding="utf-8"))
+        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+        assert "pdf" in data
 
     def test_config_generate_stdout_toml(self, capsys):
         """Default invocation should emit TOML to stdout."""
@@ -470,21 +475,23 @@ class TestConfigCommands:
 
         captured = capsys.readouterr()
         data = tomllib.loads(captured.out)
-        assert 'pdf' in data
-        assert data['attachment_mode'] in {"alt_text", "skip", "download", "base64"}
+        assert "pdf" in data
+        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
 
     def test_config_show_json_no_source(self, capsys, monkeypatch):
         """Config show should honor --format json and --no-source."""
-        monkeypatch.delenv('ALL2MD_CONFIG', raising=False)
+        monkeypatch.delenv("ALL2MD_CONFIG", raising=False)
 
-        with patch('all2md.cli.config.load_config_with_priority', return_value={'pdf': {'pages': [1]}}), \
-                patch('all2md.cli.config.get_config_search_paths', return_value=[]):
-            exit_code = handle_config_show_command(['--format', 'json', '--no-source'])
+        with (
+            patch("all2md.cli.config.load_config_with_priority", return_value={"pdf": {"pages": [1]}}),
+            patch("all2md.cli.config.get_config_search_paths", return_value=[]),
+        ):
+            exit_code = handle_config_show_command(["--format", "json", "--no-source"])
 
         assert exit_code == 0
 
         captured = capsys.readouterr()
-        assert 'Configuration Sources' not in captured.out
+        assert "Configuration Sources" not in captured.out
         assert '"pdf"' in captured.out
 
     def test_load_config_with_priority_returns_empty_when_not_found(self):
@@ -492,8 +499,8 @@ class TestConfigCommands:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            with patch('pathlib.Path.cwd', return_value=temp_path):
-                with patch('pathlib.Path.home', return_value=temp_path):
+            with patch("pathlib.Path.cwd", return_value=temp_path):
+                with patch("pathlib.Path.home", return_value=temp_path):
                     loaded = load_config_with_priority()
 
                     assert loaded == {}
@@ -513,10 +520,7 @@ class TestConfigCommands:
             with open(env_file, "wb") as f:
                 tomli_w.dump({"test": "env"}, f)
 
-            loaded = load_config_with_priority(
-                explicit_path=str(explicit_file),
-                env_var_path=str(env_file)
-            )
+            loaded = load_config_with_priority(explicit_path=str(explicit_file), env_var_path=str(env_file))
 
             assert loaded["test"] == "explicit"
 
@@ -694,11 +698,7 @@ class TestConfigIntegration:
 
         parser = create_parser()
 
-        args = parser.parse_args([
-            "test.pdf",
-            "--config", "custom.toml",
-            "--preset", "quality"
-        ])
+        args = parser.parse_args(["test.pdf", "--config", "custom.toml", "--preset", "quality"])
 
         assert args.config == "custom.toml"
         assert args.preset == "quality"

@@ -355,10 +355,10 @@ class TestMetadata:
         doc = converter.convert_to_ast(content, filename="test.py")
 
         code_block = doc.children[0]
-        assert hasattr(code_block, 'metadata')
+        assert hasattr(code_block, "metadata")
         if code_block.metadata:
-            assert 'filename' in code_block.metadata
-            assert code_block.metadata['filename'] == "test.py"
+            assert "filename" in code_block.metadata
+            assert code_block.metadata["filename"] == "test.py"
 
     def test_metadata_empty_when_no_filename(self) -> None:
         """Test that metadata is empty or None when no filename."""
@@ -367,9 +367,9 @@ class TestMetadata:
         doc = converter.convert_to_ast(content, filename=None)
 
         code_block = doc.children[0]
-        if hasattr(code_block, 'metadata'):
+        if hasattr(code_block, "metadata"):
             if code_block.metadata:
-                assert 'filename' not in code_block.metadata or code_block.metadata['filename'] is None
+                assert "filename" not in code_block.metadata or code_block.metadata["filename"] is None
 
 
 @pytest.mark.unit
@@ -389,11 +389,7 @@ class TestOptionsConfiguration:
     def test_all_options_enabled(self) -> None:
         """Test with all options enabled."""
         content = "print('hello')"
-        options = SourceCodeOptions(
-            detect_language=True,
-            include_filename=True,
-            language_override=None
-        )
+        options = SourceCodeOptions(detect_language=True, include_filename=True, language_override=None)
         converter = SourceCodeToAstConverter(options)
         doc = converter.convert_to_ast(content, filename="script.py")
 
@@ -404,10 +400,7 @@ class TestOptionsConfiguration:
     def test_all_options_disabled(self) -> None:
         """Test with options disabled."""
         content = "print('hello')"
-        options = SourceCodeOptions(
-            detect_language=False,
-            include_filename=False
-        )
+        options = SourceCodeOptions(detect_language=False, include_filename=False)
         converter = SourceCodeToAstConverter(options)
         doc = converter.convert_to_ast(content, filename="script.py")
 

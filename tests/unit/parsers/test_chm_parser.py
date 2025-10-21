@@ -16,17 +16,17 @@ Tests cover:
 from unittest.mock import MagicMock
 
 import pytest
+
+from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
+from all2md.options import HtmlOptions
+from all2md.options.chm import ChmOptions
+from all2md.parsers.chm import ChmParser
 from fixtures.generators.chm_fixtures import (
     create_chm_with_code,
     create_chm_with_nested_toc,
     create_empty_chm,
     create_simple_chm,
 )
-
-from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
-from all2md.options import HtmlOptions
-from all2md.options.chm import ChmOptions
-from all2md.parsers.chm import ChmParser
 
 
 @pytest.mark.unit
@@ -45,8 +45,8 @@ class TestChmBasicParsing:
 
         # Should have TOC heading (since include_toc defaults to True)
         toc_found = any(
-            isinstance(child, Heading) and
-            any(t.content == "Table of Contents" for t in child.content if isinstance(t, Text))
+            isinstance(child, Heading)
+            and any(t.content == "Table of Contents" for t in child.content if isinstance(t, Text))
             for child in doc.children
         )
         assert toc_found
@@ -62,8 +62,8 @@ class TestChmBasicParsing:
         assert isinstance(doc, Document)
         # Should not have "Table of Contents" heading
         toc_found = any(
-            isinstance(child, Heading) and
-            any(t.content == "Table of Contents" for t in child.content if isinstance(t, Text))
+            isinstance(child, Heading)
+            and any(t.content == "Table of Contents" for t in child.content if isinstance(t, Text))
             for child in doc.children
         )
         assert not toc_found
@@ -196,11 +196,7 @@ class TestChmOptions:
     def test_chm_options_custom(self) -> None:
         """Test custom CHM options."""
         html_opts = HtmlOptions(extract_title=True)
-        options = ChmOptions(
-            include_toc=False,
-            merge_pages=False,
-            html_options=html_opts
-        )
+        options = ChmOptions(include_toc=False, merge_pages=False, html_options=html_opts)
 
         assert options.include_toc is False
         assert options.merge_pages is False
@@ -230,7 +226,6 @@ class TestChmErrorHandling:
         # test unless pychm is available
         pytest.importorskip("chm")
 
-
         # This test would require mocking at the import level which is complex
         # For now, we verify the logic by calling convert_to_ast with a mock that fails
         mock_chm = MagicMock()
@@ -251,7 +246,7 @@ class TestChmErrorHandling:
         def failing_retrieve(obj_ref):
             if obj_ref == "/chapter1.html":
                 # Return malformed content
-                return (0, b'\xff\xfe\x00invalid')
+                return (0, b"\xff\xfe\x00invalid")
             return original_retrieve(obj_ref)
 
         mock_chm.RetrieveObject = failing_retrieve
@@ -276,8 +271,8 @@ class TestChmPageEnumeration:
 
         # Should have pages from fixture
         assert len(pages) > 0
-        assert any('index.html' in page for page in pages)
-        assert any('chapter1.html' in page for page in pages)
+        assert any("index.html" in page for page in pages)
+        assert any("chapter1.html" in page for page in pages)
 
     def test_enumerate_pages_fallback(self) -> None:
         """Test page enumeration fallback when TOC unavailable."""
@@ -309,10 +304,7 @@ class TestChmTOCBuilding:
         # First node should be TOC heading
         assert isinstance(toc_nodes[0], Heading)
         assert toc_nodes[0].level == 1
-        assert any(
-            isinstance(t, Text) and "Table of Contents" in t.content
-            for t in toc_nodes[0].content
-        )
+        assert any(isinstance(t, Text) and "Table of Contents" in t.content for t in toc_nodes[0].content)
 
     def test_nested_toc_levels(self) -> None:
         """Test nested TOC with multiple levels."""

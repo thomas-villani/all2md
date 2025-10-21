@@ -47,29 +47,27 @@ def dummy_transform_registry(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     stub_registry = DummyRegistry()
     # Patch both the module-level import and the processors import
-    monkeypatch.setattr('all2md.transforms.registry', stub_registry)
-    monkeypatch.setattr('all2md.cli.processors.transform_registry', stub_registry)
+    monkeypatch.setattr("all2md.transforms.registry", stub_registry)
+    monkeypatch.setattr("all2md.cli.processors.transform_registry", stub_registry)
 
     return {
-        'metadata_instances': metadata_instances,
-        'registry_instances': registry_instances,
-        'transform_class': DummyTransform,
+        "metadata_instances": metadata_instances,
+        "registry_instances": registry_instances,
+        "transform_class": DummyTransform,
     }
 
 
 @pytest.mark.unit
 def test_build_transform_instances_records_transform_specs(dummy_transform_registry) -> None:
     """CLI transform builder should persist serializable transform specs."""
-    args = argparse.Namespace(transforms=['demo-transform'], _provided_args=set())
+    args = argparse.Namespace(transforms=["demo-transform"], _provided_args=set())
 
     transforms = build_transform_instances(args)
 
     assert transforms is not None and len(transforms) == 1
-    assert isinstance(transforms[0], dummy_transform_registry['transform_class'])
-    assert dummy_transform_registry['metadata_instances']
-    assert getattr(args, 'transform_specs', None) == [
-        {'name': 'demo-transform', 'params': {}}
-    ]
+    assert isinstance(transforms[0], dummy_transform_registry["transform_class"])
+    assert dummy_transform_registry["metadata_instances"]
+    assert getattr(args, "transform_specs", None) == [{"name": "demo-transform", "params": {}}]
 
 
 @pytest.mark.unit
@@ -85,44 +83,44 @@ def test_convert_single_file_rebuilds_transforms_from_specs(
 
     def fake_convert(source, output=None, **kwargs):  # type: ignore[no-untyped-def]
         # Capture transforms parameter
-        captured['transforms'] = kwargs.get('transforms')
+        captured["transforms"] = kwargs.get("transforms")
         # Return None to indicate success (content written to output)
         return None
 
-    monkeypatch.setattr(processors, 'convert', fake_convert)
-    monkeypatch.setattr(processors, 'prepare_options_for_execution', lambda *args, **kwargs: {})
+    monkeypatch.setattr(processors, "convert", fake_convert)
+    monkeypatch.setattr(processors, "prepare_options_for_execution", lambda *args, **kwargs: {})
 
-    input_path = tmp_path / 'sample.pdf'
-    input_path.write_text('stub')
-    output_path = tmp_path / 'output.md'
+    input_path = tmp_path / "sample.pdf"
+    input_path.write_text("stub")
+    output_path = tmp_path / "output.md"
 
     # Create CLIInputItem instead of using Path directly
     input_item = CLIInputItem(
         raw_input=input_path,
-        kind='local_file',
+        kind="local_file",
         display_name=input_path.name,
         path_hint=input_path,
     )
 
-    specs = [{'name': 'demo-transform', 'params': {}}]
+    specs = [{"name": "demo-transform", "params": {}}]
 
     exit_code, _, error = convert_single_file(
         input_item,
         output_path,
         options={},
-        format_arg='markdown',
+        format_arg="markdown",
         transforms=None,
         show_progress=False,
-        target_format='markdown',
+        target_format="markdown",
         transform_specs=specs,
     )
 
     assert exit_code == EXIT_SUCCESS, f"Expected EXIT_SUCCESS but got {exit_code}, error: {error}"
     assert error is None
 
-    rebuilt = captured.get('transforms')
+    rebuilt = captured.get("transforms")
     assert rebuilt and len(rebuilt) == 1
-    assert isinstance(rebuilt[0], dummy_transform_registry['transform_class'])
+    assert isinstance(rebuilt[0], dummy_transform_registry["transform_class"])
 
 
 @pytest.mark.unit
@@ -138,21 +136,21 @@ def test_convert_single_file_streams_respect_target_format(
 
     def fake_convert(*args, **kwargs):  # type: ignore[no-untyped-def]
         source = args[0] if args else None
-        captured['source'] = source
-        captured['output'] = kwargs.get('output')
-        captured['source_format'] = kwargs.get('source_format')
-        captured['target_format'] = kwargs.get('target_format')
+        captured["source"] = source
+        captured["output"] = kwargs.get("output")
+        captured["source_format"] = kwargs.get("source_format")
+        captured["target_format"] = kwargs.get("target_format")
         return "<html>payload</html>"
 
-    monkeypatch.setattr(processors, 'convert', fake_convert)
-    monkeypatch.setattr(processors, 'prepare_options_for_execution', lambda *args, **kwargs: {})
+    monkeypatch.setattr(processors, "convert", fake_convert)
+    monkeypatch.setattr(processors, "prepare_options_for_execution", lambda *args, **kwargs: {})
 
-    input_path = tmp_path / 'sample.txt'
-    input_path.write_text('stub')
+    input_path = tmp_path / "sample.txt"
+    input_path.write_text("stub")
 
     input_item = CLIInputItem(
         raw_input=input_path,
-        kind='local_file',
+        kind="local_file",
         display_name=input_path.name,
         path_hint=input_path,
     )
@@ -161,16 +159,16 @@ def test_convert_single_file_streams_respect_target_format(
         input_item,
         output_path=None,
         options={},
-        format_arg='txt',
+        format_arg="txt",
         transforms=None,
         show_progress=False,
-        target_format='html',
+        target_format="html",
         transform_specs=None,
     )
 
     assert exit_code == EXIT_SUCCESS
     assert error is None
-    assert captured['target_format'] == 'html'
+    assert captured["target_format"] == "html"
 
     std = capsys.readouterr()
     assert std.out.strip() == "<html>payload</html>"
@@ -209,8 +207,8 @@ def test_apply_rich_formatting_honours_no_wrap(monkeypatch: pytest.MonkeyPatch) 
 
     dummy_console = DummyConsole()
 
-    monkeypatch.setattr('rich.console.Console', lambda: dummy_console)
-    monkeypatch.setattr('rich.markdown.Markdown', DummyMarkdown)
+    monkeypatch.setattr("rich.console.Console", lambda: dummy_console)
+    monkeypatch.setattr("rich.markdown.Markdown", DummyMarkdown)
 
     args = argparse.Namespace(rich_no_word_wrap=True)
     text, is_rich = _apply_rich_formatting("data", args)
@@ -236,21 +234,21 @@ def test_render_single_item_to_stdout_invokes_rich_syntax(
         return "<html/>"
 
     def fake_render(text: str, args: argparse.Namespace, fmt: str) -> bool:
-        call_args['text'] = text
-        call_args['format'] = fmt
-        call_args['no_wrap'] = getattr(args, 'rich_no_word_wrap', False)
+        call_args["text"] = text
+        call_args["format"] = fmt
+        call_args["no_wrap"] = getattr(args, "rich_no_word_wrap", False)
         return True
 
-    monkeypatch.setattr(processors, 'convert', fake_convert)
-    monkeypatch.setattr(processors, 'prepare_options_for_execution', lambda *args, **kwargs: {})
-    monkeypatch.setattr(processors, '_render_rich_text_output', fake_render)
+    monkeypatch.setattr(processors, "convert", fake_convert)
+    monkeypatch.setattr(processors, "prepare_options_for_execution", lambda *args, **kwargs: {})
+    monkeypatch.setattr(processors, "_render_rich_text_output", fake_render)
 
-    input_path = tmp_path / 'sample.eml'
-    input_path.write_text('stub')
+    input_path = tmp_path / "sample.eml"
+    input_path.write_text("stub")
 
     item = CLIInputItem(
         raw_input=input_path,
-        kind='local_file',
+        kind="local_file",
         display_name=input_path.name,
         path_hint=input_path,
     )
@@ -261,45 +259,45 @@ def test_render_single_item_to_stdout_invokes_rich_syntax(
         item,
         args,
         options={},
-        format_arg='eml',
+        format_arg="eml",
         transforms=None,
         should_use_rich=True,
-        target_format='html',
+        target_format="html",
     )
 
     assert exit_code == EXIT_SUCCESS
-    assert call_args['text'] == "<html/>"
-    assert call_args['format'] == 'html'
-    assert call_args['no_wrap'] is False
+    assert call_args["text"] == "<html/>"
+    assert call_args["format"] == "html"
+    assert call_args["no_wrap"] is False
 
 
 @pytest.mark.unit
 def test_should_use_rich_output_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     """_should_use_rich_output should raise DependencyError when rich is unavailable."""
     args = argparse.Namespace(rich=True, force_rich=False)
-    monkeypatch.setattr(processors, '_check_rich_available', lambda: False)
+    monkeypatch.setattr(processors, "_check_rich_available", lambda: False)
 
     with pytest.raises(DependencyError) as exc:
         _should_use_rich_output(args)
 
-    assert 'rich output requires the optional' in str(exc.value).lower()
+    assert "rich output requires the optional" in str(exc.value).lower()
 
 
 @pytest.mark.unit
 def test_registry_default_extension_uses_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     """Registry helper should respect metadata-provided extensions."""
-    metadata = SimpleNamespace(extensions=['custom'])
-    monkeypatch.setattr(registry, 'get_format_info', lambda name: [metadata])
+    metadata = SimpleNamespace(extensions=["custom"])
+    monkeypatch.setattr(registry, "get_format_info", lambda name: [metadata])
 
-    assert registry.get_default_extension_for_format('docx') == '.custom'
+    assert registry.get_default_extension_for_format("docx") == ".custom"
 
 
 @pytest.mark.unit
 def test_registry_default_extension_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Registry helper should fall back to .<format> when metadata is missing."""
-    monkeypatch.setattr(registry, 'get_format_info', lambda name: None)
+    monkeypatch.setattr(registry, "get_format_info", lambda name: None)
 
-    assert registry.get_default_extension_for_format('pptx') == '.pptx'
+    assert registry.get_default_extension_for_format("pptx") == ".pptx"
 
 
 @pytest.mark.unit
@@ -310,10 +308,10 @@ def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
     from all2md.cli.processors import _apply_rich_formatting
 
     args = argparse.Namespace(
-        rich_code_theme='monokai',
+        rich_code_theme="monokai",
         rich_inline_code_theme=None,
         rich_hyperlinks=True,
-        rich_justify='left',
+        rich_justify="left",
     )
 
     markdown = "# Test\nThis is **bold** text."
@@ -322,14 +320,17 @@ def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
     class MockCapture:
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             pass
+
         def get(self):
             return "RICH_RENDERED_CONTENT"
 
     class MockConsole:
         def capture(self):
             return MockCapture()
+
         def print(self, *args, **kwargs):
             pass
 
@@ -338,15 +339,16 @@ def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
             pass
 
     import sys
-    mock_rich = type(sys)('rich')
-    mock_rich.console = type(sys)('console')
+
+    mock_rich = type(sys)("rich")
+    mock_rich.console = type(sys)("console")
     mock_rich.console.Console = MockConsole
-    mock_rich.markdown = type(sys)('markdown')
+    mock_rich.markdown = type(sys)("markdown")
     mock_rich.markdown.Markdown = MockMarkdown
 
-    monkeypatch.setitem(sys.modules, 'rich', mock_rich)
-    monkeypatch.setitem(sys.modules, 'rich.console', mock_rich.console)
-    monkeypatch.setitem(sys.modules, 'rich.markdown', mock_rich.markdown)
+    monkeypatch.setitem(sys.modules, "rich", mock_rich)
+    monkeypatch.setitem(sys.modules, "rich.console", mock_rich.console)
+    monkeypatch.setitem(sys.modules, "rich.markdown", mock_rich.markdown)
 
     content, is_rich = _apply_rich_formatting(markdown, args)
 
@@ -367,16 +369,16 @@ def test_apply_rich_formatting_import_error(monkeypatch: pytest.MonkeyPatch, cap
 
     # Remove rich from sys.modules to simulate ImportError
     for key in list(sys.modules.keys()):
-        if key.startswith('rich'):
+        if key.startswith("rich"):
             monkeypatch.delitem(sys.modules, key, raising=False)
 
     # Prevent import of rich
     def import_blocker(name, *args, **kwargs):
-        if name.startswith('rich'):
+        if name.startswith("rich"):
             raise ImportError(f"No module named '{name}'")
         return __import__(name, *args, **kwargs)
 
-    monkeypatch.setattr('builtins.__import__', import_blocker)
+    monkeypatch.setattr("builtins.__import__", import_blocker)
 
     content, is_rich = _apply_rich_formatting(markdown, args)
 

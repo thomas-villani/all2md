@@ -7,14 +7,14 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
+
+from all2md import to_markdown
+from all2md.options import PdfOptions
 from fixtures.generators.pdf_test_fixtures import (
     create_pdf_with_figures,
     create_pdf_with_formatting,
     create_pdf_with_tables,
 )
-
-from all2md import to_markdown
-from all2md.options import PdfOptions
 
 
 @pytest.mark.golden
@@ -28,7 +28,7 @@ class TestPDFGolden:
         pdf_doc = create_pdf_with_formatting()
         pdf_bytes = pdf_doc.tobytes()
 
-        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf')
+        result = to_markdown(BytesIO(pdf_bytes), source_format="pdf")
         assert result == snapshot
 
     def test_pdf_with_tables(self, snapshot):
@@ -36,7 +36,7 @@ class TestPDFGolden:
         pdf_doc = create_pdf_with_tables()
         pdf_bytes = pdf_doc.tobytes()
 
-        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf')
+        result = to_markdown(BytesIO(pdf_bytes), source_format="pdf")
         assert result == snapshot
 
     def test_pdf_with_figures(self, snapshot):
@@ -44,8 +44,8 @@ class TestPDFGolden:
         pdf_doc = create_pdf_with_figures()
         pdf_bytes = pdf_doc.tobytes()
 
-        options = PdfOptions(attachment_mode='alt_text')
-        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf', parser_options=options)
+        options = PdfOptions(attachment_mode="alt_text")
+        result = to_markdown(BytesIO(pdf_bytes), source_format="pdf", parser_options=options)
         assert result == snapshot
 
     def test_pdf_attachment_mode_skip(self, snapshot):
@@ -53,8 +53,8 @@ class TestPDFGolden:
         pdf_doc = create_pdf_with_figures()
         pdf_bytes = pdf_doc.tobytes()
 
-        options = PdfOptions(attachment_mode='skip')
-        result = to_markdown(BytesIO(pdf_bytes), source_format='pdf', parser_options=options)
+        options = PdfOptions(attachment_mode="skip")
+        result = to_markdown(BytesIO(pdf_bytes), source_format="pdf", parser_options=options)
         assert result == snapshot
 
 
@@ -66,12 +66,12 @@ class TestPDFGoldenFromFiles:
 
     def test_basic_pdf_file(self, snapshot):
         """Test basic PDF file matches snapshot."""
-        fixture_path = 'tests/fixtures/documents/basic.pdf'
+        fixture_path = "tests/fixtures/documents/basic.pdf"
 
         try:
-            with open(fixture_path, 'rb') as f:
+            with open(fixture_path, "rb") as f:
                 pdf_bytes = f.read()
-            result = to_markdown(BytesIO(pdf_bytes), source_format='pdf')
+            result = to_markdown(BytesIO(pdf_bytes), source_format="pdf")
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")

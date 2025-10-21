@@ -8,6 +8,10 @@ import io
 from pathlib import Path
 
 import pytest
+
+from all2md import EpubOptions, to_markdown as epub_to_markdown
+from all2md.exceptions import MalformedFileError, ParsingError
+from all2md.options import MarkdownOptions
 from fixtures.generators.epub_fixtures import (
     create_epub_file,
     create_epub_with_footnotes,
@@ -17,14 +21,10 @@ from fixtures.generators.epub_fixtures import (
 )
 from utils import assert_markdown_valid
 
-from all2md import EpubOptions
-from all2md import to_markdown as epub_to_markdown
-from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options import MarkdownOptions
-
 # Skip tests if ebooklib is not available
 try:
     import importlib.util
+
     if importlib.util.find_spec("ebooklib") is not None:
         EBOOKLIB_AVAILABLE = True
     else:
@@ -129,8 +129,7 @@ class TestEpubIntegrationImages:
         # Should contain image reference (base64 or file path)
         assert "![Test image]" in result or "!\\\\[Test image\\\\]" in result
         # May have base64 data or file reference
-        assert ("data:image/png;base64," in result or
-                "images/" in result or ".png" in result)
+        assert "data:image/png;base64," in result or "images/" in result or ".png" in result
         assert_markdown_valid(result)
 
     def test_epub_with_images_download(self, temp_dir):
@@ -139,10 +138,7 @@ class TestEpubIntegrationImages:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         image_dir = temp_dir / "images"
-        options = EpubOptions(
-            attachment_mode="download",
-            attachment_output_dir=str(image_dir)
-        )
+        options = EpubOptions(attachment_mode="download", attachment_output_dir=str(image_dir))
         result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -186,8 +182,7 @@ class TestEpubIntegrationFootnotes:
         assert isinstance(result, str)
         assert "Chapter with Footnotes" in result
         # Should contain footnote references (format may vary: [^1], [1](#fn1), etc.)
-        assert ("footnote reference" in result.lower() or
-                "[1]" in result or "[^1]" in result or "#fn1" in result)
+        assert "footnote reference" in result.lower() or "[1]" in result or "[^1]" in result or "#fn1" in result
         # Should contain footnote content
         assert "first footnote content" in result.lower()
         assert "second footnote" in result.lower()
@@ -206,8 +201,14 @@ class TestEpubIntegrationFootnotes:
         # Should use underscore for emphasis instead of asterisk - or just contain the word
         assert "__formatting__" in result or "_formatting_" in result or "formatting" in result
         # Footnotes should still work (format may vary)
-        assert ("[1]" in result or "[^1]" in result or "#fn1" in result or
-                "[2]" in result or "[^2]" in result or "#fn2" in result)
+        assert (
+            "[1]" in result
+            or "[^1]" in result
+            or "#fn1" in result
+            or "[2]" in result
+            or "[^2]" in result
+            or "#fn2" in result
+        )
         assert_markdown_valid(result)
 
 
@@ -360,16 +361,11 @@ class TestEpubIntegrationOptionsValidation:
             (EpubOptions(), None),  # Default options
             (EpubOptions(include_toc=True, merge_chapters=True), None),
             (EpubOptions(include_toc=False, merge_chapters=False), None),
-            (EpubOptions(
-                include_toc=True,
-                merge_chapters=False,
-                attachment_mode="skip"
-            ), None),
-            (EpubOptions(
-                include_toc=False,
-                merge_chapters=True,
-                attachment_mode="base64"
-            ), MarkdownOptions(emphasis_symbol="_")),
+            (EpubOptions(include_toc=True, merge_chapters=False, attachment_mode="skip"), None),
+            (
+                EpubOptions(include_toc=False, merge_chapters=True, attachment_mode="base64"),
+                MarkdownOptions(emphasis_symbol="_"),
+            ),
         ]
 
         for parser_options, renderer_options in option_combinations:
@@ -394,10 +390,7 @@ class TestEpubIntegrationOptionsValidation:
         dummy_file = temp_dir / "not_a_directory"
         dummy_file.write_text("dummy")
 
-        options = EpubOptions(
-            attachment_mode="download",
-            attachment_output_dir=str(dummy_file)
-        )
+        options = EpubOptions(attachment_mode="download", attachment_output_dir=str(dummy_file))
 
         # Should handle gracefully or raise appropriate error
         try:

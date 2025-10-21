@@ -1,9 +1,9 @@
 """Advanced tests for DOCX hyperlink handling edge cases."""
 
 import docx
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md import to_markdown as docx_to_markdown
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxLinksAdvanced:
@@ -68,8 +68,9 @@ class TestDocxLinksAdvanced:
 
         # Mailto with CC and body
         p3 = doc.add_paragraph("Complex email: ")
-        p3.add_run(
-            "Contact Sales").hyperlink = "mailto:sales@example.com?cc=manager@example.com&subject=Inquiry&body=Hello"
+        p3.add_run("Contact Sales").hyperlink = (
+            "mailto:sales@example.com?cc=manager@example.com&subject=Inquiry&body=Hello"
+        )
 
         temp_file = self.temp_dir / "mailto_links.docx"
         doc.save(str(temp_file))

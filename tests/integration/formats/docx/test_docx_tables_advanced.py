@@ -3,9 +3,9 @@
 import docx
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md import to_markdown as docx_to_markdown
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxTablesAdvanced:
@@ -27,7 +27,7 @@ class TestDocxTablesAdvanced:
 
         # Create table with merged-like structure
         table = doc.add_table(rows=4, cols=3)
-        table.style = 'Table Grid'
+        table.style = "Table Grid"
 
         # Header row
         table.rows[0].cells[0].text = "Category"
@@ -66,7 +66,7 @@ class TestDocxTablesAdvanced:
         doc = docx.Document()
 
         table = doc.add_table(rows=3, cols=3)
-        table.style = 'Table Grid'
+        table.style = "Table Grid"
 
         # Set up headers
         headers = ["Left", "Center", "Right"]
@@ -110,7 +110,7 @@ class TestDocxTablesAdvanced:
         doc.add_paragraph("Table without headers:")
 
         table = doc.add_table(rows=3, cols=2)
-        table.style = 'Table Grid'
+        table.style = "Table Grid"
 
         # All rows are data rows, no distinct headers
         for row_idx in range(3):
@@ -124,8 +124,8 @@ class TestDocxTablesAdvanced:
         assert_markdown_valid(markdown)
 
         # Should still generate valid table
-        lines = markdown.split('\n')
-        table_lines = [line for line in lines if '|' in line]
+        lines = markdown.split("\n")
+        table_lines = [line for line in lines if "|" in line]
         assert len(table_lines) >= 3  # At least data rows
 
         # First row should be treated as header by default
@@ -137,7 +137,7 @@ class TestDocxTablesAdvanced:
         doc = docx.Document()
 
         table = doc.add_table(rows=2, cols=2)
-        table.style = 'Medium Grid 1 Accent 1'  # Use a more styled table
+        table.style = "Medium Grid 1 Accent 1"  # Use a more styled table
 
         table.rows[0].cells[0].text = "Styled Header 1"
         table.rows[0].cells[1].text = "Styled Header 2"
@@ -161,7 +161,7 @@ class TestDocxTablesAdvanced:
 
         # Outer table
         outer_table = doc.add_table(rows=2, cols=2)
-        outer_table.style = 'Table Grid'
+        outer_table.style = "Table Grid"
 
         outer_table.rows[0].cells[0].text = "Outer Cell 1"
         outer_table.rows[0].cells[1].text = "Outer Cell 2"
@@ -214,8 +214,8 @@ class TestDocxTablesAdvanced:
         assert "Only Data" in markdown
 
         # Check table structure is maintained
-        lines = markdown.split('\n')
-        table_lines = [line for line in lines if '|' in line]
+        lines = markdown.split("\n")
+        table_lines = [line for line in lines if "|" in line]
         assert len(table_lines) >= 3  # Header, separator, data rows
 
     def test_cells_with_complex_content(self):
@@ -305,10 +305,10 @@ class TestDocxTablesAdvanced:
         assert "D1" in markdown and "D8" in markdown
 
         # Count columns in generated markdown
-        lines = markdown.split('\n')
+        lines = markdown.split("\n")
         header_line = next((line for line in lines if "H1" in line), None)
         if header_line:
-            pipe_count = header_line.count('|')
+            pipe_count = header_line.count("|")
             assert pipe_count >= cols + 1  # cols + 1 for proper markdown table format
 
     def test_table_position_and_surrounding_content(self):
@@ -352,6 +352,6 @@ class TestDocxTablesAdvanced:
         assert "| Second | Table |" in markdown
 
         # Check that tables are properly separated from surrounding content
-        lines = markdown.split('\n')
-        table_line_indices = [i for i, line in enumerate(lines) if '| A | B |' in line]
+        lines = markdown.split("\n")
+        table_line_indices = [i for i, line in enumerate(lines) if "| A | B |" in line]
         assert len(table_line_indices) >= 1

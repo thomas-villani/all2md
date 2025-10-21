@@ -26,8 +26,8 @@ def create_test_zip_with_markdown(content: str) -> bytes:
 
     """
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("document.md", content.encode('utf-8'))
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("document.md", content.encode("utf-8"))
     return zip_buffer.getvalue()
 
 
@@ -46,7 +46,7 @@ def create_test_zip_with_files(files: dict[str, bytes]) -> bytes:
 
     """
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for file_path, content in files.items():
             zf.writestr(file_path, content)
     return zip_buffer.getvalue()
@@ -96,6 +96,7 @@ class TestZipIntegration:
 
         # JSON files need skip_empty_files=False to be included
         from all2md.options.zip import ZipOptions
+
         options = ZipOptions(skip_empty_files=False)
         markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 
@@ -113,7 +114,7 @@ class TestZipIntegration:
         files = {
             "readme.md": b"# README\n\nDocumentation",
             "script.py": b"print('hello')",
-            "config.json": b'{"debug": true}'  # Will be skipped with default settings
+            "config.json": b'{"debug": true}',  # Will be skipped with default settings
         }
         zip_data = create_test_zip_with_files(files)
 
@@ -138,6 +139,7 @@ class TestZipIntegration:
         doc = to_ast(zip_data, source_format="zip")
 
         from all2md.ast import Document, Heading
+
         assert isinstance(doc, Document)
         assert doc.children is not None
 
@@ -147,11 +149,7 @@ class TestZipIntegration:
 
     def test_zip_with_nested_structure(self):
         """Test ZIP with nested directory structure."""
-        files = {
-            "docs/intro.md": b"# Introduction",
-            "docs/guide.md": b"# Guide",
-            "src/main.py": b"def main(): pass"
-        }
+        files = {"docs/intro.md": b"# Introduction", "docs/guide.md": b"# Guide", "src/main.py": b"def main(): pass"}
         zip_data = create_test_zip_with_files(files)
 
         markdown = to_markdown(zip_data, source_format="zip")
@@ -166,7 +164,7 @@ class TestZipIntegration:
         zip_data = create_test_zip_with_files(files)
 
         # Write to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
             tmp.write(zip_data)
             tmp_path = tmp.name
 
@@ -181,12 +179,13 @@ class TestZipIntegration:
         files = {
             "level1/file1.md": b"# File 1",
             "level1/level2/file2.md": b"# File 2",
-            "level1/level2/level3/file3.md": b"# File 3"
+            "level1/level2/level3/file3.md": b"# File 3",
         }
         zip_data = create_test_zip_with_files(files)
 
         # Test with flattened structure
         from all2md.options.zip import ZipOptions
+
         options = ZipOptions(flatten_structure=True)
         markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 

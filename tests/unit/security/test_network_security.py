@@ -103,12 +103,12 @@ class TestPrivateIPValidation:
 class TestHostnameResolution:
     """Test hostname resolution and validation."""
 
-    @patch('socket.getaddrinfo')
+    @patch("socket.getaddrinfo")
     def test_resolve_hostname_success(self, mock_getaddrinfo):
         """Test successful hostname resolution."""
         mock_getaddrinfo.return_value = [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, '', ('8.8.8.8', 80)),
-            (socket.AF_INET6, socket.SOCK_STREAM, 6, '', ('2001:4860:4860::8888', 80, 0, 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", 80)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:4860:4860::8888", 80, 0, 0)),
         ]
 
         ips = _resolve_hostname_to_ips("example.com")
@@ -116,7 +116,7 @@ class TestHostnameResolution:
         assert ipaddress.IPv4Address("8.8.8.8") in ips
         assert ipaddress.IPv6Address("2001:4860:4860::8888") in ips
 
-    @patch('socket.getaddrinfo')
+    @patch("socket.getaddrinfo")
     def test_resolve_hostname_failure(self, mock_getaddrinfo):
         """Test hostname resolution failure."""
         mock_getaddrinfo.side_effect = socket.gaierror("Name or service not known")
@@ -124,7 +124,7 @@ class TestHostnameResolution:
         with pytest.raises(NetworkSecurityError, match="Failed to resolve hostname"):
             _resolve_hostname_to_ips("nonexistent.example")
 
-    @patch('socket.getaddrinfo')
+    @patch("socket.getaddrinfo")
     def test_resolve_hostname_no_valid_ips(self, mock_getaddrinfo):
         """Test hostname with no valid IP addresses."""
         mock_getaddrinfo.return_value = []
@@ -136,7 +136,7 @@ class TestHostnameResolution:
 class TestHostnameAllowlist:
     """Test hostname allowlist validation."""
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_allowlist_none_allows_all(self, mock_resolve):
         """Test that None allowlist allows all hostnames."""
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
@@ -148,7 +148,7 @@ class TestHostnameAllowlist:
         assert _validate_hostname_allowlist("example.com", allowed_hosts)
         assert not _validate_hostname_allowlist("evil.com", allowed_hosts)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_allowlist_cidr_match(self, mock_resolve):
         """Test CIDR block matching in allowlist."""
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
@@ -156,7 +156,7 @@ class TestHostnameAllowlist:
 
         assert _validate_hostname_allowlist("google-dns.example", allowed_hosts)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_allowlist_resolution_failure(self, mock_resolve):
         """Test allowlist behavior when hostname resolution fails."""
         mock_resolve.side_effect = NetworkSecurityError("Resolution failed")
@@ -187,7 +187,7 @@ class TestURLSecurityValidation:
             validate_url_security("http://example.com", require_https=True)
 
         # Should not raise for HTTPS
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
             validate_url_security("https://example.com", require_https=True)
 
@@ -196,7 +196,7 @@ class TestURLSecurityValidation:
         with pytest.raises(NetworkSecurityError, match="URL missing hostname"):
             validate_url_security("http:///path", require_https=False)
 
-    @patch('all2md.utils.network_security._validate_hostname_allowlist')
+    @patch("all2md.utils.network_security._validate_hostname_allowlist")
     def test_hostname_allowlist_enforcement(self, mock_allowlist):
         """Test hostname allowlist enforcement."""
         mock_allowlist.return_value = False
@@ -204,7 +204,7 @@ class TestURLSecurityValidation:
         with pytest.raises(NetworkSecurityError, match="Hostname not in allowlist"):
             validate_url_security("http://evil.com", allowed_hosts=["trusted.com"], require_https=False)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_private_ip_blocking(self, mock_resolve):
         """Test blocking of private IP addresses."""
         mock_resolve.return_value = [ipaddress.IPv4Address("192.168.1.1")]
@@ -212,7 +212,7 @@ class TestURLSecurityValidation:
         with pytest.raises(NetworkSecurityError, match="Access to private/reserved IP"):
             validate_url_security("http://internal.company.com", require_https=False)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_valid_url_passes(self, mock_resolve):
         """Test that valid URLs pass validation."""
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
@@ -231,25 +231,25 @@ class TestEnvironmentControls:
 
     def test_network_disabled_true_values(self):
         """Test various ways to disable network access."""
-        true_values = ['true', 'True', 'TRUE', '1', 'yes', 'YES', 'on', 'ON']
+        true_values = ["true", "True", "TRUE", "1", "yes", "YES", "on", "ON"]
 
         for value in true_values:
-            with patch.dict(os.environ, {'ALL2MD_DISABLE_NETWORK': value}):
+            with patch.dict(os.environ, {"ALL2MD_DISABLE_NETWORK": value}):
                 assert is_network_disabled()
 
     def test_network_disabled_false_values(self):
         """Test values that don't disable network access."""
-        false_values = ['false', 'False', '0', 'no', 'off', 'random']
+        false_values = ["false", "False", "0", "no", "off", "random"]
 
         for value in false_values:
-            with patch.dict(os.environ, {'ALL2MD_DISABLE_NETWORK': value}):
+            with patch.dict(os.environ, {"ALL2MD_DISABLE_NETWORK": value}):
                 assert not is_network_disabled()
 
 
 class TestSecureImageFetching:
     """Test secure image fetching functionality."""
 
-    @patch('all2md.utils.network_security.is_network_disabled')
+    @patch("all2md.utils.network_security.is_network_disabled")
     def test_fetch_blocked_by_global_disable(self, mock_disabled):
         """Test that global network disable blocks fetching."""
         mock_disabled.return_value = True
@@ -257,9 +257,9 @@ class TestSecureImageFetching:
         with pytest.raises(NetworkSecurityError, match="Network access is globally disabled"):
             fetch_image_securely("https://example.com/image.png")
 
-    @patch('all2md.utils.network_security.validate_url_security')
-    @patch('all2md.utils.network_security.create_secure_http_client')
-    @patch('all2md.utils.network_security.is_network_disabled')
+    @patch("all2md.utils.network_security.validate_url_security")
+    @patch("all2md.utils.network_security.create_secure_http_client")
+    @patch("all2md.utils.network_security.is_network_disabled")
     def test_fetch_successful(self, mock_disabled, mock_client, mock_validate):
         """Test successful image fetching."""
         mock_disabled.return_value = False
@@ -267,14 +267,14 @@ class TestSecureImageFetching:
 
         # Mock HEAD response
         mock_head_response = Mock()
-        mock_head_response.headers = {'content-type': 'image/png', 'content-length': '15'}
+        mock_head_response.headers = {"content-type": "image/png", "content-length": "15"}
         mock_head_response.raise_for_status.return_value = None
 
         # Mock streaming response
         mock_stream_response = Mock()
-        mock_stream_response.headers = {'content-type': 'image/png'}
+        mock_stream_response.headers = {"content-type": "image/png"}
         mock_stream_response.raise_for_status.return_value = None
-        mock_stream_response.iter_bytes.return_value = [b'fake_image_data']
+        mock_stream_response.iter_bytes.return_value = [b"fake_image_data"]
         mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
         mock_stream_response.__exit__ = Mock(return_value=None)
 
@@ -287,11 +287,11 @@ class TestSecureImageFetching:
         mock_client.return_value = mock_http_client
 
         result = fetch_image_securely("https://example.com/image.png")
-        assert result == b'fake_image_data'
+        assert result == b"fake_image_data"
 
-    @patch('all2md.utils.network_security.validate_url_security')
-    @patch('all2md.utils.network_security.create_secure_http_client')
-    @patch('all2md.utils.network_security.is_network_disabled')
+    @patch("all2md.utils.network_security.validate_url_security")
+    @patch("all2md.utils.network_security.create_secure_http_client")
+    @patch("all2md.utils.network_security.is_network_disabled")
     def test_fetch_invalid_content_type(self, mock_disabled, mock_client, mock_validate):
         """Test rejection of non-image content types."""
         mock_disabled.return_value = False
@@ -299,14 +299,14 @@ class TestSecureImageFetching:
 
         # Mock HEAD response
         mock_head_response = Mock()
-        mock_head_response.headers = {'content-type': 'text/html', 'content-length': '26'}
+        mock_head_response.headers = {"content-type": "text/html", "content-length": "26"}
         mock_head_response.raise_for_status.return_value = None
 
         # Mock streaming response - not reached due to HEAD content-type check
         mock_stream_response = Mock()
-        mock_stream_response.headers = {'content-type': 'text/html'}
+        mock_stream_response.headers = {"content-type": "text/html"}
         mock_stream_response.raise_for_status.return_value = None
-        mock_stream_response.iter_bytes.return_value = [b'<html>not an image</html>']
+        mock_stream_response.iter_bytes.return_value = [b"<html>not an image</html>"]
         mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
         mock_stream_response.__exit__ = Mock(return_value=None)
 
@@ -321,9 +321,9 @@ class TestSecureImageFetching:
         with pytest.raises(NetworkSecurityError, match="Invalid content type"):
             fetch_image_securely("https://example.com/notimage.html")
 
-    @patch('all2md.utils.network_security.validate_url_security')
-    @patch('all2md.utils.network_security.create_secure_http_client')
-    @patch('all2md.utils.network_security.is_network_disabled')
+    @patch("all2md.utils.network_security.validate_url_security")
+    @patch("all2md.utils.network_security.create_secure_http_client")
+    @patch("all2md.utils.network_security.is_network_disabled")
     def test_fetch_too_large(self, mock_disabled, mock_client, mock_validate):
         """Test rejection of oversized content."""
         mock_disabled.return_value = False
@@ -331,13 +331,13 @@ class TestSecureImageFetching:
 
         # Mock HEAD response
         mock_head_response = Mock()
-        mock_head_response.headers = {'content-type': 'image/png'}  # No content-length
+        mock_head_response.headers = {"content-type": "image/png"}  # No content-length
         mock_head_response.raise_for_status.return_value = None
 
         # Mock streaming response with large chunks
-        large_chunk = b'x' * (10 * 1024 * 1024)  # 10MB chunks
+        large_chunk = b"x" * (10 * 1024 * 1024)  # 10MB chunks
         mock_stream_response = Mock()
-        mock_stream_response.headers = {'content-type': 'image/png'}
+        mock_stream_response.headers = {"content-type": "image/png"}
         mock_stream_response.raise_for_status.return_value = None
         mock_stream_response.iter_bytes.return_value = [large_chunk, large_chunk, large_chunk]  # 30MB total
         mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
@@ -354,9 +354,9 @@ class TestSecureImageFetching:
         with pytest.raises(NetworkSecurityError, match="Response too large"):
             fetch_image_securely("https://example.com/huge.png", max_size_bytes=20 * 1024 * 1024)
 
-    @patch('all2md.utils.network_security.validate_url_security')
-    @patch('all2md.utils.network_security.create_secure_http_client')
-    @patch('all2md.utils.network_security.is_network_disabled')
+    @patch("all2md.utils.network_security.validate_url_security")
+    @patch("all2md.utils.network_security.create_secure_http_client")
+    @patch("all2md.utils.network_security.is_network_disabled")
     def test_fetch_empty_response(self, mock_disabled, mock_client, mock_validate):
         """Test rejection of empty responses."""
         mock_disabled.return_value = False
@@ -364,12 +364,12 @@ class TestSecureImageFetching:
 
         # Mock HEAD response
         mock_head_response = Mock()
-        mock_head_response.headers = {'content-type': 'image/png', 'content-length': '0'}
+        mock_head_response.headers = {"content-type": "image/png", "content-length": "0"}
         mock_head_response.raise_for_status.return_value = None
 
         # Mock streaming response with empty content
         mock_stream_response = Mock()
-        mock_stream_response.headers = {'content-type': 'image/png'}
+        mock_stream_response.headers = {"content-type": "image/png"}
         mock_stream_response.raise_for_status.return_value = None
         mock_stream_response.iter_bytes.return_value = []  # Empty content
         mock_stream_response.__enter__ = Mock(return_value=mock_stream_response)
@@ -411,15 +411,15 @@ class TestIntegrationScenarios:
         ]
 
         for url in private_urls:
-            with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+            with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
                 # Extract IP from URL for mocking
-                ip_str = url.split('//')[1].split('/')[0].split(':')[0]
+                ip_str = url.split("//")[1].split("/")[0].split(":")[0]
                 mock_resolve.return_value = [ipaddress.ip_address(ip_str)]
 
                 with pytest.raises(NetworkSecurityError):
                     validate_url_security(url)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_cloud_metadata_attacks_blocked(self, mock_resolve):
         """Test that cloud metadata service attacks are blocked."""
         # AWS metadata service
@@ -428,7 +428,7 @@ class TestIntegrationScenarios:
         with pytest.raises(NetworkSecurityError):
             validate_url_security("http://169.254.169.254/latest/meta-data/")
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_legitimate_cdns_allowed(self, mock_resolve):
         """Test that legitimate CDNs are allowed."""
         mock_resolve.return_value = [ipaddress.IPv4Address("151.101.193.140")]  # Reddit CDN
@@ -440,7 +440,7 @@ class TestIntegrationScenarios:
 class TestEventHooksImplementation:
     """Test the new event hooks-based HTTP client implementation."""
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_event_hooks_validate_initial_request(self, mock_resolve):
         """Test that request event hooks validate the initial URL."""
         from all2md.utils.network_security import create_secure_http_client
@@ -455,7 +455,7 @@ class TestEventHooksImplementation:
             with client:
                 client.get("http://internal.company.com")
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_event_hooks_validate_redirect_chain(self, mock_resolve):
         """Test that response event hooks validate redirect chains."""
         from all2md.utils.network_security import create_secure_http_client
@@ -463,10 +463,10 @@ class TestEventHooksImplementation:
         # Create a mock response with redirect history containing a private IP
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.headers = {'content-type': 'text/html'}
+        mock_response.headers = {"content-type": "text/html"}
         mock_response.history = [
             Mock(url="http://safe.example.com"),  # Initial URL (safe)
-            Mock(url="http://192.168.1.1/evil")   # Redirect to private IP (unsafe)
+            Mock(url="http://192.168.1.1/evil"),  # Redirect to private IP (unsafe)
         ]
 
         mock_response.request.extensions = {"redirect_count": 2}
@@ -485,15 +485,15 @@ class TestEventHooksImplementation:
 
         # Test the response hook directly
         validate_response_redirects = None
-        if hasattr(client, 'event_hooks') and 'response' in client.event_hooks:
-            validate_response_redirects = client.event_hooks['response'][0]
+        if hasattr(client, "event_hooks") and "response" in client.event_hooks:
+            validate_response_redirects = client.event_hooks["response"][0]
 
         # Should raise NetworkSecurityError when validating redirect chain
         if validate_response_redirects:
             with pytest.raises(NetworkSecurityError):
                 validate_response_redirects(mock_response)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_event_hooks_client_creation_success(self, mock_resolve):
         """Test that event hooks client is created successfully with valid configuration."""
         from all2md.utils.network_security import create_secure_http_client
@@ -501,19 +501,16 @@ class TestEventHooksImplementation:
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
         client = create_secure_http_client(
-            timeout=15.0,
-            max_redirects=3,
-            allowed_hosts=["example.com"],
-            require_https=True
+            timeout=15.0, max_redirects=3, allowed_hosts=["example.com"], require_https=True
         )
 
         # Verify client configuration - focus on event hooks
         assert client.follow_redirects is True
-        assert hasattr(client, 'event_hooks')
-        assert 'request' in client.event_hooks
-        assert 'response' in client.event_hooks
-        assert len(client.event_hooks['request']) == 1
-        assert len(client.event_hooks['response']) == 1
+        assert hasattr(client, "event_hooks")
+        assert "request" in client.event_hooks
+        assert "response" in client.event_hooks
+        assert len(client.event_hooks["request"]) == 1
+        assert len(client.event_hooks["response"]) == 1
 
         # Verify timeout is set (as an httpx.Timeout object)
         assert client.timeout is not None
@@ -524,7 +521,7 @@ class TestEventHooksImplementation:
 class TestRedirectLimitEdgeCases:
     """Test redirect limit enforcement edge cases."""
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_exactly_at_redirect_limit(self, mock_resolve):
         """Test that exactly max_redirects redirects are allowed."""
         from all2md.utils.network_security import create_secure_http_client
@@ -540,18 +537,18 @@ class TestRedirectLimitEdgeCases:
         mock_response.history = [
             Mock(url="http://example.com/1"),
             Mock(url="http://example.com/2"),
-            Mock(url="http://example.com/3")
+            Mock(url="http://example.com/3"),
         ]
         mock_response.request = Mock()
-        mock_response.request.extensions = {'redirect_count': 3}
+        mock_response.request.extensions = {"redirect_count": 3}
 
         # Get the response validation hook
-        validate_response = client.event_hooks['response'][0]
+        validate_response = client.event_hooks["response"][0]
 
         # Should not raise - exactly at limit
         validate_response(mock_response)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_one_over_redirect_limit(self, mock_resolve):
         """Test that max_redirects + 1 redirects are blocked."""
         from all2md.utils.network_security import create_secure_http_client
@@ -567,18 +564,18 @@ class TestRedirectLimitEdgeCases:
             Mock(url="http://example.com/1"),
             Mock(url="http://example.com/2"),
             Mock(url="http://example.com/3"),
-            Mock(url="http://example.com/4")
+            Mock(url="http://example.com/4"),
         ]
         mock_response.request = Mock()
-        mock_response.request.extensions = {'redirect_count': 4}
+        mock_response.request.extensions = {"redirect_count": 4}
 
-        validate_response = client.event_hooks['response'][0]
+        validate_response = client.event_hooks["response"][0]
 
         # Should raise - over limit
         with pytest.raises(NetworkSecurityError, match="Too many redirects"):
             validate_response(mock_response)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_redirect_loop_detection(self, mock_resolve):
         """Test that redirect loops eventually get blocked by limit."""
         from all2md.utils.network_security import create_secure_http_client
@@ -596,18 +593,18 @@ class TestRedirectLimitEdgeCases:
             Mock(url="http://example.com/a"),
             Mock(url="http://example.com/b"),
             Mock(url="http://example.com/a"),
-            Mock(url="http://example.com/b")
+            Mock(url="http://example.com/b"),
         ]
         mock_response.request = Mock()
-        mock_response.request.extensions = {'redirect_count': 6}
+        mock_response.request.extensions = {"redirect_count": 6}
 
-        validate_response = client.event_hooks['response'][0]
+        validate_response = client.event_hooks["response"][0]
 
         # Should raise - exceeds limit
         with pytest.raises(NetworkSecurityError, match="Too many redirects"):
             validate_response(mock_response)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_redirect_from_https_to_http_blocked_with_require_https(self, mock_resolve):
         """Test that HTTPS->HTTP redirects are blocked when require_https=True."""
         from all2md.utils.network_security import create_secure_http_client
@@ -624,18 +621,18 @@ class TestRedirectLimitEdgeCases:
         mock_response.status_code = 200
         mock_response.history = [
             Mock(url="https://example.com/secure"),
-            Mock(url="http://example.com/insecure")  # Downgrade to HTTP
+            Mock(url="http://example.com/insecure"),  # Downgrade to HTTP
         ]
         mock_response.request = Mock()
-        mock_response.request.extensions = {'redirect_count': 2}
+        mock_response.request.extensions = {"redirect_count": 2}
 
-        validate_response = client.event_hooks['response'][0]
+        validate_response = client.event_hooks["response"][0]
 
         # Should raise due to HTTP in redirect chain
         with pytest.raises(NetworkSecurityError, match="HTTPS required"):
             validate_response(mock_response)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_redirect_to_private_ip_blocked(self, mock_resolve):
         """Test that redirects to private IPs are blocked."""
         from all2md.utils.network_security import create_secure_http_client
@@ -656,12 +653,12 @@ class TestRedirectLimitEdgeCases:
         mock_response.status_code = 200
         mock_response.history = [
             Mock(url="http://public.com/start"),
-            Mock(url="http://192.168.1.1/admin")  # Private IP
+            Mock(url="http://192.168.1.1/admin"),  # Private IP
         ]
         mock_response.request = Mock()
-        mock_response.request.extensions = {'redirect_count': 2}
+        mock_response.request.extensions = {"redirect_count": 2}
 
-        validate_response = client.event_hooks['response'][0]
+        validate_response = client.event_hooks["response"][0]
 
         # Should raise due to private IP in redirect
         with pytest.raises(NetworkSecurityError):
@@ -673,7 +670,7 @@ class TestRedirectLimitEdgeCases:
 class TestSSRFEdgeCases:
     """Test SSRF prevention edge cases and advanced attack vectors."""
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_dns_rebinding_simulation(self, mock_resolve):
         """Test that DNS rebinding attacks are prevented by checking all resolved IPs."""
         # Simulate DNS rebinding: first resolves to public IP, then to private
@@ -713,7 +710,7 @@ class TestSSRFEdgeCases:
         with pytest.raises(NetworkSecurityError):
             validate_url_security("http://[fe80::1]/internal")
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_ipv4_mapped_ipv6_blocked(self, mock_resolve):
         """Test that IPv4-mapped IPv6 addresses are blocked if they're private."""
         # IPv4-mapped IPv6 for 127.0.0.1
@@ -722,14 +719,14 @@ class TestSSRFEdgeCases:
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
             validate_url_security("http://ipv4mapped.example.com", require_https=False)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_multiple_ips_with_one_private(self, mock_resolve):
         """Test that if any resolved IP is private, the URL is blocked."""
         # Hostname resolves to both public and private IPs
         mock_resolve.return_value = [
-            ipaddress.IPv4Address("8.8.8.8"),       # Public
-            ipaddress.IPv4Address("192.168.1.1"),   # Private
-            ipaddress.IPv4Address("1.1.1.1")        # Public
+            ipaddress.IPv4Address("8.8.8.8"),  # Public
+            ipaddress.IPv4Address("192.168.1.1"),  # Private
+            ipaddress.IPv4Address("1.1.1.1"),  # Public
         ]
 
         # Should be blocked because one IP is private
@@ -748,7 +745,7 @@ class TestSSRFEdgeCases:
             with pytest.raises(NetworkSecurityError):
                 validate_url_security(url)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_aws_metadata_service_blocked(self, mock_resolve):
         """Test that AWS metadata service IP is blocked."""
         mock_resolve.return_value = [ipaddress.IPv4Address("169.254.169.254")]
@@ -756,7 +753,7 @@ class TestSSRFEdgeCases:
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
             validate_url_security("http://instance-metadata.amazonaws.com", require_https=False)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_gcp_metadata_service_blocked(self, mock_resolve):
         """Test that GCP metadata service IP is blocked."""
         # GCP uses 169.254.169.254 via metadata.google.internal
@@ -765,7 +762,7 @@ class TestSSRFEdgeCases:
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
             validate_url_security("http://metadata.google.internal", require_https=False)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_azure_metadata_service_blocked(self, mock_resolve):
         """Test that Azure metadata service IP is blocked."""
         # Azure uses 169.254.169.254
@@ -774,7 +771,7 @@ class TestSSRFEdgeCases:
         with pytest.raises(NetworkSecurityError, match="private/reserved IP"):
             validate_url_security("http://169.254.169.254/metadata/instance", require_https=False)
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_docker_internal_network_blocked(self, mock_resolve):
         """Test that Docker internal network IPs are blocked."""
         # Common Docker bridge network
@@ -789,7 +786,7 @@ class TestSSRFEdgeCases:
         with pytest.raises(NetworkSecurityError):
             validate_url_security("http://255.255.255.255/admin")
 
-    @patch('all2md.utils.network_security._resolve_hostname_to_ips')
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_multicast_address_blocked(self, mock_resolve):
         """Test that multicast addresses are blocked."""
         # 224.0.0.0/4 is multicast

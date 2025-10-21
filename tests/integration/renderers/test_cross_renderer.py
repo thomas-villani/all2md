@@ -13,7 +13,6 @@ Tests cover:
 
 """
 
-
 import importlib.util
 
 import pytest
@@ -74,43 +73,41 @@ def create_sample_document():
         metadata={"title": "Sample Document", "author": "Test Author"},
         children=[
             Heading(level=1, content=[Text(content="Document Title")]),
-            Paragraph(content=[
-                Text(content="This is a paragraph with "),
-                Strong(content=[Text(content="bold text")]),
-                Text(content=" and a "),
-                Link(url="https://example.com", content=[Text(content="link")]),
-                Text(content=".")
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="This is a paragraph with "),
+                    Strong(content=[Text(content="bold text")]),
+                    Text(content=" and a "),
+                    Link(url="https://example.com", content=[Text(content="link")]),
+                    Text(content="."),
+                ]
+            ),
             Heading(level=2, content=[Text(content="Lists")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Third item")])])
-            ]),
+            List(
+                ordered=False,
+                items=[
+                    ListItem(children=[Paragraph(content=[Text(content="First item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Third item")])]),
+                ],
+            ),
             Heading(level=2, content=[Text(content="Code Example")]),
             CodeBlock(content='def hello():\n    print("Hello, world!")', language="python"),
             Heading(level=2, content=[Text(content="Table")]),
             Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Value")])
-                ]),
+                header=TableRow(
+                    cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Value")])]
+                ),
                 rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alpha")]),
-                        TableCell(content=[Text(content="1")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Beta")]),
-                        TableCell(content=[Text(content="2")])
-                    ])
-                ]
+                    TableRow(
+                        cells=[TableCell(content=[Text(content="Alpha")]), TableCell(content=[Text(content="1")])]
+                    ),
+                    TableRow(cells=[TableCell(content=[Text(content="Beta")]), TableCell(content=[Text(content="2")])]),
+                ],
             ),
             Heading(level=2, content=[Text(content="Quote")]),
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is a blockquote.")])
-            ])
-        ]
+            BlockQuote(children=[Paragraph(content=[Text(content="This is a blockquote.")])]),
+        ],
     )
 
 
@@ -148,10 +145,12 @@ class TestCrossRendererConsistency:
 
     def test_content_preservation(self):
         """Test that essential content is preserved across renderers."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Test Title")]),
-            Paragraph(content=[Text(content="Test content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Test Title")]),
+                Paragraph(content=[Text(content="Test content")]),
+            ]
+        )
 
         # Markdown
         md_renderer = MarkdownRenderer()
@@ -172,18 +171,24 @@ class TestComplexScenarios:
 
     def test_deeply_nested_structures(self):
         """Test handling of deeply nested structures."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Item 1")]),
-                    List(ordered=False, items=[
-                        ListItem(children=[
-                            Paragraph(content=[Text(content="Nested 1")])
-                        ])
-                    ])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Item 1")]),
+                                List(
+                                    ordered=False,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="Nested 1")])])],
+                                ),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
 
         # Should render without errors
         md_renderer = MarkdownRenderer()
@@ -198,15 +203,19 @@ class TestComplexScenarios:
 
     def test_mixed_formatting(self):
         """Test paragraph with multiple formatting types."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" and this is "),
-                Link(url="http://example.com", content=[Text(content="a link")]),
-                Text(content=".")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Strong(content=[Text(content="bold")]),
+                        Text(content=" and this is "),
+                        Link(url="http://example.com", content=[Text(content="a link")]),
+                        Text(content="."),
+                    ]
+                )
+            ]
+        )
 
         md_renderer = MarkdownRenderer()
         md_result = md_renderer.render_to_string(doc)
@@ -222,22 +231,16 @@ class TestComplexScenarios:
         """Test handling of large tables."""
         # Create table with many rows
         rows = [
-            TableRow(cells=[
-                TableCell(content=[Text(content=f"Cell {i}-{j}")])
-                for j in range(5)
-            ])
-            for i in range(20)
+            TableRow(cells=[TableCell(content=[Text(content=f"Cell {i}-{j}")]) for j in range(5)]) for i in range(20)
         ]
 
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content=f"Col {i}")])
-                    for i in range(5)
-                ]),
-                rows=rows
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content=f"Col {i}")]) for i in range(5)]), rows=rows
+                )
+            ]
+        )
 
         # Should handle large tables
         md_renderer = MarkdownRenderer()
@@ -287,11 +290,7 @@ class TestErrorHandling:
     def test_missing_optional_attributes(self):
         """Test handling of missing optional attributes."""
         # Image without title
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="image.png", alt_text="Image")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="image.png", alt_text="Image")])])
 
         md_renderer = MarkdownRenderer()
         md_result = md_renderer.render_to_string(doc)
@@ -335,17 +334,19 @@ class TestRealWorldDocuments:
 
     def test_technical_documentation(self, tmp_path):
         """Test rendering technical documentation structure."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="API Documentation")]),
-            Heading(level=2, content=[Text(content="Overview")]),
-            Paragraph(content=[Text(content="This API provides access to our services.")]),
-            Heading(level=2, content=[Text(content="Endpoints")]),
-            Heading(level=3, content=[Text(content="GET /users")]),
-            Paragraph(content=[Text(content="Retrieves all users.")]),
-            CodeBlock(content='GET /api/users\nAuthorization: Bearer token', language="http"),
-            Heading(level=3, content=[Text(content="Response")]),
-            CodeBlock(content='{\n  "users": []\n}', language="json"),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="API Documentation")]),
+                Heading(level=2, content=[Text(content="Overview")]),
+                Paragraph(content=[Text(content="This API provides access to our services.")]),
+                Heading(level=2, content=[Text(content="Endpoints")]),
+                Heading(level=3, content=[Text(content="GET /users")]),
+                Paragraph(content=[Text(content="Retrieves all users.")]),
+                CodeBlock(content="GET /api/users\nAuthorization: Bearer token", language="http"),
+                Heading(level=3, content=[Text(content="Response")]),
+                CodeBlock(content='{\n  "users": []\n}', language="json"),
+            ]
+        )
 
         # Should render successfully to all formats
         md_renderer = MarkdownRenderer()
@@ -369,17 +370,13 @@ class TestRealWorldDocuments:
             children=[
                 Heading(level=1, content=[Text(content="My Blog Post")]),
                 Paragraph(content=[Text(content="Posted on January 1, 2025")]),
-                Paragraph(content=[
-                    Text(content="This is the introduction to my blog post.")
-                ]),
+                Paragraph(content=[Text(content="This is the introduction to my blog post.")]),
                 Heading(level=2, content=[Text(content="Main Point")]),
                 Paragraph(content=[Text(content="Here's the main content.")]),
-                BlockQuote(children=[
-                    Paragraph(content=[Text(content="A relevant quote.")])
-                ]),
+                BlockQuote(children=[Paragraph(content=[Text(content="A relevant quote.")])]),
                 Heading(level=2, content=[Text(content="Conclusion")]),
                 Paragraph(content=[Text(content="Final thoughts.")]),
-            ]
+            ],
         )
 
         md_renderer = MarkdownRenderer()
@@ -442,10 +439,12 @@ class TestNewRendererConsistency:
         from all2md.parsers.epub import EpubToAstConverter
 
         # Create EPUB from AST
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Some content here.")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Some content here.")]),
+            ]
+        )
 
         epub_renderer = EpubRenderer()
         epub_file = tmp_path / "test.epub"
@@ -466,17 +465,22 @@ class TestNewRendererConsistency:
     def test_markdown_to_pptx_conversion(self, tmp_path):
         """Test converting Markdown-style document to PPTX."""
         # Create document with slide-like structure
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Presentation")]),
-            Paragraph(content=[Text(content="Welcome")]),
-            ThematicBreak(),
-            Heading(level=2, content=[Text(content="Agenda")]),
-            List(ordered=True, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Introduction")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Main Points")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Conclusion")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Presentation")]),
+                Paragraph(content=[Text(content="Welcome")]),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Agenda")]),
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Introduction")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Main Points")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Conclusion")])]),
+                    ],
+                ),
+            ]
+        )
 
         # Render to PPTX
         renderer = PptxRenderer()

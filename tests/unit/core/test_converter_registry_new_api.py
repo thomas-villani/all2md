@@ -93,8 +93,7 @@ class TestRegistryNewAPI:
             # Some formats like MediaWiki and PlainText are renderer-only (no parser)
             # Check the highest priority (first) converter
             metadata = metadata_list[0]
-            assert (metadata.parser_class is not None or
-                   metadata.renderer_class is not None)
+            assert metadata.parser_class is not None or metadata.renderer_class is not None
 
             # Old architecture fields should be empty or not used
             # (They might still exist for backward compat but shouldn't be relied upon)
@@ -208,8 +207,7 @@ class TestRegistryAutoDiscovery:
             # Some formats like MediaWiki and PlainText are renderer-only (no parser)
             # Check the highest priority (first) converter
             metadata = metadata_list[0]
-            assert (metadata.parser_class is not None or
-                   metadata.renderer_class is not None)
+            assert metadata.parser_class is not None or metadata.renderer_class is not None
 
 
 class TestEndToEndParsing:
@@ -276,14 +274,10 @@ class TestMultiConverterSupport:
 
         # Create two test converters for a fake format
         metadata1 = ConverterMetadata(
-            format_name="test_format",
-            parser_class="all2md.parsers.html.HtmlToAstConverter",
-            priority=5
+            format_name="test_format", parser_class="all2md.parsers.html.HtmlToAstConverter", priority=5
         )
         metadata2 = ConverterMetadata(
-            format_name="test_format",
-            parser_class="all2md.parsers.markdown.MarkdownToAstConverter",
-            priority=10
+            format_name="test_format", parser_class="all2md.parsers.markdown.MarkdownToAstConverter", priority=10
         )
 
         # Register both
@@ -306,15 +300,11 @@ class TestMultiConverterSupport:
         # Create test converters with different priorities
         # Higher priority parser
         metadata_high = ConverterMetadata(
-            format_name="test_priority",
-            parser_class="all2md.parsers.html.HtmlToAstConverter",
-            priority=100
+            format_name="test_priority", parser_class="all2md.parsers.html.HtmlToAstConverter", priority=100
         )
         # Lower priority parser
         metadata_low = ConverterMetadata(
-            format_name="test_priority",
-            parser_class="all2md.parsers.markdown.MarkdownToAstConverter",
-            priority=50
+            format_name="test_priority", parser_class="all2md.parsers.markdown.MarkdownToAstConverter", priority=50
         )
 
         # Register in reverse priority order
@@ -336,7 +326,7 @@ class TestMultiConverterSupport:
             format_name="test_parser_only",
             parser_class="all2md.parsers.html.HtmlToAstConverter",
             renderer_class=None,
-            priority=10
+            priority=10,
         )
         registry.register(metadata)
 
@@ -357,7 +347,7 @@ class TestMultiConverterSupport:
             format_name="test_renderer_only",
             parser_class=None,
             renderer_class="all2md.renderers.markdown.MarkdownRenderer",
-            priority=10
+            priority=10,
         )
         registry.register(metadata)
 
@@ -378,14 +368,14 @@ class TestMultiConverterSupport:
             format_name="test_mixed",
             parser_class="all2md.parsers.html.HtmlToAstConverter",
             renderer_class=None,
-            priority=10
+            priority=10,
         )
         # Register renderer-only converter
         renderer_metadata = ConverterMetadata(
             format_name="test_mixed",
             parser_class=None,
             renderer_class="all2md.renderers.markdown.MarkdownRenderer",
-            priority=5
+            priority=5,
         )
 
         registry.register(parser_metadata)

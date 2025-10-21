@@ -33,11 +33,7 @@ class TestRequiresDependencies:
         # Mock importlib to simulate package being installed
         with patch("all2md.utils.decorators.importlib.import_module"):
             # Mock check_version_requirement to return version mismatch
-            with patch.object(
-                all2md.utils.decorators,
-                "check_version_requirement",
-                return_value=(False, "1.0.0")
-            ):
+            with patch.object(all2md.utils.decorators, "check_version_requirement", return_value=(False, "1.0.0")):
 
                 @requires_dependencies("test", [("test-package", "test_package", ">=2.0.0")])
                 def sample_function() -> str:
@@ -55,11 +51,7 @@ class TestRequiresDependencies:
         # Mock importlib to simulate package being installed
         with patch("all2md.utils.decorators.importlib.import_module"):
             # Mock check_version_requirement to return success
-            with patch.object(
-                all2md.utils.decorators,
-                "check_version_requirement",
-                return_value=(True, "2.5.0")
-            ):
+            with patch.object(all2md.utils.decorators, "check_version_requirement", return_value=(True, "2.5.0")):
 
                 @requires_dependencies("test", [("test-package", "test_package", ">=2.0.0")])
                 def sample_function() -> str:
@@ -97,17 +89,16 @@ class TestRequiresDependencies:
             return (True, "2.0.0")
 
         with patch("all2md.utils.decorators.importlib.import_module", side_effect=mock_import):
-            with patch.object(
-                all2md.utils.decorators,
-                "check_version_requirement",
-                side_effect=mock_version_check
-            ):
+            with patch.object(all2md.utils.decorators, "check_version_requirement", side_effect=mock_version_check):
 
-                @requires_dependencies("test", [
-                    ("missing-package", "missing_package", ">=1.0.0"),
-                    ("wrong-version-package", "wrong_version_package", ">=2.0.0"),
-                    ("correct-package", "correct_package", ">=1.0.0"),
-                ])
+                @requires_dependencies(
+                    "test",
+                    [
+                        ("missing-package", "missing_package", ">=1.0.0"),
+                        ("wrong-version-package", "wrong_version_package", ">=2.0.0"),
+                        ("correct-package", "correct_package", ">=1.0.0"),
+                    ],
+                )
                 def sample_function() -> str:
                     return "success"
 
@@ -171,15 +162,9 @@ class TestRequiresDependencies:
         """Test version checking with complex version specifiers."""
         with patch("all2md.utils.decorators.importlib.import_module"):
             # Mock check_version_requirement for complex specifier
-            with patch.object(
-                all2md.utils.decorators,
-                "check_version_requirement",
-                return_value=(True, "1.2.5")
-            ):
+            with patch.object(all2md.utils.decorators, "check_version_requirement", return_value=(True, "1.2.5")):
 
-                @requires_dependencies("test", [
-                    ("test-package", "test_package", ">=1.2.0,<2.0.0")
-                ])
+                @requires_dependencies("test", [("test-package", "test_package", ">=1.2.0,<2.0.0")])
                 def sample_function() -> str:
                     return "success"
 
@@ -190,11 +175,7 @@ class TestRequiresDependencies:
         """Test that when installed version cannot be determined, it's reported as 'unknown'."""
         with patch("all2md.utils.decorators.importlib.import_module"):
             # Mock check_version_requirement to return None for installed version
-            with patch.object(
-                all2md.utils.decorators,
-                "check_version_requirement",
-                return_value=(False, None)
-            ):
+            with patch.object(all2md.utils.decorators, "check_version_requirement", return_value=(False, None)):
 
                 @requires_dependencies("test", [("test-package", "test_package", ">=2.0.0")])
                 def sample_function() -> str:

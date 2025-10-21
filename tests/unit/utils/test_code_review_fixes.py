@@ -72,12 +72,7 @@ class TestRenderMathHtmlEnhancements:
 
     def test_latex_notation_with_escaping(self):
         """Test LaTeX notation with escaping enabled."""
-        result = render_math_html(
-            "x < y & z > 0",
-            notation="latex",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html("x < y & z > 0", notation="latex", inline=True, escape_enabled=True)
         # Should escape HTML special chars
         assert "&lt;" in result
         assert "&gt;" in result
@@ -85,24 +80,14 @@ class TestRenderMathHtmlEnhancements:
 
     def test_latex_notation_without_escaping(self):
         """Test LaTeX notation with escaping disabled."""
-        result = render_math_html(
-            "x < y & z > 0",
-            notation="latex",
-            inline=True,
-            escape_enabled=False
-        )
+        result = render_math_html("x < y & z > 0", notation="latex", inline=True, escape_enabled=False)
         # Should NOT escape
         assert "x < y & z > 0" in result
 
     def test_html_notation_with_escaping(self):
         """Test HTML notation with escaping enabled (XSS prevention)."""
         malicious = "<script>alert('XSS')</script>"
-        result = render_math_html(
-            malicious,
-            notation="html",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html(malicious, notation="html", inline=True, escape_enabled=True)
         # Should escape to prevent XSS
         assert "&lt;script&gt;" in result
         assert "&lt;/script&gt;" in result
@@ -111,24 +96,14 @@ class TestRenderMathHtmlEnhancements:
     def test_html_notation_without_escaping(self):
         """Test HTML notation with escaping disabled (trusted content)."""
         trusted_html = "<em>emphasis</em>"
-        result = render_math_html(
-            trusted_html,
-            notation="html",
-            inline=True,
-            escape_enabled=False
-        )
+        result = render_math_html(trusted_html, notation="html", inline=True, escape_enabled=False)
         # Should NOT escape trusted content
         assert "<em>emphasis</em>" in result
 
     def test_mathml_notation_valid_xml(self):
         """Test MathML notation with valid XML is sanitized."""
         mathml = "<math><mi>x</mi></math>"
-        result = render_math_html(
-            mathml,
-            notation="mathml",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html(mathml, notation="mathml", inline=True, escape_enabled=True)
         # Should sanitize MathML - non-whitelisted tags like <mi> are removed
         # This is the correct security behavior
         assert "<math>" in result
@@ -137,12 +112,7 @@ class TestRenderMathHtmlEnhancements:
 
     def test_mathml_notation_text_content(self):
         """Test MathML notation with plain text (should wrap)."""
-        result = render_math_html(
-            "x + y",
-            notation="mathml",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html("x + y", notation="mathml", inline=True, escape_enabled=True)
         # Should wrap in <math> tags
         assert "<math>" in result
         assert "x + y" in result
@@ -151,37 +121,22 @@ class TestRenderMathHtmlEnhancements:
     def test_mathml_notation_xss_prevention(self):
         """Test MathML notation prevents XSS when escape_enabled=True."""
         malicious = "<script>alert('XSS')</script>"
-        result = render_math_html(
-            malicious,
-            notation="mathml",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html(malicious, notation="mathml", inline=True, escape_enabled=True)
         # Should sanitize to prevent XSS - script tags should be removed
         assert "<script>" not in result
         assert "alert('XSS')" not in result
 
     def test_mathml_notation_mixed_content_xss_prevention(self):
         """Test MathML with injected attributes prevents XSS."""
-        malicious = '<math><mtext onclick="alert(\'XSS\')">x</mtext></math>'
-        result = render_math_html(
-            malicious,
-            notation="mathml",
-            inline=True,
-            escape_enabled=True
-        )
+        malicious = "<math><mtext onclick=\"alert('XSS')\">x</mtext></math>"
+        result = render_math_html(malicious, notation="mathml", inline=True, escape_enabled=True)
         # Should sanitize dangerous attributes
         assert "onclick" not in result
         assert "alert" not in result
 
     def test_block_math_formatting(self):
         """Test block math formatting."""
-        result = render_math_html(
-            "E = mc^2",
-            notation="latex",
-            inline=False,
-            escape_enabled=True
-        )
+        result = render_math_html("E = mc^2", notation="latex", inline=False, escape_enabled=True)
         # Should use div and block formatting
         assert "<div" in result
         assert "math math-block" in result
@@ -189,12 +144,7 @@ class TestRenderMathHtmlEnhancements:
 
     def test_inline_math_formatting(self):
         """Test inline math formatting."""
-        result = render_math_html(
-            "E = mc^2",
-            notation="latex",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html("E = mc^2", notation="latex", inline=True, escape_enabled=True)
         # Should use span and inline formatting
         assert "<span" in result
         assert "math math-inline" in result
@@ -202,31 +152,16 @@ class TestRenderMathHtmlEnhancements:
 
     def test_data_notation_attribute(self):
         """Test that data-notation attribute is included."""
-        result = render_math_html(
-            "x",
-            notation="latex",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html("x", notation="latex", inline=True, escape_enabled=True)
         assert 'data-notation="latex"' in result
 
-        result = render_math_html(
-            "x",
-            notation="html",
-            inline=True,
-            escape_enabled=True
-        )
+        result = render_math_html("x", notation="html", inline=True, escape_enabled=True)
         assert 'data-notation="html"' in result
 
     def test_xss_prevention_complex_payload(self):
         """Test XSS prevention with complex malicious payload."""
-        xss_payload = '<img src=x onerror="alert(\'XSS\')">'
-        result = render_math_html(
-            xss_payload,
-            notation="html",
-            inline=True,
-            escape_enabled=True
-        )
+        xss_payload = "<img src=x onerror=\"alert('XSS')\">"
+        result = render_math_html(xss_payload, notation="html", inline=True, escape_enabled=True)
         # Should escape all HTML tags and attributes
         assert "&lt;img" in result
         assert "onerror" not in result or "&quot;" in result
@@ -235,11 +170,7 @@ class TestRenderMathHtmlEnhancements:
     def test_backward_compatibility_latex(self):
         """Test that default behavior for LaTeX is unchanged."""
         # Default escape_enabled=True should work
-        result = render_math_html(
-            "x < y",
-            notation="latex",
-            inline=True
-        )
+        result = render_math_html("x < y", notation="latex", inline=True)
         assert "&lt;" in result
 
 
@@ -258,7 +189,7 @@ class TestRedirectValidationEdgeCases:
         from all2md.exceptions import NetworkSecurityError
         from all2md.utils.network_security import create_secure_http_client
 
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
             # Create client with require_https=True
@@ -268,15 +199,15 @@ class TestRedirectValidationEdgeCases:
             mock_response = Mock()
             mock_response.status_code = 200
             mock_response.history = [
-                Mock(url="http://example.com/start"),   # Initial HTTP
-                Mock(url="https://example.com/secure"), # Upgraded to HTTPS
-                Mock(url="http://example.com/final")    # Downgraded back to HTTP
+                Mock(url="http://example.com/start"),  # Initial HTTP
+                Mock(url="https://example.com/secure"),  # Upgraded to HTTPS
+                Mock(url="http://example.com/final"),  # Downgraded back to HTTP
             ]
             mock_response.request = Mock()
-            mock_response.request.extensions = {'redirect_count': 3}
+            mock_response.request.extensions = {"redirect_count": 3}
 
             # Get the response validation hook
-            validate_response = client.event_hooks['response'][0]
+            validate_response = client.event_hooks["response"][0]
 
             # Should raise because final redirect downgrades to HTTP
             with pytest.raises(NetworkSecurityError, match="HTTPS required"):
@@ -290,7 +221,7 @@ class TestRedirectValidationEdgeCases:
         from all2md.exceptions import NetworkSecurityError
         from all2md.utils.network_security import create_secure_http_client
 
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             # Different hosts resolve to different IPs
             def resolver(hostname):
                 if hostname == "site-a.com":
@@ -311,12 +242,12 @@ class TestRedirectValidationEdgeCases:
             mock_response.history = [
                 Mock(url="http://site-a.com/start"),
                 Mock(url="http://site-b.com/middle"),
-                Mock(url="http://evil.internal/admin")  # Private IP
+                Mock(url="http://evil.internal/admin"),  # Private IP
             ]
             mock_response.request = Mock()
-            mock_response.request.extensions = {'redirect_count': 3}
+            mock_response.request.extensions = {"redirect_count": 3}
 
-            validate_response = client.event_hooks['response'][0]
+            validate_response = client.event_hooks["response"][0]
 
             # Should raise because one redirect goes to private IP
             with pytest.raises(NetworkSecurityError):
@@ -329,7 +260,7 @@ class TestRedirectValidationEdgeCases:
 
         from all2md.utils.network_security import create_secure_http_client
 
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             # IDN domains should be normalized during validation
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
@@ -344,9 +275,9 @@ class TestRedirectValidationEdgeCases:
                 Mock(url="http://xn--n3h.com/middle"),  # Punycode for IDN
             ]
             mock_response.request = Mock()
-            mock_response.request.extensions = {'redirect_count': 2}
+            mock_response.request.extensions = {"redirect_count": 2}
 
-            validate_response = client.event_hooks['response'][0]
+            validate_response = client.event_hooks["response"][0]
 
             # Should not raise - public IPs are allowed
             validate_response(mock_response)
@@ -358,7 +289,7 @@ class TestRedirectValidationEdgeCases:
 
         from all2md.utils.network_security import create_secure_http_client
 
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
             client = create_secure_http_client(max_redirects=5, require_https=False)
@@ -370,7 +301,7 @@ class TestRedirectValidationEdgeCases:
             mock_response.request = Mock()
             mock_response.request.extensions = {}
 
-            validate_response = client.event_hooks['response'][0]
+            validate_response = client.event_hooks["response"][0]
 
             # Should not raise - no redirects to validate
             validate_response(mock_response)
@@ -383,7 +314,8 @@ class TestRedirectValidationEdgeCases:
         from all2md.exceptions import NetworkSecurityError
         from all2md.utils.network_security import create_secure_http_client
 
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
+
             def resolver(hostname):
                 # URL encoding shouldn't bypass IP validation
                 if "127.0.0.1" in hostname or hostname == "localhost":
@@ -399,12 +331,12 @@ class TestRedirectValidationEdgeCases:
             mock_response.status_code = 200
             mock_response.history = [
                 Mock(url="http://example.com/start"),
-                Mock(url="http://127.0.0.1/admin")  # Localhost
+                Mock(url="http://127.0.0.1/admin"),  # Localhost
             ]
             mock_response.request = Mock()
-            mock_response.request.extensions = {'redirect_count': 2}
+            mock_response.request.extensions = {"redirect_count": 2}
 
-            validate_response = client.event_hooks['response'][0]
+            validate_response = client.event_hooks["response"][0]
 
             # Should raise - localhost is blocked
             with pytest.raises(NetworkSecurityError):

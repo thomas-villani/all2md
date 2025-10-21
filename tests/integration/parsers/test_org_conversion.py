@@ -188,8 +188,8 @@ Some text."""
         doc = parser.parse(org)
 
         # Check metadata extraction
-        assert doc.metadata.get('title') == 'My Document'
-        assert doc.metadata.get('author') == 'John Doe'
+        assert doc.metadata.get("title") == "My Document"
+        assert doc.metadata.get("author") == "John Doe"
 
         # Render and check properties are included
         renderer = OrgRenderer()
@@ -213,10 +213,10 @@ Task description."""
         # Check that heading metadata is captured
         heading = doc.children[0]
         assert isinstance(heading, Heading)
-        assert heading.metadata.get('org_todo_state') == 'TODO'
-        assert heading.metadata.get('org_priority') == 'A'
-        assert 'work' in heading.metadata.get('org_tags', [])
-        assert 'urgent' in heading.metadata.get('org_tags', [])
+        assert heading.metadata.get("org_todo_state") == "TODO"
+        assert heading.metadata.get("org_priority") == "A"
+        assert "work" in heading.metadata.get("org_tags", [])
+        assert "urgent" in heading.metadata.get("org_tags", [])
 
 
 @pytest.mark.integration
@@ -225,14 +225,18 @@ class TestASTDirectConstruction:
 
     def test_construct_simple_document(self) -> None:
         """Test constructing a simple document from AST."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="My Document")]),
-            Paragraph(content=[
-                Text(content="This is a "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" paragraph.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Document")]),
+                Paragraph(
+                    content=[
+                        Text(content="This is a "),
+                        Strong(content=[Text(content="bold")]),
+                        Text(content=" paragraph."),
+                    ]
+                ),
+            ]
+        )
 
         renderer = OrgRenderer()
         result = renderer.render_to_string(doc)
@@ -242,17 +246,19 @@ class TestASTDirectConstruction:
 
     def test_construct_list_document(self) -> None:
         """Test constructing a document with lists."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Todo List")]),
-            List(
-                ordered=False,
-                items=[
-                    ListItem(children=[Paragraph(content=[Text(content="Task 1")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Task 2")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Task 3")])])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Todo List")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Task 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Task 2")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Task 3")])]),
+                    ],
+                ),
+            ]
+        )
 
         renderer = OrgRenderer()
         result = renderer.render_to_string(doc)
@@ -264,18 +270,16 @@ class TestASTDirectConstruction:
 
     def test_construct_todo_document(self) -> None:
         """Test constructing a document with TODO headings."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Important Task")],
-                metadata={
-                    "org_todo_state": "TODO",
-                    "org_priority": "A",
-                    "org_tags": ["work", "urgent"]
-                }
-            ),
-            Paragraph(content=[Text(content="Task description here.")])
-        ])
+        doc = Document(
+            children=[
+                Heading(
+                    level=1,
+                    content=[Text(content="Important Task")],
+                    metadata={"org_todo_state": "TODO", "org_priority": "A", "org_tags": ["work", "urgent"]},
+                ),
+                Paragraph(content=[Text(content="Task description here.")]),
+            ]
+        )
 
         renderer = OrgRenderer()
         result = renderer.render_to_string(doc)

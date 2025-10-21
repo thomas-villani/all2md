@@ -29,7 +29,7 @@ class TestZipBombDetection:
         """Test that archives with normal compression ratios are allowed."""
         zip_path = tmp_path / "normal.zip"
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Add some normal files (compression ratio ~2-3x)
             zf.writestr("file1.txt", "Hello World! " * 100)
             zf.writestr("file2.txt", "Test data " * 50)
@@ -42,7 +42,7 @@ class TestZipBombDetection:
         """Test that suspicious compression ratios trigger security error."""
         zip_path = tmp_path / "suspicious.zip"
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Create highly compressible content (compression ratio > 100x)
             highly_compressible = "0" * 1000000  # 1MB of zeros
             zf.writestr("bomb.txt", highly_compressible)
@@ -55,7 +55,7 @@ class TestZipBombDetection:
         """Test detection of classic zip bomb pattern (tiny compressed, huge uncompressed)."""
         zip_path = tmp_path / "bomb.zip"
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Create multiple highly compressible files
             for i in range(5):
                 zf.writestr(f"layer{i}.txt", "A" * 10000000)  # 10MB each of 'A's
@@ -70,7 +70,7 @@ class TestZipBombDetection:
         zip_path_low = tmp_path / "low_compression.zip"
 
         # Create a file with high compression (repeated data)
-        with zipfile.ZipFile(zip_path_high, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path_high, "w", zipfile.ZIP_DEFLATED) as zf:
             data_high = "A" * 50000  # Very compressible
             zf.writestr("data.txt", data_high)
 
@@ -79,10 +79,11 @@ class TestZipBombDetection:
             validate_zip_archive(zip_path_high, max_compression_ratio=50.0)
 
         # Create a file with low compression (random-ish data)
-        with zipfile.ZipFile(zip_path_low, 'w', zipfile.ZIP_STORED) as zf:  # STORED = no compression
+        with zipfile.ZipFile(zip_path_low, "w", zipfile.ZIP_STORED) as zf:  # STORED = no compression
             import random
+
             random.seed(42)
-            data_low = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789 \n!@#$%^&*()_+', k=10000))
+            data_low = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789 \n!@#$%^&*()_+", k=10000))
             zf.writestr("data.txt", data_low)
 
         # Should pass with any reasonable limit (compression ratio ~1:1)
@@ -98,7 +99,7 @@ class TestEntryCountLimits:
         """Test that archives with normal entry counts are allowed."""
         zip_path = tmp_path / "normal.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Create 100 normal entries
             for i in range(100):
                 zf.writestr(f"file{i}.txt", f"Content {i}")
@@ -110,7 +111,7 @@ class TestEntryCountLimits:
         """Test that archives with too many entries are blocked."""
         zip_path = tmp_path / "too_many.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Create 15,000 entries (exceeds default limit of 10,000)
             for i in range(15000):
                 zf.writestr(f"file{i}.txt", f"Data {i}")
@@ -123,7 +124,7 @@ class TestEntryCountLimits:
         """Test that custom entry count limits are respected."""
         zip_path = tmp_path / "test.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Create 150 entries
             for i in range(150):
                 zf.writestr(f"file{i}.txt", f"Content {i}")
@@ -139,7 +140,7 @@ class TestEntryCountLimits:
         """Test that empty archives are allowed."""
         zip_path = tmp_path / "empty.zip"
 
-        with zipfile.ZipFile(zip_path, 'w'):
+        with zipfile.ZipFile(zip_path, "w"):
             pass  # Empty archive
 
         # Should not raise
@@ -155,7 +156,7 @@ class TestUncompressedSizeLimits:
         """Test that archives with normal uncompressed sizes are allowed."""
         zip_path = tmp_path / "normal.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Create files totaling ~1MB uncompressed
             for i in range(10):
                 zf.writestr(f"file{i}.txt", "X" * 100000)  # 100KB each
@@ -168,7 +169,7 @@ class TestUncompressedSizeLimits:
         """Test that archives with excessive uncompressed size are blocked."""
         zip_path = tmp_path / "huge.zip"
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Create files that would expand to >1GB
             # Use highly compressible data to create small compressed file
             for i in range(200):
@@ -182,7 +183,7 @@ class TestUncompressedSizeLimits:
         """Test that custom uncompressed size limits are respected."""
         zip_path = tmp_path / "test.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Create 5MB of data
             zf.writestr("data.txt", "Y" * 5000000)
 
@@ -203,7 +204,7 @@ class TestPathTraversalDetection:
         """Test that normal paths are allowed."""
         zip_path = tmp_path / "normal.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("file.txt", "content")
             zf.writestr("subdir/file.txt", "content")
             zf.writestr("deep/nested/path/file.txt", "content")
@@ -215,7 +216,7 @@ class TestPathTraversalDetection:
         """Test that ../ path traversal is blocked."""
         zip_path = tmp_path / "malicious.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("../../../etc/passwd", "malicious")
 
         # Should raise due to path traversal
@@ -226,7 +227,7 @@ class TestPathTraversalDetection:
         """Test that ../ in the middle of paths is blocked."""
         zip_path = tmp_path / "malicious.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("dir/../../../secret.txt", "malicious")
 
         # Should raise due to path traversal
@@ -237,7 +238,7 @@ class TestPathTraversalDetection:
         """Test that absolute paths are blocked."""
         zip_path = tmp_path / "malicious.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("/etc/passwd", "malicious")
 
         # Should raise due to absolute path
@@ -248,17 +249,17 @@ class TestPathTraversalDetection:
         """Test that Windows absolute paths are blocked."""
         zip_path = tmp_path / "malicious.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Note: ZipFile normalizes this, but our check should still catch it
             # if it somehow makes it through
             zf.writestr("C:/Windows/System32/malware.exe", "malicious")
 
         # The path might be normalized by ZipFile, so we need to check
         # what actually got written
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             entries = zf.namelist()
             # If it contains suspicious patterns, it should be blocked
-            if any('..' in entry or entry.startswith('/') for entry in entries):
+            if any(".." in entry or entry.startswith("/") for entry in entries):
                 with pytest.raises(ZipFileSecurityError, match="suspicious path"):
                     validate_zip_archive(zip_path)
 
@@ -302,7 +303,7 @@ class TestCombinedSecurityChecks:
         """Test archive with both high compression and many entries."""
         zip_path = tmp_path / "combined_threat.zip"
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Many entries with high compression
             for i in range(1000):
                 zf.writestr(f"file{i}.txt", "A" * 100000)  # Highly compressible
@@ -315,7 +316,7 @@ class TestCombinedSecurityChecks:
         """Test archive with both path traversal and large size."""
         zip_path = tmp_path / "combined_threat.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("../../../malicious.txt", "X" * 10000000)
 
         # Should raise for path traversal (checked first)
@@ -334,7 +335,7 @@ class TestDocxPptxZipSecurity:
         docx_path = tmp_path / "test.docx"
 
         # Create a minimal valid DOCX structure
-        with zipfile.ZipFile(docx_path, 'w') as zf:
+        with zipfile.ZipFile(docx_path, "w") as zf:
             zf.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
             zf.writestr("_rels/.rels", '<?xml version="1.0"?><Relationships/>')
             zf.writestr("word/document.xml", '<?xml version="1.0"?><document/>')
@@ -346,7 +347,7 @@ class TestDocxPptxZipSecurity:
         """Test that malicious DOCX files are blocked."""
         docx_path = tmp_path / "malicious.docx"
 
-        with zipfile.ZipFile(docx_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(docx_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Looks like DOCX but contains zip bomb
             zf.writestr("[Content_Types].xml", '<?xml version="1.0"?><Types/>')
             zf.writestr("word/bomb.xml", "X" * 50000000)  # 50MB highly compressible
@@ -365,14 +366,14 @@ class TestEdgeCases:
         """Test archive with compression ratio exactly at the limit."""
         zip_path = tmp_path / "at_limit.zip"
 
-        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Target compression ratio of ~50:1
             # This is tricky to get exact, so we'll create something close
             # and use a lenient assertion
             zf.writestr("data.txt", "A" * 500000)
 
         # Get actual compression ratio
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             entry = zf.infolist()[0]
             if entry.compress_size > 0:
                 actual_ratio = entry.file_size / entry.compress_size
@@ -388,7 +389,7 @@ class TestEdgeCases:
         """Test archive containing zero-byte files."""
         zip_path = tmp_path / "zero_bytes.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             zf.writestr("empty1.txt", "")
             zf.writestr("empty2.txt", "")
             zf.writestr("with_content.txt", "Some content")
@@ -400,7 +401,7 @@ class TestEdgeCases:
         """Test archive containing directory entries."""
         zip_path = tmp_path / "with_dirs.zip"
 
-        with zipfile.ZipFile(zip_path, 'w') as zf:
+        with zipfile.ZipFile(zip_path, "w") as zf:
             # Create directory entries (end with /)
             zf.writestr("dir1/", "")
             zf.writestr("dir1/subdir/", "")

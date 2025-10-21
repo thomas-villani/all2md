@@ -63,14 +63,7 @@ class TestSourceLocation:
 
     def test_create_full(self):
         """Test creating a full source location."""
-        loc = SourceLocation(
-            format="html",
-            page=1,
-            line=10,
-            column=5,
-            element_id="main",
-            metadata={"extra": "data"}
-        )
+        loc = SourceLocation(format="html", page=1, line=10, column=5, element_id="main", metadata={"extra": "data"})
         assert loc.format == "html"
         assert loc.page == 1
         assert loc.line == 10
@@ -133,11 +126,7 @@ class TestHeadingNode:
 
     def test_with_inline_content(self):
         """Test heading with mixed inline content."""
-        content = [
-            Text(content="Hello "),
-            Strong(content=[Text(content="world")]),
-            Text(content="!")
-        ]
+        content = [Text(content="Hello "), Strong(content=[Text(content="world")]), Text(content="!")]
         heading = Heading(level=2, content=content)
         assert len(heading.content) == 3
 
@@ -178,7 +167,7 @@ class TestCodeBlockNode:
         code = CodeBlock(content="print('hello')")
         assert code.content == "print('hello')"
         assert code.language is None
-        assert code.fence_char == '`'
+        assert code.fence_char == "`"
         assert code.fence_length == 3
 
     def test_create_with_language(self):
@@ -188,8 +177,8 @@ class TestCodeBlockNode:
 
     def test_custom_fence(self):
         """Test creating a code block with custom fence."""
-        code = CodeBlock(content="test", fence_char='~', fence_length=4)
-        assert code.fence_char == '~'
+        code = CodeBlock(content="test", fence_char="~", fence_length=4)
+        assert code.fence_char == "~"
         assert code.fence_length == 4
 
 
@@ -235,16 +224,10 @@ class TestListNodes:
 
     def test_task_list_item(self):
         """Test creating task list items."""
-        checked_item = ListItem(
-            children=[Paragraph(content=[Text(content="Done")])],
-            task_status='checked'
-        )
-        unchecked_item = ListItem(
-            children=[Paragraph(content=[Text(content="Todo")])],
-            task_status='unchecked'
-        )
-        assert checked_item.task_status == 'checked'
-        assert unchecked_item.task_status == 'unchecked'
+        checked_item = ListItem(children=[Paragraph(content=[Text(content="Done")])], task_status="checked")
+        unchecked_item = ListItem(children=[Paragraph(content=[Text(content="Todo")])], task_status="unchecked")
+        assert checked_item.task_status == "checked"
+        assert unchecked_item.task_status == "unchecked"
 
 
 @pytest.mark.unit
@@ -261,11 +244,7 @@ class TestTableNodes:
     def test_create_table_with_header(self):
         """Test creating a table with a header row."""
         header = TableRow(
-            cells=[
-                TableCell(content=[Text(content="Name")]),
-                TableCell(content=[Text(content="Age")])
-            ],
-            is_header=True
+            cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Age")])], is_header=True
         )
         table = Table(header=header)
         assert table.header is not None
@@ -273,19 +252,15 @@ class TestTableNodes:
 
     def test_table_with_alignments(self):
         """Test creating a table with column alignments."""
-        table = Table(alignments=['left', 'center', 'right'])
+        table = Table(alignments=["left", "center", "right"])
         assert len(table.alignments) == 3
-        assert table.alignments[0] == 'left'
-        assert table.alignments[1] == 'center'
-        assert table.alignments[2] == 'right'
+        assert table.alignments[0] == "left"
+        assert table.alignments[1] == "center"
+        assert table.alignments[2] == "right"
 
     def test_table_cell_with_span(self):
         """Test creating a table cell with colspan/rowspan."""
-        cell = TableCell(
-            content=[Text(content="Merged")],
-            colspan=2,
-            rowspan=3
-        )
+        cell = TableCell(content=[Text(content="Merged")], colspan=2, rowspan=3)
         assert cell.colspan == 2
         assert cell.rowspan == 3
 
@@ -341,23 +316,13 @@ class TestInlineNodes:
 
     def test_link_node(self):
         """Test creating a link node."""
-        link = Link(
-            url="https://example.com",
-            content=[Text(content="Example")],
-            title="Example Site"
-        )
+        link = Link(url="https://example.com", content=[Text(content="Example")], title="Example Site")
         assert link.url == "https://example.com"
         assert link.title == "Example Site"
 
     def test_image_node(self):
         """Test creating an image node."""
-        img = Image(
-            url="image.png",
-            alt_text="An image",
-            title="Image title",
-            width=800,
-            height=600
-        )
+        img = Image(url="image.png", alt_text="An image", title="Image title", width=800, height=600)
         assert img.url == "image.png"
         assert img.alt_text == "An image"
         assert img.width == 800
@@ -404,21 +369,14 @@ class TestNodeMetadata:
 
     def test_metadata_dict(self):
         """Test adding metadata to a node."""
-        para = Paragraph(
-            content=[Text(content="Test")],
-            metadata={"author": "Alice", "date": "2025-01-01"}
-        )
+        para = Paragraph(content=[Text(content="Test")], metadata={"author": "Alice", "date": "2025-01-01"})
         assert para.metadata["author"] == "Alice"
         assert para.metadata["date"] == "2025-01-01"
 
     def test_source_location_tracking(self):
         """Test tracking source location."""
         loc = SourceLocation(format="pdf", page=5, line=20)
-        heading = Heading(
-            level=1,
-            content=[Text(content="Chapter 1")],
-            source_location=loc
-        )
+        heading = Heading(level=1, content=[Text(content="Chapter 1")], source_location=loc)
         assert heading.source_location is not None
         assert heading.source_location.format == "pdf"
         assert heading.source_location.page == 5
@@ -430,10 +388,9 @@ class TestValidationVisitor:
 
     def test_valid_document(self):
         """Test validating a well-formed document."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text(content="Title")]), Paragraph(content=[Text(content="Content")])]
+        )
 
         visitor = ValidationVisitor(strict=True)
         doc.accept(visitor)
@@ -454,20 +411,17 @@ class TestValidationVisitor:
 
     def test_nested_validation(self):
         """Test validation of nested structures."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[
-                        Text(content="Item 1")
-                    ])
-                ]),
-                ListItem(children=[
-                    Paragraph(content=[
-                        Text(content="Item 2")
-                    ])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
 
         visitor = ValidationVisitor(strict=True)
         doc.accept(visitor)
@@ -476,17 +430,18 @@ class TestValidationVisitor:
     def test_table_inconsistent_column_count(self):
         """Test that tables with inconsistent column counts are caught."""
         table = Table(
-            header=TableRow(cells=[
-                TableCell(content=[Text(content="A")]),
-                TableCell(content=[Text(content="B")])
-            ], is_header=True),
+            header=TableRow(
+                cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])], is_header=True
+            ),
             rows=[
-                TableRow(cells=[
-                    TableCell(content=[Text(content="1")]),
-                    TableCell(content=[Text(content="2")]),
-                    TableCell(content=[Text(content="3")])
-                ])
-            ]
+                TableRow(
+                    cells=[
+                        TableCell(content=[Text(content="1")]),
+                        TableCell(content=[Text(content="2")]),
+                        TableCell(content=[Text(content="3")]),
+                    ]
+                )
+            ],
         )
 
         visitor = ValidationVisitor(strict=False)
@@ -497,12 +452,11 @@ class TestValidationVisitor:
     def test_table_invalid_alignments_length(self):
         """Test that tables with mismatched alignments length are caught."""
         table = Table(
-            header=TableRow(cells=[
-                TableCell(content=[Text(content="A")]),
-                TableCell(content=[Text(content="B")])
-            ], is_header=True),
+            header=TableRow(
+                cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])], is_header=True
+            ),
             rows=[],
-            alignments=['left', 'center', 'right']
+            alignments=["left", "center", "right"],
         )
 
         visitor = ValidationVisitor(strict=False)
@@ -569,7 +523,7 @@ class TestValidationVisitor:
         code = CodeBlock.__new__(CodeBlock)
         code.content = "test"
         code.language = None
-        code.fence_char = '`'
+        code.fence_char = "`"
         code.fence_length = 0
         code.metadata = {}
         code.source_location = None
@@ -584,7 +538,7 @@ class TestValidationVisitor:
         code = CodeBlock.__new__(CodeBlock)
         code.content = "test"
         code.language = None
-        code.fence_char = '*'
+        code.fence_char = "*"
         code.fence_length = 3
         code.metadata = {}
         code.source_location = None
@@ -622,7 +576,7 @@ class TestValidationVisitor:
             "ftp://example.com",
             "#anchor",
             "/relative/path",
-            "relative/path"
+            "relative/path",
         ]
 
         for url in valid_urls:
@@ -660,10 +614,7 @@ class TestExtendedMarkdownNodes:
 
     def test_footnote_definition(self):
         """Test creating a footnote definition node."""
-        defn = FootnoteDefinition(
-            identifier="1",
-            content=[Paragraph(content=[Text(content="Footnote text here")])]
-        )
+        defn = FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="Footnote text here")])])
         assert defn.identifier == "1"
         assert len(defn.content) == 1
         assert isinstance(defn.content[0], Paragraph)
@@ -688,9 +639,7 @@ class TestExtendedMarkdownNodes:
         desc1 = DefinitionDescription(content=[Paragraph(content=[Text(content="Description 1")])])
         desc2 = DefinitionDescription(content=[Paragraph(content=[Text(content="Description 2")])])
 
-        dl = DefinitionList(items=[
-            (term1, [desc1, desc2])
-        ])
+        dl = DefinitionList(items=[(term1, [desc1, desc2])])
 
         assert len(dl.items) == 1
         assert dl.items[0][0] == term1
@@ -704,9 +653,7 @@ class TestExtendedMarkdownNodes:
 
     def test_definition_description(self):
         """Test creating a definition description."""
-        desc = DefinitionDescription(content=[
-            Paragraph(content=[Text(content="Application Programming Interface")])
-        ])
+        desc = DefinitionDescription(content=[Paragraph(content=[Text(content="Application Programming Interface")])])
         assert len(desc.content) == 1
         assert isinstance(desc.content[0], Paragraph)
 
@@ -798,10 +745,9 @@ class TestHTMLValidation:
     def test_document_with_html_validated(self):
         """Test validation of entire document containing HTML."""
         # Document with HTMLBlock
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Safe content")]),
-            HTMLBlock(content="<div>Unsafe HTML</div>")
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Safe content")]), HTMLBlock(content="<div>Unsafe HTML</div>")]
+        )
 
         # Should pass with default settings
         visitor1 = ValidationVisitor(strict=True, allow_raw_html=True)
@@ -815,11 +761,9 @@ class TestHTMLValidation:
 
     def test_paragraph_with_html_inline_validated(self):
         """Test validation of paragraph containing inline HTML."""
-        para = Paragraph(content=[
-            Text(content="Text with "),
-            HTMLInline(content="<strong>HTML</strong>"),
-            Text(content=" inline")
-        ])
+        para = Paragraph(
+            content=[Text(content="Text with "), HTMLInline(content="<strong>HTML</strong>"), Text(content=" inline")]
+        )
 
         # Should pass with default settings
         visitor1 = ValidationVisitor(strict=True, allow_raw_html=True)
@@ -838,10 +782,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_paragraph_with_list_child_fails(self):
         """Test that Paragraph with List child fails validation in strict mode."""
-        para = Paragraph(content=[
-            Text(content="Some text"),
-            List(ordered=False, items=[ListItem(children=[])])
-        ])
+        para = Paragraph(content=[Text(content="Some text"), List(ordered=False, items=[ListItem(children=[])])])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="Paragraph can only contain inline nodes"):
@@ -849,10 +790,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_heading_with_codeblock_child_fails(self):
         """Test that Heading with CodeBlock child fails validation in strict mode."""
-        heading = Heading(level=1, content=[
-            Text(content="Title "),
-            CodeBlock(content="code")
-        ])
+        heading = Heading(level=1, content=[Text(content="Title "), CodeBlock(content="code")])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="Heading can only contain inline nodes"):
@@ -860,9 +798,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_emphasis_with_paragraph_child_fails(self):
         """Test that Emphasis with Paragraph child fails validation in strict mode."""
-        emphasis = Emphasis(content=[
-            Paragraph(content=[Text(content="wrong")])
-        ])
+        emphasis = Emphasis(content=[Paragraph(content=[Text(content="wrong")])])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="Emphasis can only contain inline nodes"):
@@ -870,9 +806,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_list_item_with_inline_only_fails(self):
         """Test that ListItem with inline-only content fails validation in strict mode."""
-        list_item = ListItem(children=[
-            Text(content="This should be in a paragraph")
-        ])
+        list_item = ListItem(children=[Text(content="This should be in a paragraph")])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="ListItem can only contain block nodes"):
@@ -880,9 +814,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_table_cell_with_block_node_fails(self):
         """Test that TableCell with block nodes fails validation in strict mode."""
-        cell = TableCell(content=[
-            Paragraph(content=[Text(content="Should be inline")])
-        ])
+        cell = TableCell(content=[Paragraph(content=[Text(content="Should be inline")])])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="TableCell can only contain inline nodes"):
@@ -890,24 +822,27 @@ class TestValidationVisitorContainmentRules:
 
     def test_valid_nested_structures_pass(self):
         """Test that valid nested structures pass validation."""
-        doc = Document(children=[
-            Heading(level=1, content=[
-                Text(content="Title with "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" text")
-            ]),
-            Paragraph(content=[
-                Text(content="Paragraph with "),
-                Emphasis(content=[Text(content="emphasis")]),
-                Text(content=" and "),
-                Link(url="https://example.com", content=[Text(content="link")])
-            ]),
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Item 1")])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Heading(
+                    level=1,
+                    content=[
+                        Text(content="Title with "),
+                        Strong(content=[Text(content="bold")]),
+                        Text(content=" text"),
+                    ],
+                ),
+                Paragraph(
+                    content=[
+                        Text(content="Paragraph with "),
+                        Emphasis(content=[Text(content="emphasis")]),
+                        Text(content=" and "),
+                        Link(url="https://example.com", content=[Text(content="link")]),
+                    ]
+                ),
+                List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Item 1")])])]),
+            ]
+        )
 
         visitor = ValidationVisitor(strict=True)
         doc.accept(visitor)
@@ -915,10 +850,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_containment_not_enforced_in_non_strict_mode(self):
         """Test that containment rules are not enforced in non-strict mode."""
-        para = Paragraph(content=[
-            Text(content="Some text"),
-            List(ordered=False, items=[ListItem(children=[])])
-        ])
+        para = Paragraph(content=[Text(content="Some text"), List(ordered=False, items=[ListItem(children=[])])])
 
         visitor = ValidationVisitor(strict=False)
         visitor.visit_paragraph(para)
@@ -926,9 +858,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_strong_with_block_fails(self):
         """Test that Strong with block child fails validation in strict mode."""
-        strong = Strong(content=[
-            BlockQuote(children=[Paragraph(content=[Text(content="wrong")])])
-        ])
+        strong = Strong(content=[BlockQuote(children=[Paragraph(content=[Text(content="wrong")])])])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="Strong can only contain inline nodes"):
@@ -936,9 +866,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_link_with_block_fails(self):
         """Test that Link with block child fails validation in strict mode."""
-        link = Link(url="https://example.com", content=[
-            Heading(level=1, content=[Text(content="wrong")])
-        ])
+        link = Link(url="https://example.com", content=[Heading(level=1, content=[Text(content="wrong")])])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="Link can only contain inline nodes"):
@@ -946,9 +874,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_definition_term_with_block_fails(self):
         """Test that DefinitionTerm with block child fails validation in strict mode."""
-        term = DefinitionTerm(content=[
-            Paragraph(content=[Text(content="wrong")])
-        ])
+        term = DefinitionTerm(content=[Paragraph(content=[Text(content="wrong")])])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="DefinitionTerm can only contain inline nodes"):
@@ -956,9 +882,7 @@ class TestValidationVisitorContainmentRules:
 
     def test_definition_description_with_inline_fails(self):
         """Test that DefinitionDescription with inline-only content fails validation in strict mode."""
-        desc = DefinitionDescription(content=[
-            Text(content="Should be in a paragraph")
-        ])
+        desc = DefinitionDescription(content=[Text(content="Should be in a paragraph")])
 
         visitor = ValidationVisitor(strict=True)
         with pytest.raises(ValueError, match="DefinitionDescription can only contain block nodes"):
@@ -1049,7 +973,7 @@ class TestValidationVisitorURLSecurity:
         """Test that valid data:image/png URLs pass validation."""
         image = Image(
             url="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-            alt_text="1x1 pixel"
+            alt_text="1x1 pixel",
         )
 
         visitor = ValidationVisitor(strict=True)
@@ -1111,6 +1035,7 @@ class TestReplaceNodeChildren:
     def test_replace_node_children_import(self):
         """Test that replace_node_children can be imported."""
         from all2md.ast.nodes import replace_node_children
+
         assert callable(replace_node_children)
 
     def test_replace_heading_content(self):
@@ -1154,12 +1079,10 @@ class TestReplaceNodeChildren:
         """Test replacing list items."""
         from all2md.ast.nodes import replace_node_children
 
-        lst = List(ordered=False, items=[
-            ListItem(children=[Paragraph(content=[Text(content="Old")])])
-        ])
+        lst = List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Old")])])])
         new_items = [
             ListItem(children=[Paragraph(content=[Text(content="New 1")])]),
-            ListItem(children=[Paragraph(content=[Text(content="New 2")])])
+            ListItem(children=[Paragraph(content=[Text(content="New 2")])]),
         ]
         new_list = replace_node_children(lst, new_items)
 
@@ -1171,10 +1094,12 @@ class TestReplaceNodeChildren:
         from all2md.ast.nodes import replace_node_children
 
         # Original table without header
-        table = Table(rows=[
-            TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False),
-            TableRow(cells=[TableCell(content=[Text(content="Row 2")])], is_header=False)
-        ])
+        table = Table(
+            rows=[
+                TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False),
+                TableRow(cells=[TableCell(content=[Text(content="Row 2")])], is_header=False),
+            ]
+        )
 
         # New children with header
         new_header = TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True)
@@ -1195,16 +1120,13 @@ class TestReplaceNodeChildren:
         # Original table with header
         header = TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True)
         table = Table(
-            header=header,
-            rows=[
-                TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False)
-            ]
+            header=header, rows=[TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False)]
         )
 
         # New children without header (all rows have is_header=False)
         new_children = [
             TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False),
-            TableRow(cells=[TableCell(content=[Text(content="Row 2")])], is_header=False)
+            TableRow(cells=[TableCell(content=[Text(content="Row 2")])], is_header=False),
         ]
 
         new_table = replace_node_children(table, new_children)
@@ -1220,10 +1142,7 @@ class TestReplaceNodeChildren:
         # Original table with header
         old_header = TableRow(cells=[TableCell(content=[Text(content="Old Header")])], is_header=True)
         table = Table(
-            header=old_header,
-            rows=[
-                TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False)
-            ]
+            header=old_header, rows=[TableRow(cells=[TableCell(content=[Text(content="Row 1")])], is_header=False)]
         )
 
         # New children with different header
@@ -1244,17 +1163,14 @@ class TestReplaceNodeChildren:
         # Original table with header
         header = TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True)
         table = Table(
-            header=header,
-            rows=[
-                TableRow(cells=[TableCell(content=[Text(content="Old Row")])], is_header=False)
-            ]
+            header=header, rows=[TableRow(cells=[TableCell(content=[Text(content="Old Row")])], is_header=False)]
         )
 
         # Keep header, change rows
         new_children = [
             header,
             TableRow(cells=[TableCell(content=[Text(content="New Row 1")])], is_header=False),
-            TableRow(cells=[TableCell(content=[Text(content="New Row 2")])], is_header=False)
+            TableRow(cells=[TableCell(content=[Text(content="New Row 2")])], is_header=False),
         ]
 
         new_table = replace_node_children(table, new_children)
@@ -1275,7 +1191,7 @@ class TestReplaceNodeChildren:
         new_children = [
             TableRow(cells=[TableCell(content=[Text(content="Header 1")])], is_header=True),
             TableRow(cells=[TableCell(content=[Text(content="Header 2")])], is_header=True),
-            TableRow(cells=[TableCell(content=[Text(content="Row")])], is_header=False)
+            TableRow(cells=[TableCell(content=[Text(content="Row")])], is_header=False),
         ]
 
         new_table = replace_node_children(table, new_children)
@@ -1292,7 +1208,7 @@ class TestReplaceNodeChildren:
 
         table = Table(
             header=TableRow(cells=[TableCell(content=[Text(content="Header")])], is_header=True),
-            rows=[TableRow(cells=[TableCell(content=[Text(content="Row")])], is_header=False)]
+            rows=[TableRow(cells=[TableCell(content=[Text(content="Row")])], is_header=False)],
         )
 
         new_table = replace_node_children(table, [])
@@ -1317,15 +1233,12 @@ class TestReplaceNodeChildren:
         """Test replacing table row cells."""
         from all2md.ast.nodes import replace_node_children
 
-        row = TableRow(cells=[
-            TableCell(content=[Text(content="Old 1")]),
-            TableCell(content=[Text(content="Old 2")])
-        ])
+        row = TableRow(cells=[TableCell(content=[Text(content="Old 1")]), TableCell(content=[Text(content="Old 2")])])
 
         new_cells = [
             TableCell(content=[Text(content="New 1")]),
             TableCell(content=[Text(content="New 2")]),
-            TableCell(content=[Text(content="New 3")])
+            TableCell(content=[Text(content="New 3")]),
         ]
 
         new_row = replace_node_children(row, new_cells)

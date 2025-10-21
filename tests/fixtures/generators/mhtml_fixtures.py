@@ -46,7 +46,7 @@ Content-Location: http://example.com/test.html
 
 ------MultipartBoundary--001--
 """
-    return mhtml_content.encode('utf-8')
+    return mhtml_content.encode("utf-8")
 
 
 def create_mhtml_with_image() -> bytes:
@@ -60,13 +60,13 @@ def create_mhtml_with_image() -> bytes:
     """
     # Create a simple 1x1 PNG image
     test_image_data = (
-        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-        b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
-        b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
     )
 
     # Base64 encode the image
-    image_b64 = base64.b64encode(test_image_data).decode('ascii')
+    image_b64 = base64.b64encode(test_image_data).decode("ascii")
 
     mhtml_content = f"""MIME-Version: 1.0
 Content-Type: multipart/related;
@@ -98,7 +98,7 @@ Content-Transfer-Encoding: base64
 
 ------MultipartBoundary--002--
 """
-    return mhtml_content.encode('utf-8')
+    return mhtml_content.encode("utf-8")
 
 
 def create_mhtml_with_ms_word_artifacts() -> bytes:
@@ -149,7 +149,7 @@ xmlns:w="urn:schemas-microsoft-com:office:word">
 
 ------MultipartBoundary--003--
 """
-    return mhtml_content.encode('utf-8')
+    return mhtml_content.encode("utf-8")
 
 
 def create_mhtml_with_multiple_assets() -> bytes:
@@ -163,19 +163,19 @@ def create_mhtml_with_multiple_assets() -> bytes:
     """
     # Create test images
     test_image1_data = (
-        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-        b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
-        b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
     )
 
     test_image2_data = (
-        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x02'
-        b'\x08\x06\x00\x00\x00r\xb5\xd1\xdd\x00\x00\x00\x0eIDATx\x9cc\xf8\x0f'
-        b'\x00\x00\x01\x00\x01\x00\x18\xdd\x8d\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x02\x00\x00\x00\x02"
+        b"\x08\x06\x00\x00\x00r\xb5\xd1\xdd\x00\x00\x00\x0eIDATx\x9cc\xf8\x0f"
+        b"\x00\x00\x01\x00\x01\x00\x18\xdd\x8d\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
     )
 
-    image1_b64 = base64.b64encode(test_image1_data).decode('ascii')
-    image2_b64 = base64.b64encode(test_image2_data).decode('ascii')
+    image1_b64 = base64.b64encode(test_image1_data).decode("ascii")
+    image2_b64 = base64.b64encode(test_image2_data).decode("ascii")
 
     mhtml_content = f"""MIME-Version: 1.0
 Content-Type: multipart/related;
@@ -230,7 +230,7 @@ Content-Transfer-Encoding: base64
 
 ------MultipartBoundary--004--
 """
-    return mhtml_content.encode('utf-8')
+    return mhtml_content.encode("utf-8")
 
 
 def create_mhtml_with_complex_html() -> bytes:
@@ -324,7 +324,7 @@ function example() {
 
 ------MultipartBoundary--005--
 """
-    return mhtml_content.encode('utf-8')
+    return mhtml_content.encode("utf-8")
 
 
 def create_malformed_mhtml() -> bytes:
@@ -341,7 +341,7 @@ def create_malformed_mhtml() -> bytes:
 It lacks MIME headers and structure.
 <html><body><h1>Invalid</h1></body></html>
 """
-    return mhtml_content.encode('utf-8')
+    return mhtml_content.encode("utf-8")
 
 
 def create_mhtml_file(content: bytes, temp_dir: Optional[Path] = None) -> Path:

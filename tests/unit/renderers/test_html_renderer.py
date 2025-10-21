@@ -66,19 +66,19 @@ class TestBasicRendering:
 
     def test_render_text_only(self):
         """Test rendering plain text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello world")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello world")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<p>Hello world</p>" in result
 
     def test_render_multiple_paragraphs(self):
         """Test rendering multiple paragraphs."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="First paragraph")]),
-            Paragraph(content=[Text(content="Second paragraph")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="First paragraph")]),
+                Paragraph(content=[Text(content="Second paragraph")]),
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<p>First paragraph</p>" in result
@@ -86,9 +86,7 @@ class TestBasicRendering:
 
     def test_render_standalone_document(self):
         """Test rendering standalone HTML document."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=True))
         result = renderer.render_to_string(doc)
         assert "<!DOCTYPE html>" in result
@@ -104,39 +102,30 @@ class TestHeadingRendering:
 
     def test_heading_level_1(self):
         """Test rendering h1."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<h1 id="heading-0">Title</h1>' in result
 
     def test_heading_level_2(self):
         """Test rendering h2."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Subtitle")])
-        ])
+        doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<h2 id="heading-0">Subtitle</h2>' in result
 
     def test_heading_level_6(self):
         """Test rendering h6."""
-        doc = Document(children=[
-            Heading(level=6, content=[Text(content="Small heading")])
-        ])
+        doc = Document(children=[Heading(level=6, content=[Text(content="Small heading")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<h6 id="heading-0">Small heading</h6>' in result
 
     def test_heading_with_formatting(self):
         """Test heading with inline formatting."""
-        doc = Document(children=[
-            Heading(level=1, content=[
-                Text(content="Bold "),
-                Strong(content=[Text(content="title")])
-            ])
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text(content="Bold "), Strong(content=[Text(content="title")])])]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "Bold <strong>title</strong>" in result
@@ -148,76 +137,58 @@ class TestInlineFormatting:
 
     def test_strong(self):
         """Test bold text rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Strong(content=[Text(content="bold")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Strong(content=[Text(content="bold")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<strong>bold</strong>" in result
 
     def test_emphasis(self):
         """Test italic text rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Emphasis(content=[Text(content="italic")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Emphasis(content=[Text(content="italic")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<em>italic</em>" in result
 
     def test_code(self):
         """Test inline code rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Code(content="code")])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="code")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<code>code</code>" in result
 
     def test_strikethrough(self):
         """Test strikethrough rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<del>deleted</del>" in result
 
     def test_underline(self):
         """Test underline rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Underline(content=[Text(content="underlined")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<u>underlined</u>" in result
 
     def test_superscript(self):
         """Test superscript rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Superscript(content=[Text(content="2")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Superscript(content=[Text(content="2")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<sup>2</sup>" in result
 
     def test_subscript(self):
         """Test subscript rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Subscript(content=[Text(content="2")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Subscript(content=[Text(content="2")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<sub>2</sub>" in result
 
     def test_nested_formatting(self):
         """Test nested inline formatting."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Strong(content=[
-                    Emphasis(content=[Text(content="bold italic")])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Strong(content=[Emphasis(content=[Text(content="bold italic")])])])]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<strong><em>bold italic</em></strong>" in result
@@ -229,44 +200,38 @@ class TestLinkAndImageRendering:
 
     def test_simple_link(self):
         """Test basic link rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Example")])])]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<a href="https://example.com">Example</a>' in result
 
     def test_link_with_title(self):
         """Test link with title attribute."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", title="Example Site", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Link(url="https://example.com", title="Example Site", content=[Text(content="Example")])]
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert 'title="Example Site"' in result
 
     def test_image(self):
         """Test image rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="image.png", alt_text="Description")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="image.png", alt_text="Description")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<img src="image.png" alt="Description">' in result
 
     def test_image_with_dimensions(self):
         """Test image with width and height."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="image.png", alt_text="Description", width=100, height=200)
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Image(url="image.png", alt_text="Description", width=100, height=200)])]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert 'width="100"' in result
@@ -279,12 +244,17 @@ class TestListRendering:
 
     def test_unordered_list(self):
         """Test unordered list rendering."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<ul>" in result
@@ -295,12 +265,17 @@ class TestListRendering:
 
     def test_ordered_list(self):
         """Test ordered list rendering."""
-        doc = Document(children=[
-            List(ordered=True, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                    ],
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<ol>" in result
@@ -309,23 +284,34 @@ class TestListRendering:
 
     def test_ordered_list_with_start(self):
         """Test ordered list with custom start number."""
-        doc = Document(children=[
-            List(ordered=True, start=5, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Five")])]),
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=5,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Five")])]),
+                    ],
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert 'start="5"' in result
 
     def test_task_list(self):
         """Test task list rendering."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(task_status="checked", children=[Paragraph(content=[Text(content="Done")])]),
-                ListItem(task_status="unchecked", children=[Paragraph(content=[Text(content="Todo")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(task_status="checked", children=[Paragraph(content=[Text(content="Done")])]),
+                        ListItem(task_status="unchecked", children=[Paragraph(content=[Text(content="Todo")])]),
+                    ],
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<input type="checkbox" checked disabled>' in result
@@ -338,20 +324,20 @@ class TestTableRendering:
 
     def test_simple_table(self):
         """Test basic table rendering."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Age")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alice")]),
-                        TableCell(content=[Text(content="30")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Age")])]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]
+                        )
+                    ],
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<table>" in result
@@ -363,21 +349,19 @@ class TestTableRendering:
 
     def test_table_with_alignment(self):
         """Test table with column alignment."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Left")]),
-                    TableCell(content=[Text(content="Right")])
-                ]),
-                alignments=["left", "right"],
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="A")]),
-                        TableCell(content=[Text(content="B")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Left")]), TableCell(content=[Text(content="Right")])]
+                    ),
+                    alignments=["left", "right"],
+                    rows=[
+                        TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])])
+                    ],
+                )
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert 'style="text-align: left"' in result
@@ -385,13 +369,11 @@ class TestTableRendering:
 
     def test_table_with_caption(self):
         """Test table with caption."""
-        doc = Document(children=[
-            Table(
-                caption="Data Table",
-                header=TableRow(cells=[TableCell(content=[Text(content="Col")])]),
-                rows=[]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(caption="Data Table", header=TableRow(cells=[TableCell(content=[Text(content="Col")])]), rows=[])
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<caption>Data Table</caption>" in result
@@ -403,9 +385,7 @@ class TestBlockElements:
 
     def test_code_block(self):
         """Test code block rendering."""
-        doc = Document(children=[
-            CodeBlock(content="def hello():\n    print('world')", language="python")
-        ])
+        doc = Document(children=[CodeBlock(content="def hello():\n    print('world')", language="python")])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, syntax_highlighting=True))
         result = renderer.render_to_string(doc)
         assert "<pre><code" in result
@@ -414,20 +394,14 @@ class TestBlockElements:
 
     def test_code_block_no_language(self):
         """Test code block without language."""
-        doc = Document(children=[
-            CodeBlock(content="plain code")
-        ])
+        doc = Document(children=[CodeBlock(content="plain code")])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<pre><code>" in result
 
     def test_blockquote(self):
         """Test blockquote rendering."""
-        doc = Document(children=[
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="Quoted text")])
-            ])
-        ])
+        doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="Quoted text")])])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<blockquote>" in result
@@ -436,18 +410,14 @@ class TestBlockElements:
 
     def test_thematic_break(self):
         """Test horizontal rule rendering."""
-        doc = Document(children=[
-            ThematicBreak()
-        ])
+        doc = Document(children=[ThematicBreak()])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<hr>" in result
 
     def test_html_block(self):
         """Test HTML block passthrough."""
-        doc = Document(children=[
-            HTMLBlock(content="<div>Custom HTML</div>")
-        ])
+        doc = Document(children=[HTMLBlock(content="<div>Custom HTML</div>")])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, html_passthrough_mode="pass-through"))
         result = renderer.render_to_string(doc)
         assert "<div>Custom HTML</div>" in result
@@ -459,32 +429,22 @@ class TestMathRendering:
 
     def test_inline_math_mathjax(self):
         """Test inline math with MathJax."""
-        doc = Document(children=[
-            Paragraph(content=[
-                MathInline(content="x^2", notation="latex")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, math_renderer="mathjax"))
         result = renderer.render_to_string(doc)
         assert '<span class="math math-inline" data-notation="latex">$x^2$</span>' in result
 
     def test_block_math_mathjax(self):
         """Test block math with MathJax."""
-        doc = Document(children=[
-            MathBlock(content="E = mc^2", notation="latex")
-        ])
+        doc = Document(children=[MathBlock(content="E = mc^2", notation="latex")])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, math_renderer="mathjax"))
         result = renderer.render_to_string(doc)
         assert '<div class="math math-block" data-notation="latex">' in result
-        assert 'E = mc^2' in result
+        assert "E = mc^2" in result
 
     def test_math_none_mode(self):
         """Test math rendering with none mode."""
-        doc = Document(children=[
-            Paragraph(content=[
-                MathInline(content="x^2", notation="latex")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, math_renderer="none"))
         result = renderer.render_to_string(doc)
         assert '<span class="math math-inline" data-notation="latex">$x^2$</span>' in result
@@ -496,12 +456,7 @@ class TestFootnotes:
 
     def test_footnote_reference(self):
         """Test footnote reference rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert '<sup id="fnref-1">' in result
@@ -509,13 +464,12 @@ class TestFootnotes:
 
     def test_footnote_definition_in_standalone(self):
         """Test footnote definition in standalone mode."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ]),
-            FootnoteDefinition(identifier="1", content=[Text(content="Footnote text")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[Text(content="Footnote text")]),
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=True))
         result = renderer.render_to_string(doc)
         assert '<section id="footnotes">' in result
@@ -529,14 +483,18 @@ class TestDefinitionLists:
 
     def test_definition_list(self):
         """Test definition list rendering."""
-        doc = Document(children=[
-            DefinitionList(items=[
-                (
-                    DefinitionTerm(content=[Text(content="Term")]),
-                    [DefinitionDescription(content=[Text(content="Description")])]
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term")]),
+                            [DefinitionDescription(content=[Text(content="Description")])],
+                        )
+                    ]
                 )
-            ])
-        ])
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "<dl>" in result
@@ -552,9 +510,7 @@ class TestHtmlEscaping:
 
     def test_escape_special_characters(self):
         """Test HTML special character escaping."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="<script>alert('xss')</script>")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="<script>alert('xss')</script>")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, escape_html=True))
         result = renderer.render_to_string(doc)
         assert "&lt;script&gt;" in result
@@ -562,9 +518,7 @@ class TestHtmlEscaping:
 
     def test_no_escape_when_disabled(self):
         """Test no escaping when disabled."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="<b>bold</b>")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="<b>bold</b>")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, escape_html=False))
         result = renderer.render_to_string(doc)
         assert "<b>bold</b>" in result
@@ -576,11 +530,13 @@ class TestTableOfContents:
 
     def test_toc_generation(self):
         """Test TOC is generated when enabled."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Content")]),
-            Heading(level=2, content=[Text(content="Section 1.1")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Content")]),
+                Heading(level=2, content=[Text(content="Section 1.1")]),
+            ]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=True, include_toc=True))
         result = renderer.render_to_string(doc)
         assert '<nav id="table-of-contents">' in result
@@ -590,9 +546,7 @@ class TestTableOfContents:
 
     def test_no_toc_when_disabled(self):
         """Test no TOC when disabled."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=True, include_toc=False))
         result = renderer.render_to_string(doc)
         assert '<nav id="table-of-contents">' not in result
@@ -614,11 +568,7 @@ class TestCssStyling:
     def test_external_css(self):
         """Test external CSS reference."""
         doc = Document(children=[Paragraph(content=[Text(content="Test")])])
-        renderer = HtmlRenderer(HtmlRendererOptions(
-            standalone=True,
-            css_style="external",
-            css_file="styles.css"
-        ))
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=True, css_style="external", css_file="styles.css"))
         result = renderer.render_to_string(doc)
         assert '<link rel="stylesheet" href="styles.css">' in result
         assert "<style>" not in result
@@ -638,13 +588,9 @@ class TestLineBreaks:
 
     def test_hard_line_break(self):
         """Test hard line break rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Line 1"),
-                LineBreak(soft=False),
-                Text(content="Line 2")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=False), Text(content="Line 2")])]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         assert "Line 1<br>" in result
@@ -652,13 +598,9 @@ class TestLineBreaks:
 
     def test_soft_line_break(self):
         """Test soft line break renders as space."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Line 1"),
-                LineBreak(soft=True),
-                Text(content="Line 2")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=True), Text(content="Line 2")])]
+        )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
         # Soft breaks should render as space in HTML
@@ -671,9 +613,7 @@ class TestOutputMethods:
 
     def test_render_to_file_path(self, tmp_path):
         """Test rendering to file path."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test content")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         output_file = tmp_path / "output.html"
         renderer.render(doc, output_file)
@@ -684,9 +624,7 @@ class TestOutputMethods:
 
     def test_render_to_string_io(self):
         """Test rendering to StringIO."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test content")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         output = BytesIO()
         renderer.render(doc, output)
@@ -711,14 +649,8 @@ class TestSecurityFeatures:
 
     def test_remote_scripts_disabled_no_mathjax_script(self):
         """Test that MathJax script is NOT included when allow_remote_scripts=False."""
-        doc = Document(children=[
-            Paragraph(content=[MathInline(content="x^2", notation="latex")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            math_renderer="mathjax",
-            allow_remote_scripts=False
-        )
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
+        options = HtmlRendererOptions(standalone=True, math_renderer="mathjax", allow_remote_scripts=False)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # MathJax CDN script should NOT be included
@@ -727,14 +659,8 @@ class TestSecurityFeatures:
 
     def test_remote_scripts_enabled_includes_mathjax_script(self):
         """Test that MathJax script IS included when allow_remote_scripts=True."""
-        doc = Document(children=[
-            Paragraph(content=[MathInline(content="x^2", notation="latex")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            math_renderer="mathjax",
-            allow_remote_scripts=True
-        )
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
+        options = HtmlRendererOptions(standalone=True, math_renderer="mathjax", allow_remote_scripts=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # MathJax CDN script SHOULD be included
@@ -742,14 +668,8 @@ class TestSecurityFeatures:
 
     def test_remote_scripts_disabled_no_katex_script(self):
         """Test that KaTeX script is NOT included when allow_remote_scripts=False."""
-        doc = Document(children=[
-            Paragraph(content=[MathInline(content="x^2", notation="latex")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            math_renderer="katex",
-            allow_remote_scripts=False
-        )
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
+        options = HtmlRendererOptions(standalone=True, math_renderer="katex", allow_remote_scripts=False)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # KaTeX CDN script should NOT be included
@@ -758,14 +678,8 @@ class TestSecurityFeatures:
 
     def test_remote_scripts_enabled_includes_katex_script(self):
         """Test that KaTeX script IS included when allow_remote_scripts=True."""
-        doc = Document(children=[
-            Paragraph(content=[MathInline(content="x^2", notation="latex")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            math_renderer="katex",
-            allow_remote_scripts=True
-        )
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
+        options = HtmlRendererOptions(standalone=True, math_renderer="katex", allow_remote_scripts=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # KaTeX CDN script SHOULD be included
@@ -773,14 +687,8 @@ class TestSecurityFeatures:
 
     def test_math_renderer_none_no_warning(self):
         """Test that math_renderer='none' doesn't trigger warning."""
-        doc = Document(children=[
-            Paragraph(content=[MathInline(content="x^2", notation="latex")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            math_renderer="none",
-            allow_remote_scripts=False
-        )
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
+        options = HtmlRendererOptions(standalone=True, math_renderer="none", allow_remote_scripts=False)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # Should render without requiring remote scripts
@@ -788,13 +696,8 @@ class TestSecurityFeatures:
 
     def test_csp_meta_tag_when_enabled(self):
         """Test that CSP meta tag is included when csp_enabled=True."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            csp_enabled=True
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        options = HtmlRendererOptions(standalone=True, csp_enabled=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # Should include CSP meta tag
@@ -803,13 +706,8 @@ class TestSecurityFeatures:
 
     def test_csp_meta_tag_not_included_when_disabled(self):
         """Test that CSP meta tag is NOT included when csp_enabled=False."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            csp_enabled=False
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        options = HtmlRendererOptions(standalone=True, csp_enabled=False)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # Should NOT include CSP meta tag
@@ -817,13 +715,8 @@ class TestSecurityFeatures:
 
     def test_csp_meta_tag_only_in_standalone_mode(self):
         """Test that CSP meta tag is only included in standalone mode."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=False,
-            csp_enabled=True
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        options = HtmlRendererOptions(standalone=False, csp_enabled=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # Should NOT include CSP meta tag in fragment mode
@@ -832,32 +725,23 @@ class TestSecurityFeatures:
 
     def test_csp_default_policy(self):
         """Test that default CSP policy is secure."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            csp_enabled=True
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        options = HtmlRendererOptions(standalone=True, csp_enabled=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # Should include default secure policy (quotes are HTML-escaped)
         assert "default-src &#x27;self&#x27;" in result or "default-src 'self'" in result
         assert "script-src &#x27;self&#x27;" in result or "script-src 'self'" in result
-        assert ("style-src &#x27;self&#x27; &#x27;unsafe-inline&#x27;" in result or
-                "style-src 'self' 'unsafe-inline'" in result)
+        assert (
+            "style-src &#x27;self&#x27; &#x27;unsafe-inline&#x27;" in result
+            or "style-src 'self' 'unsafe-inline'" in result
+        )
 
     def test_csp_custom_policy(self):
         """Test that custom CSP policy is used when specified."""
         custom_policy = "default-src 'none'; script-src 'self' https://trusted.cdn.com;"
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            csp_enabled=True,
-            csp_policy=custom_policy
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        options = HtmlRendererOptions(standalone=True, csp_enabled=True, csp_policy=custom_policy)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # Should include custom policy (quotes are HTML-escaped)
@@ -866,14 +750,8 @@ class TestSecurityFeatures:
 
     def test_csp_policy_properly_escaped(self):
         """Test that CSP policy is properly HTML-escaped."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
-        options = HtmlRendererOptions(
-            standalone=True,
-            csp_enabled=True,
-            escape_html=True
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        options = HtmlRendererOptions(standalone=True, csp_enabled=True, escape_html=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
         # CSP meta tag should be present and properly formatted
@@ -883,15 +761,9 @@ class TestSecurityFeatures:
 
     def test_combined_security_features(self):
         """Test that multiple security features work together."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Secure content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Secure content")])])
         options = HtmlRendererOptions(
-            standalone=True,
-            allow_remote_scripts=False,
-            csp_enabled=True,
-            escape_html=True,
-            math_renderer="mathjax"
+            standalone=True, allow_remote_scripts=False, csp_enabled=True, escape_html=True, math_renderer="mathjax"
         )
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)

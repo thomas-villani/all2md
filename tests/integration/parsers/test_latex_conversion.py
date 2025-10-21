@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Integration tests for LaTeX parser and renderer."""
 
-
 from all2md.ast import Document, Heading, MathBlock, MathInline, Paragraph, Text
 from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.parsers.latex import LatexParser
@@ -49,9 +48,9 @@ This demonstrates the power of quantum mechanics.
         doc = parser.parse(latex)
 
         # Check metadata
-        assert 'title' in doc.metadata
-        assert doc.metadata['title'] == "A Study of Quantum Computing"
-        assert doc.metadata['author'] == "Jane Doe"
+        assert "title" in doc.metadata
+        assert doc.metadata["title"] == "A Study of Quantum Computing"
+        assert doc.metadata["author"] == "Jane Doe"
 
         # Check structure - should have sections
         headings = [child for child in doc.children if isinstance(child, Heading)]
@@ -84,9 +83,9 @@ F = ma
             for node in nodes:
                 if isinstance(node, node_type):
                     count += 1
-                if hasattr(node, 'content') and isinstance(node.content, list):
+                if hasattr(node, "content") and isinstance(node.content, list):
                     count += count_math_nodes(node.content, node_type)
-                if hasattr(node, 'children') and isinstance(node.children, list):
+                if hasattr(node, "children") and isinstance(node.children, list):
                     count += count_math_nodes(node.children, node_type)
             return count
 
@@ -94,7 +93,7 @@ F = ma
         block_math = count_math_nodes(doc.children, MathBlock)
 
         assert inline_math >= 1  # At least the circle equation
-        assert block_math >= 2   # Display math and equation environment
+        assert block_math >= 2  # Display math and equation environment
 
     def test_lists_and_formatting(self) -> None:
         """Test parsing lists with formatting."""
@@ -120,19 +119,20 @@ Unordered list:
 
         # Check that we have lists
         from all2md.ast import List
+
         lists = [child for child in doc.children if isinstance(child, List)]
         assert len(lists) >= 2  # One enumerate, one itemize
 
     def test_render_complete_document(self) -> None:
         """Test rendering a complete LaTeX document."""
         doc = Document(
-            metadata={'title': 'Test Document', 'author': 'Test Author'},
+            metadata={"title": "Test Document", "author": "Test Author"},
             children=[
                 Heading(level=1, content=[Text(content="Introduction")]),
                 Paragraph(content=[Text(content="This is the introduction.")]),
                 Heading(level=2, content=[Text(content="Background")]),
                 Paragraph(content=[Text(content="Some background information.")]),
-            ]
+            ],
         )
 
         renderer = LatexRenderer()
@@ -181,15 +181,19 @@ Math: $E = mc^2$
     def test_cross_format_pdf_to_latex(self) -> None:
         """Test converting from another format to LaTeX via AST."""
         # Create a document programmatically (simulating PDF->AST conversion)
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Research Paper")]),
-            Paragraph(content=[
-                Text(content="The formula "),
-                MathInline(content=r"x^2 + y^2 = z^2", notation="latex"),
-                Text(content=" is well known.")
-            ]),
-            MathBlock(content=r"\int_0^1 x dx = \frac{1}{2}", notation="latex"),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Research Paper")]),
+                Paragraph(
+                    content=[
+                        Text(content="The formula "),
+                        MathInline(content=r"x^2 + y^2 = z^2", notation="latex"),
+                        Text(content=" is well known."),
+                    ]
+                ),
+                MathBlock(content=r"\int_0^1 x dx = \frac{1}{2}", notation="latex"),
+            ]
+        )
 
         # Render to LaTeX
         renderer = LatexRenderer()
@@ -244,17 +248,15 @@ That was the code.
         rendered = renderer.render_to_string(doc)
 
         # Should contain both bold and italic commands
-        assert (r"\textbf" in rendered or r"\emph" in rendered)
+        assert r"\textbf" in rendered or r"\emph" in rendered
 
     def test_special_character_escaping(self) -> None:
         """Test that special characters are properly escaped."""
         from all2md.ast import Paragraph, Text
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Price: $100, Discount: 50%, Items: A & B, Note #1")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Price: $100, Discount: 50%, Items: A & B, Note #1")])]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -280,6 +282,7 @@ Smith, J. (2024). Quantum Computing. Journal of Physics.
 
         # Should parse quote environment
         from all2md.ast import BlockQuote
+
         quotes = [child for child in doc.children if isinstance(child, BlockQuote)]
         assert len(quotes) >= 1
 
@@ -287,27 +290,35 @@ Smith, J. (2024). Quantum Computing. Journal of Physics.
         """Test rendering complex table."""
         from all2md.ast import Table, TableCell, TableRow, Text
 
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Age")]),
-                    TableCell(content=[Text(content="City")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alice")]),
-                        TableCell(content=[Text(content="30")]),
-                        TableCell(content=[Text(content="NYC")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Bob")]),
-                        TableCell(content=[Text(content="25")]),
-                        TableCell(content=[Text(content="LA")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Name")]),
+                            TableCell(content=[Text(content="Age")]),
+                            TableCell(content=[Text(content="City")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Alice")]),
+                                TableCell(content=[Text(content="30")]),
+                                TableCell(content=[Text(content="NYC")]),
+                            ]
+                        ),
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Bob")]),
+                                TableCell(content=[Text(content="25")]),
+                                TableCell(content=[Text(content="LA")]),
+                            ]
+                        ),
+                    ],
+                )
+            ]
+        )
 
         renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         latex = renderer.render_to_string(doc)
@@ -323,9 +334,7 @@ Smith, J. (2024). Quantum Computing. Journal of Physics.
         """Test rendering image (figure)."""
         from all2md.ast import Image
 
-        doc = Document(children=[
-            Image(url="figure1.png", alt_text="Figure 1: Results")
-        ])
+        doc = Document(children=[Image(url="figure1.png", alt_text="Figure 1: Results")])
 
         renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
         latex = renderer.render_to_string(doc)
@@ -338,9 +347,7 @@ class TestLatexOptionsIntegration:
 
     def test_fragment_mode(self) -> None:
         """Test rendering fragment without preamble."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Just this paragraph.")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Just this paragraph.")])])
 
         options = LatexRendererOptions(include_preamble=False)
         renderer = LatexRenderer(options)
@@ -352,9 +359,7 @@ class TestLatexOptionsIntegration:
 
     def test_custom_document_class_integration(self) -> None:
         """Test using custom document class."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Chapter 1")])])
 
         options = LatexRendererOptions(document_class="book")
         renderer = LatexRenderer(options)
@@ -364,9 +369,7 @@ class TestLatexOptionsIntegration:
 
     def test_minimal_packages(self) -> None:
         """Test with minimal package set."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Simple text.")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Simple text.")])])
 
         options = LatexRendererOptions(packages=["amsmath"])
         renderer = LatexRenderer(options)
@@ -374,15 +377,13 @@ class TestLatexOptionsIntegration:
 
         assert r"\usepackage{amsmath}" in latex
         # Should not include default packages we didn't specify
-        lines = latex.split('\n')
-        usepackage_lines = [line for line in lines if r'\usepackage' in line]
+        lines = latex.split("\n")
+        usepackage_lines = [line for line in lines if r"\usepackage" in line]
         assert len(usepackage_lines) == 1  # Only amsmath
 
     def test_disable_escaping(self) -> None:
         """Test disabling special character escaping."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="$100")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="$100")])])
 
         options = LatexRendererOptions(escape_special=False)
         renderer = LatexRenderer(options)

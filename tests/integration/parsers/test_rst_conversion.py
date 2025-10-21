@@ -254,7 +254,7 @@ Test Document
 
 This is a test document.
 """
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.rst', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".rst", delete=False) as f:
             f.write(rst_content)
             temp_file = f.name
 
@@ -269,12 +269,14 @@ This is a test document.
 
     def test_render_to_file(self) -> None:
         """Test rendering RST to a file."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Test")]),
-            Paragraph(content=[Text(content="Content here.")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Test")]),
+                Paragraph(content=[Text(content="Content here.")]),
+            ]
+        )
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.rst', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".rst", delete=False) as f:
             temp_file = f.name
 
         try:
@@ -304,11 +306,13 @@ class TestOptionsIntegration:
 
     def test_heading_chars_option(self) -> None:
         """Test custom heading characters option."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="H1")]),
-            Heading(level=2, content=[Text(content="H2")]),
-            Heading(level=3, content=[Text(content="H3")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="H1")]),
+                Heading(level=2, content=[Text(content="H2")]),
+                Heading(level=3, content=[Text(content="H3")]),
+            ]
+        )
 
         # Use custom heading chars
         options = RstRendererOptions(heading_chars="#*+")
@@ -324,20 +328,28 @@ class TestOptionsIntegration:
         """Test table style option."""
         from all2md.ast import TableCell, TableRow
 
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="A")]),
-                    TableCell(content=[Text(content="B")]),
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="1")]),
-                        TableCell(content=[Text(content="2")]),
-                    ], is_header=False),
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="A")]),
+                            TableCell(content=[Text(content="B")]),
+                        ],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="1")]),
+                                TableCell(content=[Text(content="2")]),
+                            ],
+                            is_header=False,
+                        ),
+                    ],
+                )
+            ]
+        )
 
         # Test grid style
         options_grid = RstRendererOptions(table_style="grid")
@@ -356,9 +368,7 @@ class TestOptionsIntegration:
 
     def test_code_style_option(self) -> None:
         """Test code block style option."""
-        doc = Document(children=[
-            CodeBlock(content="print('hello')", language="python")
-        ])
+        doc = Document(children=[CodeBlock(content="print('hello')", language="python")])
 
         # Test directive style
         options_directive = RstRendererOptions(code_directive_style="directive")

@@ -5,6 +5,9 @@ from __future__ import annotations
 from io import BytesIO
 
 import pytest
+
+from all2md import to_markdown
+from all2md.exceptions import DependencyError
 from fixtures.generators.asciidoc_fixtures import (
     create_asciidoc_with_formatting,
     create_asciidoc_with_lists,
@@ -37,9 +40,6 @@ from fixtures.generators.sourcecode_fixtures import (
     create_python_module,
     sourcecode_bytes_io,
 )
-
-from all2md import to_markdown
-from all2md.exceptions import DependencyError
 
 
 @pytest.mark.golden

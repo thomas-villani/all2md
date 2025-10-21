@@ -19,14 +19,10 @@ class TestAstJsonIntegration:
         """Test converting Markdown to AST JSON."""
         # Create markdown file
         md_file = tmp_path / "input.md"
-        md_file.write_text("# Title\n\nParagraph content.", encoding='utf-8')
+        md_file.write_text("# Title\n\nParagraph content.", encoding="utf-8")
 
         # Convert to AST JSON
-        ast_json = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="ast"
-        )
+        ast_json = convert(str(md_file), source_format="markdown", target_format="ast")
 
         # Verify it's a str
         assert isinstance(ast_json, str)
@@ -40,22 +36,20 @@ class TestAstJsonIntegration:
     def test_ast_json_to_markdown(self, tmp_path: Path):
         """Test converting AST JSON to Markdown."""
         # Create AST document
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Test Title")]),
-            Paragraph(content=[Text(content="Test paragraph.")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Test Title")]),
+                Paragraph(content=[Text(content="Test paragraph.")]),
+            ]
+        )
 
         # Save as AST JSON
         ast_file = tmp_path / "document.ast.json"
         json_str = ast_to_json(doc)
-        ast_file.write_text(json_str, encoding='utf-8')
+        ast_file.write_text(json_str, encoding="utf-8")
 
         # Convert to markdown
-        markdown = convert(
-            str(ast_file),
-            source_format="ast",
-            target_format="markdown"
-        )
+        markdown = convert(str(ast_file), source_format="ast", target_format="markdown")
 
         # Verify it's a str
         assert isinstance(markdown, str)
@@ -70,14 +64,10 @@ class TestAstJsonIntegration:
 
         # Create markdown file
         md_file = tmp_path / "input.md"
-        md_file.write_text(original_markdown, encoding='utf-8')
+        md_file.write_text(original_markdown, encoding="utf-8")
 
         # Convert to AST JSON
-        ast_json = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="ast"
-        )
+        ast_json = convert(str(md_file), source_format="markdown", target_format="ast")
 
         # Verify it's a str
         assert isinstance(ast_json, str)
@@ -99,45 +89,34 @@ class TestAstJsonIntegration:
         """Test converting to AST JSON with output file."""
         # Create markdown file
         md_file = tmp_path / "input.md"
-        md_file.write_text("# Document\n\nContent.", encoding='utf-8')
+        md_file.write_text("# Document\n\nContent.", encoding="utf-8")
 
         # Convert to AST JSON with output file
         output_file = tmp_path / "output.ast"
-        convert(
-            str(md_file),
-            output=str(output_file),
-            source_format="markdown",
-            target_format="ast"
-        )
+        convert(str(md_file), output=str(output_file), source_format="markdown", target_format="ast")
 
         # Verify output file exists and is valid
         assert output_file.exists()
-        content = output_file.read_text(encoding='utf-8')
+        content = output_file.read_text(encoding="utf-8")
         data = json.loads(content)
         assert data["node_type"] == "Document"
 
     def test_convert_from_ast_json_with_output_file(self, tmp_path: Path):
         """Test converting from AST JSON with output file."""
         # Create AST JSON file
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text(content="Title")]), Paragraph(content=[Text(content="Content")])]
+        )
         ast_file = tmp_path / "input.ast"
-        ast_file.write_text(ast_to_json(doc), encoding='utf-8')
+        ast_file.write_text(ast_to_json(doc), encoding="utf-8")
 
         # Convert to markdown with output file
         output_file = tmp_path / "output.md"
-        convert(
-            str(ast_file),
-            output=str(output_file),
-            source_format="ast",
-            target_format="markdown"
-        )
+        convert(str(ast_file), output=str(output_file), source_format="ast", target_format="markdown")
 
         # Verify output file exists and has content
         assert output_file.exists()
-        content = output_file.read_text(encoding='utf-8')
+        content = output_file.read_text(encoding="utf-8")
         assert "Title" in content
         assert "Content" in content
 
@@ -147,7 +126,7 @@ class TestAstJsonIntegration:
         markdown = "# Header\n\nParagraph text."
 
         # Convert to AST
-        doc = to_ast(markdown.encode('utf-8'), source_format="markdown")
+        doc = to_ast(markdown.encode("utf-8"), source_format="markdown")
 
         # Convert AST to JSON using from_ast
         json_str = from_ast(doc, target_format="ast")
@@ -162,17 +141,11 @@ class TestAstJsonIntegration:
     def test_json_string_to_ast_via_convert(self):
         """Test converting JSON string to AST via convert function."""
         # Create AST JSON string
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
         json_str = ast_to_json(doc)
 
         # Convert to markdown
-        markdown = convert(
-            json_str.encode('utf-8'),
-            source_format="ast",
-            target_format="markdown"
-        )
+        markdown = convert(json_str.encode("utf-8"), source_format="ast", target_format="markdown")
 
         assert isinstance(markdown, str)
         assert "Test" in markdown
@@ -180,17 +153,12 @@ class TestAstJsonIntegration:
     def test_format_auto_detection_ast_json(self, tmp_path: Path):
         """Test automatic format detection for .ast files."""
         # Create AST JSON file
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Auto-detected")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Auto-detected")])])
         ast_file = tmp_path / "test.ast"
-        ast_file.write_text(ast_to_json(doc), encoding='utf-8')
+        ast_file.write_text(ast_to_json(doc), encoding="utf-8")
 
         # Convert without specifying source format
-        markdown = convert(
-            str(ast_file),
-            target_format="markdown"
-        )
+        markdown = convert(str(ast_file), target_format="markdown")
 
         assert isinstance(markdown, str)
         assert "Auto-detected" in markdown
@@ -201,11 +169,7 @@ class TestAstJsonIntegration:
         markdown = "# Title\n\n![alt text](image.png)\n\nParagraph."
 
         # Convert to AST JSON (should preserve image)
-        ast_json = convert(
-            markdown.encode('utf-8'),
-            source_format="markdown",
-            target_format="ast"
-        )
+        ast_json = convert(markdown.encode("utf-8"), source_format="markdown", target_format="ast")
 
         # Verify it's a str
         assert isinstance(ast_json, str)
@@ -217,11 +181,7 @@ class TestAstJsonIntegration:
 
         # Convert back with transform to remove images
         doc = json_to_ast(ast_json)
-        markdown_no_images = from_ast(
-            doc,
-            target_format="markdown",
-            transforms=["remove-images"]
-        )
+        markdown_no_images = from_ast(doc, target_format="markdown", transforms=["remove-images"])
 
         # Verify it's a str
         assert isinstance(markdown_no_images, str)
@@ -243,14 +203,10 @@ author: Test Author
 Test paragraph."""
 
         md_file = tmp_path / "input.md"
-        md_file.write_text(markdown_with_meta, encoding='utf-8')
+        md_file.write_text(markdown_with_meta, encoding="utf-8")
 
         # Convert to AST JSON
-        ast_json = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="ast"
-        )
+        ast_json = convert(str(md_file), source_format="markdown", target_format="ast")
 
         # Verify it's a str
         assert isinstance(ast_json, str)
@@ -266,8 +222,8 @@ Test paragraph."""
         original = "# Title\n\nContent."
 
         # Convert through AST
-        doc = to_ast(original.encode('utf-8'), source_format="markdown")
-        markdown = to_markdown(ast_to_json(doc).encode('utf-8'), source_format="ast")
+        doc = to_ast(original.encode("utf-8"), source_format="markdown")
+        markdown = to_markdown(ast_to_json(doc).encode("utf-8"), source_format="ast")
 
         # Verify content is preserved
         assert "Title" in markdown
@@ -294,11 +250,7 @@ Section content with **bold** and *italic*.
 Final paragraph."""
 
         # Convert to AST JSON
-        ast_json = convert(
-            complex_md.encode('utf-8'),
-            source_format="markdown",
-            target_format="ast"
-        )
+        ast_json = convert(complex_md.encode("utf-8"), source_format="markdown", target_format="ast")
 
         # Verify it's a str
         assert isinstance(ast_json, str)
@@ -309,11 +261,7 @@ Final paragraph."""
         assert len(data["children"]) > 5  # Multiple elements
 
         # Convert back to markdown
-        markdown = convert(
-            ast_json.encode('utf-8'),
-            source_format="ast",
-            target_format="markdown"
-        )
+        markdown = convert(ast_json.encode("utf-8"), source_format="ast", target_format="markdown")
 
         # Verify it's a str
         assert isinstance(markdown, str)
@@ -325,23 +273,18 @@ Final paragraph."""
 
     def test_ast_json_compact_format(self, tmp_path: Path):
         """Test AST JSON with compact formatting."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
 
         # Convert to compact JSON
         from all2md.options.ast_json import AstJsonRendererOptions
-        json_str = from_ast(
-            doc,
-            target_format="ast",
-            renderer_options=AstJsonRendererOptions(indent=None)
-        )
+
+        json_str = from_ast(doc, target_format="ast", renderer_options=AstJsonRendererOptions(indent=None))
 
         # Verify it's a str
         assert isinstance(json_str, str)
 
         # Verify it's compact (minimal whitespace)
-        lines = json_str.split('\n')
+        lines = json_str.split("\n")
         assert len([line for line in lines if line.strip()]) <= 2
 
         # Verify it's still valid and parseable

@@ -1,0 +1,432 @@
+{
+  "benchmark_run": {
+    "timestamp": "2025-10-20T22:14:22.520998",
+    "warmup_iterations": 1,
+    "default_iterations": 3
+  },
+  "results": [
+    {
+      "format": "pdf",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.pdf",
+      "file_size": 118375,
+      "file_size_mb": 0.11,
+      "iterations": 5,
+      "timings": [
+        0.2002603999862913,
+        0.16255189999355935,
+        0.1614186999941012,
+        0.22013490000972524,
+        0.17561269999714568
+      ],
+      "mean_time": 0.18399571999616454,
+      "median_time": 0.17561269999714568,
+      "min_time": 0.1614186999941012,
+      "max_time": 0.22013490000972524,
+      "std_dev": 0.025546107433498673,
+      "throughput_mbps": 0.6135533870404328,
+      "mean_formatted": "184ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:06.834322",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "pdf",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\complex.pdf",
+      "file_size": 165018,
+      "file_size_mb": 0.16,
+      "iterations": 3,
+      "timings": [
+        0.6602986000070814,
+        0.7183048000006238,
+        1.2767446000070777
+      ],
+      "mean_time": 0.8851160000049276,
+      "median_time": 0.7183048000006238,
+      "min_time": 0.6602986000070814,
+      "max_time": 1.2767446000070777,
+      "std_dev": 0.3403981493253977,
+      "throughput_mbps": 0.17779977804474265,
+      "mean_formatted": "885ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:10.446705",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "docx",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.docx",
+      "file_size": 20352,
+      "file_size_mb": 0.02,
+      "iterations": 5,
+      "timings": [
+        0.10513319999154191,
+        0.08373179999762215,
+        0.13475100000505336,
+        0.12337470000784378,
+        0.13313940000080038
+      ],
+      "mean_time": 0.11602602000057231,
+      "median_time": 0.12337470000784378,
+      "min_time": 0.08373179999762215,
+      "max_time": 0.13475100000505336,
+      "std_dev": 0.0215584433714367,
+      "throughput_mbps": 0.16728299124113938,
+      "mean_formatted": "116ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:11.384773",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "docx",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\complex.docx",
+      "file_size": 44171,
+      "file_size_mb": 0.04,
+      "iterations": 3,
+      "timings": [
+        0.26640570000745356,
+        0.37571560000651516,
+        0.36747149999428075
+      ],
+      "mean_time": 0.33653093333608314,
+      "median_time": 0.36747149999428075,
+      "min_time": 0.26640570000745356,
+      "max_time": 0.37571560000651516,
+      "std_dev": 0.0608699643362717,
+      "throughput_mbps": 0.12517348052492927,
+      "mean_formatted": "337ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:13.829087",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "docx",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\footnotes-endnotes-comments.docx",
+      "file_size": 21779,
+      "file_size_mb": 0.02,
+      "iterations": 3,
+      "timings": [
+        0.4005187000002479,
+        0.17271189999883063,
+        0.09032669999578502
+      ],
+      "mean_time": 0.22118576666495451,
+      "median_time": 0.17271189999883063,
+      "min_time": 0.09032669999578502,
+      "max_time": 0.4005187000002479,
+      "std_dev": 0.16067686836899095,
+      "throughput_mbps": 0.09390329789381789,
+      "mean_formatted": "221ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:15.071949",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "html",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.html",
+      "file_size": 2456,
+      "file_size_mb": 0.0,
+      "iterations": 10,
+      "timings": [
+        0.022263099992414936,
+        0.019308899994939566,
+        0.01959500000521075,
+        0.021154700007173233,
+        0.020145800008322112,
+        0.021765900004538707,
+        0.023100800011889078,
+        0.02125000000523869,
+        0.02388809999683872,
+        0.021529599995119497
+      ],
+      "mean_time": 0.02140019000216853,
+      "median_time": 0.021389800000179093,
+      "min_time": 0.019308899994939566,
+      "max_time": 0.02388809999683872,
+      "std_dev": 0.0014630788085044232,
+      "throughput_mbps": 0.10944875353239421,
+      "mean_formatted": "21ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:16.612102",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "html",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\html_readability_article.html",
+      "file_size": 1166,
+      "file_size_mb": 0.0,
+      "iterations": 5,
+      "timings": [
+        0.010850499995285645,
+        0.011818400002084672,
+        0.012094799996702932,
+        0.011106000005383976,
+        0.01133290000143461
+      ],
+      "mean_time": 0.011440520000178367,
+      "median_time": 0.01133290000143461,
+      "min_time": 0.010850499995285645,
+      "max_time": 0.012094799996702932,
+      "std_dev": 0.000510510750845011,
+      "throughput_mbps": 0.09719700266354596,
+      "mean_formatted": "11ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:16.870256",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "pptx",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.pptx",
+      "file_size": 39190,
+      "file_size_mb": 0.04,
+      "iterations": 5,
+      "timings": [
+        0.06497430001036264,
+        0.06125850000535138,
+        0.05482540000230074,
+        0.05182399999466725,
+        0.05595930000708904
+      ],
+      "mean_time": 0.05776830000395421,
+      "median_time": 0.05595930000708904,
+      "min_time": 0.05182399999466725,
+      "max_time": 0.06497430001036264,
+      "std_dev": 0.005276736115983778,
+      "throughput_mbps": 0.6469724131989807,
+      "mean_formatted": "58ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:17.393650",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "xlsx",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.xlsx",
+      "file_size": 9839,
+      "file_size_mb": 0.01,
+      "iterations": 5,
+      "timings": [
+        0.01484280001022853,
+        0.013926500003435649,
+        0.014733299991348758,
+        0.016107100003864616,
+        0.01693399999930989
+      ],
+      "mean_time": 0.015308740001637488,
+      "median_time": 0.01484280001022853,
+      "min_time": 0.013926500003435649,
+      "max_time": 0.01693399999930989,
+      "std_dev": 0.0011976714331207964,
+      "throughput_mbps": 0.6129310183671175,
+      "mean_formatted": "15ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:18.569554",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "odt",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.odt",
+      "file_size": 13583,
+      "file_size_mb": 0.01,
+      "iterations": 5,
+      "timings": [
+        0.06311430000641849,
+        0.05912170000374317,
+        0.04040060000261292,
+        0.03640120000636671,
+        0.03748549999727402
+      ],
+      "mean_time": 0.04730466000328306,
+      "median_time": 0.04040060000261292,
+      "min_time": 0.03640120000636671,
+      "max_time": 0.06311430000641849,
+      "std_dev": 0.012772573536899586,
+      "throughput_mbps": 0.27383683211859194,
+      "mean_formatted": "47ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:19.136172",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "odt",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\complex.odt",
+      "file_size": 21660,
+      "file_size_mb": 0.02,
+      "iterations": 3,
+      "timings": [
+        0.05371999999624677,
+        0.044292000005953014,
+        0.04446769999049138
+      ],
+      "mean_time": 0.047493233330897056,
+      "median_time": 0.04446769999049138,
+      "min_time": 0.044292000005953014,
+      "max_time": 0.05371999999624677,
+      "std_dev": 0.005393253651523772,
+      "throughput_mbps": 0.43493744781366755,
+      "mean_formatted": "47ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:19.483450",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "epub",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\generated\\epub-simple.epub",
+      "file_size": 2681,
+      "file_size_mb": 0.0,
+      "iterations": 3,
+      "timings": [
+        0.012414000011631288,
+        0.012958999999682419,
+        0.013134699998772703
+      ],
+      "mean_time": 0.012835900003362136,
+      "median_time": 0.012958999999682419,
+      "min_time": 0.012414000011631288,
+      "max_time": 0.013134699998772703,
+      "std_dev": 0.000375788936355169,
+      "throughput_mbps": 0.19919139613236686,
+      "mean_formatted": "13ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:19.707626",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "ipynb",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\generated\\ipynb-simple.ipynb",
+      "file_size": 544,
+      "file_size_mb": 0.0,
+      "iterations": 5,
+      "timings": [
+        0.005585399994743057,
+        0.005891699998755939,
+        0.006514299995615147,
+        0.005616599999484606,
+        0.0061264999967534095
+      ],
+      "mean_time": 0.005946899997070432,
+      "median_time": 0.005891699998755939,
+      "min_time": 0.005585399994743057,
+      "max_time": 0.006514299995615147,
+      "std_dev": 0.00038633738433410675,
+      "throughput_mbps": 0.08723853240857779,
+      "mean_formatted": "6ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:19.928820",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "mhtml",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\generated\\mhtml-simple.mht",
+      "file_size": 642,
+      "file_size_mb": 0.0,
+      "iterations": 5,
+      "timings": [
+        0.00839550000091549,
+        0.006744700003764592,
+        0.011266500005149283,
+        0.007287699991138652,
+        0.006753499998012558
+      ],
+      "mean_time": 0.008089579999796115,
+      "median_time": 0.007287699991138652,
+      "min_time": 0.006744700003764592,
+      "max_time": 0.011266500005149283,
+      "std_dev": 0.0018988964749739677,
+      "throughput_mbps": 0.07568488242260334,
+      "mean_formatted": "8ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:20.125502",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "csv",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.csv",
+      "file_size": 131,
+      "file_size_mb": 0.0,
+      "iterations": 10,
+      "timings": [
+        0.0028491999983089045,
+        0.0027630999975372106,
+        0.00313649998861365,
+        0.003158799998345785,
+        0.002972400005091913,
+        0.00279499999305699,
+        0.0026934999914374202,
+        0.0037518000026466325,
+        0.0034062999911839142,
+        0.002812399994581938
+      ],
+      "mean_time": 0.0030338999960804356,
+      "median_time": 0.0029108000017004088,
+      "min_time": 0.0026934999914374202,
+      "max_time": 0.0037518000026466325,
+      "std_dev": 0.0003355634643341324,
+      "throughput_mbps": 0.041178461917208996,
+      "mean_formatted": "3ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:20.295334",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "rtf",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic-format.rtf",
+      "file_size": 42041,
+      "file_size_mb": 0.04,
+      "iterations": 5,
+      "timings": [
+        0.039172899996628985,
+        0.04138289998809341,
+        0.041591400004108436,
+        0.0515056000003824,
+        0.055439599993405864
+      ],
+      "mean_time": 0.04581847999652382,
+      "median_time": 0.041591400004108436,
+      "min_time": 0.039172899996628985,
+      "max_time": 0.055439599993405864,
+      "std_dev": 0.00718706464318292,
+      "throughput_mbps": 0.8750491491441224,
+      "mean_formatted": "46ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:20.713834",
+        "git_commit": "95fc4ccd"
+      }
+    },
+    {
+      "format": "md->docx->md",
+      "file_path": "C:\\Users\\thomas.villani\\pycharmprojects\\mdparse\\tests\\fixtures\\documents\\basic.md",
+      "file_size": 1420,
+      "file_size_mb": 0.0,
+      "iterations": 3,
+      "timings": [
+        0.19316599999729078,
+        0.2282085999904666,
+        0.2274695999949472
+      ],
+      "mean_time": 0.21628139999423487,
+      "median_time": 0.2274695999949472,
+      "min_time": 0.19316599999729078,
+      "max_time": 0.2282085999904666,
+      "std_dev": 0.02002193342343307,
+      "throughput_mbps": 0.006261368427118432,
+      "mean_formatted": "216ms",
+      "metadata": {
+        "timestamp": "2025-10-20T22:14:21.727097",
+        "git_commit": "95fc4ccd"
+      }
+    }
+  ]
+}

@@ -28,12 +28,7 @@ class ProgressTracker:
 
 def test_progress_event_creation():
     """Test ProgressEvent creation and string representation."""
-    event = ProgressEvent(
-        event_type="started",
-        message="Converting document",
-        current=0,
-        total=10
-    )
+    event = ProgressEvent(event_type="started", message="Converting document", current=0, total=10)
     assert event.event_type == "started"
     assert event.message == "Converting document"
     assert event.current == 0
@@ -44,11 +39,7 @@ def test_progress_event_creation():
 def test_progress_event_with_metadata():
     """Test ProgressEvent with metadata."""
     event = ProgressEvent(
-        event_type="table_detected",
-        message="Found tables",
-        current=5,
-        total=10,
-        metadata={"table_count": 3, "page": 5}
+        event_type="table_detected", message="Found tables", current=5, total=10, metadata={"table_count": 3, "page": 5}
     )
     assert event.metadata["table_count"] == 3
     assert event.metadata["page"] == 5
@@ -109,12 +100,7 @@ def test_progress_callback_exception_handling(tmp_path):
 
 def test_progress_event_string_no_total():
     """Test ProgressEvent string representation without total."""
-    event = ProgressEvent(
-        event_type="finished",
-        message="Done",
-        current=1,
-        total=0
-    )
+    event = ProgressEvent(event_type="finished", message="Done", current=1, total=0)
     assert "(0/0)" not in str(event) or str(event) == "[FINISHED] Done"
 
 
@@ -128,7 +114,7 @@ class TestCanonicalEventTypes:
             message="Page 5 processed",
             current=5,
             total=10,
-            metadata={"item_type": "page", "page": 5}
+            metadata={"item_type": "page", "page": 5},
         )
         assert event.event_type == "item_done"
         assert event.metadata["item_type"] == "page"
@@ -141,7 +127,7 @@ class TestCanonicalEventTypes:
             message="Found 3 tables",
             current=2,
             total=10,
-            metadata={"detected_type": "table", "table_count": 3, "page": 2}
+            metadata={"detected_type": "table", "table_count": 3, "page": 2},
         )
         assert event.event_type == "detected"
         assert event.metadata["detected_type"] == "table"
@@ -154,7 +140,7 @@ class TestCanonicalEventTypes:
             message="Failed to process page 3",
             current=3,
             total=10,
-            metadata={"error": "Invalid PDF structure", "stage": "page_processing", "page": 3}
+            metadata={"error": "Invalid PDF structure", "stage": "page_processing", "page": 3},
         )
         assert event.event_type == "error"
         assert event.metadata["error"] == "Invalid PDF structure"
@@ -162,24 +148,14 @@ class TestCanonicalEventTypes:
 
     def test_started_event(self):
         """Test started event format."""
-        event = ProgressEvent(
-            event_type="started",
-            message="Beginning conversion",
-            current=0,
-            total=100
-        )
+        event = ProgressEvent(event_type="started", message="Beginning conversion", current=0, total=100)
         assert event.event_type == "started"
         assert event.current == 0
         assert event.total == 100
 
     def test_finished_event(self):
         """Test finished event format."""
-        event = ProgressEvent(
-            event_type="finished",
-            message="Conversion complete",
-            current=100,
-            total=100
-        )
+        event = ProgressEvent(event_type="finished", message="Conversion complete", current=100, total=100)
         assert event.event_type == "finished"
         assert event.current == event.total
 
@@ -190,7 +166,7 @@ class TestCanonicalEventTypes:
             message="Tokenization complete",
             current=30,
             total=100,
-            metadata={"item_type": "tokenization"}
+            metadata={"item_type": "tokenization"},
         )
         assert event.event_type == "item_done"
         assert event.metadata["item_type"] == "tokenization"
@@ -198,11 +174,7 @@ class TestCanonicalEventTypes:
     def test_item_done_preamble(self):
         """Test item_done event for preamble parsing stage."""
         event = ProgressEvent(
-            event_type="item_done",
-            message="Preamble parsed",
-            current=20,
-            total=100,
-            metadata={"item_type": "preamble"}
+            event_type="item_done", message="Preamble parsed", current=20, total=100, metadata={"item_type": "preamble"}
         )
         assert event.event_type == "item_done"
         assert event.metadata["item_type"] == "preamble"

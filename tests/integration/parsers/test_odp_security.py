@@ -58,10 +58,9 @@ class TestOdpUrlSanitization:
 
         # Define basic page layout
         page_layout = PageLayout(name="StandardLayout")
-        page_layout.addElement(PageLayoutProperties(
-            margintop="1in", marginbottom="1in",
-            marginleft="1in", marginright="1in"
-        ))
+        page_layout.addElement(
+            PageLayoutProperties(margintop="1in", marginbottom="1in", marginleft="1in", marginright="1in")
+        )
         doc.automaticstyles.addElement(page_layout)
 
         # Master page
@@ -70,7 +69,7 @@ class TestOdpUrlSanitization:
 
         # Create slides with links
         for i, (url, text) in enumerate(links):
-            slide = Page(name=f"Slide{i+1}", masterpagename=master_page, stylename="StandardLayout")
+            slide = Page(name=f"Slide{i + 1}", masterpagename=master_page, stylename="StandardLayout")
 
             # Content frame with link
             frame = Frame(width="8in", height="4in", x="1in", y="2in")
@@ -94,9 +93,7 @@ class TestOdpUrlSanitization:
 
     def test_javascript_url_blocked(self):
         """Test that javascript: URLs in ODP links are blocked."""
-        odp_path = self._create_odp_with_links([
-            ("javascript:alert('xss')", "Malicious Link")
-        ])
+        odp_path = self._create_odp_with_links([("javascript:alert('xss')", "Malicious Link")])
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -110,9 +107,7 @@ class TestOdpUrlSanitization:
 
     def test_vbscript_url_blocked(self):
         """Test that vbscript: URLs in ODP links are blocked."""
-        odp_path = self._create_odp_with_links([
-            ("vbscript:msgbox('xss')", "VBScript Attack")
-        ])
+        odp_path = self._create_odp_with_links([("vbscript:msgbox('xss')", "VBScript Attack")])
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -126,9 +121,7 @@ class TestOdpUrlSanitization:
 
     def test_data_html_url_blocked(self):
         """Test that data:text/html URLs in ODP links are blocked."""
-        odp_path = self._create_odp_with_links([
-            ("data:text/html,<script>alert('xss')</script>", "Data HTML")
-        ])
+        odp_path = self._create_odp_with_links([("data:text/html,<script>alert('xss')</script>", "Data HTML")])
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -142,9 +135,7 @@ class TestOdpUrlSanitization:
 
     def test_safe_url_preserved(self):
         """Test that safe URLs in ODP links are preserved."""
-        odp_path = self._create_odp_with_links([
-            ("https://example.com", "Example Link")
-        ])
+        odp_path = self._create_odp_with_links([("https://example.com", "Example Link")])
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -158,14 +149,16 @@ class TestOdpUrlSanitization:
 
     def test_multiple_mixed_urls_across_slides(self):
         """Test presentation with multiple slides containing mixed safe and dangerous URLs."""
-        odp_path = self._create_odp_with_links([
-            ("javascript:void(0)", "JS Link"),
-            ("https://example.com", "Safe Link"),
-            ("vbscript:msgbox('xss')", "VBS Link"),
-            ("mailto:test@example.com", "Email Link"),
-            ("data:text/javascript,alert('xss')", "Data Link"),
-            ("tel:+1234567890", "Phone Link"),
-        ])
+        odp_path = self._create_odp_with_links(
+            [
+                ("javascript:void(0)", "JS Link"),
+                ("https://example.com", "Safe Link"),
+                ("vbscript:msgbox('xss')", "VBS Link"),
+                ("mailto:test@example.com", "Email Link"),
+                ("data:text/javascript,alert('xss')", "Data Link"),
+                ("tel:+1234567890", "Phone Link"),
+            ]
+        )
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -185,12 +178,14 @@ class TestOdpUrlSanitization:
 
     def test_case_insensitive_scheme_detection(self):
         """Test that scheme detection is case-insensitive."""
-        odp_path = self._create_odp_with_links([
-            ("JAVASCRIPT:alert('XSS')", "Upper"),
-            ("JavaScript:alert('XSS')", "Mixed"),
-            ("JaVaScRiPt:alert('XSS')", "Weird"),
-            ("HTTPS://example.com", "Safe Upper"),
-        ])
+        odp_path = self._create_odp_with_links(
+            [
+                ("JAVASCRIPT:alert('XSS')", "Upper"),
+                ("JavaScript:alert('XSS')", "Mixed"),
+                ("JaVaScRiPt:alert('XSS')", "Weird"),
+                ("HTTPS://example.com", "Safe Upper"),
+            ]
+        )
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -208,10 +203,12 @@ class TestOdpUrlSanitization:
 
     def test_file_url_handling(self):
         """Test that file:// URLs are handled according to security policy."""
-        odp_path = self._create_odp_with_links([
-            ("file:///etc/passwd", "System File"),
-            ("file:///home/user/.ssh/id_rsa", "SSH Key"),
-        ])
+        odp_path = self._create_odp_with_links(
+            [
+                ("file:///etc/passwd", "System File"),
+                ("file:///home/user/.ssh/id_rsa", "SSH Key"),
+            ]
+        )
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -225,10 +222,12 @@ class TestOdpUrlSanitization:
 
     def test_mailto_tel_schemes_allowed(self):
         """Test that mailto: and tel: schemes are allowed (safe)."""
-        odp_path = self._create_odp_with_links([
-            ("mailto:info@example.com", "Email Us"),
-            ("tel:+1-555-0100", "Phone"),
-        ])
+        odp_path = self._create_odp_with_links(
+            [
+                ("mailto:info@example.com", "Email Us"),
+                ("tel:+1-555-0100", "Phone"),
+            ]
+        )
 
         try:
             result = to_markdown(odp_path, source_format="odp")
@@ -242,12 +241,14 @@ class TestOdpUrlSanitization:
 
     def test_presentation_with_title_slide_and_dangerous_links(self):
         """Test full presentation structure with title and content slides containing XSS attempts."""
-        odp_path = self._create_odp_with_links([
-            ("https://example.com", "Title Link"),
-            ("javascript:alert('slide1')", "Slide 1 Danger"),
-            ("https://safe.com", "Slide 1 Safe"),
-            ("vbscript:msgbox('slide2')", "Slide 2 Danger"),
-        ])
+        odp_path = self._create_odp_with_links(
+            [
+                ("https://example.com", "Title Link"),
+                ("javascript:alert('slide1')", "Slide 1 Danger"),
+                ("https://safe.com", "Slide 1 Safe"),
+                ("vbscript:msgbox('slide2')", "Slide 2 Danger"),
+            ]
+        )
 
         try:
             result = to_markdown(odp_path, source_format="odp")

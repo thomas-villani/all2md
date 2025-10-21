@@ -407,9 +407,7 @@ class TestLinkAndImageSerialization:
 
     def test_image_roundtrip(self) -> None:
         """Test round-trip conversion of image."""
-        image = Image(
-            url="data:image/png;base64,abc123", alt_text="Test image", title="Title", width=100, height=200
-        )
+        image = Image(url="data:image/png;base64,abc123", alt_text="Test image", title="Title", width=100, height=200)
 
         para = Paragraph(content=[image])
         json_str = ast_to_json(para)

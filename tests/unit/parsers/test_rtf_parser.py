@@ -272,7 +272,7 @@ class TestTextFormatting:
         str(para_node)
         assert "Strong" in str(type(para_node.content[0]))
         # Inner formatting should be Emphasis
-        if hasattr(para_node.content[0], 'content'):
+        if hasattr(para_node.content[0], "content"):
             assert "Emphasis" in str(type(para_node.content[0].content[0]))
 
     def test_mixed_formatting_runs(self) -> None:
@@ -419,7 +419,7 @@ class TestEdgeCases:
 
     def test_text_with_special_characters(self) -> None:
         """Test text containing special characters."""
-        text = _create_mock_pyth_text("Text with <special> & \"chars\"")
+        text = _create_mock_pyth_text('Text with <special> & "chars"')
         para = _create_mock_pyth_paragraph(text)
         doc = _create_mock_pyth_document(para)
 

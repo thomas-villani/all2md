@@ -1,11 +1,10 @@
 """Tests for DOCX Markdown character escaping edge cases."""
 
 import docx
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import DocxOptions
-from all2md import to_markdown as docx_to_markdown
+from all2md import DocxOptions, to_markdown as docx_to_markdown
 from all2md.options import MarkdownOptions
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxEscaping:
@@ -106,7 +105,9 @@ class TestDocxEscaping:
         # Test with escaping disabled
         parser_options_no_escape = DocxOptions()
         renderer_options_no_escape = MarkdownOptions(escape_special=False)
-        markdown_no_escape = docx_to_markdown(str(temp_file), parser_options=parser_options_no_escape, renderer_options=renderer_options_no_escape)
+        markdown_no_escape = docx_to_markdown(
+            str(temp_file), parser_options=parser_options_no_escape, renderer_options=renderer_options_no_escape
+        )
         assert_markdown_valid(markdown_no_escape)
 
     def test_code_blocks_and_inline_code(self):
@@ -213,13 +214,17 @@ class TestDocxEscaping:
         # Test with asterisk emphasis
         parser_options_asterisk = DocxOptions()
         renderer_options_asterisk = MarkdownOptions(emphasis_symbol="*")
-        markdown_asterisk = docx_to_markdown(str(temp_file), parser_options=parser_options_asterisk, renderer_options=renderer_options_asterisk)
+        markdown_asterisk = docx_to_markdown(
+            str(temp_file), parser_options=parser_options_asterisk, renderer_options=renderer_options_asterisk
+        )
         assert_markdown_valid(markdown_asterisk)
 
         # Test with underscore emphasis
         parser_options_underscore = DocxOptions()
         renderer_options_underscore = MarkdownOptions(emphasis_symbol="_")
-        markdown_underscore = docx_to_markdown(str(temp_file), parser_options=parser_options_underscore, renderer_options=renderer_options_underscore)
+        markdown_underscore = docx_to_markdown(
+            str(temp_file), parser_options=parser_options_underscore, renderer_options=renderer_options_underscore
+        )
         assert_markdown_valid(markdown_underscore)
 
         # Both should contain the text

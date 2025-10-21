@@ -2,11 +2,10 @@
 
 from unittest.mock import Mock, patch
 
-from utils import cleanup_test_dir, create_test_temp_dir
-
 from all2md import to_markdown as pdf_to_markdown
 from all2md.options import PdfOptions
 from all2md.parsers.pdf import IdentifyHeaders, detect_columns
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
 class TestPdfLayoutAdvanced:
@@ -98,7 +97,7 @@ class TestPdfLayoutAdvanced:
         assert len(columns[0]) == len(blocks)
 
     # TODO: remove or refactor
-    @patch('all2md.parsers.pdf.fitz.open')
+    @patch("all2md.parsers.pdf.fitz.open")
     def test_rotated_text_handling(self, mock_fitz_open):
         """Test handling of rotated text blocks."""
         # Mock PDF with rotated text
@@ -112,7 +111,7 @@ class TestPdfLayoutAdvanced:
             "bbox": (100, 100, 200, 120),
             "size": 12.0,
             "flags": 0,
-            "dir": (0, 1)  # 90-degree rotation
+            "dir": (0, 1),  # 90-degree rotation
         }
 
         normal_span = {
@@ -120,7 +119,7 @@ class TestPdfLayoutAdvanced:
             "bbox": (100, 150, 200, 170),
             "size": 12.0,
             "flags": 0,
-            "dir": (1, 0)  # No rotation
+            "dir": (1, 0),  # No rotation
         }
 
         mock_line1 = {"spans": [rotated_span], "dir": (0, 1), "bbox": (100, 100, 200, 120)}
@@ -181,7 +180,7 @@ class TestPdfLayoutAdvanced:
             "Column 1 Bottom",
             "Column 2 Top",
             "Column 2 Middle",
-            "Column 2 Bottom"
+            "Column 2 Bottom",
         ]
 
         actual_order = []
@@ -207,7 +206,7 @@ class TestPdfLayoutAdvanced:
         columns_large = detect_columns(blocks, column_gap_threshold=50)
         assert len(columns_large) <= 3
 
-    @patch('all2md.parsers.pdf.fitz.open')
+    @patch("all2md.parsers.pdf.fitz.open")
     def test_header_detection_with_rotation(self, mock_fitz_open):
         """Test header detection considering rotated text."""
         mock_doc = Mock()
@@ -219,7 +218,7 @@ class TestPdfLayoutAdvanced:
             "bbox": (100, 50, 400, 80),
             "size": 18.0,
             "flags": 16,  # Bold flag
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         rotated_sidebar = {
@@ -227,7 +226,7 @@ class TestPdfLayoutAdvanced:
             "bbox": (500, 100, 520, 400),
             "size": 10.0,
             "flags": 0,
-            "dir": (0, 1)  # Rotated
+            "dir": (0, 1),  # Rotated
         }
 
         body_span = {
@@ -235,7 +234,7 @@ class TestPdfLayoutAdvanced:
             "bbox": (100, 100, 400, 120),
             "size": 12.0,
             "flags": 0,
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         mock_lines = [
@@ -253,10 +252,7 @@ class TestPdfLayoutAdvanced:
         mock_fitz_open.return_value = mock_doc
 
         # Header detection should consider rotation
-        options = PdfOptions(
-            header_use_font_weight=True,
-            handle_rotated_text=True
-        )
+        options = PdfOptions(header_use_font_weight=True, handle_rotated_text=True)
 
         header_analyzer = IdentifyHeaders(mock_doc, options=options)
 
@@ -274,10 +270,8 @@ class TestPdfLayoutAdvanced:
             # Text blocks in two columns
             {"bbox": [50, 100, 200, 150], "type": "text"},
             {"bbox": [300, 100, 450, 150], "type": "text"},
-
             # Image spanning partial width
             {"bbox": [50, 200, 250, 300], "type": "image"},
-
             # Text continues in columns
             {"bbox": [300, 200, 450, 250], "type": "text"},
             {"bbox": [50, 350, 200, 400], "type": "text"},

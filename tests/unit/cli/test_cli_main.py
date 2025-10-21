@@ -7,24 +7,27 @@ option propagation, and error handling.
 from unittest.mock import patch
 
 import pytest
-from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md.cli import main
 from all2md.exceptions import MalformedFileError, ParsingError
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
-def mock_convert_with_file_write(return_value='# Test\n\nContent'):
+def mock_convert_with_file_write(return_value="# Test\n\nContent"):
     """Helper to mock convert() with proper file writing behavior."""
+
     def side_effect(*args, **kwargs):
-        output = kwargs.get('output')
+        output = kwargs.get("output")
         if output:
             # Write to file like real convert() does
             from pathlib import Path
-            Path(output).write_text(return_value, encoding='utf-8')
+
+            Path(output).write_text(return_value, encoding="utf-8")
             return None  # convert() returns None when writing to file
         else:
             # Return content when outputting to stdout
             return return_value
+
     return side_effect
 
 
@@ -313,7 +316,8 @@ class TestCLIIntegration:
     def test_complex_option_combination(self):
         """Test complex combination of multiple options."""
         html_file = self.temp_dir / "complex.html"
-        html_file.write_text("""
+        html_file.write_text(
+            """
         <html>
         <head><title>Complex Test</title></head>
         <body>
@@ -323,7 +327,8 @@ class TestCLIIntegration:
             <script>alert('remove me');</script>
         </body>
         </html>
-        """)
+        """
+        )
 
         output_file = self.temp_dir / "complex_output.md"
 
@@ -488,7 +493,9 @@ class TestCLIIntegration:
         # Single file to stdout uses to_markdown
         with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             # Test with tables enabled
-            mock_to_markdown.return_value = "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
+            mock_to_markdown.return_value = (
+                "# Document\n\n| Header | Header2 |\n|--------|--------|\n| Cell1  | Cell2   |"
+            )
 
             result = main(
                 [
@@ -660,9 +667,11 @@ class TestCLIIntegration:
         output_file = self.temp_dir / "complex_output.md"
 
         with patch("all2md.cli.processors.convert") as mock_convert:
-            mock_convert.side_effect = mock_convert_with_file_write("""# Complex Notebook
+            mock_convert.side_effect = mock_convert_with_file_write(
+                """# Complex Notebook
 
-Code and outputs with custom settings.""")
+Code and outputs with custom settings."""
+            )
 
             result = main([str(ipynb_file), "--out", str(output_file), "--attachment-mode", "base64"])
 
@@ -680,7 +689,8 @@ Code and outputs with custom settings.""")
         output_file = self.temp_dir / "complex_output.md"
 
         with patch("all2md.cli.processors.convert") as mock_convert:
-            mock_convert.side_effect = mock_convert_with_file_write("""# Complex Document
+            mock_convert.side_effect = mock_convert_with_file_write(
+                """# Complex Document
 
 This is a complex document with:
 
@@ -692,7 +702,8 @@ This is a complex document with:
 |-------|------|
 | Row1  | Val1 |
 
-![Image alt text](data:image/png;base64,iVBORw...)""")
+![Image alt text](data:image/png;base64,iVBORw...)"""
+            )
 
             result = main(
                 [
@@ -797,14 +808,15 @@ class TestAdvancedCLIIntegration:
 
             def mock_conversion(input_path, **kwargs):
                 from pathlib import Path
-                output = kwargs.get('output')
+
+                output = kwargs.get("output")
                 if "html" in str(input_path):
                     content = "# HTML Test\n\nHTML content"
                 else:
                     content = "# Markdown Test\n\nMarkdown content"
 
                 if output:
-                    Path(output).write_text(content, encoding='utf-8')
+                    Path(output).write_text(content, encoding="utf-8")
                     return None
                 return content
 
@@ -963,9 +975,9 @@ class TestAdvancedCLIIntegration:
                 time.sleep(0.1)  # Simulate processing time
                 content = f"# Converted {input_path.name}\n\nContent"
 
-                output = kwargs.get('output')
+                output = kwargs.get("output")
                 if output:
-                    Path(output).write_text(content, encoding='utf-8')
+                    Path(output).write_text(content, encoding="utf-8")
                     return None
                 return content
 
@@ -996,13 +1008,14 @@ class TestAdvancedCLIIntegration:
 
             def selective_error(input_path, **kwargs):
                 from pathlib import Path
+
                 if "bad" in str(input_path):
                     raise Exception("Simulated conversion error")
 
                 content = "# Good File\n\nContent"
-                output = kwargs.get('output')
+                output = kwargs.get("output")
                 if output:
-                    Path(output).write_text(content, encoding='utf-8')
+                    Path(output).write_text(content, encoding="utf-8")
                     return None
                 return content
 
@@ -1604,9 +1617,10 @@ class TestEnhancedCLIIntegration:
         output_file = self.temp_dir / "output.md"
 
         # Need to mock both convert (for file output) and to_markdown (for stdout)
-        with patch("all2md.cli.processors.convert") as mock_convert, \
-             patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
-
+        with (
+            patch("all2md.cli.processors.convert") as mock_convert,
+            patch("all2md.cli.processors.to_markdown") as mock_to_markdown,
+        ):
             mock_convert.side_effect = mock_convert_with_file_write("# Test\n\nContent")
             mock_to_markdown.return_value = "# Test\n\nContent"
 

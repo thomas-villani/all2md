@@ -1,6 +1,5 @@
 """Unit tests for MCP security module."""
 
-
 import pytest
 
 from all2md.mcp.security import (
@@ -70,10 +69,7 @@ class TestValidateReadPath:
         # Prepare allowlist (returns validated Path objects)
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
-        result = validate_read_path(
-            str(test_file),
-            allowlist
-        )
+        result = validate_read_path(str(test_file), allowlist)
         assert result == test_file.resolve()
 
     def test_validate_read_path_not_in_allowlist(self, tmp_path):
@@ -89,10 +85,7 @@ class TestValidateReadPath:
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         with pytest.raises(MCPSecurityError, match="not in allowlist"):
-            validate_read_path(
-                str(test_file),
-                allowlist
-            )
+            validate_read_path(str(test_file), allowlist)
 
     def test_validate_read_path_nonexistent(self, tmp_path):
         """Test that nonexistent file is denied."""
@@ -103,10 +96,7 @@ class TestValidateReadPath:
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         with pytest.raises(MCPSecurityError, match="does not exist"):
-            validate_read_path(
-                str(nonexistent),
-                allowlist
-            )
+            validate_read_path(str(nonexistent), allowlist)
 
     def test_validate_read_path_is_directory(self, tmp_path):
         """Test that directory (not file) is denied."""
@@ -118,10 +108,7 @@ class TestValidateReadPath:
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         with pytest.raises(MCPSecurityError, match="not a file"):
-            validate_read_path(
-                str(subdir),
-                allowlist
-            )
+            validate_read_path(str(subdir), allowlist)
 
 
 class TestValidateWritePath:
@@ -144,10 +131,7 @@ class TestValidateWritePath:
 
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
-        result = validate_write_path(
-            str(output_file),
-            allowlist
-        )
+        result = validate_write_path(str(output_file), allowlist)
         assert result.parent == allowed_dir.resolve()
         assert result.name == "output.txt"
 
@@ -163,10 +147,7 @@ class TestValidateWritePath:
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         with pytest.raises(MCPSecurityError, match="not in allowlist"):
-            validate_write_path(
-                str(output_file),
-                allowlist
-            )
+            validate_write_path(str(output_file), allowlist)
 
     def test_validate_write_path_parent_not_exists(self, tmp_path):
         """Test that nonexistent parent directory is denied."""
@@ -178,10 +159,7 @@ class TestValidateWritePath:
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         with pytest.raises(MCPSecurityError, match="parent directory does not exist"):
-            validate_write_path(
-                str(nonexistent_parent),
-                allowlist
-            )
+            validate_write_path(str(nonexistent_parent), allowlist)
 
     def test_validate_write_path_traversal(self, tmp_path):
         """Test that path traversal (..) is denied."""
@@ -194,7 +172,4 @@ class TestValidateWritePath:
         allowlist = prepare_allowlist_dirs([str(allowed_dir)])
 
         with pytest.raises(MCPSecurityError, match="parent directory"):
-            validate_write_path(
-                str(traversal_path),
-                allowlist
-            )
+            validate_write_path(str(traversal_path), allowlist)

@@ -134,4 +134,3 @@ def test_batch_from_list_stdin_allowed():
 
     # Should not have the stdin conflict error
     assert not any("stdin input" in p.message for p in problems)
-

@@ -19,29 +19,23 @@ class TestAstJsonContentDetector:
 
     def test_detect_valid_ast_json(self):
         """Test detection of valid AST JSON content."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello")])])
         json_str = ast_to_json(doc)
-        content = json_str.encode('utf-8')
+        content = json_str.encode("utf-8")
 
         assert _is_ast_json_content(content)
 
     def test_detect_ast_json_without_schema_version(self):
         """Test detection of AST JSON without schema_version field."""
-        ast_dict = {
-            "node_type": "Document",
-            "children": [],
-            "metadata": {}
-        }
-        content = json.dumps(ast_dict).encode('utf-8')
+        ast_dict = {"node_type": "Document", "children": [], "metadata": {}}
+        content = json.dumps(ast_dict).encode("utf-8")
 
         assert _is_ast_json_content(content)
 
     def test_detect_regular_json_not_ast(self):
         """Test that regular JSON is not detected as AST."""
         regular_json = {"name": "test", "value": 123}
-        content = json.dumps(regular_json).encode('utf-8')
+        content = json.dumps(regular_json).encode("utf-8")
 
         assert not _is_ast_json_content(content)
 
@@ -63,20 +57,17 @@ class TestAstJsonContentDetector:
         # But keep the structure parseable in the prefix
         large_children = []
         for i in range(1000):
-            large_children.append({
-                "node_type": "Paragraph",
-                "content": [{"node_type": "Text", "content": f"Content {i}" * 50}],
-                "metadata": {}
-            })
+            large_children.append(
+                {
+                    "node_type": "Paragraph",
+                    "content": [{"node_type": "Text", "content": f"Content {i}" * 50}],
+                    "metadata": {},
+                }
+            )
 
-        large_ast = {
-            "schema_version": 1,
-            "node_type": "Document",
-            "children": large_children,
-            "metadata": {}
-        }
+        large_ast = {"schema_version": 1, "node_type": "Document", "children": large_children, "metadata": {}}
 
-        content = json.dumps(large_ast).encode('utf-8')
+        content = json.dumps(large_ast).encode("utf-8")
         # Ensure content is larger than 256 KB to test sampling
         assert len(content) > 262144
 
@@ -91,16 +82,11 @@ class TestAstJsonContentDetector:
     def test_detect_ast_json_node_type_in_prefix(self):
         """Test detection when node_type appears in the first 256 KB."""
         # Create content where key indicators are in the prefix
-        ast_dict = {
-            "schema_version": 1,
-            "node_type": "Document",
-            "children": [],
-            "metadata": {}
-        }
-        content = json.dumps(ast_dict).encode('utf-8')
+        ast_dict = {"schema_version": 1, "node_type": "Document", "children": [], "metadata": {}}
+        content = json.dumps(ast_dict).encode("utf-8")
 
         # Pad with additional data after to simulate large file
-        padded_content = content + (b' ' * 300000)
+        padded_content = content + (b" " * 300000)
 
         # Should detect because indicators are in prefix
         assert _is_ast_json_content(padded_content)
@@ -108,11 +94,8 @@ class TestAstJsonContentDetector:
     def test_detect_non_ast_json_without_node_type_in_prefix(self):
         """Test that JSON without node_type in prefix is not detected as AST."""
         # Create a large JSON that doesn't have node_type in the first part
-        large_json = {
-            "data": ["item" * 100 for _ in range(5000)],
-            "node_type": "Document"  # Too far into the content
-        }
-        content = json.dumps(large_json).encode('utf-8')
+        large_json = {"data": ["item" * 100 for _ in range(5000)], "node_type": "Document"}  # Too far into the content
+        content = json.dumps(large_json).encode("utf-8")
 
         # The node_type might be too far into the content to be in the 256KB prefix
         # This tests the fast rejection path
@@ -128,13 +111,11 @@ class TestAstJsonParser:
 
     def test_parse_simple_document(self):
         """Test parsing a simple AST document."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello, world!")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello, world!")])])
         json_str = ast_to_json(doc)
 
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
 
         assert isinstance(parsed_doc, Document)
         assert len(parsed_doc.children) == 1
@@ -142,14 +123,12 @@ class TestAstJsonParser:
 
     def test_parse_from_file_path(self, tmp_path: Path):
         """Test parsing from a file path."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         json_str = ast_to_json(doc)
 
         # Write to temp file
         ast_file = tmp_path / "test.ast"
-        ast_file.write_text(json_str, encoding='utf-8')
+        ast_file.write_text(json_str, encoding="utf-8")
 
         # Parse from file path
         parser = AstJsonParser()
@@ -161,14 +140,12 @@ class TestAstJsonParser:
 
     def test_parse_from_path_object(self, tmp_path: Path):
         """Test parsing from a Path object."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
         json_str = ast_to_json(doc)
 
         # Write to temp file
         ast_file = tmp_path / "test.ast"
-        ast_file.write_text(json_str, encoding='utf-8')
+        ast_file.write_text(json_str, encoding="utf-8")
 
         # Parse from Path object
         parser = AstJsonParser()
@@ -178,11 +155,9 @@ class TestAstJsonParser:
 
     def test_parse_from_bytes(self):
         """Test parsing from bytes."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="From bytes")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="From bytes")])])
         json_str = ast_to_json(doc)
-        json_bytes = json_str.encode('utf-8')
+        json_bytes = json_str.encode("utf-8")
 
         parser = AstJsonParser()
         parsed_doc = parser.parse(json_bytes)
@@ -192,11 +167,9 @@ class TestAstJsonParser:
 
     def test_parse_from_io_bytes(self):
         """Test parsing from IO[bytes] stream."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="From IO")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="From IO")])])
         json_str = ast_to_json(doc)
-        io_stream = BytesIO(json_str.encode('utf-8'))
+        io_stream = BytesIO(json_str.encode("utf-8"))
 
         parser = AstJsonParser()
         parsed_doc = parser.parse(io_stream)
@@ -207,35 +180,31 @@ class TestAstJsonParser:
         """Test parsing document with metadata."""
         doc = Document(
             children=[Paragraph(content=[Text(content="Test")])],
-            metadata={
-                "title": "Test Document",
-                "author": "Test Author"
-            }
+            metadata={"title": "Test Document", "author": "Test Author"},
         )
         json_str = ast_to_json(doc)
 
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
 
         assert parsed_doc.metadata.get("title") == "Test Document"
         assert parsed_doc.metadata.get("author") == "Test Author"
 
     def test_round_trip_conversion(self):
         """Test round-trip conversion: AST -> JSON -> AST."""
-        original_doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[
-                Text(content="This is a "),
-                Text(content="test")
-            ])
-        ])
+        original_doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="This is a "), Text(content="test")]),
+            ]
+        )
 
         # Convert to JSON
         json_str = ast_to_json(original_doc)
 
         # Parse back to AST
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
 
         # Verify structure is preserved
         assert len(parsed_doc.children) == len(original_doc.children)
@@ -254,42 +223,28 @@ class TestAstJsonParser:
     def test_parse_invalid_ast_structure(self):
         """Test parsing invalid AST structure raises error."""
         # Valid JSON but invalid AST
-        invalid_ast = json.dumps({
-            "schema_version": 1,
-            "node_type": "UnknownNode",
-            "children": []
-        })
+        invalid_ast = json.dumps({"schema_version": 1, "node_type": "UnknownNode", "children": []})
 
         parser = AstJsonParser()
         with pytest.raises(ParsingError, match="Invalid AST structure"):
-            parser.parse(invalid_ast.encode('utf-8'))
+            parser.parse(invalid_ast.encode("utf-8"))
 
     def test_parse_unsupported_schema_version(self):
         """Test parsing unsupported schema version raises error."""
-        unsupported = json.dumps({
-            "schema_version": 999,
-            "node_type": "Document",
-            "children": [],
-            "metadata": {}
-        })
+        unsupported = json.dumps({"schema_version": 999, "node_type": "Document", "children": [], "metadata": {}})
 
         parser = AstJsonParser()
         with pytest.raises(ParsingError, match="Invalid AST structure"):
-            parser.parse(unsupported.encode('utf-8'))
+            parser.parse(unsupported.encode("utf-8"))
 
     def test_parse_non_document_root(self):
         """Test parsing non-Document root node raises error."""
         # Valid AST node but not a Document
-        non_doc = json.dumps({
-            "schema_version": 1,
-            "node_type": "Paragraph",
-            "content": [],
-            "metadata": {}
-        })
+        non_doc = json.dumps({"schema_version": 1, "node_type": "Paragraph", "content": [], "metadata": {}})
 
         parser = AstJsonParser()
         with pytest.raises(ParsingError, match="AST root must be a Document node"):
-            parser.parse(non_doc.encode('utf-8'))
+            parser.parse(non_doc.encode("utf-8"))
 
     def test_extract_metadata_from_document(self):
         """Test extracting metadata from parsed document."""
@@ -299,13 +254,13 @@ class TestAstJsonParser:
                 "title": "Test Title",
                 "author": "Test Author",
                 "keywords": ["test", "ast"],
-                "custom": {"field": "value"}
-            }
+                "custom": {"field": "value"},
+            },
         )
         json_str = ast_to_json(doc)
 
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
         metadata = parser.extract_metadata(parsed_doc)
 
         assert metadata.title == "Test Title"
@@ -319,7 +274,7 @@ class TestAstJsonParser:
         json_str = ast_to_json(doc)
 
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
         metadata = parser.extract_metadata(parsed_doc)
 
         assert metadata.title is None
@@ -328,29 +283,22 @@ class TestAstJsonParser:
 
     def test_parse_with_options(self):
         """Test parsing with custom options."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
         json_str = ast_to_json(doc)
 
-        options = AstJsonParserOptions(
-            validate_schema=True,
-            strict_mode=False
-        )
+        options = AstJsonParserOptions(validate_schema=True, strict_mode=False)
         parser = AstJsonParser(options=options)
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
 
         assert isinstance(parsed_doc, Document)
 
     def test_parse_unicode_content(self):
         """Test parsing AST with unicode content."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello 世界 🌍")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello 世界 🌍")])])
         json_str = ast_to_json(doc)
 
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
 
         # Extract the text content
         para = parsed_doc.children[0]
@@ -359,16 +307,18 @@ class TestAstJsonParser:
 
     def test_parse_complex_document_structure(self):
         """Test parsing a complex document with nested structures."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Main Title")]),
-            Paragraph(content=[Text(content="Introduction paragraph.")]),
-            Heading(level=2, content=[Text(content="Section 1")]),
-            Paragraph(content=[Text(content="Section content.")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Main Title")]),
+                Paragraph(content=[Text(content="Introduction paragraph.")]),
+                Heading(level=2, content=[Text(content="Section 1")]),
+                Paragraph(content=[Text(content="Section content.")]),
+            ]
+        )
         json_str = ast_to_json(doc)
 
         parser = AstJsonParser()
-        parsed_doc = parser.parse(json_str.encode('utf-8'))
+        parsed_doc = parser.parse(json_str.encode("utf-8"))
 
         assert len(parsed_doc.children) == 4
         assert isinstance(parsed_doc.children[0], Heading)

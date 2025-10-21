@@ -1,9 +1,7 @@
 """Advanced tests for HTML entity handling edge cases."""
 
+from all2md import HtmlOptions, to_markdown as html_to_markdown
 from utils import assert_markdown_valid
-
-from all2md import HtmlOptions
-from all2md import to_markdown as html_to_markdown
 
 
 class TestHtmlEntities:
@@ -11,11 +9,11 @@ class TestHtmlEntities:
 
     def test_common_html_entities(self):
         """Test common HTML entities and their conversion."""
-        html = '''
+        html = """
         <p>Common entities: &amp; &lt; &gt; &quot; &#39;</p>
         <p>Copyright &copy; and trademark &trade;</p>
         <p>Registered &reg; and section &sect;</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -33,11 +31,11 @@ class TestHtmlEntities:
 
     def test_numeric_character_references(self):
         """Test numeric character references (decimal and hexadecimal)."""
-        html = '''
+        html = """
         <p>Decimal: &#8230; &#8482; &#169; &#8364;</p>
         <p>Hexadecimal: &#x2026; &#x2122; &#xA9; &#x20AC;</p>
         <p>Mixed: &#65; &#x42; &#67; &#x44;</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -51,12 +49,12 @@ class TestHtmlEntities:
 
     def test_special_spacing_entities(self):
         """Test special spacing and whitespace entities."""
-        html = '''
+        html = """
         <p>Non-breaking&nbsp;spaces&nbsp;here</p>
         <p>Em&mdash;dash and en&ndash;dash</p>
         <p>Thin&thinsp;space and hair&hairsp;space</p>
         <p>Zero&zwnj;width&zwj;joiners</p>
-        '''
+        """
 
         options_preserve = HtmlOptions(convert_nbsp=True)
         options_no_preserve = HtmlOptions(convert_nbsp=False)
@@ -77,7 +75,7 @@ class TestHtmlEntities:
 
     def test_entities_in_different_contexts(self):
         """Test entities in various HTML contexts."""
-        html = '''
+        html = """
         <h1>Title with &amp; entity</h1>
         <p><strong>Bold &amp; italic</strong> text</p>
         <code>Code with &lt;tags&gt;</code>
@@ -85,7 +83,7 @@ class TestHtmlEntities:
         <pre><code>if (x &lt; y &amp;&amp; y &gt; z) {
     return "&lt;result&gt;";
 }</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -99,11 +97,11 @@ class TestHtmlEntities:
 
     def test_entities_in_attributes(self):
         """Test entities in HTML attributes."""
-        html = '''
+        html = """
         <a href="http://example.com?param=value&amp;other=data" title="Link &amp; title">Link text</a>
         <img src="image.png" alt="Image &amp; description" title="Tooltip &amp; info">
         <abbr title="HyperText &amp; Markup Language">HTML</abbr>
-        '''
+        """
 
         markdown = html_to_markdown(html, parser_options=HtmlOptions(attachment_mode="alt_text"), source_format="html")
         assert_markdown_valid(markdown)
@@ -115,12 +113,12 @@ class TestHtmlEntities:
 
     def test_malformed_and_invalid_entities(self):
         """Test handling of malformed or invalid entities."""
-        html = '''
+        html = """
         <p>Invalid: &invalid; &amp &lt &gt</p>
         <p>Incomplete: &#123 &#x4 &copy</p>
         <p>Mixed: Valid &amp; invalid &badentity; text</p>
         <p>Numbers: &#999999; &#xFFFFF;</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -133,13 +131,13 @@ class TestHtmlEntities:
 
     def test_entities_with_mathematical_symbols(self):
         """Test mathematical and scientific symbol entities."""
-        html = '''
+        html = """
         <p>Math symbols: &alpha; &beta; &gamma; &delta;</p>
         <p>Operations: &plusmn; &times; &divide; &ne;</p>
         <p>Relations: &le; &ge; &asymp; &prop;</p>
         <p>Set theory: &sub; &sup; &cap; &cup;</p>
         <p>Logic: &and; &or; &not; &exist; &forall;</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -156,12 +154,12 @@ class TestHtmlEntities:
 
     def test_currency_and_special_symbols(self):
         """Test currency and special symbol entities."""
-        html = '''
+        html = """
         <p>Currencies: &euro; &pound; &yen; &cent;</p>
         <p>Arrows: &larr; &rarr; &uarr; &darr;</p>
         <p>Cards: &spades; &clubs; &hearts; &diams;</p>
         <p>Music: &sharp; &flat; &natural;</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -177,7 +175,7 @@ class TestHtmlEntities:
 
     def test_entities_in_tables(self):
         """Test entities within table structures."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Symbol</th>
@@ -195,7 +193,7 @@ class TestHtmlEntities:
                 <td>Less than &lt; symbol</td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -208,7 +206,7 @@ class TestHtmlEntities:
 
     def test_entities_in_lists(self):
         """Test entities within list structures."""
-        html = '''
+        html = """
         <ul>
             <li>Item with &amp; entity</li>
             <li>Mathematical: &alpha; + &beta; = &gamma;</li>
@@ -218,7 +216,7 @@ class TestHtmlEntities:
             <li>First: &copy; copyright notice</li>
             <li>Second: &trade; trademark symbol</li>
         </ol>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -232,13 +230,13 @@ class TestHtmlEntities:
 
     def test_entities_in_blockquotes(self):
         """Test entities within blockquote structures."""
-        html = '''
+        html = """
         <blockquote>
             <p>Quote with &ldquo;smart quotes&rdquo; and &amp; entity</p>
             <p>Mathematical quote: E = mc&sup2;</p>
             <cite>&mdash; Author &amp; Co.</cite>
         </blockquote>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -252,11 +250,11 @@ class TestHtmlEntities:
 
     def test_mixed_entity_types_in_paragraph(self):
         """Test paragraphs with mixed entity types."""
-        html = '''
+        html = """
         <p>Mixed content: &amp; symbol, &#169; copyright, &#x2122; trademark,
         &quot;quoted text&quot; with &lt;tags&gt; and mathematical &alpha;&beta;&gamma; symbols.
         Punctuation: &hellip; and &mdash; dashes, plus currency &euro;100.</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -274,13 +272,13 @@ class TestHtmlEntities:
 
     def test_entities_with_surrounding_text(self):
         """Test entities with various surrounding text patterns."""
-        html = '''
+        html = """
         <p>Start&amp;middle&amp;end</p>
         <p>Spaced &amp; entities &amp; here</p>
         <p>Mixed&nbsp;spacing &amp; patterns</p>
         <p>InWord&copy;Entity</p>
         <p>Multiple&hellip;&hellip;&hellip;dots</p>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)

@@ -18,8 +18,7 @@ from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
-from hypothesis import HealthCheck, assume, given, settings
-from hypothesis import strategies as st
+from hypothesis import HealthCheck, assume, given, settings, strategies as st
 
 from all2md.exceptions import NetworkSecurityError
 from all2md.utils.network_security import _is_private_or_reserved_ip, validate_url_security
@@ -39,7 +38,7 @@ class TestURLValidationFuzzing:
         # Should either raise NetworkSecurityError or pass validation
         try:
             # Mock DNS resolution to avoid actual network calls
-            with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+            with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
                 mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
                 validate_url_security(random_string)
         except NetworkSecurityError:
@@ -50,9 +49,9 @@ class TestURLValidationFuzzing:
             pytest.fail(f"Unexpected exception for input '{random_string}': {e}")
 
     @given(
-        st.sampled_from(['http', 'https', 'ftp', 'file', 'javascript', 'data']),
-        st.text(alphabet=st.characters(whitelist_categories=('Ll', 'Nd')), min_size=1, max_size=50),
-        st.text(alphabet=st.characters(whitelist_categories=('Ll', 'Nd', 'P')), min_size=0, max_size=100)
+        st.sampled_from(["http", "https", "ftp", "file", "javascript", "data"]),
+        st.text(alphabet=st.characters(whitelist_categories=("Ll", "Nd")), min_size=1, max_size=50),
+        st.text(alphabet=st.characters(whitelist_categories=("Ll", "Nd", "P")), min_size=0, max_size=100),
     )
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=1000)
     def test_various_url_schemes(self, scheme, domain, path):
@@ -60,14 +59,14 @@ class TestURLValidationFuzzing:
         url = f"{scheme}://{domain}/{path}"
 
         # Mock DNS resolution
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
             try:
                 validate_url_security(url)
                 # If it passes, should be http or https with valid structure
                 parsed = urlparse(url)
-                assert parsed.scheme in ('http', 'https')
+                assert parsed.scheme in ("http", "https")
             except NetworkSecurityError:
                 # Expected for unsupported schemes or invalid URLs
                 pass
@@ -76,7 +75,7 @@ class TestURLValidationFuzzing:
         st.integers(min_value=0, max_value=255),
         st.integers(min_value=0, max_value=255),
         st.integers(min_value=0, max_value=255),
-        st.integers(min_value=0, max_value=255)
+        st.integers(min_value=0, max_value=255),
     )
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_all_ipv4_addresses_correctly_classified(self, a, b, c, d):
@@ -93,7 +92,7 @@ class TestURLValidationFuzzing:
         is_private = _is_private_or_reserved_ip(ip)
 
         # Mock DNS to return this IP
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ip]
 
             if is_private:
@@ -108,14 +107,12 @@ class TestURLValidationFuzzing:
                     # Might fail for other reasons (invalid hostname), but not for being private
                     assert "private" not in str(e).lower()
 
-    @given(
-        st.lists(st.integers(min_value=0, max_value=65535), min_size=8, max_size=8)
-    )
+    @given(st.lists(st.integers(min_value=0, max_value=65535), min_size=8, max_size=8))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50)
     def test_all_ipv6_addresses_correctly_classified(self, segments):
         """Property: Private IPv6 addresses should always be blocked."""
         # Build IPv6 address from segments
-        ip_str = ':'.join(f"{seg:x}" for seg in segments)
+        ip_str = ":".join(f"{seg:x}" for seg in segments)
 
         try:
             ip = ipaddress.IPv6Address(ip_str)
@@ -139,8 +136,11 @@ class TestURLValidationFuzzing:
                 assert "private" not in str(e).lower() and "reserved" not in str(e).lower()
 
     @given(
-        st.text(alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'), min_codepoint=33, max_codepoint=126),
-                min_size=1, max_size=30)
+        st.text(
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), min_codepoint=33, max_codepoint=126),
+            min_size=1,
+            max_size=30,
+        )
     )
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_hostname_allowlist_property(self, hostname):
@@ -154,7 +154,7 @@ class TestURLValidationFuzzing:
         url = f"http://{hostname}/test"
 
         # Mock DNS resolution
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
             # Property: Hostname not in allowlist should be rejected
@@ -162,8 +162,8 @@ class TestURLValidationFuzzing:
                 validate_url_security(url, allowed_hosts=allowlist, require_https=False)
 
     @given(
-        st.sampled_from(['http', 'https']),
-        st.text(alphabet=st.characters(whitelist_categories=('Ll', 'Nd')), min_size=1, max_size=20)
+        st.sampled_from(["http", "https"]),
+        st.text(alphabet=st.characters(whitelist_categories=("Ll", "Nd")), min_size=1, max_size=20),
     )
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_require_https_property(self, scheme, domain):
@@ -171,10 +171,10 @@ class TestURLValidationFuzzing:
         url = f"{scheme}://{domain}/test"
 
         # Mock DNS resolution
-        with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+        with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-            if scheme == 'http':
+            if scheme == "http":
                 # Property: HTTP should be rejected when require_https=True
                 with pytest.raises(NetworkSecurityError, match="HTTPS required"):
                     validate_url_security(url, require_https=True)
@@ -194,13 +194,15 @@ class TestPrivateIPDetectionFuzzing:
     """Fuzz test private IP detection logic."""
 
     @given(
-        st.sampled_from([
-            "10.0.0.0/8",          # Private
-            "172.16.0.0/12",       # Private
-            "192.168.0.0/16",      # Private
-            "127.0.0.0/8",         # Loopback
-            "169.254.0.0/16",      # Link-local
-        ])
+        st.sampled_from(
+            [
+                "10.0.0.0/8",  # Private
+                "172.16.0.0/12",  # Private
+                "192.168.0.0/16",  # Private
+                "127.0.0.0/8",  # Loopback
+                "169.254.0.0/16",  # Link-local
+            ]
+        )
     )
     @settings(max_examples=20, deadline=5000)
     def test_all_ips_in_private_ranges_detected(self, cidr_block):
@@ -212,11 +214,13 @@ class TestPrivateIPDetectionFuzzing:
             assert _is_private_or_reserved_ip(ip), f"IP {ip} from {cidr_block} should be private"
 
     @given(
-        st.sampled_from([
-            "8.8.8.0/24",          # Google DNS (public)
-            "1.1.1.0/24",          # Cloudflare DNS (public)
-            "151.101.0.0/16",      # Fastly CDN (public)
-        ])
+        st.sampled_from(
+            [
+                "8.8.8.0/24",  # Google DNS (public)
+                "1.1.1.0/24",  # Cloudflare DNS (public)
+                "151.101.0.0/16",  # Fastly CDN (public)
+            ]
+        )
     )
     @settings(max_examples=20)
     def test_all_ips_in_public_ranges_detected_as_public(self, cidr_block):
@@ -233,11 +237,7 @@ class TestPrivateIPDetectionFuzzing:
 class TestMalformedURLFuzzing:
     """Fuzz test with intentionally malformed URLs."""
 
-    @given(
-        st.text(min_size=0, max_size=50),
-        st.text(min_size=0, max_size=50),
-        st.text(min_size=0, max_size=50)
-    )
+    @given(st.text(min_size=0, max_size=50), st.text(min_size=0, max_size=50), st.text(min_size=0, max_size=50))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=100)
     def test_malformed_urls_dont_crash(self, part1, part2, part3):
         """Property: Malformed URLs should not cause crashes."""
@@ -252,7 +252,7 @@ class TestMalformedURLFuzzing:
 
         for url in malformed_urls:
             try:
-                with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+                with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
                     mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
                     validate_url_security(url)
             except NetworkSecurityError:
@@ -262,15 +262,13 @@ class TestMalformedURLFuzzing:
                 # Should not raise unexpected exceptions
                 pytest.fail(f"Unexpected exception for URL '{url}': {e}")
 
-    @given(
-        st.text(alphabet=st.characters(blacklist_characters=[':', '/', '@', '?', '#']), min_size=1, max_size=30)
-    )
+    @given(st.text(alphabet=st.characters(blacklist_characters=[":", "/", "@", "?", "#"]), min_size=1, max_size=30))
     @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_urls_without_special_characters(self, text):
         """Test URLs constructed from text without URL special characters."""
         # These should mostly fail validation (no scheme, etc.)
         try:
-            with patch('all2md.utils.network_security._resolve_hostname_to_ips') as mock_resolve:
+            with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
                 mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
                 validate_url_security(text)
         except NetworkSecurityError:
@@ -287,7 +285,7 @@ class TestURLEncodingFuzzing:
         st.integers(min_value=0, max_value=255),
         st.integers(min_value=0, max_value=255),
         st.integers(min_value=0, max_value=255),
-        st.integers(min_value=0, max_value=255)
+        st.integers(min_value=0, max_value=255),
     )
     @settings(max_examples=50)
     def test_ip_representation_variations(self, a, b, c, d):

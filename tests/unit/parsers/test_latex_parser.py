@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for LaTeX parser and renderer."""
 
-
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -41,14 +40,11 @@ class TestLatexParser:
         assert len(doc.children) >= 1
         # Find text in children
         has_hello = any(
-            isinstance(child, Paragraph) and
-            any(isinstance(node, Text) and "Hello" in node.content for node in child.content)
+            isinstance(child, Paragraph)
+            and any(isinstance(node, Text) and "Hello" in node.content for node in child.content)
             for child in doc.children
         )
-        assert has_hello or any(
-            isinstance(child, Text) and "Hello" in child.content
-            for child in doc.children
-        )
+        assert has_hello or any(isinstance(child, Text) and "Hello" in child.content for child in doc.children)
 
     def test_section_heading(self) -> None:
         """Test parsing section heading."""
@@ -62,7 +58,7 @@ class TestLatexParser:
         heading = headings[0]
         assert heading.level == 1
         assert len(heading.content) >= 1
-        assert any("Introduction" in getattr(node, 'content', '') for node in heading.content)
+        assert any("Introduction" in getattr(node, "content", "") for node in heading.content)
 
     def test_subsection_heading(self) -> None:
         """Test parsing subsection heading."""
@@ -83,10 +79,10 @@ class TestLatexParser:
             for node in nodes:
                 if isinstance(node, Strong):
                     return True
-                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, 'content'):
+                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, "content"):
                     if has_strong(node.content):
                         return True
-                if isinstance(node, (List, BlockQuote)) and hasattr(node, 'children'):
+                if isinstance(node, (List, BlockQuote)) and hasattr(node, "children"):
                     if has_strong(node.children):
                         return True
             return False
@@ -103,10 +99,10 @@ class TestLatexParser:
             for node in nodes:
                 if isinstance(node, Emphasis):
                     return True
-                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, 'content'):
+                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, "content"):
                     if has_emphasis(node.content):
                         return True
-                if isinstance(node, (List, BlockQuote)) and hasattr(node, 'children'):
+                if isinstance(node, (List, BlockQuote)) and hasattr(node, "children"):
                     if has_emphasis(node.children):
                         return True
             return False
@@ -123,10 +119,10 @@ class TestLatexParser:
             for node in nodes:
                 if isinstance(node, Code):
                     return True
-                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, 'content'):
+                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, "content"):
                     if has_code(node.content):
                         return True
-                if isinstance(node, (List, BlockQuote)) and hasattr(node, 'children'):
+                if isinstance(node, (List, BlockQuote)) and hasattr(node, "children"):
                     if has_code(node.children):
                         return True
             return False
@@ -143,10 +139,10 @@ class TestLatexParser:
             for node in nodes:
                 if isinstance(node, MathInline):
                     return True
-                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, 'content'):
+                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, "content"):
                     if has_math_inline(node.content):
                         return True
-                if isinstance(node, (List, BlockQuote)) and hasattr(node, 'children'):
+                if isinstance(node, (List, BlockQuote)) and hasattr(node, "children"):
                     if has_math_inline(node.children):
                         return True
             return False
@@ -241,10 +237,10 @@ Content here
 """
         doc = parser.parse(latex)
 
-        assert 'title' in doc.metadata
-        assert doc.metadata['title'] == 'My Document'
-        assert 'author' in doc.metadata
-        assert doc.metadata['author'] == 'John Doe'
+        assert "title" in doc.metadata
+        assert doc.metadata["title"] == "My Document"
+        assert "author" in doc.metadata
+        assert doc.metadata["author"] == "John Doe"
 
     def test_preamble_commands_stripped(self) -> None:
         """Test that preamble commands are stripped from content."""
@@ -261,8 +257,8 @@ This is content.
         doc = parser.parse(latex)
 
         # Metadata should be extracted
-        assert doc.metadata.get('title') == 'Test Title'
-        assert doc.metadata.get('author') == 'Test Author'
+        assert doc.metadata.get("title") == "Test Title"
+        assert doc.metadata.get("author") == "Test Author"
 
         # The title/author/date commands should have been stripped
         # so they don't appear in the document body
@@ -353,9 +349,7 @@ class TestLatexRenderer:
 
     def test_render_simple_text(self) -> None:
         """Test rendering simple text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello world")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello world")])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -365,9 +359,7 @@ class TestLatexRenderer:
 
     def test_render_heading_level_1(self) -> None:
         """Test rendering level 1 heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Introduction")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Introduction")])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -376,9 +368,7 @@ class TestLatexRenderer:
 
     def test_render_heading_level_2(self) -> None:
         """Test rendering level 2 heading."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Methods")])
-        ])
+        doc = Document(children=[Heading(level=2, content=[Text(content="Methods")])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -387,13 +377,13 @@ class TestLatexRenderer:
 
     def test_render_bold(self) -> None:
         """Test rendering bold text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Text(content="This is "), Strong(content=[Text(content="bold")]), Text(content=" text")]
+                )
+            ]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -402,13 +392,17 @@ class TestLatexRenderer:
 
     def test_render_italic(self) -> None:
         """Test rendering italic text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text"),
+                    ]
+                )
+            ]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -417,12 +411,7 @@ class TestLatexRenderer:
 
     def test_render_code(self) -> None:
         """Test rendering inline code."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Code: "),
-                Code(content="x = 42")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Code: "), Code(content="x = 42")])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -431,13 +420,17 @@ class TestLatexRenderer:
 
     def test_render_math_inline(self) -> None:
         """Test rendering inline math."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Equation "),
-                MathInline(content="E = mc^2", notation="latex"),
-                Text(content=" is famous")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Equation "),
+                        MathInline(content="E = mc^2", notation="latex"),
+                        Text(content=" is famous"),
+                    ]
+                )
+            ]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -446,9 +439,7 @@ class TestLatexRenderer:
 
     def test_render_math_block(self) -> None:
         """Test rendering display math."""
-        doc = Document(children=[
-            MathBlock(content="E = mc^2", notation="latex")
-        ])
+        doc = Document(children=[MathBlock(content="E = mc^2", notation="latex")])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -459,12 +450,17 @@ class TestLatexRenderer:
 
     def test_render_unordered_list(self) -> None:
         """Test rendering unordered list."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                    ],
+                )
+            ]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -476,12 +472,17 @@ class TestLatexRenderer:
 
     def test_render_ordered_list(self) -> None:
         """Test rendering ordered list."""
-        doc = Document(children=[
-            List(ordered=True, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                    ],
+                )
+            ]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -493,11 +494,7 @@ class TestLatexRenderer:
 
     def test_render_blockquote(self) -> None:
         """Test rendering block quote."""
-        doc = Document(children=[
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is a quote")])
-            ])
-        ])
+        doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="This is a quote")])])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -511,33 +508,31 @@ class TestLatexRenderer:
         code_content = """def hello():
     print("world")"""
 
-        doc = Document(children=[
-            CodeBlock(content=code_content)
-        ])
+        doc = Document(children=[CodeBlock(content=code_content)])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
 
         assert r"\begin{verbatim}" in latex
         assert "def hello():" in latex
-        assert r'\end{verbatim}' in latex
+        assert r"\end{verbatim}" in latex
 
     def test_render_table(self) -> None:
         """Test rendering table."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Age")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alice")]),
-                        TableCell(content=[Text(content="30")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Age")])]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]
+                        )
+                    ],
+                )
+            ]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -550,11 +545,9 @@ class TestLatexRenderer:
 
     def test_render_link(self) -> None:
         """Test rendering link."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Example")])])]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -563,9 +556,7 @@ class TestLatexRenderer:
 
     def test_render_image(self) -> None:
         """Test rendering image."""
-        doc = Document(children=[
-            Image(url="image.png", alt_text="A picture")
-        ])
+        doc = Document(children=[Image(url="image.png", alt_text="A picture")])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -574,9 +565,7 @@ class TestLatexRenderer:
 
     def test_render_without_preamble(self) -> None:
         """Test rendering without preamble."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Just content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Just content")])])
 
         options = LatexRendererOptions(include_preamble=False)
         renderer = LatexRenderer(options)
@@ -588,9 +577,7 @@ class TestLatexRenderer:
 
     def test_escape_special_characters(self) -> None:
         """Test escaping special LaTeX characters."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Price: $100 & 50%")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Price: $100 & 50%")])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -602,12 +589,7 @@ class TestLatexRenderer:
 
     def test_render_superscript(self) -> None:
         """Test rendering superscript."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="x"),
-                Superscript(content=[Text(content="2")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="x"), Superscript(content=[Text(content="2")])])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -616,13 +598,9 @@ class TestLatexRenderer:
 
     def test_render_subscript(self) -> None:
         """Test rendering subscript."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="H"),
-                Subscript(content=[Text(content="2")]),
-                Text(content="O")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="H"), Subscript(content=[Text(content="2")]), Text(content="O")])]
+        )
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -631,11 +609,7 @@ class TestLatexRenderer:
 
     def test_render_underline(self) -> None:
         """Test rendering underline."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Underline(content=[Text(content="underlined")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
 
         renderer = LatexRenderer()
         latex = renderer.render_to_string(doc)
@@ -645,10 +619,9 @@ class TestLatexRenderer:
     def test_round_trip_simple(self) -> None:
         """Test round-trip conversion for simple content."""
         # Create AST
-        original = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Some text")])
-        ])
+        original = Document(
+            children=[Heading(level=1, content=[Text(content="Title")]), Paragraph(content=[Text(content="Some text")])]
+        )
 
         # Render to LaTeX
         renderer = LatexRenderer(LatexRendererOptions(include_preamble=False))
@@ -692,9 +665,7 @@ class TestLatexOptions:
 
     def test_custom_document_class(self) -> None:
         """Test custom document class."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])])
 
         options = LatexRendererOptions(document_class="report")
         renderer = LatexRenderer(options)
@@ -704,9 +675,7 @@ class TestLatexOptions:
 
     def test_custom_packages(self) -> None:
         """Test custom packages."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])])
 
         options = LatexRendererOptions(packages=["geometry", "fancyhdr"])
         renderer = LatexRenderer(options)

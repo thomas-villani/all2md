@@ -5,9 +5,9 @@ using real PDF fixtures to test font flag interpretation and emphasis mapping.
 """
 
 import pytest
-from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
 from all2md.parsers.pdf import IdentifyHeaders
+from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
 
 @pytest.mark.unit
@@ -68,6 +68,7 @@ class TestPdfFormattingDetection:
 
     def test_emphasis_detection_logic(self):
         """Test the logic for detecting emphasis from font flags."""
+
         # This tests the logic without mocking by checking flag interpretation
 
         def detect_emphasis(flags):
@@ -131,9 +132,9 @@ class TestPdfFormattingDetection:
             normalized = " ".join(text.split())
 
             # Handle special characters
-            normalized = normalized.replace('\u00a0', ' ')  # Non-breaking space
-            normalized = normalized.replace('\u2013', '-')  # En dash
-            normalized = normalized.replace('\u2014', '--')  # Em dash
+            normalized = normalized.replace("\u00a0", " ")  # Non-breaking space
+            normalized = normalized.replace("\u2013", "-")  # En dash
+            normalized = normalized.replace("\u2014", "--")  # Em dash
 
             return normalized
 
@@ -198,24 +199,9 @@ class TestPdfTextAssembly:
         """Test logic for assembling spans into lines of text."""
         # Mock spans representing a line of text
         spans_data = [
-            {
-                "text": "This is ",
-                "bbox": (100, 100, 140, 120),
-                "size": 12.0,
-                "flags": 0
-            },
-            {
-                "text": "bold text",
-                "bbox": (140, 100, 180, 120),
-                "size": 12.0,
-                "flags": 16  # Bold
-            },
-            {
-                "text": " in a sentence.",
-                "bbox": (180, 100, 250, 120),
-                "size": 12.0,
-                "flags": 0
-            }
+            {"text": "This is ", "bbox": (100, 100, 140, 120), "size": 12.0, "flags": 0},
+            {"text": "bold text", "bbox": (140, 100, 180, 120), "size": 12.0, "flags": 16},  # Bold
+            {"text": " in a sentence.", "bbox": (180, 100, 250, 120), "size": 12.0, "flags": 0},
         ]
 
         def assemble_line(spans):
@@ -277,7 +263,8 @@ class TestPdfTextAssembly:
 
             # Replace multiple whitespace with single space
             import re
-            normalized = re.sub(r'\s+', ' ', text)
+
+            normalized = re.sub(r"\s+", " ", text)
 
             # Strip leading/trailing whitespace
             normalized = normalized.strip()

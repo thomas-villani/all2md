@@ -22,12 +22,7 @@ def test_docx_to_markdown_basic(tmp_path):
 
     result = to_markdown(doc_path)
 
-    expected_elements = [
-        "# Title",
-        "Paragraph text",
-        "1. Item 1",
-        "2. Item 2"
-    ]
+    expected_elements = ["# Title", "Paragraph text", "1. Item 1", "2. Item 2"]
 
     for element in expected_elements:
         assert element in result

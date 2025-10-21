@@ -6,7 +6,6 @@ from documents using templates.
 
 """
 
-
 import pytest
 
 from all2md.ast import (
@@ -31,7 +30,8 @@ class TestStaticSiteGeneration:
 
         # Create a blog post template
         template = tmp_path / "blog_post.html"
-        template.write_text("""<!DOCTYPE html>
+        template.write_text(
+            """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -64,15 +64,17 @@ class TestStaticSiteGeneration:
         {% endif %}
     </article>
 </body>
-</html>""", encoding='utf-8')
+</html>""",
+            encoding="utf-8",
+        )
 
         # Create blog post document
         doc = Document(
             metadata={
-                'title': 'Understanding HTML Templates',
-                'author': 'Jane Doe',
-                'date': '2025-01-15',
-                'description': 'A guide to HTML templating in all2md'
+                "title": "Understanding HTML Templates",
+                "author": "Jane Doe",
+                "date": "2025-01-15",
+                "description": "A guide to HTML templating in all2md",
             },
             children=[
                 Heading(level=2, content=[Text(content="Introduction")]),
@@ -80,34 +82,30 @@ class TestStaticSiteGeneration:
                 Heading(level=2, content=[Text(content="How It Works")]),
                 Paragraph(content=[Text(content="The renderer supports three template modes.")]),
                 CodeBlock(
-                    content='renderer = HtmlRenderer(HtmlRendererOptions(template_mode="jinja"))',
-                    language='python'
+                    content='renderer = HtmlRenderer(HtmlRendererOptions(template_mode="jinja"))', language="python"
                 ),
-            ]
+            ],
         )
 
         # Render with Jinja template
-        options = HtmlRendererOptions(
-            template_mode='jinja',
-            template_file=str(template),
-            syntax_highlighting=True
-        )
+        options = HtmlRendererOptions(template_mode="jinja", template_file=str(template), syntax_highlighting=True)
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
 
         # Verify output
-        assert '<!DOCTYPE html>' in result
-        assert '<title>Understanding HTML Templates</title>' in result
-        assert 'By Jane Doe | 2025-01-15' in result
+        assert "<!DOCTYPE html>" in result
+        assert "<title>Understanding HTML Templates</title>" in result
+        assert "By Jane Doe | 2025-01-15" in result
         assert '<h2 id="heading-0">Introduction</h2>' in result
-        assert 'language-python' in result
-        assert 'Table of Contents' in result
+        assert "language-python" in result
+        assert "Table of Contents" in result
 
     def test_documentation_site_with_injection(self, tmp_path):
         """Test injecting documentation into existing site layout."""
         # Create a site layout template
         layout = tmp_path / "layout.html"
-        layout.write_text("""<!DOCTYPE html>
+        layout.write_text(
+            """<!DOCTYPE html>
 <html>
 <head>
     <title>Documentation</title>
@@ -127,30 +125,31 @@ class TestStaticSiteGeneration:
         <p>&copy; 2025 My Project</p>
     </footer>
 </body>
-</html>""", encoding='utf-8')
+</html>""",
+            encoding="utf-8",
+        )
 
         # Create documentation content
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="API Reference")]),
-            Heading(level=2, content=[Text(content="Classes")]),
-            Paragraph(content=[Text(content="The main classes in this library.")]),
-            Heading(level=2, content=[Text(content="Functions")]),
-            Paragraph(content=[Text(content="Helper functions for common tasks.")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="API Reference")]),
+                Heading(level=2, content=[Text(content="Classes")]),
+                Paragraph(content=[Text(content="The main classes in this library.")]),
+                Heading(level=2, content=[Text(content="Functions")]),
+                Paragraph(content=[Text(content="Helper functions for common tasks.")]),
+            ]
+        )
 
         # Inject into layout
         options = HtmlRendererOptions(
-            template_mode='inject',
-            template_file=str(layout),
-            template_selector='#content',
-            injection_mode='replace'
+            template_mode="inject", template_file=str(layout), template_selector="#content", injection_mode="replace"
         )
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
 
         # Verify structure is preserved
         assert '<nav class="sidebar">' in result
-        assert '<footer>' in result
+        assert "<footer>" in result
         assert '<main id="content">' in result
 
         # Verify content is injected
@@ -161,7 +160,8 @@ class TestStaticSiteGeneration:
         """Test generating article with custom CSS classes."""
         # Simple template
         template = tmp_path / "article.html"
-        template.write_text("""<!DOCTYPE html>
+        template.write_text(
+            """<!DOCTYPE html>
 <html>
 <head>
     <title>{TITLE}</title>
@@ -175,32 +175,32 @@ class TestStaticSiteGeneration:
 <body>
 {CONTENT}
 </body>
-</html>""", encoding='utf-8')
+</html>""",
+            encoding="utf-8",
+        )
 
         # Create document
         doc = Document(
-            metadata={'title': 'Styled Article'},
+            metadata={"title": "Styled Article"},
             children=[
                 Heading(level=1, content=[Text(content="Main Title")]),
                 Paragraph(content=[Text(content="This is a paragraph with custom styling.")]),
-                BlockQuote(children=[
-                    Paragraph(content=[Text(content="A quoted passage.")])
-                ]),
+                BlockQuote(children=[Paragraph(content=[Text(content="A quoted passage.")])]),
                 CodeBlock(content="code example", language="javascript"),
-            ]
+            ],
         )
 
         # Render with custom CSS classes
         options = HtmlRendererOptions(
-            template_mode='replace',
+            template_mode="replace",
             template_file=str(template),
             css_class_map={
-                'Heading': 'prose-heading',
-                'Paragraph': 'prose-para',
-                'BlockQuote': 'quote-block',
-                'CodeBlock': 'code-snippet',
+                "Heading": "prose-heading",
+                "Paragraph": "prose-para",
+                "BlockQuote": "quote-block",
+                "CodeBlock": "code-snippet",
             },
-            syntax_highlighting=True
+            syntax_highlighting=True,
         )
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
@@ -209,13 +209,14 @@ class TestStaticSiteGeneration:
         assert 'class="prose-heading"' in result
         assert 'class="prose-para"' in result
         assert 'class="quote-block"' in result
-        assert 'language-javascript code-snippet' in result
+        assert "language-javascript code-snippet" in result
 
     def test_multi_document_workflow(self, tmp_path):
         """Test generating multiple pages with shared template."""
         # Shared template
         template = tmp_path / "page.html"
-        template.write_text("""<!DOCTYPE html>
+        template.write_text(
+            """<!DOCTYPE html>
 <html>
 <head><title>{TITLE}</title></head>
 <body>
@@ -223,29 +224,26 @@ class TestStaticSiteGeneration:
     <div class="content">{CONTENT}</div>
     <footer><p>Part of the documentation</p></footer>
 </body>
-</html>""", encoding='utf-8')
+</html>""",
+            encoding="utf-8",
+        )
 
         # Create multiple documents
         docs = [
             Document(
-                metadata={'title': 'Getting Started'},
-                children=[Paragraph(content=[Text(content="Welcome to the guide.")])]
+                metadata={"title": "Getting Started"},
+                children=[Paragraph(content=[Text(content="Welcome to the guide.")])],
             ),
             Document(
-                metadata={'title': 'Configuration'},
-                children=[Paragraph(content=[Text(content="How to configure.")])]
+                metadata={"title": "Configuration"}, children=[Paragraph(content=[Text(content="How to configure.")])]
             ),
             Document(
-                metadata={'title': 'API Reference'},
-                children=[Paragraph(content=[Text(content="API documentation.")])]
+                metadata={"title": "API Reference"}, children=[Paragraph(content=[Text(content="API documentation.")])]
             ),
         ]
 
         # Render all pages
-        options = HtmlRendererOptions(
-            template_mode='replace',
-            template_file=str(template)
-        )
+        options = HtmlRendererOptions(template_mode="replace", template_file=str(template))
         renderer = HtmlRenderer(options)
 
         outputs = []
@@ -255,11 +253,11 @@ class TestStaticSiteGeneration:
 
         # Verify all pages share structure
         for output in outputs:
-            assert '<header>' in output
-            assert '<footer>' in output
-            assert 'Part of the documentation' in output
+            assert "<header>" in output
+            assert "<footer>" in output
+            assert "Part of the documentation" in output
 
         # Verify each has unique content
-        assert 'Getting Started' in outputs[0]
-        assert 'Configuration' in outputs[1]
-        assert 'API Reference' in outputs[2]
+        assert "Getting Started" in outputs[0]
+        assert "Configuration" in outputs[1]
+        assert "API Reference" in outputs[2]

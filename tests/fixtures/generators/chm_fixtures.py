@@ -33,7 +33,7 @@ class MockCHMFile:
         pages: dict[str, str] | None = None,
         title: str | None = None,
         home: str | None = None,
-        topics: list[dict[str, Any]] | None = None
+        topics: list[dict[str, Any]] | None = None,
     ):
         """Initialize mock CHM file."""
         self.pages = pages or {}
@@ -91,8 +91,8 @@ class MockCHMFile:
         """
         if obj_ref in self.pages:
             content = self.pages[obj_ref]
-            return (0, content.encode('utf-8'))
-        return (1, b'')
+            return (0, content.encode("utf-8"))
+        return (1, b"")
 
     def GetTopicsTree(self) -> Optional[Any]:
         """Mock GetTopicsTree method.
@@ -126,15 +126,15 @@ class MockCHMFile:
 
         # Create root node
         root = MagicMock()
-        root.title = topics[0].get('title', '')
-        root.Local = topics[0].get('path', '')
+        root.title = topics[0].get("title", "")
+        root.Local = topics[0].get("path", "")
         root.children = []
 
         # Add children
         for topic in topics[1:]:
             child = MagicMock()
-            child.title = topic.get('title', '')
-            child.Local = topic.get('path', '')
+            child.title = topic.get("title", "")
+            child.Local = topic.get("path", "")
             child.children = []
             root.children.append(child)
 
@@ -220,12 +220,7 @@ def create_simple_chm() -> MockCHMFile:
         {"title": "Chapter 2: Content", "path": "/chapter2.html"},
     ]
 
-    return MockCHMFile(
-        pages=pages,
-        title="Test CHM Document",
-        home="/index.html",
-        topics=topics
-    )
+    return MockCHMFile(pages=pages, title="Test CHM Document", home="/index.html", topics=topics)
 
 
 def create_chm_with_nested_toc() -> MockCHMFile:
@@ -310,7 +305,7 @@ function greet() {
         pages=pages,
         title="Code Examples CHM",
         home="/index.html",
-        topics=[{"title": "Code Examples", "path": "/index.html"}]
+        topics=[{"title": "Code Examples", "path": "/index.html"}],
     )
 
 
@@ -338,10 +333,7 @@ def create_chm_with_images() -> MockCHMFile:
     }
 
     return MockCHMFile(
-        pages=pages,
-        title="Images Test CHM",
-        home="/index.html",
-        topics=[{"title": "Images", "path": "/index.html"}]
+        pages=pages, title="Images Test CHM", home="/index.html", topics=[{"title": "Images", "path": "/index.html"}]
     )
 
 
@@ -354,9 +346,4 @@ def create_empty_chm() -> MockCHMFile:
         Empty mock CHM file object
 
     """
-    return MockCHMFile(
-        pages={},
-        title="Empty CHM",
-        home=None,
-        topics=[]
-    )
+    return MockCHMFile(pages={}, title="Empty CHM", home=None, topics=[])

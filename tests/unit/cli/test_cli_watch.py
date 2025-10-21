@@ -11,6 +11,7 @@ import pytest
 # Check if watchdog is available
 try:
     from watchdog.observers import Observer  # noqa: F401
+
     WATCHDOG_AVAILABLE = True
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -28,11 +29,7 @@ class TestConversionEventHandler:
         options = {}
 
         handler = ConversionEventHandler(
-            paths_to_watch=paths,
-            output_dir=output_dir,
-            options=options,
-            format_arg="auto",
-            debounce_seconds=1.0
+            paths_to_watch=paths, output_dir=output_dir, options=options, format_arg="auto", debounce_seconds=1.0
         )
 
         assert handler.output_dir == output_dir
@@ -43,10 +40,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         # Create a valid document file
@@ -60,10 +54,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         # Create file with unsupported extension
@@ -77,11 +68,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto",
-            debounce_seconds=0.5
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto", debounce_seconds=0.5
         )
 
         test_file = tmp_path / "test.txt"
@@ -109,7 +96,7 @@ class TestConversionEventHandler:
             output_dir=tmp_path / "out",
             options={},
             format_arg="auto",
-            exclude_patterns=["*.tmp", "temp_*"]
+            exclude_patterns=["*.tmp", "temp_*"],
         )
 
         # Should skip files matching exclude patterns
@@ -124,10 +111,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -139,17 +123,14 @@ class TestConversionEventHandler:
         # Should skip
         assert not handler.should_process(str(test_file))
 
-    @patch('all2md.cli.watch.to_markdown')
+    @patch("all2md.cli.watch.to_markdown")
     def test_convert_file_success(self, mock_to_markdown, tmp_path):
         """Test successful file conversion."""
         from all2md.cli.watch import ConversionEventHandler
 
         output_dir = tmp_path / "out"
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=output_dir,
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=output_dir, options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -168,17 +149,14 @@ class TestConversionEventHandler:
         assert output_file.exists()
         assert output_file.read_text() == "# Test"
 
-    @patch('all2md.cli.watch.to_markdown')
+    @patch("all2md.cli.watch.to_markdown")
     def test_convert_file_handles_error(self, mock_to_markdown, tmp_path, caplog):
         """Test that conversion errors are handled gracefully."""
         from all2md.cli.watch import ConversionEventHandler
         from all2md.exceptions import All2MdError
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -193,16 +171,13 @@ class TestConversionEventHandler:
         # Check error was logged
         assert any("Conversion error" in record.message for record in caplog.records)
 
-    @patch('all2md.cli.watch.to_markdown')
+    @patch("all2md.cli.watch.to_markdown")
     def test_convert_file_clears_processing_flag(self, mock_to_markdown, tmp_path):
         """Test that processing flag is cleared after conversion."""
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -221,10 +196,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -249,10 +221,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -273,10 +242,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         test_file = tmp_path / "test.txt"
@@ -298,10 +264,7 @@ class TestConversionEventHandler:
         from all2md.cli.watch import ConversionEventHandler
 
         handler = ConversionEventHandler(
-            paths_to_watch=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
+            paths_to_watch=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
         )
 
         event = Mock()
@@ -322,8 +285,8 @@ class TestRunWatchMode:
     """Test run_watch_mode function."""
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
-    @patch('time.sleep')
-    @patch('watchdog.observers.Observer')
+    @patch("time.sleep")
+    @patch("watchdog.observers.Observer")
     def test_watch_mode_basic(self, mock_observer_class, mock_sleep, tmp_path):
         """Test basic watch mode setup."""
         from all2md.cli.watch import run_watch_mode
@@ -340,20 +303,15 @@ class TestRunWatchMode:
         output_dir = tmp_path / "out"
 
         # Run watch mode
-        run_watch_mode(
-            paths=paths,
-            output_dir=output_dir,
-            options={},
-            format_arg="auto"
-        )
+        run_watch_mode(paths=paths, output_dir=output_dir, options={}, format_arg="auto")
 
         # Should set up observer
         mock_observer.schedule.assert_called()
         mock_observer.start.assert_called_once()
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
-    @patch('time.sleep')
-    @patch('watchdog.observers.Observer')
+    @patch("time.sleep")
+    @patch("watchdog.observers.Observer")
     def test_watch_mode_directory(self, mock_observer_class, mock_sleep, tmp_path):
         """Test watch mode on directory."""
         from all2md.cli.watch import run_watch_mode
@@ -363,21 +321,15 @@ class TestRunWatchMode:
         mock_sleep.side_effect = KeyboardInterrupt()
 
         # Watch a directory
-        run_watch_mode(
-            paths=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto",
-            recursive=True
-        )
+        run_watch_mode(paths=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto", recursive=True)
 
         # Should schedule with recursive=True
         call_args = mock_observer.schedule.call_args
-        assert call_args[1]['recursive'] is True
+        assert call_args[1]["recursive"] is True
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
-    @patch('time.sleep')
-    @patch('watchdog.observers.Observer')
+    @patch("time.sleep")
+    @patch("watchdog.observers.Observer")
     def test_watch_mode_handles_keyboard_interrupt(self, mock_observer_class, mock_sleep, tmp_path, capsys):
         """Test that watch mode handles Ctrl+C gracefully."""
         from all2md.cli.watch import run_watch_mode
@@ -386,12 +338,7 @@ class TestRunWatchMode:
         mock_observer_class.return_value = mock_observer
         mock_sleep.side_effect = KeyboardInterrupt()
 
-        result = run_watch_mode(
-            paths=[tmp_path],
-            output_dir=tmp_path / "out",
-            options={},
-            format_arg="auto"
-        )
+        result = run_watch_mode(paths=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto")
 
         # Should stop observer
         mock_observer.stop.assert_called_once()
@@ -412,27 +359,25 @@ class TestRunWatchMode:
         from all2md.cli.watch import run_watch_mode
 
         # Temporarily remove watchdog from sys.modules
-        watchdog_modules = {k: v for k, v in sys.modules.items() if 'watchdog' in k}
+        watchdog_modules = {k: v for k, v in sys.modules.items() if "watchdog" in k}
         for key in watchdog_modules:
             del sys.modules[key]
 
         # Mock the import to raise ImportError
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if 'watchdog' in name:
+            if "watchdog" in name:
                 raise ImportError(f"No module named '{name}'")
             return real_import(name, *args, **kwargs)
 
         try:
-            with patch('builtins.__import__', side_effect=mock_import):
+            with patch("builtins.__import__", side_effect=mock_import):
                 with caplog.at_level(logging.ERROR):
                     result = run_watch_mode(
-                        paths=[tmp_path],
-                        output_dir=tmp_path / "out",
-                        options={},
-                        format_arg="auto"
+                        paths=[tmp_path], output_dir=tmp_path / "out", options={}, format_arg="auto"
                     )
 
             # Should return dependency error code
@@ -445,8 +390,8 @@ class TestRunWatchMode:
             sys.modules.update(watchdog_modules)
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
-    @patch('time.sleep')
-    @patch('watchdog.observers.Observer')
+    @patch("time.sleep")
+    @patch("watchdog.observers.Observer")
     def test_watch_mode_creates_output_dir(self, mock_observer_class, mock_sleep, tmp_path):
         """Test that watch mode creates output directory."""
         from all2md.cli.watch import run_watch_mode
@@ -457,12 +402,7 @@ class TestRunWatchMode:
 
         output_dir = tmp_path / "nonexistent" / "out"
 
-        run_watch_mode(
-            paths=[tmp_path],
-            output_dir=output_dir,
-            options={},
-            format_arg="auto"
-        )
+        run_watch_mode(paths=[tmp_path], output_dir=output_dir, options={}, format_arg="auto")
 
         # Output directory should be created
         assert output_dir.exists()
@@ -471,7 +411,7 @@ class TestRunWatchMode:
 class TestWatchCLIIntegration:
     """Test --watch CLI flag integration."""
 
-    @patch('all2md.cli.watch.run_watch_mode')
+    @patch("all2md.cli.watch.run_watch_mode")
     def test_watch_flag_calls_watch_mode(self, mock_watch_mode, tmp_path):
         """Test that --watch flag calls run_watch_mode."""
         from all2md.cli import main
@@ -483,11 +423,7 @@ class TestWatchCLIIntegration:
 
         mock_watch_mode.return_value = 0
 
-        main([
-            str(test_file),
-            '--watch',
-            '--output-dir', str(output_dir)
-        ])
+        main([str(test_file), "--watch", "--output-dir", str(output_dir)])
 
         # Should call watch mode
         mock_watch_mode.assert_called_once()
@@ -500,7 +436,7 @@ class TestWatchCLIIntegration:
         test_file.write_text("test")
 
         # Run --watch without --output-dir
-        result = main([str(test_file), '--watch'])
+        result = main([str(test_file), "--watch"])
 
         # Should fail with error
         assert result != 0
@@ -508,7 +444,7 @@ class TestWatchCLIIntegration:
         captured = capsys.readouterr()
         assert "output-dir" in captured.err.lower()
 
-    @patch('all2md.cli.watch.run_watch_mode')
+    @patch("all2md.cli.watch.run_watch_mode")
     def test_watch_debounce_flag(self, mock_watch_mode, tmp_path):
         """Test --watch-debounce flag."""
         from all2md.cli import main
@@ -518,16 +454,11 @@ class TestWatchCLIIntegration:
 
         mock_watch_mode.return_value = 0
 
-        main([
-            str(test_file),
-            '--watch',
-            '--watch-debounce', '2.5',
-            '--output-dir', str(tmp_path / 'out')
-        ])
+        main([str(test_file), "--watch", "--watch-debounce", "2.5", "--output-dir", str(tmp_path / "out")])
 
         # Should pass debounce value to watch mode
         call_kwargs = mock_watch_mode.call_args[1]
-        assert call_kwargs['debounce'] == 2.5
+        assert call_kwargs["debounce"] == 2.5
 
     def test_watch_with_recursive(self, tmp_path):
         """Test --watch with --recursive."""
@@ -535,12 +466,7 @@ class TestWatchCLIIntegration:
 
         parser = create_parser()
 
-        args = parser.parse_args([
-            str(tmp_path),
-            '--watch',
-            '--recursive',
-            '--output-dir', str(tmp_path / 'out')
-        ])
+        args = parser.parse_args([str(tmp_path), "--watch", "--recursive", "--output-dir", str(tmp_path / "out")])
 
         # Should have recursive flag
         assert args.recursive is True
@@ -553,16 +479,21 @@ class TestWatchCLIIntegration:
         parser = create_parser()
         test_file = tmp_path / "test.txt"
 
-        args = parser.parse_args([
-            str(test_file),
-            '--watch',
-            '--exclude', '*.tmp',
-            '--exclude', '*.bak',
-            '--output-dir', str(tmp_path / 'out')
-        ])
+        args = parser.parse_args(
+            [
+                str(test_file),
+                "--watch",
+                "--exclude",
+                "*.tmp",
+                "--exclude",
+                "*.bak",
+                "--output-dir",
+                str(tmp_path / "out"),
+            ]
+        )
 
         # Should have exclude patterns
-        assert args.exclude == ['*.tmp', '*.bak']
+        assert args.exclude == ["*.tmp", "*.bak"]
         assert args.watch is True
 
 
@@ -572,8 +503,8 @@ class TestWatchModeIntegration:
     """Integration tests for watch mode."""
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
-    @patch('time.sleep')
-    @patch('watchdog.observers.Observer')
+    @patch("time.sleep")
+    @patch("watchdog.observers.Observer")
     def test_watch_mode_full_workflow(self, mock_observer_class, mock_sleep, tmp_path):
         """Test complete watch mode workflow."""
         from all2md.cli import main
@@ -589,11 +520,7 @@ class TestWatchModeIntegration:
         mock_sleep.side_effect = KeyboardInterrupt()
 
         # Run watch mode
-        result = main([
-            str(test_file),
-            '--watch',
-            '--output-dir', str(output_dir)
-        ])
+        result = main([str(test_file), "--watch", "--output-dir", str(output_dir)])
 
         # Should set up and run watch mode
         assert result == 0
@@ -602,7 +529,7 @@ class TestWatchModeIntegration:
 
     @pytest.mark.skipif(
         True,  # Skip by default as it requires actual file system monitoring
-        reason="Requires real file system events and watchdog"
+        reason="Requires real file system events and watchdog",
     )
     def test_watch_mode_actual_file_change(self, tmp_path):
         """Test watch mode with actual file changes (requires watchdog)."""
@@ -617,13 +544,7 @@ class TestWatchModeIntegration:
 
         # Run watch mode in background thread
         def run_watch():
-            run_watch_mode(
-                paths=[test_file],
-                output_dir=output_dir,
-                options={},
-                format_arg="auto",
-                debounce=0.1
-            )
+            run_watch_mode(paths=[test_file], output_dir=output_dir, options={}, format_arg="auto", debounce=0.1)
 
         watch_thread = threading.Thread(target=run_watch, daemon=True)
         watch_thread.start()
@@ -661,13 +582,7 @@ class TestWatchModeIntegration:
         def run_watch_thread():
             ready_event.set()
             try:
-                run_watch_mode(
-                    paths=[test_file],
-                    output_dir=output_dir,
-                    options={},
-                    format_arg="auto",
-                    debounce=0.2
-                )
+                run_watch_mode(paths=[test_file], output_dir=output_dir, options={}, format_arg="auto", debounce=0.2)
             except KeyboardInterrupt:
                 pass
 
@@ -713,7 +628,7 @@ class TestWatchModeIntegration:
                     options={},
                     format_arg="auto",
                     debounce=0.2,
-                    recursive=False
+                    recursive=False,
                 )
             except KeyboardInterrupt:
                 pass
@@ -758,7 +673,7 @@ class TestWatchModeIntegration:
                     output_dir=output_dir,
                     options={},
                     format_arg="auto",
-                    debounce=0.5  # 500ms debounce
+                    debounce=0.5,  # 500ms debounce
                 )
             except KeyboardInterrupt:
                 pass
@@ -806,7 +721,7 @@ class TestWatchModeIntegration:
                     options={},
                     format_arg="auto",
                     debounce=0.2,
-                    exclude_patterns=["*.tmp", "draft_*"]
+                    exclude_patterns=["*.tmp", "draft_*"],
                 )
             except KeyboardInterrupt:
                 pass

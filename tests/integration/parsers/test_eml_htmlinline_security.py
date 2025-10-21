@@ -25,65 +25,122 @@ class HTMLInlineDetector(NodeVisitor):
 
     def _visit_children(self, node):
         """Visit children if they exist."""
-        if hasattr(node, 'children'):
+        if hasattr(node, "children"):
             for child in node.children:
                 child.accept(self)
-        if hasattr(node, 'content'):
+        if hasattr(node, "content"):
             if isinstance(node.content, list):
                 for child in node.content:
-                    if hasattr(child, 'accept'):
+                    if hasattr(child, "accept"):
                         child.accept(self)
-        if hasattr(node, 'items'):
+        if hasattr(node, "items"):
             if isinstance(node.items, list):
                 for item in node.items:
                     if isinstance(item, list):
                         for subitem in item:
-                            if hasattr(subitem, 'accept'):
+                            if hasattr(subitem, "accept"):
                                 subitem.accept(self)
 
     # Implement all required abstract methods
-    def visit_document(self, node): self._visit_children(node)
-    def visit_heading(self, node): self._visit_children(node)
-    def visit_paragraph(self, node): self._visit_children(node)
-    def visit_code_block(self, node): pass
-    def visit_block_quote(self, node): self._visit_children(node)
+    def visit_document(self, node):
+        self._visit_children(node)
+
+    def visit_heading(self, node):
+        self._visit_children(node)
+
+    def visit_paragraph(self, node):
+        self._visit_children(node)
+
+    def visit_code_block(self, node):
+        pass
+
+    def visit_block_quote(self, node):
+        self._visit_children(node)
+
     def visit_list(self, node):
         for item in node.items:
             item.accept(self)
-    def visit_list_item(self, node): self._visit_children(node)
+
+    def visit_list_item(self, node):
+        self._visit_children(node)
+
     def visit_table(self, node):
         if node.header:
             node.header.accept(self)
         for row in node.rows:
             row.accept(self)
+
     def visit_table_row(self, node):
         for cell in node.cells:
             cell.accept(self)
-    def visit_table_cell(self, node): self._visit_children(node)
-    def visit_thematic_break(self, node): pass
-    def visit_html_block(self, node): pass
-    def visit_text(self, node): pass
-    def visit_emphasis(self, node): self._visit_children(node)
-    def visit_strong(self, node): self._visit_children(node)
-    def visit_code(self, node): pass
-    def visit_link(self, node): self._visit_children(node)
-    def visit_image(self, node): pass
-    def visit_line_break(self, node): pass
-    def visit_strikethrough(self, node): self._visit_children(node)
-    def visit_underline(self, node): self._visit_children(node)
-    def visit_superscript(self, node): self._visit_children(node)
-    def visit_subscript(self, node): self._visit_children(node)
+
+    def visit_table_cell(self, node):
+        self._visit_children(node)
+
+    def visit_thematic_break(self, node):
+        pass
+
+    def visit_html_block(self, node):
+        pass
+
+    def visit_text(self, node):
+        pass
+
+    def visit_emphasis(self, node):
+        self._visit_children(node)
+
+    def visit_strong(self, node):
+        self._visit_children(node)
+
+    def visit_code(self, node):
+        pass
+
+    def visit_link(self, node):
+        self._visit_children(node)
+
+    def visit_image(self, node):
+        pass
+
+    def visit_line_break(self, node):
+        pass
+
+    def visit_strikethrough(self, node):
+        self._visit_children(node)
+
+    def visit_underline(self, node):
+        self._visit_children(node)
+
+    def visit_superscript(self, node):
+        self._visit_children(node)
+
+    def visit_subscript(self, node):
+        self._visit_children(node)
+
     def visit_html_inline(self, node):
         """Record HTMLInline node."""
         self.found_htmlinline = True
         self.htmlinline_contents.append(node.content)
-    def visit_footnote_reference(self, node): pass
-    def visit_math_inline(self, node): pass
-    def visit_footnote_definition(self, node): self._visit_children(node)
-    def visit_definition_list(self, node): self._visit_children(node)
-    def visit_definition_term(self, node): self._visit_children(node)
-    def visit_definition_description(self, node): self._visit_children(node)
-    def visit_math_block(self, node): pass
+
+    def visit_footnote_reference(self, node):
+        pass
+
+    def visit_math_inline(self, node):
+        pass
+
+    def visit_footnote_definition(self, node):
+        self._visit_children(node)
+
+    def visit_definition_list(self, node):
+        self._visit_children(node)
+
+    def visit_definition_term(self, node):
+        self._visit_children(node)
+
+    def visit_definition_description(self, node):
+        self._visit_children(node)
+
+    def visit_math_block(self, node):
+        pass
 
 
 class TestEmlHtmlInlineSecurity:
@@ -101,7 +158,7 @@ This is a simple test email message.
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -123,7 +180,7 @@ javascript:alert('xss')
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -132,7 +189,7 @@ javascript:alert('xss')
         assert not detector.found_htmlinline, "Email parser should not use HTMLInline even for content with HTML/JS"
 
         # Convert to markdown and verify dangerous content is escaped/removed
-        result = to_markdown(eml_content.encode('utf-8'), source_format="eml")
+        result = to_markdown(eml_content.encode("utf-8"), source_format="eml")
 
         # Content should be present as text but not as executable code
         assert "<script>" in result or "alert" in result  # Present as text
@@ -152,7 +209,7 @@ This is the latest message.
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -183,7 +240,7 @@ Content-Type: text/html
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -203,7 +260,7 @@ Please see the attached file: document.pdf
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -225,7 +282,7 @@ Symbols: \u2022 \u2713 \u2717
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -243,7 +300,7 @@ Subject: Malformed
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Check for HTMLInline nodes
         detector = HTMLInlineDetector()
@@ -263,7 +320,7 @@ This is email content that should be safe.
 
         # Parse to AST
         parser = EmlToAstConverter()
-        doc = parser.parse(eml_content.encode('utf-8'))
+        doc = parser.parse(eml_content.encode("utf-8"))
 
         # Walk the AST and verify we have Text nodes, not HTMLInline
         from all2md.ast import Paragraph, Text
@@ -290,7 +347,7 @@ javascript:alert('xss')
 <script>alert('xss')</script>
 """
 
-        result = to_markdown(eml_content.encode('utf-8'), source_format="eml")
+        result = to_markdown(eml_content.encode("utf-8"), source_format="eml")
 
         # Should not contain raw HTML that could execute
         # Content should be escaped or present as plain text only

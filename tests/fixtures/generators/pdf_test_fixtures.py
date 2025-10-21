@@ -69,11 +69,7 @@ def create_pdf_with_tables() -> fitz.Document:
         page.insert_text((x + 5, y + 15), header, fontsize=10, color=(0, 0, 0))
 
     # Table 1 data rows
-    data1 = [
-        ["Alice", "25", "NYC"],
-        ["Bob", "30", "SF"],
-        ["Carol", "28", "LA"]
-    ]
+    data1 = [["Alice", "25", "NYC"], ["Bob", "30", "SF"], ["Carol", "28", "LA"]]
 
     for row_idx, row in enumerate(data1):
         for col_idx, cell in enumerate(row):
@@ -102,11 +98,7 @@ def create_pdf_with_tables() -> fitz.Document:
         page.insert_text((x + 5, y + 15), header, fontsize=10, color=(0, 0, 0))
 
     # Table 2 data
-    data2 = [
-        ["Widget A", "$10.99"],
-        ["Widget B", "$15.50"],
-        ["Widget C", "$8.25"]
-    ]
+    data2 = [["Widget A", "$10.99"], ["Widget B", "$15.50"], ["Widget C", "$8.25"]]
 
     for row_idx, row in enumerate(data2):
         for col_idx, cell in enumerate(row):
@@ -141,8 +133,9 @@ def create_pdf_with_formatting() -> fitz.Document:
 
     page.insert_text((50, 230), "Medium Subheader", fontsize=14, color=(0, 0, 0))
 
-    page.insert_text((50, 260), "Regular paragraph text continues here with normal formatting",
-                     fontsize=12, color=(0, 0, 0))
+    page.insert_text(
+        (50, 260), "Regular paragraph text continues here with normal formatting", fontsize=12, color=(0, 0, 0)
+    )
 
     # Mixed formatting in same line (requires multiple text insertions)
     page.insert_text((50, 320), "This line has ", fontsize=12, color=(0, 0, 0))
@@ -167,8 +160,10 @@ def create_pdf_with_complex_layout() -> fitz.Document:
     page.insert_text((50, 50), "Complex Layout Test", fontsize=16, color=(0, 0, 0))
 
     # First paragraph
-    para1 = ("This document tests complex layouts with text flowing around "
-             "figures and tables. The PDF parser should handle this gracefully.")
+    para1 = (
+        "This document tests complex layouts with text flowing around "
+        "figures and tables. The PDF parser should handle this gracefully."
+    )
     page.insert_text((50, 100), para1, fontsize=12, color=(0, 0, 0))
 
     # Insert figure that text should flow around (using shapes instead of image)
@@ -182,8 +177,10 @@ def create_pdf_with_complex_layout() -> fitz.Document:
     page.insert_text((350, 210), "Figure: Sample chart", fontsize=10, color=(0, 0, 0))
 
     # Text that should appear after figure
-    para2 = ("This paragraph comes after the figure. It should be properly "
-             "detected and positioned in the markdown output.")
+    para2 = (
+        "This paragraph comes after the figure. It should be properly "
+        "detected and positioned in the markdown output."
+    )
     page.insert_text((50, 150), para2, fontsize=12, color=(0, 0, 0))
 
     # Small table
@@ -227,13 +224,13 @@ def create_test_pdf_bytes(pdf_type: str) -> bytes:
         PDF document as bytes
 
     """
-    if pdf_type == 'images' or pdf_type == 'figures':
+    if pdf_type == "images" or pdf_type == "figures":
         doc = create_pdf_with_figures()
-    elif pdf_type == 'tables':
+    elif pdf_type == "tables":
         doc = create_pdf_with_tables()
-    elif pdf_type == 'formatting':
+    elif pdf_type == "formatting":
         doc = create_pdf_with_formatting()
-    elif pdf_type == 'complex':
+    elif pdf_type == "complex":
         doc = create_pdf_with_complex_layout()
     else:
         raise ValueError(f"Unknown PDF type: {pdf_type}")
@@ -262,7 +259,7 @@ def create_temp_pdf_file(pdf_type: str) -> Path:
     pdf_bytes = create_test_pdf_bytes(pdf_type)
 
     # Create temporary file
-    temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+    temp_file = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
     temp_file.write(pdf_bytes)
     temp_file.close()
 

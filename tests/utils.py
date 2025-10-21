@@ -73,7 +73,7 @@ class DocxTestGenerator:
 
         # Table with merged cells
         table1 = doc.add_table(rows=3, cols=3)
-        table1.style = 'Table Grid'
+        table1.style = "Table Grid"
 
         # Header row
         table1.rows[0].cells[0].text = "Merged Header"
@@ -384,10 +384,10 @@ class PptxTestGenerator:
         slide.shapes.title.text = "Complex Charts"
 
         chart_data = ChartData()
-        chart_data.categories = ['Q1', 'Q2', 'Q3', 'Q4']
-        chart_data.add_series('Series 1', (10, 15, 12, 18))
-        chart_data.add_series('Series 2', (8, 12, 15, 14))
-        chart_data.add_series('Series 3', (12, 10, 8, 16))
+        chart_data.categories = ["Q1", "Q2", "Q3", "Q4"]
+        chart_data.add_series("Series 1", (10, 15, 12, 18))
+        chart_data.add_series("Series 2", (8, 12, 15, 14))
+        chart_data.add_series("Series 3", (12, 10, 8, 16))
 
         x, y, cx, cy = PptxInches(1), PptxInches(2), PptxInches(8), PptxInches(4)
         slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
@@ -397,8 +397,8 @@ class PptxTestGenerator:
         slide2.shapes.title.text = "Pie Chart"
 
         pie_data = ChartData()
-        pie_data.categories = ['A', 'B', 'C', 'D']
-        pie_data.add_series('Values', (30, 25, 25, 20))
+        pie_data.categories = ["A", "B", "C", "D"]
+        pie_data.add_series("Values", (30, 25, 25, 20))
 
         slide2.shapes.add_chart(XL_CHART_TYPE.PIE, x, y, cx, cy, pie_data)
 
@@ -472,15 +472,15 @@ class EmlTestGenerator:
     @staticmethod
     def create_multipart_message() -> str:
         """Create a complex multipart email message."""
-        msg = MIMEMultipart('mixed')
-        msg['From'] = 'sender@example.com'
-        msg['To'] = 'recipient@example.com'
-        msg['Subject'] = 'Multipart Message Test'
-        msg['Date'] = email.utils.formatdate(localtime=True)
-        msg['Message-ID'] = '<multipart@example.com>'
+        msg = MIMEMultipart("mixed")
+        msg["From"] = "sender@example.com"
+        msg["To"] = "recipient@example.com"
+        msg["Subject"] = "Multipart Message Test"
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        msg["Message-ID"] = "<multipart@example.com>"
 
         # Text part
-        text_part = MIMEText('This is the plain text part of the message.', 'plain')
+        text_part = MIMEText("This is the plain text part of the message.", "plain")
         msg.attach(text_part)
 
         # HTML part
@@ -492,12 +492,12 @@ class EmlTestGenerator:
         </body>
         </html>
         """
-        html_part = MIMEText(html_content, 'html')
+        html_part = MIMEText(html_content, "html")
         msg.attach(html_part)
 
         # Image attachment
         img_part = MIMEImage(MINIMAL_PNG_BYTES)
-        img_part.add_header('Content-Disposition', 'attachment; filename="test.png"')
+        img_part.add_header("Content-Disposition", 'attachment; filename="test.png"')
         msg.attach(img_part)
 
         return msg.as_string()
@@ -588,22 +588,22 @@ Café résumé naïve
 
 def assert_markdown_valid(markdown: str) -> None:
     """Assert that the generated Markdown is valid and well-formed."""
-    lines = markdown.split('\n')
+    lines = markdown.split("\n")
 
     # Check for common Markdown issues
     for i, line in enumerate(lines):
         # Check for unescaped special characters at start of line
-        if line.startswith(('#', '*', '-', '+')) and i > 0:
-            if not lines[i - 1].strip() == '':  # Should have empty line before headers/lists
+        if line.startswith(("#", "*", "-", "+")) and i > 0:
+            if not lines[i - 1].strip() == "":  # Should have empty line before headers/lists
                 pass  # Could add warnings for style issues
 
         # Check for proper link formatting
-        if '[' in line and ']' in line:
+        if "[" in line and "]" in line:
             # Basic link structure validation
             pass
 
     # Check for proper table formatting
-    table_lines = [line for line in lines if '|' in line]
+    table_lines = [line for line in lines if "|" in line]
     if table_lines:
         # Validate table structure consistency
         pass
@@ -617,5 +617,6 @@ def create_test_temp_dir() -> Path:
 def cleanup_test_dir(temp_dir: Path) -> None:
     """Clean up test directory and files."""
     import shutil
+
     if temp_dir.exists():
         shutil.rmtree(temp_dir)

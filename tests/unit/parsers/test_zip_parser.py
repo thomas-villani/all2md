@@ -28,7 +28,7 @@ def create_test_zip(files: dict[str, bytes]) -> bytes:
 
     """
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         for file_path, content in files.items():
             zf.writestr(file_path, content)
     return zip_buffer.getvalue()
@@ -50,9 +50,7 @@ class TestZipParser:
 
     def test_single_text_file(self):
         """Test parsing a ZIP with a single text file."""
-        files = {
-            "test.txt": b"Hello, World!"
-        }
+        files = {"test.txt": b"Hello, World!"}
         zip_data = create_test_zip(files)
 
         doc = to_ast(zip_data, source_format="zip")
@@ -64,11 +62,7 @@ class TestZipParser:
 
     def test_multiple_files(self):
         """Test parsing a ZIP with multiple files."""
-        files = {
-            "file1.txt": b"Content 1",
-            "file2.txt": b"Content 2",
-            "subdir/file3.txt": b"Content 3"
-        }
+        files = {"file1.txt": b"Content 1", "file2.txt": b"Content 2", "subdir/file3.txt": b"Content 3"}
         zip_data = create_test_zip(files)
 
         doc = to_ast(zip_data, source_format="zip")
@@ -80,16 +74,10 @@ class TestZipParser:
 
     def test_exclude_patterns(self):
         """Test excluding files by pattern."""
-        files = {
-            "file1.txt": b"Content 1",
-            "file2.log": b"Log content",
-            "__MACOSX/._file1.txt": b"Mac metadata"
-        }
+        files = {"file1.txt": b"Content 1", "file2.log": b"Log content", "__MACOSX/._file1.txt": b"Mac metadata"}
         zip_data = create_test_zip(files)
 
-        options = ZipOptions(
-            exclude_patterns=["*.log", "__MACOSX/*"]
-        )
+        options = ZipOptions(exclude_patterns=["*.log", "__MACOSX/*"])
 
         parser = ZipToAstConverter(options=options)
         doc = parser.parse(zip_data)
@@ -104,16 +92,11 @@ class TestZipParser:
         Note: JSON files have no parser, so skip_empty_files=False is needed
         to include them in output (they'll show as "Could not parse this file").
         """
-        files = {
-            "document.txt": b"Text content",
-            "image.png": b"PNG data",
-            "data.json": b'{"key": "value"}'
-        }
+        files = {"document.txt": b"Text content", "image.png": b"PNG data", "data.json": b'{"key": "value"}'}
         zip_data = create_test_zip(files)
 
         options = ZipOptions(
-            include_patterns=["*.txt", "*.json"],
-            skip_empty_files=False  # Include unparseable files like JSON
+            include_patterns=["*.txt", "*.json"], skip_empty_files=False  # Include unparseable files like JSON
         )
 
         parser = ZipToAstConverter(options=options)
@@ -129,7 +112,7 @@ class TestZipParser:
             "root.txt": b"Root level",
             "level1/file.txt": b"Level 1",
             "level1/level2/file.txt": b"Level 2",
-            "level1/level2/level3/file.txt": b"Level 3"
+            "level1/level2/level3/file.txt": b"Level 3",
         }
         zip_data = create_test_zip(files)
 
@@ -144,9 +127,7 @@ class TestZipParser:
 
     def test_flatten_structure(self):
         """Test flattening directory structure in output."""
-        files = {
-            "subdir/file.txt": b"Content"
-        }
+        files = {"subdir/file.txt": b"Content"}
         zip_data = create_test_zip(files)
 
         options = ZipOptions(flatten_structure=True)
@@ -163,9 +144,7 @@ class TestZipParser:
 
     def test_no_section_headings(self):
         """Test disabling section headings."""
-        files = {
-            "file.txt": b"Content"
-        }
+        files = {"file.txt": b"Content"}
         zip_data = create_test_zip(files)
 
         options = ZipOptions(create_section_headings=False)
@@ -179,10 +158,7 @@ class TestZipParser:
 
     def test_skip_empty_files(self):
         """Test skipping empty files."""
-        files = {
-            "content.txt": b"Has content",
-            "empty.txt": b""
-        }
+        files = {"content.txt": b"Has content", "empty.txt": b""}
         zip_data = create_test_zip(files)
 
         options = ZipOptions(skip_empty_files=True)
@@ -197,9 +173,7 @@ class TestZipParser:
     def test_nested_zip_with_markdown(self):
         """Test ZIP containing a markdown file."""
         markdown_content = b"# Hello\n\nThis is a test."
-        files = {
-            "document.md": markdown_content
-        }
+        files = {"document.md": markdown_content}
         zip_data = create_test_zip(files)
 
         doc = to_ast(zip_data, source_format="zip")
@@ -222,7 +196,7 @@ class TestZipParser:
         """Test that path traversal attacks are blocked."""
         # Create ZIP with malicious path
         zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w') as zf:
+        with zipfile.ZipFile(zip_buffer, "w") as zf:
             # Try to create entry with path traversal
             info = zipfile.ZipInfo("../../../etc/passwd")
             zf.writestr(info, b"malicious content")
@@ -242,7 +216,7 @@ class TestZipParser:
     def test_zip_with_directory_entries(self):
         """Test that directory entries are skipped."""
         zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w') as zf:
+        with zipfile.ZipFile(zip_buffer, "w") as zf:
             zf.writestr("dir1/", "")  # Directory entry
             zf.writestr("dir1/file.txt", b"Content")
         zip_data = zip_buffer.getvalue()
@@ -259,10 +233,7 @@ class TestZipMetadata:
 
     def test_metadata_extraction(self):
         """Test that metadata is extracted from ZIP."""
-        files = {
-            "file1.txt": b"Content 1",
-            "file2.txt": b"Content 2"
-        }
+        files = {"file1.txt": b"Content 1", "file2.txt": b"Content 2"}
         zip_data = create_test_zip(files)
 
         doc = to_ast(zip_data, source_format="zip")
@@ -279,9 +250,7 @@ class TestZipIntegration:
 
     def test_to_markdown_conversion(self):
         """Test converting ZIP to markdown string."""
-        files = {
-            "test.txt": b"Hello, World!"
-        }
+        files = {"test.txt": b"Hello, World!"}
         zip_data = create_test_zip(files)
 
         markdown = to_markdown(zip_data, source_format="zip")
@@ -300,12 +269,13 @@ class TestZipIntegration:
         files = {
             "document.txt": b"Plain text content",
             "data.json": b'{"key": "value"}',
-            "notes.md": b"# Markdown\n\nContent"
+            "notes.md": b"# Markdown\n\nContent",
         }
         zip_data = create_test_zip(files)
 
         # Need to include unparseable files like JSON
         from all2md.options.zip import ZipOptions
+
         options = ZipOptions(skip_empty_files=False)
         markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 

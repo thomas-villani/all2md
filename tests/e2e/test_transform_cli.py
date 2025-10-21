@@ -12,21 +12,15 @@ class TestTransformCLI:
 
     def test_list_transforms_command(self):
         """Test list-transforms subcommand."""
-        result = subprocess.run(
-            [sys.executable, '-m', 'all2md', 'list-transforms'],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([sys.executable, "-m", "all2md", "list-transforms"], capture_output=True, text=True)
         assert result.returncode == 0
         # May not show transforms if entry points not installed, just check it runs
-        assert 'Transforms' in result.stdout or 'transforms' in result.stdout.lower()
+        assert "Transforms" in result.stdout or "transforms" in result.stdout.lower()
 
     def test_list_transforms_specific(self):
         """Test list-transforms with specific transform."""
         result = subprocess.run(
-            [sys.executable, '-m', 'all2md', 'list-transforms', 'heading-offset'],
-            capture_output=True,
-            text=True
+            [sys.executable, "-m", "all2md", "list-transforms", "heading-offset"], capture_output=True, text=True
         )
         # May fail if entry points not installed
         # Just check it handles the command
@@ -35,12 +29,10 @@ class TestTransformCLI:
     def test_list_transforms_unknown(self):
         """Test list-transforms with unknown transform."""
         result = subprocess.run(
-            [sys.executable, '-m', 'all2md', 'list-transforms', 'nonexistent'],
-            capture_output=True,
-            text=True
+            [sys.executable, "-m", "all2md", "list-transforms", "nonexistent"], capture_output=True, text=True
         )
         # May fail differently if entry points not installed
-        assert result.returncode != 0 or 'not found' in result.stderr.lower()
+        assert result.returncode != 0 or "not found" in result.stderr.lower()
 
     def test_transform_flag_single(self, tmp_path):
         """Test --transform with single transform."""
@@ -50,14 +42,9 @@ class TestTransformCLI:
         test_file.write_text(test_content)
 
         result = subprocess.run(
-            [
-                sys.executable, '-m', 'all2md',
-                str(test_file),
-                '--transform', 'remove-images',
-                '--format', 'auto'
-            ],
+            [sys.executable, "-m", "all2md", str(test_file), "--transform", "remove-images", "--format", "auto"],
             capture_output=True,
-            text=True
+            text=True,
         )
         # May fail if entry points not installed, or succeed
         assert result.returncode in (0, 1, 2, 3)
@@ -70,14 +57,19 @@ class TestTransformCLI:
 
         result = subprocess.run(
             [
-                sys.executable, '-m', 'all2md',
+                sys.executable,
+                "-m",
+                "all2md",
                 str(test_file),
-                '--transform', 'remove-images',
-                '--transform', 'heading-offset',
-                '--format', 'auto'
+                "--transform",
+                "remove-images",
+                "--transform",
+                "heading-offset",
+                "--format",
+                "auto",
             ],
             capture_output=True,
-            text=True
+            text=True,
         )
         # May fail if entry points not installed
         assert result.returncode in (0, 1, 2, 3)
@@ -89,14 +81,9 @@ class TestTransformCLI:
         test_file.write_text(test_content)
 
         result = subprocess.run(
-            [
-                sys.executable, '-m', 'all2md',
-                str(test_file),
-                '--transform', 'heading-offset',
-                '--format', 'auto'
-            ],
+            [sys.executable, "-m", "all2md", str(test_file), "--transform", "heading-offset", "--format", "auto"],
             capture_output=True,
-            text=True
+            text=True,
         )
         # May fail if entry points not installed
         assert result.returncode in (0, 1, 2, 3)
@@ -108,14 +95,9 @@ class TestTransformCLI:
         test_file.write_text(test_content)
 
         result = subprocess.run(
-            [
-                sys.executable, '-m', 'all2md',
-                str(test_file),
-                '-t', 'heading-offset',
-                '--format', 'auto'
-            ],
+            [sys.executable, "-m", "all2md", str(test_file), "-t", "heading-offset", "--format", "auto"],
             capture_output=True,
-            text=True
+            text=True,
         )
         # May fail if entry points not installed
         assert result.returncode in (0, 1, 2, 3)
@@ -126,13 +108,9 @@ class TestTransformCLI:
         test_file.write_text("test")
 
         result = subprocess.run(
-            [
-                sys.executable, '-m', 'all2md',
-                str(test_file),
-                '--transform', 'nonexistent-transform'
-            ],
+            [sys.executable, "-m", "all2md", str(test_file), "--transform", "nonexistent-transform"],
             capture_output=True,
-            text=True
+            text=True,
         )
         # Should fail (either unknown transform or entry point issues)
         assert result.returncode != 0
@@ -140,23 +118,17 @@ class TestTransformCLI:
     def test_list_transforms_help(self):
         """Test list-transforms --help."""
         result = subprocess.run(
-            [sys.executable, '-m', 'all2md', 'list-transforms', '--help'],
-            capture_output=True,
-            text=True
+            [sys.executable, "-m", "all2md", "list-transforms", "--help"], capture_output=True, text=True
         )
         assert result.returncode == 0
-        assert 'usage' in result.stdout.lower() or 'show available' in result.stdout.lower()
+        assert "usage" in result.stdout.lower() or "show available" in result.stdout.lower()
 
     def test_transforms_alias(self):
         """Test 'transforms' alias for 'list-transforms'."""
-        result = subprocess.run(
-            [sys.executable, '-m', 'all2md', 'transforms'],
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run([sys.executable, "-m", "all2md", "transforms"], capture_output=True, text=True)
         assert result.returncode == 0
         # May not show transforms if entry points not installed
-        assert 'transform' in result.stdout.lower()
+        assert "transform" in result.stdout.lower()
 
 
 @pytest.mark.integration
@@ -169,14 +141,9 @@ class TestTransformCLIWithFiles:
         test_content = b"# Test Document\nSome content"
 
         result = subprocess.run(
-            [
-                sys.executable, '-m', 'all2md',
-                '-',
-                '--transform', 'heading-offset',
-                '--format', 'auto'
-            ],
+            [sys.executable, "-m", "all2md", "-", "--transform", "heading-offset", "--format", "auto"],
             input=test_content,
-            capture_output=True
+            capture_output=True,
         )
         # Should handle stdin with transforms (may fail if entry points not installed)
         assert result.returncode in (0, 1, 2, 3)
@@ -190,14 +157,19 @@ class TestTransformCLIWithFiles:
 
         result = subprocess.run(
             [
-                sys.executable, '-m', 'all2md',
+                sys.executable,
+                "-m",
+                "all2md",
                 str(test_file),
-                '--out', str(output_file),
-                '--transform', 'heading-offset',
-                '--format', 'auto'
+                "--out",
+                str(output_file),
+                "--transform",
+                "heading-offset",
+                "--format",
+                "auto",
             ],
             capture_output=True,
-            text=True
+            text=True,
         )
 
         # Check if command ran successfully or failed gracefully

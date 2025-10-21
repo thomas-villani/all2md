@@ -20,7 +20,7 @@ def create_mediawiki_article() -> str:
         "| description = Demonstrates MediaWiki markup\n"
         "}}\n\n"
         "==== Table ====\n"
-        "{| class=\"wikitable\"\n"
+        '{| class="wikitable"\n'
         "! Name !! Role !! Score\n"
         "|-\n"
         "| Alice || Developer || 95\n"

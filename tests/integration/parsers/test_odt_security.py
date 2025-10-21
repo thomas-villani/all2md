@@ -75,9 +75,7 @@ class TestOdtUrlSanitization:
 
     def test_javascript_url_blocked(self):
         """Test that javascript: URLs in ODT links are blocked."""
-        odt_path = self._create_odt_with_links([
-            ("javascript:alert('xss')", "Malicious Link")
-        ])
+        odt_path = self._create_odt_with_links([("javascript:alert('xss')", "Malicious Link")])
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -91,9 +89,7 @@ class TestOdtUrlSanitization:
 
     def test_vbscript_url_blocked(self):
         """Test that vbscript: URLs in ODT links are blocked."""
-        odt_path = self._create_odt_with_links([
-            ("vbscript:msgbox('xss')", "VBScript Attack")
-        ])
+        odt_path = self._create_odt_with_links([("vbscript:msgbox('xss')", "VBScript Attack")])
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -107,9 +103,7 @@ class TestOdtUrlSanitization:
 
     def test_data_html_url_blocked(self):
         """Test that data:text/html URLs in ODT links are blocked."""
-        odt_path = self._create_odt_with_links([
-            ("data:text/html,<script>alert('xss')</script>", "Data HTML")
-        ])
+        odt_path = self._create_odt_with_links([("data:text/html,<script>alert('xss')</script>", "Data HTML")])
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -123,9 +117,7 @@ class TestOdtUrlSanitization:
 
     def test_safe_url_preserved(self):
         """Test that safe URLs in ODT links are preserved."""
-        odt_path = self._create_odt_with_links([
-            ("https://example.com", "Example Link")
-        ])
+        odt_path = self._create_odt_with_links([("https://example.com", "Example Link")])
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -139,14 +131,16 @@ class TestOdtUrlSanitization:
 
     def test_multiple_mixed_urls(self):
         """Test document with multiple mixed safe and dangerous URLs."""
-        odt_path = self._create_odt_with_links([
-            ("javascript:void(0)", "JS Link"),
-            ("https://example.com", "Safe Link"),
-            ("vbscript:msgbox('xss')", "VBS Link"),
-            ("mailto:test@example.com", "Email Link"),
-            ("data:text/javascript,alert('xss')", "Data Link"),
-            ("tel:+1234567890", "Phone Link"),
-        ])
+        odt_path = self._create_odt_with_links(
+            [
+                ("javascript:void(0)", "JS Link"),
+                ("https://example.com", "Safe Link"),
+                ("vbscript:msgbox('xss')", "VBS Link"),
+                ("mailto:test@example.com", "Email Link"),
+                ("data:text/javascript,alert('xss')", "Data Link"),
+                ("tel:+1234567890", "Phone Link"),
+            ]
+        )
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -166,12 +160,14 @@ class TestOdtUrlSanitization:
 
     def test_case_insensitive_scheme_detection(self):
         """Test that scheme detection is case-insensitive."""
-        odt_path = self._create_odt_with_links([
-            ("JAVASCRIPT:alert('XSS')", "Upper"),
-            ("JavaScript:alert('XSS')", "Mixed"),
-            ("JaVaScRiPt:alert('XSS')", "Weird"),
-            ("HTTPS://example.com", "Safe Upper"),
-        ])
+        odt_path = self._create_odt_with_links(
+            [
+                ("JAVASCRIPT:alert('XSS')", "Upper"),
+                ("JavaScript:alert('XSS')", "Mixed"),
+                ("JaVaScRiPt:alert('XSS')", "Weird"),
+                ("HTTPS://example.com", "Safe Upper"),
+            ]
+        )
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -189,10 +185,12 @@ class TestOdtUrlSanitization:
 
     def test_file_url_handling(self):
         """Test that file:// URLs are handled according to security policy."""
-        odt_path = self._create_odt_with_links([
-            ("file:///etc/passwd", "System File"),
-            ("file:///home/user/.ssh/id_rsa", "SSH Key"),
-        ])
+        odt_path = self._create_odt_with_links(
+            [
+                ("file:///etc/passwd", "System File"),
+                ("file:///home/user/.ssh/id_rsa", "SSH Key"),
+            ]
+        )
 
         try:
             result = to_markdown(odt_path, source_format="odt")
@@ -206,10 +204,12 @@ class TestOdtUrlSanitization:
 
     def test_mailto_tel_schemes_allowed(self):
         """Test that mailto: and tel: schemes are allowed (safe)."""
-        odt_path = self._create_odt_with_links([
-            ("mailto:info@example.com", "Email Us"),
-            ("tel:+1-555-0100", "Phone"),
-        ])
+        odt_path = self._create_odt_with_links(
+            [
+                ("mailto:info@example.com", "Email Us"),
+                ("tel:+1-555-0100", "Phone"),
+            ]
+        )
 
         try:
             result = to_markdown(odt_path, source_format="odt")

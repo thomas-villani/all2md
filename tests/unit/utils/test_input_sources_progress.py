@@ -22,9 +22,7 @@ class TestHttpRetrieverProgress:
         remote_options = RemoteInputOptions(allow_remote_input=True)
         callback_mock = Mock()
 
-        request = DocumentSourceRequest(
-            raw_input=url, remote_options=remote_options, progress_callback=callback_mock
-        )
+        request = DocumentSourceRequest(raw_input=url, remote_options=remote_options, progress_callback=callback_mock)
 
         retriever = HttpRetriever()
 
@@ -52,9 +50,7 @@ class TestHttpRetrieverProgress:
         remote_options = RemoteInputOptions(allow_remote_input=True)
         callback_mock = Mock()
 
-        request = DocumentSourceRequest(
-            raw_input=url, remote_options=remote_options, progress_callback=callback_mock
-        )
+        request = DocumentSourceRequest(raw_input=url, remote_options=remote_options, progress_callback=callback_mock)
 
         retriever = HttpRetriever()
 
@@ -85,9 +81,7 @@ class TestHttpRetrieverProgress:
         remote_options = RemoteInputOptions(allow_remote_input=True)
         callback_mock = Mock()
 
-        request = DocumentSourceRequest(
-            raw_input=url, remote_options=remote_options, progress_callback=callback_mock
-        )
+        request = DocumentSourceRequest(raw_input=url, remote_options=remote_options, progress_callback=callback_mock)
 
         retriever = HttpRetriever()
 
@@ -115,9 +109,7 @@ class TestHttpRetrieverProgress:
         remote_options = RemoteInputOptions(allow_remote_input=True)
         callback_mock = Mock()
 
-        request = DocumentSourceRequest(
-            raw_input=url, remote_options=remote_options, progress_callback=callback_mock
-        )
+        request = DocumentSourceRequest(raw_input=url, remote_options=remote_options, progress_callback=callback_mock)
 
         retriever = HttpRetriever()
 

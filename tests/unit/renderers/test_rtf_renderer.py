@@ -4,6 +4,7 @@ import pytest
 
 try:
     from pyth.plugins.rtf15 import writer  # noqa: F401
+
     RTF_AVAILABLE = True
 except Exception:  # pragma: no cover - dependency guard
     RTF_AVAILABLE = False
@@ -13,7 +14,6 @@ from all2md.options import RtfRendererOptions
 
 if RTF_AVAILABLE:
     from all2md.renderers.rtf import RtfRenderer
-
 
 pytestmark = pytest.mark.skipif(not RTF_AVAILABLE, reason="pyth3 with six not installed")
 
@@ -30,13 +30,17 @@ class TestRtfRendererBasic:
 
     def test_render_formatted_paragraph(self) -> None:
         """Ensure formatted inline nodes appear in the output payload."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Hello "),
-                Strong(content=[Text(content="world")]),
-                Emphasis(content=[Text(content="!")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Hello "),
+                        Strong(content=[Text(content="world")]),
+                        Emphasis(content=[Text(content="!")]),
+                    ]
+                )
+            ]
+        )
         renderer = RtfRenderer(RtfRendererOptions(font_family="swiss"))
         rtf_output = renderer.render_to_string(doc)
         assert "Hello" in rtf_output

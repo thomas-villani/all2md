@@ -235,7 +235,7 @@ class TestCodeBlocks:
         # Find code block
         code_blocks = [node for node in doc.children if isinstance(node, CodeBlock)]
         assert len(code_blocks) == 1
-        assert 'def hello()' in code_blocks[0].content
+        assert "def hello()" in code_blocks[0].content
 
     def test_code_block_directive(self) -> None:
         """Test parsing code-block directive."""
@@ -390,9 +390,9 @@ Content here.
         doc = parser.parse(rst.strip())
 
         # Check metadata
-        assert 'author' in doc.metadata
-        assert doc.metadata['author'] == 'John Doe'
-        assert 'creation_date' in doc.metadata
+        assert "author" in doc.metadata
+        assert doc.metadata["author"] == "John Doe"
+        assert "creation_date" in doc.metadata
 
     def test_title_extraction(self) -> None:
         """Test extracting title from first section."""
@@ -405,8 +405,8 @@ Content here.
         parser = RestructuredTextParser()
         doc = parser.parse(rst.strip())
 
-        assert 'title' in doc.metadata
-        assert doc.metadata['title'] == 'My Document Title'
+        assert "title" in doc.metadata
+        assert doc.metadata["title"] == "My Document Title"
 
 
 @pytest.mark.unit

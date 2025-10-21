@@ -1,11 +1,11 @@
 """Integration tests for PDF table detection using real generated PDFs."""
 
 import pytest
-from fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md import to_markdown as pdf_to_markdown
 from all2md.options import PdfOptions
+from fixtures.generators.pdf_test_fixtures import create_test_pdf_bytes
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration
@@ -22,7 +22,7 @@ class TestPdfTablesIntegration:
 
     def test_basic_table_detection(self):
         """Test detection of basic tables with clear borders."""
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -37,14 +37,13 @@ class TestPdfTablesIntegration:
 
         # Should have table separators or structure
         has_table_structure = (
-                "|" in result or  # Pipe tables
-                "Name" in result and "Age" in result  # At minimum the headers
+            "|" in result or "Name" in result and "Age" in result  # Pipe tables  # At minimum the headers
         )
         assert has_table_structure
 
     def test_multiple_tables_per_page(self):
         """Test handling of multiple tables on the same page."""
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -62,13 +61,13 @@ class TestPdfTablesIntegration:
 
     def test_interleaved_text_and_tables(self):
         """Test proper handling of text mixed with tables."""
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
 
         # Should preserve proper content order
-        lines = [line.strip() for line in result.split('\n') if line.strip()]
+        lines = [line.strip() for line in result.split("\n") if line.strip()]
 
         # Title should come first
         title_found = any("Test Document with Tables" in line for line in lines[:3])
@@ -82,7 +81,7 @@ class TestPdfTablesIntegration:
             "Test Document with Tables",  # Title
             "Name",  # First table
             "text between",  # Interleaving text
-            "Product"  # Second table
+            "Product",  # Second table
         ]
 
         for part in content_parts:
@@ -90,7 +89,7 @@ class TestPdfTablesIntegration:
 
     def test_table_alignment_detection(self):
         """Test detection of table structure and alignment."""
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -113,7 +112,7 @@ class TestPdfTablesIntegration:
 
     def test_table_with_complex_layout(self):
         """Test table detection in documents with mixed content."""
-        pdf_bytes = create_test_pdf_bytes('complex')
+        pdf_bytes = create_test_pdf_bytes("complex")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -128,7 +127,7 @@ class TestPdfTablesIntegration:
 
     def test_table_fallback_detection(self):
         """Test fallback table detection when primary detection fails."""
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         # Test with fallback detection enabled
         options = PdfOptions(enable_table_fallback_detection=True)
@@ -142,7 +141,7 @@ class TestPdfTablesIntegration:
     def test_empty_table_handling(self):
         """Test handling of documents that might not have tables."""
         # Use formatting PDF which has no tables
-        pdf_bytes = create_test_pdf_bytes('formatting')
+        pdf_bytes = create_test_pdf_bytes("formatting")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -150,13 +149,12 @@ class TestPdfTablesIntegration:
         # Should handle gracefully and still extract text
         assert len(result) > 0
         text_content = result.lower()
-        assert ("normal text" in text_content or "bold text" in text_content or
-                "italic text" in text_content)
+        assert "normal text" in text_content or "bold text" in text_content or "italic text" in text_content
 
     def test_table_border_variations(self):
         """Test handling of tables with different border styles."""
         # Our generated tables have simple black borders
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -172,7 +170,7 @@ class TestPdfTablesIntegration:
 
     def test_table_cell_formatting(self):
         """Test preservation of formatting within table cells."""
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         result = pdf_to_markdown(pdf_bytes)
         assert_markdown_valid(result)
@@ -185,7 +183,7 @@ class TestPdfTablesIntegration:
     def test_large_table_handling(self):
         """Test handling of tables that might span multiple areas."""
         # Our test tables are small, but should still be handled properly
-        pdf_bytes = create_test_pdf_bytes('tables')
+        pdf_bytes = create_test_pdf_bytes("tables")
 
         options = PdfOptions(enable_table_fallback_detection=True)
         result = pdf_to_markdown(pdf_bytes, parser_options=options)
@@ -194,4 +192,4 @@ class TestPdfTablesIntegration:
         # Should handle both tables without issues
         assert "Test Document with Tables" in result
         assert "Name" in result and "Product" in result  # Both table types
-        assert len(result.split('\n')) > 5  # Should have substantial content
+        assert len(result.split("\n")) > 5  # Should have substantial content

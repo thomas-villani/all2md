@@ -43,23 +43,24 @@ class TestSplitBySeparator:
 
     def test_split_no_separators(self):
         """Test splitting document with no separators returns single chunk."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content 1")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content 1")]), Paragraph(content=[Text(content="Content 2")])]
+        )
         chunks = split_ast_by_separator(doc)
         assert len(chunks) == 1
         assert len(chunks[0]) == 2
 
     def test_split_with_separators(self):
         """Test splitting document with separators creates multiple chunks."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Chapter 1")]),
-            ThematicBreak(),
-            Paragraph(content=[Text(content="Chapter 2")]),
-            ThematicBreak(),
-            Paragraph(content=[Text(content="Chapter 3")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Chapter 1")]),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="Chapter 2")]),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="Chapter 3")]),
+            ]
+        )
         chunks = split_ast_by_separator(doc)
         assert len(chunks) == 3
         assert len(chunks[0]) == 1
@@ -68,11 +69,13 @@ class TestSplitBySeparator:
 
     def test_split_separators_consumed(self):
         """Test that ThematicBreak nodes are not included in output chunks."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Before")]),
-            ThematicBreak(),
-            Paragraph(content=[Text(content="After")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Before")]),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="After")]),
+            ]
+        )
         chunks = split_ast_by_separator(doc)
 
         # Verify no ThematicBreak in output
@@ -82,30 +85,26 @@ class TestSplitBySeparator:
 
     def test_split_leading_separator(self):
         """Test splitting with separator at start."""
-        doc = Document(children=[
-            ThematicBreak(),
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(children=[ThematicBreak(), Paragraph(content=[Text(content="Content")])])
         chunks = split_ast_by_separator(doc)
         assert len(chunks) == 1  # Empty chunk before separator is excluded
 
     def test_split_trailing_separator(self):
         """Test splitting with separator at end."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")]),
-            ThematicBreak()
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Content")]), ThematicBreak()])
         chunks = split_ast_by_separator(doc)
         assert len(chunks) == 1  # Empty chunk after separator is excluded
 
     def test_split_consecutive_separators(self):
         """Test splitting with consecutive separators."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content 1")]),
-            ThematicBreak(),
-            ThematicBreak(),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
         chunks = split_ast_by_separator(doc)
         assert len(chunks) == 2  # Empty chunks excluded
 
@@ -122,11 +121,13 @@ class TestSplitByHeading:
 
     def test_split_no_headings(self):
         """Test splitting document with no headings at specified level."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content 1")]),
-            Heading(level=2, content=[Text(content="Not level 1")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=2, content=[Text(content="Not level 1")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
         chunks = split_ast_by_heading(doc, heading_level=1)
 
         # Returns single chunk with None heading
@@ -136,12 +137,14 @@ class TestSplitByHeading:
 
     def test_split_with_headings(self):
         """Test splitting document with headings at specified level."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            Heading(level=1, content=[Text(content="Chapter 2")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=1, content=[Text(content="Chapter 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
         chunks = split_ast_by_heading(doc, heading_level=1)
 
         assert len(chunks) == 2
@@ -150,10 +153,12 @@ class TestSplitByHeading:
 
     def test_split_heading_not_in_content(self):
         """Test that boundary heading is NOT included in content nodes."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Content")]),
+            ]
+        )
         chunks = split_ast_by_heading(doc, heading_level=1)
 
         heading, content = chunks[0]
@@ -163,11 +168,13 @@ class TestSplitByHeading:
 
     def test_split_content_before_first_heading(self):
         """Test splitting with content before first heading."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Intro")]),
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Content")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Intro")]),
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Content")]),
+            ]
+        )
         chunks = split_ast_by_heading(doc, heading_level=1)
 
         assert len(chunks) == 2
@@ -176,12 +183,14 @@ class TestSplitByHeading:
 
     def test_split_different_heading_levels(self):
         """Test splitting respects heading level parameter."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="H1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            Heading(level=2, content=[Text(content="H2")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="H1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=2, content=[Text(content="H2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
 
         # Split on H1
         chunks_h1 = split_ast_by_heading(doc, heading_level=1)
@@ -198,12 +207,14 @@ class TestAutoSplit:
 
     def test_auto_split_prefers_separators(self):
         """Test that auto-split uses separators when available."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="H1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            ThematicBreak(),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="H1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
         chunks = auto_split_ast(doc, heading_level=1)
 
         # Should use separator splitting, so headings are None
@@ -212,12 +223,14 @@ class TestAutoSplit:
 
     def test_auto_split_fallback_to_headings(self):
         """Test that auto-split falls back to headings when no separators."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            Heading(level=1, content=[Text(content="Chapter 2")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=1, content=[Text(content="Chapter 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
         chunks = auto_split_ast(doc, heading_level=1)
 
         # Should use heading splitting, so headings are not None
@@ -233,12 +246,14 @@ class TestAutoSplit:
 
     def test_auto_split_respects_heading_level(self):
         """Test that auto-split respects heading_level parameter."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="H2-1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            Heading(level=2, content=[Text(content="H2-2")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="H2-1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=2, content=[Text(content="H2-2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
 
         # Auto-split with level 2
         chunks = auto_split_ast(doc, heading_level=2)
@@ -263,23 +278,21 @@ class TestExtractHeadingText:
 
     def test_extract_from_heading_with_formatting(self):
         """Test extracting text from heading with inline formatting."""
-        heading = Heading(level=1, content=[
-            Text(content="Chapter "),
-            Strong(content=[Text(content="One")]),
-            Text(content=" Title")
-        ])
+        heading = Heading(
+            level=1, content=[Text(content="Chapter "), Strong(content=[Text(content="One")]), Text(content=" Title")]
+        )
         text = extract_heading_text(heading)
         assert text == "Chapter One Title"
 
     def test_extract_from_nested_formatting(self):
         """Test extracting text from heading with nested formatting."""
-        heading = Heading(level=1, content=[
-            Text(content="Chapter "),
-            Strong(content=[
-                Text(content="Very "),
-                Emphasis(content=[Text(content="Important")])
-            ])
-        ])
+        heading = Heading(
+            level=1,
+            content=[
+                Text(content="Chapter "),
+                Strong(content=[Text(content="Very "), Emphasis(content=[Text(content="Important")])]),
+            ],
+        )
         text = extract_heading_text(heading)
         assert text == "Chapter Very Important"
 
@@ -291,10 +304,6 @@ class TestExtractHeadingText:
 
     def test_extract_preserves_order(self):
         """Test that text extraction preserves content order."""
-        heading = Heading(level=1, content=[
-            Text(content="A"),
-            Text(content="B"),
-            Text(content="C")
-        ])
+        heading = Heading(level=1, content=[Text(content="A"), Text(content="B"), Text(content="C")])
         text = extract_heading_text(heading)
         assert text == "ABC"

@@ -122,42 +122,28 @@ class TestFlavorValidation:
 
     def test_commonmark_table_warning(self):
         """Test warning when using tables with CommonMark."""
-        options = MarkdownOptions(
-            flavor="commonmark",
-            unsupported_table_mode="force",
-            pad_table_cells=False
-        )
+        options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="force", pad_table_cells=False)
         warnings = validate_flavor_compatibility("commonmark", options)
         assert len(warnings) > 0
         assert "does not support tables natively" in warnings[0]
 
     def test_commonmark_drop_tables_with_padding(self):
         """Test warning when dropping tables but pad_table_cells is True."""
-        options = MarkdownOptions(
-            flavor="commonmark",
-            unsupported_table_mode="drop",
-            pad_table_cells=True
-        )
+        options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="drop", pad_table_cells=True)
         warnings = validate_flavor_compatibility("commonmark", options)
         assert len(warnings) > 0
         assert "Tables will be dropped entirely" in warnings[0]
 
     def test_gfm_no_warnings(self):
         """Test no warnings for GFM with compatible options."""
-        options = MarkdownOptions(
-            flavor="gfm",
-            unsupported_table_mode="force",
-            pad_table_cells=True
-        )
+        options = MarkdownOptions(flavor="gfm", unsupported_table_mode="force", pad_table_cells=True)
         warnings = validate_flavor_compatibility("gfm", options)
         assert len(warnings) == 0
 
     def test_commonmark_strikethrough_force_warning(self):
         """Test warning when forcing strikethrough with CommonMark."""
         options = MarkdownOptions(
-            flavor="commonmark",
-            unsupported_inline_mode="force",
-            unsupported_table_mode="html"  # Avoid table warning
+            flavor="commonmark", unsupported_inline_mode="force", unsupported_table_mode="html"  # Avoid table warning
         )
         warnings = validate_flavor_compatibility("commonmark", options)
         assert len(warnings) > 0
@@ -165,10 +151,7 @@ class TestFlavorValidation:
 
     def test_multimarkdown_task_lists_warning(self):
         """Test warning when forcing task lists with MultiMarkdown."""
-        options = MarkdownOptions(
-            flavor="multimarkdown",
-            unsupported_inline_mode="force"
-        )
+        options = MarkdownOptions(flavor="multimarkdown", unsupported_inline_mode="force")
         warnings = validate_flavor_compatibility("multimarkdown", options)
         assert len(warnings) > 0
         assert "does not support task lists" in warnings[0]
@@ -180,20 +163,26 @@ class TestFlavorRendering:
 
     def test_commonmark_table_as_html(self):
         """Test CommonMark renders tables as HTML."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Header 1")]),
-                    TableCell(content=[Text(content="Header 2")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Cell 1")]),
-                        TableCell(content=[Text(content="Cell 2")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header 1")]),
+                            TableCell(content=[Text(content="Header 2")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Cell 1")]),
+                                TableCell(content=[Text(content="Cell 2")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
@@ -202,20 +191,26 @@ class TestFlavorRendering:
 
     def test_commonmark_table_as_ascii(self):
         """Test CommonMark can render tables as ASCII art."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Header 1")]),
-                    TableCell(content=[Text(content="Header 2")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Cell 1")]),
-                        TableCell(content=[Text(content="Cell 2")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header 1")]),
+                            TableCell(content=[Text(content="Header 2")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Cell 1")]),
+                                TableCell(content=[Text(content="Cell 2")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="ascii")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
@@ -225,17 +220,21 @@ class TestFlavorRendering:
 
     def test_commonmark_table_drop(self):
         """Test CommonMark can drop tables entirely."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Header 1")]),
-                    TableCell(content=[Text(content="Header 2")])
-                ]),
-                rows=[]
-            ),
-            Paragraph(content=[Text(content="After table")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header 1")]),
+                            TableCell(content=[Text(content="Header 2")]),
+                        ]
+                    ),
+                    rows=[],
+                ),
+                Paragraph(content=[Text(content="After table")]),
+            ]
+        )
         options = MarkdownOptions(flavor="commonmark", unsupported_table_mode="drop")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
@@ -245,20 +244,26 @@ class TestFlavorRendering:
 
     def test_gfm_table_as_pipe(self):
         """Test GFM renders tables as pipe tables."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Header 1")]),
-                    TableCell(content=[Text(content="Header 2")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Cell 1")]),
-                        TableCell(content=[Text(content="Cell 2")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header 1")]),
+                            TableCell(content=[Text(content="Header 2")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Cell 1")]),
+                                TableCell(content=[Text(content="Cell 2")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         options = MarkdownOptions(flavor="gfm")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
@@ -268,13 +273,17 @@ class TestFlavorRendering:
 
     def test_commonmark_strikethrough_plain(self):
         """Test CommonMark renders strikethrough as plain text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strikethrough(content=[Text(content="deleted")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Strikethrough(content=[Text(content="deleted")]),
+                        Text(content=" text"),
+                    ]
+                )
+            ]
+        )
         options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="plain")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
@@ -282,13 +291,17 @@ class TestFlavorRendering:
 
     def test_commonmark_strikethrough_html(self):
         """Test CommonMark renders strikethrough as HTML."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strikethrough(content=[Text(content="deleted")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Strikethrough(content=[Text(content="deleted")]),
+                        Text(content=" text"),
+                    ]
+                )
+            ]
+        )
         options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
@@ -296,13 +309,17 @@ class TestFlavorRendering:
 
     def test_gfm_strikethrough_markdown(self):
         """Test GFM renders strikethrough as markdown."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strikethrough(content=[Text(content="deleted")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Strikethrough(content=[Text(content="deleted")]),
+                        Text(content=" text"),
+                    ]
+                )
+            ]
+        )
         options = MarkdownOptions(flavor="gfm")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)

@@ -1,10 +1,10 @@
 """Advanced tests for HTML table handling edge cases."""
 
 import pytest
-from utils import assert_markdown_valid
 
 from all2md import to_markdown as html_to_markdown
 from all2md.options import HtmlOptions
+from utils import assert_markdown_valid
 
 
 @pytest.mark.integration
@@ -13,7 +13,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_with_thead_tbody_tfoot(self):
         """Test tables with proper thead, tbody, and tfoot sections."""
-        html = '''
+        html = """
         <table>
             <caption>Quarterly Sales Data</caption>
             <thead>
@@ -47,7 +47,7 @@ class TestHtmlTablesAdvanced:
                 </tr>
             </tfoot>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -66,7 +66,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_with_rowspan_colspan(self):
         """Test tables with rowspan and colspan attributes."""
-        html = '''
+        html = """
         <table border="1">
             <tr>
                 <th rowspan="2">Category</th>
@@ -94,7 +94,7 @@ class TestHtmlTablesAdvanced:
                 <td>More data</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -109,7 +109,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_alignment_detection(self):
         """Test automatic detection of table column alignment."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th align="left">Left Column</th>
@@ -130,7 +130,7 @@ class TestHtmlTablesAdvanced:
                 <td>More justify</td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html", parser_options=HtmlOptions(detect_table_alignment=True))
         assert_markdown_valid(markdown)
@@ -148,7 +148,7 @@ class TestHtmlTablesAdvanced:
 
     def test_nested_content_in_table_cells(self):
         """Test table cells containing complex nested content."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Simple</th>
@@ -183,7 +183,7 @@ class TestHtmlTablesAdvanced:
                 </td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -201,7 +201,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_with_no_headers(self):
         """Test tables without explicit header rows."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <td>Data A1</td>
@@ -219,7 +219,7 @@ class TestHtmlTablesAdvanced:
                 <td>Data C3</td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -232,7 +232,7 @@ class TestHtmlTablesAdvanced:
 
     def test_empty_and_sparse_tables(self):
         """Test tables with empty cells and sparse data."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Column 1</th>
@@ -253,7 +253,7 @@ class TestHtmlTablesAdvanced:
                 <td colspan="3"></td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -265,13 +265,13 @@ class TestHtmlTablesAdvanced:
         assert "More data" in markdown
 
         # Check table structure is maintained
-        lines = markdown.split('\n')
-        table_lines = [line for line in lines if '|' in line and line.strip()]
+        lines = markdown.split("\n")
+        table_lines = [line for line in lines if "|" in line and line.strip()]
         assert len(table_lines) >= 3  # At least header, separator, and data rows
 
     def test_table_with_multiple_header_rows(self):
         """Test tables with multiple header rows."""
-        html = '''
+        html = """
         <table>
             <thead>
                 <tr>
@@ -300,7 +300,7 @@ class TestHtmlTablesAdvanced:
                 </tr>
             </tbody>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -315,7 +315,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_with_mixed_cell_types(self):
         """Test tables mixing th and td elements."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Header 1</th>
@@ -333,7 +333,7 @@ class TestHtmlTablesAdvanced:
                 <td>Data 3</td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -347,7 +347,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_with_css_styling_classes(self):
         """Test tables with CSS classes and styling."""
-        html = '''
+        html = """
         <table class="styled-table">
             <tr class="header-row">
                 <th class="name-col">Name</th>
@@ -365,7 +365,7 @@ class TestHtmlTablesAdvanced:
                 <td class="status-col inactive">Inactive</td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -377,7 +377,7 @@ class TestHtmlTablesAdvanced:
 
     def test_malformed_table_structures(self):
         """Test handling of malformed or inconsistent table structures."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Col 1</th>
@@ -400,7 +400,7 @@ class TestHtmlTablesAdvanced:
                 <td>Just one cell</td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -413,7 +413,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_with_block_level_content(self):
         """Test table cells containing block-level elements."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Content Type</th>
@@ -444,7 +444,7 @@ class TestHtmlTablesAdvanced:
                 </td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -459,7 +459,7 @@ class TestHtmlTablesAdvanced:
 
     def test_table_accessibility_features(self):
         """Test tables with accessibility features."""
-        html = '''
+        html = """
         <table summary="Sales data for Q1-Q2">
             <caption>Quarterly Sales by Product</caption>
             <thead>
@@ -482,7 +482,7 @@ class TestHtmlTablesAdvanced:
                 </tr>
             </tbody>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)

@@ -15,11 +15,9 @@ Tests cover:
 
 """
 
-
 import docx
 import pytest
 from docx.oxml import parse_xml
-from fixtures import FIXTURES_PATH
 
 from all2md.ast import (
     BlockQuote,
@@ -43,13 +41,10 @@ from all2md.ast import (
 from all2md.ast.transforms import extract_nodes
 from all2md.options import DocxOptions
 from all2md.parsers.docx import DocxToAstConverter
+from fixtures import FIXTURES_PATH
 
-FIXTURE_FOOTNOTES_DOC = (
-    FIXTURES_PATH / "documents" / "footnotes-endnotes-comments.docx"
-)
-FIXTURE_MATH_DOC = (
-    FIXTURES_PATH / "documents" / "math-basic.docx"
-)
+FIXTURE_FOOTNOTES_DOC = FIXTURES_PATH / "documents" / "footnotes-endnotes-comments.docx"
+FIXTURE_MATH_DOC = FIXTURES_PATH / "documents" / "math-basic.docx"
 
 
 def _inline_text(nodes: list) -> str:
@@ -714,8 +709,7 @@ class TestComments:
         paragraph = next(
             child
             for child in ast_doc.children
-            if isinstance(child, Paragraph)
-            and "However, it will have a comment" in _inline_text(child.content)
+            if isinstance(child, Paragraph) and "However, it will have a comment" in _inline_text(child.content)
         )
         inline_text = _inline_text(paragraph.content)
         assert "comment1" not in inline_text
@@ -733,8 +727,7 @@ class TestComments:
         paragraph = next(
             child
             for child in ast_doc.children
-            if isinstance(child, Paragraph)
-            and "However, it will have a comment" in _inline_text(child.content)
+            if isinstance(child, Paragraph) and "However, it will have a comment" in _inline_text(child.content)
         )
         inline_text = _inline_text(paragraph.content)
         assert "I decided not to think of something funny." in inline_text
@@ -742,6 +735,7 @@ class TestComments:
 
         blockquotes = [node for node in ast_doc.children if isinstance(node, BlockQuote)]
         assert not blockquotes, "Inline comments should not append trailing blockquotes"
+
 
 @pytest.mark.unit
 class TestMathExtraction:

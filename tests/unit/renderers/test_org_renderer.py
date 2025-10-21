@@ -48,9 +48,7 @@ class TestBasicRendering:
 
     def test_simple_heading(self) -> None:
         """Test rendering a simple heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -58,11 +56,13 @@ class TestBasicRendering:
 
     def test_multiple_heading_levels(self) -> None:
         """Test rendering multiple heading levels."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Level 1")]),
-            Heading(level=2, content=[Text(content="Level 2")]),
-            Heading(level=3, content=[Text(content="Level 3")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Level 1")]),
+                Heading(level=2, content=[Text(content="Level 2")]),
+                Heading(level=3, content=[Text(content="Level 3")]),
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -72,9 +72,7 @@ class TestBasicRendering:
 
     def test_simple_paragraph(self) -> None:
         """Test rendering a simple paragraph."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="This is a paragraph.")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="This is a paragraph.")])])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -87,13 +85,13 @@ class TestInlineFormatting:
 
     def test_bold(self) -> None:
         """Test rendering bold text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Text(content="This is "), Strong(content=[Text(content="bold")]), Text(content=" text.")]
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -101,13 +99,17 @@ class TestInlineFormatting:
 
     def test_italic(self) -> None:
         """Test rendering italic text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text."),
+                    ]
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -115,13 +117,9 @@ class TestInlineFormatting:
 
     def test_code(self) -> None:
         """Test rendering code text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Code(content="code"),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="This is "), Code(content="code"), Text(content=" text.")])]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -129,13 +127,17 @@ class TestInlineFormatting:
 
     def test_underline(self) -> None:
         """Test rendering underline text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Underline(content=[Text(content="underline")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Underline(content=[Text(content="underline")]),
+                        Text(content=" text."),
+                    ]
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -143,13 +145,17 @@ class TestInlineFormatting:
 
     def test_strikethrough(self) -> None:
         """Test rendering strikethrough text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strikethrough(content=[Text(content="strikethrough")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Strikethrough(content=[Text(content="strikethrough")]),
+                        Text(content=" text."),
+                    ]
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -162,13 +168,11 @@ class TestTodoHeadings:
 
     def test_todo_heading(self) -> None:
         """Test rendering a TODO heading."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Write documentation")],
-                metadata={"org_todo_state": "TODO"}
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Write documentation")], metadata={"org_todo_state": "TODO"})
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -176,13 +180,11 @@ class TestTodoHeadings:
 
     def test_done_heading(self) -> None:
         """Test rendering a DONE heading."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Implement feature")],
-                metadata={"org_todo_state": "DONE"}
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Implement feature")], metadata={"org_todo_state": "DONE"})
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -190,16 +192,15 @@ class TestTodoHeadings:
 
     def test_heading_with_priority(self) -> None:
         """Test rendering a heading with priority."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="High priority task")],
-                metadata={
-                    "org_todo_state": "TODO",
-                    "org_priority": "A"
-                }
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(
+                    level=1,
+                    content=[Text(content="High priority task")],
+                    metadata={"org_todo_state": "TODO", "org_priority": "A"},
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -207,13 +208,11 @@ class TestTodoHeadings:
 
     def test_heading_with_tags(self) -> None:
         """Test rendering a heading with tags."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Important task")],
-                metadata={"org_tags": ["work", "urgent"]}
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Important task")], metadata={"org_tags": ["work", "urgent"]})
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -226,16 +225,18 @@ class TestLists:
 
     def test_bullet_list(self) -> None:
         """Test rendering a bullet list."""
-        doc = Document(children=[
-            List(
-                ordered=False,
-                items=[
-                    ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Item 3")])])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 3")])]),
+                    ],
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -245,17 +246,19 @@ class TestLists:
 
     def test_ordered_list(self) -> None:
         """Test rendering an ordered list."""
-        doc = Document(children=[
-            List(
-                ordered=True,
-                start=1,
-                items=[
-                    ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Second")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Third")])])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=1,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Third")])]),
+                    ],
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -270,21 +273,17 @@ class TestCodeBlocks:
 
     def test_code_block_without_language(self) -> None:
         """Test rendering a code block without language."""
-        doc = Document(children=[
-            CodeBlock(content='def hello():\n    print("Hello")')
-        ])
+        doc = Document(children=[CodeBlock(content='def hello():\n    print("Hello")')])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
         assert "#+BEGIN_SRC" in org
         assert "#+END_SRC" in org
-        assert 'def hello()' in org
+        assert "def hello()" in org
 
     def test_code_block_with_language(self) -> None:
         """Test rendering a code block with language."""
-        doc = Document(children=[
-            CodeBlock(content='def hello():\n    print("Hello")', language="python")
-        ])
+        doc = Document(children=[CodeBlock(content='def hello():\n    print("Hello")', language="python")])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -298,11 +297,11 @@ class TestLinks:
 
     def test_simple_link(self) -> None:
         """Test rendering a simple link."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="https://example.com")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Link(url="https://example.com", content=[Text(content="https://example.com")])])
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -310,11 +309,9 @@ class TestLinks:
 
     def test_link_with_description(self) -> None:
         """Test rendering a link with description."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Example")])])]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -327,11 +324,7 @@ class TestImages:
 
     def test_image(self) -> None:
         """Test rendering an image."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="image.png", alt_text="My Image")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="image.png", alt_text="My Image")])])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -344,24 +337,24 @@ class TestTables:
 
     def test_simple_table(self) -> None:
         """Test rendering a simple table."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="A")]),
-                    TableCell(content=[Text(content="B")])
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="1")]),
-                        TableCell(content=[Text(content="2")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="3")]),
-                        TableCell(content=[Text(content="4")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="1")]), TableCell(content=[Text(content="2")])]
+                        ),
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="3")]), TableCell(content=[Text(content="4")])]
+                        ),
+                    ],
+                )
+            ]
+        )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -378,11 +371,7 @@ class TestBlockQuotes:
 
     def test_block_quote(self) -> None:
         """Test rendering a block quote."""
-        doc = Document(children=[
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is a quote.")])
-            ])
-        ])
+        doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="This is a quote.")])])])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -395,9 +384,7 @@ class TestThematicBreak:
 
     def test_thematic_break(self) -> None:
         """Test rendering a thematic break."""
-        doc = Document(children=[
-            ThematicBreak()
-        ])
+        doc = Document(children=[ThematicBreak()])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -412,10 +399,7 @@ class TestMetadataRendering:
         """Test rendering file-level properties."""
         doc = Document(
             children=[Paragraph(content=[Text(content="Content")])],
-            metadata={
-                "title": "My Document",
-                "author": "John Doe"
-            }
+            metadata={"title": "My Document", "author": "John Doe"},
         )
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
@@ -430,15 +414,15 @@ class TestOptions:
 
     def test_preserve_properties(self) -> None:
         """Test that preserve_properties option works."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Heading")],
-                metadata={
-                    "org_properties": {"CUSTOM_ID": "my-id", "CATEGORY": "work"}
-                }
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(
+                    level=1,
+                    content=[Text(content="Heading")],
+                    metadata={"org_properties": {"CUSTOM_ID": "my-id", "CATEGORY": "work"}},
+                )
+            ]
+        )
         options = OrgRendererOptions(preserve_properties=True)
         renderer = OrgRenderer(options)
         org = renderer.render_to_string(doc)
@@ -449,13 +433,9 @@ class TestOptions:
 
     def test_preserve_tags_disabled(self) -> None:
         """Test that preserve_tags=False removes tags."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Heading")],
-                metadata={"org_tags": ["work", "urgent"]}
-            )
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text(content="Heading")], metadata={"org_tags": ["work", "urgent"]})]
+        )
         options = OrgRendererOptions(preserve_tags=False)
         renderer = OrgRenderer(options)
         org = renderer.render_to_string(doc)

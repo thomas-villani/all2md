@@ -2,10 +2,9 @@
 
 import docx
 from docx.shared import Inches
-from utils import MINIMAL_PNG_BYTES, assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import DocxOptions
-from all2md import to_markdown as docx_to_markdown
+from all2md import DocxOptions, to_markdown as docx_to_markdown
+from utils import MINIMAL_PNG_BYTES, assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxImagesAdvanced:
@@ -79,7 +78,7 @@ class TestDocxImagesAdvanced:
         assert_markdown_valid(markdown)
 
         # Should contain base64 encoded images
-        base64_images = [line for line in markdown.split('\n') if 'data:image/' in line]
+        base64_images = [line for line in markdown.split("\n") if "data:image/" in line]
         assert len(base64_images) >= 1
 
         # Test alt_text mode
@@ -172,7 +171,7 @@ class TestDocxImagesAdvanced:
         assert_markdown_valid(markdown)
 
         # Should handle all images
-        image_refs = [line for line in markdown.split('\n') if '![' in line]
+        image_refs = [line for line in markdown.split("\n") if "![" in line]
         assert len(image_refs) >= 4  # Should have references to all images
 
     def test_images_with_captions(self):
@@ -280,10 +279,7 @@ class TestDocxImagesAdvanced:
         doc.save(str(temp_file))
 
         # Test download mode
-        options = DocxOptions(
-            attachment_mode="download",
-            attachment_output_dir=str(self.temp_dir / "downloads")
-        )
+        options = DocxOptions(attachment_mode="download", attachment_output_dir=str(self.temp_dir / "downloads"))
 
         markdown = docx_to_markdown(str(temp_file), parser_options=options)
         assert_markdown_valid(markdown)

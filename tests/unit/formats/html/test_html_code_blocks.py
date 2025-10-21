@@ -2,9 +2,8 @@
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
-from utils import assert_markdown_valid
-
 from all2md import to_markdown as html_to_markdown
+from utils import assert_markdown_valid
 
 
 class TestHtmlCodeBlocks:
@@ -12,9 +11,9 @@ class TestHtmlCodeBlocks:
 
     def test_code_fence_with_backticks_in_content(self):
         """Test code blocks containing backticks in the content."""
-        html = '''<pre><code>Use ```markdown``` syntax for code blocks.
+        html = """<pre><code>Use ```markdown``` syntax for code blocks.
 Multiple ``` backticks ``` in content.
-Even `````five````` backticks in a row.</code></pre>'''
+Even `````five````` backticks in a row.</code></pre>"""
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -26,7 +25,7 @@ Even `````five````` backticks in a row.</code></pre>'''
 
     def test_nested_code_in_different_elements(self):
         """Test code blocks nested within different HTML elements."""
-        html = '''
+        html = """
         <div>
             <h3>Code Examples</h3>
             <pre><code>def function():
@@ -45,7 +44,7 @@ Even `````five````` backticks in a row.</code></pre>'''
                 <pre><code>list_code = True</code></pre>
             </li>
         </ul>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -61,7 +60,7 @@ Even `````five````` backticks in a row.</code></pre>'''
 
     def test_language_specification_variations(self):
         """Test various ways of specifying code block languages."""
-        html = '''
+        html = """
         <pre class="language-python"><code>def python_func():
     pass</code></pre>
 
@@ -78,7 +77,7 @@ Even `````five````` backticks in a row.</code></pre>'''
         <pre><code class="language-go">func main() {
     fmt.Println("Go")
 }</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -99,7 +98,7 @@ Even `````five````` backticks in a row.</code></pre>'''
 
     def test_code_blocks_with_html_entities(self):
         """Test code blocks containing HTML entities."""
-        html = '''
+        html = """
         <pre><code>if (x &lt; y &amp;&amp; y &gt; z) {
     console.log("condition &amp; result");
     return "&lt;tag&gt;";
@@ -109,7 +108,7 @@ Even `````five````` backticks in a row.</code></pre>'''
 &lt;root&gt;
     &lt;item value="&amp;quot;test&amp;quot;"&gt;Content&lt;/item&gt;
 &lt;/root&gt;</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -149,7 +148,7 @@ print("Multiple lines")
 
     def test_code_blocks_with_special_characters(self):
         """Test code blocks containing various special characters."""
-        html = '''
+        html = """
         <pre><code>// Special characters test
 const regex = /[.*+?^${}()|[\\]\\]/g;
 const template = `Template with ${variable}`;
@@ -159,7 +158,7 @@ const unicode = "émojis: 🚀 🎉 ✨";</code></pre>
         <pre class="bash"><code>#!/bin/bash
 echo "Bash script with special chars: $HOME & $(whoami)"
 grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -174,7 +173,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 
     def test_empty_and_whitespace_code_blocks(self):
         """Test empty or whitespace-only code blocks."""
-        html = '''
+        html = """
         <pre><code></code></pre>
 
         <pre><code>   </code></pre>
@@ -187,7 +186,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
         <p>Between empty blocks</p>
 
         <pre><code>actual_code = True</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -197,13 +196,13 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
         assert "actual_code" in markdown
 
         # Empty blocks might be omitted or preserved as empty
-        lines = markdown.split('\n')
+        lines = markdown.split("\n")
         non_empty_lines = [line for line in lines if line.strip()]
         assert len(non_empty_lines) >= 2  # Should have content
 
     def test_code_blocks_in_tables(self):
         """Test code blocks within table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Function</th>
@@ -219,7 +218,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
     print(i)</code></pre></td>
             </tr>
         </table>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -227,12 +226,12 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
         # Should maintain table structure with code
         assert "| Function | Example |" in markdown
         assert "`print()`" in markdown
-        assert "print(\"hello\")" in markdown
+        assert 'print("hello")' in markdown
         assert "for i in range" in markdown
 
     def test_code_with_line_numbers_and_highlighting(self):
         """Test code blocks with line numbers or syntax highlighting markup."""
-        html = '''
+        html = """
         <pre class="line-numbers language-python"><code><span class="line-number">1</span>def function():
 <span class="line-number">2</span>    <span class="keyword">return</span> <span class="string">"highlighted"</span>
 <span class="line-number">3</span>    <span class="comment"># Comment</span></code></pre>
@@ -241,7 +240,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 <span class="hljs-title">example</span>() {</span>
     <span class="hljs-keyword">return</span> <span class="hljs-string">"code"</span>;
 <span class="hljs-punctuation">}</span></code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -255,7 +254,7 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 
     def test_code_blocks_with_tabs_and_spaces(self):
         """Test code blocks with mixed tabs and spaces for indentation."""
-        html = '''
+        html = """
         <pre><code>def mixed_indentation():
     if True:
 \t\treturn "tabs"
@@ -269,21 +268,21 @@ grep -E '^[A-Z]+$' file.txt | sort > output.txt</code></pre>
 
     def method(self):
 \t    return self.value</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve indentation (tabs might be converted to spaces)
         assert "def mixed_indentation" in markdown
-        assert "return \"tabs\"" in markdown
-        assert "return \"spaces\"" in markdown
+        assert 'return "tabs"' in markdown
+        assert 'return "spaces"' in markdown
         assert "class Example" in markdown
         assert "self.value = 42" in markdown
 
     def test_code_blocks_with_urls_and_links(self):
         """Test code blocks containing URLs and link-like content."""
-        html = '''
+        html = """
         <pre><code># Configuration
 API_URL = "https://api.example.com/v1"
 DOCS_URL = "http://docs.example.com"
@@ -295,7 +294,7 @@ image = "![alt](https://example.com/image.png)"</code></pre>
         <pre class="bash"><code>curl -X GET "https://api.github.com/users/octocat" \
      -H "Accept: application/vnd.github+json"
 wget http://example.com/file.tar.gz</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -309,7 +308,7 @@ wget http://example.com/file.tar.gz</code></pre>
 
     def test_code_blocks_with_mathematical_content(self):
         """Test code blocks containing mathematical or scientific content."""
-        html = '''
+        html = """
         <pre class="python"><code># Mathematical calculations
 import math
 
@@ -323,7 +322,7 @@ planck = 6.626e-34
 # LaTeX-like content in comments
 # Formula: E = mc²
 # Integral: ∫₀^∞ e^(-x²) dx = √π/2</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -337,10 +336,10 @@ planck = 6.626e-34
 
     def test_dynamic_fence_selection(self):
         """Test that appropriate fence lengths are chosen based on content."""
-        html_simple = '<pre><code>simple code</code></pre>'
-        html_backticks = '<pre><code>Use ```markdown``` syntax</code></pre>'
-        html_four_backticks = '<pre><code>Code with ````four backticks````</code></pre>'
-        html_many_backticks = '<pre><code>Many `````` backticks ``````</code></pre>'
+        html_simple = "<pre><code>simple code</code></pre>"
+        html_backticks = "<pre><code>Use ```markdown``` syntax</code></pre>"
+        html_four_backticks = "<pre><code>Code with ````four backticks````</code></pre>"
+        html_many_backticks = "<pre><code>Many `````` backticks ``````</code></pre>"
 
         md_simple = html_to_markdown(html_simple, source_format="html")
         md_backticks = html_to_markdown(html_backticks, source_format="html")
@@ -348,27 +347,27 @@ planck = 6.626e-34
         md_many = html_to_markdown(html_many_backticks, source_format="html")
 
         # Should use appropriate fence lengths
-        assert md_simple.count('`') >= 6  # At least ``` opening and closing
+        assert md_simple.count("`") >= 6  # At least ``` opening and closing
         assert "````" in md_backticks or "`````" in md_backticks  # Longer than content
         assert "`````" in md_four or "``````" in md_four  # Longer than content backticks
-        assert md_many.count('`') > 12  # Should use even longer fences
+        assert md_many.count("`") > 12  # Should use even longer fences
 
     def test_boundary_fence_lengths(self):
         """Test fence length boundary conditions with 7-10 backticks in content."""
         # Test 7 backticks in content
-        html_seven = '<pre><code>Code with ```````seven backticks```````</code></pre>'
+        html_seven = "<pre><code>Code with ```````seven backticks```````</code></pre>"
 
         # Test 8 backticks in content
-        html_eight = '<pre><code>Code with ````````eight backticks````````</code></pre>'
+        html_eight = "<pre><code>Code with ````````eight backticks````````</code></pre>"
 
         # Test 9 backticks in content
-        html_nine = '<pre><code>Code with `````````nine backticks`````````</code></pre>'
+        html_nine = "<pre><code>Code with `````````nine backticks`````````</code></pre>"
 
         # Test 10 backticks in content (maximum fence length)
-        html_ten = '<pre><code>Code with ``````````ten backticks``````````</code></pre>'
+        html_ten = "<pre><code>Code with ``````````ten backticks``````````</code></pre>"
 
         # Test 11 backticks in content (exceeds maximum fence length)
-        html_eleven = '<pre><code>Code with ```````````eleven backticks```````````</code></pre>'
+        html_eleven = "<pre><code>Code with ```````````eleven backticks```````````</code></pre>"
 
         md_seven = html_to_markdown(html_seven, source_format="html")
         md_eight = html_to_markdown(html_eight, source_format="html")
@@ -399,7 +398,7 @@ planck = 6.626e-34
 
     def test_mixed_backtick_sequences(self):
         """Test code containing mixed sequences of different backtick lengths."""
-        html_mixed = '''<pre><code>Mixed backticks:
+        html_mixed = """<pre><code>Mixed backticks:
 `single`
 ``double``
 ```triple```
@@ -407,7 +406,7 @@ planck = 6.626e-34
 `````five`````
 ``````six``````
 ```````seven```````
-````````eight````````</code></pre>'''
+````````eight````````</code></pre>"""
 
         markdown = html_to_markdown(html_mixed, source_format="html")
         assert_markdown_valid(markdown)
@@ -499,12 +498,12 @@ class TestCodeFenceLanguageSanitization:
 
     def test_valid_language_with_numbers_and_special(self):
         """Test valid languages with numbers, underscores, hyphens, and plus signs."""
-        html = '''
+        html = """
         <pre class="language-python3"><code>print("python3")</code></pre>
         <pre class="language-c++"><code>int main() {}</code></pre>
         <pre class="language-objective-c"><code>@interface MyClass</code></pre>
         <pre class="language-gnu_assembly"><code>mov eax, 1</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -517,11 +516,11 @@ class TestCodeFenceLanguageSanitization:
 
     def test_empty_and_whitespace_language(self):
         """Test that empty or whitespace-only language identifiers are handled."""
-        html = '''
+        html = """
         <pre class="  "><code>code = True</code></pre>
         <pre class=""><code>more code</code></pre>
         <pre data-lang="   "><code>even more</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -555,11 +554,11 @@ class TestCodeFenceLanguageSanitization:
 
     def test_data_lang_attribute_sanitization(self):
         """Test that data-lang attributes are also sanitized."""
-        html = '''
+        html = """
         <pre data-lang="python\nmalicious"><code>code = True</code></pre>
         <pre data-lang="javascript alert(1)"><code>more code</code></pre>
         <pre data-lang="valid-rust"><code>fn main() {}</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -583,11 +582,11 @@ class TestCodeFenceLanguageSanitization:
         protecting against markdown injection. The language patterns extract only
         valid identifiers from the class attribute.
         """
-        html = '''
+        html = """
         <pre><code class="language-python\nmalicious">code = True</code></pre>
         <pre><code class="language-javascript<script>">more code</code></pre>
         <pre><code class="language-valid-go">func main() {}</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -611,11 +610,11 @@ class TestCodeFenceLanguageSanitization:
 
     def test_fallback_class_sanitization(self):
         """Test that fallback class names (without patterns) are sanitized."""
-        html = '''
+        html = """
         <pre class="python"><code>code = True</code></pre>
         <pre class="javascript\nmalicious"><code>more code</code></pre>
         <pre class="valid_lang"><code>even more</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
@@ -634,13 +633,13 @@ class TestCodeFenceLanguageSanitization:
 
     def test_integration_with_existing_patterns(self):
         """Test that sanitization works with existing language detection patterns."""
-        html = '''
+        html = """
         <pre class="language-python"><code>python code</code></pre>
         <pre class="lang-javascript"><code>js code</code></pre>
         <pre class="brush: sql"><code>sql code</code></pre>
         <pre data-lang="rust"><code>rust code</code></pre>
         <pre><code class="language-go">go code</code></pre>
-        '''
+        """
 
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)

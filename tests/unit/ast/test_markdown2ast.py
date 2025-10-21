@@ -2,7 +2,6 @@
 
 """Unit tests for Markdown to AST converter."""
 
-
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -497,8 +496,8 @@ class TestCodeBlockMetadata:
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
         assert code_block.language == "python"
-        assert code_block.metadata.get('info_string') == 'python linenums=1'
-        assert code_block.metadata.get('info_attrs') == 'linenums=1'
+        assert code_block.metadata.get("info_string") == "python linenums=1"
+        assert code_block.metadata.get("info_attrs") == "linenums=1"
 
     def test_code_block_with_complex_metadata(self) -> None:
         """Test code blocks with complex info string metadata."""
@@ -508,8 +507,8 @@ class TestCodeBlockMetadata:
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
         assert code_block.language == "javascript"
-        assert code_block.metadata.get('info_string') == 'javascript {.class #id attr=value}'
-        assert code_block.metadata.get('info_attrs') == '{.class #id attr=value}'
+        assert code_block.metadata.get("info_string") == "javascript {.class #id attr=value}"
+        assert code_block.metadata.get("info_attrs") == "{.class #id attr=value}"
 
     def test_code_block_without_metadata(self) -> None:
         """Test that code blocks without metadata still work."""
@@ -519,8 +518,8 @@ class TestCodeBlockMetadata:
         code_block = doc.children[0]
         assert isinstance(code_block, CodeBlock)
         assert code_block.language == "python"
-        assert code_block.metadata.get('info_string') == 'python'
-        assert 'info_attrs' not in code_block.metadata
+        assert code_block.metadata.get("info_string") == "python"
+        assert "info_attrs" not in code_block.metadata
 
     def test_code_block_with_no_language(self) -> None:
         """Test that code blocks with no language have no metadata."""
@@ -627,9 +626,9 @@ class TestMistuneTokenRobustness:
 
         # Simulate a malformed token with invalid level
         malformed_token = {
-            'type': 'heading',
-            'attrs': {'level': 99},  # Invalid level
-            'children': [{'type': 'text', 'raw': 'Test'}]
+            "type": "heading",
+            "attrs": {"level": 99},  # Invalid level
+            "children": [{"type": "text", "raw": "Test"}],
         }
 
         heading = converter._process_heading(malformed_token)
@@ -642,10 +641,7 @@ class TestMistuneTokenRobustness:
         converter = MarkdownToAstConverter()
 
         # Simulate a token with missing attrs
-        malformed_token = {
-            'type': 'heading',
-            'children': [{'type': 'text', 'raw': 'Test'}]
-        }
+        malformed_token = {"type": "heading", "children": [{"type": "text", "raw": "Test"}]}
 
         heading = converter._process_heading(malformed_token)
         assert heading.level == 1
@@ -658,11 +654,7 @@ class TestMistuneTokenRobustness:
         converter = MarkdownToAstConverter()
 
         # Simulate a token with non-dict attrs
-        malformed_token = {
-            'type': 'heading',
-            'attrs': 'not a dict',
-            'children': [{'type': 'text', 'raw': 'Test'}]
-        }
+        malformed_token = {"type": "heading", "attrs": "not a dict", "children": [{"type": "text", "raw": "Test"}]}
 
         heading = converter._process_heading(malformed_token)
         assert heading.level == 1
@@ -674,10 +666,7 @@ class TestMistuneTokenRobustness:
         converter = MarkdownToAstConverter()
 
         # Simulate a token with missing children
-        malformed_token = {
-            'type': 'list',
-            'attrs': {'ordered': True}
-        }
+        malformed_token = {"type": "list", "attrs": {"ordered": True}}
 
         list_node = converter._process_list(malformed_token)
         assert len(list_node.items) == 0
@@ -690,14 +679,14 @@ class TestMistuneTokenRobustness:
 
         # Simulate a token with non-dict attrs
         malformed_token = {
-            'type': 'link',
-            'attrs': None,  # Should be a dict
-            'children': [{'type': 'text', 'raw': 'Link'}]
+            "type": "link",
+            "attrs": None,  # Should be a dict
+            "children": [{"type": "text", "raw": "Link"}],
         }
 
         link = converter._process_inline_token(malformed_token)
         assert isinstance(link, Link)
-        assert link.url == ''
+        assert link.url == ""
 
     def test_image_with_malformed_children(self) -> None:
         """Test that images with malformed children are handled gracefully."""
@@ -706,15 +695,11 @@ class TestMistuneTokenRobustness:
         converter = MarkdownToAstConverter()
 
         # Simulate a token with malformed children (not a list)
-        malformed_token = {
-            'type': 'image',
-            'attrs': {'url': 'test.png'},
-            'children': 'not a list'
-        }
+        malformed_token = {"type": "image", "attrs": {"url": "test.png"}, "children": "not a list"}
 
         image = converter._process_inline_token(malformed_token)
         assert isinstance(image, Image)
-        assert image.alt_text == ''
+        assert image.alt_text == ""
 
     def test_code_block_with_empty_info_string(self) -> None:
         """Test that code blocks with empty info strings are handled."""
@@ -722,16 +707,12 @@ class TestMistuneTokenRobustness:
 
         converter = MarkdownToAstConverter()
 
-        token = {
-            'type': 'block_code',
-            'raw': 'code content',
-            'attrs': {'info': '   '}  # Whitespace only
-        }
+        token = {"type": "block_code", "raw": "code content", "attrs": {"info": "   "}}  # Whitespace only
 
         code_block = converter._process_code_block(token)
         assert code_block.language in [None, ""]
         # Empty info string still gets stored, which is fine
-        assert code_block.metadata.get('info_string') == ''
+        assert code_block.metadata.get("info_string") == ""
 
     def test_code_block_with_metadata_and_invalid_language(self) -> None:
         """Test code blocks with metadata but invalid language."""
@@ -739,15 +720,11 @@ class TestMistuneTokenRobustness:
 
         converter = MarkdownToAstConverter()
 
-        token = {
-            'type': 'block_code',
-            'raw': 'code content',
-            'attrs': {'info': 'python;rm-rf linenums=1'}
-        }
+        token = {"type": "block_code", "raw": "code content", "attrs": {"info": "python;rm-rf linenums=1"}}
 
         code_block = converter._process_code_block(token)
         # Language should be sanitized to empty
         assert code_block.language in [None, ""]
         # But metadata should still preserve the full info string
-        assert 'info_string' in code_block.metadata
-        assert 'info_attrs' in code_block.metadata
+        assert "info_string" in code_block.metadata
+        assert "info_attrs" in code_block.metadata

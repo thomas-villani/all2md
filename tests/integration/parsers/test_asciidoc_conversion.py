@@ -5,18 +5,6 @@ testing full conversion pipelines with various AsciiDoc structures and edge case
 """
 
 import pytest
-from fixtures.generators.asciidoc_fixtures import (
-    create_asciidoc_complex_document,
-    create_asciidoc_with_attributes,
-    create_asciidoc_with_code_blocks,
-    create_asciidoc_with_formatting,
-    create_asciidoc_with_links_and_images,
-    create_asciidoc_with_lists,
-    create_asciidoc_with_nested_formatting,
-    create_asciidoc_with_tables,
-    create_simple_asciidoc,
-)
-from utils import assert_markdown_valid
 
 from all2md.ast import (
     BlockQuote,
@@ -42,6 +30,18 @@ from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
 from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.renderers.asciidoc import AsciiDocRenderer
 from all2md.renderers.markdown import MarkdownRenderer
+from fixtures.generators.asciidoc_fixtures import (
+    create_asciidoc_complex_document,
+    create_asciidoc_with_attributes,
+    create_asciidoc_with_code_blocks,
+    create_asciidoc_with_formatting,
+    create_asciidoc_with_links_and_images,
+    create_asciidoc_with_lists,
+    create_asciidoc_with_nested_formatting,
+    create_asciidoc_with_tables,
+    create_simple_asciidoc,
+)
+from utils import assert_markdown_valid
 
 
 @pytest.mark.integration
@@ -98,10 +98,7 @@ class TestAsciiDocIntegrationBasic:
         """Test AsciiDoc parsing with custom options."""
         asciidoc = create_asciidoc_with_attributes()
 
-        options = AsciiDocOptions(
-            parse_attributes=True,
-            resolve_attribute_refs=True
-        )
+        options = AsciiDocOptions(parse_attributes=True, resolve_attribute_refs=True)
         parser = AsciiDocParser(options=options)
         doc = parser.parse(asciidoc)
 
@@ -128,10 +125,10 @@ class TestAsciiDocContentTypes:
             nodes = []
             if isinstance(node, node_type):
                 nodes.append(node)
-            if hasattr(node, 'children'):
+            if hasattr(node, "children"):
                 for child in node.children:
                     nodes.extend(find_nodes_of_type(child, node_type))
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     nodes.extend(find_nodes_of_type(child, node_type))
             return nodes
@@ -204,10 +201,10 @@ class TestAsciiDocContentTypes:
             nodes = []
             if isinstance(node, node_type):
                 nodes.append(node)
-            if hasattr(node, 'children'):
+            if hasattr(node, "children"):
                 for child in node.children:
                     nodes.extend(find_nodes_of_type(child, node_type))
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     nodes.extend(find_nodes_of_type(child, node_type))
             return nodes
@@ -251,10 +248,10 @@ class TestAsciiDocFormatting:
             nodes = []
             if isinstance(node, node_type):
                 nodes.append(node)
-            if hasattr(node, 'children'):
+            if hasattr(node, "children"):
                 for child in node.children:
                     nodes.extend(find_nodes_of_type(child, node_type))
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     nodes.extend(find_nodes_of_type(child, node_type))
             return nodes
@@ -366,10 +363,7 @@ class TestAsciiDocOptions:
         """Test parsing with attribute resolution."""
         asciidoc = create_asciidoc_with_attributes()
 
-        options = AsciiDocOptions(
-            parse_attributes=True,
-            resolve_attribute_refs=True
-        )
+        options = AsciiDocOptions(parse_attributes=True, resolve_attribute_refs=True)
         parser = AsciiDocParser(options=options)
         doc = parser.parse(asciidoc)
 
@@ -389,10 +383,12 @@ class TestAsciiDocOptions:
 
     def test_renderer_heading_style_atx(self) -> None:
         """Test renderer with ATX heading style."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Heading(level=2, content=[Text(content="Section")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="Section")]),
+            ]
+        )
 
         options = AsciiDocRendererOptions()
         renderer = AsciiDocRenderer(options=options)
@@ -403,10 +399,12 @@ class TestAsciiDocOptions:
 
     def test_renderer_heading_style_setext(self) -> None:
         """Test renderer with setext heading style for levels 1-2."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Heading(level=2, content=[Text(content="Section")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="Section")]),
+            ]
+        )
 
         options = AsciiDocRendererOptions()
         renderer = AsciiDocRenderer(options=options)
@@ -420,9 +418,7 @@ class TestAsciiDocOptions:
         """Test renderer including metadata as attributes."""
         doc = Document(
             metadata={"title": "Test Doc", "author": "Test Author"},
-            children=[
-                Heading(level=1, content=[Text(content="Content")])
-            ]
+            children=[Heading(level=1, content=[Text(content="Content")])],
         )
 
         options = AsciiDocRendererOptions(use_attributes=True)
@@ -466,20 +462,27 @@ print("hello")
 
     def test_ast_to_asciidoc(self) -> None:
         """Test creating AST programmatically and rendering to AsciiDoc."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Test Document")]),
-            Paragraph(content=[
-                Text(content="This has "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" and "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=".")
-            ]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Test Document")]),
+                Paragraph(
+                    content=[
+                        Text(content="This has "),
+                        Strong(content=[Text(content="bold")]),
+                        Text(content=" and "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content="."),
+                    ]
+                ),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+            ]
+        )
 
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
@@ -578,11 +581,9 @@ class TestAsciiDocMetadataIntegration:
             metadata={
                 "title": "Integration Test",
                 "author": "Test Suite",
-                "description": "Testing metadata integration"
+                "description": "Testing metadata integration",
             },
-            children=[
-                Paragraph(content=[Text(content="Content here")])
-            ]
+            children=[Paragraph(content=[Text(content="Content here")])],
         )
 
         options = AsciiDocRendererOptions(use_attributes=True)

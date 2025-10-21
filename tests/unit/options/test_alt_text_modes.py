@@ -21,7 +21,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="alt_text",
             alt_text_mode="default",
-            is_image=True
+            is_image=True,
         )
         assert result["markdown"] == "![Test Image]"
         assert result["footnote_label"] is None
@@ -35,7 +35,7 @@ class TestAltTextModes:
             alt_text="Test Document",
             attachment_mode="alt_text",
             alt_text_mode="default",
-            is_image=False
+            is_image=False,
         )
         assert result["markdown"] == "[document.pdf]"
         assert result["footnote_label"] is None
@@ -48,7 +48,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="alt_text",
             alt_text_mode="plain_filename",
-            is_image=True
+            is_image=True,
         )
         assert result["markdown"] == "![Test Image]"
 
@@ -60,7 +60,7 @@ class TestAltTextModes:
             alt_text="Test Document",
             attachment_mode="alt_text",
             alt_text_mode="plain_filename",
-            is_image=False
+            is_image=False,
         )
         assert result["markdown"] == "document.pdf"
 
@@ -72,7 +72,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="alt_text",
             alt_text_mode="strict_markdown",
-            is_image=True
+            is_image=True,
         )
         assert result["markdown"] == "![Test Image](#)"
         assert result["url"] == "#"
@@ -85,7 +85,7 @@ class TestAltTextModes:
             alt_text="Test Document",
             attachment_mode="alt_text",
             alt_text_mode="strict_markdown",
-            is_image=False
+            is_image=False,
         )
         assert result["markdown"] == "[document.pdf](#)"
         assert result["url"] == "#"
@@ -98,7 +98,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="alt_text",
             alt_text_mode="footnote",
-            is_image=True
+            is_image=True,
         )
         # Footnote labels are sanitized and extension is removed for cleaner references
         # Note: Space between image and footnote reference for valid Markdown syntax
@@ -115,7 +115,7 @@ class TestAltTextModes:
             alt_text="Test Document",
             attachment_mode="alt_text",
             alt_text_mode="footnote",
-            is_image=False
+            is_image=False,
         )
         # Footnote labels are sanitized and extension is removed for cleaner references
         # Note: Space between link and footnote reference for valid Markdown syntax
@@ -131,13 +131,14 @@ class TestAltTextModes:
             alt_text="",
             attachment_mode="alt_text",
             alt_text_mode="default",
-            is_image=True
+            is_image=True,
         )
         assert result["markdown"] == "![test.png]"
 
     def test_alt_text_mode_with_download_mode(self):
         """Test that alt_text_mode doesn't affect download mode."""
         import tempfile
+
         with tempfile.TemporaryDirectory() as temp_dir:
             result = process_attachment(
                 attachment_data=b"fake image data",
@@ -146,7 +147,7 @@ class TestAltTextModes:
                 attachment_mode="download",
                 attachment_output_dir=temp_dir,
                 alt_text_mode="strict_markdown",
-                is_image=True
+                is_image=True,
             )
             # Download mode should ignore alt_text_mode
             assert result["markdown"].startswith("![Test Image](")
@@ -161,7 +162,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="base64",
             alt_text_mode="footnote",
-            is_image=True
+            is_image=True,
         )
         # Base64 mode should ignore alt_text_mode
         assert result["markdown"].startswith("![Test Image](data:")
@@ -175,7 +176,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="skip",
             alt_text_mode="footnote",
-            is_image=True
+            is_image=True,
         )
         # Skip mode should return empty string regardless of alt_text_mode
         assert result["markdown"] == ""
@@ -189,7 +190,7 @@ class TestAltTextModes:
             alt_text="Test Image",
             attachment_mode="unsupported_mode",  # This will trigger fallback
             alt_text_mode="strict_markdown",
-            is_image=True
+            is_image=True,
         )
         assert result["markdown"] == "![Test Image](#)"
 
@@ -205,7 +206,7 @@ class TestAltTextModes:
                 alt_text="Test",
                 attachment_mode="alt_text",
                 alt_text_mode=mode,
-                is_image=True
+                is_image=True,
             )
             assert isinstance(result_img, dict)
             assert "markdown" in result_img
@@ -218,7 +219,7 @@ class TestAltTextModes:
                 alt_text="Test",
                 attachment_mode="alt_text",
                 alt_text_mode=mode,
-                is_image=False
+                is_image=False,
             )
             assert isinstance(result_file, dict)
             assert "markdown" in result_file

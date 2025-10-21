@@ -2,11 +2,10 @@
 
 from unittest.mock import Mock, patch
 
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
-
 from all2md import to_markdown as pdf_to_markdown
 from all2md.options import PdfOptions
 from all2md.parsers.pdf import IdentifyHeaders
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPdfFormatting:
@@ -28,7 +27,7 @@ class TestPdfFormatting:
             "bbox": (100, 100, 200, 120),
             "size": 12.0,
             "flags": 16,  # Bold flag in PyMuPDF
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # Mock span without bold flag
@@ -37,7 +36,7 @@ class TestPdfFormatting:
             "bbox": (100, 130, 200, 150),
             "size": 12.0,
             "flags": 0,  # No formatting flags
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # Test that we can identify bold text
@@ -53,7 +52,7 @@ class TestPdfFormatting:
             "bbox": (100, 100, 200, 120),
             "size": 12.0,
             "flags": 2,  # Italic flag in PyMuPDF
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # Mock span with both bold and italic
@@ -62,7 +61,7 @@ class TestPdfFormatting:
             "bbox": (100, 130, 200, 150),
             "size": 12.0,
             "flags": 18,  # Bold (16) + Italic (2) flags
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # Test flag detection
@@ -70,7 +69,7 @@ class TestPdfFormatting:
         assert bold_italic_span["flags"] & 16  # Bold flag set
         assert bold_italic_span["flags"] & 2  # Italic flag set
 
-    @patch('all2md.parsers.pdf.fitz.open')
+    @patch("all2md.parsers.pdf.fitz.open")
     def test_emphasis_mapping_to_markdown(self, mock_fitz_open):
         """Test mapping of PDF font flags to Markdown emphasis."""
         mock_doc = Mock()
@@ -80,34 +79,16 @@ class TestPdfFormatting:
 
         # Mock different formatting scenarios
         spans = [
-            {
-                "text": "Normal text",
-                "bbox": (100, 100, 200, 120),
-                "size": 12.0,
-                "flags": 0,
-                "dir": (1, 0)
-            },
-            {
-                "text": "Bold text",
-                "bbox": (100, 130, 180, 150),
-                "size": 12.0,
-                "flags": 16,  # Bold
-                "dir": (1, 0)
-            },
-            {
-                "text": "Italic text",
-                "bbox": (100, 160, 180, 180),
-                "size": 12.0,
-                "flags": 2,  # Italic
-                "dir": (1, 0)
-            },
+            {"text": "Normal text", "bbox": (100, 100, 200, 120), "size": 12.0, "flags": 0, "dir": (1, 0)},
+            {"text": "Bold text", "bbox": (100, 130, 180, 150), "size": 12.0, "flags": 16, "dir": (1, 0)},  # Bold
+            {"text": "Italic text", "bbox": (100, 160, 180, 180), "size": 12.0, "flags": 2, "dir": (1, 0)},  # Italic
             {
                 "text": "Bold italic text",
                 "bbox": (100, 190, 220, 210),
                 "size": 12.0,
                 "flags": 18,  # Bold + Italic
-                "dir": (1, 0)
-            }
+                "dir": (1, 0),
+            },
         ]
 
         mock_lines = []
@@ -188,10 +169,7 @@ class TestPdfFormatting:
 
         mock_page.get_text.return_value = {"blocks": mock_blocks}
 
-        options = PdfOptions(
-            header_use_font_weight=True,
-            header_min_occurrences=1  # Low threshold for testing
-        )
+        options = PdfOptions(header_use_font_weight=True, header_min_occurrences=1)  # Low threshold for testing
 
         # Test header detection logic
         _header_analyzer = IdentifyHeaders(mock_doc, options=options)
@@ -210,7 +188,7 @@ class TestPdfFormatting:
             "bbox": (100, 100, 200, 120),
             "size": 12.0,
             "flags": 1,  # Underline flag
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         strikethrough_span = {
@@ -218,7 +196,7 @@ class TestPdfFormatting:
             "bbox": (100, 130, 220, 150),
             "size": 12.0,
             "flags": 8,  # Strikethrough flag
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # Test flag detection
@@ -233,7 +211,7 @@ class TestPdfFormatting:
             "bbox": (100, 100, 150, 120),
             "size": 10.0,
             "flags": 32,  # Superscript flag (if supported)
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         subscript_span = {
@@ -241,7 +219,7 @@ class TestPdfFormatting:
             "bbox": (100, 130, 150, 150),
             "size": 10.0,
             "flags": 64,  # Subscript flag (if supported)
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # These flags may not be standard in PyMuPDF, but test structure
@@ -257,7 +235,7 @@ class TestPdfFormatting:
             "size": 10.0,
             "flags": 0,
             "font": "Courier",  # Monospace font
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         _proportional_span = {
@@ -266,14 +244,14 @@ class TestPdfFormatting:
             "size": 12.0,
             "flags": 0,
             "font": "Times",  # Proportional font
-            "dir": (1, 0)
+            "dir": (1, 0),
         }
 
         # Test font family detection (implementation-dependent)
         # The proportional_span is defined for documentation purposes
         assert "Courier" in monospace_span.get("font", "")
 
-    @patch('all2md.parsers.pdf.fitz.open')
+    @patch("all2md.parsers.pdf.fitz.open")
     def test_mixed_formatting_in_paragraph(self, mock_fitz_open):
         """Test paragraphs with mixed formatting within same line."""
         mock_doc = Mock()
@@ -283,41 +261,11 @@ class TestPdfFormatting:
 
         # Mock line with multiple spans having different formatting
         mixed_spans = [
-            {
-                "text": "This is ",
-                "bbox": (100, 100, 140, 120),
-                "size": 12.0,
-                "flags": 0,
-                "dir": (1, 0)
-            },
-            {
-                "text": "bold",
-                "bbox": (140, 100, 170, 120),
-                "size": 12.0,
-                "flags": 16,  # Bold
-                "dir": (1, 0)
-            },
-            {
-                "text": " and ",
-                "bbox": (170, 100, 200, 120),
-                "size": 12.0,
-                "flags": 0,
-                "dir": (1, 0)
-            },
-            {
-                "text": "italic",
-                "bbox": (200, 100, 240, 120),
-                "size": 12.0,
-                "flags": 2,  # Italic
-                "dir": (1, 0)
-            },
-            {
-                "text": " text.",
-                "bbox": (240, 100, 280, 120),
-                "size": 12.0,
-                "flags": 0,
-                "dir": (1, 0)
-            }
+            {"text": "This is ", "bbox": (100, 100, 140, 120), "size": 12.0, "flags": 0, "dir": (1, 0)},
+            {"text": "bold", "bbox": (140, 100, 170, 120), "size": 12.0, "flags": 16, "dir": (1, 0)},  # Bold
+            {"text": " and ", "bbox": (170, 100, 200, 120), "size": 12.0, "flags": 0, "dir": (1, 0)},
+            {"text": "italic", "bbox": (200, 100, 240, 120), "size": 12.0, "flags": 2, "dir": (1, 0)},  # Italic
+            {"text": " text.", "bbox": (240, 100, 280, 120), "size": 12.0, "flags": 0, "dir": (1, 0)},
         ]
 
         mock_line = {"spans": mixed_spans, "dir": (1, 0), "bbox": (100, 100, 280, 120)}
@@ -367,10 +315,7 @@ class TestPdfFormatting:
             "flags": 0,
         }
 
-        _options = PdfOptions(
-            header_use_all_caps=True,
-            header_min_occurrences=1
-        )
+        _options = PdfOptions(header_use_all_caps=True, header_min_occurrences=1)
 
         # Test ALL CAPS detection
         # The options are defined to document the configuration context
@@ -381,21 +326,9 @@ class TestPdfFormatting:
         """Test complex combinations of formatting flags."""
         # Mock spans with multiple formatting flags
         complex_spans = [
-            {
-                "text": "Bold + Italic",
-                "flags": 18,  # Bold (16) + Italic (2)
-                "size": 12.0
-            },
-            {
-                "text": "Bold + Underline",
-                "flags": 17,  # Bold (16) + Underline (1)
-                "size": 12.0
-            },
-            {
-                "text": "All formatting",
-                "flags": 31,  # Multiple flags combined
-                "size": 12.0
-            }
+            {"text": "Bold + Italic", "flags": 18, "size": 12.0},  # Bold (16) + Italic (2)
+            {"text": "Bold + Underline", "flags": 17, "size": 12.0},  # Bold (16) + Underline (1)
+            {"text": "All formatting", "flags": 31, "size": 12.0},  # Multiple flags combined
         ]
 
         # Test flag combinations

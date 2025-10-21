@@ -40,11 +40,7 @@ def create_simple_epub() -> bytes:
     book.add_author("Test Author")
 
     # Create chapters
-    chapter1 = epub.EpubHtml(
-        title="Chapter 1",
-        file_name="chapter1.xhtml",
-        lang="en"
-    )
+    chapter1 = epub.EpubHtml(title="Chapter 1", file_name="chapter1.xhtml", lang="en")
     chapter1.content = """
     <html>
         <body>
@@ -55,11 +51,7 @@ def create_simple_epub() -> bytes:
     </html>
     """
 
-    chapter2 = epub.EpubHtml(
-        title="Chapter 2",
-        file_name="chapter2.xhtml",
-        lang="en"
-    )
+    chapter2 = epub.EpubHtml(title="Chapter 2", file_name="chapter2.xhtml", lang="en")
     chapter2.content = """
     <html>
         <body>
@@ -97,16 +89,17 @@ def create_simple_epub() -> bytes:
     book.add_item(epub.EpubNav())
 
     # Generate EPUB content
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp_file:
         epub.write_epub(tmp_file.name, book, {})
         tmp_file.flush()
 
     # Read the file back
-    with open(tmp_file.name, 'rb') as f:
+    with open(tmp_file.name, "rb") as f:
         content = f.read()
 
     # Clean up
     import os
+
     os.unlink(tmp_file.name)
 
     return content
@@ -137,9 +130,9 @@ def create_epub_with_images() -> bytes:
 
     # Create a simple test image (1x1 PNG)
     test_image_data = (
-        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-        b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
-        b'\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82'
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
     )
 
     # Create image item
@@ -151,11 +144,7 @@ def create_epub_with_images() -> bytes:
     book.add_item(image_item)
 
     # Create chapter with image
-    chapter = epub.EpubHtml(
-        title="Chapter with Image",
-        file_name="chapter_image.xhtml",
-        lang="en"
-    )
+    chapter = epub.EpubHtml(title="Chapter with Image", file_name="chapter_image.xhtml", lang="en")
     chapter.content = """
     <html>
         <body>
@@ -180,16 +169,17 @@ def create_epub_with_images() -> bytes:
     book.add_item(epub.EpubNav())
 
     # Generate EPUB content
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp_file:
         epub.write_epub(tmp_file.name, book, {})
         tmp_file.flush()
 
     # Read the file back
-    with open(tmp_file.name, 'rb') as f:
+    with open(tmp_file.name, "rb") as f:
         content = f.read()
 
     # Clean up
     import os
+
     os.unlink(tmp_file.name)
 
     return content
@@ -218,11 +208,7 @@ def create_epub_with_footnotes() -> bytes:
     book.set_language("en")
     book.add_author("Test Author")
 
-    chapter = epub.EpubHtml(
-        title="Chapter with Footnotes",
-        file_name="chapter_footnotes.xhtml",
-        lang="en"
-    )
+    chapter = epub.EpubHtml(title="Chapter with Footnotes", file_name="chapter_footnotes.xhtml", lang="en")
     chapter.content = """
     <html>
         <body>
@@ -249,16 +235,17 @@ def create_epub_with_footnotes() -> bytes:
     book.add_item(epub.EpubNav())
 
     # Generate EPUB content
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp_file:
         epub.write_epub(tmp_file.name, book, {})
         tmp_file.flush()
 
     # Read the file back
-    with open(tmp_file.name, 'rb') as f:
+    with open(tmp_file.name, "rb") as f:
         content = f.read()
 
     # Clean up
     import os
+
     os.unlink(tmp_file.name)
 
     return content
@@ -303,13 +290,14 @@ def create_epub_with_nested_toc() -> bytes:
 
     # Create nested table of contents
     book.toc = (
-        (epub.Section("Part 1"), (
-            epub.Link("part1_ch1.xhtml", "Chapter 1", "part1_ch1"),
-            epub.Link("part1_ch2.xhtml", "Chapter 2", "part1_ch2")
-        )),
-        (epub.Section("Part 2"), (
-            epub.Link("part2_ch1.xhtml", "Chapter 1", "part2_ch1"),
-        ))
+        (
+            epub.Section("Part 1"),
+            (
+                epub.Link("part1_ch1.xhtml", "Chapter 1", "part1_ch1"),
+                epub.Link("part1_ch2.xhtml", "Chapter 2", "part1_ch2"),
+            ),
+        ),
+        (epub.Section("Part 2"), (epub.Link("part2_ch1.xhtml", "Chapter 1", "part2_ch1"),)),
     )
 
     # Create spine
@@ -320,16 +308,17 @@ def create_epub_with_nested_toc() -> bytes:
     book.add_item(epub.EpubNav())
 
     # Generate EPUB content
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as tmp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".epub") as tmp_file:
         epub.write_epub(tmp_file.name, book, {})
         tmp_file.flush()
 
     # Read the file back
-    with open(tmp_file.name, 'rb') as f:
+    with open(tmp_file.name, "rb") as f:
         content = f.read()
 
     # Clean up
     import os
+
     os.unlink(tmp_file.name)
 
     return content

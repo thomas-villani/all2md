@@ -11,11 +11,11 @@ Tests cover:
 
 """
 
-
 import pytest
 
 try:
     from reportlab.platypus import SimpleDocTemplate  # noqa: F401
+
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
@@ -56,43 +56,41 @@ def create_sample_document():
         metadata={"title": "Sample Document", "author": "Test Author"},
         children=[
             Heading(level=1, content=[Text(content="Document Title")]),
-            Paragraph(content=[
-                Text(content="This is a paragraph with "),
-                Strong(content=[Text(content="bold text")]),
-                Text(content=" and a "),
-                Link(url="https://example.com", content=[Text(content="link")]),
-                Text(content=".")
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="This is a paragraph with "),
+                    Strong(content=[Text(content="bold text")]),
+                    Text(content=" and a "),
+                    Link(url="https://example.com", content=[Text(content="link")]),
+                    Text(content="."),
+                ]
+            ),
             Heading(level=2, content=[Text(content="Lists")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Third item")])])
-            ]),
+            List(
+                ordered=False,
+                items=[
+                    ListItem(children=[Paragraph(content=[Text(content="First item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Third item")])]),
+                ],
+            ),
             Heading(level=2, content=[Text(content="Code Example")]),
             CodeBlock(content='def hello():\n    print("Hello, world!")', language="python"),
             Heading(level=2, content=[Text(content="Table")]),
             Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Value")])
-                ]),
+                header=TableRow(
+                    cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Value")])]
+                ),
                 rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alpha")]),
-                        TableCell(content=[Text(content="1")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Beta")]),
-                        TableCell(content=[Text(content="2")])
-                    ])
-                ]
+                    TableRow(
+                        cells=[TableCell(content=[Text(content="Alpha")]), TableCell(content=[Text(content="1")])]
+                    ),
+                    TableRow(cells=[TableCell(content=[Text(content="Beta")]), TableCell(content=[Text(content="2")])]),
+                ],
             ),
             Heading(level=2, content=[Text(content="Quote")]),
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is a blockquote.")])
-            ])
-        ]
+            BlockQuote(children=[Paragraph(content=[Text(content="This is a blockquote.")])]),
+        ],
     )
 
 
@@ -137,11 +135,7 @@ class TestPdfRendering:
     def test_pdf_with_custom_fonts(self, tmp_path):
         """Test PDF with custom font settings."""
         doc = create_sample_document()
-        options = PdfRendererOptions(
-            font_name="Times-Roman",
-            font_size=12,
-            code_font="Courier"
-        )
+        options = PdfRendererOptions(font_name="Times-Roman", font_size=12, code_font="Courier")
         renderer = PdfRenderer(options)
         output_file = tmp_path / "custom_fonts.pdf"
         renderer.render(doc, output_file)
@@ -157,15 +151,12 @@ class TestPdfRemoteImageFetching:
 
     def test_remote_image_disabled_by_default(self, tmp_path):
         """Test that remote images are skipped by default (secure-by-default)."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Image test:")]),
-            Paragraph(content=[
-                Image(
-                    url="https://example.com/test-image.png",
-                    alt_text="Remote image"
-                )
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Image test:")]),
+                Paragraph(content=[Image(url="https://example.com/test-image.png", alt_text="Remote image")]),
+            ]
+        )
         # Default options should have allow_remote_fetch=False
         renderer = PdfRenderer()
         output_file = tmp_path / "no_remote.pdf"
@@ -177,17 +168,10 @@ class TestPdfRemoteImageFetching:
 
     def test_remote_image_explicit_disabled(self, tmp_path):
         """Test that remote images are skipped when explicitly disabled."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(
-                    url="https://httpbin.org/image/png",
-                    alt_text="Remote image"
-                )
-            ])
-        ])
-        options = PdfRendererOptions(
-            network=NetworkFetchOptions(allow_remote_fetch=False)
+        doc = Document(
+            children=[Paragraph(content=[Image(url="https://httpbin.org/image/png", alt_text="Remote image")])]
         )
+        options = PdfRendererOptions(network=NetworkFetchOptions(allow_remote_fetch=False))
         renderer = PdfRenderer(options)
         output_file = tmp_path / "remote_disabled.pdf"
         renderer.render(doc, output_file)
@@ -199,18 +183,10 @@ class TestPdfRemoteImageFetching:
     def test_local_image_not_affected(self, tmp_path):
         """Test that local images work regardless of network settings."""
         # This is a unit test verifying local images aren't affected
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(
-                    url="/path/to/local/image.png",
-                    alt_text="Local image"
-                )
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="/path/to/local/image.png", alt_text="Local image")])])
         # Even with remote fetching disabled, local images should be attempted
         options = PdfRendererOptions(
-            network=NetworkFetchOptions(allow_remote_fetch=False),
-            fail_on_resource_errors=False
+            network=NetworkFetchOptions(allow_remote_fetch=False), fail_on_resource_errors=False
         )
         renderer = PdfRenderer(options)
         output_file = tmp_path / "local_image.pdf"
@@ -226,15 +202,9 @@ class TestPdfRemoteImageFetching:
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z"
             "8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
         )
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url=base64_image, alt_text="Base64 image")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url=base64_image, alt_text="Base64 image")])])
         # Base64 images should work even with remote fetching disabled
-        options = PdfRendererOptions(
-            network=NetworkFetchOptions(allow_remote_fetch=False)
-        )
+        options = PdfRendererOptions(network=NetworkFetchOptions(allow_remote_fetch=False))
         renderer = PdfRenderer(options)
         output_file = tmp_path / "base64_image.pdf"
         renderer.render(doc, output_file)
@@ -246,10 +216,7 @@ class TestPdfRemoteImageFetching:
         """Test that network security options are properly configured."""
         options = PdfRendererOptions(
             network=NetworkFetchOptions(
-                allow_remote_fetch=True,
-                require_https=True,
-                network_timeout=10.0,
-                allowed_hosts=["example.com"]
+                allow_remote_fetch=True, require_https=True, network_timeout=10.0, allowed_hosts=["example.com"]
             )
         )
         renderer = PdfRenderer(options)
@@ -266,20 +233,19 @@ class TestPdfRemoteImageFetching:
             "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z"
             "8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
         )
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Mixed Images Test")]),
-            Paragraph(content=[Text(content="Base64 image:")]),
-            Paragraph(content=[Image(url=base64_image, alt_text="Base64")]),
-            Paragraph(content=[Text(content="Remote image (skipped):")]),
-            Paragraph(content=[
-                Image(url="https://example.com/image.png", alt_text="Remote")
-            ]),
-            Paragraph(content=[Text(content="Local image (attempted):")]),
-            Paragraph(content=[Image(url="local.png", alt_text="Local")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Mixed Images Test")]),
+                Paragraph(content=[Text(content="Base64 image:")]),
+                Paragraph(content=[Image(url=base64_image, alt_text="Base64")]),
+                Paragraph(content=[Text(content="Remote image (skipped):")]),
+                Paragraph(content=[Image(url="https://example.com/image.png", alt_text="Remote")]),
+                Paragraph(content=[Text(content="Local image (attempted):")]),
+                Paragraph(content=[Image(url="local.png", alt_text="Local")]),
+            ]
+        )
         options = PdfRendererOptions(
-            network=NetworkFetchOptions(allow_remote_fetch=False),
-            fail_on_resource_errors=False
+            network=NetworkFetchOptions(allow_remote_fetch=False), fail_on_resource_errors=False
         )
         renderer = PdfRenderer(options)
         output_file = tmp_path / "mixed_images.pdf"

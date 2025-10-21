@@ -5,6 +5,7 @@ to Markdown, including tests for code cells, markdown cells, output
 handling, and various notebook features.
 
 """
+
 import json
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
@@ -12,8 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md import IpynbOptions
-from all2md import to_markdown as ipynb_to_markdown
+from all2md import IpynbOptions, to_markdown as ipynb_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownOptions
 
@@ -26,33 +26,20 @@ def test_basic_notebook_conversion():
         "cells": [
             {
                 "cell_type": "markdown",
-                "source": ["# Data Analysis Example\n", "This notebook demonstrates basic data analysis."]
+                "source": ["# Data Analysis Example\n", "This notebook demonstrates basic data analysis."],
             },
-            {
-                "cell_type": "code",
-                "source": ["import pandas as pd\n", "import numpy as np"],
-                "outputs": []
-            },
+            {"cell_type": "code", "source": ["import pandas as pd\n", "import numpy as np"], "outputs": []},
             {
                 "cell_type": "code",
                 "source": ["data = [1, 2, 3, 4, 5]\n", "print(f'Mean: {np.mean(data)}')"],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Mean: 3.0\n"]
-                    }
-                ]
-            }
+                "outputs": [{"output_type": "stream", "text": ["Mean: 3.0\n"]}],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python"
-            }
-        },
-        "nbformat": 4
+        "metadata": {"kernelspec": {"language": "python"}},
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -85,25 +72,14 @@ def test_notebook_with_image_outputs():
             {
                 "cell_type": "code",
                 "source": ["import matplotlib.pyplot as plt\n", "plt.plot([1, 2, 3])\n", "plt.show()"],
-                "outputs": [
-                    {
-                        "output_type": "execute_result",
-                        "data": {
-                            "image/png": png_data
-                        }
-                    }
-                ]
+                "outputs": [{"output_type": "execute_result", "data": {"image/png": png_data}}],
             }
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python"
-            }
-        },
-        "nbformat": 4
+        "metadata": {"kernelspec": {"language": "python"}},
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -136,34 +112,20 @@ def test_notebook_with_attachment_options():
             {
                 "cell_type": "code",
                 "source": ["plt.figure()\n", "plt.plot([1, 2, 3])\n", "plt.show()"],
-                "outputs": [
-                    {
-                        "output_type": "display_data",
-                        "data": {
-                            "image/png": png_data
-                        }
-                    }
-                ]
+                "outputs": [{"output_type": "display_data", "data": {"image/png": png_data}}],
             }
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python"
-            }
-        },
-        "nbformat": 4
+        "metadata": {"kernelspec": {"language": "python"}},
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
-            options = IpynbOptions(
-                attachment_mode="download",
-                attachment_output_dir=temp_dir
-            )
+            options = IpynbOptions(attachment_mode="download", attachment_output_dir=temp_dir)
 
             result = ipynb_to_markdown(temp_path, parser_options=options)
 
@@ -190,30 +152,16 @@ def test_notebook_with_multiple_output_types():
                 "cell_type": "code",
                 "source": ["x = 42\n", "print('The answer is:', x)\n", "x  # This creates an execute_result"],
                 "outputs": [
-                    {
-                        "output_type": "stream",
-                        "name": "stdout",
-                        "text": ["The answer is: 42\n"]
-                    },
-                    {
-                        "output_type": "execute_result",
-                        "execution_count": 1,
-                        "data": {
-                            "text/plain": ["42"]
-                        }
-                    }
-                ]
+                    {"output_type": "stream", "name": "stdout", "text": ["The answer is: 42\n"]},
+                    {"output_type": "execute_result", "execution_count": 1, "data": {"text/plain": ["42"]}},
+                ],
             }
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python"
-            }
-        },
-        "nbformat": 4
+        "metadata": {"kernelspec": {"language": "python"}},
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -225,8 +173,8 @@ def test_notebook_with_multiple_output_types():
         assert "```\n42\n```" in result
 
         # Should have proper structure with code and outputs
-        lines = result.split('\n')
-        code_block_indices = [i for i, line in enumerate(lines) if line.startswith('```')]
+        lines = result.split("\n")
+        code_block_indices = [i for i, line in enumerate(lines) if line.startswith("```")]
         assert len(code_block_indices) >= 4  # Code block + 2 output blocks (start and end markers)
 
     finally:
@@ -244,23 +192,14 @@ def test_notebook_with_long_outputs():
             {
                 "cell_type": "code",
                 "source": ["for i in range(20):\n", "    print(f'Line {i}')"],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": long_output
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": long_output}],
             }
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python"
-            }
-        },
-        "nbformat": 4
+        "metadata": {"kernelspec": {"language": "python"}},
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -297,27 +236,19 @@ def test_notebook_with_custom_truncate_message():
             {
                 "cell_type": "code",
                 "source": ["# Generate lots of output"],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": long_output
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": long_output}],
             }
         ],
         "metadata": {"kernelspec": {"language": "python"}},
-        "nbformat": 4
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
     try:
-        options = IpynbOptions(
-            truncate_long_outputs=3,
-            truncate_output_message="\n... CUSTOM TRUNCATION MESSAGE ..."
-        )
+        options = IpynbOptions(truncate_long_outputs=3, truncate_output_message="\n... CUSTOM TRUNCATION MESSAGE ...")
         result = ipynb_to_markdown(temp_path, parser_options=options)
 
         assert "CUSTOM TRUNCATION MESSAGE" in result
@@ -338,23 +269,14 @@ def test_notebook_different_languages():
             {
                 "cell_type": "code",
                 "source": ["console.log('Hello from JavaScript');"],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Hello from JavaScript\n"]
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": ["Hello from JavaScript\n"]}],
             }
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "javascript"
-            }
-        },
-        "nbformat": 4
+        "metadata": {"kernelspec": {"language": "javascript"}},
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -376,30 +298,16 @@ def test_notebook_with_empty_cells():
     """Test notebook with empty cells of various types."""
     notebook_content = {
         "cells": [
-            {
-                "cell_type": "markdown",
-                "source": []
-            },
-            {
-                "cell_type": "code",
-                "source": [""],
-                "outputs": []
-            },
-            {
-                "cell_type": "markdown",
-                "source": ["# Valid Content"]
-            },
-            {
-                "cell_type": "code",
-                "source": ["   "],  # Whitespace only
-                "outputs": []
-            }
+            {"cell_type": "markdown", "source": []},
+            {"cell_type": "code", "source": [""], "outputs": []},
+            {"cell_type": "markdown", "source": ["# Valid Content"]},
+            {"cell_type": "code", "source": ["   "], "outputs": []},  # Whitespace only
         ],
         "metadata": {"kernelspec": {"language": "python"}},
-        "nbformat": 4
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -426,10 +334,10 @@ def test_malformed_notebook_handling():
             }
         ],
         "metadata": {},
-        "nbformat": 4
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(malformed_notebook, f)
         temp_path = f.name
 
@@ -455,8 +363,8 @@ def test_notebook_real_world_structure():
                     "\n",
                     "This notebook implements a complete ML pipeline.\n",
                     "\n",
-                    "## Data Loading\n"
-                ]
+                    "## Data Loading\n",
+                ],
             },
             {
                 "cell_type": "code",
@@ -466,23 +374,20 @@ def test_notebook_real_world_structure():
                     "import numpy as np\n",
                     "from sklearn.model_selection import train_test_split\n",
                     "from sklearn.ensemble import RandomForestClassifier\n",
-                    "from sklearn.metrics import accuracy_score"
+                    "from sklearn.metrics import accuracy_score",
                 ],
-                "outputs": []
+                "outputs": [],
             },
             {
                 "cell_type": "code",
                 "source": [
                     "# Load the dataset\n",
                     "data = pd.read_csv('dataset.csv')\n",
-                    "print(f\"Dataset shape: {data.shape}\")\n",
-                    "data.head()"
+                    'print(f"Dataset shape: {data.shape}")\n',
+                    "data.head()",
                 ],
                 "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Dataset shape: (1000, 10)\n"]
-                    },
+                    {"output_type": "stream", "text": ["Dataset shape: (1000, 10)\n"]},
                     {
                         "output_type": "execute_result",
                         "data": {
@@ -490,19 +395,15 @@ def test_notebook_real_world_structure():
                                 "   feature1  feature2  feature3  target\n",
                                 "0      1.2      0.8      2.1       0\n",
                                 "1      1.5      0.9      1.8       1\n",
-                                "2      1.1      0.7      2.3       0"
+                                "2      1.1      0.7      2.3       0",
                             ]
-                        }
-                    }
-                ]
+                        },
+                    },
+                ],
             },
             {
                 "cell_type": "markdown",
-                "source": [
-                    "## Model Training\n",
-                    "\n",
-                    "Now let's train our Random Forest model."
-                ]
+                "source": ["## Model Training\n", "\n", "Now let's train our Random Forest model."],
             },
             {
                 "cell_type": "code",
@@ -518,27 +419,17 @@ def test_notebook_real_world_structure():
                     "# Make predictions\n",
                     "y_pred = model.predict(X_test)\n",
                     "accuracy = accuracy_score(y_test, y_pred)\n",
-                    "print(f\"Model accuracy: {accuracy:.4f}\")"
+                    'print(f"Model accuracy: {accuracy:.4f}")',
                 ],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Model accuracy: 0.8750\n"]
-                    }
-                ]
-            }
+                "outputs": [{"output_type": "stream", "text": ["Model accuracy: 0.8750\n"]}],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(complex_notebook, f)
         temp_path = f.name
 
@@ -574,18 +465,11 @@ def test_concurrent_notebook_processing():
     def create_test_notebook(cell_content):
         return {
             "cells": [
-                {
-                    "cell_type": "markdown",
-                    "source": [f"# Notebook {cell_content}"]
-                },
-                {
-                    "cell_type": "code",
-                    "source": [f"result = {cell_content}"],
-                    "outputs": []
-                }
+                {"cell_type": "markdown", "source": [f"# Notebook {cell_content}"]},
+                {"cell_type": "code", "source": [f"result = {cell_content}"], "outputs": []},
             ],
             "metadata": {"kernelspec": {"language": "python"}},
-            "nbformat": 4
+            "nbformat": 4,
         }
 
     # Create multiple temporary notebooks
@@ -593,7 +477,7 @@ def test_concurrent_notebook_processing():
     try:
         for i in range(5):
             notebook = create_test_notebook(i)
-            temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False)
+            temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False)
             json.dump(notebook, temp_file)
             temp_file.close()
             temp_files.append(temp_file.name)
@@ -619,26 +503,18 @@ def test_notebook_with_markdown_options():
     """Test notebook conversion with custom markdown options."""
     notebook_content = {
         "cells": [
-            {
-                "cell_type": "markdown",
-                "source": ["# Test Notebook\n", "This is a test."]
-            },
+            {"cell_type": "markdown", "source": ["# Test Notebook\n", "This is a test."]},
             {
                 "cell_type": "code",
                 "source": ["x = 42\n", "print(x)"],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["42\n"]
-                    }
-                ]
-            }
+                "outputs": [{"output_type": "stream", "text": ["42\n"]}],
+            },
         ],
         "metadata": {"kernelspec": {"language": "python"}},
-        "nbformat": 4
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -666,33 +542,24 @@ def test_large_notebook_performance():
     # Create a notebook with many cells
     cells = []
     for i in range(100):
-        cells.append({
-            "cell_type": "markdown",
-            "source": [f"## Section {i}\nThis is section {i} content."]
-        })
-        cells.append({
-            "cell_type": "code",
-            "source": [f"# Cell {i}\nvalue_{i} = {i} * 2\nprint(f'Value {i}: {{value_{i}}}')"],
-            "outputs": [
-                {
-                    "output_type": "stream",
-                    "text": [f"Value {i}: {i * 2}\n"]
-                }
-            ]
-        })
+        cells.append({"cell_type": "markdown", "source": [f"## Section {i}\nThis is section {i} content."]})
+        cells.append(
+            {
+                "cell_type": "code",
+                "source": [f"# Cell {i}\nvalue_{i} = {i} * 2\nprint(f'Value {i}: {{value_{i}}}')"],
+                "outputs": [{"output_type": "stream", "text": [f"Value {i}: {i * 2}\n"]}],
+            }
+        )
 
-    large_notebook = {
-        "cells": cells,
-        "metadata": {"kernelspec": {"language": "python"}},
-        "nbformat": 4
-    }
+    large_notebook = {"cells": cells, "metadata": {"kernelspec": {"language": "python"}}, "nbformat": 4}
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(large_notebook, f)
         temp_path = f.name
 
     try:
         import time
+
         start_time = time.time()
         result = ipynb_to_markdown(temp_path)
         end_time = time.time()
@@ -721,21 +588,14 @@ def test_notebook_error_recovery():
     """Test error recovery during notebook processing."""
     notebook_content = {
         "cells": [
-            {
-                "cell_type": "markdown",
-                "source": ["# Working Cell"]
-            },
-            {
-                "cell_type": "code",
-                "source": ["x = 1"],
-                "outputs": []
-            }
+            {"cell_type": "markdown", "source": ["# Working Cell"]},
+            {"cell_type": "code", "source": ["x = 1"], "outputs": []},
         ],
         "metadata": {"kernelspec": {"language": "python"}},
-        "nbformat": 4
+        "nbformat": 4,
     }
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         json.dump(notebook_content, f)
         temp_path = f.name
 
@@ -749,7 +609,7 @@ def test_notebook_error_recovery():
         Path(temp_path).unlink()
 
     # Test with invalid JSON
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.ipynb', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ipynb", delete=False) as f:
         f.write("{ invalid json content")
         invalid_path = f.name
 

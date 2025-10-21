@@ -21,13 +21,10 @@ def sample_document():
     return Document(
         children=[
             Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[
-                Text(content="Hello "),
-                Link(url="https://example.com", content=[Text(content="world")])
-            ]),
-            Paragraph(content=[
-                Image(url="image.png", alt_text="An image")
-            ])
+            Paragraph(
+                content=[Text(content="Hello "), Link(url="https://example.com", content=[Text(content="world")])]
+            ),
+            Paragraph(content=[Image(url="image.png", alt_text="An image")]),
         ]
     )
 
@@ -35,11 +32,7 @@ def sample_document():
 @pytest.fixture
 def context(sample_document):
     """Create a sample hook context."""
-    return HookContext(
-        document=sample_document,
-        metadata={"author": "Test Author"},
-        shared={}
-    )
+    return HookContext(document=sample_document, metadata={"author": "Test Author"}, shared={})
 
 
 class TestHookContext:
@@ -100,12 +93,13 @@ class TestHookManager:
 
     def test_register_hook(self, manager):
         """Test registering a hook."""
+
         def my_hook(node, context):
             return node
 
-        manager.register_hook('image', my_hook)
+        manager.register_hook("image", my_hook)
 
-        assert manager.has_hooks('image')
+        assert manager.has_hooks("image")
 
     def test_register_hook_with_priority(self, manager):
         """Test registering hooks with different priorities."""
@@ -120,59 +114,63 @@ class TestHookManager:
             return node
 
         # Register in reverse priority order
-        manager.register_hook('image', hook2, priority=200)
-        manager.register_hook('image', hook1, priority=100)
+        manager.register_hook("image", hook2, priority=200)
+        manager.register_hook("image", hook1, priority=100)
 
         # Execute
         image = Image(url="test.png")
         context = HookContext(document=Document())
-        manager.execute_hooks('image', image, context)
+        manager.execute_hooks("image", image, context)
 
         # Lower priority runs first
         assert results == [1, 2]
 
     def test_unregister_hook(self, manager):
         """Test unregistering a hook."""
+
         def my_hook(node, context):
             return node
 
-        manager.register_hook('image', my_hook)
-        assert manager.has_hooks('image')
+        manager.register_hook("image", my_hook)
+        assert manager.has_hooks("image")
 
-        result = manager.unregister_hook('image', my_hook)
+        result = manager.unregister_hook("image", my_hook)
         assert result is True
-        assert not manager.has_hooks('image')
+        assert not manager.has_hooks("image")
 
     def test_unregister_nonexistent_hook(self, manager):
         """Test unregistering non-existent hook returns False."""
+
         def my_hook(node, context):
             return node
 
-        result = manager.unregister_hook('image', my_hook)
+        result = manager.unregister_hook("image", my_hook)
         assert result is False
 
     def test_execute_hooks_no_hooks(self, manager, context):
         """Test executing hooks when none are registered."""
         image = Image(url="test.png")
 
-        result = manager.execute_hooks('image', image, context)
+        result = manager.execute_hooks("image", image, context)
         assert result == image  # Returns unchanged
 
     def test_execute_hooks_single(self, manager, context):
         """Test executing a single hook."""
+
         def uppercase_url(node, context):
             node.url = node.url.upper()
             return node
 
-        manager.register_hook('image', uppercase_url)
+        manager.register_hook("image", uppercase_url)
 
         image = Image(url="test.png")
-        result = manager.execute_hooks('image', image, context)
+        result = manager.execute_hooks("image", image, context)
 
         assert result.url == "TEST.PNG"
 
     def test_execute_hooks_chain(self, manager, context):
         """Test executing multiple hooks in chain."""
+
         def add_prefix(node, context):
             node.url = "http://" + node.url
             return node
@@ -181,44 +179,47 @@ class TestHookManager:
             node.url = node.url.upper()
             return node
 
-        manager.register_hook('image', add_prefix, priority=100)
-        manager.register_hook('image', uppercase, priority=200)
+        manager.register_hook("image", add_prefix, priority=100)
+        manager.register_hook("image", uppercase, priority=200)
 
         image = Image(url="example.com")
-        result = manager.execute_hooks('image', image, context)
+        result = manager.execute_hooks("image", image, context)
 
         assert result.url == "HTTP://EXAMPLE.COM"
 
     def test_execute_hooks_remove_node(self, manager, context):
         """Test hook can remove node by returning None."""
+
         def remove_all(node, context):
             return None
 
-        manager.register_hook('image', remove_all)
+        manager.register_hook("image", remove_all)
 
         image = Image(url="test.png")
-        result = manager.execute_hooks('image', image, context)
+        result = manager.execute_hooks("image", image, context)
 
         assert result is None
 
     def test_execute_hooks_with_context(self, manager, context):
         """Test hooks receive and can modify context."""
+
         def count_images(node, context):
             count = context.get_shared("image_count", 0)
             context.set_shared("image_count", count + 1)
             return node
 
-        manager.register_hook('image', count_images)
+        manager.register_hook("image", count_images)
 
         # Execute multiple times
         for i in range(3):
             image = Image(url=f"image{i}.png")
-            manager.execute_hooks('image', image, context)
+            manager.execute_hooks("image", image, context)
 
         assert context.get_shared("image_count") == 3
 
     def test_execute_hooks_error_handling(self, manager, context, caplog):
         """Test hook errors are logged but don't break pipeline."""
+
         def failing_hook(node, context):
             raise RuntimeError("Hook failed!")
 
@@ -226,11 +227,11 @@ class TestHookManager:
             node.url = "modified.png"
             return node
 
-        manager.register_hook('image', failing_hook, priority=100)
-        manager.register_hook('image', safe_hook, priority=200)
+        manager.register_hook("image", failing_hook, priority=100)
+        manager.register_hook("image", safe_hook, priority=200)
 
         image = Image(url="test.png")
-        result = manager.execute_hooks('image', image, context)
+        result = manager.execute_hooks("image", image, context)
 
         # Hook should log error but continue
         assert "Hook failed" in caplog.text
@@ -239,46 +240,48 @@ class TestHookManager:
 
     def test_has_hooks(self, manager):
         """Test checking for registered hooks."""
+
         def my_hook(node, context):
             return node
 
-        assert not manager.has_hooks('image')
+        assert not manager.has_hooks("image")
 
-        manager.register_hook('image', my_hook)
-        assert manager.has_hooks('image')
+        manager.register_hook("image", my_hook)
+        assert manager.has_hooks("image")
 
     def test_get_node_type_document(self, manager):
         """Test getting node type for Document."""
         doc = Document()
-        assert manager.get_node_type(doc) == 'document'
+        assert manager.get_node_type(doc) == "document"
 
     def test_get_node_type_heading(self, manager):
         """Test getting node type for Heading."""
         heading = Heading(level=1, content=[])
-        assert manager.get_node_type(heading) == 'heading'
+        assert manager.get_node_type(heading) == "heading"
 
     def test_get_node_type_paragraph(self, manager):
         """Test getting node type for Paragraph."""
         para = Paragraph(content=[])
-        assert manager.get_node_type(para) == 'paragraph'
+        assert manager.get_node_type(para) == "paragraph"
 
     def test_get_node_type_text(self, manager):
         """Test getting node type for Text."""
         text = Text(content="Hello")
-        assert manager.get_node_type(text) == 'text'
+        assert manager.get_node_type(text) == "text"
 
     def test_get_node_type_image(self, manager):
         """Test getting node type for Image."""
         image = Image(url="test.png")
-        assert manager.get_node_type(image) == 'image'
+        assert manager.get_node_type(image) == "image"
 
     def test_get_node_type_link(self, manager):
         """Test getting node type for Link."""
         link = Link(url="https://example.com", content=[])
-        assert manager.get_node_type(link) == 'link'
+        assert manager.get_node_type(link) == "link"
 
     def test_get_node_type_supports_subclasses(self, manager):
         """Test that get_node_type works with subclasses using isinstance checks."""
+
         # Create a custom Image subclass
         class CustomImage(Image):
             """Custom Image subclass for testing."""
@@ -289,10 +292,11 @@ class TestHookManager:
         custom_img = CustomImage(url="custom.png", alt_text="custom")
 
         # Should be identified as 'image' via isinstance check
-        assert manager.get_node_type(custom_img) == 'image'
+        assert manager.get_node_type(custom_img) == "image"
 
     def test_get_node_type_unknown_node_returns_none(self, manager):
         """Test that unknown node types return None."""
+
         # Create a mock object that's not a known node type
         class UnknownNode:
             pass
@@ -305,19 +309,20 @@ class TestHookManager:
 
     def test_clear_hooks(self, manager):
         """Test clearing all hooks."""
+
         def my_hook(node, context):
             return node
 
-        manager.register_hook('image', my_hook)
-        manager.register_hook('link', my_hook)
+        manager.register_hook("image", my_hook)
+        manager.register_hook("link", my_hook)
 
-        assert manager.has_hooks('image')
-        assert manager.has_hooks('link')
+        assert manager.has_hooks("image")
+        assert manager.has_hooks("link")
 
         manager.clear()
 
-        assert not manager.has_hooks('image')
-        assert not manager.has_hooks('link')
+        assert not manager.has_hooks("image")
+        assert not manager.has_hooks("link")
 
     def test_strict_mode_disabled_by_default(self):
         """Test strict mode is disabled by default."""
@@ -336,13 +341,13 @@ class TestHookManager:
         def failing_hook(node, context):
             raise RuntimeError("Hook failed in strict mode!")
 
-        manager.register_hook('image', failing_hook)
+        manager.register_hook("image", failing_hook)
 
         image = Image(url="test.png")
 
         # In strict mode, exception should be re-raised
         with pytest.raises(RuntimeError, match="Hook failed in strict mode!"):
-            manager.execute_hooks('image', image, context)
+            manager.execute_hooks("image", image, context)
 
     def test_non_strict_mode_continues_on_error(self, context, caplog):
         """Test non-strict mode logs errors and continues."""
@@ -355,11 +360,11 @@ class TestHookManager:
             node.url = "modified.png"
             return node
 
-        manager.register_hook('image', failing_hook, priority=100)
-        manager.register_hook('image', safe_hook, priority=200)
+        manager.register_hook("image", failing_hook, priority=100)
+        manager.register_hook("image", safe_hook, priority=200)
 
         image = Image(url="test.png")
-        result = manager.execute_hooks('image', image, context)
+        result = manager.execute_hooks("image", image, context)
 
         # In non-strict mode, error is logged but execution continues
         assert "Hook failed" in caplog.text
@@ -371,21 +376,21 @@ class TestHookManager:
         results = []
 
         def pre_render_hook(doc, context):
-            results.append('pre_render')
+            results.append("pre_render")
             return doc
 
         def post_render_hook(markdown, context):
-            results.append('post_render')
+            results.append("post_render")
             return markdown
 
-        manager.register_hook('pre_render', pre_render_hook)
-        manager.register_hook('post_render', post_render_hook)
+        manager.register_hook("pre_render", pre_render_hook)
+        manager.register_hook("post_render", post_render_hook)
 
         doc = Document()
-        manager.execute_hooks('pre_render', doc, context)
-        manager.execute_hooks('post_render', "# Markdown", context)
+        manager.execute_hooks("pre_render", doc, context)
+        manager.execute_hooks("post_render", "# Markdown", context)
 
-        assert results == ['pre_render', 'post_render']
+        assert results == ["pre_render", "post_render"]
 
     def test_multiple_hooks_same_priority(self, manager, context):
         """Test multiple hooks with same priority execute in registration order."""
@@ -404,12 +409,12 @@ class TestHookManager:
             return node
 
         # All have same priority
-        manager.register_hook('image', hook1, priority=100)
-        manager.register_hook('image', hook2, priority=100)
-        manager.register_hook('image', hook3, priority=100)
+        manager.register_hook("image", hook1, priority=100)
+        manager.register_hook("image", hook2, priority=100)
+        manager.register_hook("image", hook3, priority=100)
 
         image = Image(url="test.png")
-        manager.execute_hooks('image', image, context)
+        manager.execute_hooks("image", image, context)
 
         assert results == [1, 2, 3]  # Registration order
 
@@ -427,11 +432,7 @@ class TestHookAwareVisitor:
         from all2md.transforms.pipeline import HookAwareVisitor
 
         # Create test document
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Original text")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Original text")])])
 
         # Create hook manager and context
         manager = HookManager()
@@ -448,7 +449,7 @@ class TestHookAwareVisitor:
             return Text(content="Replaced text")
 
         # Register hook that replaces nodes
-        manager.register_hook('text', replace_text_hook)
+        manager.register_hook("text", replace_text_hook)
 
         # Create visitor and transform the document
         visitor = HookAwareVisitor(manager, context)
@@ -467,13 +468,9 @@ class TestHookAwareVisitor:
         from all2md.transforms.pipeline import HookAwareVisitor
 
         # Create nested document structure
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="http://example.com", content=[
-                    Text(content="link text")
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="http://example.com", content=[Text(content="link text")])])]
+        )
 
         manager = HookManager()
         context = HookContext(document=doc, metadata={}, shared={})
@@ -483,18 +480,18 @@ class TestHookAwareVisitor:
 
         def record_and_replace_link(node, ctx):
             # Record current path
-            recorded_paths.append(('link', list(ctx.node_path)))
+            recorded_paths.append(("link", list(ctx.node_path)))
             # Return new Link object
             return Link(url="http://replaced.com", content=node.content)
 
         def record_and_replace_text(node, ctx):
             # Record current path
-            recorded_paths.append(('text', list(ctx.node_path)))
+            recorded_paths.append(("text", list(ctx.node_path)))
             # Return new Text object
             return Text(content="replaced text")
 
-        manager.register_hook('link', record_and_replace_link)
-        manager.register_hook('text', record_and_replace_text)
+        manager.register_hook("link", record_and_replace_link)
+        manager.register_hook("text", record_and_replace_text)
 
         visitor = HookAwareVisitor(manager, context)
         visitor.transform(doc)
@@ -509,11 +506,7 @@ class TestHookAwareVisitor:
         """Test that node_path is cleaned up when hook returns None."""
         from all2md.transforms.pipeline import HookAwareVisitor
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="test.png", alt_text="test")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="test.png", alt_text="test")])])
 
         manager = HookManager()
         context = HookContext(document=doc, metadata={}, shared={})
@@ -522,7 +515,7 @@ class TestHookAwareVisitor:
             # Return None to remove the node
             return None
 
-        manager.register_hook('image', remove_image_hook)
+        manager.register_hook("image", remove_image_hook)
 
         visitor = HookAwareVisitor(manager, context)
         visitor.transform(doc)
@@ -543,13 +536,9 @@ class TestHookAwareVisitor:
         from all2md.transforms.pipeline import HookAwareVisitor
 
         # Create nested structure: Document > BlockQuote > Paragraph > Image
-        doc = Document(children=[
-            BlockQuote(children=[
-                Paragraph(content=[
-                    Image(url="nested.png", alt_text="nested image")
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[BlockQuote(children=[Paragraph(content=[Image(url="nested.png", alt_text="nested image")])])]
+        )
 
         manager = HookManager()
         context = HookContext(document=doc, metadata={}, shared={})
@@ -564,7 +553,7 @@ class TestHookAwareVisitor:
             return node
 
         # Register hook ONLY on image (not on blockquote or paragraph)
-        manager.register_hook('image', image_hook)
+        manager.register_hook("image", image_hook)
 
         visitor = HookAwareVisitor(manager, context)
         visitor.transform(doc)
@@ -594,16 +583,12 @@ class TestHookAwareVisitor:
         from all2md.transforms.pipeline import HookAwareVisitor
 
         # Create document with image inside blockquote and image outside
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="regular.png", alt_text="regular")
-            ]),
-            BlockQuote(children=[
-                Paragraph(content=[
-                    Image(url="quoted.png", alt_text="quoted")
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Image(url="regular.png", alt_text="regular")]),
+                BlockQuote(children=[Paragraph(content=[Image(url="quoted.png", alt_text="quoted")])]),
+            ]
+        )
 
         manager = HookManager()
         context = HookContext(document=doc, metadata={}, shared={})
@@ -623,7 +608,7 @@ class TestHookAwareVisitor:
 
             return node
 
-        manager.register_hook('image', context_aware_image_hook)
+        manager.register_hook("image", context_aware_image_hook)
 
         visitor = HookAwareVisitor(manager, context)
         visitor.transform(doc)

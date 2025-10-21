@@ -20,6 +20,7 @@ import pytest
 
 try:
     from docx import Document as DocxDocument
+
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
@@ -57,7 +58,6 @@ from all2md.options import DocxRendererOptions
 if DOCX_AVAILABLE:
     from all2md.renderers.docx import DocxRenderer
 
-
 pytestmark = pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not installed")
 
 
@@ -80,9 +80,7 @@ class TestBasicRendering:
 
     def test_render_text_only(self, tmp_path):
         """Test rendering plain text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello world")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello world")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "text.docx"
         renderer.render(doc, output_file)
@@ -93,10 +91,12 @@ class TestBasicRendering:
 
     def test_render_multiple_paragraphs(self, tmp_path):
         """Test rendering multiple paragraphs."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="First paragraph")]),
-            Paragraph(content=[Text(content="Second paragraph")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="First paragraph")]),
+                Paragraph(content=[Text(content="Second paragraph")]),
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "paras.docx"
         renderer.render(doc, output_file)
@@ -109,9 +109,7 @@ class TestBasicRendering:
 
     def test_render_to_bytes_io(self):
         """Test rendering to BytesIO."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
         renderer = DocxRenderer()
         output = BytesIO()
         renderer.render(doc, output)
@@ -128,9 +126,7 @@ class TestHeadingRendering:
 
     def test_heading_level_1(self, tmp_path):
         """Test rendering h1."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "h1.docx"
         renderer.render(doc, output_file)
@@ -146,9 +142,7 @@ class TestHeadingRendering:
 
     def test_heading_level_2(self, tmp_path):
         """Test rendering h2."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Subtitle")])
-        ])
+        doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "h2.docx"
         renderer.render(doc, output_file)
@@ -163,12 +157,9 @@ class TestHeadingRendering:
 
     def test_heading_with_formatting(self, tmp_path):
         """Test heading with inline formatting."""
-        doc = Document(children=[
-            Heading(level=1, content=[
-                Text(content="Bold "),
-                Strong(content=[Text(content="title")])
-            ])
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text(content="Bold "), Strong(content=[Text(content="title")])])]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "h_format.docx"
         renderer.render(doc, output_file)
@@ -189,9 +180,7 @@ class TestInlineFormatting:
 
     def test_strong(self, tmp_path):
         """Test bold text rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Strong(content=[Text(content="bold")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Strong(content=[Text(content="bold")])])])
         renderer = DocxRenderer()
         output_file = tmp_path / "bold.docx"
         renderer.render(doc, output_file)
@@ -205,9 +194,7 @@ class TestInlineFormatting:
 
     def test_emphasis(self, tmp_path):
         """Test italic text rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Emphasis(content=[Text(content="italic")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Emphasis(content=[Text(content="italic")])])])
         renderer = DocxRenderer()
         output_file = tmp_path / "italic.docx"
         renderer.render(doc, output_file)
@@ -221,9 +208,7 @@ class TestInlineFormatting:
 
     def test_code(self, tmp_path):
         """Test inline code rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Code(content="code")])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="code")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "code.docx"
         renderer.render(doc, output_file)
@@ -234,9 +219,7 @@ class TestInlineFormatting:
 
     def test_strikethrough(self, tmp_path):
         """Test strikethrough rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])])
         renderer = DocxRenderer()
         output_file = tmp_path / "strike.docx"
         renderer.render(doc, output_file)
@@ -247,9 +230,7 @@ class TestInlineFormatting:
 
     def test_underline(self, tmp_path):
         """Test underline rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Underline(content=[Text(content="underlined")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
         renderer = DocxRenderer()
         output_file = tmp_path / "underline.docx"
         renderer.render(doc, output_file)
@@ -260,13 +241,9 @@ class TestInlineFormatting:
 
     def test_nested_formatting(self, tmp_path):
         """Test nested inline formatting."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Strong(content=[
-                    Emphasis(content=[Text(content="bold italic")])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Strong(content=[Emphasis(content=[Text(content="bold italic")])])])]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "nested.docx"
         renderer.render(doc, output_file)
@@ -283,12 +260,13 @@ class TestLinkRendering:
 
     def test_simple_link(self, tmp_path):
         """Test basic hyperlink rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Visit "),
-                Link(url="https://example.com", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Text(content="Visit "), Link(url="https://example.com", content=[Text(content="Example")])]
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "link.docx"
         renderer.render(doc, output_file)
@@ -300,28 +278,29 @@ class TestLinkRendering:
 
         # Check that hyperlink exists in XML structure
         from docx.oxml.ns import qn
-        hyperlinks = para._element.findall(qn('w:hyperlink'))
+
+        hyperlinks = para._element.findall(qn("w:hyperlink"))
         assert len(hyperlinks) > 0, "No hyperlinks found in paragraph XML"
 
         # Verify the hyperlink has proper w:r and w:t structure
         hyperlink = hyperlinks[0]
-        runs = hyperlink.findall(qn('w:r'))
+        runs = hyperlink.findall(qn("w:r"))
         assert len(runs) > 0, "Hyperlink has no w:r elements"
 
         # Check that text is in w:t element (not directly in w:r)
-        text_elements = runs[0].findall(qn('w:t'))
+        text_elements = runs[0].findall(qn("w:t"))
         assert len(text_elements) > 0, "Run has no w:t element - text not properly structured"
         assert text_elements[0].text == "Example", f"Expected 'Example' but got '{text_elements[0].text}'"
 
     def test_link_with_formatting(self, tmp_path):
         """Test hyperlink with nested formatting."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[
-                    Strong(content=[Text(content="Bold Link")])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Link(url="https://example.com", content=[Strong(content=[Text(content="Bold Link")])])]
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "link_formatted.docx"
         renderer.render(doc, output_file)
@@ -338,12 +317,17 @@ class TestListRendering:
 
     def test_unordered_list(self, tmp_path):
         """Test unordered list rendering."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "ul.docx"
         renderer.render(doc, output_file)
@@ -356,12 +340,17 @@ class TestListRendering:
 
     def test_ordered_list(self, tmp_path):
         """Test ordered list rendering."""
-        doc = Document(children=[
-            List(ordered=True, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                    ],
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "ol.docx"
         renderer.render(doc, output_file)
@@ -380,20 +369,20 @@ class TestTableRendering:
 
     def test_simple_table(self, tmp_path):
         """Test basic table rendering."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Age")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alice")]),
-                        TableCell(content=[Text(content="30")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Age")])]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]
+                        )
+                    ],
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "table.docx"
         renderer.render(doc, output_file)
@@ -416,16 +405,15 @@ class TestTableRendering:
 
     def test_table_without_header(self, tmp_path):
         """Test table without header row."""
-        doc = Document(children=[
-            Table(
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="A")]),
-                        TableCell(content=[Text(content="B")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    rows=[
+                        TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])])
+                    ]
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "table_no_header.docx"
         renderer.render(doc, output_file)
@@ -441,9 +429,7 @@ class TestBlockElements:
 
     def test_code_block(self, tmp_path):
         """Test code block rendering."""
-        doc = Document(children=[
-            CodeBlock(content="def hello():\n    print('world')", language="python")
-        ])
+        doc = Document(children=[CodeBlock(content="def hello():\n    print('world')", language="python")])
         renderer = DocxRenderer()
         output_file = tmp_path / "codeblock.docx"
         renderer.render(doc, output_file)
@@ -458,12 +444,12 @@ class TestBlockElements:
 
     def test_blockquote(self, tmp_path):
         """Test blockquote rendering with indentation."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Normal text")]),
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="Quoted text")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Normal text")]),
+                BlockQuote(children=[Paragraph(content=[Text(content="Quoted text")])]),
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "blockquote.docx"
         renderer.render(doc, output_file)
@@ -487,18 +473,22 @@ class TestBlockElements:
         normal_indent = normal_para.paragraph_format.left_indent or 0
 
         assert quoted_indent is not None, "Blockquote paragraph has no indentation"
-        assert quoted_indent > normal_indent, f"Blockquote indent ({quoted_indent}) should be greater than normal ({normal_indent})"
+        assert (
+            quoted_indent > normal_indent
+        ), f"Blockquote indent ({quoted_indent}) should be greater than normal ({normal_indent})"
 
     def test_nested_blockquote(self, tmp_path):
         """Test nested blockquote rendering with increased indentation."""
-        doc = Document(children=[
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="Level 1")]),
-                BlockQuote(children=[
-                    Paragraph(content=[Text(content="Level 2")])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                BlockQuote(
+                    children=[
+                        Paragraph(content=[Text(content="Level 1")]),
+                        BlockQuote(children=[Paragraph(content=[Text(content="Level 2")])]),
+                    ]
+                )
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "nested_blockquote.docx"
         renderer.render(doc, output_file)
@@ -523,13 +513,13 @@ class TestBlockElements:
 
         assert level1_indent is not None, "Level 1 has no indentation"
         assert level2_indent is not None, "Level 2 has no indentation"
-        assert level2_indent > level1_indent, f"Level 2 indent ({level2_indent}) should be greater than Level 1 ({level1_indent})"
+        assert (
+            level2_indent > level1_indent
+        ), f"Level 2 indent ({level2_indent}) should be greater than Level 1 ({level1_indent})"
 
     def test_thematic_break(self, tmp_path):
         """Test horizontal rule rendering."""
-        doc = Document(children=[
-            ThematicBreak()
-        ])
+        doc = Document(children=[ThematicBreak()])
         renderer = DocxRenderer()
         output_file = tmp_path / "hr.docx"
         renderer.render(doc, output_file)
@@ -547,12 +537,8 @@ class TestDocumentMetadata:
     def test_metadata_properties(self, tmp_path):
         """Test document properties from metadata."""
         doc = Document(
-            metadata={
-                "title": "Test Document",
-                "author": "Test Author",
-                "subject": "Testing"
-            },
-            children=[Paragraph(content=[Text(content="Content")])]
+            metadata={"title": "Test Document", "author": "Test Author", "subject": "Testing"},
+            children=[Paragraph(content=[Text(content="Content")])],
         )
         renderer = DocxRenderer()
         output_file = tmp_path / "metadata.docx"
@@ -571,14 +557,18 @@ class TestDefinitionLists:
 
     def test_definition_list(self, tmp_path):
         """Test definition list rendering."""
-        doc = Document(children=[
-            DefinitionList(items=[
-                (
-                    DefinitionTerm(content=[Text(content="Term")]),
-                    [DefinitionDescription(content=[Text(content="Description")])]
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term")]),
+                            [DefinitionDescription(content=[Text(content="Description")])],
+                        )
+                    ]
                 )
-            ])
-        ])
+            ]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "deflist.docx"
         renderer.render(doc, output_file)
@@ -596,13 +586,8 @@ class TestRendererOptions:
 
     def test_custom_fonts(self, tmp_path):
         """Test custom font settings."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Custom font")])
-        ])
-        options = DocxRendererOptions(
-            default_font="Arial",
-            default_font_size=14
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Custom font")])])
+        options = DocxRendererOptions(default_font="Arial", default_font_size=14)
         renderer = DocxRenderer(options)
         output_file = tmp_path / "custom_font.docx"
         renderer.render(doc, output_file)
@@ -612,9 +597,7 @@ class TestRendererOptions:
 
     def test_code_font_option(self, tmp_path):
         """Test code font option."""
-        doc = Document(children=[
-            CodeBlock(content="code here")
-        ])
+        doc = Document(children=[CodeBlock(content="code here")])
         options = DocxRendererOptions(code_font="Monaco")
         renderer = DocxRenderer(options)
         output_file = tmp_path / "code_font.docx"
@@ -631,11 +614,7 @@ class TestMathRendering:
 
     def test_inline_math(self, tmp_path):
         """Test inline math rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                MathInline(content="x^2", notation="latex")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "math_inline.docx"
         renderer.render(doc, output_file)
@@ -651,9 +630,7 @@ class TestMathRendering:
 
     def test_block_math(self, tmp_path):
         """Test block math rendering."""
-        doc = Document(children=[
-            MathBlock(content="E = mc^2", notation="latex")
-        ])
+        doc = Document(children=[MathBlock(content="E = mc^2", notation="latex")])
         renderer = DocxRenderer()
         output_file = tmp_path / "math_block.docx"
         renderer.render(doc, output_file)
@@ -675,12 +652,7 @@ class TestFootnotes:
 
     def test_footnote_reference(self, tmp_path):
         """Test footnote reference rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "footnote_ref.docx"
         renderer.render(doc, output_file)
@@ -692,9 +664,7 @@ class TestFootnotes:
 
     def test_footnote_definition(self, tmp_path):
         """Test footnote definition rendering."""
-        doc = Document(children=[
-            FootnoteDefinition(identifier="1", content=[Text(content="Footnote text")])
-        ])
+        doc = Document(children=[FootnoteDefinition(identifier="1", content=[Text(content="Footnote text")])])
         renderer = DocxRenderer()
         output_file = tmp_path / "footnote_def.docx"
         renderer.render(doc, output_file)
@@ -711,13 +681,9 @@ class TestLineBreaks:
 
     def test_hard_line_break(self, tmp_path):
         """Test hard line break rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Line 1"),
-                LineBreak(soft=False),
-                Text(content="Line 2")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=False), Text(content="Line 2")])]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "linebreak.docx"
         renderer.render(doc, output_file)
@@ -735,9 +701,7 @@ class TestHeadingFormattingWithoutStyles:
 
     def test_heading_bold_without_styles(self, tmp_path):
         """Test that headings are bold when use_styles=False."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Test Heading")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Test Heading")])])
         options = DocxRendererOptions(use_styles=False)
         renderer = DocxRenderer(options)
         output_file = tmp_path / "heading_no_styles.docx"
@@ -758,16 +722,15 @@ class TestHeadingFormattingWithoutStyles:
 
     def test_heading_font_size_without_styles(self, tmp_path):
         """Test that custom heading font sizes are applied when use_styles=False."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Large Heading")]),
-            Heading(level=2, content=[Text(content="Medium Heading")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Large Heading")]),
+                Heading(level=2, content=[Text(content="Medium Heading")]),
+            ]
+        )
 
         # Custom font sizes for headings
-        options = DocxRendererOptions(
-            use_styles=False,
-            heading_font_sizes={1: 24, 2: 18}
-        )
+        options = DocxRendererOptions(use_styles=False, heading_font_sizes={1: 24, 2: 18})
         renderer = DocxRenderer(options)
         output_file = tmp_path / "heading_custom_sizes.docx"
         renderer.render(doc, output_file)
@@ -792,17 +755,17 @@ class TestHeadingFormattingWithoutStyles:
 
         # Import Pt for comparison
         from docx.shared import Pt
+
         assert any(size == Pt(24) for size in h1_sizes), "H1 should have 24pt font size"
         assert any(size == Pt(18) for size in h2_sizes), "H2 should have 18pt font size"
 
     def test_heading_with_formatting_without_styles(self, tmp_path):
         """Test heading with inline formatting when use_styles=False."""
-        doc = Document(children=[
-            Heading(level=1, content=[
-                Text(content="Normal "),
-                Emphasis(content=[Text(content="emphasized")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Normal "), Emphasis(content=[Text(content="emphasized")])])
+            ]
+        )
         options = DocxRendererOptions(use_styles=False)
         renderer = DocxRenderer(options)
         output_file = tmp_path / "heading_formatted_no_styles.docx"
@@ -830,11 +793,9 @@ class TestHyperlinkWhitespace:
 
     def test_hyperlink_with_leading_space(self, tmp_path):
         """Test hyperlink text with leading space is preserved."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content=" Link Text")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content=" Link Text")])])]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "link_leading_space.docx"
         renderer.render(doc, output_file)
@@ -844,27 +805,26 @@ class TestHyperlinkWhitespace:
 
         # Check hyperlink element in XML
         from docx.oxml.ns import qn
-        hyperlinks = para._element.findall(qn('w:hyperlink'))
+
+        hyperlinks = para._element.findall(qn("w:hyperlink"))
         assert len(hyperlinks) > 0, "No hyperlinks found"
 
         hyperlink = hyperlinks[0]
-        runs = hyperlink.findall(qn('w:r'))
-        text_elements = runs[0].findall(qn('w:t'))
+        runs = hyperlink.findall(qn("w:r"))
+        text_elements = runs[0].findall(qn("w:t"))
 
         # Verify xml:space="preserve" is present
-        space_attr = text_elements[0].get(qn('xml:space'))
-        assert space_attr == 'preserve', "xml:space='preserve' attribute should be present"
+        space_attr = text_elements[0].get(qn("xml:space"))
+        assert space_attr == "preserve", "xml:space='preserve' attribute should be present"
 
         # Verify text has leading space
         assert text_elements[0].text == " Link Text", "Leading space should be preserved"
 
     def test_hyperlink_with_trailing_space(self, tmp_path):
         """Test hyperlink text with trailing space is preserved."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="Link Text ")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Link Text ")])])]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "link_trailing_space.docx"
         renderer.render(doc, output_file)
@@ -874,23 +834,22 @@ class TestHyperlinkWhitespace:
 
         # Check hyperlink element in XML
         from docx.oxml.ns import qn
-        hyperlinks = para._element.findall(qn('w:hyperlink'))
-        text_elements = hyperlinks[0].findall(qn('w:r'))[0].findall(qn('w:t'))
+
+        hyperlinks = para._element.findall(qn("w:hyperlink"))
+        text_elements = hyperlinks[0].findall(qn("w:r"))[0].findall(qn("w:t"))
 
         # Verify xml:space="preserve" is present
-        space_attr = text_elements[0].get(qn('xml:space'))
-        assert space_attr == 'preserve', "xml:space='preserve' attribute should be present"
+        space_attr = text_elements[0].get(qn("xml:space"))
+        assert space_attr == "preserve", "xml:space='preserve' attribute should be present"
 
         # Verify text has trailing space
         assert text_elements[0].text == "Link Text ", "Trailing space should be preserved"
 
     def test_hyperlink_with_multiple_spaces(self, tmp_path):
         """Test hyperlink text with multiple consecutive spaces is preserved."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="Link  Text")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Link  Text")])])]
+        )
         renderer = DocxRenderer()
         output_file = tmp_path / "link_multiple_spaces.docx"
         renderer.render(doc, output_file)
@@ -900,12 +859,13 @@ class TestHyperlinkWhitespace:
 
         # Check hyperlink element in XML
         from docx.oxml.ns import qn
-        hyperlinks = para._element.findall(qn('w:hyperlink'))
-        text_elements = hyperlinks[0].findall(qn('w:r'))[0].findall(qn('w:t'))
+
+        hyperlinks = para._element.findall(qn("w:hyperlink"))
+        text_elements = hyperlinks[0].findall(qn("w:r"))[0].findall(qn("w:t"))
 
         # Verify xml:space="preserve" is present
-        space_attr = text_elements[0].get(qn('xml:space'))
-        assert space_attr == 'preserve', "xml:space='preserve' attribute should be present"
+        space_attr = text_elements[0].get(qn("xml:space"))
+        assert space_attr == "preserve", "xml:space='preserve' attribute should be present"
 
         # Verify double space is preserved
         assert text_elements[0].text == "Link  Text", "Multiple spaces should be preserved"

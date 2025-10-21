@@ -73,10 +73,7 @@ class TestToAstE2E:
             pdf_bytes.seek(0)
 
             # Convert with options
-            options = PdfOptions(
-                attachment_mode="base64",
-                enable_table_fallback_detection=True
-            )
+            options = PdfOptions(attachment_mode="base64", enable_table_fallback_detection=True)
 
             ast_doc = to_ast(pdf_bytes, source_format="pdf", parser_options=options)
 
@@ -114,10 +111,7 @@ class TestToAstE2E:
         docx_doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(docx_doc)
 
-        options = DocxOptions(
-            attachment_mode="skip",
-            preserve_tables=True
-        )
+        options = DocxOptions(attachment_mode="skip", preserve_tables=True)
 
         ast_doc = to_ast(BytesIO(docx_bytes), source_format="docx", parser_options=options)
 
@@ -131,7 +125,7 @@ class TestToAstE2E:
         html_content = create_html_with_tables()
 
         # Convert to AST
-        ast_doc = to_ast(BytesIO(html_content.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html_content.encode("utf-8")), source_format="html")
 
         # Verify structure
         assert isinstance(ast_doc, Document)
@@ -144,7 +138,7 @@ class TestToAstE2E:
     @pytest.mark.html
     def test_to_ast_from_html_with_options(self, temp_dir):
         """Test to_ast with HTML-specific options."""
-        html = '''
+        html = """
         <html>
         <head><title>Test Document</title></head>
         <body>
@@ -153,14 +147,11 @@ class TestToAstE2E:
             <script>alert('dangerous');</script>
         </body>
         </html>
-        '''
+        """
 
-        options = HtmlOptions(
-            strip_dangerous_elements=True,
-            extract_title=True
-        )
+        options = HtmlOptions(strip_dangerous_elements=True, extract_title=True)
 
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html", parser_options=options)
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html", parser_options=options)
 
         assert isinstance(ast_doc, Document)
         # Title should be extracted to metadata
@@ -265,7 +256,7 @@ class TestToAstE2E:
 
     def test_to_ast_ast_structure_validation(self):
         """Test that AST structure is well-formed."""
-        html = '''
+        html = """
         <html>
         <body>
             <h1>Title</h1>
@@ -276,9 +267,9 @@ class TestToAstE2E:
             </ul>
         </body>
         </html>
-        '''
+        """
 
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
 
         # Root should be Document
         assert isinstance(ast_doc, Document)
@@ -289,13 +280,14 @@ class TestToAstE2E:
 
         # Verify node types are correct - each child should inherit from Node
         from all2md.ast.nodes import Node
+
         for child in ast_doc.children:
             # Each child should be a valid AST node
             assert isinstance(child, Node)
 
     def test_to_ast_metadata_capture(self, temp_dir):
         """Test that document metadata is captured."""
-        html = '''
+        html = """
         <html>
         <head>
             <title>Test Document</title>
@@ -303,13 +295,9 @@ class TestToAstE2E:
         </head>
         <body><h1>Content</h1></body>
         </html>
-        '''
+        """
 
-        ast_doc = to_ast(
-            BytesIO(html.encode('utf-8')),
-            source_format="html",
-            extract_title=True
-        )
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html", extract_title=True)
 
         # Metadata should be present
         assert ast_doc.metadata is not None
@@ -370,21 +358,13 @@ class TestMultiStepWorkflowsE2E:
         ast_doc = to_ast(BytesIO(docx_bytes), source_format="docx")
 
         # Step 2: AST → Markdown with transforms
-        markdown_without_images = from_ast(
-            ast_doc,
-            "markdown",
-            transforms=["remove-images"]
-        )
+        markdown_without_images = from_ast(ast_doc, "markdown", transforms=["remove-images"])
 
         assert isinstance(markdown_without_images, str)
         assert_markdown_valid(markdown_without_images)
 
         # Step 3: AST → Markdown with different transforms
-        markdown_with_heading_offset = from_ast(
-            ast_doc,
-            "markdown",
-            transforms=["heading-offset"]
-        )
+        markdown_with_heading_offset = from_ast(ast_doc, "markdown", transforms=["heading-offset"])
 
         assert isinstance(markdown_with_heading_offset, str)
         # After heading offset, structure should be different
@@ -393,7 +373,7 @@ class TestMultiStepWorkflowsE2E:
     @pytest.mark.html
     def test_html_to_ast_modify_to_clean_output(self, temp_dir):
         """Test HTML → AST → remove images via transform → output."""
-        html = '''
+        html = """
         <html>
         <body>
             <h1>Document Title</h1>
@@ -402,10 +382,10 @@ class TestMultiStepWorkflowsE2E:
             <p>More text.</p>
         </body>
         </html>
-        '''
+        """
 
         # Step 1: HTML → AST
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
 
         # Step 2: Render with remove-images transform
         markdown_output = from_ast(ast_doc, "markdown", transforms=["remove-images"])
@@ -418,7 +398,7 @@ class TestMultiStepWorkflowsE2E:
 
     def test_roundtrip_html_to_ast_to_html(self, temp_dir):
         """Test roundtrip: HTML → AST → HTML → verify preservation."""
-        original_html = '''
+        original_html = """
         <html>
         <body>
             <h1>Test Title</h1>
@@ -429,10 +409,10 @@ class TestMultiStepWorkflowsE2E:
             </ul>
         </body>
         </html>
-        '''
+        """
 
         # HTML → AST
-        ast_doc = to_ast(BytesIO(original_html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(original_html.encode("utf-8")), source_format="html")
 
         # AST → HTML
         recovered_html = from_ast(ast_doc, "html")
@@ -475,9 +455,7 @@ class TestMultiStepWorkflowsE2E:
 
         # HTML → Markdown
         markdown_content = convert(
-            BytesIO(original_html.encode('utf-8')),
-            source_format="html",
-            target_format="markdown"
+            BytesIO(original_html.encode("utf-8")), source_format="html", target_format="markdown"
         )
 
         assert isinstance(markdown_content, str)
@@ -488,11 +466,7 @@ class TestMultiStepWorkflowsE2E:
         md_file = temp_dir / "temp.md"
         md_file.write_text(markdown_content)
 
-        final_html_content = convert(
-            str(md_file),
-            source_format="markdown",
-            target_format="html"
-        )
+        final_html_content = convert(str(md_file), source_format="markdown", target_format="html")
 
         assert isinstance(final_html_content, str)
 
@@ -501,7 +475,7 @@ class TestMultiStepWorkflowsE2E:
 
     def test_transform_pipeline_integration(self, temp_dir):
         """Test multiple transforms applied in sequence."""
-        html = '''
+        html = """
         <html>
         <body>
             <h1>Main Title</h1>
@@ -511,14 +485,14 @@ class TestMultiStepWorkflowsE2E:
             <h2>Section 2</h2>
         </body>
         </html>
-        '''
+        """
 
         # Apply multiple transforms
         result_content = convert(
-            BytesIO(html.encode('utf-8')),
+            BytesIO(html.encode("utf-8")),
             source_format="html",
             target_format="markdown",
-            transforms=["remove-images", "heading-offset"]
+            transforms=["remove-images", "heading-offset"],
         )
 
         assert isinstance(result_content, str)
@@ -535,20 +509,12 @@ class TestMultiStepWorkflowsE2E:
         html = create_html_with_tables()
 
         # Step 1: HTML → AST
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
 
         # Step 2: Create multiple outputs with different options
-        md_content = from_ast(
-            ast_doc,
-            "markdown",
-            renderer_options=MarkdownOptions(bullet_symbols="-")
-        )
+        md_content = from_ast(ast_doc, "markdown", renderer_options=MarkdownOptions(bullet_symbols="-"))
 
-        html_content = from_ast(
-            ast_doc,
-            "html",
-            renderer_options=HtmlRendererOptions(standalone=True)
-        )
+        html_content = from_ast(ast_doc, "html", renderer_options=HtmlRendererOptions(standalone=True))
 
         assert isinstance(md_content, str)
         assert isinstance(html_content, str)
@@ -578,11 +544,7 @@ class TestRealWorldUsagePatternsE2E:
             # Workflow: PDF → AST → remove images → clean Markdown
             ast_doc = to_ast(pdf_bytes, source_format="pdf")
 
-            clean_markdown_content = from_ast(
-                ast_doc,
-                "markdown",
-                transforms=["remove-images"]
-            )
+            clean_markdown_content = from_ast(ast_doc, "markdown", transforms=["remove-images"])
 
             assert isinstance(clean_markdown_content, str)
             # Should have text content
@@ -633,7 +595,7 @@ class TestRealWorldUsagePatternsE2E:
 
     def test_content_extraction_workflow(self, temp_dir):
         """Real-world: Extract specific sections from document."""
-        html = '''
+        html = """
         <html>
         <body>
             <h1>Document Title</h1>
@@ -645,10 +607,10 @@ class TestRealWorldUsagePatternsE2E:
             <p>Content for section 3.</p>
         </body>
         </html>
-        '''
+        """
 
         # Parse to AST
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
 
         # Extract headings using extract_nodes from transforms
         from all2md.ast.transforms import extract_nodes
@@ -664,7 +626,7 @@ class TestRealWorldUsagePatternsE2E:
     def test_format_migration_workflow(self, temp_dir):
         """Real-world: Migrate legacy format to modern with transforms."""
         # Simulate legacy HTML with issues
-        legacy_html = '''
+        legacy_html = """
         <html>
         <body>
             <h1>Legacy Document</h1>
@@ -672,10 +634,10 @@ class TestRealWorldUsagePatternsE2E:
             <center>Centered text (deprecated)</center>
         </body>
         </html>
-        '''
+        """
 
         # Migrate: Parse → Clean → Modern output
-        ast_doc = to_ast(BytesIO(legacy_html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(legacy_html.encode("utf-8")), source_format="html")
 
         # Output to modern Markdown
         modern_md_content = from_ast(ast_doc, "markdown")
@@ -699,11 +661,7 @@ class TestRealWorldUsagePatternsE2E:
         outputs = []
         for file in files:
             ast_doc = to_ast(str(file), source_format="html")
-            markdown = from_ast(
-                ast_doc,
-                "markdown",
-                transforms=["heading-offset"]
-            )
+            markdown = from_ast(ast_doc, "markdown", transforms=["heading-offset"])
             assert isinstance(markdown, str)
             outputs.append(markdown)
 
@@ -721,14 +679,11 @@ class TestRealWorldUsagePatternsE2E:
         html2 = "<h1>Part 2</h1><p>Content from second document.</p>"
 
         # Parse both to AST
-        ast1 = to_ast(BytesIO(html1.encode('utf-8')), source_format="html")
-        ast2 = to_ast(BytesIO(html2.encode('utf-8')), source_format="html")
+        ast1 = to_ast(BytesIO(html1.encode("utf-8")), source_format="html")
+        ast2 = to_ast(BytesIO(html2.encode("utf-8")), source_format="html")
 
         # Merge by combining children
-        merged_doc = Document(
-            children=ast1.children + ast2.children,
-            metadata={"title": "Merged Document"}
-        )
+        merged_doc = Document(children=ast1.children + ast2.children, metadata={"title": "Merged Document"})
 
         # Render merged document
         merged_md_content = from_ast(merged_doc, "markdown")
@@ -742,19 +697,19 @@ class TestRealWorldUsagePatternsE2E:
 
     def test_custom_transform_application(self, temp_dir):
         """Real-world: Apply custom transform in workflow."""
-        html = '''
+        html = """
         <html>
         <body>
             <h1>Document</h1>
             <p>Text with <strong>bold</strong> formatting.</p>
         </body>
         </html>
-        '''
+        """
 
         # Custom workflow: Remove all Strong nodes using filter_nodes
         from all2md.ast.transforms import filter_nodes
 
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
 
         # Filter out Strong nodes
         modified_ast = filter_nodes(ast_doc, lambda node: not isinstance(node, Strong))
@@ -809,18 +764,14 @@ class TestAPIConsistencyE2E:
         md_file.write_text("# Title\n\n*Italic* text")
 
         # from_markdown with options
-        result1 = from_markdown(
-            str(md_file),
-            "html",
-            renderer_options=HtmlRendererOptions(standalone=False)
-        )
+        result1 = from_markdown(str(md_file), "html", renderer_options=HtmlRendererOptions(standalone=False))
 
         # convert with same options
         result2 = convert(
             str(md_file),
             source_format="markdown",
             target_format="html",
-            renderer_options=HtmlRendererOptions(standalone=False)
+            renderer_options=HtmlRendererOptions(standalone=False),
         )
 
         # Should produce same results
@@ -833,14 +784,10 @@ class TestAPIConsistencyE2E:
         html = "<h1>Title</h1><p>Content</p><img src='test.png'>"
 
         # Via to_markdown with transform
-        result1 = to_markdown(
-            BytesIO(html.encode('utf-8')),
-            source_format="html",
-            transforms=["remove-images"]
-        )
+        result1 = to_markdown(BytesIO(html.encode("utf-8")), source_format="html", transforms=["remove-images"])
 
         # Via to_ast + from_ast with transform
-        ast_doc = to_ast(BytesIO(html.encode('utf-8')), source_format="html")
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
         result2 = from_ast(ast_doc, "markdown", transforms=["remove-images"])
 
         # Should be equivalent
@@ -876,19 +823,15 @@ class TestAPIConsistencyE2E:
 
     def test_metadata_handling_consistency(self, temp_dir):
         """Test metadata handling is consistent."""
-        html = '''
+        html = """
         <html>
         <head><title>Test Doc</title></head>
         <body><h1>Content</h1></body>
         </html>
-        '''
+        """
 
         # Get AST with metadata
-        ast_doc = to_ast(
-            BytesIO(html.encode('utf-8')),
-            source_format="html",
-            extract_title=True
-        )
+        ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html", extract_title=True)
 
         # Metadata should be present
         assert ast_doc.metadata is not None
@@ -896,7 +839,6 @@ class TestAPIConsistencyE2E:
         # Render should preserve metadata context
         result = from_ast(ast_doc, "markdown")
         assert isinstance(result, str)
-
 
 
 @pytest.mark.e2e
@@ -910,19 +852,12 @@ class TestFullConversionPipeline:
         docx_bytes = save_docx_to_bytes(doc)
 
         # Test conversion with different options
-        options = DocxOptions(
-            attachment_mode="base64"
-        )
-        markdown_options = MarkdownOptions(
-            bullet_symbols='-'
-        )
+        options = DocxOptions(attachment_mode="base64")
+        markdown_options = MarkdownOptions(bullet_symbols="-")
 
         # Convert to markdown
         result = to_markdown(
-            BytesIO(docx_bytes),
-            source_format="docx",
-            parser_options=options,
-            renderer_options=markdown_options
+            BytesIO(docx_bytes), source_format="docx", parser_options=options, renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)
@@ -942,16 +877,14 @@ class TestFullConversionPipeline:
         html_content = create_html_with_tables()
 
         # Convert with options
-        options = HtmlOptions(
-            strip_dangerous_elements=True
-        )
+        options = HtmlOptions(strip_dangerous_elements=True)
         markdown_options = MarkdownOptions()
 
         result = to_markdown(
-            BytesIO(html_content.encode('utf-8')),
+            BytesIO(html_content.encode("utf-8")),
             source_format="html",
             parser_options=options,
-            renderer_options=markdown_options
+            renderer_options=markdown_options,
         )
 
         assert_markdown_valid(result)
@@ -972,17 +905,11 @@ class TestFullConversionPipeline:
         pptx_bytes = save_pptx_to_bytes(prs)
 
         # Convert with options
-        options = PptxOptions(
-            attachment_mode="skip",
-            include_slide_numbers=True
-        )
+        options = PptxOptions(attachment_mode="skip", include_slide_numbers=True)
         markdown_options = MarkdownOptions()
 
         result = to_markdown(
-            BytesIO(pptx_bytes),
-            source_format="pptx",
-            parser_options=options,
-            renderer_options=markdown_options
+            BytesIO(pptx_bytes), source_format="pptx", parser_options=options, renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)
@@ -1008,17 +935,11 @@ class TestFullConversionPipeline:
             pdf_bytes.seek(0)
 
             # Convert with options
-            options = PdfOptions(
-                attachment_mode="base64",
-                enable_table_fallback_detection=True
-            )
+            options = PdfOptions(attachment_mode="base64", enable_table_fallback_detection=True)
             markdown_options = MarkdownOptions()
 
             result = to_markdown(
-                pdf_bytes,
-                source_format="pdf",
-                parser_options=options,
-                renderer_options=markdown_options
+                pdf_bytes, source_format="pdf", parser_options=options, renderer_options=markdown_options
             )
 
             assert_markdown_valid(result)
@@ -1049,7 +970,7 @@ class TestFullConversionPipeline:
 
         # HTML test
         html_content = create_html_with_tables()
-        html_bytes = html_content.encode('utf-8')
+        html_bytes = html_content.encode("utf-8")
 
         result_html = to_markdown(BytesIO(html_bytes))  # No explicit extension
         # Format detection successful - result should contain converted content
@@ -1102,7 +1023,7 @@ class TestFullConversionPipeline:
     def test_options_propagation_through_pipeline(self, temp_dir):
         """Test that conversion options are properly propagated through the pipeline."""
         # Create HTML with various elements
-        html = '''
+        html = """
         <html>
         <head><title>Options Test</title></head>
         <body>
@@ -1116,19 +1037,12 @@ class TestFullConversionPipeline:
             <style>body { color: red; }</style>
         </body>
         </html>
-        '''
+        """
 
         # Test with basic HTML options - the key is that options are accepted and processed
-        options_test = HtmlOptions(
-            strip_dangerous_elements=True,
-            convert_nbsp=False
-        )
+        options_test = HtmlOptions(strip_dangerous_elements=True, convert_nbsp=False)
 
-        result = to_markdown(
-            BytesIO(html.encode('utf-8')),
-            source_format="html",
-            parser_options=options_test
-        )
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html", parser_options=options_test)
 
         # Verify the conversion worked with options
         assert "Main Title" in result  # Should contain content
@@ -1137,16 +1051,9 @@ class TestFullConversionPipeline:
         assert_markdown_valid(result)  # Should produce valid markdown
 
         # Test that different options produce output (may be the same, but should not crash)
-        options_test2 = HtmlOptions(
-            strip_dangerous_elements=False,
-            convert_nbsp=True
-        )
+        options_test2 = HtmlOptions(strip_dangerous_elements=False, convert_nbsp=True)
 
-        result2 = to_markdown(
-            BytesIO(html.encode('utf-8')),
-            source_format="html",
-            parser_options=options_test2
-        )
+        result2 = to_markdown(BytesIO(html.encode("utf-8")), source_format="html", parser_options=options_test2)
 
         # Both conversions should work
         assert "Main Title" in result2
@@ -1165,7 +1072,7 @@ class TestFullConversionPipeline:
 
         # Table
         table = doc.add_table(rows=3, cols=3)
-        table.style = 'Table Grid'
+        table.style = "Table Grid"
 
         # Add table content
         for i, row in enumerate(table.rows):
@@ -1183,25 +1090,18 @@ class TestFullConversionPipeline:
         doc.add_paragraph("Content after the table.")
 
         # Lists
-        doc.add_paragraph("Features:", style='List Bullet')
-        doc.add_paragraph("Feature 1", style='List Bullet')
-        doc.add_paragraph("Feature 2", style='List Bullet')
+        doc.add_paragraph("Features:", style="List Bullet")
+        doc.add_paragraph("Feature 1", style="List Bullet")
+        doc.add_paragraph("Feature 2", style="List Bullet")
 
         docx_bytes = save_docx_to_bytes(doc)
 
         # Convert with comprehensive options
-        docx_options = DocxOptions(
-            attachment_mode="base64"
-        )
-        markdown_options = MarkdownOptions(
-            bullet_symbols='-'
-        )
+        docx_options = DocxOptions(attachment_mode="base64")
+        markdown_options = MarkdownOptions(bullet_symbols="-")
 
         result = to_markdown(
-            BytesIO(docx_bytes),
-            source_format="docx",
-            parser_options=docx_options,
-            renderer_options=markdown_options
+            BytesIO(docx_bytes), source_format="docx", parser_options=docx_options, renderer_options=markdown_options
         )
 
         assert_markdown_valid(result)
@@ -1222,20 +1122,20 @@ class TestFullConversionPipeline:
 
         # DOCX
         docx_doc = create_docx_with_formatting()
-        documents.append((save_docx_to_bytes(docx_doc), '.docx', "docx"))
+        documents.append((save_docx_to_bytes(docx_doc), ".docx", "docx"))
 
         # HTML
         html_content = create_html_with_tables()
-        documents.append((html_content.encode('utf-8'), '.html', "html"))
+        documents.append((html_content.encode("utf-8"), ".html", "html"))
 
         # PPTX
         pptx_prs = create_pptx_with_basic_slides()
-        documents.append((save_pptx_to_bytes(pptx_prs), '.pptx', "pptx"))
+        documents.append((save_pptx_to_bytes(pptx_prs), ".pptx", "pptx"))
 
         # Convert all documents
         results = []
         for content, extension, _expected_format in documents:
-            result = to_markdown(BytesIO(content), source_format=extension.lstrip('.'))
+            result = to_markdown(BytesIO(content), source_format=extension.lstrip("."))
             results.append(result)
 
             # Verify each conversion

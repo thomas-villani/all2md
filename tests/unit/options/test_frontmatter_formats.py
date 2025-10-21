@@ -78,7 +78,7 @@ def test_markdown_renderer_yaml_frontmatter():
         metadata={
             "title": "Test",
             "author": "Alice",
-        }
+        },
     )
 
     options = MarkdownOptions(metadata_frontmatter=True, metadata_format="yaml")
@@ -98,7 +98,7 @@ def test_markdown_renderer_toml_frontmatter():
         metadata={
             "title": "Test",
             "author": "Alice",
-        }
+        },
     )
 
     options = MarkdownOptions(metadata_frontmatter=True, metadata_format="toml")
@@ -118,7 +118,7 @@ def test_markdown_renderer_json_frontmatter():
         metadata={
             "title": "Test",
             "page_count": 1,
-        }
+        },
     )
 
     options = MarkdownOptions(metadata_frontmatter=True, metadata_format="json")
@@ -145,10 +145,10 @@ def test_extended_metadata_fields():
 
     result = format_yaml_frontmatter(metadata)
 
-    assert "source: \"https://example.com\"" in result
+    assert 'source: "https://example.com"' in result
     assert "page_count: 10" in result
     assert "word_count: 2000" in result
-    assert "accessed_date: \"2025-01-01 12:00:00\"" in result
+    assert 'accessed_date: "2025-01-01 12:00:00"' in result
     assert "source_path" not in result
     assert "sha256" not in result
 
@@ -168,10 +168,10 @@ def test_metadata_policy_all_visibility():
     policy = MetadataRenderPolicy(visibility="all")
     result = format_yaml_frontmatter(metadata, policy=policy)
 
-    assert "source: \"https://example.com\"" in result
+    assert 'source: "https://example.com"' in result
     assert "source_path: /path/to/file.pdf" in result
     assert "sha256: abc123" in result
-    assert "extraction_date: \"2025-01-01 12:00:00\"" in result
+    assert 'extraction_date: "2025-01-01 12:00:00"' in result
 
 
 def test_empty_metadata():

@@ -497,12 +497,12 @@ def create_html_file(html_content: str, file_path: Optional[Path] = None) -> Pat
 
     """
     if file_path is None:
-        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8')
+        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False, encoding="utf-8")
         file_path = Path(temp_file.name)
         temp_file.write(html_content)
         temp_file.close()
     else:
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
     return file_path

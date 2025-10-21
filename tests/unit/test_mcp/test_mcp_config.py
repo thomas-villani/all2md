@@ -80,8 +80,6 @@ class TestMCPConfig:
             config.validate()
 
 
-
-
 class TestLoadConfigFromEnv:
     """Tests for loading configuration from environment variables."""
 

@@ -4,10 +4,10 @@ import json
 from io import BytesIO
 
 import pytest
-from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md import EmlOptions, HtmlOptions, IpynbOptions, MhtmlOptions, to_markdown
 from all2md.options import MarkdownOptions
+from utils import cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration
@@ -25,7 +25,7 @@ class TestMetadataIntegration:
 
     def test_html_metadata_extraction_integration(self):
         """Test HTML metadata extraction with real file."""
-        html_content = '''<!DOCTYPE html>
+        html_content = """<!DOCTYPE html>
 <html>
 <head>
     <title>Integration Test Document</title>
@@ -42,10 +42,10 @@ class TestMetadataIntegration:
     <p>It contains multiple paragraphs and <a href="https://example.com">links</a>.</p>
     <img src="test.png" alt="Test image">
 </body>
-</html>'''
+</html>"""
 
         html_file = self.temp_dir / "test.html"
-        html_file.write_text(html_content, encoding='utf-8')
+        html_file.write_text(html_content, encoding="utf-8")
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
@@ -67,7 +67,7 @@ class TestMetadataIntegration:
 
     def test_eml_metadata_extraction_integration(self):
         """Test EML metadata extraction with real email file."""
-        eml_content = '''From: sender@example.com (Test Sender)
+        eml_content = """From: sender@example.com (Test Sender)
 To: recipient@example.com
 Subject: Integration Test Email
 Date: Fri, 26 Sep 2025 15:30:00 +0000
@@ -81,10 +81,10 @@ It contains multiple lines and should extract proper metadata.
 
 Best regards,
 Test Sender
-'''
+"""
 
         eml_file = self.temp_dir / "test.eml"
-        eml_file.write_bytes(eml_content.encode('utf-8'))
+        eml_file.write_bytes(eml_content.encode("utf-8"))
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
@@ -110,59 +110,31 @@ Test Sender
                 {
                     "cell_type": "markdown",
                     "metadata": {},
-                    "source": [
-                        "# Integration Test Notebook\n",
-                        "\n",
-                        "This notebook tests metadata extraction."
-                    ]
+                    "source": ["# Integration Test Notebook\n", "\n", "This notebook tests metadata extraction."],
                 },
                 {
                     "cell_type": "code",
                     "execution_count": 1,
                     "metadata": {},
                     "outputs": [
-                        {
-                            "name": "stdout",
-                            "output_type": "stream",
-                            "text": [
-                                "Hello from integration test!\n"
-                            ]
-                        }
+                        {"name": "stdout", "output_type": "stream", "text": ["Hello from integration test!\n"]}
                     ],
-                    "source": [
-                        "print('Hello from integration test!')"
-                    ]
+                    "source": ["print('Hello from integration test!')"],
                 },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": [
-                        "## Section 2\n",
-                        "\n",
-                        "More content here."
-                    ]
-                }
+                {"cell_type": "markdown", "metadata": {}, "source": ["## Section 2\n", "\n", "More content here."]},
             ],
             "metadata": {
                 "title": "Integration Test Notebook",
                 "authors": [{"name": "Integration Test Author"}],
-                "kernelspec": {
-                    "display_name": "Python 3",
-                    "language": "python",
-                    "name": "python3"
-                },
-                "language_info": {
-                    "name": "python",
-                    "version": "3.9.0",
-                    "mimetype": "text/x-python"
-                }
+                "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+                "language_info": {"name": "python", "version": "3.9.0", "mimetype": "text/x-python"},
             },
             "nbformat": 4,
-            "nbformat_minor": 4
+            "nbformat_minor": 4,
         }
 
         notebook_file = self.temp_dir / "test.ipynb"
-        notebook_file.write_text(json.dumps(notebook_content), encoding='utf-8')
+        notebook_file.write_text(json.dumps(notebook_content), encoding="utf-8")
 
         # Test with metadata extraction enabled
         md_options = MarkdownOptions(metadata_frontmatter=True)
@@ -186,7 +158,7 @@ Test Sender
 
     def test_mhtml_metadata_extraction_integration(self):
         """Test MHTML metadata extraction with real MHTML file."""
-        mhtml_content = b'''MIME-Version: 1.0
+        mhtml_content = b"""MIME-Version: 1.0
 Content-Type: multipart/related; boundary="integration-test-boundary"
 From: test@example.com
 Subject: Integration Test MHTML
@@ -213,7 +185,7 @@ Content-Type: text/html; charset=utf-8
 </html>
 
 --integration-test-boundary--
-'''
+"""
 
         mhtml_file = self.temp_dir / "test.mht"
         mhtml_file.write_bytes(mhtml_content)
@@ -228,7 +200,7 @@ Content-Type: text/html; charset=utf-8
         assert "title: Integration Test MHTML" in result or "title: MHTML Integration Test" in result
         assert "test@example.com" in result  # Author field (may be quoted)
         # Keywords format may vary (list or inline)
-        assert ("mhtml" in result and "integration" in result and "test" in result)
+        assert "mhtml" in result and "integration" in result and "test" in result
 
         # Verify content is still present
         assert "# MHTML Integration Test" in result
@@ -261,7 +233,7 @@ Content-Type: text/html; charset=utf-8
 
     def test_metadata_extraction_disabled_by_default(self):
         """Test that metadata extraction is disabled by default."""
-        html_content = '''<!DOCTYPE html>
+        html_content = """<!DOCTYPE html>
 <html>
 <head>
     <title>Default Test</title>
@@ -271,10 +243,10 @@ Content-Type: text/html; charset=utf-8
     <h1>Default Test</h1>
     <p>Testing default behavior.</p>
 </body>
-</html>'''
+</html>"""
 
         html_file = self.temp_dir / "default.html"
-        html_file.write_text(html_content, encoding='utf-8')
+        html_file.write_text(html_content, encoding="utf-8")
 
         # Test without explicit metadata options (should default to False)
         result = to_markdown(str(html_file))
@@ -290,7 +262,7 @@ Content-Type: text/html; charset=utf-8
 
     def test_metadata_extraction_with_file_like_objects(self):
         """Test metadata extraction works with file-like objects."""
-        html_content = '''<!DOCTYPE html>
+        html_content = """<!DOCTYPE html>
 <html>
 <head>
     <title>BytesIO Test</title>
@@ -299,13 +271,15 @@ Content-Type: text/html; charset=utf-8
 <body>
     <h1>BytesIO Test</h1>
 </body>
-</html>'''
+</html>"""
 
         # Test with BytesIO
-        html_bytes = BytesIO(html_content.encode('utf-8'))
+        html_bytes = BytesIO(html_content.encode("utf-8"))
         md_options = MarkdownOptions(metadata_frontmatter=True)
         parser_options = HtmlOptions(extract_metadata=True)
-        result = to_markdown(html_bytes, source_format="html", parser_options=parser_options, renderer_options=md_options)
+        result = to_markdown(
+            html_bytes, source_format="html", parser_options=parser_options, renderer_options=md_options
+        )
 
         # Verify metadata extraction works with file-like objects
         assert result.startswith("---")

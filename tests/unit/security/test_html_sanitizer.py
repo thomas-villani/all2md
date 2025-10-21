@@ -10,6 +10,7 @@ import pytest
 
 try:
     from bs4 import BeautifulSoup
+
     BEAUTIFULSOUP_AVAILABLE = True
 except ImportError:
     BEAUTIFULSOUP_AVAILABLE = False
@@ -64,7 +65,7 @@ class TestSanitizeHtmlContent:
 
     def test_sanitize_mode_preserves_safe_html(self):
         """Test that sanitize mode preserves safe HTML elements."""
-        content = '<p>Hello <strong>world</strong></p>'
+        content = "<p>Hello <strong>world</strong></p>"
         result = sanitize_html_content(content, mode="sanitize")
         # Should contain the text content
         assert "Hello" in result
@@ -79,7 +80,7 @@ class TestSanitizeHtmlContent:
 
     def test_unknown_mode_defaults_to_passthrough(self):
         """Test that unknown mode defaults to pass-through."""
-        content = '<script>test</script>'
+        content = "<script>test</script>"
         result = sanitize_html_content(content, mode="unknown_mode")  # type: ignore
         assert result == content
 
@@ -103,53 +104,53 @@ class TestStripHtmlTags:
 
     def test_strip_simple_tags(self):
         """Test stripping simple HTML tags."""
-        content = '<p>Hello world</p>'
+        content = "<p>Hello world</p>"
         result = strip_html_tags(content)
-        assert result == 'Hello world'
+        assert result == "Hello world"
 
     def test_strip_nested_tags(self):
         """Test stripping nested HTML tags."""
-        content = '<p>Hello <strong>bold</strong> world</p>'
+        content = "<p>Hello <strong>bold</strong> world</p>"
         result = strip_html_tags(content)
-        assert result == 'Hello bold world'
+        assert result == "Hello bold world"
 
     def test_decode_html_entities(self):
         """Test that HTML entities are decoded."""
-        content = '<p>Hello &amp; goodbye</p>'
+        content = "<p>Hello &amp; goodbye</p>"
         result = strip_html_tags(content)
-        assert result == 'Hello & goodbye'
+        assert result == "Hello & goodbye"
 
     def test_plain_text_unchanged(self):
         """Test that plain text without tags is unchanged."""
-        content = 'Plain text'
+        content = "Plain text"
         result = strip_html_tags(content)
-        assert result == 'Plain text'
+        assert result == "Plain text"
 
     def test_self_closing_tags(self):
         """Test handling of self-closing tags."""
-        content = '<p>Text<br/>More text</p>'
+        content = "<p>Text<br/>More text</p>"
         result = strip_html_tags(content)
-        assert result == 'TextMore text'
+        assert result == "TextMore text"
 
     def test_multiple_spaces_preserved(self):
         """Test that multiple spaces are preserved in output."""
-        content = '<p>Hello    world</p>'
+        content = "<p>Hello    world</p>"
         result = strip_html_tags(content)
-        assert result == 'Hello    world'
+        assert result == "Hello    world"
 
     def test_complex_html_to_text(self):
         """Test conversion of complex HTML to plain text."""
-        content = '<h1>Title</h1><p>Para <em>italic</em> text</p>'
+        content = "<h1>Title</h1><p>Para <em>italic</em> text</p>"
         result = strip_html_tags(content)
-        assert result == 'TitlePara italic text'
+        assert result == "TitlePara italic text"
 
     def test_html_with_attributes(self):
         """Test stripping tags with attributes."""
         content = '<a href="http://example.com" class="link">Link</a>'
         result = strip_html_tags(content)
-        assert result == 'Link'
-        assert 'href' not in result
-        assert 'example.com' not in result
+        assert result == "Link"
+        assert "href" not in result
+        assert "example.com" not in result
 
 
 @pytest.mark.skipif(not BEAUTIFULSOUP_AVAILABLE, reason="BeautifulSoup not available")
@@ -158,57 +159,57 @@ class TestIsElementSafe:
 
     def test_safe_element_returns_true(self):
         """Test that safe elements return True."""
-        soup = BeautifulSoup('<p>Safe content</p>', 'html.parser')
+        soup = BeautifulSoup("<p>Safe content</p>", "html.parser")
         assert is_element_safe(soup.p) is True
 
     def test_script_element_returns_false(self):
         """Test that script elements return False."""
-        soup = BeautifulSoup('<script>alert("xss")</script>', 'html.parser')
+        soup = BeautifulSoup('<script>alert("xss")</script>', "html.parser")
         assert is_element_safe(soup.script) is False
 
     def test_iframe_element_returns_false(self):
         """Test that iframe elements return False."""
-        soup = BeautifulSoup('<iframe src="evil.com"></iframe>', 'html.parser')
+        soup = BeautifulSoup('<iframe src="evil.com"></iframe>', "html.parser")
         assert is_element_safe(soup.iframe) is False
 
     def test_dangerous_onclick_attribute_returns_false(self):
         """Test that elements with onclick return False."""
-        soup = BeautifulSoup('<div onclick="alert()">Click</div>', 'html.parser')
+        soup = BeautifulSoup('<div onclick="alert()">Click</div>', "html.parser")
         assert is_element_safe(soup.div) is False
 
     def test_dangerous_onerror_attribute_returns_false(self):
         """Test that elements with onerror return False."""
-        soup = BeautifulSoup('<img src="x" onerror="alert()">', 'html.parser')
+        soup = BeautifulSoup('<img src="x" onerror="alert()">', "html.parser")
         assert is_element_safe(soup.img) is False
 
     def test_javascript_href_returns_false(self):
         """Test that javascript: URLs in href return False."""
-        soup = BeautifulSoup('<a href="javascript:alert()">Link</a>', 'html.parser')
+        soup = BeautifulSoup('<a href="javascript:alert()">Link</a>', "html.parser")
         assert is_element_safe(soup.a) is False
 
     def test_data_url_in_src_returns_false(self):
         """Test that data: URLs in src return False."""
-        soup = BeautifulSoup('<img src="data:text/html,<script>alert()</script>">', 'html.parser')
+        soup = BeautifulSoup('<img src="data:text/html,<script>alert()</script>">', "html.parser")
         assert is_element_safe(soup.img) is False
 
     def test_style_with_javascript_returns_false(self):
         """Test that style attributes with javascript: return False."""
-        soup = BeautifulSoup('<div style="background:url(javascript:alert())">Text</div>', 'html.parser')
+        soup = BeautifulSoup('<div style="background:url(javascript:alert())">Text</div>', "html.parser")
         assert is_element_safe(soup.div) is False
 
     def test_safe_link_returns_true(self):
         """Test that safe links return True."""
-        soup = BeautifulSoup('<a href="https://example.com">Link</a>', 'html.parser')
+        soup = BeautifulSoup('<a href="https://example.com">Link</a>', "html.parser")
         assert is_element_safe(soup.a) is True
 
     def test_safe_image_returns_true(self):
         """Test that safe images return True."""
-        soup = BeautifulSoup('<img src="https://example.com/image.png" alt="Image">', 'html.parser')
+        soup = BeautifulSoup('<img src="https://example.com/image.png" alt="Image">', "html.parser")
         assert is_element_safe(soup.img) is True
 
     def test_text_node_returns_true(self):
         """Test that text nodes return True."""
-        soup = BeautifulSoup('Plain text', 'html.parser')
+        soup = BeautifulSoup("Plain text", "html.parser")
         text_node = soup.contents[0]
         assert is_element_safe(text_node) is True
 
@@ -305,7 +306,7 @@ class TestSanitizationIntegration:
 
     def test_sanitize_then_strip(self):
         """Test sanitizing then stripping HTML tags."""
-        content = '<script>alert()</script><p>Safe <strong>text</strong></p>'
+        content = "<script>alert()</script><p>Safe <strong>text</strong></p>"
         sanitized = sanitize_html_content(content, mode="sanitize")
         stripped = strip_html_tags(sanitized)
         assert "alert" not in stripped or "script" not in stripped.lower()
@@ -314,7 +315,7 @@ class TestSanitizationIntegration:
 
     def test_escape_preserves_text_after_strip(self):
         """Test that escaped content preserves text after stripping."""
-        content = '<p>Hello <em>world</em></p>'
+        content = "<p>Hello <em>world</em></p>"
         escaped = sanitize_html_content(content, mode="escape")
         stripped = strip_html_tags(escaped)
         # After escaping and stripping, should still contain the text
@@ -324,8 +325,8 @@ class TestSanitizationIntegration:
     @pytest.mark.skipif(not BEAUTIFULSOUP_AVAILABLE, reason="BeautifulSoup not available")
     def test_element_safety_matches_sanitization(self):
         """Test that element safety check matches sanitization behavior."""
-        dangerous_content = '<script>alert()</script>'
-        soup = BeautifulSoup(dangerous_content, 'html.parser')
+        dangerous_content = "<script>alert()</script>"
+        soup = BeautifulSoup(dangerous_content, "html.parser")
 
         # Element should be marked as unsafe
         assert is_element_safe(soup.script) is False
@@ -340,13 +341,13 @@ class TestEdgeCases:
 
     def test_malformed_html(self):
         """Test handling of malformed HTML."""
-        content = '<p>Unclosed paragraph'
+        content = "<p>Unclosed paragraph"
         result = strip_html_tags(content)
         assert "Unclosed paragraph" in result
 
     def test_nested_dangerous_tags(self):
         """Test handling of nested dangerous tags."""
-        content = '<div><script><iframe></iframe></script></div>'
+        content = "<div><script><iframe></iframe></script></div>"
         result = sanitize_html_content(content, mode="sanitize")
         assert "script" not in result.lower() or "&lt;script" in result
         assert "iframe" not in result.lower() or "&lt;iframe" in result
@@ -359,7 +360,7 @@ class TestEdgeCases:
 
     def test_unicode_content(self):
         """Test handling of Unicode content."""
-        content = '<p>Hello 世界 🌍</p>'
+        content = "<p>Hello 世界 🌍</p>"
         result = strip_html_tags(content)
         assert "Hello 世界 🌍" in result
 

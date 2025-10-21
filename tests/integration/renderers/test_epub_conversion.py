@@ -12,11 +12,11 @@ Tests cover:
 
 """
 
-
 import pytest
 
 try:
     from ebooklib import epub
+
     EBOOKLIB_AVAILABLE = True
 except ImportError:
     EBOOKLIB_AVAILABLE = False
@@ -56,43 +56,41 @@ def create_sample_document():
         metadata={"title": "Sample Document", "author": "Test Author"},
         children=[
             Heading(level=1, content=[Text(content="Document Title")]),
-            Paragraph(content=[
-                Text(content="This is a paragraph with "),
-                Strong(content=[Text(content="bold text")]),
-                Text(content=" and a "),
-                Link(url="https://example.com", content=[Text(content="link")]),
-                Text(content=".")
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="This is a paragraph with "),
+                    Strong(content=[Text(content="bold text")]),
+                    Text(content=" and a "),
+                    Link(url="https://example.com", content=[Text(content="link")]),
+                    Text(content="."),
+                ]
+            ),
             Heading(level=2, content=[Text(content="Lists")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Third item")])])
-            ]),
+            List(
+                ordered=False,
+                items=[
+                    ListItem(children=[Paragraph(content=[Text(content="First item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Third item")])]),
+                ],
+            ),
             Heading(level=2, content=[Text(content="Code Example")]),
             CodeBlock(content='def hello():\n    print("Hello, world!")', language="python"),
             Heading(level=2, content=[Text(content="Table")]),
             Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Value")])
-                ]),
+                header=TableRow(
+                    cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Value")])]
+                ),
                 rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alpha")]),
-                        TableCell(content=[Text(content="1")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Beta")]),
-                        TableCell(content=[Text(content="2")])
-                    ])
-                ]
+                    TableRow(
+                        cells=[TableCell(content=[Text(content="Alpha")]), TableCell(content=[Text(content="1")])]
+                    ),
+                    TableRow(cells=[TableCell(content=[Text(content="Beta")]), TableCell(content=[Text(content="2")])]),
+                ],
             ),
             Heading(level=2, content=[Text(content="Quote")]),
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is a blockquote.")])
-            ])
-        ]
+            BlockQuote(children=[Paragraph(content=[Text(content="This is a blockquote.")])]),
+        ],
     )
 
 
@@ -104,29 +102,28 @@ class TestEpubRendering:
     def test_full_document_to_epub(self, tmp_path):
         """Test rendering complete document to EPUB."""
         doc = create_sample_document()
-        renderer = EpubRenderer(EpubRendererOptions(
-            title="Sample Book",
-            author="Test Author"
-        ))
+        renderer = EpubRenderer(EpubRendererOptions(title="Sample Book", author="Test Author"))
         output_file = tmp_path / "sample.epub"
         renderer.render(doc, output_file)
 
         # Verify file created and is valid EPUB
         assert output_file.exists()
         book = epub.read_epub(str(output_file))
-        assert book.get_metadata('DC', 'title')[0][0] == "Sample Book"
-        assert book.get_metadata('DC', 'creator')[0][0] == "Test Author"
+        assert book.get_metadata("DC", "title")[0][0] == "Sample Book"
+        assert book.get_metadata("DC", "creator")[0][0] == "Test Author"
 
     def test_epub_chapter_splitting_strategies(self, tmp_path):
         """Test different chapter splitting strategies."""
         # Document with both separators and headings
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            ThematicBreak(),
-            Heading(level=1, content=[Text(content="Chapter 2")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                Heading(level=1, content=[Text(content="Chapter 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
 
         # Test separator mode
         sep_renderer = EpubRenderer(EpubRendererOptions(chapter_split_mode="separator"))
@@ -148,19 +145,18 @@ class TestEpubRendering:
 
     def test_epub_with_toc(self, tmp_path):
         """Test EPUB with table of contents."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Introduction")]),
-            Paragraph(content=[Text(content="Intro content")]),
-            Heading(level=1, content=[Text(content="Main Content")]),
-            Paragraph(content=[Text(content="Main content")]),
-            Heading(level=1, content=[Text(content="Conclusion")]),
-            Paragraph(content=[Text(content="Conclusion")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Introduction")]),
+                Paragraph(content=[Text(content="Intro content")]),
+                Heading(level=1, content=[Text(content="Main Content")]),
+                Paragraph(content=[Text(content="Main content")]),
+                Heading(level=1, content=[Text(content="Conclusion")]),
+                Paragraph(content=[Text(content="Conclusion")]),
+            ]
+        )
 
-        renderer = EpubRenderer(EpubRendererOptions(
-            chapter_split_mode="heading",
-            generate_toc=True
-        ))
+        renderer = EpubRenderer(EpubRendererOptions(chapter_split_mode="heading", generate_toc=True))
         output_file = tmp_path / "with_toc.epub"
         renderer.render(doc, output_file)
 
@@ -171,15 +167,8 @@ class TestEpubRendering:
     def test_epub_metadata_from_document(self, tmp_path):
         """Test EPUB metadata extraction from document."""
         doc = Document(
-            metadata={
-                "title": "My Document",
-                "author": "Jane Smith",
-                "subject": "Testing",
-                "date": "2025-01-01"
-            },
-            children=[
-                Paragraph(content=[Text(content="Content")])
-            ]
+            metadata={"title": "My Document", "author": "Jane Smith", "subject": "Testing", "date": "2025-01-01"},
+            children=[Paragraph(content=[Text(content="Content")])],
         )
 
         renderer = EpubRenderer()
@@ -188,8 +177,8 @@ class TestEpubRendering:
 
         # Verify metadata
         book = epub.read_epub(str(output_file))
-        assert book.get_metadata('DC', 'title')[0][0] == "My Document"
-        assert book.get_metadata('DC', 'creator')[0][0] == "Jane Smith"
+        assert book.get_metadata("DC", "title")[0][0] == "My Document"
+        assert book.get_metadata("DC", "creator")[0][0] == "Jane Smith"
 
     def test_epub_complex_content(self, tmp_path):
         """Test EPUB with complex content structures."""
@@ -197,33 +186,32 @@ class TestEpubRendering:
             metadata={"title": "Complex EPUB"},
             children=[
                 Heading(level=1, content=[Text(content="Chapter 1: Introduction")]),
-                Paragraph(content=[
-                    Text(content="This is "),
-                    Strong(content=[Text(content="important")]),
-                    Text(content=".")
-                ]),
-                List(ordered=True, items=[
-                    ListItem(children=[Paragraph(content=[Text(content="First point")])]),
-                    ListItem(children=[Paragraph(content=[Text(content="Second point")])])
-                ]),
+                Paragraph(
+                    content=[Text(content="This is "), Strong(content=[Text(content="important")]), Text(content=".")]
+                ),
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First point")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second point")])]),
+                    ],
+                ),
                 ThematicBreak(),
                 Heading(level=1, content=[Text(content="Chapter 2: Code")]),
-                CodeBlock(content='def example():\n    return 42', language="python"),
+                CodeBlock(content="def example():\n    return 42", language="python"),
                 ThematicBreak(),
                 Heading(level=1, content=[Text(content="Chapter 3: Data")]),
                 Table(
-                    header=TableRow(cells=[
-                        TableCell(content=[Text(content="Name")]),
-                        TableCell(content=[Text(content="Value")])
-                    ]),
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Value")])]
+                    ),
                     rows=[
-                        TableRow(cells=[
-                            TableCell(content=[Text(content="X")]),
-                            TableCell(content=[Text(content="10")])
-                        ])
-                    ]
-                )
-            ]
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="X")]), TableCell(content=[Text(content="10")])]
+                        )
+                    ],
+                ),
+            ],
         )
 
         renderer = EpubRenderer()

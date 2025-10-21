@@ -5,10 +5,10 @@ They use fixture-based testing instead of inline HTML for better maintainability
 """
 
 import pytest
-from fixtures.generators.html_fixtures import create_html_with_tables
-from utils import assert_markdown_valid
 
 from all2md import to_markdown as html_to_markdown
+from fixtures.generators.html_fixtures import create_html_with_tables
+from utils import assert_markdown_valid
 
 
 @pytest.mark.unit
@@ -28,7 +28,7 @@ class TestHtmlTableParsing:
 
     def test_table_with_caption_parsing(self):
         """Test table caption detection and conversion."""
-        html = '''
+        html = """
         <table>
             <caption>Test Table Caption</caption>
             <tr>
@@ -40,14 +40,14 @@ class TestHtmlTableParsing:
                 <td>Data 2</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
         assert "Test Table Caption" in markdown
 
     def test_table_header_detection(self):
         """Test proper detection of table headers vs data cells."""
-        html = '''
+        html = """
         <table>
             <thead>
                 <tr>
@@ -62,7 +62,7 @@ class TestHtmlTableParsing:
                 </tr>
             </tbody>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -73,7 +73,7 @@ class TestHtmlTableParsing:
 
     def test_table_without_headers(self):
         """Test table parsing when no explicit headers are present."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <td>Data 1</td>
@@ -84,7 +84,7 @@ class TestHtmlTableParsing:
                 <td>Data 4</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -94,7 +94,7 @@ class TestHtmlTableParsing:
 
     def test_empty_table_cells(self):
         """Test handling of empty table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>A</th>
@@ -112,7 +112,7 @@ class TestHtmlTableParsing:
                 <td></td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -122,7 +122,7 @@ class TestHtmlTableParsing:
 
     def test_table_cell_whitespace_normalization(self):
         """Test normalization of whitespace in table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>  Header with spaces  </th>
@@ -136,7 +136,7 @@ class TestHtmlTableParsing:
                 <td>   Padded   </td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -152,7 +152,7 @@ class TestHtmlTableFormatting:
 
     def test_formatted_text_in_table_cells(self):
         """Test preservation of text formatting within table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th><strong>Bold Header</strong></th>
@@ -163,7 +163,7 @@ class TestHtmlTableFormatting:
                 <td>Text with <em>italic</em> word</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -175,7 +175,7 @@ class TestHtmlTableFormatting:
 
     def test_links_in_table_cells(self):
         """Test handling of links within table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Site</th>
@@ -186,7 +186,7 @@ class TestHtmlTableFormatting:
                 <td>https://example.com</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -195,7 +195,7 @@ class TestHtmlTableFormatting:
 
     def test_code_in_table_cells(self):
         """Test handling of code elements within table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Function</th>
@@ -206,13 +206,13 @@ class TestHtmlTableFormatting:
                 <td>Use <code>print("hello")</code> for output</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
         # Should preserve code formatting in cells
         assert "`print()`" in markdown
-        assert "`print(\"hello\")`" in markdown
+        assert '`print("hello")`' in markdown
 
 
 @pytest.mark.unit
@@ -221,7 +221,7 @@ class TestHtmlTableEdgeCases:
 
     def test_malformed_table_structure(self):
         """Test handling of malformed table HTML."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Header 1</th>
@@ -233,7 +233,7 @@ class TestHtmlTableEdgeCases:
                 <td>Extra cell</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
 
         # Should not crash and should produce some output
@@ -242,7 +242,7 @@ class TestHtmlTableEdgeCases:
 
     def test_deeply_nested_table_content(self):
         """Test table cells with deeply nested HTML content."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Nested Content</th>
@@ -258,7 +258,7 @@ class TestHtmlTableEdgeCases:
                 </td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -268,7 +268,7 @@ class TestHtmlTableEdgeCases:
 
     def test_table_with_special_characters(self):
         """Test table cells containing special characters."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Special Chars</th>
@@ -283,7 +283,7 @@ class TestHtmlTableEdgeCases:
                 <td>Math: ≥ ≤ ≠</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 
@@ -293,7 +293,7 @@ class TestHtmlTableEdgeCases:
 
     def test_table_with_multiline_cell_content(self):
         """Test handling of multiline content in table cells."""
-        html = '''
+        html = """
         <table>
             <tr>
                 <th>Description</th>
@@ -302,7 +302,7 @@ class TestHtmlTableEdgeCases:
                 <td>Line 1<br>Line 2<br>Line 3</td>
             </tr>
         </table>
-        '''
+        """
         markdown = html_to_markdown(html, source_format="html")
         assert_markdown_valid(markdown)
 

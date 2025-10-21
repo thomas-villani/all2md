@@ -54,9 +54,7 @@ class TestBasicRendering:
 
     def test_simple_heading(self) -> None:
         """Test rendering a simple heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -65,11 +63,13 @@ class TestBasicRendering:
 
     def test_heading_levels(self) -> None:
         """Test rendering different heading levels."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Level 1")]),
-            Heading(level=2, content=[Text(content="Level 2")]),
-            Heading(level=3, content=[Text(content="Level 3")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Level 1")]),
+                Heading(level=2, content=[Text(content="Level 2")]),
+                Heading(level=3, content=[Text(content="Level 3")]),
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -80,9 +80,7 @@ class TestBasicRendering:
 
     def test_custom_heading_chars(self) -> None:
         """Test rendering with custom heading characters."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         options = RstRendererOptions(heading_chars="#*-^")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -92,9 +90,7 @@ class TestBasicRendering:
 
     def test_simple_paragraph(self) -> None:
         """Test rendering a simple paragraph."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="This is a paragraph.")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="This is a paragraph.")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -107,13 +103,17 @@ class TestInlineFormatting:
 
     def test_emphasis(self) -> None:
         """Test rendering emphasis."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text."),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -121,13 +121,13 @@ class TestInlineFormatting:
 
     def test_strong(self) -> None:
         """Test rendering strong."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Text(content="This is "), Strong(content=[Text(content="bold")]), Text(content=" text.")]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -135,13 +135,9 @@ class TestInlineFormatting:
 
     def test_code(self) -> None:
         """Test rendering inline code."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Code(content="code"),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="This is "), Code(content="code"), Text(content=" text.")])]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -154,13 +150,18 @@ class TestLists:
 
     def test_bullet_list(self) -> None:
         """Test rendering a bullet list."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 3")])]),
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 3")])]),
+                    ],
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -170,13 +171,19 @@ class TestLists:
 
     def test_enumerated_list(self) -> None:
         """Test rendering an enumerated list."""
-        doc = Document(children=[
-            List(ordered=True, start=1, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Third")])]),
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=1,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Third")])]),
+                    ],
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -191,9 +198,7 @@ class TestCodeBlocks:
 
     def test_code_block_with_directive(self) -> None:
         """Test rendering code block with directive style."""
-        doc = Document(children=[
-            CodeBlock(content="def hello():\n    print('Hello')", language="python")
-        ])
+        doc = Document(children=[CodeBlock(content="def hello():\n    print('Hello')", language="python")])
         options = RstRendererOptions(code_directive_style="directive")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -203,9 +208,7 @@ class TestCodeBlocks:
 
     def test_code_block_with_double_colon(self) -> None:
         """Test rendering code block with :: style."""
-        doc = Document(children=[
-            CodeBlock(content="def hello():\n    print('Hello')", language=None)
-        ])
+        doc = Document(children=[CodeBlock(content="def hello():\n    print('Hello')", language=None)])
         options = RstRendererOptions(code_directive_style="double_colon")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -220,14 +223,9 @@ class TestLinks:
 
     def test_external_link(self) -> None:
         """Test rendering an external link."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(
-                    url="https://www.python.org",
-                    content=[Text(content="Python")]
-                )
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://www.python.org", content=[Text(content="Python")])])]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -240,9 +238,7 @@ class TestImages:
 
     def test_image(self) -> None:
         """Test rendering an image."""
-        doc = Document(children=[
-            Image(url="example.png", alt_text="Example")
-        ])
+        doc = Document(children=[Image(url="example.png", alt_text="Example")])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -256,20 +252,28 @@ class TestTables:
 
     def test_grid_table(self) -> None:
         """Test rendering a grid table."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="A")]),
-                    TableCell(content=[Text(content="B")]),
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="1")]),
-                        TableCell(content=[Text(content="2")]),
-                    ], is_header=False),
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="A")]),
+                            TableCell(content=[Text(content="B")]),
+                        ],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="1")]),
+                                TableCell(content=[Text(content="2")]),
+                            ],
+                            is_header=False,
+                        ),
+                    ],
+                )
+            ]
+        )
         options = RstRendererOptions(table_style="grid")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -281,20 +285,28 @@ class TestTables:
 
     def test_simple_table(self) -> None:
         """Test rendering a simple table."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")]),
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="A")]),
-                        TableCell(content=[Text(content="B")]),
-                    ], is_header=False),
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Col1")]),
+                            TableCell(content=[Text(content="Col2")]),
+                        ],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="A")]),
+                                TableCell(content=[Text(content="B")]),
+                            ],
+                            is_header=False,
+                        ),
+                    ],
+                )
+            ]
+        )
         options = RstRendererOptions(table_style="simple")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -310,22 +322,22 @@ class TestDefinitionLists:
 
     def test_definition_list(self) -> None:
         """Test rendering a definition list."""
-        doc = Document(children=[
-            DefinitionList(items=[
-                (
-                    DefinitionTerm(content=[Text(content="Term 1")]),
-                    [DefinitionDescription(content=[
-                        Paragraph(content=[Text(content="Definition 1")])
-                    ])]
-                ),
-                (
-                    DefinitionTerm(content=[Text(content="Term 2")]),
-                    [DefinitionDescription(content=[
-                        Paragraph(content=[Text(content="Definition 2")])
-                    ])]
-                ),
-            ])
-        ])
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term 1")]),
+                            [DefinitionDescription(content=[Paragraph(content=[Text(content="Definition 1")])])],
+                        ),
+                        (
+                            DefinitionTerm(content=[Text(content="Term 2")]),
+                            [DefinitionDescription(content=[Paragraph(content=[Text(content="Definition 2")])])],
+                        ),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -341,19 +353,15 @@ class TestBlockQuote:
 
     def test_block_quote(self) -> None:
         """Test rendering a block quote."""
-        doc = Document(children=[
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is quoted.")])
-            ])
-        ])
+        doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="This is quoted.")])])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
         # Block quotes in RST are indented
-        lines = rst.split('\n')
+        lines = rst.split("\n")
         quoted_lines = [line for line in lines if "This is quoted." in line]
         assert len(quoted_lines) > 0
-        assert any(line.startswith('   ') for line in quoted_lines)
+        assert any(line.startswith("   ") for line in quoted_lines)
 
 
 @pytest.mark.unit
@@ -362,9 +370,7 @@ class TestThematicBreak:
 
     def test_transition(self) -> None:
         """Test rendering a thematic break."""
-        doc = Document(children=[
-            ThematicBreak()
-        ])
+        doc = Document(children=[ThematicBreak()])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -378,13 +384,8 @@ class TestMetadata:
     def test_docinfo_rendering(self) -> None:
         """Test rendering metadata as docinfo."""
         doc = Document(
-            children=[
-                Paragraph(content=[Text(content="Content")])
-            ],
-            metadata={
-                'author': 'John Doe',
-                'creation_date': '2025-01-01'
-            }
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"author": "John Doe", "creation_date": "2025-01-01"},
         )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
@@ -436,9 +437,7 @@ class TestTextEscaping:
 
     def test_escape_asterisks(self) -> None:
         """Test that asterisks are escaped in text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Text with *asterisks* here")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text with *asterisks* here")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -448,9 +447,7 @@ class TestTextEscaping:
 
     def test_escape_underscores(self) -> None:
         """Test that underscores are escaped in text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Text with _underscores_ here")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text with _underscores_ here")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -459,9 +456,7 @@ class TestTextEscaping:
 
     def test_escape_backticks(self) -> None:
         """Test that backticks are escaped in text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Text with `backticks` here")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text with `backticks` here")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -470,9 +465,7 @@ class TestTextEscaping:
 
     def test_escape_brackets(self) -> None:
         """Test that square brackets are escaped in text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Text with [brackets] here")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text with [brackets] here")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -481,9 +474,7 @@ class TestTextEscaping:
 
     def test_escape_pipes(self) -> None:
         """Test that pipes are escaped in text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Text with |pipes| here")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Text with |pipes| here")])])
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -492,11 +483,9 @@ class TestTextEscaping:
 
     def test_escape_multiple_special_chars(self) -> None:
         """Test escaping multiple special characters together."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Special chars: *bold* _italic_ `code` [ref] |sub| <url>")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Special chars: *bold* _italic_ `code` [ref] |sub| <url>")])]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -515,13 +504,17 @@ class TestUnsupportedFeatures:
 
     def test_strikethrough_renders_as_plain_text(self) -> None:
         """Test that strikethrough content renders as plain text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strikethrough(content=[Text(content="struck through")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Strikethrough(content=[Text(content="struck through")]),
+                        Text(content=" text."),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -533,13 +526,17 @@ class TestUnsupportedFeatures:
 
     def test_underline_renders_as_plain_text(self) -> None:
         """Test that underline content renders as plain text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Underline(content=[Text(content="underlined")]),
-                Text(content=" text.")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Underline(content=[Text(content="underlined")]),
+                        Text(content=" text."),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -550,12 +547,16 @@ class TestUnsupportedFeatures:
 
     def test_superscript_uses_role_syntax(self) -> None:
         """Test that superscript uses :sup: role syntax."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="x"),
-                Superscript(content=[Text(content="2")]),
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="x"),
+                        Superscript(content=[Text(content="2")]),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -564,13 +565,17 @@ class TestUnsupportedFeatures:
 
     def test_subscript_uses_role_syntax(self) -> None:
         """Test that subscript uses :sub: role syntax."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="H"),
-                Subscript(content=[Text(content="2")]),
-                Text(content="O"),
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="H"),
+                        Subscript(content=[Text(content="2")]),
+                        Text(content="O"),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -584,13 +589,17 @@ class TestLineBreaks:
 
     def test_soft_line_break_renders_as_space(self) -> None:
         """Test that soft line breaks render as spaces."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Line 1"),
-                LineBreak(soft=True),
-                Text(content="Line 2"),
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=True),
+                        Text(content="Line 2"),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -599,13 +608,17 @@ class TestLineBreaks:
 
     def test_hard_line_break_uses_line_block_syntax(self) -> None:
         """Test that hard line breaks use line block syntax."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Line 1"),
-                LineBreak(soft=False),
-                Text(content="Line 2"),
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=False),
+                        Text(content="Line 2"),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -616,15 +629,19 @@ class TestLineBreaks:
 
     def test_multiple_hard_breaks(self) -> None:
         """Test multiple hard line breaks."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Line 1"),
-                LineBreak(soft=False),
-                Text(content="Line 2"),
-                LineBreak(soft=False),
-                Text(content="Line 3"),
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=False),
+                        Text(content="Line 2"),
+                        LineBreak(soft=False),
+                        Text(content="Line 3"),
+                    ]
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 
@@ -638,20 +655,28 @@ class TestTableLimitations:
 
     def test_grid_table_single_line_cells(self) -> None:
         """Test that grid tables render single-line cells correctly."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Header 1")]),
-                    TableCell(content=[Text(content="Header 2")]),
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Cell 1")]),
-                        TableCell(content=[Text(content="Cell 2")]),
-                    ], is_header=False),
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header 1")]),
+                            TableCell(content=[Text(content="Header 2")]),
+                        ],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Cell 1")]),
+                                TableCell(content=[Text(content="Cell 2")]),
+                            ],
+                            is_header=False,
+                        ),
+                    ],
+                )
+            ]
+        )
         options = RstRendererOptions(table_style="grid")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -664,20 +689,28 @@ class TestTableLimitations:
 
     def test_simple_table_single_line_cells(self) -> None:
         """Test that simple tables render single-line cells correctly."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")]),
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="A")]),
-                        TableCell(content=[Text(content="B")]),
-                    ], is_header=False),
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Col1")]),
+                            TableCell(content=[Text(content="Col2")]),
+                        ],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="A")]),
+                                TableCell(content=[Text(content="B")]),
+                            ],
+                            is_header=False,
+                        ),
+                    ],
+                )
+            ]
+        )
         options = RstRendererOptions(table_style="simple")
         renderer = RestructuredTextRenderer(options)
         rst = renderer.render_to_string(doc)
@@ -689,23 +722,33 @@ class TestTableLimitations:
 
     def test_table_with_complex_inline_content(self) -> None:
         """Test table cells with complex inline content (emphasis, code)."""
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Header")]),
-                ], is_header=True),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[
-                            Text(content="Text with "),
-                            Emphasis(content=[Text(content="emphasis")]),
-                            Text(content=" and "),
-                            Code(content="code"),
-                        ]),
-                    ], is_header=False),
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header")]),
+                        ],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(
+                                    content=[
+                                        Text(content="Text with "),
+                                        Emphasis(content=[Text(content="emphasis")]),
+                                        Text(content=" and "),
+                                        Code(content="code"),
+                                    ]
+                                ),
+                            ],
+                            is_header=False,
+                        ),
+                    ],
+                )
+            ]
+        )
         renderer = RestructuredTextRenderer()
         rst = renderer.render_to_string(doc)
 

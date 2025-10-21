@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+
 from utils import cleanup_test_dir, create_test_temp_dir
 
 
@@ -45,10 +46,7 @@ class TestCLIEndToEnd:
         """
         cmd = [sys.executable, "-m", "all2md"] + args
         return subprocess.run(
-            cmd,
-            cwd=self.cli_path.parent.parent.parent,  # Run from project root
-            capture_output=True,
-            text=True
+            cmd, cwd=self.cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
         )
 
     def test_html_file_conversion(self):
@@ -97,11 +95,7 @@ def example_function():
         output_file = self.temp_dir / "output.md"
 
         # Run CLI conversion
-        result = self._run_cli([
-            str(html_file),
-            "--out", str(output_file),
-            "--html-extract-title"
-        ])
+        result = self._run_cli([str(html_file), "--out", str(output_file), "--html-extract-title"])
 
         # Check process succeeded
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
@@ -144,10 +138,7 @@ def example_function():
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>HTML Title</h1><p>Content</p>")
 
-        result = self._run_cli([
-            str(html_file),
-            "--format", "sourcecode"
-        ])
+        result = self._run_cli([str(html_file), "--format", "sourcecode"])
 
         assert result.returncode == 0
         # Should output as code block since it's treated as source code
@@ -167,10 +158,7 @@ def example_function():
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        result = self._run_cli([
-            str(html_file),
-            "--format", "invalid_format"
-        ])
+        result = self._run_cli([str(html_file), "--format", "invalid_format"])
 
         assert result.returncode == 2  # argparse error code
 
@@ -179,10 +167,7 @@ def example_function():
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test</p>")
 
-        result = self._run_cli([
-            str(html_file),
-            "--log-level", "INVALID"
-        ])
+        result = self._run_cli([str(html_file), "--log-level", "INVALID"])
 
         assert result.returncode == 2  # argparse error code
 
@@ -191,10 +176,7 @@ def example_function():
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p>Test <img src='image.png' alt='test'></p>")
 
-        result = self._run_cli([
-            str(html_file),
-            "--attachment-output-dir", "./images"
-        ])
+        result = self._run_cli([str(html_file), "--attachment-output-dir", "./images"])
 
         assert result.returncode == 0
         assert "WARNING" in result.stderr
@@ -205,10 +187,7 @@ def example_function():
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<h1>Test</h1>")
 
-        result = self._run_cli([
-            str(html_file),
-            "--log-level", "DEBUG"
-        ])
+        result = self._run_cli([str(html_file), "--log-level", "DEBUG"])
 
         assert result.returncode == 0
         # Should contain debug information
@@ -219,10 +198,7 @@ def example_function():
         html_file = self.temp_dir / "test.html"
         html_file.write_text("<p><em>italic</em> text</p><ul><li>item</li></ul>")
 
-        result = self._run_cli([
-            str(html_file),
-            "--markdown-emphasis-symbol", "_"
-        ])
+        result = self._run_cli([str(html_file), "--markdown-emphasis-symbol", "_"])
 
         assert result.returncode == 0
         # Should use underscore for emphasis
@@ -253,15 +229,21 @@ def example_function():
 
         output_file = self.temp_dir / "complex_output.md"
 
-        result = self._run_cli([
-            str(html_file),
-            "--out", str(output_file),
-            "--html-extract-title",
-            "--html-strip-dangerous-elements",
-            "--markdown-emphasis-symbol", "_",
-            "--markdown-bullet-symbols", "•",
-            "--log-level", "INFO"
-        ])
+        result = self._run_cli(
+            [
+                str(html_file),
+                "--out",
+                str(output_file),
+                "--html-extract-title",
+                "--html-strip-dangerous-elements",
+                "--markdown-emphasis-symbol",
+                "_",
+                "--markdown-bullet-symbols",
+                "•",
+                "--log-level",
+                "INFO",
+            ]
+        )
 
         assert result.returncode == 0
         assert output_file.exists()
@@ -286,10 +268,7 @@ def example_function():
 
         # Test file output
         output_file = self.temp_dir / "output.md"
-        result_file = self._run_cli([
-            str(html_file),
-            "--out", str(output_file)
-        ])
+        result_file = self._run_cli([str(html_file), "--out", str(output_file)])
 
         assert result_file.returncode == 0
         assert output_file.exists()
@@ -322,10 +301,7 @@ def example_function():
         large_html_file = self.temp_dir / "large.html"
         large_html_file.write_text(large_html_content)
 
-        result = self._run_cli([
-            str(large_html_file),
-            "--html-extract-title"
-        ])
+        result = self._run_cli([str(large_html_file), "--html-extract-title"])
 
         assert result.returncode == 0
         assert "# Large Document" in result.stdout
@@ -349,10 +325,13 @@ def example_function():
         output_file = self.temp_dir / "output.md"
 
         # Run CLI conversion
-        result = self._run_cli([
-            str(odt_file),
-            "--out", str(output_file),
-        ])
+        result = self._run_cli(
+            [
+                str(odt_file),
+                "--out",
+                str(output_file),
+            ]
+        )
 
         # Check process succeeded
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
@@ -387,13 +366,19 @@ def example_function():
         output_file = self.temp_dir / "comprehensive_output.md"
         images_dir = self.temp_dir / "images"
 
-        result = self._run_cli([
-            str(odt_file),
-            "--out", str(output_file),
-            "--attachment-mode", "download",
-            "--attachment-output-dir", str(images_dir),
-            "--markdown-emphasis-symbol", "_"
-        ])
+        result = self._run_cli(
+            [
+                str(odt_file),
+                "--out",
+                str(output_file),
+                "--attachment-mode",
+                "download",
+                "--attachment-output-dir",
+                str(images_dir),
+                "--markdown-emphasis-symbol",
+                "_",
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists()
@@ -419,18 +404,17 @@ def example_function():
             pytest.skip("odfpy not available for ODT generation")
 
         # Test with tables preserved
-        result_with_tables = self._run_cli([
-            str(odt_file),
-        ])
+        result_with_tables = self._run_cli(
+            [
+                str(odt_file),
+            ]
+        )
 
         assert result_with_tables.returncode == 0
         assert "|" in result_with_tables.stdout  # Should contain table formatting
 
         # Test with tables disabled
-        result_no_tables = self._run_cli([
-            str(odt_file),
-            "--odt-no-preserve-tables"
-        ])
+        result_no_tables = self._run_cli([str(odt_file), "--odt-no-preserve-tables"])
 
         assert result_no_tables.returncode == 0
         # Should still process without error, just no table formatting
@@ -449,10 +433,7 @@ def example_function():
         except ImportError:
             pytest.skip("odfpy not available for ODT generation")
 
-        result = self._run_cli([
-            str(odt_file),
-            "--markdown-bullet-symbols", "•"
-        ])
+        result = self._run_cli([str(odt_file), "--markdown-bullet-symbols", "•"])
 
         assert result.returncode == 0
         content = result.stdout
@@ -476,9 +457,11 @@ def example_function():
 
             # Save ODP manually since we don't have a helper function
             import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.odp', delete=False) as tmp:
+
+            with tempfile.NamedTemporaryFile(suffix=".odp", delete=False) as tmp:
                 odp_doc.save(tmp.name)
                 import shutil
+
                 shutil.copy(tmp.name, odp_file)
         except ImportError:
             pytest.skip("odfpy not available for ODP generation")
@@ -496,10 +479,7 @@ def example_function():
         text_file = self.temp_dir / "fake.txt"
         text_file.write_text("This is just text, not really ODT")
 
-        result = self._run_cli([
-            str(text_file),
-            "--format", "odt"
-        ])
+        result = self._run_cli([str(text_file), "--format", "odt"])
 
         # Should attempt ODT processing (may fail since it's not real ODT)
         # But should not crash due to format detection
@@ -536,14 +516,21 @@ def example_function():
 
         output_file = self.temp_dir / "complex_output.md"
 
-        result = self._run_cli([
-            str(odt_file),
-            "--out", str(output_file),
-            "--attachment-mode", "base64",
-            "--markdown-emphasis-symbol", "_",
-            "--markdown-bullet-symbols", "•→◦",
-            "--log-level", "DEBUG"
-        ])
+        result = self._run_cli(
+            [
+                str(odt_file),
+                "--out",
+                str(output_file),
+                "--attachment-mode",
+                "base64",
+                "--markdown-emphasis-symbol",
+                "_",
+                "--markdown-bullet-symbols",
+                "•→◦",
+                "--log-level",
+                "DEBUG",
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists()
@@ -630,11 +617,9 @@ def example_function():
 
         images_dir = self.temp_dir / "images"
 
-        result = self._run_cli([
-            str(ipynb_file),
-            "--attachment-mode", "download",
-            "--attachment-output-dir", str(images_dir)
-        ])
+        result = self._run_cli(
+            [str(ipynb_file), "--attachment-mode", "download", "--attachment-output-dir", str(images_dir)]
+        )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         output = result.stdout
@@ -678,11 +663,11 @@ def example_function():
         notebook = {
             "cells": [{"cell_type": "markdown", "source": ["# Forced Notebook"]}],
             "metadata": {"kernelspec": {"language": "python"}},
-            "nbformat": 4
+            "nbformat": 4,
         }
 
         txt_file = self.temp_dir / "notebook.txt"
-        with open(txt_file, 'w') as f:
+        with open(txt_file, "w") as f:
             json.dump(notebook, f)
 
         result = self._run_cli([str(txt_file), "--format", "ipynb"])
@@ -729,12 +714,17 @@ def example_function():
         output_file = self.temp_dir / "data_science_output.md"
         images_dir = self.temp_dir / "notebook_images"
 
-        result = self._run_cli([
-            str(ipynb_file),
-            "--out", str(output_file),
-            "--attachment-mode", "download",
-            "--attachment-output-dir", str(images_dir)
-        ])
+        result = self._run_cli(
+            [
+                str(ipynb_file),
+                "--out",
+                str(output_file),
+                "--attachment-mode",
+                "download",
+                "--attachment-output-dir",
+                str(images_dir),
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists()
@@ -770,10 +760,7 @@ class TestEpubCLIEndToEnd:
         cmd = [sys.executable, "-m", "all2md"] + args
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
         return subprocess.run(
-            cmd,
-            cwd=cli_path.parent.parent.parent,  # Run from project root
-            capture_output=True,
-            text=True
+            cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
         )
 
     def test_epub_basic_conversion(self):
@@ -781,6 +768,7 @@ class TestEpubCLIEndToEnd:
         # Skip if ebooklib not available
         try:
             import importlib.util
+
             if importlib.util.find_spec("ebooklib") is None:
                 pytest.skip("ebooklib not available for EPUB tests")
         except Exception:
@@ -811,6 +799,7 @@ class TestEpubCLIEndToEnd:
         """Test EPUB conversion to output file."""
         try:
             import importlib.util
+
             if importlib.util.find_spec("ebooklib") is None:
                 pytest.skip("ebooklib not available for EPUB tests")
         except Exception:
@@ -825,10 +814,7 @@ class TestEpubCLIEndToEnd:
         output_file = self.temp_dir / "output.md"
 
         # Run CLI conversion with output file
-        result = self._run_cli([
-            str(epub_file),
-            "--out", str(output_file)
-        ])
+        result = self._run_cli([str(epub_file), "--out", str(output_file)])
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists(), "Output file was not created"
@@ -842,6 +828,7 @@ class TestEpubCLIEndToEnd:
         """Test EPUB conversion with base64 image embedding."""
         try:
             import importlib.util
+
             if importlib.util.find_spec("ebooklib") is None:
                 pytest.skip("ebooklib not available for EPUB tests")
         except Exception:
@@ -854,10 +841,7 @@ class TestEpubCLIEndToEnd:
         epub_file.write_bytes(epub_content)
 
         # Run CLI with base64 mode
-        result = self._run_cli([
-            str(epub_file),
-            "--attachment-mode", "base64"
-        ])
+        result = self._run_cli([str(epub_file), "--attachment-mode", "base64"])
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
 
@@ -870,6 +854,7 @@ class TestEpubCLIEndToEnd:
         """Test EPUB conversion with image download."""
         try:
             import importlib.util
+
             if importlib.util.find_spec("ebooklib") is None:
                 pytest.skip("ebooklib not available for EPUB tests")
         except Exception:
@@ -885,12 +870,17 @@ class TestEpubCLIEndToEnd:
         output_file = self.temp_dir / "output.md"
 
         # Run CLI with download mode
-        result = self._run_cli([
-            str(epub_file),
-            "--out", str(output_file),
-            "--attachment-mode", "download",
-            "--attachment-output-dir", str(images_dir)
-        ])
+        result = self._run_cli(
+            [
+                str(epub_file),
+                "--out",
+                str(output_file),
+                "--attachment-mode",
+                "download",
+                "--attachment-output-dir",
+                str(images_dir),
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists()
@@ -902,6 +892,7 @@ class TestEpubCLIEndToEnd:
         """Test EPUB format override."""
         try:
             import importlib.util
+
             if importlib.util.find_spec("ebooklib") is None:
                 pytest.skip("ebooklib not available for EPUB tests")
         except Exception:
@@ -914,10 +905,7 @@ class TestEpubCLIEndToEnd:
         epub_file.write_bytes(epub_content)
 
         # Test with explicit format
-        result = self._run_cli([
-            str(epub_file),
-            "--format", "epub"
-        ])
+        result = self._run_cli([str(epub_file), "--format", "epub"])
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert "Chapter 1: Introduction" in result.stdout
@@ -951,10 +939,7 @@ class TestMhtmlCLIEndToEnd:
         cmd = [sys.executable, "-m", "all2md"] + args
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
         return subprocess.run(
-            cmd,
-            cwd=cli_path.parent.parent.parent,  # Run from project root
-            capture_output=True,
-            text=True
+            cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
         )
 
     def test_mhtml_basic_conversion(self):
@@ -990,10 +975,7 @@ class TestMhtmlCLIEndToEnd:
         output_file = self.temp_dir / "output.md"
 
         # Run CLI conversion with output file
-        result = self._run_cli([
-            str(mhtml_file),
-            "--out", str(output_file)
-        ])
+        result = self._run_cli([str(mhtml_file), "--out", str(output_file)])
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists(), "Output file was not created"
@@ -1012,10 +994,7 @@ class TestMhtmlCLIEndToEnd:
         mhtml_file.write_bytes(mhtml_content)
 
         # Run CLI with base64 mode
-        result = self._run_cli([
-            str(mhtml_file),
-            "--attachment-mode", "base64"
-        ])
+        result = self._run_cli([str(mhtml_file), "--attachment-mode", "base64"])
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
 
@@ -1036,12 +1015,17 @@ class TestMhtmlCLIEndToEnd:
         output_file = self.temp_dir / "output.md"
 
         # Run CLI with download mode
-        result = self._run_cli([
-            str(mhtml_file),
-            "--out", str(output_file),
-            "--attachment-mode", "download",
-            "--attachment-output-dir", str(images_dir)
-        ])
+        result = self._run_cli(
+            [
+                str(mhtml_file),
+                "--out",
+                str(output_file),
+                "--attachment-mode",
+                "download",
+                "--attachment-output-dir",
+                str(images_dir),
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert output_file.exists()
@@ -1077,10 +1061,7 @@ class TestMhtmlCLIEndToEnd:
         mhtml_file.write_bytes(mhtml_content)
 
         # Test with explicit format
-        result = self._run_cli([
-            str(mhtml_file),
-            "--format", "mhtml"
-        ])
+        result = self._run_cli([str(mhtml_file), "--format", "mhtml"])
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
         assert "Test MHTML Document" in result.stdout
@@ -1114,10 +1095,7 @@ class TestAdvancedCLIFeaturesE2E:
         cmd = [sys.executable, "-m", "all2md"] + args
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
         return subprocess.run(
-            cmd,
-            cwd=cli_path.parent.parent.parent,  # Run from project root
-            capture_output=True,
-            text=True
+            cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
         )
 
     def test_rich_output_e2e(self):
@@ -1132,12 +1110,7 @@ class TestAdvancedCLIFeaturesE2E:
         output_dir = self.temp_dir / "rich_output"
 
         # Run with rich flag
-        result = self._run_cli([
-            str(html_file1),
-            str(html_file2),
-            "--rich",
-            "--output-dir", str(output_dir)
-        ])
+        result = self._run_cli([str(html_file1), str(html_file2), "--rich", "--output-dir", str(output_dir)])
 
         # Should work regardless of rich availability
         assert result.returncode == 0
@@ -1157,10 +1130,7 @@ class TestAdvancedCLIFeaturesE2E:
             files.append(str(html_file))
 
         # Run with progress flag
-        result = self._run_cli([
-            *files,
-            "--progress"
-        ])
+        result = self._run_cli([*files, "--progress"])
 
         assert result.returncode == 0
         # Should handle gracefully whether tqdm is available or not
@@ -1177,12 +1147,7 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_dir = self.temp_dir / "multi_output"
 
-        result = self._run_cli([
-            str(html_file),
-            str(html_file2),
-            "--output-dir", str(output_dir),
-            "--no-summary"
-        ])
+        result = self._run_cli([str(html_file), str(html_file2), "--output-dir", str(output_dir), "--no-summary"])
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_dir.exists()
@@ -1207,11 +1172,7 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_file = self.temp_dir / "collated.md"
 
-        result = self._run_cli([
-            *files,
-            "--collate",
-            "--out", str(output_file)
-        ])
+        result = self._run_cli([*files, "--collate", "--out", str(output_file)])
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_file.exists()
@@ -1240,7 +1201,7 @@ class TestAdvancedCLIFeaturesE2E:
             self.temp_dir / "root.html",
             self.temp_dir / "subdir1" / "level1.html",
             self.temp_dir / "subdir1" / "nested" / "deep.html",
-            self.temp_dir / "subdir2" / "another.html"
+            self.temp_dir / "subdir2" / "another.html",
         ]
 
         for i, file_path in enumerate(files_to_create):
@@ -1248,13 +1209,9 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_dir = self.temp_dir / "recursive_output"
 
-        result = self._run_cli([
-            str(self.temp_dir),
-            "--recursive",
-            "--output-dir", str(output_dir),
-            "--preserve-structure",
-            "--no-summary"
-        ])
+        result = self._run_cli(
+            [str(self.temp_dir), "--recursive", "--output-dir", str(output_dir), "--preserve-structure", "--no-summary"]
+        )
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_dir.exists()
@@ -1277,21 +1234,11 @@ class TestAdvancedCLIFeaturesE2E:
         output_dir = self.temp_dir / "env_output"
 
         # Run CLI with environment variables set
-        env = {
-            **os.environ,
-            'ALL2MD_OUTPUT_DIR': str(output_dir),
-            'ALL2MD_NO_SUMMARY': 'true'
-        }
+        env = {**os.environ, "ALL2MD_OUTPUT_DIR": str(output_dir), "ALL2MD_NO_SUMMARY": "true"}
 
         cmd = [sys.executable, "-m", "all2md", str(html_file)]
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
-        result = subprocess.run(
-            cmd,
-            cwd=cli_path.parent.parent.parent,
-            capture_output=True,
-            text=True,
-            env=env
-        )
+        result = subprocess.run(cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True, env=env)
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         # Should use environment variable for output directory
@@ -1308,12 +1255,7 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_dir = self.temp_dir / "parallel_output"
 
-        result = self._run_cli([
-            *files,
-            "--parallel", "3",
-            "--output-dir", str(output_dir),
-            "--no-summary"
-        ])
+        result = self._run_cli([*files, "--parallel", "3", "--output-dir", str(output_dir), "--no-summary"])
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_dir.exists()
@@ -1339,13 +1281,9 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_dir = self.temp_dir / "error_test_output"
 
-        result = self._run_cli([
-            str(good_file),
-            str(bad_file),
-            "--skip-errors",
-            "--output-dir", str(output_dir),
-            "--no-summary"
-        ])
+        result = self._run_cli(
+            [str(good_file), str(bad_file), "--skip-errors", "--output-dir", str(output_dir), "--no-summary"]
+        )
 
         # Should continue processing even if one file fails
         assert result.returncode in [0, 1]  # May return 1 for partial failure
@@ -1365,15 +1303,18 @@ class TestAdvancedCLIFeaturesE2E:
             files.append(str(html_file))
 
         # Use many features together
-        result = self._run_cli([
-            *files,
-            "--rich",  # Rich output
-            "--progress",  # Progress bar
-            "--parallel", "2",  # Parallel processing
-            "--skip-errors",  # Error handling
-            "--collate",  # File collation
-            "--no-summary"  # No summary
-        ])
+        result = self._run_cli(
+            [
+                *files,
+                "--rich",  # Rich output
+                "--progress",  # Progress bar
+                "--parallel",
+                "2",  # Parallel processing
+                "--skip-errors",  # Error handling
+                "--collate",  # File collation
+                "--no-summary",  # No summary
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
 
@@ -1407,13 +1348,9 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_dir = self.temp_dir / "large_output"
 
-        result = self._run_cli([
-            *files,
-            "--output-dir", str(output_dir),
-            "--parallel", "4",
-            "--progress",
-            "--no-summary"
-        ])
+        result = self._run_cli(
+            [*files, "--output-dir", str(output_dir), "--parallel", "4", "--progress", "--no-summary"]
+        )
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_dir.exists()
@@ -1433,7 +1370,8 @@ class TestAdvancedCLIFeaturesE2E:
         """Test attachment handling across multiple files end-to-end."""
         # Create HTML files with image references
         html1 = self.temp_dir / "with_image1.html"
-        html1.write_text('''
+        html1.write_text(
+            """
         <html>
         <head><title>Document with Image 1</title></head>
         <body>
@@ -1442,10 +1380,12 @@ class TestAdvancedCLIFeaturesE2E:
             <img src="image1.png" alt="Test Image 1">
         </body>
         </html>
-        ''')
+        """
+        )
 
         html2 = self.temp_dir / "with_image2.html"
-        html2.write_text('''
+        html2.write_text(
+            """
         <html>
         <head><title>Document with Image 2</title></head>
         <body>
@@ -1454,17 +1394,22 @@ class TestAdvancedCLIFeaturesE2E:
             <img src="image2.png" alt="Test Image 2">
         </body>
         </html>
-        ''')
+        """
+        )
 
         output_dir = self.temp_dir / "attachment_output"
 
-        result = self._run_cli([
-            str(html1),
-            str(html2),
-            "--output-dir", str(output_dir),
-            "--attachment-mode", "alt_text",  # Use alt_text to avoid download complexity
-            "--no-summary"
-        ])
+        result = self._run_cli(
+            [
+                str(html1),
+                str(html2),
+                "--output-dir",
+                str(output_dir),
+                "--attachment-mode",
+                "alt_text",  # Use alt_text to avoid download complexity
+                "--no-summary",
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_dir.exists()
@@ -1481,7 +1426,8 @@ class TestAdvancedCLIFeaturesE2E:
         """Test Markdown formatting options across multiple files."""
         # Create HTML files with various formatting
         html1 = self.temp_dir / "formatting1.html"
-        html1.write_text('''
+        html1.write_text(
+            """
         <html>
         <body>
             <h1>Formatting Test 1</h1>
@@ -1492,10 +1438,12 @@ class TestAdvancedCLIFeaturesE2E:
             </ul>
         </body>
         </html>
-        ''')
+        """
+        )
 
         html2 = self.temp_dir / "formatting2.html"
-        html2.write_text('''
+        html2.write_text(
+            """
         <html>
         <body>
             <h1>Formatting Test 2</h1>
@@ -1506,18 +1454,24 @@ class TestAdvancedCLIFeaturesE2E:
             </ul>
         </body>
         </html>
-        ''')
+        """
+        )
 
         output_dir = self.temp_dir / "formatting_output"
 
-        result = self._run_cli([
-            str(html1),
-            str(html2),
-            "--output-dir", str(output_dir),
-            "--markdown-emphasis-symbol", "_",
-            "--markdown-bullet-symbols", "•",
-            "--no-summary"
-        ])
+        result = self._run_cli(
+            [
+                str(html1),
+                str(html2),
+                "--output-dir",
+                str(output_dir),
+                "--markdown-emphasis-symbol",
+                "_",
+                "--markdown-bullet-symbols",
+                "•",
+                "--no-summary",
+            ]
+        )
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_dir.exists()
@@ -1541,16 +1495,12 @@ class TestAdvancedCLIFeaturesE2E:
         test_cases = [
             # Basic usage
             [str(html_file)],
-
             # With output file
             [str(html_file), "--out", str(self.temp_dir / "output1.md")],
-
             # With format override
             [str(html_file), "--format", "html"],
-
             # With HTML options
             [str(html_file), "--html-extract-title"],
-
             # With attachment options
             [str(html_file), "--attachment-mode", "alt_text"],
         ]
@@ -1576,7 +1526,7 @@ class TestAdvancedCLIFeaturesE2E:
             "--skip-errors",
             "--preserve-structure",
             "--collate",
-            "--no-summary"
+            "--no-summary",
         ]
 
         for option in new_options:
@@ -1590,10 +1540,7 @@ class TestAdvancedCLIFeaturesE2E:
     def test_error_messages_improved_e2e(self):
         """Test that error messages are helpful for new features."""
         # Test invalid parallel count
-        result = self._run_cli([
-            "test.html",
-            "--parallel", "-1"
-        ])
+        result = self._run_cli(["test.html", "--parallel", "-1"])
         assert result.returncode != 0
 
         # Test conflicting options (if any validation exists)
@@ -1623,12 +1570,9 @@ class TestExitCodes:
 
         """
         import sys
+
         cmd = [sys.executable, "-m", "all2md"] + args
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True)
         return result
 
     def test_exit_code_success(self, tmp_path):
@@ -1666,10 +1610,7 @@ class TestExitCodes:
         invalid_json = tmp_path / "invalid.json"
         invalid_json.write_text("{ invalid json }")
 
-        result = self._run_cli([
-            str(html_file),
-            "--config", str(invalid_json)
-        ])
+        result = self._run_cli([str(html_file), "--config", str(invalid_json)])
 
         assert result.returncode == 3
         assert "Error" in result.stderr
@@ -1703,6 +1644,7 @@ class TestExitCodes:
         """
         try:
             import importlib.util
+
             if importlib.util.find_spec("rich") is not None:
                 pytest.skip("Rich is installed, cannot test missing dependency")
         except Exception:
@@ -1746,11 +1688,7 @@ class TestExitCodes:
         nonexistent = tmp_path / "nonexistent.html"
 
         output_dir = tmp_path / "output"
-        result = self._run_cli([
-            str(valid_file),
-            str(nonexistent),
-            "--output-dir", str(output_dir)
-        ])
+        result = self._run_cli([str(valid_file), str(nonexistent), "--output-dir", str(output_dir)])
 
         # Nonexistent files are filtered with warning, but processing succeeds
         assert result.returncode == 0
@@ -1772,12 +1710,7 @@ class TestExitCodes:
         invalid_file.write_text("{ invalid json }")
 
         output_dir = tmp_path / "output"
-        result = self._run_cli([
-            str(valid_file),
-            str(invalid_file),
-            "--output-dir", str(output_dir),
-            "--skip-errors"
-        ])
+        result = self._run_cli([str(valid_file), str(invalid_file), "--output-dir", str(output_dir), "--skip-errors"])
 
         # Should return 4 (file error from malformed file)
         assert result.returncode == 4
@@ -1803,13 +1736,9 @@ class TestExitCodes:
         """Test exit code when reading from stdin with no data."""
         # Simulate empty stdin
         import sys
+
         cmd = [sys.executable, "-m", "all2md", "-"]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            input=""
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, input="")
         assert result.returncode == 4
         assert "Error: No valid input files found" in result.stderr
 

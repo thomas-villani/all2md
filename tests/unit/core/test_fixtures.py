@@ -7,6 +7,7 @@ before attempting to run the full test suite.
 from pathlib import Path
 
 import pytest
+
 from fixtures.generators.docx_fixtures import create_minimal_docx, save_docx_to_bytes
 from fixtures.generators.html_fixtures import create_minimal_html
 from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
@@ -33,7 +34,7 @@ def test_docx_fixture_generation():
     assert isinstance(docx_bytes, bytes)
     assert len(docx_bytes) > 0
     # DOCX files should have the ZIP signature
-    assert docx_bytes[:4] == b'PK\x03\x04'
+    assert docx_bytes[:4] == b"PK\x03\x04"
 
 
 @pytest.mark.unit
@@ -45,7 +46,7 @@ def test_pptx_fixture_generation():
     assert isinstance(pptx_bytes, bytes)
     assert len(pptx_bytes) > 0
     # PPTX files should have the ZIP signature
-    assert pptx_bytes[:4] == b'PK\x03\x04'
+    assert pptx_bytes[:4] == b"PK\x03\x04"
 
 
 @pytest.mark.unit

@@ -41,7 +41,7 @@ class TestDocumentMetadata:
             keywords=["test", "metadata"],
             creation_date="2025-09-26",
             creator="Test Creator",
-            language="en"
+            language="en",
         )
 
         assert metadata.title == "Test Title"
@@ -55,13 +55,13 @@ class TestDocumentMetadata:
     def test_document_metadata_custom_fields(self):
         """Test using custom fields in metadata."""
         metadata = DocumentMetadata()
-        metadata.custom['document_type'] = 'pdf'
-        metadata.custom['page_count'] = 10
-        metadata.custom['word_count'] = 500
+        metadata.custom["document_type"] = "pdf"
+        metadata.custom["page_count"] = 10
+        metadata.custom["word_count"] = 500
 
-        assert metadata.custom['document_type'] == 'pdf'
-        assert metadata.custom['page_count'] == 10
-        assert metadata.custom['word_count'] == 500
+        assert metadata.custom["document_type"] == "pdf"
+        assert metadata.custom["page_count"] == 10
+        assert metadata.custom["word_count"] == 500
 
 
 @pytest.mark.unit
@@ -70,10 +70,7 @@ class TestFormatYamlFrontmatter:
 
     def test_format_yaml_frontmatter_basic(self):
         """Test basic YAML formatting."""
-        metadata = DocumentMetadata(
-            title="Test Document",
-            author="Test Author"
-        )
+        metadata = DocumentMetadata(title="Test Document", author="Test Author")
 
         result = format_yaml_frontmatter(metadata)
 
@@ -84,10 +81,7 @@ class TestFormatYamlFrontmatter:
 
     def test_format_yaml_frontmatter_with_keywords(self):
         """Test YAML formatting with keyword list."""
-        metadata = DocumentMetadata(
-            title="Test Document",
-            keywords=["python", "testing", "metadata"]
-        )
+        metadata = DocumentMetadata(title="Test Document", keywords=["python", "testing", "metadata"])
 
         result = format_yaml_frontmatter(metadata)
 
@@ -97,23 +91,21 @@ class TestFormatYamlFrontmatter:
     def test_format_yaml_frontmatter_with_quotes_needed(self):
         """Test YAML formatting with values that need quotes."""
         metadata = DocumentMetadata(
-            title="Document: With Colon",
-            author="Author, With Comma",
-            creation_date="2025-01-01"
+            title="Document: With Colon", author="Author, With Comma", creation_date="2025-01-01"
         )
 
         result = format_yaml_frontmatter(metadata)
 
         assert 'title: "Document: With Colon"' in result
-        assert 'author: Author, With Comma' in result  # Commas don't require quotes in our implementation
+        assert "author: Author, With Comma" in result  # Commas don't require quotes in our implementation
         assert "creation_date: 2025-01-01" in result
 
     def test_format_yaml_frontmatter_with_custom_fields(self):
         """Test YAML formatting with custom fields."""
         metadata = DocumentMetadata(title="Test")
-        metadata.custom['page_count'] = 5
-        metadata.custom['document_type'] = 'html'
-        metadata.custom['tags'] = ['web', 'document']
+        metadata.custom["page_count"] = 5
+        metadata.custom["document_type"] = "html"
+        metadata.custom["tags"] = ["web", "document"]
 
         result = format_yaml_frontmatter(metadata)
 
@@ -133,11 +125,7 @@ class TestFormatYamlFrontmatter:
 
     def test_format_yaml_frontmatter_with_dict_input(self):
         """Test YAML formatting with dictionary input."""
-        metadata_dict = {
-            'title': 'Dict Test',
-            'author': 'Dict Author',
-            'keywords': ['dict', 'test']
-        }
+        metadata_dict = {"title": "Dict Test", "author": "Dict Author", "keywords": ["dict", "test"]}
 
         result = format_yaml_frontmatter(metadata_dict)
 
@@ -149,15 +137,15 @@ class TestFormatYamlFrontmatter:
         """Test YAML formatting with multiline values."""
         metadata = DocumentMetadata(
             title="Test Title",
-            subject="This is a very long description that might contain\nmultiple lines and should be handled properly"
+            subject="This is a very long description that might contain\nmultiple lines and should be handled properly",
         )
 
         result = format_yaml_frontmatter(metadata)
 
         # Multiline strings should use literal block scalar format
         assert "title: Test Title" in result
-        assert 'description: |' in result  # subject maps to description
-        assert '  This is a very long description' in result
+        assert "description: |" in result  # subject maps to description
+        assert "  This is a very long description" in result
 
 
 @pytest.mark.unit
@@ -217,13 +205,13 @@ class TestPrependMetadataIfEnabled:
 
         result = prepend_metadata_if_enabled(content, metadata, True)
 
-        lines = result.split('\n')
+        lines = result.split("\n")
 
         # Find the end of front matter
         end_frontmatter_idx = None
         start_frontmatter_idx = None
         for i, line in enumerate(lines):
-            if line == '---':
+            if line == "---":
                 if start_frontmatter_idx is None:
                     start_frontmatter_idx = i
                 else:
@@ -234,8 +222,8 @@ class TestPrependMetadataIfEnabled:
         assert end_frontmatter_idx is not None
 
         # Should have proper separation
-        assert lines[end_frontmatter_idx + 1] == ''  # Empty line after front matter
-        assert lines[end_frontmatter_idx + 2] == '# Title'  # Content starts after empty line
+        assert lines[end_frontmatter_idx + 1] == ""  # Empty line after front matter
+        assert lines[end_frontmatter_idx + 2] == "# Title"  # Content starts after empty line
 
 
 @pytest.mark.unit

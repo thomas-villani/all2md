@@ -63,9 +63,9 @@ def _create_mock_text_block(text, bbox=(0, 0, 100, 20), font_size=12, font_name=
                         "font": font_name,
                         "flags": font_flags,
                     }
-                ]
+                ],
             }
-        ]
+        ],
     }
 
 
@@ -155,7 +155,7 @@ class TestBasicConversion:
         blocks = [
             _create_mock_text_block("First block"),
             _create_mock_text_block("Second block", bbox=(0, 30, 100, 50)),
-            _create_mock_text_block("Third block", bbox=(0, 60, 100, 80))
+            _create_mock_text_block("Third block", bbox=(0, 60, 100, 80)),
         ]
         page = _create_mock_page(blocks)
         doc = _create_mock_pdf_document(page)
@@ -223,10 +223,7 @@ class TestTableDetection:
         """Test page with detected table."""
         # Mock table
         mock_table = Mock()
-        mock_table.extract = Mock(return_value=[
-            ["Header1", "Header2"],
-            ["Data1", "Data2"]
-        ])
+        mock_table.extract = Mock(return_value=[["Header1", "Header2"], ["Data1", "Data2"]])
         mock_table.bbox = (0, 0, 200, 100)
         mock_table.header = Mock()
         mock_table.header.bbox = (0, 0, 200, 20)
@@ -253,10 +250,7 @@ class TestTableDetection:
     def test_table_extraction_disabled(self) -> None:
         """Test that tables are flattened when preserve_tables=False."""
         mock_table = Mock()
-        mock_table.extract = Mock(return_value=[
-            ["Header1", "Header2"],
-            ["Data1", "Data2"]
-        ])
+        mock_table.extract = Mock(return_value=[["Header1", "Header2"], ["Data1", "Data2"]])
 
         mock_tables = Mock()
         mock_tables.tables = [mock_table]
@@ -358,7 +352,7 @@ class TestEdgeCases:
 
     def test_special_characters_in_text(self) -> None:
         """Test text with special characters."""
-        block = _create_mock_text_block("Text with <special> & \"chars\"")
+        block = _create_mock_text_block('Text with <special> & "chars"')
         page = _create_mock_page([block])
         doc = _create_mock_pdf_document(page)
 
@@ -447,11 +441,7 @@ class TestOptionsConfiguration:
         page = _create_mock_page([block])
         doc = _create_mock_pdf_document(page)
 
-        options = PdfOptions(
-            table_detection_mode="both",
-            page_separator_template="-----",
-            attachment_mode="embed"
-        )
+        options = PdfOptions(table_detection_mode="both", page_separator_template="-----", attachment_mode="embed")
         converter = PdfToAstConverter(options)
         ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
@@ -463,11 +453,7 @@ class TestOptionsConfiguration:
         page = _create_mock_page([block])
         doc = _create_mock_pdf_document(page)
 
-        options = PdfOptions(
-            table_detection_mode="none",
-            page_separator_template="",
-            attachment_mode="skip"
-        )
+        options = PdfOptions(table_detection_mode="none", page_separator_template="", attachment_mode="skip")
         converter = PdfToAstConverter(options)
         ast_doc = converter.convert_to_ast(doc, range(len(doc)), "test.pdf")
 
@@ -483,7 +469,7 @@ class TestComplexStructures:
         blocks = [
             _create_mock_text_block("Title", font_size=24),
             _create_mock_text_block("Normal paragraph", bbox=(0, 30, 100, 50)),
-            _create_mock_text_block("print('code')", bbox=(0, 60, 100, 80), font_name="Courier")
+            _create_mock_text_block("print('code')", bbox=(0, 60, 100, 80), font_name="Courier"),
         ]
         page = _create_mock_page(blocks)
         doc = _create_mock_pdf_document(page)
@@ -499,12 +485,12 @@ class TestComplexStructures:
         # Left column blocks
         left_blocks = [
             _create_mock_text_block("Left col text", bbox=(0, 0, 200, 20)),
-            _create_mock_text_block("More left text", bbox=(0, 30, 200, 50))
+            _create_mock_text_block("More left text", bbox=(0, 30, 200, 50)),
         ]
         # Right column blocks
         right_blocks = [
             _create_mock_text_block("Right col text", bbox=(300, 0, 500, 20)),
-            _create_mock_text_block("More right text", bbox=(300, 30, 500, 50))
+            _create_mock_text_block("More right text", bbox=(300, 30, 500, 50)),
         ]
 
         page = _create_mock_page(left_blocks + right_blocks)
@@ -550,7 +536,7 @@ class TestTextExtraction:
             _create_mock_text_block("Text"),
             _create_mock_text_block(""),  # Empty
             _create_mock_text_block("   "),  # Whitespace only
-            _create_mock_text_block("More text", bbox=(0, 60, 100, 80))
+            _create_mock_text_block("More text", bbox=(0, 60, 100, 80)),
         ]
         page = _create_mock_page(blocks)
         doc = _create_mock_pdf_document(page)

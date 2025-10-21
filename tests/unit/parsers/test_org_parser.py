@@ -158,7 +158,7 @@ class TestTodoHeadings:
 
         heading = doc.children[0]
         assert isinstance(heading, Heading)
-        assert heading.metadata.get('org_todo_state') == 'TODO'
+        assert heading.metadata.get("org_todo_state") == "TODO"
 
     def test_done_heading(self) -> None:
         """Test parsing a DONE heading."""
@@ -168,7 +168,7 @@ class TestTodoHeadings:
 
         heading = doc.children[0]
         assert isinstance(heading, Heading)
-        assert heading.metadata.get('org_todo_state') == 'DONE'
+        assert heading.metadata.get("org_todo_state") == "DONE"
 
     def test_heading_with_priority(self) -> None:
         """Test parsing a heading with priority."""
@@ -178,7 +178,7 @@ class TestTodoHeadings:
 
         heading = doc.children[0]
         assert isinstance(heading, Heading)
-        assert heading.metadata.get('org_priority') == 'A'
+        assert heading.metadata.get("org_priority") == "A"
 
     def test_heading_with_tags(self) -> None:
         """Test parsing a heading with tags."""
@@ -188,9 +188,9 @@ class TestTodoHeadings:
 
         heading = doc.children[0]
         assert isinstance(heading, Heading)
-        tags = heading.metadata.get('org_tags', [])
-        assert 'work' in tags
-        assert 'urgent' in tags
+        tags = heading.metadata.get("org_tags", [])
+        assert "work" in tags
+        assert "urgent" in tags
 
 
 @pytest.mark.unit
@@ -247,7 +247,7 @@ def hello():
 
         code_blocks = [node for node in doc.children if isinstance(node, CodeBlock)]
         assert len(code_blocks) >= 1
-        assert 'def hello()' in code_blocks[0].content
+        assert "def hello()" in code_blocks[0].content
 
     def test_code_block_with_language(self) -> None:
         """Test parsing a code block with language."""
@@ -263,7 +263,7 @@ def hello():
         code_blocks = [node for node in doc.children if isinstance(node, CodeBlock)]
         assert len(code_blocks) >= 1
         assert code_blocks[0].language == "python"
-        assert 'def hello()' in code_blocks[0].content
+        assert "def hello()" in code_blocks[0].content
 
 
 @pytest.mark.unit
@@ -323,7 +323,7 @@ class TestImages:
         para = paras[0]
         images = [node for node in para.content if isinstance(node, Image)]
         assert len(images) == 1
-        assert 'image.png' in images[0].url
+        assert "image.png" in images[0].url
 
 
 @pytest.mark.unit
@@ -377,8 +377,8 @@ Content here."""
         parser = OrgParser()
         doc = parser.parse(org)
 
-        assert 'title' in doc.metadata
-        assert doc.metadata['title'] == 'My Document Title'
+        assert "title" in doc.metadata
+        assert doc.metadata["title"] == "My Document Title"
 
     def test_file_properties(self) -> None:
         """Test extracting file-level properties."""
@@ -389,10 +389,10 @@ Content here."""
         parser = OrgParser()
         doc = parser.parse(org)
 
-        assert 'title' in doc.metadata
-        assert doc.metadata['title'] == 'My Document'
-        assert 'author' in doc.metadata
-        assert doc.metadata['author'] == 'John Doe'
+        assert "title" in doc.metadata
+        assert doc.metadata["title"] == "My Document"
+        assert "author" in doc.metadata
+        assert doc.metadata["author"] == "John Doe"
 
 
 @pytest.mark.unit
@@ -408,7 +408,7 @@ class TestOptions:
 
         heading = doc.children[0]
         assert isinstance(heading, Heading)
-        assert heading.metadata.get('org_todo_state') == 'IN-PROGRESS'
+        assert heading.metadata.get("org_todo_state") == "IN-PROGRESS"
 
     def test_parse_tags_disabled(self) -> None:
         """Test that parse_tags option disables tag parsing."""
@@ -420,5 +420,5 @@ class TestOptions:
         heading = doc.children[0]
         assert isinstance(heading, Heading)
         # Tags should not be in metadata when parse_tags is False
-        tags = heading.metadata.get('org_tags', [])
+        tags = heading.metadata.get("org_tags", [])
         assert len(tags) == 0

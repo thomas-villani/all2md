@@ -8,12 +8,7 @@ from all2md import HtmlOptions, to_markdown
 from all2md.ast import Heading
 from all2md.parsers.html import HtmlToAstConverter
 
-FIXTURE_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "fixtures"
-    / "documents"
-    / "html_readability_article.html"
-)
+FIXTURE_PATH = Path(__file__).resolve().parents[3] / "fixtures" / "documents" / "html_readability_article.html"
 
 
 def _flatten_text(nodes: list) -> str:

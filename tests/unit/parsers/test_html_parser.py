@@ -207,7 +207,7 @@ class TestLinks:
 
     def test_link_sanitization_javascript(self) -> None:
         """Test that javascript: URLs are sanitized."""
-        html = '<a href="javascript:alert(\'xss\')">Click</a>'
+        html = "<a href=\"javascript:alert('xss')\">Click</a>"
         converter = HtmlToAstConverter()
         doc = converter.convert_to_ast(html)
 
@@ -611,15 +611,14 @@ class TestHtmlOptions:
         assert len(doc.children) == 2
         assert all(isinstance(child, Paragraph) for child in doc.children)
         paragraph_text = [
-            "".join(text.content for text in child.content if isinstance(text, Text))
-            for child in doc.children
+            "".join(text.content for text in child.content if isinstance(text, Text)) for child in doc.children
         ]
         assert "console.log" not in " ".join(paragraph_text)
 
     def test_allowed_attributes_global_allowlist(self) -> None:
         """Test global attribute allowlist removes unwanted attributes."""
         html = '<div class="container" id="main" data-value="test" onclick="alert()">Content</div>'
-        options = HtmlOptions(allowed_attributes=('class', 'id'))
+        options = HtmlOptions(allowed_attributes=("class", "id"))
         converter = HtmlToAstConverter(options)
         doc = converter.convert_to_ast(html)
 
@@ -630,18 +629,14 @@ class TestHtmlOptions:
 
     def test_allowed_attributes_per_element_allowlist(self) -> None:
         """Test per-element attribute allowlist with different rules for different elements."""
-        html = '''
+        html = """
         <div class="container" id="main" style="color: red;">
             <img src="image.png" alt="test" onclick="alert()" class="img-class">
             <a href="/link" title="Link" class="link-class" onclick="alert()">Link</a>
         </div>
-        '''
+        """
         options = HtmlOptions(
-            allowed_attributes={
-                'div': ('class', 'id'),
-                'img': ('src', 'alt', 'title'),
-                'a': ('href', 'title')
-            }
+            allowed_attributes={"div": ("class", "id"), "img": ("src", "alt", "title"), "a": ("href", "title")}
         )
         converter = HtmlToAstConverter(options)
         doc = converter.convert_to_ast(html)
@@ -656,7 +651,7 @@ class TestHtmlOptions:
         html = '<div class="container"><span id="test" data-value="x">Content</span></div>'
         options = HtmlOptions(
             allowed_attributes={
-                'div': ('class',),
+                "div": ("class",),
                 # span not in allowlist, so all its attributes should be removed
             }
         )

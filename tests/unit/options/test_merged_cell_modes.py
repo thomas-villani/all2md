@@ -30,25 +30,25 @@ class TestMergedCellModes:
 
         # Create a simple table with merged cells
         # Header row
-        ws['A1'] = 'Name'
-        ws['B1'] = 'Details'
-        ws['C1'] = 'Score'
+        ws["A1"] = "Name"
+        ws["B1"] = "Details"
+        ws["C1"] = "Score"
 
         # Data rows with merged cells
-        ws['A2'] = 'Group A'
-        ws['B2'] = 'Item 1'
-        ws['C2'] = '100'
+        ws["A2"] = "Group A"
+        ws["B2"] = "Item 1"
+        ws["C2"] = "100"
 
         # Merge A2 and A3 (Group A spans 2 rows)
-        ws.merge_cells('A2:A3')
+        ws.merge_cells("A2:A3")
 
-        ws['B3'] = 'Item 2'
-        ws['C3'] = '200'
+        ws["B3"] = "Item 2"
+        ws["C3"] = "200"
 
         # Another group
-        ws['A4'] = 'Group B'
-        ws['B4'] = 'Item 3'
-        ws['C4'] = '300'
+        ws["A4"] = "Group B"
+        ws["B4"] = "Item 3"
+        ws["C4"] = "300"
 
         # Save to bytes
         output = io.BytesIO()
@@ -65,7 +65,7 @@ class TestMergedCellModes:
         doc = parser.parse(xlsx_bytes)
 
         # Should have one table
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -89,7 +89,7 @@ class TestMergedCellModes:
         doc = parser.parse(xlsx_bytes)
 
         # Should have one table
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -112,7 +112,7 @@ class TestMergedCellModes:
         doc = parser.parse(xlsx_bytes)
 
         # Should have one table
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -130,7 +130,7 @@ class TestMergedCellModes:
         doc = parser.parse(xlsx_bytes)
 
         # Should have one table
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -150,16 +150,16 @@ class TestMergedCellDetection:
         ws = wb.active
 
         # Create merged cells
-        ws['A1'] = 'Merged'
-        ws.merge_cells('A1:B2')
+        ws["A1"] = "Merged"
+        ws.merge_cells("A1:B2")
 
         merged_map = _map_merged_cells(ws)
 
         # Check that all cells in the range map to the master (A1)
-        assert merged_map['A1'] == 'A1'
-        assert merged_map['B1'] == 'A1'
-        assert merged_map['A2'] == 'A1'
-        assert merged_map['B2'] == 'A1'
+        assert merged_map["A1"] == "A1"
+        assert merged_map["B1"] == "A1"
+        assert merged_map["A2"] == "A1"
+        assert merged_map["B2"] == "A1"
 
     def test_get_merged_cell_spans(self):
         """Test the _get_merged_cell_spans helper function."""
@@ -169,18 +169,18 @@ class TestMergedCellDetection:
         ws = wb.active
 
         # Create merged cells
-        ws['A1'] = 'Merged 2x2'
-        ws.merge_cells('A1:B2')
+        ws["A1"] = "Merged 2x2"
+        ws.merge_cells("A1:B2")
 
-        ws['C1'] = 'Merged 1x3'
-        ws.merge_cells('C1:C3')
+        ws["C1"] = "Merged 1x3"
+        ws.merge_cells("C1:C3")
 
-        ws['A4'] = 'Merged 3x1'
-        ws.merge_cells('A4:C4')
+        ws["A4"] = "Merged 3x1"
+        ws.merge_cells("A4:C4")
 
         span_map = _get_merged_cell_spans(ws)
 
         # Check spans
-        assert span_map['A1'] == (2, 2)  # 2 cols, 2 rows
-        assert span_map['C1'] == (1, 3)  # 1 col, 3 rows
-        assert span_map['A4'] == (3, 1)  # 3 cols, 1 row
+        assert span_map["A1"] == (2, 2)  # 2 cols, 2 rows
+        assert span_map["C1"] == (1, 3)  # 1 col, 3 rows
+        assert span_map["A4"] == (3, 1)  # 3 cols, 1 row

@@ -19,7 +19,7 @@ class TestCsvDialectOptions:
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
         # Should have one table
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -41,7 +41,7 @@ class TestCsvDialectOptions:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -57,14 +57,17 @@ class TestCsvDialectOptions:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
         # Check that escape character was properly handled
         assert table.rows[0].cells[0].content[0].content == "Alice"
         # The escaped quotes should be properly parsed
-        assert '"hello"' in table.rows[0].cells[1].content[0].content or 'hello' in table.rows[0].cells[1].content[0].content
+        assert (
+            '"hello"' in table.rows[0].cells[1].content[0].content
+            or "hello" in table.rows[0].cells[1].content[0].content
+        )
 
     def test_pipe_delimiter(self):
         """Test using pipe as delimiter."""
@@ -74,7 +77,7 @@ class TestCsvDialectOptions:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -90,7 +93,7 @@ class TestCsvDialectOptions:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -106,7 +109,7 @@ class TestCsvDialectOptions:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -116,15 +119,11 @@ class TestCsvDialectOptions:
         """Test using multiple dialect options together."""
         csv_data = "Name;Description\n'Alice';'She said ''hi'''\n'Bob';'Normal'"
 
-        options = CsvOptions(
-            delimiter=";",
-            quote_char="'",
-            double_quote=True
-        )
+        options = CsvOptions(delimiter=";", quote_char="'", double_quote=True)
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -145,7 +144,7 @@ class TestCsvDialectDetection:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -160,7 +159,7 @@ class TestCsvDialectDetection:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
         table = tables[0]
@@ -180,7 +179,7 @@ class TestCsvDialectSampleSize:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
     def test_default_dialect_sample_size(self):
@@ -196,7 +195,7 @@ class TestCsvDialectSampleSize:
         parser = CsvToAstConverter(options=options)
         doc = parser.parse(io.BytesIO(csv_data.encode()))
 
-        tables = [node for node in doc.children if node.__class__.__name__ == 'Table']
+        tables = [node for node in doc.children if node.__class__.__name__ == "Table"]
         assert len(tables) == 1
 
 
@@ -207,12 +206,7 @@ class TestMakeCSVDialect:
         """Test creating a dialect with all custom parameters."""
         from all2md.parsers.csv import _make_csv_dialect
 
-        dialect_class = _make_csv_dialect(
-            delimiter="|",
-            quotechar="'",
-            escapechar="\\",
-            doublequote=False
-        )
+        dialect_class = _make_csv_dialect(delimiter="|", quotechar="'", escapechar="\\", doublequote=False)
 
         # Create an instance to check attributes
         dialect = dialect_class()
@@ -230,7 +224,7 @@ class TestMakeCSVDialect:
         dialect = dialect_class()
         assert dialect.delimiter == ";"
         # Other attributes should come from csv.excel
-        assert hasattr(dialect, 'quotechar')
+        assert hasattr(dialect, "quotechar")
 
     def test_make_dialect_no_parameters(self):
         """Test creating a dialect with no parameters (defaults to excel)."""
@@ -240,5 +234,5 @@ class TestMakeCSVDialect:
 
         dialect = dialect_class()
         # Should have excel defaults
-        assert hasattr(dialect, 'delimiter')
-        assert hasattr(dialect, 'quotechar')
+        assert hasattr(dialect, "delimiter")
+        assert hasattr(dialect, "quotechar")

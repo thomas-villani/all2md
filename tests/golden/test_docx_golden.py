@@ -7,14 +7,14 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
+
+from all2md import DocxOptions, to_markdown
 from fixtures.generators.docx_fixtures import (
     create_docx_with_formatting,
     create_docx_with_lists,
     create_docx_with_tables,
     save_docx_to_bytes,
 )
-
-from all2md import DocxOptions, to_markdown
 
 
 @pytest.mark.golden
@@ -28,7 +28,7 @@ class TestDOCXGolden:
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx")
         assert result == snapshot
 
     def test_docx_with_formatting(self, snapshot):
@@ -36,7 +36,7 @@ class TestDOCXGolden:
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx")
         assert result == snapshot
 
     def test_docx_with_lists(self, snapshot):
@@ -44,7 +44,7 @@ class TestDOCXGolden:
         doc = create_docx_with_lists()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx")
         assert result == snapshot
 
     def test_docx_with_table(self, snapshot):
@@ -52,7 +52,7 @@ class TestDOCXGolden:
         doc = create_docx_with_tables()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result = to_markdown(BytesIO(docx_bytes), source_format='docx')
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx")
         assert result == snapshot
 
     def test_docx_with_attachment_mode_skip(self, snapshot):
@@ -60,8 +60,8 @@ class TestDOCXGolden:
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        options = DocxOptions(attachment_mode='skip')
-        result = to_markdown(BytesIO(docx_bytes), source_format='docx', parser_options=options)
+        options = DocxOptions(attachment_mode="skip")
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx", parser_options=options)
         assert result == snapshot
 
     def test_docx_with_attachment_mode_alt_text(self, snapshot):
@@ -69,8 +69,8 @@ class TestDOCXGolden:
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        options = DocxOptions(attachment_mode='alt_text')
-        result = to_markdown(BytesIO(docx_bytes), source_format='docx', parser_options=options)
+        options = DocxOptions(attachment_mode="alt_text")
+        result = to_markdown(BytesIO(docx_bytes), source_format="docx", parser_options=options)
         assert result == snapshot
 
 
@@ -82,22 +82,22 @@ class TestDOCXGoldenFromFiles:
 
     def test_basic_docx_file(self, snapshot):
         """Test basic DOCX file matches snapshot."""
-        fixture_path = 'tests/fixtures/documents/basic.docx'
+        fixture_path = "tests/fixtures/documents/basic.docx"
 
         try:
-            with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, source_format='docx')
+            with open(fixture_path, "rb") as f:
+                result = to_markdown(f, source_format="docx")
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")
 
     def test_footnotes_endnotes_docx_file(self, snapshot):
         """Test DOCX with footnotes and endnotes matches snapshot."""
-        fixture_path = 'tests/fixtures/documents/footnotes-endnotes-comments.docx'
+        fixture_path = "tests/fixtures/documents/footnotes-endnotes-comments.docx"
 
         try:
-            with open(fixture_path, 'rb') as f:
-                result = to_markdown(f, source_format='docx')
+            with open(fixture_path, "rb") as f:
+                result = to_markdown(f, source_format="docx")
             assert result == snapshot
         except FileNotFoundError:
             pytest.skip(f"Fixture file not found: {fixture_path}")

@@ -60,15 +60,21 @@ class TestRemoteProgressTracking:
         with patch("all2md.utils.input_sources.fetch_content_securely") as fetch_mock:
             fetch_mock.return_value = b"# Heading\n\nParagraph."
 
-            doc = to_ast(url, source_format="markdown", remote_input_options=remote_options, progress_callback=logging_callback)
+            doc = to_ast(
+                url, source_format="markdown", remote_input_options=remote_options, progress_callback=logging_callback
+            )
 
         # Verify result
         assert doc is not None
         assert len(doc.children) > 0
 
         # Verify progress events were emitted for download
-        download_started = [e for e in events_log if e.event_type == "started" and e.metadata.get("item_type") == "download"]
-        download_done = [e for e in events_log if e.event_type == "item_done" and e.metadata.get("item_type") == "download"]
+        download_started = [
+            e for e in events_log if e.event_type == "started" and e.metadata.get("item_type") == "download"
+        ]
+        download_done = [
+            e for e in events_log if e.event_type == "item_done" and e.metadata.get("item_type") == "download"
+        ]
 
         assert len(download_started) == 1
         assert len(download_done) == 1
@@ -181,7 +187,12 @@ class TestRemoteProgressTracking:
             fetch_mock.return_value = b"# Document\n\nContent."
 
             for url in urls:
-                to_ast(url, source_format="markdown", remote_input_options=remote_options, progress_callback=collecting_callback)
+                to_ast(
+                    url,
+                    source_format="markdown",
+                    remote_input_options=remote_options,
+                    progress_callback=collecting_callback,
+                )
 
         # Should have events for both URLs
         unique_urls = {url for _, url in all_events}

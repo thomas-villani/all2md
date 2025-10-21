@@ -14,7 +14,9 @@ from all2md.transforms import (
     render,
 )
 
+
 # Test transforms
+
 
 class RemoveImagesTransform(NodeTransformer):
     """Transform that removes all images."""
@@ -27,11 +29,7 @@ class UppercaseTextTransform(NodeTransformer):
     """Transform that uppercases all text."""
 
     def visit_text(self, node):
-        return Text(
-            content=node.content.upper(),
-            metadata=node.metadata.copy(),
-            source_location=node.source_location
-        )
+        return Text(content=node.content.upper(), metadata=node.metadata.copy(), source_location=node.source_location)
 
 
 class HeadingOffsetTransform(NodeTransformer):
@@ -46,11 +44,12 @@ class HeadingOffsetTransform(NodeTransformer):
             level=new_level,
             content=self._transform_children(node.content),
             metadata=node.metadata.copy(),
-            source_location=node.source_location
+            source_location=node.source_location,
         )
 
 
 # Fixtures
+
 
 @pytest.fixture
 def sample_document():
@@ -58,15 +57,12 @@ def sample_document():
     return Document(
         children=[
             Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[
-                Text(content="Hello "),
-                Link(url="https://example.com", content=[Text(content="world")])
-            ]),
-            Paragraph(content=[
-                Image(url="image.png", alt_text="An image")
-            ])
+            Paragraph(
+                content=[Text(content="Hello "), Link(url="https://example.com", content=[Text(content="world")])]
+            ),
+            Paragraph(content=[Image(url="image.png", alt_text="An image")]),
         ],
-        metadata={"author": "Test"}
+        metadata={"author": "Test"},
     )
 
 
@@ -79,6 +75,7 @@ def registry():
 
 
 # Basic rendering tests
+
 
 class TestBasicRendering:
     """Tests for basic rendering without transforms."""
@@ -115,6 +112,7 @@ class TestBasicRendering:
 
 # Transform tests
 
+
 class TestTransformExecution:
     """Tests for transform execution."""
 
@@ -129,10 +127,7 @@ class TestTransformExecution:
 
     def test_multiple_transform_instances(self, sample_document):
         """Test applying multiple transform instances."""
-        transforms = [
-            RemoveImagesTransform(),
-            UppercaseTextTransform()
-        ]
+        transforms = [RemoveImagesTransform(), UppercaseTextTransform()]
         markdown = render(sample_document, transforms=transforms)
 
         assert "TITLE" in markdown
@@ -151,9 +146,7 @@ class TestTransformExecution:
         """Test applying transform by name."""
         # Register transform
         metadata = TransformMetadata(
-            name="remove-images",
-            description="Remove images",
-            transformer_class=RemoveImagesTransform
+            name="remove-images", description="Remove images", transformer_class=RemoveImagesTransform
         )
         registry.register(metadata)
 
@@ -164,16 +157,11 @@ class TestTransformExecution:
     def test_mixed_transforms(self, sample_document, registry):
         """Test mixing named and instance transforms."""
         metadata = TransformMetadata(
-            name="remove-images",
-            description="Remove images",
-            transformer_class=RemoveImagesTransform
+            name="remove-images", description="Remove images", transformer_class=RemoveImagesTransform
         )
         registry.register(metadata)
 
-        transforms = [
-            "remove-images",
-            UppercaseTextTransform()
-        ]
+        transforms = ["remove-images", UppercaseTextTransform()]
         markdown = render(sample_document, transforms=transforms)
 
         assert "TITLE" in markdown
@@ -181,6 +169,7 @@ class TestTransformExecution:
 
 
 # Hook tests
+
 
 class TestHookExecution:
     """Tests for hook execution."""
@@ -190,36 +179,32 @@ class TestHookExecution:
         called = []
 
         def pre_render_hook(doc, context):
-            called.append('pre_render')
+            called.append("pre_render")
             return doc
 
-        markdown = render(
-            sample_document,
-            hooks={'pre_render': [pre_render_hook]}
-        )
+        markdown = render(sample_document, hooks={"pre_render": [pre_render_hook]})
 
-        assert called == ['pre_render']
+        assert called == ["pre_render"]
         assert "# Title" in markdown
 
     def test_pipeline_hook_post_render(self, sample_document):
         """Test post_render hook."""
+
         def post_render_hook(md, context):
             return md + "\n\n---\nFooter"
 
-        markdown = render(
-            sample_document,
-            hooks={'post_render': [post_render_hook]}
-        )
+        markdown = render(sample_document, hooks={"post_render": [post_render_hook]})
 
         assert "Footer" in markdown
 
     def test_element_hook_image(self, sample_document):
         """Test element hook for images."""
+
         def log_image(node, context):
-            context.set_shared('image_url', node.url)
+            context.set_shared("image_url", node.url)
             return node
 
-        hooks = {'image': [log_image]}
+        hooks = {"image": [log_image]}
         markdown = render(sample_document, hooks=hooks)
 
         # Hook was called (we can't access context here, but no error means success)
@@ -227,29 +212,21 @@ class TestHookExecution:
 
     def test_element_hook_removes_node(self, sample_document):
         """Test element hook that removes nodes."""
+
         def remove_images(node, context):
             return None  # Remove all images
 
-        markdown = render(
-            sample_document,
-            hooks={'image': [remove_images]}
-        )
+        markdown = render(sample_document, hooks={"image": [remove_images]})
 
         assert "image.png" not in markdown
 
     def test_element_hook_modifies_node(self, sample_document):
         """Test element hook that modifies nodes."""
-        def uppercase_text(node, context):
-            return Text(
-                content=node.content.upper(),
-                metadata=node.metadata,
-                source_location=node.source_location
-            )
 
-        markdown = render(
-            sample_document,
-            hooks={'text': [uppercase_text]}
-        )
+        def uppercase_text(node, context):
+            return Text(content=node.content.upper(), metadata=node.metadata, source_location=node.source_location)
+
+        markdown = render(sample_document, hooks={"text": [uppercase_text]})
 
         assert "TITLE" in markdown
         assert "HELLO" in markdown
@@ -266,82 +243,69 @@ class TestHookExecution:
             results.append(2)
             return doc
 
-        render(
-            sample_document,
-            hooks={'pre_render': [hook1, hook2]}
-        )
+        render(sample_document, hooks={"pre_render": [hook1, hook2]})
 
         assert results == [1, 2]
 
 
 # Context tests
 
+
 class TestContextPassing:
     """Tests for context passing through pipeline."""
 
     def test_shared_context_between_hooks(self, sample_document):
         """Test hooks can share data via context."""
+
         def count_images(node, context):
-            count = context.get_shared('image_count', 0)
-            context.set_shared('image_count', count + 1)
+            count = context.get_shared("image_count", 0)
+            context.set_shared("image_count", count + 1)
             return node
 
         def add_image_count(md, context):
-            count = context.get_shared('image_count', 0)
+            count = context.get_shared("image_count", 0)
             return f"{md}\n\nImages: {count}"
 
-        markdown = render(
-            sample_document,
-            hooks={
-                'image': [count_images],
-                'post_render': [add_image_count]
-            }
-        )
+        markdown = render(sample_document, hooks={"image": [count_images], "post_render": [add_image_count]})
 
         assert "Images: 1" in markdown
 
     def test_context_has_metadata(self, sample_document):
         """Test context contains document metadata."""
+
         def check_metadata(doc, context):
-            assert 'author' in context.metadata
-            assert context.metadata['author'] == "Test"
+            assert "author" in context.metadata
+            assert context.metadata["author"] == "Test"
             return doc
 
-        render(
-            sample_document,
-            hooks={'pre_render': [check_metadata]}
-        )
+        render(sample_document, hooks={"pre_render": [check_metadata]})
 
     def test_context_has_document(self, sample_document):
         """Test context contains document reference."""
+
         def check_document(doc, context):
             assert context.document is not None
             assert isinstance(context.document, Document)
             return doc
 
-        render(
-            sample_document,
-            hooks={'pre_render': [check_document]}
-        )
+        render(sample_document, hooks={"pre_render": [check_document]})
 
 
 # Combined tests
+
 
 class TestCombinedTransformsAndHooks:
     """Tests for combining transforms and hooks."""
 
     def test_transform_then_hooks(self, sample_document):
         """Test transforms execute before element hooks."""
+
         # Transform uppercases text, then hook verifies it's uppercase
         def verify_uppercase(node, context):
             assert node.content.isupper()
             return node
 
-        markdown = render(
-            sample_document,
-            transforms=[UppercaseTextTransform()],
-            hooks={'text': [verify_uppercase]}
-        )
+        markdown = render(sample_document, transforms=[UppercaseTextTransform()], hooks={"text": [verify_uppercase]})
 
         assert "TITLE" in markdown
 
@@ -350,32 +314,29 @@ class TestCombinedTransformsAndHooks:
         results = []
 
         def track_pre_render(doc, context):
-            results.append('pre_render')
+            results.append("pre_render")
             return doc
 
         def track_post_render(md, context):
-            results.append('post_render')
+            results.append("post_render")
             return md
 
         def track_image(node, context):
-            results.append('image')
+            results.append("image")
             return node
 
         markdown = render(
             sample_document,
             transforms=[HeadingOffsetTransform(offset=1)],
-            hooks={
-                'pre_render': [track_pre_render],
-                'image': [track_image],
-                'post_render': [track_post_render]
-            }
+            hooks={"pre_render": [track_pre_render], "image": [track_image], "post_render": [track_post_render]},
         )
 
-        assert results == ['pre_render', 'image', 'post_render']
+        assert results == ["pre_render", "image", "post_render"]
         assert "## Title" in markdown  # H1 → H2
 
 
 # Error handling tests
+
 
 class TestErrorHandling:
     """Tests for error handling in pipeline."""
@@ -392,14 +353,12 @@ class TestErrorHandling:
 
     def test_hook_error_logged(self, sample_document, caplog):
         """Test hook errors are logged but don't crash pipeline."""
+
         def failing_hook(node, context):
             raise RuntimeError("Hook failed!")
 
         # Should not raise, just log
-        markdown = render(
-            sample_document,
-            hooks={'image': [failing_hook]}
-        )
+        markdown = render(sample_document, hooks={"image": [failing_hook]})
 
         assert "Hook failed" in caplog.text
         # Pipeline should complete
@@ -408,6 +367,7 @@ class TestErrorHandling:
 
 # Pipeline class tests
 
+
 class TestPipelineClass:
     """Tests for Pipeline class directly."""
 
@@ -415,8 +375,8 @@ class TestPipelineClass:
         """Test Pipeline initialization."""
         pipeline = Pipeline(
             transforms=[UppercaseTextTransform()],
-            hooks={'pre_render': [lambda doc, ctx: doc]},
-            options=MarkdownOptions(flavor="gfm")
+            hooks={"pre_render": [lambda doc, ctx: doc]},
+            options=MarkdownOptions(flavor="gfm"),
         )
 
         assert pipeline.transforms is not None
@@ -441,6 +401,7 @@ class TestPipelineClass:
 
     def test_pipeline_accepts_bytes_only_renderer(self, sample_document):
         """Test that renderers implementing only render_to_bytes are recognized."""
+
         class BytesOnlyRenderer:
             """Renderer that only implements render_to_bytes, not render_to_string."""
 
@@ -463,11 +424,13 @@ class TestPipelineClass:
 
 # Dependency resolution tests
 
+
 class TestDependencyResolution:
     """Tests for transform dependency resolution."""
 
     def test_dependencies_resolved_automatically(self, sample_document, registry):
         """Test dependencies are resolved automatically."""
+
         # Create dependent transforms
         class TransformA(NodeTransformer):
             pass
@@ -476,10 +439,7 @@ class TestDependencyResolution:
             pass
 
         metadata_a = TransformMetadata(
-            name="transform-a",
-            description="Transform A",
-            transformer_class=TransformA,
-            priority=100
+            name="transform-a", description="Transform A", transformer_class=TransformA, priority=100
         )
 
         metadata_b = TransformMetadata(
@@ -487,7 +447,7 @@ class TestDependencyResolution:
             description="Transform B",
             transformer_class=TransformB,
             dependencies=["transform-a"],
-            priority=200
+            priority=200,
         )
 
         registry.register(metadata_a)
@@ -501,6 +461,7 @@ class TestDependencyResolution:
 
 
 # Apply function tests (AST-only processing without rendering)
+
 
 class TestApplyFunction:
     """Tests for apply() function - AST transformation without rendering."""
@@ -537,10 +498,7 @@ class TestApplyFunction:
 
     def test_apply_with_multiple_transforms(self, sample_document):
         """Test apply() with multiple transforms."""
-        transforms = [
-            RemoveImagesTransform(),
-            UppercaseTextTransform()
-        ]
+        transforms = [RemoveImagesTransform(), UppercaseTextTransform()]
         result = apply(sample_document, transforms=transforms)
 
         # Check document structure
@@ -575,10 +533,10 @@ class TestApplyFunction:
                 url="modified.png",
                 alt_text=node.alt_text,
                 metadata=node.metadata.copy(),
-                source_location=node.source_location
+                source_location=node.source_location,
             )
 
-        result = apply(sample_document, hooks={'image': [modify_image]})
+        result = apply(sample_document, hooks={"image": [modify_image]})
 
         # Hook should have been called
         assert hook_called == ["image.png"]
@@ -594,24 +552,18 @@ class TestApplyFunction:
         hook_calls = []
 
         def pre_render_hook(doc, context):
-            hook_calls.append('pre_render')
+            hook_calls.append("pre_render")
             return doc
 
         def post_ast_hook(doc, context):
-            hook_calls.append('post_ast')
+            hook_calls.append("post_ast")
             return doc
 
-        result = apply(
-            sample_document,
-            hooks={
-                'post_ast': [post_ast_hook],
-                'pre_render': [pre_render_hook]
-            }
-        )
+        result = apply(sample_document, hooks={"post_ast": [post_ast_hook], "pre_render": [pre_render_hook]})
 
         # Both hooks should be called
-        assert 'post_ast' in hook_calls
-        assert 'pre_render' in hook_calls
+        assert "post_ast" in hook_calls
+        assert "pre_render" in hook_calls
         assert isinstance(result, Document)
 
     def test_apply_does_not_execute_post_render_hook(self, sample_document):
@@ -619,16 +571,13 @@ class TestApplyFunction:
         hook_calls = []
 
         def post_render_hook(output, context):
-            hook_calls.append('post_render')
+            hook_calls.append("post_render")
             return output
 
-        result = apply(
-            sample_document,
-            hooks={'post_render': [post_render_hook]}
-        )
+        result = apply(sample_document, hooks={"post_render": [post_render_hook]})
 
         # post_render should NOT be called since no rendering happens
-        assert 'post_render' not in hook_calls
+        assert "post_render" not in hook_calls
         assert isinstance(result, Document)
 
     def test_apply_with_transforms_and_hooks(self, sample_document):
@@ -643,14 +592,10 @@ class TestApplyFunction:
                 content=node.content,
                 title=node.title,
                 metadata=node.metadata.copy(),
-                source_location=node.source_location
+                source_location=node.source_location,
             )
 
-        result = apply(
-            sample_document,
-            transforms=[RemoveImagesTransform()],
-            hooks={'link': [link_hook]}
-        )
+        result = apply(sample_document, transforms=[RemoveImagesTransform()], hooks={"link": [link_hook]})
 
         # Image should be removed
         last_para = result.children[2]
@@ -685,10 +630,7 @@ class TestApplyFunction:
     def test_apply_then_render(self, sample_document):
         """Test using apply() for AST processing then render() for output."""
         # Process AST
-        processed = apply(
-            sample_document,
-            transforms=[RemoveImagesTransform(), UppercaseTextTransform()]
-        )
+        processed = apply(sample_document, transforms=[RemoveImagesTransform(), UppercaseTextTransform()])
 
         # Then render
         markdown = render(processed)
@@ -708,9 +650,7 @@ class TestApplyFunction:
     def test_apply_with_transform_by_name(self, sample_document, registry):
         """Test apply() with named transform from registry."""
         metadata = TransformMetadata(
-            name="remove-images",
-            description="Remove images",
-            transformer_class=RemoveImagesTransform
+            name="remove-images", description="Remove images", transformer_class=RemoveImagesTransform
         )
         registry.register(metadata)
 
@@ -722,14 +662,16 @@ class TestApplyFunction:
 
     def test_apply_hook_removes_document_raises(self, sample_document):
         """Test that apply() raises ValueError if hook removes document."""
+
         def bad_hook(doc, context):
             return None  # Remove document
 
         with pytest.raises(ValueError, match="removed document"):
-            apply(sample_document, hooks={'pre_render': [bad_hook]})
+            apply(sample_document, hooks={"pre_render": [bad_hook]})
 
 
 # Progress callback tests
+
 
 class TestProgressCallback:
     """Tests for progress callback functionality."""
@@ -787,7 +729,7 @@ class TestProgressCallback:
         render(
             sample_document,
             transforms=[RemoveImagesTransform(), UppercaseTextTransform()],
-            progress_callback=progress_handler
+            progress_callback=progress_handler,
         )
 
         # Should have events for each transform
@@ -811,11 +753,7 @@ class TestProgressCallback:
 
         # Pipeline should fail and emit error event
         with pytest.raises(RuntimeError):
-            render(
-                sample_document,
-                transforms=[FailingTransform()],
-                progress_callback=progress_handler
-            )
+            render(sample_document, transforms=[FailingTransform()], progress_callback=progress_handler)
 
         # Should have received error event
         event_types = [e.event_type for e in events]
@@ -828,6 +766,7 @@ class TestProgressCallback:
 
     def test_progress_callback_exception_does_not_break_pipeline(self, sample_document):
         """Test that exceptions in progress callback don't break pipeline."""
+
         def failing_callback(event):
             raise RuntimeError("Callback failed!")
 
@@ -850,11 +789,7 @@ class TestProgressCallback:
         def progress_handler(event):
             events.append(event)
 
-        render(
-            sample_document,
-            transforms=[RemoveImagesTransform()],
-            progress_callback=progress_handler
-        )
+        render(sample_document, transforms=[RemoveImagesTransform()], progress_callback=progress_handler)
 
         # Check that messages are non-empty and descriptive
         for event in events:
@@ -868,11 +803,7 @@ class TestProgressCallback:
         def progress_handler(event):
             events.append(event)
 
-        render(
-            sample_document,
-            transforms=[RemoveImagesTransform()],
-            progress_callback=progress_handler
-        )
+        render(sample_document, transforms=[RemoveImagesTransform()], progress_callback=progress_handler)
 
         # Filter to page_done and finished events
         progress_events = [e for e in events if e.event_type in ("page_done", "finished")]
@@ -884,56 +815,47 @@ class TestProgressCallback:
 
 # Strict hooks mode tests
 
+
 class TestStrictHooksMode:
     """Tests for strict_hooks parameter in pipeline."""
 
     def test_strict_hooks_mode_disabled_by_default(self, sample_document):
         """Test strict_hooks is disabled by default."""
+
         def failing_hook(node, context):
             raise RuntimeError("Hook failed!")
 
         # Should not raise, just log error
-        markdown = render(
-            sample_document,
-            hooks={'image': [failing_hook]}
-        )
+        markdown = render(sample_document, hooks={"image": [failing_hook]})
 
         assert "# Title" in markdown
 
     def test_strict_hooks_mode_reraises_exceptions(self, sample_document):
         """Test strict_hooks=True re-raises hook exceptions."""
+
         def failing_hook(node, context):
             raise RuntimeError("Hook failed in strict mode!")
 
         # Should raise because strict_hooks=True
         with pytest.raises(RuntimeError, match="Hook failed in strict mode!"):
-            render(
-                sample_document,
-                hooks={'image': [failing_hook]},
-                strict_hooks=True
-            )
+            render(sample_document, hooks={"image": [failing_hook]}, strict_hooks=True)
 
     def test_strict_hooks_via_pipeline_class(self, sample_document):
         """Test strict_hooks parameter works via Pipeline class."""
+
         def failing_hook(node, context):
             raise RuntimeError("Hook failed!")
 
-        pipeline = Pipeline(
-            hooks={'image': [failing_hook]},
-            strict_hooks=True
-        )
+        pipeline = Pipeline(hooks={"image": [failing_hook]}, strict_hooks=True)
 
         with pytest.raises(RuntimeError, match="Hook failed!"):
             pipeline.execute(sample_document)
 
     def test_strict_hooks_with_apply_function(self, sample_document):
         """Test strict_hooks works with apply() function."""
+
         def failing_hook(node, context):
             raise RuntimeError("Hook failed in apply!")
 
         with pytest.raises(RuntimeError, match="Hook failed in apply!"):
-            apply(
-                sample_document,
-                hooks={'image': [failing_hook]},
-                strict_hooks=True
-            )
+            apply(sample_document, hooks={"image": [failing_hook]}, strict_hooks=True)

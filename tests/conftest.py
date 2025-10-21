@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+
 from utils import cleanup_test_dir, create_test_temp_dir
 
 # Configure Hypothesis for property-based testing
@@ -17,12 +18,14 @@ try:
     # Register custom Hypothesis profiles
     settings.register_profile("ci", max_examples=100, verbosity=Verbosity.verbose)
     settings.register_profile("dev", max_examples=20)
-    settings.register_profile("debug", max_examples=10, verbosity=Verbosity.verbose,
-                            phases=[Phase.explicit, Phase.reuse, Phase.generate])
+    settings.register_profile(
+        "debug", max_examples=10, verbosity=Verbosity.verbose, phases=[Phase.explicit, Phase.reuse, Phase.generate]
+    )
 
     # Load profile from environment or use default
     import os
-    profile = os.getenv('HYPOTHESIS_PROFILE', 'dev')
+
+    profile = os.getenv("HYPOTHESIS_PROFILE", "dev")
     settings.load_profile(profile)
 except ImportError:
     # Hypothesis not installed, skip configuration
@@ -36,6 +39,7 @@ def _setup_test_imports():
         import fitz
 
         import all2md.parsers.pdf
+
         all2md.parsers.pdf.fitz = fitz
     except ImportError:
         # If fitz isn't available, that's ok - tests that need it will skip
@@ -134,8 +138,5 @@ def minimal_document_content() -> dict:
         "italic_text": "Italic text example",
         "list_items": ["First item", "Second item", "Third item"],
         "table_headers": ["Column 1", "Column 2", "Column 3"],
-        "table_rows": [
-            ["Row 1 Col 1", "Row 1 Col 2", "Row 1 Col 3"],
-            ["Row 2 Col 1", "Row 2 Col 2", "Row 2 Col 3"]
-        ]
+        "table_rows": [["Row 1 Col 1", "Row 1 Col 2", "Row 1 Col 3"], ["Row 2 Col 1", "Row 2 Col 2", "Row 2 Col 3"]],
     }

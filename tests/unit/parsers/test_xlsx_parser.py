@@ -44,14 +44,14 @@ def create_xlsx_with_chart() -> BytesIO:
     ws.title = "Sales Data"
 
     # Add data
-    ws['A1'] = 'Month'
-    ws['B1'] = 'Sales'
-    ws['A2'] = 'Jan'
-    ws['B2'] = 100
-    ws['A3'] = 'Feb'
-    ws['B3'] = 150
-    ws['A4'] = 'Mar'
-    ws['B4'] = 200
+    ws["A1"] = "Month"
+    ws["B1"] = "Sales"
+    ws["A2"] = "Jan"
+    ws["B2"] = 100
+    ws["A3"] = "Feb"
+    ws["B3"] = 150
+    ws["A4"] = "Mar"
+    ws["B4"] = 200
 
     # Create chart
     chart = BarChart()
@@ -89,23 +89,23 @@ def create_xlsx_with_image() -> BytesIO:
     ws.title = "Image Sheet"
 
     # Add some data
-    ws['A1'] = 'Data with Image'
-    ws['A2'] = 'Value 1'
-    ws['A3'] = 'Value 2'
+    ws["A1"] = "Data with Image"
+    ws["A2"] = "Value 1"
+    ws["A3"] = "Value 2"
 
     # Create a simple 1x1 pixel PNG image
     # PNG header + minimal IDAT chunk for 1x1 transparent pixel
     minimal_png = (
-        b'\x89PNG\r\n\x1a\n'  # PNG signature
-        b'\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89'  # IHDR
-        b'\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4'  # IDAT
-        b'\x00\x00\x00\x00IEND\xaeB`\x82'  # IEND
+        b"\x89PNG\r\n\x1a\n"  # PNG signature
+        b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"  # IHDR
+        b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4"  # IDAT
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"  # IEND
     )
 
     # Add image to sheet
     img_stream = BytesIO(minimal_png)
     img = XlsxImage(img_stream)
-    img.anchor = 'C2'
+    img.anchor = "C2"
     ws.add_image(img)
 
     # Save to BytesIO
@@ -127,12 +127,12 @@ class TestXlsxBasicConversion:
         ws.title = "Test Sheet"
 
         # Add header and data
-        ws['A1'] = 'Name'
-        ws['B1'] = 'Age'
-        ws['A2'] = 'Alice'
-        ws['B2'] = 30
-        ws['A3'] = 'Bob'
-        ws['B3'] = 25
+        ws["A1"] = "Name"
+        ws["B1"] = "Age"
+        ws["A2"] = "Alice"
+        ws["B2"] = 30
+        ws["A3"] = "Bob"
+        ws["B3"] = 25
 
         # Save to BytesIO
         output = BytesIO()
@@ -241,7 +241,7 @@ class TestXlsxOptions:
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "My Sheet"
-        ws['A1'] = 'Data'
+        ws["A1"] = "Data"
 
         output = BytesIO()
         wb.save(output)
@@ -253,16 +253,18 @@ class TestXlsxOptions:
         ast_doc = converter.parse(output)
 
         # Should have heading for sheet title
-        assert any(isinstance(child, Heading) and child.content[0].content == "My Sheet"
-                   for child in ast_doc.children
-                   if isinstance(child, Heading) and child.content)
+        assert any(
+            isinstance(child, Heading) and child.content[0].content == "My Sheet"
+            for child in ast_doc.children
+            if isinstance(child, Heading) and child.content
+        )
 
     def test_no_sheet_titles(self) -> None:
         """Test that sheet titles are not included when disabled."""
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "My Sheet"
-        ws['A1'] = 'Data'
+        ws["A1"] = "Data"
 
         output = BytesIO()
         wb.save(output)

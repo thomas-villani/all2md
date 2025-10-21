@@ -30,7 +30,7 @@ def create_markdown_with_code_and_lists() -> str:
         "2. Run the application\n\n"
         "```python\n"
         "def main():\n"
-        "    print(\"Hello from markdown fixtures!\")\n"
+        '    print("Hello from markdown fixtures!")\n'
         "```\n"
     )
 

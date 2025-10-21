@@ -7,11 +7,11 @@ from pptx import Presentation
 from pptx.chart.data import ChartData, XyChartData
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md.options import PptxOptions
 from all2md.parsers.pptx import PptxToAstConverter
 from all2md.renderers.markdown import MarkdownRenderer
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestPptxChartsAdvanced:
@@ -58,15 +58,13 @@ class TestPptxChartsAdvanced:
 
         # Create chart data with multiple series
         chart_data = ChartData()
-        chart_data.categories = ['Q1', 'Q2', 'Q3', 'Q4']
-        chart_data.add_series('Revenue', (10.5, 15.2, 12.8, 18.9))
-        chart_data.add_series('Expenses', (8.2, 12.1, 10.5, 14.3))
-        chart_data.add_series('Profit', (2.3, 3.1, 2.3, 4.6))
+        chart_data.categories = ["Q1", "Q2", "Q3", "Q4"]
+        chart_data.add_series("Revenue", (10.5, 15.2, 12.8, 18.9))
+        chart_data.add_series("Expenses", (8.2, 12.1, 10.5, 14.3))
+        chart_data.add_series("Profit", (2.3, 3.1, 2.3, 4.6))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
 
@@ -90,13 +88,11 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Market Share"
 
         chart_data = ChartData()
-        chart_data.categories = ['Company A', 'Company B', 'Company C', 'Others']
-        chart_data.add_series('Market Share', (35, 25, 20, 20))
+        chart_data.categories = ["Company A", "Company B", "Company C", "Others"]
+        chart_data.add_series("Market Share", (35, 25, 20, 20))
 
         x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.PIE, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.PIE, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -116,15 +112,13 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Trend Analysis"
 
         chart_data = ChartData()
-        chart_data.categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-        chart_data.add_series('Sales', (10, 12, 8, 15, 18, 22))
-        chart_data.add_series('Target', (12, 14, 16, 18, 20, 22))
-        chart_data.add_series('Previous Year', (8, 10, 12, 11, 14, 16))
+        chart_data.categories = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+        chart_data.add_series("Sales", (10, 12, 8, 15, 18, 22))
+        chart_data.add_series("Target", (12, 14, 16, 18, 20, 22))
+        chart_data.add_series("Previous Year", (8, 10, 12, 11, 14, 16))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -143,15 +137,13 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Stacked Performance"
 
         chart_data = ChartData()
-        chart_data.categories = ['Team A', 'Team B', 'Team C']
-        chart_data.add_series('Completed', (80, 65, 90))
-        chart_data.add_series('In Progress', (15, 25, 8))
-        chart_data.add_series('Not Started', (5, 10, 2))
+        chart_data.categories = ["Team A", "Team B", "Team C"]
+        chart_data.add_series("Completed", (80, 65, 90))
+        chart_data.add_series("In Progress", (15, 25, 8))
+        chart_data.add_series("Not Started", (5, 10, 2))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_STACKED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_STACKED, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -170,13 +162,11 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Horizontal Comparison"
 
         chart_data = ChartData()
-        chart_data.categories = ['Product 1', 'Product 2', 'Product 3', 'Product 4']
-        chart_data.add_series('Sales', (25, 40, 30, 35))
+        chart_data.categories = ["Product 1", "Product 2", "Product 3", "Product 4"]
+        chart_data.add_series("Sales", (25, 40, 30, 35))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.BAR_CLUSTERED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.BAR_CLUSTERED, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -194,14 +184,12 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Area Chart Analysis"
 
         chart_data = ChartData()
-        chart_data.categories = ['Week 1', 'Week 2', 'Week 3', 'Week 4']
-        chart_data.add_series('Visitors', (1000, 1200, 1100, 1400))
-        chart_data.add_series('Conversions', (50, 65, 48, 72))
+        chart_data.categories = ["Week 1", "Week 2", "Week 3", "Week 4"]
+        chart_data.add_series("Visitors", (1000, 1200, 1100, 1400))
+        chart_data.add_series("Conversions", (50, 65, 48, 72))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.AREA, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.AREA, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -222,16 +210,14 @@ class TestPptxChartsAdvanced:
         # Scatter charts need XyChartData, not ChartData with categories
 
         chart_data = XyChartData()
-        series = chart_data.add_series('Data Points')
+        series = chart_data.add_series("Data Points")
         series.add_data_point(10, 5)  # Point 1
         series.add_data_point(20, 15)  # Point 2
         series.add_data_point(15, 12)  # Point 3
         series.add_data_point(25, 20)  # Point 4
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.XY_SCATTER, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.XY_SCATTER, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -252,14 +238,12 @@ class TestPptxChartsAdvanced:
 
         # Create base chart
         chart_data = ChartData()
-        chart_data.categories = ['Q1', 'Q2', 'Q3', 'Q4']
-        chart_data.add_series('Volume', (100, 150, 120, 180))
-        chart_data.add_series('Revenue %', (5.2, 6.8, 4.9, 7.1))
+        chart_data.categories = ["Q1", "Q2", "Q3", "Q4"]
+        chart_data.add_series("Volume", (100, 150, 120, 180))
+        chart_data.add_series("Revenue %", (5.2, 6.8, 4.9, 7.1))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -277,15 +261,13 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Chart with Gaps"
 
         chart_data = ChartData()
-        chart_data.categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May']
+        chart_data.categories = ["Jan", "Feb", "Mar", "Apr", "May"]
         # Include zeros and potentially None values
-        chart_data.add_series('Sales', (10, 0, 15, 0, 20))
-        chart_data.add_series('Returns', (1, 2, 0, 1, 0))
+        chart_data.add_series("Sales", (10, 0, 15, 0, 20))
+        chart_data.add_series("Returns", (1, 2, 0, 1, 0))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -304,20 +286,15 @@ class TestPptxChartsAdvanced:
 
         chart_data = ChartData()
         chart_data.categories = [
-            'Very Long Category Name That Exceeds Normal Length',
-            'Another Extremely Long Category Name',
-            'Short',
-            'Medium Length Category'
+            "Very Long Category Name That Exceeds Normal Length",
+            "Another Extremely Long Category Name",
+            "Short",
+            "Medium Length Category",
         ]
-        chart_data.add_series(
-            'Extremely Long Series Name That Might Cause Formatting Issues',
-            (25, 40, 35, 30)
-        )
+        chart_data.add_series("Extremely Long Series Name That Might Cause Formatting Issues", (25, 40, 35, 30))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -334,13 +311,11 @@ class TestPptxChartsAdvanced:
         slide.shapes.title.text = "Special Characters Chart"
 
         chart_data = ChartData()
-        chart_data.categories = ['Café & Restaurant', 'H₂O Solutions', 'α-Beta Corp', '100% Organic']
-        chart_data.add_series('Revenue (€)', (1000.50, 2500.75, 1800.25, 3200.00))
+        chart_data.categories = ["Café & Restaurant", "H₂O Solutions", "α-Beta Corp", "100% Organic"]
+        chart_data.add_series("Revenue (€)", (1000.50, 2500.75, 1800.25, 3200.00))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(4)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
 
         markdown = self._convert_and_render(prs)
         assert_markdown_valid(markdown)
@@ -360,25 +335,19 @@ class TestPptxChartsAdvanced:
 
         # First chart
         chart_data1 = ChartData()
-        chart_data1.categories = ['A', 'B', 'C']
-        chart_data1.add_series('Series 1', (10, 20, 15))
+        chart_data1.categories = ["A", "B", "C"]
+        chart_data1.add_series("Series 1", (10, 20, 15))
 
         slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED,
-            Inches(1), Inches(1.5), Inches(4), Inches(3),
-            chart_data1
+            XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(1), Inches(1.5), Inches(4), Inches(3), chart_data1
         )
 
         # Second chart
         chart_data2 = ChartData()
-        chart_data2.categories = ['X', 'Y', 'Z']
-        chart_data2.add_series('Series 2', (5, 15, 25))
+        chart_data2.categories = ["X", "Y", "Z"]
+        chart_data2.add_series("Series 2", (5, 15, 25))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.PIE,
-            Inches(5.5), Inches(1.5), Inches(4), Inches(3),
-            chart_data2
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.PIE, Inches(5.5), Inches(1.5), Inches(4), Inches(3), chart_data2)
 
         # Convert the presentation with both charts
         markdown = self._convert_and_render(prs)
@@ -397,13 +366,11 @@ class TestPptxChartsAdvanced:
 
         # Create chart with minimal data
         chart_data = ChartData()
-        chart_data.categories = ['Single']
-        chart_data.add_series('Data', (42,))
+        chart_data.categories = ["Single"]
+        chart_data.add_series("Data", (42,))
 
         x, y, cx, cy = Inches(1), Inches(2), Inches(4), Inches(3)
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
 
         # Should handle minimal data gracefully
         markdown = self._convert_and_render(prs)

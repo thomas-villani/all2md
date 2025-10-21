@@ -30,7 +30,7 @@ class TestHTMLGolden:
         </html>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot
 
     def test_html_with_lists(self, snapshot):
@@ -49,7 +49,7 @@ class TestHTMLGolden:
         </ol>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot
 
     def test_html_with_table(self, snapshot):
@@ -78,7 +78,7 @@ class TestHTMLGolden:
         </table>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot
 
     def test_html_with_code_blocks(self, snapshot):
@@ -92,7 +92,7 @@ def hello_world():
         </code></pre>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot
 
     def test_html_with_nested_elements(self, snapshot):
@@ -110,7 +110,7 @@ def hello_world():
         </div>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot
 
     def test_html_with_images_alt_text_mode(self, snapshot):
@@ -121,8 +121,8 @@ def hello_world():
         <img src="https://example.com/image2.jpg" alt="Second image">
         """
 
-        options = HtmlOptions(attachment_mode='alt_text')
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html', parser_options=options)
+        options = HtmlOptions(attachment_mode="alt_text")
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html", parser_options=options)
         assert result == snapshot
 
     def test_html_with_dangerous_content_stripped(self, snapshot):
@@ -136,7 +136,7 @@ def hello_world():
         """
 
         options = HtmlOptions(strip_dangerous_elements=True)
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html', parser_options=options)
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html", parser_options=options)
         assert result == snapshot
 
     def test_html_with_metadata_extraction(self, snapshot):
@@ -156,7 +156,7 @@ def hello_world():
         """
 
         options = HtmlOptions(extract_title=True, extract_metadata=True)
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html', parser_options=options)
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html", parser_options=options)
         assert result == snapshot
 
     def test_html_with_complex_formatting(self, snapshot):
@@ -171,12 +171,12 @@ def hello_world():
         <p>After horizontal rule.</p>
         """
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot
 
     def test_html_empty_document(self, snapshot):
         """Test empty HTML document matches snapshot."""
         html = "<html><body></body></html>"
 
-        result = to_markdown(BytesIO(html.encode('utf-8')), source_format='html')
+        result = to_markdown(BytesIO(html.encode("utf-8")), source_format="html")
         assert result == snapshot

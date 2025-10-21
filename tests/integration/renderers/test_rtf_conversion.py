@@ -8,6 +8,7 @@ import pytest
 
 try:
     from pyth.plugins.rtf15 import writer  # noqa: F401
+
     RTF_AVAILABLE = True
 except Exception:  # pragma: no cover - dependency guard
     RTF_AVAILABLE = False
@@ -18,7 +19,6 @@ from all2md.options import RtfRendererOptions
 if RTF_AVAILABLE:
     from all2md.renderers.rtf import RtfRenderer
 
-
 pytestmark = pytest.mark.skipif(not RTF_AVAILABLE, reason="pyth3 with six not installed")
 
 
@@ -28,11 +28,13 @@ def _build_basic_document() -> Document:
         metadata={"title": "RTF Sample", "author": "Integration Bot"},
         children=[
             Heading(level=1, content=[Text(content="Integration Heading")]),
-            Paragraph(content=[
-                Text(content="Hello "),
-                Strong(content=[Text(content="World")]),
-                Text(content="!"),
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="Hello "),
+                    Strong(content=[Text(content="World")]),
+                    Text(content="!"),
+                ]
+            ),
         ],
     )
 

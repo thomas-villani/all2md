@@ -54,11 +54,7 @@ def create_ods_simple() -> BytesIO:
     table.addElement(header_row)
 
     # Add data rows
-    data = [
-        ["Alice", "30", "New York"],
-        ["Bob", "25", "London"],
-        ["Charlie", "35", "Paris"]
-    ]
+    data = [["Alice", "30", "New York"], ["Bob", "25", "London"], ["Charlie", "35", "Paris"]]
 
     for row_data in data:
         row = TableRow()
@@ -103,11 +99,7 @@ def create_ods_with_empty_chart() -> BytesIO:
     table.addElement(header_row)
 
     # Add data rows
-    data = [
-        ["Jan", "100"],
-        ["Feb", "150"],
-        ["Mar", "200"]
-    ]
+    data = [["Jan", "100"], ["Feb", "150"], ["Mar", "200"]]
 
     for row_data in data:
         row = TableRow()
@@ -169,10 +161,10 @@ class TestOdsBasicConversion:
 
         # No chart detection paragraphs
         chart_paragraphs = [
-            child for child in ast_doc.children
-            if isinstance(child, Paragraph) and
-            any(isinstance(node, Text) and "Chart detected" in node.content
-                for node in child.content)
+            child
+            for child in ast_doc.children
+            if isinstance(child, Paragraph)
+            and any(isinstance(node, Text) and "Chart detected" in node.content for node in child.content)
         ]
         assert len(chart_paragraphs) == 0
 
@@ -245,9 +237,11 @@ class TestOdsOptions:
         ast_doc = converter.parse(ods_data)
 
         # Should have heading for sheet title
-        assert any(isinstance(child, Heading) and child.content[0].content == "Test Sheet"
-                   for child in ast_doc.children
-                   if isinstance(child, Heading) and child.content)
+        assert any(
+            isinstance(child, Heading) and child.content[0].content == "Test Sheet"
+            for child in ast_doc.children
+            if isinstance(child, Heading) and child.content
+        )
 
     def test_no_sheet_titles(self) -> None:
         """Test that sheet titles are not included when disabled."""

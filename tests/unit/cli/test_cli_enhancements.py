@@ -28,9 +28,7 @@ class TestDependencyErrorEnhancements:
     def test_dependency_error_with_missing_packages_only(self):
         """Test DependencyError with only missing packages."""
         error = DependencyError(
-            converter_name="pdf",
-            missing_packages=[("pymupdf", ">=1.24.0"), ("pillow", "")],
-            version_mismatches=[]
+            converter_name="pdf", missing_packages=[("pymupdf", ">=1.24.0"), ("pillow", "")], version_mismatches=[]
         )
 
         assert error.converter_name == "pdf"
@@ -45,10 +43,7 @@ class TestDependencyErrorEnhancements:
         error = DependencyError(
             converter_name="pdf",
             missing_packages=[],
-            version_mismatches=[
-                ("numpy", ">=1.24.0", "1.20.0"),
-                ("pandas", ">=2.0.0", "1.5.3")
-            ]
+            version_mismatches=[("numpy", ">=1.24.0", "1.20.0"), ("pandas", ">=2.0.0", "1.5.3")],
         )
 
         assert error.converter_name == "pdf"
@@ -63,7 +58,7 @@ class TestDependencyErrorEnhancements:
         error = DependencyError(
             converter_name="pdf",
             missing_packages=[("pymupdf", ">=1.24.0")],
-            version_mismatches=[("numpy", ">=1.24.0", "1.20.0")]
+            version_mismatches=[("numpy", ">=1.24.0", "1.20.0")],
         )
 
         error_str = str(error)
@@ -77,7 +72,7 @@ class TestDependencyErrorEnhancements:
         error = DependencyError(
             converter_name="pdf",
             missing_packages=[("pymupdf", ">=1.24.0")],
-            version_mismatches=[("numpy", ">=1.24.0", "1.20.0")]
+            version_mismatches=[("numpy", ">=1.24.0", "1.20.0")],
         )
 
         error_str = str(error)
@@ -92,26 +87,28 @@ class TestListFormatsCommand:
 
     def test_list_formats_help(self):
         """Test that list-formats shows help with -h flag."""
-        result = handle_list_formats_command(['--help'])
+        result = handle_list_formats_command(["--help"])
         assert result == 0
 
-    @patch('all2md.converter_registry.registry')
-    @patch('all2md.dependencies.check_version_requirement')
-    @patch('all2md.dependencies.get_package_version')
+    @patch("all2md.converter_registry.registry")
+    @patch("all2md.dependencies.check_version_requirement")
+    @patch("all2md.dependencies.get_package_version")
     def test_list_formats_basic(self, mock_get_version, mock_check_version, mock_registry):
         """Test basic list-formats output."""
         # Setup mock registry
         mock_registry.auto_discover = Mock()
-        mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
+        mock_registry.list_formats = Mock(return_value=["pdf", "docx", "html"])
 
         # Mock format info
         mock_metadata = Mock()
         mock_metadata.description = "PDF converter"
-        mock_metadata.extensions = ['.pdf']
-        mock_metadata.mime_types = ['application/pdf']
+        mock_metadata.extensions = [".pdf"]
+        mock_metadata.mime_types = ["application/pdf"]
         mock_metadata.parser_class = "PdfParser"
         mock_metadata.renderer_class = "MarkdownRenderer"
-        mock_metadata.get_converter_display_string = Mock(return_value="Parser: all2md.parsers.pdf.PdfParser | Renderer: all2md.renderers.markdown.MarkdownRenderer")
+        mock_metadata.get_converter_display_string = Mock(
+            return_value="Parser: all2md.parsers.pdf.PdfParser | Renderer: all2md.renderers.markdown.MarkdownRenderer"
+        )
         mock_metadata.priority = 100
         mock_metadata.required_packages = []
 
@@ -125,21 +122,23 @@ class TestListFormatsCommand:
         result = handle_list_formats_command([])
         assert result == 0
 
-    @patch('all2md.converter_registry.registry')
-    @patch('all2md.dependencies.check_version_requirement')
-    @patch('all2md.dependencies.get_package_version')
+    @patch("all2md.converter_registry.registry")
+    @patch("all2md.dependencies.check_version_requirement")
+    @patch("all2md.dependencies.get_package_version")
     def test_list_formats_with_specific_format(self, mock_get_version, mock_check_version, mock_registry):
         """Test list-formats with specific format."""
         mock_registry.auto_discover = Mock()
-        mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
+        mock_registry.list_formats = Mock(return_value=["pdf", "docx", "html"])
 
         mock_metadata = Mock()
         mock_metadata.description = "PDF converter"
-        mock_metadata.extensions = ['.pdf']
-        mock_metadata.mime_types = ['application/pdf']
+        mock_metadata.extensions = [".pdf"]
+        mock_metadata.mime_types = ["application/pdf"]
         mock_metadata.parser_class = "PdfParser"
         mock_metadata.renderer_class = "MarkdownRenderer"
-        mock_metadata.get_converter_display_string = Mock(return_value="Parser: all2md.parsers.pdf.PdfParser | Renderer: all2md.renderers.markdown.MarkdownRenderer")
+        mock_metadata.get_converter_display_string = Mock(
+            return_value="Parser: all2md.parsers.pdf.PdfParser | Renderer: all2md.renderers.markdown.MarkdownRenderer"
+        )
         mock_metadata.priority = 100
         # required_packages is a list of (install_name, import_name, version_spec) tuples
         mock_metadata.required_packages = [("pymupdf", "fitz", ">=1.24.0")]
@@ -150,16 +149,16 @@ class TestListFormatsCommand:
         mock_get_version.return_value = "1.24.0"
         mock_check_version.return_value = (True, "1.24.0")
 
-        result = handle_list_formats_command(['pdf'])
+        result = handle_list_formats_command(["pdf"])
         assert result == 0
 
-    @patch('all2md.converter_registry.registry')
+    @patch("all2md.converter_registry.registry")
     def test_list_formats_unknown_format(self, mock_registry):
         """Test list-formats with unknown format."""
         mock_registry.auto_discover = Mock()
-        mock_registry.list_formats = Mock(return_value=['pdf', 'docx', 'html'])
+        mock_registry.list_formats = Mock(return_value=["pdf", "docx", "html"])
 
-        result = handle_list_formats_command(['unknown'])
+        result = handle_list_formats_command(["unknown"])
         assert result == 3
 
 
@@ -170,14 +169,14 @@ class TestDetectOnlyMode:
     def test_detect_only_flag_in_parser(self):
         """Test that --detect-only flag is available in parser."""
         parser = create_parser()
-        args = parser.parse_args(['--detect-only', 'test.pdf'])
+        args = parser.parse_args(["--detect-only", "test.pdf"])
 
-        assert hasattr(args, 'detect_only')
+        assert hasattr(args, "detect_only")
         assert args.detect_only is True
 
-    @patch('all2md.converter_registry.registry')
-    @patch('all2md.dependencies.check_version_requirement')
-    @patch('all2md.dependencies.check_package_installed')
+    @patch("all2md.converter_registry.registry")
+    @patch("all2md.dependencies.check_version_requirement")
+    @patch("all2md.dependencies.check_package_installed")
     def test_detect_only_basic(self, mock_check_installed, mock_check_version, mock_registry):
         """Test basic detect-only functionality."""
         from pathlib import Path
@@ -186,15 +185,15 @@ class TestDetectOnlyMode:
 
         # Setup mocks
         mock_registry.auto_discover = Mock()
-        mock_registry.detect_format = Mock(return_value='pdf')
+        mock_registry.detect_format = Mock(return_value="pdf")
 
         mock_metadata = Mock()
-        mock_metadata.extensions = ['.pdf']
-        mock_metadata.mime_types = ['application/pdf']
+        mock_metadata.extensions = [".pdf"]
+        mock_metadata.mime_types = ["application/pdf"]
         mock_metadata.required_packages = []
 
         mock_registry.get_format_info = Mock(return_value=[mock_metadata])
-        mock_registry.list_formats = Mock(return_value=['pdf'])
+        mock_registry.list_formats = Mock(return_value=["pdf"])
 
         # Create mock args
         args = Mock()
@@ -202,18 +201,19 @@ class TestDetectOnlyMode:
 
         # Create a temporary test file
         import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
             test_file = Path(f.name)
 
         try:
             # Create CLIInputItem from Path
             item = CLIInputItem(
                 raw_input=test_file,
-                kind='local_file',
+                kind="local_file",
                 display_name=test_file.name,
                 path_hint=test_file,
             )
-            result = process_detect_only([item], args, 'auto')
+            result = process_detect_only([item], args, "auto")
             assert result == 0
         finally:
             test_file.unlink()
@@ -234,10 +234,10 @@ class TestSecurityPresets:
         result = apply_security_preset(args, options)
 
         # Check format-qualified keys (new format)
-        assert result['html.strip_dangerous_elements'] is True
-        assert result['html.network.allow_remote_fetch'] is False
-        assert result['html.local_files.allow_local_files'] is False
-        assert result['html.local_files.allow_cwd_files'] is False
+        assert result["html.strip_dangerous_elements"] is True
+        assert result["html.network.allow_remote_fetch"] is False
+        assert result["html.local_files.allow_local_files"] is False
+        assert result["html.local_files.allow_cwd_files"] is False
 
     def test_safe_mode_preset(self):
         """Test --safe-mode preset applies correct options."""
@@ -250,11 +250,11 @@ class TestSecurityPresets:
         result = apply_security_preset(args, options)
 
         # Check format-qualified keys (new format)
-        assert result['html.strip_dangerous_elements'] is True
-        assert result['html.network.allow_remote_fetch'] is True
-        assert result['html.network.require_https'] is True
-        assert result['html.local_files.allow_local_files'] is False
-        assert result['html.local_files.allow_cwd_files'] is False
+        assert result["html.strip_dangerous_elements"] is True
+        assert result["html.network.allow_remote_fetch"] is True
+        assert result["html.network.require_https"] is True
+        assert result["html.local_files.allow_local_files"] is False
+        assert result["html.local_files.allow_cwd_files"] is False
 
     def test_paranoid_mode_preset(self):
         """Test --paranoid-mode preset applies correct options."""
@@ -268,14 +268,14 @@ class TestSecurityPresets:
 
         # Check format-qualified keys (new format)
         # Paranoid mode is most restrictive - blocks all remote fetches
-        assert result['html.strip_dangerous_elements'] is True
-        assert result['html.network.allow_remote_fetch'] is False  # Maximum security blocks remote fetch
-        assert result['html.local_files.allow_local_files'] is False
-        assert result['html.local_files.allow_cwd_files'] is False
-        assert result['html.max_asset_size_bytes'] == 5 * 1024 * 1024
-        assert result['max_asset_size_bytes'] == 5 * 1024 * 1024
+        assert result["html.strip_dangerous_elements"] is True
+        assert result["html.network.allow_remote_fetch"] is False  # Maximum security blocks remote fetch
+        assert result["html.local_files.allow_local_files"] is False
+        assert result["html.local_files.allow_cwd_files"] is False
+        assert result["html.max_asset_size_bytes"] == 5 * 1024 * 1024
+        assert result["max_asset_size_bytes"] == 5 * 1024 * 1024
         # EML should also block remote fetches
-        assert result['eml.html_network.allow_remote_fetch'] is False
+        assert result["eml.html_network.allow_remote_fetch"] is False
 
     def test_no_preset_applied(self):
         """Test that no preset leaves options unchanged."""
@@ -284,28 +284,28 @@ class TestSecurityPresets:
         args.safe_mode = False
         args.paranoid_mode = False
 
-        options = {'existing_option': 'value'}
+        options = {"existing_option": "value"}
         result = apply_security_preset(args, options)
 
-        assert result == {'existing_option': 'value'}
+        assert result == {"existing_option": "value"}
         # Verify no security preset keys were added (format-qualified keys)
-        assert 'html.strip_dangerous_elements' not in result
-        assert 'html.network.allow_remote_fetch' not in result
+        assert "html.strip_dangerous_elements" not in result
+        assert "html.network.allow_remote_fetch" not in result
 
     def test_preset_flags_in_parser(self):
         """Test that security preset flags are available in parser."""
         parser = create_parser()
 
         # Test strict-html-sanitize
-        args = parser.parse_args(['--strict-html-sanitize', 'test.html'])
+        args = parser.parse_args(["--strict-html-sanitize", "test.html"])
         assert args.strict_html_sanitize is True
 
         # Test safe-mode
-        args = parser.parse_args(['--safe-mode', 'test.html'])
+        args = parser.parse_args(["--safe-mode", "test.html"])
         assert args.safe_mode is True
 
         # Test paranoid-mode
-        args = parser.parse_args(['--paranoid-mode', 'test.html'])
+        args = parser.parse_args(["--paranoid-mode", "test.html"])
         assert args.paranoid_mode is True
 
 
@@ -316,14 +316,14 @@ class TestEnhancedDryRun:
     def test_dry_run_flag_still_works(self):
         """Test that existing --dry-run flag still works."""
         parser = create_parser()
-        args = parser.parse_args(['--dry-run', 'test.pdf'])
+        args = parser.parse_args(["--dry-run", "test.pdf"])
 
-        assert hasattr(args, 'dry_run')
+        assert hasattr(args, "dry_run")
         assert args.dry_run is True
 
-    @patch('all2md.converter_registry.registry')
-    @patch('all2md.dependencies.check_version_requirement')
-    @patch('all2md.dependencies.check_package_installed')
+    @patch("all2md.converter_registry.registry")
+    @patch("all2md.dependencies.check_version_requirement")
+    @patch("all2md.dependencies.check_package_installed")
     def test_dry_run_shows_format_detection(self, mock_check_installed, mock_check_version, mock_registry):
         """Test that enhanced dry-run shows format detection info."""
         from pathlib import Path
@@ -332,11 +332,11 @@ class TestEnhancedDryRun:
 
         # Setup mocks
         mock_registry.auto_discover = Mock()
-        mock_registry.detect_format = Mock(return_value='pdf')
-        mock_registry.list_formats = Mock(return_value=['pdf'])
+        mock_registry.detect_format = Mock(return_value="pdf")
+        mock_registry.list_formats = Mock(return_value=["pdf"])
 
         mock_metadata = Mock()
-        mock_metadata.extensions = ['.pdf']
+        mock_metadata.extensions = [".pdf"]
         mock_metadata.required_packages = []
         mock_metadata.get_required_packages_for_content = Mock(return_value=[])
 
@@ -348,7 +348,7 @@ class TestEnhancedDryRun:
         args.out = None
         args.output_dir = None
         args.preserve_structure = False
-        args.format = 'auto'
+        args.format = "auto"
         args.recursive = False
         args.parallel = 1
         args.exclude = None
@@ -357,18 +357,19 @@ class TestEnhancedDryRun:
 
         # Create a temporary test file
         import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
             test_file = Path(f.name)
 
         try:
             # Create CLIInputItem from Path
             item = CLIInputItem(
                 raw_input=test_file,
-                kind='local_file',
+                kind="local_file",
                 display_name=test_file.name,
                 path_hint=test_file,
             )
-            result = process_dry_run([item], args, 'auto')
+            result = process_dry_run([item], args, "auto")
             assert result == 0
         finally:
             test_file.unlink()
@@ -384,15 +385,15 @@ class TestCLIIntegration:
         help_text = parser.format_help()
 
         # Check for new flags
-        assert '--detect-only' in help_text
-        assert '--strict-html-sanitize' in help_text
-        assert '--safe-mode' in help_text
-        assert '--paranoid-mode' in help_text
+        assert "--detect-only" in help_text
+        assert "--strict-html-sanitize" in help_text
+        assert "--safe-mode" in help_text
+        assert "--paranoid-mode" in help_text
 
     def test_security_and_detect_together(self):
         """Test that security presets work with detect-only mode."""
         parser = create_parser()
-        args = parser.parse_args(['--detect-only', '--safe-mode', 'test.html'])
+        args = parser.parse_args(["--detect-only", "--safe-mode", "test.html"])
 
         assert args.detect_only is True
         assert args.safe_mode is True
@@ -400,7 +401,7 @@ class TestCLIIntegration:
     def test_security_and_dry_run_together(self):
         """Test that security presets work with dry-run mode."""
         parser = create_parser()
-        args = parser.parse_args(['--dry-run', '--paranoid-mode', 'test.html'])
+        args = parser.parse_args(["--dry-run", "--paranoid-mode", "test.html"])
 
         assert args.dry_run is True
         assert args.paranoid_mode is True
@@ -417,14 +418,14 @@ class TestSecurityPresetOptionsMapping:
 
         # Simulate what apply_security_preset does
         kwargs = {
-            'strip_dangerous_elements': True,
-            'allow_remote_fetch': True,
-            'require_https': True,
-            'allow_local_files': False,
-            'allow_cwd_files': False,
+            "strip_dangerous_elements": True,
+            "allow_remote_fetch": True,
+            "require_https": True,
+            "allow_local_files": False,
+            "allow_cwd_files": False,
         }
 
-        options = _create_parser_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs("html", **kwargs)
 
         # Verify options instance is created
         assert options is not None
@@ -449,14 +450,14 @@ class TestSecurityPresetOptionsMapping:
         from all2md.options import HtmlOptions
 
         kwargs = {
-            'strip_dangerous_elements': True,
-            'allow_remote_fetch': False,  # Paranoid mode blocks all remote fetches
-            'allow_local_files': False,
-            'allow_cwd_files': False,
-            'max_asset_size_bytes': 5 * 1024 * 1024,
+            "strip_dangerous_elements": True,
+            "allow_remote_fetch": False,  # Paranoid mode blocks all remote fetches
+            "allow_local_files": False,
+            "allow_cwd_files": False,
+            "max_asset_size_bytes": 5 * 1024 * 1024,
         }
 
-        options = _create_parser_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs("html", **kwargs)
 
         assert options is not None
         assert isinstance(options, HtmlOptions)
@@ -472,13 +473,13 @@ class TestSecurityPresetOptionsMapping:
         from all2md.options import HtmlOptions
 
         kwargs = {
-            'strip_dangerous_elements': True,
-            'allow_remote_fetch': False,
-            'allow_local_files': False,
-            'allow_cwd_files': False,
+            "strip_dangerous_elements": True,
+            "allow_remote_fetch": False,
+            "allow_local_files": False,
+            "allow_cwd_files": False,
         }
 
-        options = _create_parser_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs("html", **kwargs)
 
         assert options is not None
         assert isinstance(options, HtmlOptions)
@@ -493,12 +494,12 @@ class TestSecurityPresetOptionsMapping:
         from all2md.options import EmlOptions
 
         kwargs = {
-            'allow_remote_fetch': True,
-            'require_https': True,
-            'convert_html_to_markdown': True,
+            "allow_remote_fetch": True,
+            "require_https": True,
+            "convert_html_to_markdown": True,
         }
 
-        options = _create_parser_options_from_kwargs('eml', **kwargs)
+        options = _create_parser_options_from_kwargs("eml", **kwargs)
 
         assert options is not None
         assert isinstance(options, EmlOptions)
@@ -513,11 +514,11 @@ class TestSecurityPresetOptionsMapping:
         from all2md.options import MhtmlOptions
 
         kwargs = {
-            'allow_local_files': False,
-            'allow_cwd_files': False,
+            "allow_local_files": False,
+            "allow_cwd_files": False,
         }
 
-        options = _create_parser_options_from_kwargs('mhtml', **kwargs)
+        options = _create_parser_options_from_kwargs("mhtml", **kwargs)
 
         assert options is not None
         assert isinstance(options, MhtmlOptions)
@@ -531,13 +532,13 @@ class TestSecurityPresetOptionsMapping:
         from all2md.options import HtmlOptions
 
         kwargs = {
-            'extract_title': True,  # Top-level field
-            'allow_remote_fetch': True,  # Nested in network
-            'convert_nbsp': True,  # Top-level field
-            'require_https': True,  # Nested in network
+            "extract_title": True,  # Top-level field
+            "allow_remote_fetch": True,  # Nested in network
+            "convert_nbsp": True,  # Top-level field
+            "require_https": True,  # Nested in network
         }
 
-        options = _create_parser_options_from_kwargs('html', **kwargs)
+        options = _create_parser_options_from_kwargs("html", **kwargs)
 
         assert options is not None
         assert isinstance(options, HtmlOptions)
@@ -558,7 +559,7 @@ class TestSecurityPresetOptionsMapping:
         # Create a simple HTML file
         html_content = '<html><body><h1>Test</h1><script>alert("xss")</script></body></html>'
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False, encoding="utf-8") as f:
             f.write(html_content)
             temp_file = Path(f.name)
 
@@ -566,19 +567,19 @@ class TestSecurityPresetOptionsMapping:
             # Test with security preset kwargs (simulating what CLI does)
             markdown = to_markdown(
                 temp_file,
-                format='html',
+                format="html",
                 strip_dangerous_elements=True,
                 allow_remote_fetch=True,
                 require_https=True,
                 allow_local_files=False,
-                allow_cwd_files=False
+                allow_cwd_files=False,
             )
 
             # Verify conversion happened
             assert markdown is not None
-            assert 'Test' in markdown
+            assert "Test" in markdown
             # Script tag should be stripped by strip_dangerous_elements
-            assert 'alert' not in markdown
+            assert "alert" not in markdown
         finally:
             temp_file.unlink()
 
@@ -592,58 +593,63 @@ class TestRemoteInputOptions:
         builder = DynamicCLIBuilder()
         parser = builder.build_parser()
 
-        args = parser.parse_args([
-            '--remote-input-enabled',
-            '--remote-input-allowed-hosts', 'example.com,api.example.com',
-            '--remote-input-max-size', '2048',
-            str(tmp_path / 'sample.pdf'),
-        ])
+        args = parser.parse_args(
+            [
+                "--remote-input-enabled",
+                "--remote-input-allowed-hosts",
+                "example.com,api.example.com",
+                "--remote-input-max-size",
+                "2048",
+                str(tmp_path / "sample.pdf"),
+            ]
+        )
 
         options = builder.map_args_to_options(args)
-        assert options['remote_input.allow_remote_input'] is True
-        assert options['remote_input.allowed_hosts'] == ['example.com', 'api.example.com']
-        assert options['remote_input.max_size_bytes'] == 2048
+        assert options["remote_input.allow_remote_input"] is True
+        assert options["remote_input.allowed_hosts"] == ["example.com", "api.example.com"]
+        assert options["remote_input.max_size_bytes"] == 2048
 
-        prepared = prepare_options_for_execution(options, tmp_path / 'sample.pdf', 'auto', 'markdown')
-        remote_opts = prepared.pop('remote_input_options', None)
+        prepared = prepare_options_for_execution(options, tmp_path / "sample.pdf", "auto", "markdown")
+        remote_opts = prepared.pop("remote_input_options", None)
         assert isinstance(remote_opts, RemoteInputOptions)
         assert remote_opts.allow_remote_input is True
-        assert remote_opts.allowed_hosts == ['example.com', 'api.example.com']
+        assert remote_opts.allowed_hosts == ["example.com", "api.example.com"]
         assert remote_opts.max_size_bytes == 2048
-        assert 'remote_input.allow_remote_input' not in prepared
+        assert "remote_input.allow_remote_input" not in prepared
 
     def test_remote_input_config_overrides_apply(self, tmp_path):
         """Remote input config entries should hydrate RemoteInputOptions."""
         builder = DynamicCLIBuilder()
         parser = builder.build_parser()
-        args = parser.parse_args([str(tmp_path / 'sample.pdf')])
+        args = parser.parse_args([str(tmp_path / "sample.pdf")])
 
         config = {
-            'remote_input': {
-                'allow_remote_input': True,
-                'timeout': 5.5,
+            "remote_input": {
+                "allow_remote_input": True,
+                "timeout": 5.5,
             }
         }
 
         options = builder.map_args_to_options(args, json_options=config)
-        prepared = prepare_options_for_execution(options, tmp_path / 'sample.pdf', 'auto', 'markdown')
-        remote_opts = prepared.pop('remote_input_options', None)
+        prepared = prepare_options_for_execution(options, tmp_path / "sample.pdf", "auto", "markdown")
+        remote_opts = prepared.pop("remote_input_options", None)
         assert isinstance(remote_opts, RemoteInputOptions)
         assert remote_opts.allow_remote_input is True
         assert pytest.approx(remote_opts.timeout) == 5.5
-        assert 'remote_input.allow_remote_input' not in prepared
+        assert "remote_input.allow_remote_input" not in prepared
 
     def test_remote_input_environment_defaults_apply(self, monkeypatch, tmp_path):
         """Environment variables should set parser defaults for remote input options."""
-        monkeypatch.setenv('ALL2MD_REMOTE_INPUT_ALLOW_REMOTE_INPUT', 'true')
-        monkeypatch.setenv('ALL2MD_REMOTE_INPUT_ALLOWED_HOSTS', 'example.com')
+        monkeypatch.setenv("ALL2MD_REMOTE_INPUT_ALLOW_REMOTE_INPUT", "true")
+        monkeypatch.setenv("ALL2MD_REMOTE_INPUT_ALLOWED_HOSTS", "example.com")
 
         builder = DynamicCLIBuilder()
         parser = builder.build_parser()
-        args = parser.parse_args([str(tmp_path / 'remote.pdf')])
+        args = parser.parse_args([str(tmp_path / "remote.pdf")])
 
-        assert getattr(args, 'remote_input.allow_remote_input') is True
-        assert getattr(args, 'remote_input.allowed_hosts') == ['example.com']
+        assert getattr(args, "remote_input.allow_remote_input") is True
+        assert getattr(args, "remote_input.allowed_hosts") == ["example.com"]
+
 
 @pytest.mark.unit
 class TestOptionPreparation:
@@ -652,26 +658,26 @@ class TestOptionPreparation:
     def test_prepare_options_filters_by_format(self):
         """Only relevant namespaced options should be preserved."""
         options = {
-            'pdf.pages': [1, 2],
-            'docx.keep_styles': True,
-            'markdown.emphasis_symbol': '_',
-            'max_asset_size_bytes': 1024,
+            "pdf.pages": [1, 2],
+            "docx.keep_styles": True,
+            "markdown.emphasis_symbol": "_",
+            "max_asset_size_bytes": 1024,
         }
 
-        result = prepare_options_for_execution(options, None, 'pdf', 'markdown')
+        result = prepare_options_for_execution(options, None, "pdf", "markdown")
 
-        assert result['pages'] == [1, 2]
-        assert 'keep_styles' not in result
-        assert result['emphasis_symbol'] == '_'
-        assert result['max_asset_size_bytes'] == 1024
+        assert result["pages"] == [1, 2]
+        assert "keep_styles" not in result
+        assert result["emphasis_symbol"] == "_"
+        assert result["max_asset_size_bytes"] == 1024
 
     def test_prepare_options_fallback_warns_when_format_unknown(self, caplog):
         """Unknown formats should fall back to legacy keys with a warning."""
-        options = {'pdf.pages': [3, 4]}
+        options = {"pdf.pages": [3, 4]}
 
-        caplog.set_level(logging.WARNING, logger='all2md.cli.processors')
+        caplog.set_level(logging.WARNING, logger="all2md.cli.processors")
 
-        result = prepare_options_for_execution(options, None, 'auto', 'markdown')
+        result = prepare_options_for_execution(options, None, "auto", "markdown")
 
-        assert result['pages'] == [3, 4]
-        assert any('legacy parser option' in record.message for record in caplog.records)
+        assert result["pages"] == [3, 4]
+        assert any("legacy parser option" in record.message for record in caplog.records)

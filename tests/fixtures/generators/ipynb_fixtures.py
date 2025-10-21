@@ -22,29 +22,16 @@ def create_simple_notebook() -> Dict[str, Any]:
     """
     return {
         "cells": [
-            {
-                "cell_type": "markdown",
-                "source": ["# Simple Notebook\n", "This is a basic test notebook."]
-            },
+            {"cell_type": "markdown", "source": ["# Simple Notebook\n", "This is a basic test notebook."]},
             {
                 "cell_type": "code",
                 "source": ["print('Hello, World!')"],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Hello, World!\n"]
-                    }
-                ]
-            }
+                "outputs": [{"output_type": "stream", "text": ["Hello, World!\n"]}],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -62,10 +49,7 @@ def create_notebook_with_images() -> Dict[str, Any]:
 
     return {
         "cells": [
-            {
-                "cell_type": "markdown",
-                "source": ["# Notebook with Images\n", "This notebook contains image outputs."]
-            },
+            {"cell_type": "markdown", "source": ["# Notebook with Images\n", "This notebook contains image outputs."]},
             {
                 "cell_type": "code",
                 "source": [
@@ -80,16 +64,9 @@ def create_notebook_with_images() -> Dict[str, Any]:
                     "plt.title('Sine Wave')\n",
                     "plt.xlabel('x')\n",
                     "plt.ylabel('sin(x)')\n",
-                    "plt.show()"
+                    "plt.show()",
                 ],
-                "outputs": [
-                    {
-                        "output_type": "display_data",
-                        "data": {
-                            "image/png": png_data
-                        }
-                    }
-                ]
+                "outputs": [{"output_type": "display_data", "data": {"image/png": png_data}}],
             },
             {
                 "cell_type": "code",
@@ -98,28 +75,20 @@ def create_notebook_with_images() -> Dict[str, Any]:
                     "from PIL import Image\n",
                     "import io\n",
                     "img = Image.new('RGB', (50, 50), 'red')\n",
-                    "img"
+                    "img",
                 ],
                 "outputs": [
                     {
                         "output_type": "execute_result",
                         "execution_count": 2,
-                        "data": {
-                            "image/png": png_data,
-                            "text/plain": ["<PIL.Image.Image image mode=RGB size=50x50>"]
-                        }
+                        "data": {"image/png": png_data, "text/plain": ["<PIL.Image.Image image mode=RGB size=50x50>"]},
                     }
-                ]
-            }
+                ],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -138,21 +107,16 @@ def create_notebook_with_long_outputs() -> Dict[str, Any]:
         "cells": [
             {
                 "cell_type": "markdown",
-                "source": ["# Notebook with Long Outputs\n", "This notebook tests output truncation."]
+                "source": ["# Notebook with Long Outputs\n", "This notebook tests output truncation."],
             },
             {
                 "cell_type": "code",
                 "source": [
                     "# Generate long output\n",
                     "for i in range(50):\n",
-                    "    print(f'Line {i}: This is a very long output line with lots of text.')"
+                    "    print(f'Line {i}: This is a very long output line with lots of text.')",
                 ],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": long_output
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": long_output}],
             },
             {
                 "cell_type": "code",
@@ -163,33 +127,32 @@ def create_notebook_with_long_outputs() -> Dict[str, Any]:
                     "\n",
                     "# Create large dataframe\n",
                     "df = pd.DataFrame(np.random.randn(100, 5), columns=['A', 'B', 'C', 'D', 'E'])\n",
-                    "df.head(20)"
+                    "df.head(20)",
                 ],
                 "outputs": [
                     {
                         "output_type": "execute_result",
                         "data": {
                             "text/plain": [
-                                "           A         B         C         D         E\n" +
-                                "\n".join([
-                                    (f"{i:2d}  {i * 0.1:8.6f}  {i * 0.2:8.6f}  "
-                                     f"{i * 0.3:8.6f}  {i * 0.4:8.6f}  {i * 0.5:8.6f}")
-                                    for i in range(20)
-                                ])
+                                "           A         B         C         D         E\n"
+                                + "\n".join(
+                                    [
+                                        (
+                                            f"{i:2d}  {i * 0.1:8.6f}  {i * 0.2:8.6f}  "
+                                            f"{i * 0.3:8.6f}  {i * 0.4:8.6f}  {i * 0.5:8.6f}"
+                                        )
+                                        for i in range(20)
+                                    ]
+                                )
                             ]
-                        }
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -206,7 +169,7 @@ def create_multi_language_notebook() -> Dict[str, Any]:
         "cells": [
             {
                 "cell_type": "markdown",
-                "source": ["# Multi-Language Notebook\n", "This notebook contains code in multiple languages."]
+                "source": ["# Multi-Language Notebook\n", "This notebook contains code in multiple languages."],
             },
             {
                 "cell_type": "code",
@@ -214,23 +177,13 @@ def create_multi_language_notebook() -> Dict[str, Any]:
                     "# Python code\n",
                     "import numpy as np\n",
                     "arr = np.array([1, 2, 3, 4, 5])\n",
-                    "print(f'Mean: {np.mean(arr)}')"
+                    "print(f'Mean: {np.mean(arr)}')",
                 ],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Mean: 3.0\n"]
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": ["Mean: 3.0\n"]}],
             },
             {
                 "cell_type": "code",
-                "source": [
-                    "%%bash\n",
-                    "# Shell commands\n",
-                    "echo 'Running shell command'\n",
-                    "ls -la | head -5"
-                ],
+                "source": ["%%bash\n", "# Shell commands\n", "echo 'Running shell command'\n", "ls -la | head -5"],
                 "outputs": [
                     {
                         "output_type": "stream",
@@ -239,20 +192,15 @@ def create_multi_language_notebook() -> Dict[str, Any]:
                             "total 1024\n",
                             "drwxr-xr-x  10 user  staff   320 Jan  1 12:00 .\n",
                             "drwxr-xr-x   5 user  staff   160 Jan  1 12:00 ..\n",
-                            "-rw-r--r--   1 user  staff  1024 Jan  1 12:00 notebook.ipynb\n"
-                        ]
+                            "-rw-r--r--   1 user  staff  1024 Jan  1 12:00 notebook.ipynb\n",
+                        ],
                     }
-                ]
-            }
+                ],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -267,16 +215,10 @@ def create_notebook_with_errors() -> Dict[str, Any]:
     """
     return {
         "cells": [
-            {
-                "cell_type": "markdown",
-                "source": ["# Notebook with Errors\n", "This notebook contains error outputs."]
-            },
+            {"cell_type": "markdown", "source": ["# Notebook with Errors\n", "This notebook contains error outputs."]},
             {
                 "cell_type": "code",
-                "source": [
-                    "# This will cause an error\n",
-                    "x = 1 / 0"
-                ],
+                "source": ["# This will cause an error\n", "x = 1 / 0"],
                 "outputs": [
                     {
                         "output_type": "error",
@@ -289,10 +231,10 @@ def create_notebook_with_errors() -> Dict[str, Any]:
                             "      1 # This will cause an error\n",
                             "----> 2 x = 1 / 0\n",
                             "\n",
-                            "ZeroDivisionError: division by zero"
-                        ]
+                            "ZeroDivisionError: division by zero",
+                        ],
                     }
-                ]
+                ],
             },
             {
                 "cell_type": "code",
@@ -302,24 +244,14 @@ def create_notebook_with_errors() -> Dict[str, Any]:
                     "    result = 10 / 2\n",
                     "    print(f'Result: {result}')\n",
                     "except Exception as e:\n",
-                    "    print(f'Error: {e}')"
+                    "    print(f'Error: {e}')",
                 ],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Result: 5.0\n"]
-                    }
-                ]
-            }
+                "outputs": [{"output_type": "stream", "text": ["Result: 5.0\n"]}],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -350,13 +282,10 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "2. [Exploratory Data Analysis](#eda)\n",
                     "3. [Feature Engineering](#feature-engineering)\n",
                     "4. [Model Training](#model-training)\n",
-                    "5. [Results](#results)\n"
-                ]
+                    "5. [Results](#results)\n",
+                ],
             },
-            {
-                "cell_type": "markdown",
-                "source": ["## Data Loading"]
-            },
+            {"cell_type": "markdown", "source": ["## Data Loading"]},
             {
                 "cell_type": "code",
                 "source": [
@@ -371,14 +300,9 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "import warnings\n",
                     "warnings.filterwarnings('ignore')\n",
                     "\n",
-                    "print(\"Libraries imported successfully!\")"
+                    'print("Libraries imported successfully!")',
                 ],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": ["Libraries imported successfully!\n"]
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": ["Libraries imported successfully!\n"]}],
             },
             {
                 "cell_type": "code",
@@ -398,18 +322,12 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "}\n",
                     "\n",
                     "df = pd.DataFrame(data)\n",
-                    "print(f\"Dataset shape: {df.shape}\")\n",
-                    "print(f\"Churn rate: {df.churn.mean():.2%}\")\n",
-                    "df.head()"
+                    'print(f"Dataset shape: {df.shape}")\n',
+                    'print(f"Churn rate: {df.churn.mean():.2%}")\n',
+                    "df.head()",
                 ],
                 "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": [
-                            "Dataset shape: (1000, 6)\n",
-                            "Churn rate: 29.40%\n"
-                        ]
-                    },
+                    {"output_type": "stream", "text": ["Dataset shape: (1000, 6)\n", "Churn rate: 29.40%\n"]},
                     {
                         "output_type": "execute_result",
                         "execution_count": 2,
@@ -420,24 +338,21 @@ def create_data_science_notebook() -> Dict[str, Any]:
                                 "1            2      26        77.259289    3527.849203      One year      1\n",
                                 "2            3      47        58.245361    6180.432741      Two year      0\n",
                                 "3            4      12        95.532416    2847.193827  Month-to-month      1\n",
-                                "4            5       8        43.681024    1394.582039      One year      0"
+                                "4            5       8        43.681024    1394.582039      One year      0",
                             ]
-                        }
-                    }
-                ]
+                        },
+                    },
+                ],
             },
-            {
-                "cell_type": "markdown",
-                "source": ["## Exploratory Data Analysis"]
-            },
+            {"cell_type": "markdown", "source": ["## Exploratory Data Analysis"]},
             {
                 "cell_type": "code",
                 "source": [
                     "# Basic statistics\n",
-                    "print(\"Dataset Info:\")\n",
+                    'print("Dataset Info:")\n',
                     "print(df.info())\n",
-                    "print(\"\\nDescriptive Statistics:\")\n",
-                    "print(df.describe())"
+                    'print("\\nDescriptive Statistics:")\n',
+                    "print(df.describe())",
                 ],
                 "outputs": [
                     {
@@ -468,10 +383,10 @@ def create_data_science_notebook() -> Dict[str, Any]:
                             "25%     250.750000    18.000000        44.938297    2074.532532     0.000000\n",
                             "50%     500.500000    36.000000        70.389404    4039.284832     0.000000\n",
                             "75%     750.250000    53.000000        95.181165    6011.238495     1.000000\n",
-                            "max    1000.000000    71.000000       119.936123    7998.652739     1.000000"
-                        ]
+                            "max    1000.000000    71.000000       119.936123    7998.652739     1.000000",
+                        ],
                     }
-                ]
+                ],
             },
             {
                 "cell_type": "code",
@@ -500,21 +415,11 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "plt.xticks(rotation=45)\n",
                     "\n",
                     "plt.tight_layout()\n",
-                    "plt.show()"
+                    "plt.show()",
                 ],
-                "outputs": [
-                    {
-                        "output_type": "display_data",
-                        "data": {
-                            "image/png": plot_image
-                        }
-                    }
-                ]
+                "outputs": [{"output_type": "display_data", "data": {"image/png": plot_image}}],
             },
-            {
-                "cell_type": "markdown",
-                "source": ["## Model Training"]
-            },
+            {"cell_type": "markdown", "source": ["## Model Training"]},
             {
                 "cell_type": "code",
                 "source": [
@@ -536,18 +441,10 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "# Split the data\n",
                     "X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)\n",
                     "\n",
-                    "print(f\"Training set size: {X_train.shape[0]}\")\n",
-                    "print(f\"Test set size: {X_test.shape[0]}\")"
+                    'print(f"Training set size: {X_train.shape[0]}")\n',
+                    'print(f"Test set size: {X_test.shape[0]}")',
                 ],
-                "outputs": [
-                    {
-                        "output_type": "stream",
-                        "text": [
-                            "Training set size: 800\n",
-                            "Test set size: 200\n"
-                        ]
-                    }
-                ]
+                "outputs": [{"output_type": "stream", "text": ["Training set size: 800\n", "Test set size: 200\n"]}],
             },
             {
                 "cell_type": "code",
@@ -563,7 +460,7 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "# Calculate accuracy\n",
                     "from sklearn.metrics import accuracy_score\n",
                     "accuracy = accuracy_score(y_test, y_pred)\n",
-                    "print(f\"Model Accuracy: {accuracy:.4f}\")\n",
+                    'print(f"Model Accuracy: {accuracy:.4f}")\n',
                     "\n",
                     "# Feature importance\n",
                     "feature_importance = pd.DataFrame({\n",
@@ -571,8 +468,8 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "    'importance': rf_model.feature_importances_\n",
                     "}).sort_values('importance', ascending=False)\n",
                     "\n",
-                    "print(\"\\nFeature Importance:\")\n",
-                    "print(feature_importance)"
+                    'print("\\nFeature Importance:")\n',
+                    "print(feature_importance)",
                 ],
                 "outputs": [
                     {
@@ -585,25 +482,22 @@ def create_data_science_notebook() -> Dict[str, Any]:
                             "2    total_charges    0.412850\n",
                             "1  monthly_charges    0.298234\n",
                             "0           tenure    0.156891\n",
-                            "3  contract_encoded    0.132025\n"
-                        ]
+                            "3  contract_encoded    0.132025\n",
+                        ],
                     }
-                ]
+                ],
             },
-            {
-                "cell_type": "markdown",
-                "source": ["## Results"]
-            },
+            {"cell_type": "markdown", "source": ["## Results"]},
             {
                 "cell_type": "code",
                 "source": [
                     "# Detailed classification report\n",
-                    "print(\"Classification Report:\")\n",
+                    'print("Classification Report:")\n',
                     "print(classification_report(y_test, y_pred))\n",
                     "\n",
                     "# Confusion matrix\n",
                     "cm = confusion_matrix(y_test, y_pred)\n",
-                    "print(\"\\nConfusion Matrix:\")\n",
+                    'print("\\nConfusion Matrix:")\n',
                     "print(cm)\n",
                     "\n",
                     "# Plot confusion matrix\n",
@@ -614,7 +508,7 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "plt.title('Confusion Matrix')\n",
                     "plt.ylabel('Actual')\n",
                     "plt.xlabel('Predicted')\n",
-                    "plt.show()"
+                    "plt.show()",
                 ],
                 "outputs": [
                     {
@@ -633,16 +527,11 @@ def create_data_science_notebook() -> Dict[str, Any]:
                             "\n",
                             "Confusion Matrix:\n",
                             "[[120  20]\n",
-                            " [ 31  29]]\n"
-                        ]
+                            " [ 31  29]]\n",
+                        ],
                     },
-                    {
-                        "output_type": "display_data",
-                        "data": {
-                            "image/png": plot_image
-                        }
-                    }
-                ]
+                    {"output_type": "display_data", "data": {"image/png": plot_image}},
+                ],
             },
             {
                 "cell_type": "markdown",
@@ -668,31 +557,24 @@ def create_data_science_notebook() -> Dict[str, Any]:
                     "4. **Next Steps**:\n",
                     "   - Collect additional features (customer satisfaction, support tickets, etc.)\n",
                     "   - Try other algorithms (XGBoost, Neural Networks)\n",
-                    "   - Implement model in production for real-time scoring\n"
-                ]
-            }
+                    "   - Implement model in production for real-time scoring\n",
+                ],
+            },
         ],
         "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3",
-                "display_name": "Python 3"
-            },
+            "kernelspec": {"language": "python", "name": "python3", "display_name": "Python 3"},
             "language_info": {
-                "codemirror_mode": {
-                    "name": "ipython",
-                    "version": 3
-                },
+                "codemirror_mode": {"name": "ipython", "version": 3},
                 "file_extension": ".py",
                 "mimetype": "text/x-python",
                 "name": "python",
                 "nbconvert_exporter": "python",
                 "pygments_lexer": "ipython3",
-                "version": "3.8.5"
-            }
+                "version": "3.8.5",
+            },
         },
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -709,7 +591,7 @@ def create_notebook_with_widgets() -> Dict[str, Any]:
         "cells": [
             {
                 "cell_type": "markdown",
-                "source": ["# Interactive Widgets Notebook\n", "This notebook demonstrates widget usage."]
+                "source": ["# Interactive Widgets Notebook\n", "This notebook demonstrates widget usage."],
             },
             {
                 "cell_type": "code",
@@ -725,7 +607,7 @@ def create_notebook_with_widgets() -> Dict[str, Any]:
                     "    step=1,\n",
                     "    description='Test:'\n",
                     ")\n",
-                    "display(slider)"
+                    "display(slider)",
                 ],
                 "outputs": [
                     {
@@ -734,48 +616,41 @@ def create_notebook_with_widgets() -> Dict[str, Any]:
                             "application/vnd.jupyter.widget-view+json": {
                                 "model_id": "abc123def456",
                                 "version_major": 2,
-                                "version_minor": 0
+                                "version_minor": 0,
                             },
-                            "text/plain": [
-                                "IntSlider(value=7, description='Test:', max=10)"
-                            ]
-                        }
+                            "text/plain": ["IntSlider(value=7, description='Test:', max=10)"],
+                        },
                     }
-                ]
+                ],
             },
             {
                 "cell_type": "code",
                 "source": [
                     "# Display rich HTML content\n",
                     "display(HTML('<h3 style=\"color: blue;\">Rich HTML Content</h3>'))\n",
-                    "display(Markdown('**Bold markdown** and *italic* text.'))"
+                    "display(Markdown('**Bold markdown** and *italic* text.'))",
                 ],
                 "outputs": [
                     {
                         "output_type": "display_data",
                         "data": {
-                            "text/html": ["<h3 style=\"color: blue;\">Rich HTML Content</h3>"],
-                            "text/plain": ["<IPython.core.display.HTML object>"]
-                        }
+                            "text/html": ['<h3 style="color: blue;">Rich HTML Content</h3>'],
+                            "text/plain": ["<IPython.core.display.HTML object>"],
+                        },
                     },
                     {
                         "output_type": "display_data",
                         "data": {
                             "text/markdown": ["**Bold markdown** and *italic* text."],
-                            "text/plain": ["<IPython.core.display.Markdown object>"]
-                        }
-                    }
-                ]
-            }
+                            "text/plain": ["<IPython.core.display.Markdown object>"],
+                        },
+                    },
+                ],
+            },
         ],
-        "metadata": {
-            "kernelspec": {
-                "language": "python",
-                "name": "python3"
-            }
-        },
+        "metadata": {"kernelspec": {"language": "python", "name": "python3"}},
         "nbformat": 4,
-        "nbformat_minor": 4
+        "nbformat_minor": 4,
     }
 
 
@@ -790,7 +665,7 @@ def save_notebook_to_file(notebook: Dict[str, Any], filepath: str) -> None:
         The file path where to save the notebook.
 
     """
-    with open(filepath, 'w', encoding='utf-8') as f:
+    with open(filepath, "w", encoding="utf-8") as f:
         json.dump(notebook, f, indent=2, ensure_ascii=False)
 
 
@@ -815,13 +690,13 @@ def create_all_fixtures(output_dir: str = "test_notebooks") -> Dict[str, str]:
     output_path.mkdir(exist_ok=True)
 
     fixtures = {
-        'simple': create_simple_notebook(),
-        'with_images': create_notebook_with_images(),
-        'long_outputs': create_notebook_with_long_outputs(),
-        'multi_language': create_multi_language_notebook(),
-        'with_errors': create_notebook_with_errors(),
-        'data_science': create_data_science_notebook(),
-        'with_widgets': create_notebook_with_widgets(),
+        "simple": create_simple_notebook(),
+        "with_images": create_notebook_with_images(),
+        "long_outputs": create_notebook_with_long_outputs(),
+        "multi_language": create_multi_language_notebook(),
+        "with_errors": create_notebook_with_errors(),
+        "data_science": create_data_science_notebook(),
+        "with_widgets": create_notebook_with_widgets(),
     }
 
     file_paths = {}

@@ -20,10 +20,10 @@ class TestMarkdownEscaping:
             attachment_name="image.png",
             alt_text="Test [bracket] text",
             attachment_mode="alt_text",
-            is_image=True
+            is_image=True,
         )
 
-        markdown = result['markdown']
+        markdown = result["markdown"]
         # Square brackets should be escaped
         assert r"\[" in markdown or "[bracket]" not in markdown
         assert "Test" in markdown
@@ -31,14 +31,10 @@ class TestMarkdownEscaping:
     def test_image_filename_with_brackets_escaped(self):
         """Test that square brackets in image filename are escaped when used as alt text."""
         result = process_attachment(
-            attachment_data=None,
-            attachment_name="image[1].png",
-            alt_text="",
-            attachment_mode="alt_text",
-            is_image=True
+            attachment_data=None, attachment_name="image[1].png", alt_text="", attachment_mode="alt_text", is_image=True
         )
 
-        markdown = result['markdown']
+        markdown = result["markdown"]
         # Square brackets should be escaped
         assert r"\[" in markdown or "[1]" not in markdown
 
@@ -49,25 +45,25 @@ class TestMarkdownEscaping:
             attachment_name="file[version].pdf",
             alt_text="",
             attachment_mode="alt_text",
-            is_image=False
+            is_image=False,
         )
 
-        markdown = result['markdown']
+        markdown = result["markdown"]
         # Square brackets should be escaped
         assert r"\[" in markdown or "[version]" not in markdown
 
     def test_base64_mode_escapes_alt_text(self):
         """Test that base64 mode escapes alt text."""
-        image_data = b'\x89PNG\r\n\x1a\n'  # PNG header
+        image_data = b"\x89PNG\r\n\x1a\n"  # PNG header
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="test.png",
             alt_text="Alt [text] with brackets",
             attachment_mode="base64",
-            is_image=True
+            is_image=True,
         )
 
-        markdown = result['markdown']
+        markdown = result["markdown"]
         # Alt text should be escaped
         assert r"\[" in markdown or "[text]" not in markdown
         assert "Alt" in markdown
@@ -75,17 +71,17 @@ class TestMarkdownEscaping:
 
     def test_download_mode_escapes_display_name(self, tmp_path):
         """Test that download mode escapes display name."""
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="image.png",
             alt_text="Display [name]",
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
-            is_image=True
+            is_image=True,
         )
 
-        markdown = result['markdown']
+        markdown = result["markdown"]
         # Display name should be escaped
         assert r"\[" in markdown or "[name]" not in markdown
         assert result.get("source_data") == "downloaded"
@@ -97,17 +93,17 @@ class TestUrlQuoting:
     def test_filename_with_spaces_url_encoded(self, tmp_path):
         """Test that filenames with spaces are URL-encoded."""
         # Note: filename sanitization converts spaces to underscores first
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="my image.png",
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/assets/",
-            is_image=True
+            is_image=True,
         )
 
-        url = result['url']
+        url = result["url"]
         # After sanitization, spaces become underscores, then URL-encoded
         # my_image.png is a valid filename, so no encoding needed for it
         assert "https://example.com" in url
@@ -119,17 +115,17 @@ class TestUrlQuoting:
     def test_filename_with_special_chars_url_encoded(self, tmp_path):
         """Test that filenames with special characters are URL-encoded."""
         # Note: filename sanitization removes & first
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="file&name.png",
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
-            is_image=True
+            is_image=True,
         )
 
-        url = result['url']
+        url = result["url"]
         # After sanitization, & is removed: "filename.png"
         assert "https://example.com" in url
         assert "filename.png" in url
@@ -137,17 +133,17 @@ class TestUrlQuoting:
 
     def test_local_path_uses_posix_format(self, tmp_path):
         """Test that local paths use POSIX format with forward slashes."""
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="image.png",
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
             # No base_url means local path
-            is_image=True
+            is_image=True,
         )
 
-        url = result['url']
+        url = result["url"]
         # Should use forward slashes (POSIX style)
         assert "/" in url
         # Should not have backslashes (Windows style)
@@ -157,17 +153,17 @@ class TestUrlQuoting:
     def test_filename_with_hash_url_encoded(self, tmp_path):
         """Test that filenames with # are URL-encoded."""
         # Note: filename sanitization removes # first
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="file#1.png",
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
-            is_image=True
+            is_image=True,
         )
 
-        url = result['url']
+        url = result["url"]
         # After sanitization, # is removed: "file1.png"
         assert "https://example.com" in url
         assert "file1.png" in url
@@ -175,7 +171,7 @@ class TestUrlQuoting:
 
     def test_unicode_filename_url_encoded(self, tmp_path):
         """Test that Unicode filenames are URL-encoded."""
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         # Unicode filename will be sanitized first, but if it survives, should be encoded
         result = process_attachment(
             attachment_data=image_data,
@@ -183,10 +179,10 @@ class TestUrlQuoting:
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
-            is_image=True
+            is_image=True,
         )
 
-        url = result['url']
+        url = result["url"]
         # Should have a valid URL
         assert "https://example.com" in url
         assert ".png" in url
@@ -198,7 +194,7 @@ class TestCombinedEscapingAndQuoting:
 
     def test_download_mode_escapes_and_quotes(self, tmp_path):
         """Test that download mode both escapes alt text and quotes URLs."""
-        image_data = b'\x89PNG\r\n\x1a\n'
+        image_data = b"\x89PNG\r\n\x1a\n"
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="my file.png",
@@ -206,11 +202,11 @@ class TestCombinedEscapingAndQuoting:
             attachment_mode="download",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
-            is_image=True
+            is_image=True,
         )
 
-        markdown = result['markdown']
-        url = result['url']
+        markdown = result["markdown"]
+        url = result["url"]
 
         # Alt text should be escaped
         assert r"\[" in markdown or "[1]" not in markdown

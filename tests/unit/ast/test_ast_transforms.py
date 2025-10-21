@@ -261,6 +261,7 @@ class TestMergeDocuments:
 
     def test_merge_with_custom_merger(self) -> None:
         """Test merging with custom merger function."""
+
         def custom_merger(existing, new):
             # Only keep 'important' keys
             result = {}
@@ -391,9 +392,7 @@ class TestLinkRewriter:
     def test_rewrite_link_urls(self) -> None:
         """Test rewriting link URLs."""
         doc = Document(
-            children=[
-                Paragraph(content=[Link(url="/relative/path", content=[Text(content="Link")], title=None)])
-            ]
+            children=[Paragraph(content=[Link(url="/relative/path", content=[Text(content="Link")], title=None)])]
         )
 
         def make_absolute(url: str) -> str:
@@ -501,11 +500,7 @@ class TestLinkRewriterValidation:
 
     def test_validate_urls_rejects_javascript_scheme(self) -> None:
         """Test that javascript: URLs are rejected by default."""
-        doc = Document(
-            children=[
-                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])])
 
         def dangerous_mapper(url: str) -> str:
             # Malicious mapper that creates javascript: URL
@@ -518,11 +513,7 @@ class TestLinkRewriterValidation:
 
     def test_validate_urls_rejects_vbscript_scheme(self) -> None:
         """Test that vbscript: URLs are rejected by default."""
-        doc = Document(
-            children=[
-                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])])
 
         def dangerous_mapper(url: str) -> str:
             return "vbscript:msgbox(1)"
@@ -534,11 +525,7 @@ class TestLinkRewriterValidation:
 
     def test_validate_urls_accepts_safe_schemes(self) -> None:
         """Test that safe URL schemes are accepted."""
-        doc = Document(
-            children=[
-                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])])
 
         def safe_mapper(url: str) -> str:
             return "https://example.com" + url
@@ -552,11 +539,7 @@ class TestLinkRewriterValidation:
 
     def test_validate_urls_can_be_disabled(self) -> None:
         """Test that URL validation can be disabled."""
-        doc = Document(
-            children=[
-                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])])
 
         def custom_mapper(url: str) -> str:
             # Creates a non-standard but intentional URL
@@ -582,11 +565,7 @@ class TestLinkRewriterValidation:
 
     def test_relative_urls_accepted(self) -> None:
         """Test that relative URLs are accepted."""
-        doc = Document(
-            children=[
-                Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="/test", content=[Text(content="Link")], title=None)])])
 
         def identity_mapper(url: str) -> str:
             return url
@@ -652,11 +631,11 @@ class TestDefinitionListTransformation:
             items=[
                 (
                     DefinitionTerm(content=[Text(content="Term 1")]),
-                    [DefinitionDescription(content=[Text(content="Desc 1")])]
+                    [DefinitionDescription(content=[Text(content="Desc 1")])],
                 ),
                 (
                     DefinitionTerm(content=[Text(content="Term 2")]),
-                    [DefinitionDescription(content=[Text(content="Desc 2")])]
+                    [DefinitionDescription(content=[Text(content="Desc 2")])],
                 ),
             ]
         )
@@ -687,8 +666,8 @@ class TestDefinitionListTransformation:
                     DefinitionTerm(content=[Text(content="Term")]),
                     [
                         DefinitionDescription(content=[Text(content="Desc 1")]),
-                        DefinitionDescription(content=[Text(content="Desc 2")])
-                    ]
+                        DefinitionDescription(content=[Text(content="Desc 2")]),
+                    ],
                 ),
             ]
         )
@@ -712,11 +691,11 @@ class TestDefinitionListTransformation:
             items=[
                 (
                     DefinitionTerm(content=[Text(content="Term 1")]),
-                    [DefinitionDescription(content=[Text(content="Desc 1")])]
+                    [DefinitionDescription(content=[Text(content="Desc 1")])],
                 ),
                 (
                     DefinitionTerm(content=[Text(content="Term 2")]),
-                    [DefinitionDescription(content=[Text(content="Desc 2")])]
+                    [DefinitionDescription(content=[Text(content="Desc 2")])],
                 ),
             ]
         )
@@ -733,14 +712,14 @@ class TestDefinitionListTransformation:
             items=[
                 (
                     DefinitionTerm(content=[Text(content="Term 1")]),
-                    [DefinitionDescription(content=[Text(content="Desc 1")])]
+                    [DefinitionDescription(content=[Text(content="Desc 1")])],
                 ),
                 (
                     DefinitionTerm(content=[Text(content="Term 2")]),
                     [
                         DefinitionDescription(content=[Text(content="Desc 2a")]),
-                        DefinitionDescription(content=[Text(content="Desc 2b")])
-                    ]
+                        DefinitionDescription(content=[Text(content="Desc 2b")]),
+                    ],
                 ),
             ]
         )

@@ -17,7 +17,7 @@ class TestLoggingConfiguration:
         """Test basic logging configuration."""
         from all2md.cli import _configure_logging
 
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch("logging.getLogger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -33,7 +33,7 @@ class TestLoggingConfiguration:
 
         log_file = tmp_path / "test.log"
 
-        with patch('logging.getLogger') as mock_get_logger:
+        with patch("logging.getLogger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -46,8 +46,7 @@ class TestLoggingConfiguration:
         """Test trace mode uses detailed format."""
         from all2md.cli import _configure_logging
 
-        with patch('logging.getLogger') as mock_get_logger, \
-             patch('logging.Formatter') as mock_formatter:
+        with patch("logging.getLogger") as mock_get_logger, patch("logging.Formatter") as mock_formatter:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -57,16 +56,15 @@ class TestLoggingConfiguration:
             formatter_calls = mock_formatter.call_args_list
             assert len(formatter_calls) > 0
             format_str = formatter_calls[0][0][0]
-            assert 'asctime' in format_str
-            assert 'levelname' in format_str
-            assert 'name' in format_str
+            assert "asctime" in format_str
+            assert "levelname" in format_str
+            assert "name" in format_str
 
     def test_configure_logging_normal_mode(self):
         """Test normal mode uses simple format."""
         from all2md.cli import _configure_logging
 
-        with patch('logging.getLogger') as mock_get_logger, \
-             patch('logging.Formatter') as mock_formatter:
+        with patch("logging.getLogger") as mock_get_logger, patch("logging.Formatter") as mock_formatter:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
@@ -76,10 +74,10 @@ class TestLoggingConfiguration:
             formatter_calls = mock_formatter.call_args_list
             assert len(formatter_calls) > 0
             format_str = formatter_calls[0][0][0]
-            assert 'levelname' in format_str
-            assert 'message' in format_str
+            assert "levelname" in format_str
+            assert "message" in format_str
             # Should NOT have asctime in normal mode
-            assert 'asctime' not in format_str
+            assert "asctime" not in format_str
 
     def test_configure_logging_invalid_file_path(self, capsys):
         """Test logging configuration with invalid file path."""
@@ -98,8 +96,8 @@ class TestLoggingConfiguration:
 class TestLogFileCLIFlag:
     """Test --log-file CLI flag."""
 
-    @patch('all2md.cli._configure_logging')
-    @patch('all2md.cli.processors.process_multi_file')
+    @patch("all2md.cli._configure_logging")
+    @patch("all2md.cli.processors.process_multi_file")
     def test_log_file_flag_calls_configure(self, mock_process, mock_config, tmp_path):
         """Test that --log-file flag calls _configure_logging."""
         from all2md.cli import main
@@ -114,15 +112,15 @@ class TestLogFileCLIFlag:
         mock_process.return_value = 0
 
         # Run with --log-file
-        main([str(test_file), '--log-file', str(log_file), '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), "--log-file", str(log_file), "--output-dir", str(tmp_path / "out")])
 
         # Should call configure_logging with log_file
         assert mock_config.called
         call_kwargs = mock_config.call_args[1]
-        assert call_kwargs['log_file'] == str(log_file)
+        assert call_kwargs["log_file"] == str(log_file)
 
-    @patch('all2md.cli._configure_logging')
-    @patch('all2md.cli.processors.process_multi_file')
+    @patch("all2md.cli._configure_logging")
+    @patch("all2md.cli.processors.process_multi_file")
     def test_trace_flag_sets_debug_level(self, mock_process, mock_config, tmp_path):
         """Test that --trace flag sets DEBUG log level."""
         from all2md.cli import main
@@ -133,16 +131,16 @@ class TestLogFileCLIFlag:
         mock_process.return_value = 0
 
         # Run with --trace
-        main([str(test_file), '--trace', '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), "--trace", "--output-dir", str(tmp_path / "out")])
 
         # Should call configure_logging with DEBUG and trace_mode=True
         assert mock_config.called
         call_args = mock_config.call_args
         assert call_args[0][0] == logging.DEBUG  # First positional arg is log_level
-        assert call_args[1]['trace_mode'] is True
+        assert call_args[1]["trace_mode"] is True
 
-    @patch('all2md.cli._configure_logging')
-    @patch('all2md.cli.processors.process_multi_file')
+    @patch("all2md.cli._configure_logging")
+    @patch("all2md.cli.processors.process_multi_file")
     def test_log_level_precedence(self, mock_process, mock_config, tmp_path):
         """Test log level precedence: --trace > --verbose > --log-level."""
         from all2md.cli import main
@@ -153,15 +151,15 @@ class TestLogFileCLIFlag:
         mock_process.return_value = 0
 
         # Test --trace takes precedence
-        main([str(test_file), '--trace', '--log-level', 'ERROR', '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), "--trace", "--log-level", "ERROR", "--output-dir", str(tmp_path / "out")])
         assert mock_config.call_args[0][0] == logging.DEBUG
 
         # Test --verbose with default log-level
-        main([str(test_file), '--verbose', '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), "--verbose", "--output-dir", str(tmp_path / "out")])
         assert mock_config.call_args[0][0] == logging.DEBUG
 
         # Test explicit --log-level
-        main([str(test_file), '--log-level', 'ERROR', '--output-dir', str(tmp_path / 'out')])
+        main([str(test_file), "--log-level", "ERROR", "--output-dir", str(tmp_path / "out")])
         assert mock_config.call_args[0][0] == logging.ERROR
 
 
@@ -172,7 +170,7 @@ class TestEnhancedAbout:
         """Test --about shows system information."""
         from all2md.cli import main
 
-        main(['--about'])
+        main(["--about"])
 
         captured = capsys.readouterr()
         output = captured.out
@@ -187,7 +185,7 @@ class TestEnhancedAbout:
         """Test --about shows dependency information."""
         from all2md.cli import main
 
-        main(['--about'])
+        main(["--about"])
 
         captured = capsys.readouterr()
         output = captured.out
@@ -201,7 +199,7 @@ class TestEnhancedAbout:
         """Test --about shows available formats."""
         from all2md.cli import main
 
-        main(['--about'])
+        main(["--about"])
 
         captured = capsys.readouterr()
         output = captured.out
@@ -214,8 +212,9 @@ class TestEnhancedAbout:
         """Test --about returns exit code 0."""
         from all2md.cli import main
 
-        result = main(['--about'])
+        result = main(["--about"])
         assert result == 0
+
 
 @pytest.mark.timing
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
@@ -235,7 +234,7 @@ class TestTimingInstrumentation:
             to_markdown(test_file, source_format="markdown")
 
             # Check that timing logs were created
-            timing_logs = [record for record in caplog.records if 'completed in' in record.message]
+            timing_logs = [record for record in caplog.records if "completed in" in record.message]
             # Should have at least parsing and rendering timing
             assert len(timing_logs) >= 2
 
@@ -252,7 +251,7 @@ class TestTimingInstrumentation:
             to_markdown(test_file, source_format="markdown")
 
             # Should not have timing logs at WARNING level
-            timing_logs = [record for record in caplog.records if 'completed in' in record.message]
+            timing_logs = [record for record in caplog.records if "completed in" in record.message]
             assert len(timing_logs) == 0
 
 
@@ -272,12 +271,7 @@ class TestLogFileIntegration:
         output_dir = tmp_path / "out"
 
         # Run conversion with log file
-        main([
-            str(test_file),
-            '--log-file', str(log_file),
-            '--output-dir', str(output_dir),
-            '--verbose'
-        ])
+        main([str(test_file), "--log-file", str(log_file), "--output-dir", str(output_dir), "--verbose"])
 
         # Log file should be created
         assert log_file.exists()
@@ -297,12 +291,7 @@ class TestLogFileIntegration:
         output_dir = tmp_path / "out"
 
         # Run with --trace
-        main([
-            str(test_file),
-            '--trace',
-            '--log-file', str(log_file),
-            '--output-dir', str(output_dir)
-        ])
+        main([str(test_file), "--trace", "--log-file", str(log_file), "--output-dir", str(output_dir)])
 
         # Check log format
         log_content = log_file.read_text()
@@ -310,5 +299,6 @@ class TestLogFileIntegration:
         # Trace format should include timestamps
         # Format: [YYYY-MM-DD HH:MM:SS] [LEVEL] [module] message
         import re
-        timestamp_pattern = r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]'
+
+        timestamp_pattern = r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]"
         assert re.search(timestamp_pattern, log_content), "Log should contain timestamps in trace mode"

@@ -19,7 +19,7 @@ def create_rst_with_directives() -> str:
         "- Item two\n\n"
         ".. code-block:: python\n\n"
         "    def greet(name):\n"
-        "        return f\"Hello, {name}!\"\n\n"
+        '        return f"Hello, {name}!"\n\n'
         ".. table:: Sample Data\n\n"
         "   ========  ========\n"
         "   Column A  Column B\n"

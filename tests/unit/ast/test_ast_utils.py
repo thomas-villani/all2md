@@ -3,7 +3,6 @@
 # tests/unit/test_ast_utils.py
 """Tests for AST utility functions."""
 
-
 from all2md.ast import (
     Document,
     Emphasis,
@@ -55,10 +54,12 @@ class TestExtractText:
 
     def test_extract_from_paragraph(self):
         """Test extracting text from a Paragraph node."""
-        para = Paragraph(content=[
-            Text(content="This is "),
-            Text(content="a paragraph."),
-        ])
+        para = Paragraph(
+            content=[
+                Text(content="This is "),
+                Text(content="a paragraph."),
+            ]
+        )
         result = extract_text(para)
         # Joiner adds space between nodes
         assert result == "This is  a paragraph."
@@ -70,7 +71,7 @@ class TestExtractText:
             content=[
                 Text(content="Main "),
                 Text(content="Title"),
-            ]
+            ],
         )
         result = extract_text(heading)
         # Joiner adds space between nodes
@@ -78,68 +79,82 @@ class TestExtractText:
 
     def test_extract_from_nested_emphasis(self):
         """Test extracting text from nested emphasis nodes."""
-        para = Paragraph(content=[
-            Text(content="This is "),
-            Emphasis(content=[Text(content="emphasized")]),
-            Text(content=" text."),
-        ])
+        para = Paragraph(
+            content=[
+                Text(content="This is "),
+                Emphasis(content=[Text(content="emphasized")]),
+                Text(content=" text."),
+            ]
+        )
         result = extract_text(para)
         # Joiner adds space between nodes at each level
         assert result == "This is  emphasized  text."
 
     def test_extract_from_nested_strong(self):
         """Test extracting text from nested strong nodes."""
-        para = Paragraph(content=[
-            Text(content="This is "),
-            Strong(content=[Text(content="bold")]),
-            Text(content=" text."),
-        ])
+        para = Paragraph(
+            content=[
+                Text(content="This is "),
+                Strong(content=[Text(content="bold")]),
+                Text(content=" text."),
+            ]
+        )
         result = extract_text(para)
         # Joiner adds space between nodes at each level
         assert result == "This is  bold  text."
 
     def test_extract_from_deeply_nested_structure(self):
         """Test extracting text from deeply nested structure."""
-        para = Paragraph(content=[
-            Text(content="This is "),
-            Strong(content=[
-                Text(content="bold and "),
-                Emphasis(content=[Text(content="italic")]),
-            ]),
-            Text(content=" text."),
-        ])
+        para = Paragraph(
+            content=[
+                Text(content="This is "),
+                Strong(
+                    content=[
+                        Text(content="bold and "),
+                        Emphasis(content=[Text(content="italic")]),
+                    ]
+                ),
+                Text(content=" text."),
+            ]
+        )
         result = extract_text(para)
         # Joiner adds space at multiple nesting levels
         assert result == "This is  bold and  italic  text."
 
     def test_extract_from_document(self):
         """Test extracting text from entire document."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="First paragraph.")]),
-            Paragraph(content=[Text(content="Second paragraph.")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="First paragraph.")]),
+                Paragraph(content=[Text(content="Second paragraph.")]),
+            ]
+        )
         result = extract_text(doc)
         assert result == "Title First paragraph. Second paragraph."
 
     def test_extract_ignores_image_nodes(self):
         """Test that image nodes don't contribute text."""
-        para = Paragraph(content=[
-            Text(content="Before "),
-            Image(url="image.png", alt_text="An image"),
-            Text(content=" after"),
-        ])
+        para = Paragraph(
+            content=[
+                Text(content="Before "),
+                Image(url="image.png", alt_text="An image"),
+                Text(content=" after"),
+            ]
+        )
         result = extract_text(para)
         # Images don't have extractable text content, but joiner still adds space
         assert result == "Before   after"
 
     def test_extract_from_link_content(self):
         """Test extracting text from link content."""
-        para = Paragraph(content=[
-            Text(content="Click "),
-            Link(url="https://example.com", content=[Text(content="here")]),
-            Text(content=" to continue."),
-        ])
+        para = Paragraph(
+            content=[
+                Text(content="Click "),
+                Link(url="https://example.com", content=[Text(content="here")]),
+                Text(content=" to continue."),
+            ]
+        )
         result = extract_text(para)
         # Joiner adds space between nodes
         assert result == "Click  here  to continue."
@@ -183,7 +198,7 @@ class TestExtractText:
                 Text(content="My "),
                 Emphasis(content=[Text(content="Fancy")]),
                 Text(content=" Heading!"),
-            ]
+            ],
         )
         # No joiner for ID generation - preserves original spaces in text
         result = extract_text(heading.content, joiner="")
@@ -192,14 +207,18 @@ class TestExtractText:
     def test_extract_from_list_with_nested_content(self):
         """Test extracting from list of nodes with nested content."""
         nodes = [
-            Paragraph(content=[
-                Text(content="Para 1 with "),
-                Strong(content=[Text(content="bold")]),
-            ]),
-            Paragraph(content=[
-                Text(content="Para 2 with "),
-                Emphasis(content=[Text(content="italic")]),
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="Para 1 with "),
+                    Strong(content=[Text(content="bold")]),
+                ]
+            ),
+            Paragraph(
+                content=[
+                    Text(content="Para 2 with "),
+                    Emphasis(content=[Text(content="italic")]),
+                ]
+            ),
         ]
         result = extract_text(nodes)
         # Joiner adds space at each nesting level
@@ -209,11 +228,14 @@ class TestExtractText:
         """Test extracting text from List nodes (Issue 7)."""
         from all2md.ast import List, ListItem
 
-        lst = List(ordered=False, items=[
-            ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-            ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
-            ListItem(children=[Paragraph(content=[Text(content="Item 3")])]),
-        ])
+        lst = List(
+            ordered=False,
+            items=[
+                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                ListItem(children=[Paragraph(content=[Text(content="Item 3")])]),
+            ],
+        )
         result = extract_text(lst)
         assert result == "Item 1 Item 2 Item 3"
 
@@ -221,24 +243,38 @@ class TestExtractText:
         """Test extracting text from nested List nodes."""
         from all2md.ast import List, ListItem
 
-        nested_list = List(ordered=False, items=[
-            ListItem(children=[
-                Paragraph(content=[Text(content="Sub-item 1")]),
-            ]),
-            ListItem(children=[
-                Paragraph(content=[Text(content="Sub-item 2")]),
-            ]),
-        ])
+        nested_list = List(
+            ordered=False,
+            items=[
+                ListItem(
+                    children=[
+                        Paragraph(content=[Text(content="Sub-item 1")]),
+                    ]
+                ),
+                ListItem(
+                    children=[
+                        Paragraph(content=[Text(content="Sub-item 2")]),
+                    ]
+                ),
+            ],
+        )
 
-        outer_list = List(ordered=False, items=[
-            ListItem(children=[
-                Paragraph(content=[Text(content="Item 1")]),
-                nested_list,
-            ]),
-            ListItem(children=[
-                Paragraph(content=[Text(content="Item 2")]),
-            ]),
-        ])
+        outer_list = List(
+            ordered=False,
+            items=[
+                ListItem(
+                    children=[
+                        Paragraph(content=[Text(content="Item 1")]),
+                        nested_list,
+                    ]
+                ),
+                ListItem(
+                    children=[
+                        Paragraph(content=[Text(content="Item 2")]),
+                    ]
+                ),
+            ],
+        )
 
         result = extract_text(outer_list)
         assert result == "Item 1 Sub-item 1 Sub-item 2 Item 2"
@@ -253,18 +289,22 @@ class TestExtractText:
                     TableCell(content=[Text(content="Name")]),
                     TableCell(content=[Text(content="Age")]),
                 ],
-                is_header=True
+                is_header=True,
             ),
             rows=[
-                TableRow(cells=[
-                    TableCell(content=[Text(content="Alice")]),
-                    TableCell(content=[Text(content="30")]),
-                ]),
-                TableRow(cells=[
-                    TableCell(content=[Text(content="Bob")]),
-                    TableCell(content=[Text(content="25")]),
-                ]),
-            ]
+                TableRow(
+                    cells=[
+                        TableCell(content=[Text(content="Alice")]),
+                        TableCell(content=[Text(content="30")]),
+                    ]
+                ),
+                TableRow(
+                    cells=[
+                        TableCell(content=[Text(content="Bob")]),
+                        TableCell(content=[Text(content="25")]),
+                    ]
+                ),
+            ],
         )
         result = extract_text(table)
         # Should extract text from header and all rows
@@ -280,17 +320,16 @@ class TestExtractText:
                     TableCell(content=[Text(content="Name")]),
                     TableCell(content=[Strong(content=[Text(content="Age")])]),
                 ],
-                is_header=True
+                is_header=True,
             ),
             rows=[
-                TableRow(cells=[
-                    TableCell(content=[
-                        Text(content="Alice "),
-                        Emphasis(content=[Text(content="Smith")])
-                    ]),
-                    TableCell(content=[Text(content="30")]),
-                ]),
-            ]
+                TableRow(
+                    cells=[
+                        TableCell(content=[Text(content="Alice "), Emphasis(content=[Text(content="Smith")])]),
+                        TableCell(content=[Text(content="30")]),
+                    ]
+                ),
+            ],
         )
         result = extract_text(table)
         assert result == "Name Age Alice  Smith 30"
@@ -299,13 +338,18 @@ class TestExtractText:
         """Test extracting text from Document containing Lists."""
         from all2md.ast import List, ListItem
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Shopping List")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Apples")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Oranges")])]),
-            ]),
-            Paragraph(content=[Text(content="Total: 2 items")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Shopping List")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Apples")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Oranges")])]),
+                    ],
+                ),
+                Paragraph(content=[Text(content="Total: 2 items")]),
+            ]
+        )
         result = extract_text(doc)
         assert result == "Shopping List Apples Oranges Total: 2 items"

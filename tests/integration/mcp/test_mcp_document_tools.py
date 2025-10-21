@@ -16,7 +16,6 @@ Tests cover all 9 supported actions:
 
 """
 
-
 import pytest
 
 from all2md.mcp.config import MCPConfig
@@ -31,7 +30,8 @@ class TestMCPDocumentToolListSections:
     def test_list_sections_from_file(self, tmp_path):
         """Test listing sections from markdown file."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Chapter 1
+        md_file.write_text(
+            """# Chapter 1
 
 Content for chapter 1.
 
@@ -42,13 +42,11 @@ Content for section 1.1.
 # Chapter 2
 
 Content for chapter 2.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="list-sections",
-            doc=str(md_file)
-        )
+        input_data = EditDocumentSimpleInput(action="list-sections", doc=str(md_file))
 
         result = edit_document_impl(input_data, config)
 
@@ -70,7 +68,8 @@ class TestMCPDocumentToolExtract:
     def test_extract_by_heading_text(self, tmp_path):
         """Test extracting section by heading text (case-insensitive)."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Introduction
+        md_file.write_text(
+            """# Introduction
 
 Intro content.
 
@@ -81,14 +80,11 @@ Methods content.
 # Results
 
 Results content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="extract",
-            doc=str(md_file),
-            target="Methods"  # Case-insensitive
-        )
+        input_data = EditDocumentSimpleInput(action="extract", doc=str(md_file), target="Methods")  # Case-insensitive
 
         result = edit_document_impl(input_data, config)
 
@@ -104,17 +100,15 @@ Results content.
     def test_extract_by_heading_case_insensitive(self, tmp_path):
         """Test that heading matching is case-insensitive."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Introduction
+        md_file.write_text(
+            """# Introduction
 
 Content here.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="extract",
-            doc=str(md_file),
-            target="introduction"  # Lowercase
-        )
+        input_data = EditDocumentSimpleInput(action="extract", doc=str(md_file), target="introduction")  # Lowercase
 
         result = edit_document_impl(input_data, config)
 
@@ -125,7 +119,8 @@ Content here.
     def test_extract_by_index_notation(self, tmp_path):
         """Test extracting section by index notation (#0, #1, etc.)."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# First
+        md_file.write_text(
+            """# First
 
 Content.
 
@@ -136,13 +131,12 @@ Content.
 # Third
 
 Content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="extract",
-            doc=str(md_file),
-            target="#1"  # Second section (zero-based)
+            action="extract", doc=str(md_file), target="#1"  # Second section (zero-based)
         )
 
         result = edit_document_impl(input_data, config)
@@ -157,17 +151,15 @@ Content.
     def test_extract_missing_section_returns_error(self, tmp_path):
         """Test that extracting nonexistent section returns error."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Existing
+        md_file.write_text(
+            """# Existing
 
 Content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="extract",
-            doc=str(md_file),
-            target="Nonexistent"
-        )
+        input_data = EditDocumentSimpleInput(action="extract", doc=str(md_file), target="Nonexistent")
 
         result = edit_document_impl(input_data, config)
 
@@ -183,21 +175,20 @@ class TestMCPDocumentToolAddSection:
     def test_add_section_after(self, tmp_path):
         """Test adding section after target."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# First
+        md_file.write_text(
+            """# First
 
 Content 1.
 
 # Third
 
 Content 3.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="add:after",
-            doc=str(md_file),
-            target="First",
-            content="# Second\n\nContent 2."
+            action="add:after", doc=str(md_file), target="First", content="# Second\n\nContent 2."
         )
 
         result = edit_document_impl(input_data, config)
@@ -216,21 +207,20 @@ Content 3.
     def test_add_section_before(self, tmp_path):
         """Test adding section before target."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Second
+        md_file.write_text(
+            """# Second
 
 Content 2.
 
 # Third
 
 Content 3.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="add:before",
-            doc=str(md_file),
-            target="Second",
-            content="# First\n\nContent 1."
+            action="add:before", doc=str(md_file), target="Second", content="# First\n\nContent 1."
         )
 
         result = edit_document_impl(input_data, config)
@@ -248,21 +238,23 @@ Content 3.
     def test_add_section_using_index_notation(self, tmp_path):
         """Test adding section using index notation for target."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Section 1
+        md_file.write_text(
+            """# Section 1
 
 Content 1.
 
 # Section 2
 
 Content 2.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
             action="add:after",
             doc=str(md_file),
             target="#0",  # After first section
-            content="# New Section\n\nNew content."
+            content="# New Section\n\nNew content.",
         )
 
         result = edit_document_impl(input_data, config)
@@ -280,7 +272,8 @@ class TestMCPDocumentToolRemoveSection:
     def test_remove_section_by_heading(self, tmp_path):
         """Test removing section by heading text."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Keep This
+        md_file.write_text(
+            """# Keep This
 
 Content.
 
@@ -291,14 +284,11 @@ Content to remove.
 # Keep This Too
 
 More content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="remove",
-            doc=str(md_file),
-            target="Remove This"
-        )
+        input_data = EditDocumentSimpleInput(action="remove", doc=str(md_file), target="Remove This")
 
         result = edit_document_impl(input_data, config)
 
@@ -313,7 +303,8 @@ More content.
     def test_remove_section_by_index(self, tmp_path):
         """Test removing section by index notation."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# First
+        md_file.write_text(
+            """# First
 
 Content.
 
@@ -324,14 +315,11 @@ Content.
 # Third
 
 Content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="remove",
-            doc=str(md_file),
-            target="#1"  # Remove middle section
-        )
+        input_data = EditDocumentSimpleInput(action="remove", doc=str(md_file), target="#1")  # Remove middle section
 
         result = edit_document_impl(input_data, config)
 
@@ -350,21 +338,23 @@ class TestMCPDocumentToolReplaceSection:
     def test_replace_section_content(self, tmp_path):
         """Test replacing section with new content."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Introduction
+        md_file.write_text(
+            """# Introduction
 
 Old introduction content.
 
 # Methods
 
 Methods content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
             action="replace",
             doc=str(md_file),
             target="Introduction",
-            content="# Introduction\n\nNew introduction content with more details."
+            content="# Introduction\n\nNew introduction content with more details.",
         )
 
         result = edit_document_impl(input_data, config)
@@ -385,17 +375,16 @@ class TestMCPDocumentToolInsertContent:
     def test_insert_content_at_end(self, tmp_path):
         """Test inserting content at end of section."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Section
+        md_file.write_text(
+            """# Section
 
 Existing content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="insert:end",
-            doc=str(md_file),
-            target="Section",
-            content="Additional paragraph at the end."
+            action="insert:end", doc=str(md_file), target="Section", content="Additional paragraph at the end."
         )
 
         result = edit_document_impl(input_data, config)
@@ -409,17 +398,16 @@ Existing content.
     def test_insert_content_at_start(self, tmp_path):
         """Test inserting content at start of section."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Section
+        md_file.write_text(
+            """# Section
 
 Existing content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="insert:start",
-            doc=str(md_file),
-            target="Section",
-            content="New first paragraph."
+            action="insert:start", doc=str(md_file), target="Section", content="New first paragraph."
         )
 
         result = edit_document_impl(input_data, config)
@@ -433,17 +421,16 @@ Existing content.
     def test_insert_content_after_heading(self, tmp_path):
         """Test inserting content right after heading."""
         md_file = tmp_path / "doc.md"
-        md_file.write_text("""# Section
+        md_file.write_text(
+            """# Section
 
 Existing content.
-""")
+"""
+        )
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="insert:after_heading",
-            doc=str(md_file),
-            target="Section",
-            content="Inserted right after heading."
+            action="insert:after_heading", doc=str(md_file), target="Section", content="Inserted right after heading."
         )
 
         result = edit_document_impl(input_data, config)
@@ -466,7 +453,7 @@ class TestMCPDocumentToolErrorHandling:
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
             action="extract",
-            doc=str(md_file)
+            doc=str(md_file),
             # Missing target parameter
         )
 
@@ -485,7 +472,7 @@ class TestMCPDocumentToolErrorHandling:
         input_data = EditDocumentSimpleInput(
             action="add:after",
             doc=str(md_file),
-            target="Section"
+            target="Section",
             # Missing content parameter
         )
 
@@ -502,9 +489,7 @@ class TestMCPDocumentToolErrorHandling:
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="extract",
-            doc=str(md_file),
-            target="#abc"  # Invalid - not a number
+            action="extract", doc=str(md_file), target="#abc"  # Invalid - not a number
         )
 
         result = edit_document_impl(input_data, config)
@@ -524,10 +509,7 @@ class TestMCPDocumentToolErrorHandling:
         forbidden_file.write_text("# Secret\n\nContent.")
 
         config = MCPConfig(read_allowlist=[str(allowed_dir)])
-        input_data = EditDocumentSimpleInput(
-            action="list-sections",
-            doc=str(forbidden_file)
-        )
+        input_data = EditDocumentSimpleInput(action="list-sections", doc=str(forbidden_file))
 
         result = edit_document_impl(input_data, config)
 
@@ -538,10 +520,7 @@ class TestMCPDocumentToolErrorHandling:
     def test_nonexistent_file_returns_error(self, tmp_path):
         """Test that nonexistent file returns error."""
         config = MCPConfig(read_allowlist=[str(tmp_path)])
-        input_data = EditDocumentSimpleInput(
-            action="list-sections",
-            doc=str(tmp_path / "nonexistent.md")
-        )
+        input_data = EditDocumentSimpleInput(action="list-sections", doc=str(tmp_path / "nonexistent.md"))
 
         result = edit_document_impl(input_data, config)
 

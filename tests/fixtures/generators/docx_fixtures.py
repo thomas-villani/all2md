@@ -82,13 +82,13 @@ def create_docx_with_tables() -> docx.Document:
     doc.add_paragraph("Here is a simple table:")
 
     table1 = doc.add_table(rows=1, cols=3)
-    table1.style = 'Table Grid'
+    table1.style = "Table Grid"
 
     # Headers
     hdr_cells = table1.rows[0].cells
-    hdr_cells[0].text = 'Name'
-    hdr_cells[1].text = 'Age'
-    hdr_cells[2].text = 'City'
+    hdr_cells[0].text = "Name"
+    hdr_cells[1].text = "Age"
+    hdr_cells[2].text = "City"
 
     # Make header bold
     for cell in hdr_cells:
@@ -98,9 +98,9 @@ def create_docx_with_tables() -> docx.Document:
 
     # Data rows
     data = [
-        ('Alice Johnson', '25', 'New York'),
-        ('Bob Smith', '30', 'San Francisco'),
-        ('Carol Davis', '28', 'Los Angeles')
+        ("Alice Johnson", "25", "New York"),
+        ("Bob Smith", "30", "San Francisco"),
+        ("Carol Davis", "28", "Los Angeles"),
     ]
 
     for name, age, city in data:
@@ -113,10 +113,10 @@ def create_docx_with_tables() -> docx.Document:
 
     # Complex table with merged cells
     table2 = doc.add_table(rows=4, cols=4)
-    table2.style = 'Table Grid'
+    table2.style = "Table Grid"
 
     # Headers
-    headers = ['Product', 'Q1', 'Q2', 'Total']
+    headers = ["Product", "Q1", "Q2", "Total"]
     for i, header in enumerate(headers):
         table2.cell(0, i).text = header
         for paragraph in table2.cell(0, i).paragraphs:
@@ -124,20 +124,20 @@ def create_docx_with_tables() -> docx.Document:
                 run.bold = True
 
     # Data
-    table2.cell(1, 0).text = 'Product A'
-    table2.cell(1, 1).text = '100'
-    table2.cell(1, 2).text = '150'
-    table2.cell(1, 3).text = '250'
+    table2.cell(1, 0).text = "Product A"
+    table2.cell(1, 1).text = "100"
+    table2.cell(1, 2).text = "150"
+    table2.cell(1, 3).text = "250"
 
-    table2.cell(2, 0).text = 'Product B'
-    table2.cell(2, 1).text = '200'
-    table2.cell(2, 2).text = '180'
-    table2.cell(2, 3).text = '380'
+    table2.cell(2, 0).text = "Product B"
+    table2.cell(2, 1).text = "200"
+    table2.cell(2, 2).text = "180"
+    table2.cell(2, 3).text = "380"
 
-    table2.cell(3, 0).text = 'Total'
-    table2.cell(3, 1).text = '300'
-    table2.cell(3, 2).text = '330'
-    table2.cell(3, 3).text = '630'
+    table2.cell(3, 0).text = "Total"
+    table2.cell(3, 1).text = "300"
+    table2.cell(3, 2).text = "330"
+    table2.cell(3, 3).text = "630"
 
     # Make totals row bold
     for i in range(4):
@@ -163,39 +163,39 @@ def create_docx_with_lists() -> docx.Document:
 
     # Bullet list
     doc.add_paragraph("Simple bullet list:")
-    doc.add_paragraph("First bullet item", style='List Bullet')
-    doc.add_paragraph("Second bullet item", style='List Bullet')
-    doc.add_paragraph("Third bullet item", style='List Bullet')
+    doc.add_paragraph("First bullet item", style="List Bullet")
+    doc.add_paragraph("Second bullet item", style="List Bullet")
+    doc.add_paragraph("Third bullet item", style="List Bullet")
 
     doc.add_paragraph("Numbered list:")
-    doc.add_paragraph("First numbered item", style='List Number')
-    doc.add_paragraph("Second numbered item", style='List Number')
-    doc.add_paragraph("Third numbered item", style='List Number')
+    doc.add_paragraph("First numbered item", style="List Number")
+    doc.add_paragraph("Second numbered item", style="List Number")
+    doc.add_paragraph("Third numbered item", style="List Number")
 
     # Nested lists
     doc.add_paragraph("\nNested list example:")
-    doc.add_paragraph("Main item 1", style='List Bullet')
+    doc.add_paragraph("Main item 1", style="List Bullet")
 
     # Create indented sub-items (manual approach since python-docx nested lists are complex)
-    p1 = doc.add_paragraph("Sub-item 1.1", style='List Bullet')
+    p1 = doc.add_paragraph("Sub-item 1.1", style="List Bullet")
     p1.paragraph_format.left_indent = Inches(0.5)
 
-    p2 = doc.add_paragraph("Sub-item 1.2", style='List Bullet')
+    p2 = doc.add_paragraph("Sub-item 1.2", style="List Bullet")
     p2.paragraph_format.left_indent = Inches(0.5)
 
-    doc.add_paragraph("Main item 2", style='List Bullet')
+    doc.add_paragraph("Main item 2", style="List Bullet")
 
-    p3 = doc.add_paragraph("Sub-item 2.1", style='List Bullet')
+    p3 = doc.add_paragraph("Sub-item 2.1", style="List Bullet")
     p3.paragraph_format.left_indent = Inches(0.5)
 
     # Mixed list with formatting
     doc.add_paragraph("\nList with formatted text:")
-    p4 = doc.add_paragraph("", style='List Bullet')
+    p4 = doc.add_paragraph("", style="List Bullet")
     p4.add_run("Item with ").bold = False
     p4.add_run("bold text").bold = True
     p4.add_run(" in it")
 
-    p5 = doc.add_paragraph("", style='List Bullet')
+    p5 = doc.add_paragraph("", style="List Bullet")
     p5.add_run("Item with ").italic = False
     p5.add_run("italic text").italic = True
     p5.add_run(" in it")
@@ -333,7 +333,7 @@ def create_docx_file(doc: docx.Document, file_path: Optional[Path] = None) -> Pa
 
     """
     if file_path is None:
-        temp_file = tempfile.NamedTemporaryFile(suffix='.docx', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(suffix=".docx", delete=False)
         file_path = Path(temp_file.name)
         temp_file.close()
 

@@ -40,15 +40,11 @@ def _create_test_notebook(**kwargs):
     """
     default_notebook = {
         "cells": kwargs.get("cells", []),
-        "metadata": kwargs.get("metadata", {
-            "kernelspec": {
-                "display_name": "Python 3",
-                "language": "python",
-                "name": "python3"
-            }
-        }),
+        "metadata": kwargs.get(
+            "metadata", {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}}
+        ),
         "nbformat": 4,
-        "nbformat_minor": 5
+        "nbformat_minor": 5,
     }
     return default_notebook
 
@@ -60,13 +56,7 @@ class TestMarkdownCells:
     def test_simple_markdown_cell(self) -> None:
         """Test converting a simple markdown cell."""
         notebook = _create_test_notebook(
-            cells=[
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["# Heading\n", "\n", "Some text."]
-                }
-            ]
+            cells=[{"cell_type": "markdown", "metadata": {}, "source": ["# Heading\n", "\n", "Some text."]}]
         )
 
         converter = IpynbToAstConverter()
@@ -77,6 +67,7 @@ class TestMarkdownCells:
         assert len(doc.children) == 2
         # First child should be a Heading
         from all2md.ast import Heading, Text
+
         assert isinstance(doc.children[0], Heading)
         heading = doc.children[0]
         assert heading.level == 1
@@ -92,21 +83,9 @@ class TestMarkdownCells:
         """Test converting multiple markdown cells."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["First cell"]
-                },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["Second cell"]
-                },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["Third cell"]
-                }
+                {"cell_type": "markdown", "metadata": {}, "source": ["First cell"]},
+                {"cell_type": "markdown", "metadata": {}, "source": ["Second cell"]},
+                {"cell_type": "markdown", "metadata": {}, "source": ["Third cell"]},
             ]
         )
 
@@ -120,26 +99,10 @@ class TestMarkdownCells:
         """Test that empty markdown cells are skipped."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["First cell"]
-                },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": [""]  # Empty
-                },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["   \n"]  # Whitespace only
-                },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["Second cell"]
-                }
+                {"cell_type": "markdown", "metadata": {}, "source": ["First cell"]},
+                {"cell_type": "markdown", "metadata": {}, "source": [""]},  # Empty
+                {"cell_type": "markdown", "metadata": {}, "source": ["   \n"]},  # Whitespace only
+                {"cell_type": "markdown", "metadata": {}, "source": ["Second cell"]},
             ]
         )
 
@@ -152,13 +115,7 @@ class TestMarkdownCells:
     def test_markdown_cell_source_as_string(self) -> None:
         """Test markdown cell with source as string instead of list."""
         notebook = _create_test_notebook(
-            cells=[
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": "This is a string source"
-                }
-            ]
+            cells=[{"cell_type": "markdown", "metadata": {}, "source": "This is a string source"}]
         )
 
         converter = IpynbToAstConverter()
@@ -176,13 +133,7 @@ class TestCodeCells:
         """Test converting a simple code cell."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 1,
-                    "metadata": {},
-                    "source": ["print('hello')"],
-                    "outputs": []
-                }
+                {"cell_type": "code", "execution_count": 1, "metadata": {}, "source": ["print('hello')"], "outputs": []}
             ]
         )
 
@@ -198,15 +149,7 @@ class TestCodeCells:
     def test_code_cell_with_execution_count(self) -> None:
         """Test code cell with execution count display."""
         notebook = _create_test_notebook(
-            cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 5,
-                    "metadata": {},
-                    "source": ["x = 42"],
-                    "outputs": []
-                }
-            ]
+            cells=[{"cell_type": "code", "execution_count": 5, "metadata": {}, "source": ["x = 42"], "outputs": []}]
         )
 
         options = IpynbOptions(show_execution_count=True)
@@ -221,15 +164,7 @@ class TestCodeCells:
     def test_code_cell_no_execution_count(self) -> None:
         """Test code cell without execution count display."""
         notebook = _create_test_notebook(
-            cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 5,
-                    "metadata": {},
-                    "source": ["x = 42"],
-                    "outputs": []
-                }
-            ]
+            cells=[{"cell_type": "code", "execution_count": 5, "metadata": {}, "source": ["x = 42"], "outputs": []}]
         )
 
         options = IpynbOptions(show_execution_count=False)
@@ -249,13 +184,8 @@ class TestCodeCells:
                     "cell_type": "code",
                     "execution_count": 1,
                     "metadata": {},
-                    "source": [
-                        "def greet(name):\n",
-                        "    return f'Hello, {name}!'\n",
-                        "\n",
-                        "print(greet('World'))"
-                    ],
-                    "outputs": []
+                    "source": ["def greet(name):\n", "    return f'Hello, {name}!'\n", "\n", "print(greet('World'))"],
+                    "outputs": [],
                 }
             ]
         )
@@ -273,13 +203,7 @@ class TestCodeCells:
         """Test that code cells are skipped when include_inputs=False."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 1,
-                    "metadata": {},
-                    "source": ["print('hello')"],
-                    "outputs": []
-                }
+                {"cell_type": "code", "execution_count": 1, "metadata": {}, "source": ["print('hello')"], "outputs": []}
             ]
         )
 
@@ -294,20 +218,8 @@ class TestCodeCells:
         """Test that empty code cells are skipped."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 1,
-                    "metadata": {},
-                    "source": [""],
-                    "outputs": []
-                },
-                {
-                    "cell_type": "code",
-                    "execution_count": 2,
-                    "metadata": {},
-                    "source": ["   \n"],
-                    "outputs": []
-                }
+                {"cell_type": "code", "execution_count": 1, "metadata": {}, "source": [""], "outputs": []},
+                {"cell_type": "code", "execution_count": 2, "metadata": {}, "source": ["   \n"], "outputs": []},
             ]
         )
 
@@ -331,13 +243,7 @@ class TestOutputs:
                     "execution_count": 1,
                     "metadata": {},
                     "source": ["print('hello')"],
-                    "outputs": [
-                        {
-                            "output_type": "stream",
-                            "name": "stdout",
-                            "text": ["hello\n"]
-                        }
-                    ]
+                    "outputs": [{"output_type": "stream", "name": "stdout", "text": ["hello\n"]}],
                 }
             ]
         )
@@ -367,12 +273,10 @@ class TestOutputs:
                         {
                             "output_type": "execute_result",
                             "execution_count": 1,
-                            "data": {
-                                "text/plain": ["42"]
-                            },
-                            "metadata": {}
+                            "data": {"text/plain": ["42"]},
+                            "metadata": {},
                         }
-                    ]
+                    ],
                 }
             ]
         )
@@ -390,10 +294,10 @@ class TestOutputs:
         """Test converting display_data with image."""
         # Create a small valid PNG data (1x1 transparent PNG)
         png_data = base64.b64encode(
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-            b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
-            b'\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
-        ).decode('utf-8')
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+        ).decode("utf-8")
 
         notebook = _create_test_notebook(
             cells=[
@@ -402,15 +306,7 @@ class TestOutputs:
                     "execution_count": 1,
                     "metadata": {},
                     "source": ["display(image)"],
-                    "outputs": [
-                        {
-                            "output_type": "display_data",
-                            "data": {
-                                "image/png": png_data
-                            },
-                            "metadata": {}
-                        }
-                    ]
+                    "outputs": [{"output_type": "display_data", "data": {"image/png": png_data}, "metadata": {}}],
                 }
             ]
         )
@@ -437,13 +333,7 @@ class TestOutputs:
                     "execution_count": 1,
                     "metadata": {},
                     "source": ["print('hello')"],
-                    "outputs": [
-                        {
-                            "output_type": "stream",
-                            "name": "stdout",
-                            "text": ["hello\n"]
-                        }
-                    ]
+                    "outputs": [{"output_type": "stream", "name": "stdout", "text": ["hello\n"]}],
                 }
             ]
         )
@@ -467,21 +357,12 @@ class TestOutputs:
                     "execution_count": 1,
                     "metadata": {},
                     "source": ["for i in range(100): print(f'Line {i}')"],
-                    "outputs": [
-                        {
-                            "output_type": "stream",
-                            "name": "stdout",
-                            "text": [long_output]
-                        }
-                    ]
+                    "outputs": [{"output_type": "stream", "name": "stdout", "text": [long_output]}],
                 }
             ]
         )
 
-        options = IpynbOptions(
-            include_outputs=True,
-            truncate_long_outputs=10
-        )
+        options = IpynbOptions(include_outputs=True, truncate_long_outputs=10)
         converter = IpynbToAstConverter(options)
         doc = converter.convert_to_ast(notebook, "python")
 
@@ -503,27 +384,20 @@ class TestOutputs:
                     "metadata": {},
                     "source": ["x = 1"],
                     "outputs": [
-                        {
-                            "output_type": "stream",
-                            "name": "stdout",
-                            "text": ["Stream output\n"]
-                        },
+                        {"output_type": "stream", "name": "stdout", "text": ["Stream output\n"]},
                         {
                             "output_type": "execute_result",
                             "execution_count": 1,
                             "data": {"text/plain": ["42"]},
-                            "metadata": {}
-                        }
-                    ]
+                            "metadata": {},
+                        },
+                    ],
                 }
             ]
         )
 
         # Only include stream outputs
-        options = IpynbOptions(
-            include_outputs=True,
-            output_types=["stream"]
-        )
+        options = IpynbOptions(include_outputs=True, output_types=["stream"])
         converter = IpynbToAstConverter(options)
         doc = converter.convert_to_ast(notebook, "python")
 
@@ -541,15 +415,7 @@ class TestLanguageDetection:
     def test_default_python_language(self) -> None:
         """Test default language is python."""
         notebook = _create_test_notebook(
-            cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 1,
-                    "metadata": {},
-                    "source": ["x = 1"],
-                    "outputs": []
-                }
-            ]
+            cells=[{"cell_type": "code", "execution_count": 1, "metadata": {}, "source": ["x = 1"], "outputs": []}]
         )
 
         converter = IpynbToAstConverter()
@@ -562,22 +428,8 @@ class TestLanguageDetection:
     def test_custom_language_from_metadata(self) -> None:
         """Test language detection from kernelspec metadata."""
         notebook = _create_test_notebook(
-            cells=[
-                {
-                    "cell_type": "code",
-                    "execution_count": 1,
-                    "metadata": {},
-                    "source": ["x <- 42"],
-                    "outputs": []
-                }
-            ],
-            metadata={
-                "kernelspec": {
-                    "display_name": "R",
-                    "language": "R",
-                    "name": "ir"
-                }
-            }
+            cells=[{"cell_type": "code", "execution_count": 1, "metadata": {}, "source": ["x <- 42"], "outputs": []}],
+            metadata={"kernelspec": {"display_name": "R", "language": "R", "name": "ir"}},
         )
 
         converter = IpynbToAstConverter()
@@ -608,30 +460,16 @@ class TestEdgeCases:
         """Test notebook with mixed markdown and code cells."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["# Introduction"]
-                },
+                {"cell_type": "markdown", "metadata": {}, "source": ["# Introduction"]},
                 {
                     "cell_type": "code",
                     "execution_count": 1,
                     "metadata": {},
                     "source": ["print('hello')"],
-                    "outputs": []
+                    "outputs": [],
                 },
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["Some explanation"]
-                },
-                {
-                    "cell_type": "code",
-                    "execution_count": 2,
-                    "metadata": {},
-                    "source": ["x = 42"],
-                    "outputs": []
-                }
+                {"cell_type": "markdown", "metadata": {}, "source": ["Some explanation"]},
+                {"cell_type": "code", "execution_count": 2, "metadata": {}, "source": ["x = 42"], "outputs": []},
             ]
         )
 
@@ -641,6 +479,7 @@ class TestEdgeCases:
         # Should have 4 nodes: Heading (from "# Introduction"), code, Paragraph, code
         # Markdown is now parsed into proper AST nodes
         from all2md.ast import Heading
+
         assert len(doc.children) == 4
         assert isinstance(doc.children[0], Heading)  # "# Introduction" becomes Heading
         assert isinstance(doc.children[1], CodeBlock)
@@ -651,21 +490,9 @@ class TestEdgeCases:
         """Test that raw and unknown cell types are preserved for round-trip fidelity."""
         notebook = _create_test_notebook(
             cells=[
-                {
-                    "cell_type": "markdown",
-                    "metadata": {},
-                    "source": ["Known cell"]
-                },
-                {
-                    "cell_type": "raw",  # Raw cell type
-                    "metadata": {},
-                    "source": ["Raw content"]
-                },
-                {
-                    "cell_type": "unknown",
-                    "metadata": {},
-                    "source": ["Unknown content"]
-                }
+                {"cell_type": "markdown", "metadata": {}, "source": ["Known cell"]},
+                {"cell_type": "raw", "metadata": {}, "source": ["Raw content"]},  # Raw cell type
+                {"cell_type": "unknown", "metadata": {}, "source": ["Unknown content"]},
             ]
         )
 
@@ -680,6 +507,6 @@ class TestEdgeCases:
         assert isinstance(doc.children[2], Paragraph)  # unknown
 
         # Verify metadata preserves cell types
-        assert doc.children[0].metadata.get('ipynb', {}).get('cell_type') == 'markdown'
-        assert doc.children[1].metadata.get('ipynb', {}).get('cell_type') == 'raw'
-        assert doc.children[2].metadata.get('ipynb', {}).get('cell_type') == 'unknown'
+        assert doc.children[0].metadata.get("ipynb", {}).get("cell_type") == "markdown"
+        assert doc.children[1].metadata.get("ipynb", {}).get("cell_type") == "raw"
+        assert doc.children[2].metadata.get("ipynb", {}).get("cell_type") == "unknown"

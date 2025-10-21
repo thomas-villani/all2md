@@ -2,11 +2,10 @@
 
 import docx
 from docx.shared import Inches
-from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import DocxOptions
-from all2md import to_markdown as docx_to_markdown
+from all2md import DocxOptions, to_markdown as docx_to_markdown
 from all2md.options import MarkdownOptions
+from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 
 class TestDocxListsAdvanced:
@@ -68,9 +67,9 @@ class TestDocxListsAdvanced:
         assert_markdown_valid(markdown)
 
         # Should have restarted numbering
-        lines = markdown.split('\n')
-        first_list_items = [line for line in lines if "Item" in line and line.strip().startswith('1.')]
-        new_list_items = [line for line in lines if "New item" in line and line.strip().startswith('1.')]
+        lines = markdown.split("\n")
+        first_list_items = [line for line in lines if "Item" in line and line.strip().startswith("1.")]
+        new_list_items = [line for line in lines if "New item" in line and line.strip().startswith("1.")]
 
         assert len(first_list_items) >= 1
         assert len(new_list_items) >= 1
@@ -117,7 +116,7 @@ class TestDocxListsAdvanced:
         markdown = docx_to_markdown(str(temp_file))
         assert_markdown_valid(markdown)
 
-        lines = markdown.split('\n')
+        lines = markdown.split("\n")
         list_lines = [line for line in lines if "level item" in line]
 
         # Should handle deep nesting appropriately
@@ -242,8 +241,8 @@ class TestDocxListsAdvanced:
         assert "Another valid item" in markdown
 
         # Empty items might be skipped or rendered as empty bullets
-        lines = [line.strip() for line in markdown.split('\n') if line.strip()]
-        bullet_lines = [line for line in lines if line.startswith('*')]
+        lines = [line.strip() for line in markdown.split("\n") if line.strip()]
+        bullet_lines = [line for line in lines if line.startswith("*")]
         assert len(bullet_lines) >= 2  # At least the non-empty items
 
     def test_list_style_detection_edge_cases(self):
@@ -269,8 +268,8 @@ class TestDocxListsAdvanced:
         assert_markdown_valid(markdown)
 
         # Should distinguish between styled and unstyled content
-        lines = markdown.split('\n')
+        lines = markdown.split("\n")
 
         # Check that actual list items are formatted as lists
-        list_lines = [line for line in lines if line.strip().startswith(('*', '1.', '2.'))]
+        list_lines = [line for line in lines if line.strip().startswith(("*", "1.", "2."))]
         assert len(list_lines) >= 2  # Should have at least the styled items

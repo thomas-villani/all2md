@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for AsciiDoc parser and renderer."""
 
-
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -126,7 +125,7 @@ def hello():
         assert len(doc.children) == 1
         assert isinstance(doc.children[0], CodeBlock)
         code_block = doc.children[0]
-        assert 'def hello():' in code_block.content
+        assert "def hello():" in code_block.content
         assert 'print("world")' in code_block.content
 
     def test_unordered_list(self) -> None:
@@ -254,9 +253,7 @@ class TestAsciiDocRenderer:
 
     def test_render_simple_text(self) -> None:
         """Test rendering simple text."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello world")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello world")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -264,9 +261,7 @@ class TestAsciiDocRenderer:
 
     def test_render_heading(self) -> None:
         """Test rendering heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -274,13 +269,13 @@ class TestAsciiDocRenderer:
 
     def test_render_bold(self) -> None:
         """Test rendering bold text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Text(content="This is "), Strong(content=[Text(content="bold")]), Text(content=" text")]
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -288,13 +283,17 @@ class TestAsciiDocRenderer:
 
     def test_render_italic(self) -> None:
         """Test rendering italic text."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="This is "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=" text")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text"),
+                    ]
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -302,13 +301,9 @@ class TestAsciiDocRenderer:
 
     def test_render_code_inline(self) -> None:
         """Test rendering inline code."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Use "),
-                Code(content="code"),
-                Text(content=" here")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Use "), Code(content="code"), Text(content=" here")])]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -317,9 +312,7 @@ class TestAsciiDocRenderer:
 
     def test_render_code_block(self) -> None:
         """Test rendering code block."""
-        doc = Document(children=[
-            CodeBlock(content='def hello():\n    print("world")', language="python")
-        ])
+        doc = Document(children=[CodeBlock(content='def hello():\n    print("world")', language="python")])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -329,12 +322,17 @@ class TestAsciiDocRenderer:
 
     def test_render_list(self) -> None:
         """Test rendering list."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -343,12 +341,13 @@ class TestAsciiDocRenderer:
 
     def test_render_link(self) -> None:
         """Test rendering link."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Visit "),
-                Link(url="https://example.com", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Text(content="Visit "), Link(url="https://example.com", content=[Text(content="Example")])]
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -356,11 +355,7 @@ class TestAsciiDocRenderer:
 
     def test_render_image(self) -> None:
         """Test rendering image."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="photo.jpg", alt_text="Photo")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="photo.jpg", alt_text="Photo")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -468,6 +463,7 @@ class TestAsciiDocAttributeReferences:
     def test_attribute_ref_resolved(self) -> None:
         """Test that attribute references are resolved."""
         from all2md.options.asciidoc import AsciiDocOptions
+
         parser = AsciiDocParser(AsciiDocOptions(parse_attributes=True))
         doc = parser.parse(":myattr: Hello\n\nThe value is {myattr}")
 
@@ -478,6 +474,7 @@ class TestAsciiDocAttributeReferences:
     def test_undefined_attribute_kept(self) -> None:
         """Test that undefined attributes are kept as literals."""
         from all2md.options.asciidoc import AsciiDocOptions
+
         parser = AsciiDocParser(AsciiDocOptions(attribute_missing_policy="keep"))
         doc = parser.parse("The value is {undefined}")
 
@@ -488,6 +485,7 @@ class TestAsciiDocAttributeReferences:
     def test_undefined_attribute_blank(self) -> None:
         """Test that undefined attributes can be blanked."""
         from all2md.options.asciidoc import AsciiDocOptions
+
         parser = AsciiDocParser(AsciiDocOptions(attribute_missing_policy="blank"))
         doc = parser.parse("The value is {undefined}!")
 
@@ -573,7 +571,7 @@ class TestAsciiDocBlockAttributes:
         heading = doc.children[0]
         assert isinstance(heading, Heading)
         assert heading.metadata is not None
-        assert heading.metadata.get('id') == "my-anchor"
+        assert heading.metadata.get("id") == "my-anchor"
 
     def test_block_attribute_id(self) -> None:
         """Test block attribute with ID."""
@@ -583,7 +581,7 @@ class TestAsciiDocBlockAttributes:
         para = doc.children[0]
         assert isinstance(para, Paragraph)
         assert para.metadata is not None
-        assert para.metadata.get('id') == "custom-id"
+        assert para.metadata.get("id") == "custom-id"
 
     def test_code_block_language(self) -> None:
         """Test code block with language from block attribute."""
@@ -607,7 +605,7 @@ def hello():
         para = doc.children[0]
         assert isinstance(para, Paragraph)
         assert para.metadata is not None
-        assert para.metadata.get('role') == "important"
+        assert para.metadata.get("role") == "important"
 
 
 class TestAsciiDocTableImprovements:
@@ -616,6 +614,7 @@ class TestAsciiDocTableImprovements:
     def test_table_with_noheader(self) -> None:
         """Test table with noheader option."""
         from all2md.options.asciidoc import AsciiDocOptions
+
         asciidoc = """[options="noheader"]
 |===
 |Data 1 |Data 2
@@ -648,6 +647,7 @@ class TestAsciiDocTableImprovements:
     def test_table_default_header(self) -> None:
         """Test table with default first-row header."""
         from all2md.options.asciidoc import AsciiDocOptions
+
         asciidoc = """|===
 |Header 1 |Header 2
 |Data 1 |Data 2
@@ -785,7 +785,7 @@ It has multiple lines.
         assert isinstance(doc.children[0], BlockQuote)
         block = doc.children[0]
         assert block.metadata is not None
-        assert block.metadata.get('role') == 'sidebar'
+        assert block.metadata.get("role") == "sidebar"
 
     def test_example_block(self) -> None:
         """Test example block parsing."""
@@ -801,7 +801,7 @@ With multiple paragraphs.
         assert isinstance(doc.children[0], BlockQuote)
         block = doc.children[0]
         assert block.metadata is not None
-        assert block.metadata.get('role') == 'example'
+        assert block.metadata.get("role") == "example"
         assert len(block.children) == 2  # Two paragraphs
 
     def test_thematic_break_vs_code_block(self) -> None:
@@ -842,7 +842,7 @@ Sidebar
         assert len(doc.children) == 4
         assert isinstance(doc.children[1], ThematicBreak)
         assert isinstance(doc.children[3], BlockQuote)
-        assert doc.children[3].metadata.get('role') == 'sidebar'
+        assert doc.children[3].metadata.get("role") == "sidebar"
 
 
 class TestAsciiDocHardLineBreaks:
@@ -881,6 +881,7 @@ class TestAsciiDocHardLineBreaks:
     def test_no_hard_break_option(self) -> None:
         """Test that hard breaks can be disabled."""
         from all2md.options.asciidoc import AsciiDocOptions
+
         parser = AsciiDocParser(AsciiDocOptions(honor_hard_breaks=False))
         doc = parser.parse("Line one +\nLine two")
 
@@ -901,7 +902,7 @@ class TestAsciiDocAnchorsAndXrefs:
         heading = doc.children[0]
         assert isinstance(heading, Heading)
         assert heading.metadata is not None
-        assert heading.metadata.get('id') == "intro"
+        assert heading.metadata.get("id") == "intro"
 
         # Second child: paragraph with cross-reference
         para = doc.children[1]
@@ -980,13 +981,12 @@ code here
 
     def test_footnote_first_reference_includes_definition(self) -> None:
         """Test that first footnote reference includes definition inline."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text with footnote"),
-                FootnoteReference(identifier="note1")
-            ]),
-            FootnoteDefinition(identifier="note1", content=[Text(content="This is the footnote")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text with footnote"), FootnoteReference(identifier="note1")]),
+                FootnoteDefinition(identifier="note1", content=[Text(content="This is the footnote")]),
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -995,15 +995,19 @@ code here
 
     def test_footnote_subsequent_reference_is_empty(self) -> None:
         """Test that subsequent footnote references are empty."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="First "),
-                FootnoteReference(identifier="note1"),
-                Text(content=" second "),
-                FootnoteReference(identifier="note1")
-            ]),
-            FootnoteDefinition(identifier="note1", content=[Text(content="Shared note")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="First "),
+                        FootnoteReference(identifier="note1"),
+                        Text(content=" second "),
+                        FootnoteReference(identifier="note1"),
+                    ]
+                ),
+                FootnoteDefinition(identifier="note1", content=[Text(content="Shared note")]),
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1018,9 +1022,7 @@ class TestAsciiDocHeadingLevels:
 
     def test_heading_level_1_maps_to_double_equals(self) -> None:
         """Test that AST level 1 maps to == (section level 1)."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Section 1")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Section 1")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1032,9 +1034,7 @@ class TestAsciiDocHeadingLevels:
 
     def test_heading_level_2_maps_to_triple_equals(self) -> None:
         """Test that AST level 2 maps to === (section level 2)."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Section 2")])
-        ])
+        doc = Document(children=[Heading(level=2, content=[Text(content="Section 2")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1042,9 +1042,7 @@ class TestAsciiDocHeadingLevels:
 
     def test_heading_level_3_maps_to_quadruple_equals(self) -> None:
         """Test that AST level 3 maps to ==== (section level 3)."""
-        doc = Document(children=[
-            Heading(level=3, content=[Text(content="Section 3")])
-        ])
+        doc = Document(children=[Heading(level=3, content=[Text(content="Section 3")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1053,13 +1051,11 @@ class TestAsciiDocHeadingLevels:
     def test_heading_levels_1_through_6(self) -> None:
         """Test all heading levels map correctly."""
         for level in range(1, 7):
-            doc = Document(children=[
-                Heading(level=level, content=[Text(content=f"Level {level}")])
-            ])
+            doc = Document(children=[Heading(level=level, content=[Text(content=f"Level {level}")])])
             renderer = AsciiDocRenderer()
             output = renderer.render_to_string(doc)
 
-            expected_prefix = '=' * (level + 1)
+            expected_prefix = "=" * (level + 1)
             assert f"{expected_prefix} Level {level}" in output
 
 
@@ -1068,13 +1064,9 @@ class TestAsciiDocInlineCodeDelimiters:
 
     def test_simple_code_uses_plus_delimiter(self) -> None:
         """Test that simple inline code uses + delimiter."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Use "),
-                Code(content="code"),
-                Text(content=" here")
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Use "), Code(content="code"), Text(content=" here")])]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1083,11 +1075,7 @@ class TestAsciiDocInlineCodeDelimiters:
 
     def test_code_with_backticks_uses_plus_delimiter(self) -> None:
         """Test that code containing backticks still uses + delimiter."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Code(content="var x = `template`")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="var x = `template`")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1095,11 +1083,7 @@ class TestAsciiDocInlineCodeDelimiters:
 
     def test_code_with_plus_sign_escaped(self) -> None:
         """Test that + signs in code are escaped by doubling."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Code(content="x + y")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="x + y")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1108,11 +1092,7 @@ class TestAsciiDocInlineCodeDelimiters:
 
     def test_code_with_multiple_plus_signs(self) -> None:
         """Test that multiple + signs are all escaped."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Code(content="a + b + c")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="a + b + c")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1120,11 +1100,7 @@ class TestAsciiDocInlineCodeDelimiters:
 
     def test_code_with_double_plus_escaped(self) -> None:
         """Test that ++ in code is escaped correctly."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Code(content="x++")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="x++")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1139,21 +1115,20 @@ class TestAsciiDocTableAlignments:
     def test_table_with_left_alignment(self) -> None:
         """Test table with left-aligned columns."""
         from all2md.ast import TableCell, TableRow
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="A")]),
-                        TableCell(content=[Text(content="B")])
-                    ])
-                ],
-                alignments=['left', 'left']
-            )
-        ])
+
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Col1")]), TableCell(content=[Text(content="Col2")])]
+                    ),
+                    rows=[
+                        TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])])
+                    ],
+                    alignments=["left", "left"],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1163,16 +1138,18 @@ class TestAsciiDocTableAlignments:
     def test_table_with_center_alignment(self) -> None:
         """Test table with center-aligned columns."""
         from all2md.ast import TableCell, TableRow
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")])
-                ]),
-                rows=[],
-                alignments=['center', 'center']
-            )
-        ])
+
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Col1")]), TableCell(content=[Text(content="Col2")])]
+                    ),
+                    rows=[],
+                    alignments=["center", "center"],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1181,16 +1158,18 @@ class TestAsciiDocTableAlignments:
     def test_table_with_right_alignment(self) -> None:
         """Test table with right-aligned columns."""
         from all2md.ast import TableCell, TableRow
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")])
-                ]),
-                rows=[],
-                alignments=['right', 'right']
-            )
-        ])
+
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Col1")]), TableCell(content=[Text(content="Col2")])]
+                    ),
+                    rows=[],
+                    alignments=["right", "right"],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1199,17 +1178,22 @@ class TestAsciiDocTableAlignments:
     def test_table_with_mixed_alignments(self) -> None:
         """Test table with mixed column alignments."""
         from all2md.ast import TableCell, TableRow
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Left")]),
-                    TableCell(content=[Text(content="Center")]),
-                    TableCell(content=[Text(content="Right")])
-                ]),
-                rows=[],
-                alignments=['left', 'center', 'right']
-            )
-        ])
+
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Left")]),
+                            TableCell(content=[Text(content="Center")]),
+                            TableCell(content=[Text(content="Right")]),
+                        ]
+                    ),
+                    rows=[],
+                    alignments=["left", "center", "right"],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1218,39 +1202,43 @@ class TestAsciiDocTableAlignments:
     def test_table_with_none_alignment(self) -> None:
         """Test table with None alignments (defaults)."""
         from all2md.ast import TableCell, TableRow
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")])
-                ]),
-                rows=[],
-                alignments=[None, None]
-            )
-        ])
+
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Col1")]), TableCell(content=[Text(content="Col2")])]
+                    ),
+                    rows=[],
+                    alignments=[None, None],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
         # Should not include cols attribute if all alignments are None
-        assert '[cols=' not in output
+        assert "[cols=" not in output
 
     def test_table_without_alignments(self) -> None:
         """Test table without alignment specification."""
         from all2md.ast import TableCell, TableRow
-        doc = Document(children=[
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Col1")]),
-                    TableCell(content=[Text(content="Col2")])
-                ]),
-                rows=[]
-            )
-        ])
+
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Col1")]), TableCell(content=[Text(content="Col2")])]
+                    ),
+                    rows=[],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
         # Should not include cols attribute
-        assert '[cols=' not in output
+        assert "[cols=" not in output
 
 
 class TestAsciiDocTaskLists:
@@ -1258,14 +1246,14 @@ class TestAsciiDocTaskLists:
 
     def test_unordered_task_list_checked(self) -> None:
         """Test unordered task list with checked item."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Done")])],
-                    task_status='checked'
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[ListItem(children=[Paragraph(content=[Text(content="Done")])], task_status="checked")],
                 )
-            ])
-        ])
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1273,14 +1261,14 @@ class TestAsciiDocTaskLists:
 
     def test_unordered_task_list_unchecked(self) -> None:
         """Test unordered task list with unchecked item."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Todo")])],
-                    task_status='unchecked'
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[ListItem(children=[Paragraph(content=[Text(content="Todo")])], task_status="unchecked")],
                 )
-            ])
-        ])
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1288,14 +1276,14 @@ class TestAsciiDocTaskLists:
 
     def test_ordered_task_list_checked(self) -> None:
         """Test ordered task list with checked item."""
-        doc = Document(children=[
-            List(ordered=True, items=[
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Done")])],
-                    task_status='checked'
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[ListItem(children=[Paragraph(content=[Text(content="Done")])], task_status="checked")],
                 )
-            ])
-        ])
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1303,14 +1291,14 @@ class TestAsciiDocTaskLists:
 
     def test_ordered_task_list_unchecked(self) -> None:
         """Test ordered task list with unchecked item."""
-        doc = Document(children=[
-            List(ordered=True, items=[
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Todo")])],
-                    task_status='unchecked'
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[ListItem(children=[Paragraph(content=[Text(content="Todo")])], task_status="unchecked")],
                 )
-            ])
-        ])
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1318,22 +1306,18 @@ class TestAsciiDocTaskLists:
 
     def test_mixed_task_list(self) -> None:
         """Test task list with both checked and unchecked items."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Done")])],
-                    task_status='checked'
-                ),
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Todo")])],
-                    task_status='unchecked'
-                ),
-                ListItem(
-                    children=[Paragraph(content=[Text(content="Regular item")])],
-                    task_status=None
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Done")])], task_status="checked"),
+                        ListItem(children=[Paragraph(content=[Text(content="Todo")])], task_status="unchecked"),
+                        ListItem(children=[Paragraph(content=[Text(content="Regular item")])], task_status=None),
+                    ],
                 )
-            ])
-        ])
+            ]
+        )
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
@@ -1348,42 +1332,42 @@ class TestAsciiDocAttributeEscaping:
     def test_attribute_with_quotes(self) -> None:
         """Test that quotes in attributes are escaped."""
         from all2md.utils.metadata import DocumentMetadata
+
         metadata = DocumentMetadata(title='A "Special" Title')
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ], metadata=metadata.to_dict())
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])], metadata=metadata.to_dict())
 
         from all2md.options.asciidoc import AsciiDocRendererOptions
+
         renderer = AsciiDocRenderer(AsciiDocRendererOptions(use_attributes=True))
         output = renderer.render_to_string(doc)
 
         # Quotes should be escaped
-        assert r'A \"Special\" Title' in output or 'A "Special" Title' in output
+        assert r"A \"Special\" Title" in output or 'A "Special" Title' in output
 
     def test_attribute_with_newline(self) -> None:
         """Test that newlines in attributes are escaped."""
         from all2md.utils.metadata import DocumentMetadata
+
         metadata = DocumentMetadata(subject="Line 1\nLine 2")
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ], metadata=metadata.to_dict())
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])], metadata=metadata.to_dict())
 
         from all2md.options.asciidoc import AsciiDocRendererOptions
+
         renderer = AsciiDocRenderer(AsciiDocRendererOptions(use_attributes=True))
         output = renderer.render_to_string(doc)
 
         # Newline should be escaped
-        assert r'\n' in output or 'Line 1' in output
+        assert r"\n" in output or "Line 1" in output
 
     def test_attribute_with_backslash(self) -> None:
         """Test that backslashes in attributes are escaped."""
         from all2md.utils.metadata import DocumentMetadata
+
         metadata = DocumentMetadata(author=r"User\Name")
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Content")])
-        ], metadata=metadata.to_dict())
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])], metadata=metadata.to_dict())
 
         from all2md.options.asciidoc import AsciiDocRendererOptions
+
         renderer = AsciiDocRenderer(AsciiDocRendererOptions(use_attributes=True))
         output = renderer.render_to_string(doc)
 

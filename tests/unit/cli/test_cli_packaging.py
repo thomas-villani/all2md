@@ -23,13 +23,13 @@ class TestCreatePackageFromConversions:
         # Create CLIInputItem objects
         item1 = CLIInputItem(
             raw_input=input1,
-            kind='local_file',
+            kind="local_file",
             display_name=input1.name,
             path_hint=input1,
         )
         item2 = CLIInputItem(
             raw_input=input2,
-            kind='local_file',
+            kind="local_file",
             display_name=input2.name,
             path_hint=input2,
         )
@@ -38,9 +38,7 @@ class TestCreatePackageFromConversions:
 
         # Create package
         result = create_package_from_conversions(
-            input_items=[item1, item2],
-            zip_path=zip_path,
-            target_format="markdown"
+            input_items=[item1, item2], zip_path=zip_path, target_format="markdown"
         )
 
         # Verify zip was created
@@ -48,7 +46,7 @@ class TestCreatePackageFromConversions:
         assert result == zip_path
 
         # Verify contents
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             names = zf.namelist()
             assert "input1.md" in names
             assert "input2.md" in names
@@ -63,20 +61,16 @@ class TestCreatePackageFromConversions:
 
         item = CLIInputItem(
             raw_input=input_file,
-            kind='local_file',
+            kind="local_file",
             display_name=input_file.name,
             path_hint=input_file,
         )
 
         # Test HTML format
         zip_html = tmp_path / "output_html.zip"
-        create_package_from_conversions(
-            input_items=[item],
-            zip_path=zip_html,
-            target_format="html"
-        )
+        create_package_from_conversions(input_items=[item], zip_path=zip_html, target_format="html")
 
-        with zipfile.ZipFile(zip_html, 'r') as zf:
+        with zipfile.ZipFile(zip_html, "r") as zf:
             assert "test.html" in zf.namelist()
 
     def test_create_package_forces_base64(self, tmp_path):
@@ -89,7 +83,7 @@ class TestCreatePackageFromConversions:
 
         item = CLIInputItem(
             raw_input=input_file,
-            kind='local_file',
+            kind="local_file",
             display_name=input_file.name,
             path_hint=input_file,
         )
@@ -101,10 +95,7 @@ class TestCreatePackageFromConversions:
 
         # Package should override this to base64
         create_package_from_conversions(
-            input_items=[item],
-            zip_path=zip_path,
-            target_format="markdown",
-            options=options
+            input_items=[item], zip_path=zip_path, target_format="markdown", options=options
         )
 
         # Verify zip was created (base64 mode won't create external files)
@@ -123,14 +114,14 @@ class TestCreatePackageFromConversions:
 
         valid_item = CLIInputItem(
             raw_input=valid_file,
-            kind='local_file',
+            kind="local_file",
             display_name=valid_file.name,
             path_hint=valid_file,
         )
 
         invalid_item = CLIInputItem(
             raw_input=invalid_file,
-            kind='local_file',
+            kind="local_file",
             display_name=invalid_file.name,
             path_hint=invalid_file,
         )
@@ -139,15 +130,13 @@ class TestCreatePackageFromConversions:
 
         # Should not raise, just skip invalid files
         result = create_package_from_conversions(
-            input_items=[valid_item, invalid_item],
-            zip_path=zip_path,
-            target_format="markdown"
+            input_items=[valid_item, invalid_item], zip_path=zip_path, target_format="markdown"
         )
 
         assert result.exists()
 
         # Valid file should be in zip
-        with zipfile.ZipFile(zip_path, 'r') as zf:
+        with zipfile.ZipFile(zip_path, "r") as zf:
             names = zf.namelist()
             assert "valid.md" in names
 
@@ -162,14 +151,11 @@ class TestZipCLIIntegration:
         parser = create_parser()
 
         # Should parse without error
-        args = parser.parse_args([
-            str(tmp_path / "test.txt"),
-            '--zip'
-        ])
+        args = parser.parse_args([str(tmp_path / "test.txt"), "--zip"])
 
         # Zip should be set
-        assert hasattr(args, 'zip')
-        assert args.zip == 'auto'  # default const value
+        assert hasattr(args, "zip")
+        assert args.zip == "auto"  # default const value
 
     def test_zip_with_custom_path(self, tmp_path):
         """Test --zip with custom path."""
@@ -178,10 +164,7 @@ class TestZipCLIIntegration:
         parser = create_parser()
         custom_zip = str(tmp_path / "custom.zip")
 
-        args = parser.parse_args([
-            str(tmp_path / "test.txt"),
-            '--zip', custom_zip
-        ])
+        args = parser.parse_args([str(tmp_path / "test.txt"), "--zip", custom_zip])
 
         assert args.zip == custom_zip
 
@@ -192,11 +175,8 @@ class TestZipCLIIntegration:
         parser = create_parser()
 
         # Should parse successfully without --output-dir
-        args = parser.parse_args([
-            str(tmp_path / "test.txt"),
-            '--zip', 'output.zip'
-        ])
+        args = parser.parse_args([str(tmp_path / "test.txt"), "--zip", "output.zip"])
 
-        assert args.zip == 'output.zip'
+        assert args.zip == "output.zip"
         # output_dir should not be required
-        assert not hasattr(args, 'output_dir') or args.output_dir is None
+        assert not hasattr(args, "output_dir") or args.output_dir is None

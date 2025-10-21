@@ -75,6 +75,7 @@ class TestTimingContext:
         info_logs = [r for r in caplog.records if r.levelno == logging.INFO]
         assert len(info_logs) >= 2  # Start and completion
 
+
 @pytest.mark.timing
 @pytest.mark.unit
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
@@ -214,8 +215,8 @@ class TestOperationTimer:
         stats1 = timer.get_stats("op1")
         stats2 = timer.get_stats("op2")
 
-        assert stats1['count'] == 1
-        assert stats2['count'] == 1
+        assert stats1["count"] == 1
+        assert stats2["count"] == 1
 
     def test_timer_multiple_calls_same_operation(self):
         """Test timer with multiple calls to same operation."""
@@ -229,9 +230,9 @@ class TestOperationTimer:
             timer.stop("operation")
 
         stats = timer.get_stats("operation")
-        assert stats['count'] == 3
-        assert stats['total'] > 0.03
-        assert stats['mean'] > 0.01
+        assert stats["count"] == 3
+        assert stats["total"] > 0.03
+        assert stats["mean"] > 0.01
 
     def test_timer_stats(self):
         """Test timer statistics calculation."""
@@ -247,10 +248,10 @@ class TestOperationTimer:
 
         stats = timer.get_stats("op")
 
-        assert stats['count'] == 3
-        assert stats['total'] > 0.05  # At least 0.06 total
-        assert stats['min'] > 0.005  # Minimum > 0.01
-        assert stats['max'] > 0.025  # Maximum > 0.03
+        assert stats["count"] == 3
+        assert stats["total"] > 0.05  # At least 0.06 total
+        assert stats["min"] > 0.005  # Minimum > 0.01
+        assert stats["max"] > 0.025  # Maximum > 0.03
 
     def test_timer_stop_without_start_raises(self):
         """Test that stopping without starting raises error."""
@@ -296,9 +297,9 @@ class TestOperationTimer:
         stats = timer.get_stats("nonexistent")
 
         # Should return zero stats
-        assert stats['count'] == 0
-        assert stats['total'] == 0.0
-        assert stats['mean'] == 0.0
+        assert stats["count"] == 0
+        assert stats["total"] == 0.0
+        assert stats["mean"] == 0.0
 
 
 class TestTimingFunction:

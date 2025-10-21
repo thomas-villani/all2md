@@ -43,7 +43,7 @@ def _create_test_email(**kwargs):
         "subject": kwargs.get("subject", "Test Subject"),
         "date": kwargs.get("date", None),
         "content": kwargs.get("content", "Test content"),
-        "cc": kwargs.get("cc", "")
+        "cc": kwargs.get("cc", ""),
     }
 
 
@@ -94,9 +94,7 @@ class TestBasicConversion:
 
     def test_include_headers_enabled(self) -> None:
         """Test email headers included when enabled."""
-        email = _create_test_email(
-            **{"from": "alice@example.com", "to": "bob@example.com"}
-        )
+        email = _create_test_email(**{"from": "alice@example.com", "to": "bob@example.com"})
         options = EmlOptions(include_headers=True, subject_as_h1=False)
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
@@ -163,10 +161,7 @@ class TestDateFormatting:
         """Test date formatting in ISO8601 mode."""
         test_date = datetime.datetime(2025, 3, 15, 10, 30, 0, tzinfo=datetime.timezone.utc)
         email = _create_test_email(date=test_date)
-        options = EmlOptions(
-            include_headers=True,
-            date_format_mode="iso8601"
-        )
+        options = EmlOptions(include_headers=True, date_format_mode="iso8601")
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
 
@@ -190,11 +185,7 @@ class TestDateFormatting:
         """Test date formatting in strftime mode with custom pattern."""
         test_date = datetime.datetime(2025, 3, 15, 10, 30, 0, tzinfo=datetime.timezone.utc)
         email = _create_test_email(date=test_date)
-        options = EmlOptions(
-            include_headers=True,
-            date_format_mode="strftime",
-            date_strftime_pattern="%Y-%m-%d"
-        )
+        options = EmlOptions(include_headers=True, date_format_mode="strftime", date_strftime_pattern="%Y-%m-%d")
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
 
@@ -232,7 +223,7 @@ class TestEmailChains:
         emails = [
             _create_test_email(subject="Email 1", content="First message"),
             _create_test_email(subject="Email 2", content="Second message"),
-            _create_test_email(subject="Email 3", content="Third message")
+            _create_test_email(subject="Email 3", content="Third message"),
         ]
 
         options = EmlOptions(subject_as_h1=True)
@@ -249,10 +240,7 @@ class TestEmailChains:
 
     def test_thematic_breaks_between_emails(self) -> None:
         """Test that thematic breaks separate emails."""
-        emails = [
-            _create_test_email(content="Email 1"),
-            _create_test_email(content="Email 2")
-        ]
+        emails = [_create_test_email(content="Email 1"), _create_test_email(content="Email 2")]
 
         converter = EmlToAstConverter()
         doc = converter.format_email_chain_as_ast(emails)
@@ -297,9 +285,7 @@ class TestHeaderFields:
 
     def test_from_to_fields(self) -> None:
         """Test From and To fields in headers."""
-        email = _create_test_email(
-            **{"from": "sender@test.com", "to": "receiver@test.com"}
-        )
+        email = _create_test_email(**{"from": "sender@test.com", "to": "receiver@test.com"})
         options = EmlOptions(include_headers=True)
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
@@ -443,15 +429,9 @@ class TestOptionsConfiguration:
     def test_all_options_enabled(self) -> None:
         """Test with all options enabled."""
         email = _create_test_email(
-            subject="Test",
-            date=datetime.datetime.now(datetime.timezone.utc),
-            cc="cc@example.com"
+            subject="Test", date=datetime.datetime.now(datetime.timezone.utc), cc="cc@example.com"
         )
-        options = EmlOptions(
-            subject_as_h1=True,
-            include_headers=True,
-            date_format_mode="iso8601"
-        )
+        options = EmlOptions(subject_as_h1=True, include_headers=True, date_format_mode="iso8601")
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
 
@@ -462,10 +442,7 @@ class TestOptionsConfiguration:
     def test_all_options_disabled(self) -> None:
         """Test with most options disabled."""
         email = _create_test_email()
-        options = EmlOptions(
-            subject_as_h1=False,
-            include_headers=False
-        )
+        options = EmlOptions(subject_as_h1=False, include_headers=False)
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])
 

@@ -567,9 +567,7 @@ class TestComplexStructures:
 
         # Add 3 text boxes (short text detected as list items)
         for i in range(3):
-            textbox = slide.shapes.add_textbox(
-                Inches(1), Inches(1 + i * 1.5), Inches(3), Inches(1)
-            )
+            textbox = slide.shapes.add_textbox(Inches(1), Inches(1 + i * 1.5), Inches(3), Inches(1))
             textbox.text_frame.text = f"Text box {i + 1}"
 
         converter = PptxToAstConverter()
@@ -886,8 +884,8 @@ class TestListDetection:
 
         context = _analyze_slide_context(tf)
 
-        assert context['has_numbered_list'] is True
-        assert context['paragraph_count'] == 2
+        assert context["has_numbered_list"] is True
+        assert context["paragraph_count"] == 2
 
     def test_analyze_slide_context_tracks_max_level(self) -> None:
         """Test slide context tracks maximum indentation level."""
@@ -906,8 +904,8 @@ class TestListDetection:
 
         context = _analyze_slide_context(tf)
 
-        assert context['max_level'] == 2
-        assert context['paragraph_count'] == 2
+        assert context["max_level"] == 2
+        assert context["paragraph_count"] == 2
 
 
 @pytest.mark.unit
@@ -987,15 +985,11 @@ class TestChartModes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = XyChartData()
-        series = chart_data.add_series('Points')
+        series = chart_data.add_series("Points")
         series.add_data_point(1, 2)
         series.add_data_point(3, 4)
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.XY_SCATTER,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.XY_SCATTER, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="data"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1017,15 +1011,11 @@ class TestChartModes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = XyChartData()
-        series = chart_data.add_series('Data')
+        series = chart_data.add_series("Data")
         series.add_data_point(10, 20)
         series.add_data_point(30, 40)
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.XY_SCATTER,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.XY_SCATTER, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="mermaid"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1048,15 +1038,11 @@ class TestChartModes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = XyChartData()
-        series = chart_data.add_series('Series')
+        series = chart_data.add_series("Series")
         series.add_data_point(5, 10)
         series.add_data_point(15, 20)
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.XY_SCATTER,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.XY_SCATTER, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="both"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1073,14 +1059,10 @@ class TestChartModes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = ChartData()
-        chart_data.categories = ['A', 'B', 'C']
-        chart_data.add_series('Sales', (10, 20, 15))
+        chart_data.categories = ["A", "B", "C"]
+        chart_data.add_series("Sales", (10, 20, 15))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="data"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1097,14 +1079,10 @@ class TestChartModes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = ChartData()
-        chart_data.categories = ['Q1', 'Q2']
-        chart_data.add_series('Revenue', (100, 150))
+        chart_data.categories = ["Q1", "Q2"]
+        chart_data.add_series("Revenue", (100, 150))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.LINE,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.LINE, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="mermaid"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1125,14 +1103,10 @@ class TestChartModes:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = ChartData()
-        chart_data.categories = ['X', 'Y']
-        chart_data.add_series('Values', (25, 35))
+        chart_data.categories = ["X", "Y"]
+        chart_data.add_series("Values", (25, 35))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.BAR_CLUSTERED,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.BAR_CLUSTERED, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="both"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1154,14 +1128,10 @@ class TestChartFallbacks:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = ChartData()
-        chart_data.categories = ['Single']
-        chart_data.add_series('Data', (42,))
+        chart_data.categories = ["Single"]
+        chart_data.add_series("Data", (42,))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.COLUMN_CLUSTERED,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="data"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1177,14 +1147,10 @@ class TestChartFallbacks:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = XyChartData()
-        series = chart_data.add_series('Single')
+        series = chart_data.add_series("Single")
         series.add_data_point(1, 1)  # Just one point
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.XY_SCATTER,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.XY_SCATTER, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="both"))
         ast_doc = converter.convert_to_ast(prs)
@@ -1202,14 +1168,10 @@ class TestChartFallbacks:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = ChartData()
-        chart_data.categories = ['A', 'B', 'C']
-        chart_data.add_series('Data', (10, None, 20))
+        chart_data.categories = ["A", "B", "C"]
+        chart_data.add_series("Data", (10, None, 20))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.LINE,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.LINE, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter()
         ast_doc = converter.convert_to_ast(prs)
@@ -1224,14 +1186,10 @@ class TestChartFallbacks:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         chart_data = ChartData()
-        chart_data.categories = ['A', 'B']
-        chart_data.add_series('Share', (60, 40))
+        chart_data.categories = ["A", "B"]
+        chart_data.add_series("Share", (60, 40))
 
-        slide.shapes.add_chart(
-            XL_CHART_TYPE.PIE,
-            Inches(1), Inches(1), Inches(4), Inches(3),
-            chart_data
-        )
+        slide.shapes.add_chart(XL_CHART_TYPE.PIE, Inches(1), Inches(1), Inches(4), Inches(3), chart_data)
 
         converter = PptxToAstConverter(PptxOptions(charts_mode="mermaid"))
         ast_doc = converter.convert_to_ast(prs)

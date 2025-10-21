@@ -87,9 +87,7 @@ class TestFix1DependencyOrderingWithPriorities:
         # Request C - should get A, B, C in dependency order
         # NOT C, B, A which would be priority order
         ordered = registry.resolve_dependencies(["c"])
-        assert ordered == ["a", "b", "c"], (
-            "Dependencies must be respected regardless of priorities"
-        )
+        assert ordered == ["a", "b", "c"], "Dependencies must be respected regardless of priorities"
 
     def test_priority_respected_among_independent_transforms(self, registry):
         """Test that priority is used as tiebreaker for independent transforms."""
@@ -129,9 +127,7 @@ class TestFix1DependencyOrderingWithPriorities:
 
         # All independent - should be ordered by priority
         ordered = registry.resolve_dependencies(["a", "b", "c"])
-        assert ordered == ["c", "b", "a"], (
-            "Independent transforms should be ordered by priority (lower first)"
-        )
+        assert ordered == ["c", "b", "a"], "Independent transforms should be ordered by priority (lower first)"
 
 
 class TestFix2TransformOrderPreservation:
@@ -282,9 +278,7 @@ class TestFix3ContextDocumentStaleness:
 
         # Hook should have seen 0 images because context.document was updated
         # after the transform
-        assert images_in_context_doc == [0], (
-            "pre_render hook should see updated document with images removed"
-        )
+        assert images_in_context_doc == [0], "pre_render hook should see updated document with images removed"
 
     def test_element_hooks_see_updated_document(self):
         """Test that element hooks see document updated by previous hooks."""
@@ -304,8 +298,7 @@ class TestFix3ContextDocumentStaleness:
         def add_paragraph_hook(doc_node, context):
             # Add a new paragraph to the document
             new_doc = Document(
-                children=doc_node.children
-                + [Paragraph(content=[Text(content="Added")])],
+                children=doc_node.children + [Paragraph(content=[Text(content="Added")])],
                 metadata=doc_node.metadata.copy(),
             )
             return new_doc
@@ -327,9 +320,7 @@ class TestFix3ContextDocumentStaleness:
 
         # All text element hooks should see the updated document with 3 children
         # (2 original + 1 added by pre_render hook)
-        assert all(
-            count == 3 for count in doc_child_counts
-        ), "All element hooks should see updated document"
+        assert all(count == 3 for count in doc_child_counts), "All element hooks should see updated document"
 
 
 class TestFix4NodePathWithReplacedNodes:
@@ -347,13 +338,7 @@ class TestFix4NodePathWithReplacedNodes:
         from all2md.ast import Link
 
         # Create document: Doc > Para > Link > Text
-        doc = Document(
-            children=[
-                Paragraph(
-                    content=[Link(url="http://example.com", content=[Text(content="link")])]
-                )
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="http://example.com", content=[Text(content="link")])])])
 
         manager = HookManager()
         context = HookContext(document=doc, metadata={}, shared={})
@@ -388,22 +373,16 @@ class TestFix4NodePathWithReplacedNodes:
 
         # Text hook should see the REPLACED link in its ancestry
         assert len(link_in_path) == 1
-        assert link_in_path[0] == "http://replaced.com", (
-            "Descendant should see replaced parent node in path, not original"
-        )
+        assert (
+            link_in_path[0] == "http://replaced.com"
+        ), "Descendant should see replaced parent node in path, not original"
 
     def test_multiple_replacements_in_chain(self):
         """Test that multiple node replacements in ancestry are all visible."""
         from all2md.ast import Emphasis
 
         # Create doc: Doc > Para > Emphasis > Text
-        doc = Document(
-            children=[
-                Paragraph(
-                    content=[Emphasis(content=[Text(content="emphasized text")])]
-                )
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Emphasis(content=[Text(content="emphasized text")])])])
 
         manager = HookManager()
         context = HookContext(document=doc, metadata={}, shared={})
@@ -461,6 +440,7 @@ class TestFix4NodePathWithReplacedNodes:
 
 # New tests for code review fixes (Issues 5-7)
 
+
 class TestFix5TimezoneAwareTimestamps:
     """Tests for Fix 5: Timezone-aware timestamps in AddConversionTimestampTransform."""
 
@@ -472,11 +452,10 @@ class TestFix5TimezoneAwareTimestamps:
         transform = AddConversionTimestampTransform(timestamp_format="iso")
         result = transform.transform(doc)
 
-        timestamp = result.metadata['conversion_timestamp']
+        timestamp = result.metadata["conversion_timestamp"]
 
         # ISO 8601 UTC timestamps should end with +00:00 or Z
-        assert '+00:00' in timestamp or timestamp.endswith('Z'), \
-            f"Timestamp should include UTC timezone: {timestamp}"
+        assert "+00:00" in timestamp or timestamp.endswith("Z"), f"Timestamp should include UTC timezone: {timestamp}"
 
     def test_unix_timestamp_is_utc_based(self):
         """Test that Unix timestamps are UTC-based."""
@@ -491,11 +470,10 @@ class TestFix5TimezoneAwareTimestamps:
         result = transform.transform(doc)
         after = int(datetime.now(timezone.utc).timestamp())
 
-        unix_ts = int(result.metadata['conversion_timestamp'])
+        unix_ts = int(result.metadata["conversion_timestamp"])
 
         # Timestamp should be within reasonable range of current UTC time
-        assert before <= unix_ts <= after + 1, \
-            "Unix timestamp should be within UTC time range"
+        assert before <= unix_ts <= after + 1, "Unix timestamp should be within UTC time range"
 
     def test_arbitrary_strftime_format_works(self):
         """Test that arbitrary strftime patterns work (metadata allows any format)."""
@@ -514,9 +492,10 @@ class TestFix5TimezoneAwareTimestamps:
         for format_str, expected_min_length in test_formats:
             transform = AddConversionTimestampTransform(timestamp_format=format_str)
             result = transform.transform(doc)
-            timestamp = result.metadata['conversion_timestamp']
-            assert len(timestamp) >= expected_min_length, \
-                f"Format {format_str} should produce valid timestamp, got: {timestamp}"
+            timestamp = result.metadata["conversion_timestamp"]
+            assert (
+                len(timestamp) >= expected_min_length
+            ), f"Format {format_str} should produce valid timestamp, got: {timestamp}"
 
 
 class TestFix6AddAttachmentFootnotesRegistration:
@@ -532,8 +511,9 @@ class TestFix6AddAttachmentFootnotesRegistration:
         registry._ensure_initialized()
 
         registered_transforms = registry.list_transforms()
-        assert "add-attachment-footnotes" in registered_transforms, \
-            "AddAttachmentFootnotesTransform should be registered as 'add-attachment-footnotes'"
+        assert (
+            "add-attachment-footnotes" in registered_transforms
+        ), "AddAttachmentFootnotesTransform should be registered as 'add-attachment-footnotes'"
 
     def test_metadata_is_exported(self):
         """Test that ADD_ATTACHMENT_FOOTNOTES_METADATA is exported."""
@@ -561,8 +541,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         """Test that DEFAULT_BOILERPLATE_PATTERNS contains all 6 patterns."""
         from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
 
-        assert len(DEFAULT_BOILERPLATE_PATTERNS) == 6, \
-            f"DEFAULT_BOILERPLATE_PATTERNS should have 6 patterns, got {len(DEFAULT_BOILERPLATE_PATTERNS)}"
+        assert (
+            len(DEFAULT_BOILERPLATE_PATTERNS) == 6
+        ), f"DEFAULT_BOILERPLATE_PATTERNS should have 6 patterns, got {len(DEFAULT_BOILERPLATE_PATTERNS)}"
 
     def test_transform_uses_centralized_patterns(self):
         """Test that RemoveBoilerplateTextTransform uses centralized patterns."""
@@ -570,8 +551,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         from all2md.transforms.builtin import RemoveBoilerplateTextTransform
 
         transform = RemoveBoilerplateTextTransform()
-        assert transform.patterns == DEFAULT_BOILERPLATE_PATTERNS, \
-            "Transform should use centralized DEFAULT_BOILERPLATE_PATTERNS"
+        assert (
+            transform.patterns == DEFAULT_BOILERPLATE_PATTERNS
+        ), "Transform should use centralized DEFAULT_BOILERPLATE_PATTERNS"
 
     def test_options_uses_centralized_patterns(self):
         """Test that RemoveBoilerplateOptions uses centralized patterns."""
@@ -579,8 +561,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         from all2md.transforms.options import RemoveBoilerplateOptions
 
         options = RemoveBoilerplateOptions()
-        assert options.patterns == DEFAULT_BOILERPLATE_PATTERNS, \
-            "Options should use centralized DEFAULT_BOILERPLATE_PATTERNS"
+        assert (
+            options.patterns == DEFAULT_BOILERPLATE_PATTERNS
+        ), "Options should use centralized DEFAULT_BOILERPLATE_PATTERNS"
 
     def test_metadata_uses_centralized_patterns(self):
         """Test that REMOVE_BOILERPLATE_METADATA uses centralized patterns."""
@@ -588,11 +571,12 @@ class TestFix7CentralizedBoilerplatePatterns:
         from all2md.transforms import REMOVE_BOILERPLATE_METADATA
 
         metadata = REMOVE_BOILERPLATE_METADATA
-        patterns_param = metadata.parameters.get('patterns')
+        patterns_param = metadata.parameters.get("patterns")
 
         assert patterns_param is not None, "Metadata should have 'patterns' parameter"
-        assert patterns_param.default == DEFAULT_BOILERPLATE_PATTERNS, \
-            "Metadata default should use centralized patterns"
+        assert (
+            patterns_param.default == DEFAULT_BOILERPLATE_PATTERNS
+        ), "Metadata default should use centralized patterns"
 
     def test_all_locations_use_identical_patterns(self):
         """Test that all three locations use the exact same pattern list."""
@@ -604,7 +588,7 @@ class TestFix7CentralizedBoilerplatePatterns:
         # Get patterns from all three locations
         transform_patterns = RemoveBoilerplateTextTransform().patterns
         options_patterns = RemoveBoilerplateOptions().patterns
-        metadata_patterns = REMOVE_BOILERPLATE_METADATA.parameters['patterns'].default
+        metadata_patterns = REMOVE_BOILERPLATE_METADATA.parameters["patterns"].default
 
         # All should be identical to the centralized constant
         assert transform_patterns == DEFAULT_BOILERPLATE_PATTERNS
@@ -615,15 +599,17 @@ class TestFix7CentralizedBoilerplatePatterns:
         """Test that transform removes all 6 default boilerplate patterns."""
         from all2md.transforms.builtin import RemoveBoilerplateTextTransform
 
-        doc = Document(children=[
-            Paragraph(content=[Text(content="CONFIDENTIAL")]),
-            Paragraph(content=[Text(content="Page 1 of 10")]),
-            Paragraph(content=[Text(content="Internal Use Only")]),
-            Paragraph(content=[Text(content="[DRAFT]")]),
-            Paragraph(content=[Text(content="Copyright 2025")]),
-            Paragraph(content=[Text(content="Printed on 2025-01-15")]),
-            Paragraph(content=[Text(content="Normal text to keep")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="CONFIDENTIAL")]),
+                Paragraph(content=[Text(content="Page 1 of 10")]),
+                Paragraph(content=[Text(content="Internal Use Only")]),
+                Paragraph(content=[Text(content="[DRAFT]")]),
+                Paragraph(content=[Text(content="Copyright 2025")]),
+                Paragraph(content=[Text(content="Printed on 2025-01-15")]),
+                Paragraph(content=[Text(content="Normal text to keep")]),
+            ]
+        )
 
         transform = RemoveBoilerplateTextTransform()
         result = transform.transform(doc)

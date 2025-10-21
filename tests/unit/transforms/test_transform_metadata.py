@@ -37,12 +37,7 @@ class TestParameterSpec:
 
     def test_parameter_with_choices(self):
         """Test parameter with choices."""
-        param = ParameterSpec(
-            type=str,
-            default="auto",
-            choices=["auto", "manual", "disabled"],
-            help="Mode"
-        )
+        param = ParameterSpec(type=str, default="auto", choices=["auto", "manual", "disabled"], help="Mode")
 
         assert param.choices == ["auto", "manual", "disabled"]
         assert param.validate("auto") is True
@@ -73,6 +68,7 @@ class TestParameterSpec:
 
     def test_custom_validator_success(self):
         """Test custom validator - success case."""
+
         def positive(value):
             if value <= 0:
                 raise ValueError("Must be positive")
@@ -83,6 +79,7 @@ class TestParameterSpec:
 
     def test_custom_validator_failure(self):
         """Test custom validator - failure case."""
+
         def positive(value):
             if value <= 0:
                 raise ValueError("Must be positive")
@@ -106,28 +103,28 @@ class TestParameterSpec:
 
     def test_list_element_type_validation_success(self):
         """Test list element type validation - success case."""
-        param = ParameterSpec(type=list, element_type=str, default=['a', 'b'])
-        assert param.validate(['x', 'y', 'z']) is True
+        param = ParameterSpec(type=list, element_type=str, default=["a", "b"])
+        assert param.validate(["x", "y", "z"]) is True
 
     def test_list_element_type_validation_failure(self):
         """Test list element type validation - failure case."""
-        param = ParameterSpec(type=list, element_type=str, default=['a', 'b'])
+        param = ParameterSpec(type=list, element_type=str, default=["a", "b"])
 
         with pytest.raises(ValueError, match="List element at index 1 has wrong type"):
-            param.validate(['valid', 123, 'also_valid'])
+            param.validate(["valid", 123, "also_valid"])
 
     def test_list_element_type_mixed_types(self):
         """Test list element type validation with mixed types."""
         param = ParameterSpec(type=list, element_type=int)
 
         with pytest.raises(ValueError, match="expected int, got str"):
-            param.validate([1, 2, 'three', 4])
+            param.validate([1, 2, "three", 4])
 
     def test_list_without_element_type(self):
         """Test list validation without element type constraint."""
         param = ParameterSpec(type=list, default=[])
         # Should accept any list elements without element_type specified
-        assert param.validate([1, 'two', 3.0, None]) is True
+        assert param.validate([1, "two", 3.0, None]) is True
 
     def test_list_element_type_empty_list(self):
         """Test list element type validation with empty list."""
@@ -157,9 +154,7 @@ class TestTransformMetadata:
     def test_basic_metadata(self):
         """Test basic metadata creation."""
         metadata = TransformMetadata(
-            name="test-transform",
-            description="Test transform",
-            transformer_class=DummyTransform
+            name="test-transform", description="Test transform", transformer_class=DummyTransform
         )
 
         assert metadata.name == "test-transform"
@@ -176,14 +171,14 @@ class TestTransformMetadata:
             description="Test",
             transformer_class=DummyTransform,
             parameters={
-                'threshold': ParameterSpec(type=int, default=10),
-                'mode': ParameterSpec(type=str, default="auto")
-            }
+                "threshold": ParameterSpec(type=int, default=10),
+                "mode": ParameterSpec(type=str, default="auto"),
+            },
         )
 
         assert len(metadata.parameters) == 2
-        assert 'threshold' in metadata.parameters
-        assert 'mode' in metadata.parameters
+        assert "threshold" in metadata.parameters
+        assert "mode" in metadata.parameters
 
     def test_metadata_with_dependencies(self):
         """Test metadata with dependencies."""
@@ -192,7 +187,7 @@ class TestTransformMetadata:
             description="Depends on others",
             transformer_class=DummyTransform,
             dependencies=["base-transform", "util-transform"],
-            priority=200
+            priority=200,
         )
 
         assert metadata.dependencies == ["base-transform", "util-transform"]
@@ -201,41 +196,25 @@ class TestTransformMetadata:
     def test_metadata_validation_empty_name(self):
         """Test validation fails with empty name."""
         with pytest.raises(ValueError, match="name cannot be empty"):
-            TransformMetadata(
-                name="",
-                description="Test",
-                transformer_class=DummyTransform
-            )
+            TransformMetadata(name="", description="Test", transformer_class=DummyTransform)
 
     def test_metadata_validation_wrong_class(self):
         """Test validation fails with non-NodeTransformer class."""
+
         class NotATransformer:
             pass
 
         with pytest.raises(ValueError, match="must inherit from NodeTransformer"):
-            TransformMetadata(
-                name="invalid",
-                description="Invalid",
-                transformer_class=NotATransformer  # type: ignore
-            )
+            TransformMetadata(name="invalid", description="Invalid", transformer_class=NotATransformer)  # type: ignore
 
     def test_metadata_validation_negative_priority(self):
         """Test validation fails with negative priority."""
         with pytest.raises(ValueError, match="must be non-negative"):
-            TransformMetadata(
-                name="test",
-                description="Test",
-                transformer_class=DummyTransform,
-                priority=-1
-            )
+            TransformMetadata(name="test", description="Test", transformer_class=DummyTransform, priority=-1)
 
     def test_create_instance_no_params(self):
         """Test creating transform instance without parameters."""
-        metadata = TransformMetadata(
-            name="test",
-            description="Test",
-            transformer_class=DummyTransform
-        )
+        metadata = TransformMetadata(name="test", description="Test", transformer_class=DummyTransform)
 
         instance = metadata.create_instance()
         assert isinstance(instance, DummyTransform)
@@ -249,9 +228,9 @@ class TestTransformMetadata:
             description="Test",
             transformer_class=DummyTransform,
             parameters={
-                'threshold': ParameterSpec(type=int, default=10),
-                'mode': ParameterSpec(type=str, default="auto")
-            }
+                "threshold": ParameterSpec(type=int, default=10),
+                "mode": ParameterSpec(type=str, default="auto"),
+            },
         )
 
         instance = metadata.create_instance(threshold=20, mode="manual")
@@ -265,9 +244,7 @@ class TestTransformMetadata:
             name="test",
             description="Test",
             transformer_class=DummyTransform,
-            parameters={
-                'threshold': ParameterSpec(type=int, required=True)
-            }
+            parameters={"threshold": ParameterSpec(type=int, required=True)},
         )
 
         with pytest.raises(ValueError, match="Required parameter"):
@@ -279,9 +256,7 @@ class TestTransformMetadata:
             name="test",
             description="Test",
             transformer_class=DummyTransform,
-            parameters={
-                'threshold': ParameterSpec(type=int, choices=[5, 10, 15])
-            }
+            parameters={"threshold": ParameterSpec(type=int, choices=[5, 10, 15])},
         )
 
         with pytest.raises(ValueError, match="must be one of"):
@@ -293,14 +268,11 @@ class TestTransformMetadata:
             name="test",
             description="Test",
             transformer_class=DummyTransform,
-            parameters={
-                'threshold': ParameterSpec(type=int),
-                'mode': ParameterSpec(type=str)
-            }
+            parameters={"threshold": ParameterSpec(type=int), "mode": ParameterSpec(type=str)},
         )
 
         names = metadata.get_parameter_names()
-        assert set(names) == {'threshold', 'mode'}
+        assert set(names) == {"threshold", "mode"}
 
     def test_has_parameter(self):
         """Test checking for parameter existence."""
@@ -308,21 +280,16 @@ class TestTransformMetadata:
             name="test",
             description="Test",
             transformer_class=DummyTransform,
-            parameters={
-                'threshold': ParameterSpec(type=int)
-            }
+            parameters={"threshold": ParameterSpec(type=int)},
         )
 
-        assert metadata.has_parameter('threshold') is True
-        assert metadata.has_parameter('nonexistent') is False
+        assert metadata.has_parameter("threshold") is True
+        assert metadata.has_parameter("nonexistent") is False
 
     def test_metadata_with_tags(self):
         """Test metadata with tags."""
         metadata = TransformMetadata(
-            name="test",
-            description="Test",
-            transformer_class=DummyTransform,
-            tags=["images", "cleanup"]
+            name="test", description="Test", transformer_class=DummyTransform, tags=["images", "cleanup"]
         )
 
         assert metadata.tags == ["images", "cleanup"]
@@ -330,11 +297,7 @@ class TestTransformMetadata:
     def test_metadata_with_author(self):
         """Test metadata with author."""
         metadata = TransformMetadata(
-            name="test",
-            description="Test",
-            transformer_class=DummyTransform,
-            version="2.1.0",
-            author="Test Author"
+            name="test", description="Test", transformer_class=DummyTransform, version="2.1.0", author="Test Author"
         )
 
         assert metadata.version == "2.1.0"

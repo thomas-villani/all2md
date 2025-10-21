@@ -9,8 +9,13 @@ mock CHM objects. For true end-to-end testing with real CHM files, you
 would need to provide actual CHM files as test fixtures.
 """
 
-
 import pytest
+
+from all2md.options.chm import ChmOptions
+from all2md.options.html import HtmlOptions
+from all2md.options.markdown import MarkdownOptions
+from all2md.parsers.chm import ChmParser
+from all2md.renderers.markdown import MarkdownRenderer
 from fixtures.generators.chm_fixtures import (
     create_chm_with_code,
     create_chm_with_images,
@@ -19,12 +24,6 @@ from fixtures.generators.chm_fixtures import (
     create_simple_chm,
 )
 from utils import assert_markdown_valid
-
-from all2md.options.chm import ChmOptions
-from all2md.options.html import HtmlOptions
-from all2md.options.markdown import MarkdownOptions
-from all2md.parsers.chm import ChmParser
-from all2md.renderers.markdown import MarkdownRenderer
 
 
 @pytest.mark.integration
@@ -75,10 +74,7 @@ class TestChmIntegrationBasic:
         parser = ChmParser()
         doc = parser.convert_to_ast(mock_chm)
 
-        markdown_options = MarkdownOptions(
-            use_hash_headings=True,
-            emphasis_symbol="*"
-        )
+        markdown_options = MarkdownOptions(use_hash_headings=True, emphasis_symbol="*")
         renderer = MarkdownRenderer(options=markdown_options)
         result = renderer.render_to_string(doc)
 
@@ -153,11 +149,7 @@ class TestChmHtmlOptions:
         """Test CHM with custom HTML parsing options."""
         mock_chm = create_simple_chm()
 
-        html_options = HtmlOptions(
-            collapse_whitespace=True,
-            strip_comments=True,
-            extract_title=True
-        )
+        html_options = HtmlOptions(collapse_whitespace=True, strip_comments=True, extract_title=True)
         chm_options = ChmOptions(html_options=html_options)
 
         parser = ChmParser(options=chm_options)
@@ -175,10 +167,7 @@ class TestChmHtmlOptions:
         mock_chm = create_simple_chm()
 
         html_options = HtmlOptions(extract_title=True)
-        chm_options = ChmOptions(
-            html_options=html_options,
-            include_toc=False
-        )
+        chm_options = ChmOptions(html_options=html_options, include_toc=False)
 
         parser = ChmParser(options=chm_options)
         doc = parser.convert_to_ast(mock_chm)
@@ -216,11 +205,9 @@ class TestChmEdgeCases:
 
         # Create CHM with malformed HTML
         mock_chm = MockCHMFile(
-            pages={
-                "/bad.html": "<html><p>Unclosed paragraph<p>Another one</html>"
-            },
+            pages={"/bad.html": "<html><p>Unclosed paragraph<p>Another one</html>"},
             title="Malformed HTML Test",
-            home="/bad.html"
+            home="/bad.html",
         )
 
         parser = ChmParser()
@@ -297,10 +284,7 @@ class TestChmMetadataIntegration:
         doc = parser.convert_to_ast(mock_chm)
 
         # Use markdown options to include frontmatter
-        markdown_options = MarkdownOptions(
-            metadata_frontmatter=True,
-            metadata_format="yaml"
-        )
+        markdown_options = MarkdownOptions(metadata_frontmatter=True, metadata_format="yaml")
 
         renderer = MarkdownRenderer(options=markdown_options)
         result = renderer.render_to_string(doc)

@@ -36,13 +36,11 @@ class TestMCPEndToEndWorkflow:
         config = MCPConfig(
             read_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
             write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
-            include_images=False  # Use alt_text mode
+            include_images=False,  # Use alt_text mode
         )
 
         # Convert HTML to Markdown (source auto-detected as file path)
-        convert_input = ReadDocumentAsMarkdownInput(
-            source=str(html_file)
-        )
+        convert_input = ReadDocumentAsMarkdownInput(source=str(html_file))
 
         result = read_document_as_markdown_impl(convert_input, config)
 
@@ -57,9 +55,7 @@ class TestMCPEndToEndWorkflow:
         """Test converting Markdown to HTML."""
         from all2md.mcp.security import prepare_allowlist_dirs
 
-        config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)])
-        )
+        config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]))
 
         markdown_content = """
 # My Document
@@ -77,11 +73,7 @@ More content here.
         output_file = tmp_path / "output.html"
 
         # Simplified API: source + format + filename (all required)
-        save_input = SaveDocumentFromMarkdownInput(
-            format="html",
-            source=markdown_content,
-            filename=str(output_file)
-        )
+        save_input = SaveDocumentFromMarkdownInput(format="html", source=markdown_content, filename=str(output_file))
 
         result = save_document_from_markdown_impl(save_input, config)
 
@@ -101,7 +93,7 @@ More content here.
             config = MCPConfig(
                 read_allowlist=prepare_allowlist_dirs([temp_dir]),
                 write_allowlist=prepare_allowlist_dirs([temp_dir]),
-                include_images=False
+                include_images=False,
             )
 
             # Create test HTML file
@@ -109,9 +101,7 @@ More content here.
             html_file.write_text("<h1>Temp Test</h1><p>Content</p>")
 
             # Convert to markdown (source auto-detected as file path)
-            convert_input = ReadDocumentAsMarkdownInput(
-                source=str(html_file)
-            )
+            convert_input = ReadDocumentAsMarkdownInput(source=str(html_file))
 
             result = read_document_as_markdown_impl(convert_input, config)
 
@@ -122,11 +112,7 @@ More content here.
 
             # Save back to HTML
             output_file = Path(temp_dir) / "output.html"
-            save_input = SaveDocumentFromMarkdownInput(
-                format="html",
-                source=markdown,
-                filename=str(output_file)
-            )
+            save_input = SaveDocumentFromMarkdownInput(format="html", source=markdown, filename=str(output_file))
 
             save_result = save_document_from_markdown_impl(save_input, config)
 
@@ -138,18 +124,12 @@ More content here.
         """Test workflow with inline content (no files)."""
         from all2md.mcp.security import prepare_allowlist_dirs
 
-        config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
-            include_images=False
-        )
+        config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]), include_images=False)
 
         # Convert HTML string to Markdown (auto-detected as plain text)
         html_content = "<h1>Inline Test</h1><p>Some <em>content</em> here.</p>"
 
-        convert_input = ReadDocumentAsMarkdownInput(
-            source=html_content,
-            format_hint="html"
-        )
+        convert_input = ReadDocumentAsMarkdownInput(source=html_content, format_hint="html")
 
         result = read_document_as_markdown_impl(convert_input, config)
 
@@ -161,11 +141,7 @@ More content here.
 
         # Save Markdown to HTML file (always writes to disk)
         output_file = tmp_path / "output.html"
-        save_input = SaveDocumentFromMarkdownInput(
-            format="html",
-            source=markdown,
-            filename=str(output_file)
-        )
+        save_input = SaveDocumentFromMarkdownInput(format="html", source=markdown, filename=str(output_file))
 
         save_result = save_document_from_markdown_impl(save_input, config)
 
@@ -187,14 +163,10 @@ More content here.
         forbidden_file = forbidden_dir / "secret.html"
         forbidden_file.write_text("<h1>Secret</h1>")
 
-        config = MCPConfig(
-            read_allowlist=prepare_allowlist_dirs([str(allowed_dir)])
-        )
+        config = MCPConfig(read_allowlist=prepare_allowlist_dirs([str(allowed_dir)]))
 
         # Try to access file outside allowlist (source is auto-detected as file path)
-        convert_input = ReadDocumentAsMarkdownInput(
-            source=str(forbidden_file)
-        )
+        convert_input = ReadDocumentAsMarkdownInput(source=str(forbidden_file))
 
         with pytest.raises(MCPSecurityError, match="not in allowlist"):
             read_document_as_markdown_impl(convert_input, config)
@@ -206,31 +178,17 @@ More content here.
         markdown_content = "# Test\n\nContent with **bold** and *italic*."
 
         # Test GFM flavor (server-level config)
-        gfm_config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
-            flavor="gfm"
-        )
+        gfm_config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]), flavor="gfm")
         output_file_gfm = tmp_path / "output_gfm.html"
-        gfm_input = SaveDocumentFromMarkdownInput(
-            format="html",
-            source=markdown_content,
-            filename=str(output_file_gfm)
-        )
+        gfm_input = SaveDocumentFromMarkdownInput(format="html", source=markdown_content, filename=str(output_file_gfm))
         gfm_result = save_document_from_markdown_impl(gfm_input, gfm_config)
         assert gfm_result.output_path == str(output_file_gfm)
         assert output_file_gfm.exists()
 
         # Test CommonMark flavor (server-level config)
-        cm_config = MCPConfig(
-            write_allowlist=prepare_allowlist_dirs([str(tmp_path)]),
-            flavor="commonmark"
-        )
+        cm_config = MCPConfig(write_allowlist=prepare_allowlist_dirs([str(tmp_path)]), flavor="commonmark")
         output_file_cm = tmp_path / "output_cm.html"
-        cm_input = SaveDocumentFromMarkdownInput(
-            format="html",
-            source=markdown_content,
-            filename=str(output_file_cm)
-        )
+        cm_input = SaveDocumentFromMarkdownInput(format="html", source=markdown_content, filename=str(output_file_cm))
         cm_result = save_document_from_markdown_impl(cm_input, cm_config)
         assert cm_result.output_path == str(output_file_cm)
         assert output_file_cm.exists()

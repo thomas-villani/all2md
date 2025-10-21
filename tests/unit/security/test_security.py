@@ -37,41 +37,51 @@ class TestValidateLocalFileAccess:
         ]
 
         for url in test_urls:
-            assert validate_local_file_access(
-                url,
-                allow_local_files=False,
-                allow_cwd_files=True  # Should be ignored when master switch is False
-            ) is False
+            assert (
+                validate_local_file_access(
+                    url, allow_local_files=False, allow_cwd_files=True  # Should be ignored when master switch is False
+                )
+                is False
+            )
 
     def test_master_switch_false_ignores_allowlist(self):
         """When allow_local_files=False, allowlist should be ignored."""
-        assert validate_local_file_access(
-            "file:///allowed/path/image.png",
-            allow_local_files=False,
-            local_file_allowlist=["/allowed/path"],
-            allow_cwd_files=True
-        ) is False
+        assert (
+            validate_local_file_access(
+                "file:///allowed/path/image.png",
+                allow_local_files=False,
+                local_file_allowlist=["/allowed/path"],
+                allow_cwd_files=True,
+            )
+            is False
+        )
 
     def test_master_switch_false_with_denylist_still_blocks(self):
         """When allow_local_files=False, denylist check should still block but master switch takes precedence."""
         # File not in denylist but still blocked by master switch
-        assert validate_local_file_access(
-            "file:///not/denied/image.png",
-            allow_local_files=False,
-            local_file_denylist=["/denied/path"],
-            allow_cwd_files=True
-        ) is False
+        assert (
+            validate_local_file_access(
+                "file:///not/denied/image.png",
+                allow_local_files=False,
+                local_file_denylist=["/denied/path"],
+                allow_cwd_files=True,
+            )
+            is False
+        )
 
     def test_denylist_blocks_access_even_when_allowed(self):
         """Denylist should block access even when allow_local_files=True."""
         denied_path = str(Path.cwd() / "denied")
 
-        assert validate_local_file_access(
-            f"file://{denied_path}/image.png",
-            allow_local_files=True,
-            local_file_denylist=[denied_path],
-            allow_cwd_files=True
-        ) is False
+        assert (
+            validate_local_file_access(
+                f"file://{denied_path}/image.png",
+                allow_local_files=True,
+                local_file_denylist=[denied_path],
+                allow_cwd_files=True,
+            )
+            is False
+        )
 
     def test_cwd_access_requires_master_switch(self):
         """CWD access should only work when allow_local_files=True."""
@@ -79,34 +89,22 @@ class TestValidateLocalFileAccess:
         test_file_url = f"file://{cwd_path}/image.png"
 
         # Should be blocked when master switch is False
-        assert validate_local_file_access(
-            test_file_url,
-            allow_local_files=False,
-            allow_cwd_files=True
-        ) is False
+        assert validate_local_file_access(test_file_url, allow_local_files=False, allow_cwd_files=True) is False
 
         # Should be allowed when master switch is True and allow_cwd_files=True
-        assert validate_local_file_access(
-            test_file_url,
-            allow_local_files=True,
-            allow_cwd_files=True
-        ) is True
+        assert validate_local_file_access(test_file_url, allow_local_files=True, allow_cwd_files=True) is True
 
         # Should be allowed when master switch is True but allow_cwd_files=False
         # (falls through to default allow when no allowlist provided)
-        assert validate_local_file_access(
-            test_file_url,
-            allow_local_files=True,
-            allow_cwd_files=False
-        ) is True
+        assert validate_local_file_access(test_file_url, allow_local_files=True, allow_cwd_files=False) is True
 
         # Should be blocked when master switch is True, allow_cwd_files=False, and empty allowlist
-        assert validate_local_file_access(
-            test_file_url,
-            allow_local_files=True,
-            allow_cwd_files=False,
-            local_file_allowlist=[]
-        ) is False
+        assert (
+            validate_local_file_access(
+                test_file_url, allow_local_files=True, allow_cwd_files=False, local_file_allowlist=[]
+            )
+            is False
+        )
 
     def test_relative_cwd_paths(self):
         """Test relative path handling for CWD files."""
@@ -118,18 +116,10 @@ class TestValidateLocalFileAccess:
 
         for url in test_cases:
             # Blocked when master switch is False
-            assert validate_local_file_access(
-                url,
-                allow_local_files=False,
-                allow_cwd_files=True
-            ) is False
+            assert validate_local_file_access(url, allow_local_files=False, allow_cwd_files=True) is False
 
             # Allowed when both switches are True
-            assert validate_local_file_access(
-                url,
-                allow_local_files=True,
-                allow_cwd_files=True
-            ) is True
+            assert validate_local_file_access(url, allow_local_files=True, allow_cwd_files=True) is True
 
     def test_allowlist_functionality(self):
         """Test allowlist functionality when master switch is enabled."""
@@ -137,70 +127,82 @@ class TestValidateLocalFileAccess:
         not_allowed_dir = "/not/allowed"
 
         # File in allowed directory should be permitted
-        assert validate_local_file_access(
-            f"file://{allowed_dir}/image.png",
-            allow_local_files=True,
-            local_file_allowlist=[allowed_dir],
-            allow_cwd_files=False
-        ) is True
+        assert (
+            validate_local_file_access(
+                f"file://{allowed_dir}/image.png",
+                allow_local_files=True,
+                local_file_allowlist=[allowed_dir],
+                allow_cwd_files=False,
+            )
+            is True
+        )
 
         # File not in allowed directory should be blocked
-        assert validate_local_file_access(
-            f"file://{not_allowed_dir}/image.png",
-            allow_local_files=True,
-            local_file_allowlist=[allowed_dir],
-            allow_cwd_files=False
-        ) is False
+        assert (
+            validate_local_file_access(
+                f"file://{not_allowed_dir}/image.png",
+                allow_local_files=True,
+                local_file_allowlist=[allowed_dir],
+                allow_cwd_files=False,
+            )
+            is False
+        )
 
     def test_no_allowlist_allows_all_when_master_enabled(self):
         """When no allowlist is provided and master switch is True, all should be allowed."""
-        assert validate_local_file_access(
-            "file:///any/path/image.png",
-            allow_local_files=True,
-            local_file_allowlist=None,
-            allow_cwd_files=False
-        ) is True
+        assert (
+            validate_local_file_access(
+                "file:///any/path/image.png", allow_local_files=True, local_file_allowlist=None, allow_cwd_files=False
+            )
+            is True
+        )
 
     def test_denylist_precedence_over_allowlist(self):
         """Denylist should take precedence over allowlist."""
         path = "/test/directory"
 
-        assert validate_local_file_access(
-            f"file://{path}/image.png",
-            allow_local_files=True,
-            local_file_allowlist=[path],
-            local_file_denylist=[path],
-            allow_cwd_files=False
-        ) is False
+        assert (
+            validate_local_file_access(
+                f"file://{path}/image.png",
+                allow_local_files=True,
+                local_file_allowlist=[path],
+                local_file_denylist=[path],
+                allow_cwd_files=False,
+            )
+            is False
+        )
 
     def test_denylist_precedence_over_cwd(self):
         """Denylist should take precedence over CWD access."""
         cwd_path = str(Path.cwd())
 
-        assert validate_local_file_access(
-            f"file://{cwd_path}/image.png",
-            allow_local_files=True,
-            local_file_denylist=[cwd_path],
-            allow_cwd_files=True
-        ) is False
+        assert (
+            validate_local_file_access(
+                f"file://{cwd_path}/image.png",
+                allow_local_files=True,
+                local_file_denylist=[cwd_path],
+                allow_cwd_files=True,
+            )
+            is False
+        )
 
     def test_empty_lists_handling(self):
         """Test behavior with empty allowlist/denylist."""
         # Empty denylist should not block anything
-        assert validate_local_file_access(
-            "file:///etc/passwd",
-            allow_local_files=True,
-            local_file_denylist=[],
-            allow_cwd_files=False
-        ) is True
+        assert (
+            validate_local_file_access(
+                "file:///etc/passwd", allow_local_files=True, local_file_denylist=[], allow_cwd_files=False
+            )
+            is True
+        )
 
         # Empty allowlist should block everything (when allowlist is provided)
-        assert validate_local_file_access(
-            "file:///etc/passwd",
-            allow_local_files=True,
-            local_file_allowlist=[],
-            allow_cwd_files=False
-        ) is False
+        assert (
+            validate_local_file_access(
+                "file:///etc/passwd", allow_local_files=True, local_file_allowlist=[], allow_cwd_files=False
+            )
+            is False
+        )
 
     def test_path_traversal_handling(self):
         """Test that path resolution handles traversal attempts correctly."""
@@ -209,12 +211,15 @@ class TestValidateLocalFileAccess:
         parent_dir = cwd.parent
 
         # Test with path traversal in URL
-        assert validate_local_file_access(
-            f"file://{cwd}/../image.png",
-            allow_local_files=True,
-            local_file_denylist=[str(parent_dir)],
-            allow_cwd_files=True
-        ) is False
+        assert (
+            validate_local_file_access(
+                f"file://{cwd}/../image.png",
+                allow_local_files=True,
+                local_file_denylist=[str(parent_dir)],
+                allow_cwd_files=True,
+            )
+            is False
+        )
 
     def test_complex_security_scenario(self):
         """Test a complex scenario with multiple security constraints."""
@@ -223,31 +228,40 @@ class TestValidateLocalFileAccess:
         denied_dir = str(cwd / "unsafe")
 
         # File in CWD but not in denied area - should be allowed
-        assert validate_local_file_access(
-            f"file://{cwd}/safe_image.png",
-            allow_local_files=True,
-            local_file_allowlist=[allowed_dir],
-            local_file_denylist=[denied_dir],
-            allow_cwd_files=True
-        ) is True
+        assert (
+            validate_local_file_access(
+                f"file://{cwd}/safe_image.png",
+                allow_local_files=True,
+                local_file_allowlist=[allowed_dir],
+                local_file_denylist=[denied_dir],
+                allow_cwd_files=True,
+            )
+            is True
+        )
 
         # File in denied area under CWD - should be blocked
-        assert validate_local_file_access(
-            f"file://{denied_dir}/bad_image.png",
-            allow_local_files=True,
-            local_file_allowlist=[allowed_dir],
-            local_file_denylist=[denied_dir],
-            allow_cwd_files=True
-        ) is False
+        assert (
+            validate_local_file_access(
+                f"file://{denied_dir}/bad_image.png",
+                allow_local_files=True,
+                local_file_allowlist=[allowed_dir],
+                local_file_denylist=[denied_dir],
+                allow_cwd_files=True,
+            )
+            is False
+        )
 
         # File in allowed directory - should be allowed
-        assert validate_local_file_access(
-            f"file://{allowed_dir}/good_image.png",
-            allow_local_files=True,
-            local_file_allowlist=[allowed_dir],
-            local_file_denylist=[denied_dir],
-            allow_cwd_files=True
-        ) is True
+        assert (
+            validate_local_file_access(
+                f"file://{allowed_dir}/good_image.png",
+                allow_local_files=True,
+                local_file_allowlist=[allowed_dir],
+                local_file_denylist=[denied_dir],
+                allow_cwd_files=True,
+            )
+            is True
+        )
 
     def test_default_parameter_behavior(self):
         """Test that default parameters work as expected."""
@@ -256,68 +270,53 @@ class TestValidateLocalFileAccess:
         assert validate_local_file_access("file://./image.png") is False
 
         # When explicitly allowing local files, CWD should work with default allow_cwd_files=True
-        assert validate_local_file_access(
-            "file://./image.png",
-            allow_local_files=True
-        ) is True
+        assert validate_local_file_access("file://./image.png", allow_local_files=True) is True
 
     def test_windows_drive_letter_urls(self):
         """Test Windows drive letter file URLs like file:///C:/path."""
         # Test with master switch disabled
-        assert validate_local_file_access(
-            "file:///C:/Users/test/file.txt",
-            allow_local_files=False
-        ) is False
+        assert validate_local_file_access("file:///C:/Users/test/file.txt", allow_local_files=False) is False
 
         # Test with master switch enabled
-        assert validate_local_file_access(
-            "file:///C:/Users/test/file.txt",
-            allow_local_files=True
-        ) is True
+        assert validate_local_file_access("file:///C:/Users/test/file.txt", allow_local_files=True) is True
 
         # Test with allowlist
-        assert validate_local_file_access(
-            "file:///C:/Users/test/file.txt",
-            allow_local_files=True,
-            local_file_allowlist=["C:/Users/test"],
-            allow_cwd_files=False
-        ) is True
+        assert (
+            validate_local_file_access(
+                "file:///C:/Users/test/file.txt",
+                allow_local_files=True,
+                local_file_allowlist=["C:/Users/test"],
+                allow_cwd_files=False,
+            )
+            is True
+        )
 
         # Test with denylist
-        assert validate_local_file_access(
-            "file:///C:/Users/test/file.txt",
-            allow_local_files=True,
-            local_file_denylist=["C:/Users/test"],
-            allow_cwd_files=False
-        ) is False
+        assert (
+            validate_local_file_access(
+                "file:///C:/Users/test/file.txt",
+                allow_local_files=True,
+                local_file_denylist=["C:/Users/test"],
+                allow_cwd_files=False,
+            )
+            is False
+        )
 
     def test_windows_unc_path_urls(self):
         """Test Windows UNC path URLs like file://server/share."""
         # Test basic UNC path
-        assert validate_local_file_access(
-            "file://server/share/file.txt",
-            allow_local_files=False
-        ) is False
+        assert validate_local_file_access("file://server/share/file.txt", allow_local_files=False) is False
 
         # Test with master switch enabled
-        assert validate_local_file_access(
-            "file://server/share/file.txt",
-            allow_local_files=True
-        ) is True
+        assert validate_local_file_access("file://server/share/file.txt", allow_local_files=True) is True
 
     def test_mixed_windows_and_unix_paths(self):
         """Test that both Windows and Unix-style paths work correctly."""
         # Unix-style path should work
-        assert validate_local_file_access(
-            "file:///home/user/file.txt",
-            allow_local_files=True
-        ) is True
+        assert validate_local_file_access("file:///home/user/file.txt", allow_local_files=True) is True
 
         # Windows-style path should work
-        assert validate_local_file_access(
-            "file:///C:/Users/file.txt",
-            allow_local_files=True
-        ) is True
+        assert validate_local_file_access("file:///C:/Users/file.txt", allow_local_files=True) is True
 
 
 class TestFilenameSanitization:
@@ -415,6 +414,7 @@ class TestPathCollisionHandling:
     def teardown_method(self):
         """Clean up temporary directory."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_no_collision(self):
@@ -478,6 +478,7 @@ class TestAttachmentProcessingSecurity:
     def teardown_method(self):
         """Clean up temporary directory."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_download_mode_sanitization(self):
@@ -490,7 +491,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name=malicious_name,
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=False
+            is_image=False,
         )
 
         # Should create a safe filename
@@ -511,7 +512,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name="test.txt",
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=False
+            is_image=False,
         )
 
         # Create second file with same name
@@ -521,7 +522,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name="test.txt",
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=False
+            is_image=False,
         )
 
         # Should have different filenames
@@ -544,7 +545,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name=unicode_name,
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=True
+            is_image=True,
         )
 
         # Default behavior: removes non-ASCII Unicode characters
@@ -571,7 +572,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name="test.txt",
             attachment_mode="download",
             attachment_output_dir=invalid_dir,
-            is_image=False
+            is_image=False,
         )
 
         # Should fall back to alt-text mode
@@ -584,7 +585,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name="con.txt",
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=False
+            is_image=False,
         )
 
         # Should rename the file to avoid Windows reserved name
@@ -605,7 +606,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name="TEST.txt",
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=False
+            is_image=False,
         )
 
         result2 = process_attachment(
@@ -613,7 +614,7 @@ class TestAttachmentProcessingSecurity:
             attachment_name="test.txt",
             attachment_mode="download",
             attachment_output_dir=str(self.temp_dir),
-            is_image=False
+            is_image=False,
         )
 
         # Both should normalize to lowercase, so second should get suffix
@@ -646,11 +647,7 @@ class TestFilenameSanitizationEnhancements:
 
     def test_preserve_case_with_unicode(self):
         """Test combining preserve_case and allow_unicode."""
-        result = sanitize_attachment_filename(
-            "文件Test.TXT",
-            preserve_case=True,
-            allow_unicode=True
-        )
+        result = sanitize_attachment_filename("文件Test.TXT", preserve_case=True, allow_unicode=True)
         assert result == "文件Test.TXT"
 
     def test_windows_reserved_with_preserve_case(self):
@@ -790,17 +787,10 @@ class TestLinkRewriterTransformSecurity:
         from all2md.transforms.builtin import LinkRewriterTransform
 
         # Should not raise
-        transform = LinkRewriterTransform(
-            pattern=r"^/docs/",
-            replacement="https://example.com/docs/"
-        )
+        transform = LinkRewriterTransform(pattern=r"^/docs/", replacement="https://example.com/docs/")
 
         # Verify it works correctly
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="/docs/guide", content=[Text(content="Guide")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Link(url="/docs/guide", content=[Text(content="Guide")])])])
 
         result = transform.transform(doc)
         link = result.children[0].content[0]
@@ -816,11 +806,7 @@ class TestLinkRewriterTransformSecurity:
 
         # Create a document with an excessively long URL
         long_url = "/docs/" + "a" * (MAX_URL_LENGTH + 100)
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url=long_url, content=[Text(content="Link")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Link(url=long_url, content=[Text(content="Link")])])])
 
         result = transform.transform(doc)
         link = result.children[0].content[0]
@@ -850,10 +836,12 @@ class TestRemoveBoilerplateTransformSecurity:
         transform = RemoveBoilerplateTextTransform(patterns=[r"^DRAFT$", r"^INTERNAL$"])
 
         # Verify it works correctly
-        doc = Document(children=[
-            Paragraph(content=[Text(content="DRAFT")]),
-            Paragraph(content=[Text(content="Normal text")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="DRAFT")]),
+                Paragraph(content=[Text(content="Normal text")]),
+            ]
+        )
 
         result = transform.transform(doc)
         assert len(result.children) == 1
@@ -879,9 +867,7 @@ class TestRemoveBoilerplateTransformSecurity:
 
         # Create a paragraph with extremely long text
         long_text = "LONG" + "x" * (MAX_TEXT_LENGTH_FOR_REGEX + 100)
-        doc = Document(children=[
-            Paragraph(content=[Text(content=long_text)])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content=long_text)])])
 
         result = transform.transform(doc)
 
@@ -891,8 +877,7 @@ class TestRemoveBoilerplateTransformSecurity:
 
         # Test with skip_if_truncated=False: matches against truncated text
         transform_unsafe = RemoveBoilerplateTextTransform(
-            patterns=[r"^LONG"],  # No end anchor, so safe to match truncated text
-            skip_if_truncated=False
+            patterns=[r"^LONG"], skip_if_truncated=False  # No end anchor, so safe to match truncated text
         )
         result_unsafe = transform_unsafe.transform(doc)
 
@@ -912,12 +897,14 @@ class TestRemoveBoilerplateTransformSecurity:
             ]
         )
 
-        doc = Document(children=[
-            Paragraph(content=[Text(content="CONFIDENTIAL")]),
-            Paragraph(content=[Text(content="Page 1 of 5")]),
-            Paragraph(content=[Text(content="DRAFT")]),
-            Paragraph(content=[Text(content="Keep this")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="CONFIDENTIAL")]),
+                Paragraph(content=[Text(content="Page 1 of 5")]),
+                Paragraph(content=[Text(content="DRAFT")]),
+                Paragraph(content=[Text(content="Keep this")]),
+            ]
+        )
 
         result = transform.transform(doc)
         assert len(result.children) == 1

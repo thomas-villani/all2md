@@ -12,11 +12,11 @@ Tests cover:
 
 """
 
-
 import pytest
 
 try:
     from pptx import Presentation
+
     PPTX_AVAILABLE = True
 except ImportError:
     PPTX_AVAILABLE = False
@@ -58,43 +58,41 @@ def create_sample_document():
         metadata={"title": "Sample Document", "author": "Test Author"},
         children=[
             Heading(level=1, content=[Text(content="Document Title")]),
-            Paragraph(content=[
-                Text(content="This is a paragraph with "),
-                Strong(content=[Text(content="bold text")]),
-                Text(content=" and a "),
-                Link(url="https://example.com", content=[Text(content="link")]),
-                Text(content=".")
-            ]),
+            Paragraph(
+                content=[
+                    Text(content="This is a paragraph with "),
+                    Strong(content=[Text(content="bold text")]),
+                    Text(content=" and a "),
+                    Link(url="https://example.com", content=[Text(content="link")]),
+                    Text(content="."),
+                ]
+            ),
             Heading(level=2, content=[Text(content="Lists")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Third item")])])
-            ]),
+            List(
+                ordered=False,
+                items=[
+                    ListItem(children=[Paragraph(content=[Text(content="First item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Second item")])]),
+                    ListItem(children=[Paragraph(content=[Text(content="Third item")])]),
+                ],
+            ),
             Heading(level=2, content=[Text(content="Code Example")]),
             CodeBlock(content='def hello():\n    print("Hello, world!")', language="python"),
             Heading(level=2, content=[Text(content="Table")]),
             Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Name")]),
-                    TableCell(content=[Text(content="Value")])
-                ]),
+                header=TableRow(
+                    cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Value")])]
+                ),
                 rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Alpha")]),
-                        TableCell(content=[Text(content="1")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Beta")]),
-                        TableCell(content=[Text(content="2")])
-                    ])
-                ]
+                    TableRow(
+                        cells=[TableCell(content=[Text(content="Alpha")]), TableCell(content=[Text(content="1")])]
+                    ),
+                    TableRow(cells=[TableCell(content=[Text(content="Beta")]), TableCell(content=[Text(content="2")])]),
+                ],
             ),
             Heading(level=2, content=[Text(content="Quote")]),
-            BlockQuote(children=[
-                Paragraph(content=[Text(content="This is a blockquote.")])
-            ])
-        ]
+            BlockQuote(children=[Paragraph(content=[Text(content="This is a blockquote.")])]),
+        ],
     )
 
 
@@ -119,15 +117,17 @@ class TestPptxRendering:
     def test_pptx_slide_splitting_strategies(self, tmp_path):
         """Test different slide splitting strategies."""
         # Document with both separators and headings
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Slide 1")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            ThematicBreak(),
-            Heading(level=2, content=[Text(content="Slide 2")]),
-            Paragraph(content=[Text(content="Content 2")]),
-            ThematicBreak(),
-            Paragraph(content=[Text(content="Slide 3")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Slide 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="Slide 3")]),
+            ]
+        )
 
         # Test separator mode (should create 3 slides)
         sep_renderer = PptxRenderer(PptxRendererOptions(slide_split_mode="separator"))
@@ -153,18 +153,17 @@ class TestPptxRendering:
 
     def test_pptx_slide_titles(self, tmp_path):
         """Test slide title handling."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="First Slide")]),
-            Paragraph(content=[Text(content="Content 1")]),
-            ThematicBreak(),
-            Heading(level=2, content=[Text(content="Second Slide")]),
-            Paragraph(content=[Text(content="Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="First Slide")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Second Slide")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
 
-        renderer = PptxRenderer(PptxRendererOptions(
-            slide_split_mode="separator",
-            use_heading_as_slide_title=True
-        ))
+        renderer = PptxRenderer(PptxRendererOptions(slide_split_mode="separator", use_heading_as_slide_title=True))
         output_file = tmp_path / "titles.pptx"
         renderer.render(doc, output_file)
 
@@ -174,38 +173,43 @@ class TestPptxRendering:
 
     def test_pptx_complex_content(self, tmp_path):
         """Test PPTX with complex content structures."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Presentation Title")]),
-            Paragraph(content=[Text(content="Introduction")]),
-            ThematicBreak(),
-            Heading(level=2, content=[Text(content="Key Points")]),
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Point 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Point 2")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Point 3")])])
-            ]),
-            ThematicBreak(),
-            Heading(level=2, content=[Text(content="Code Example")]),
-            CodeBlock(content='def hello():\n    print("Hello")', language="python"),
-            ThematicBreak(),
-            Heading(level=2, content=[Text(content="Data")]),
-            Table(
-                header=TableRow(cells=[
-                    TableCell(content=[Text(content="Metric")]),
-                    TableCell(content=[Text(content="Value")])
-                ]),
-                rows=[
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Sales")]),
-                        TableCell(content=[Text(content="100")])
-                    ]),
-                    TableRow(cells=[
-                        TableCell(content=[Text(content="Revenue")]),
-                        TableCell(content=[Text(content="$1000")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Presentation Title")]),
+                Paragraph(content=[Text(content="Introduction")]),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Key Points")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Point 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Point 2")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Point 3")])]),
+                    ],
+                ),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Code Example")]),
+                CodeBlock(content='def hello():\n    print("Hello")', language="python"),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Data")]),
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="Metric")]), TableCell(content=[Text(content="Value")])]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="Sales")]), TableCell(content=[Text(content="100")])]
+                        ),
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Revenue")]),
+                                TableCell(content=[Text(content="$1000")]),
+                            ]
+                        ),
+                    ],
+                ),
+            ]
+        )
 
         renderer = PptxRenderer()
         output_file = tmp_path / "complex.pptx"
@@ -217,18 +221,22 @@ class TestPptxRendering:
 
     def test_pptx_formatting_preservation(self, tmp_path):
         """Test that text formatting is preserved in PPTX."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Formatting Test")]),
-            Paragraph(content=[
-                Text(content="Normal "),
-                Strong(content=[Text(content="bold")]),
-                Text(content=" and "),
-                Emphasis(content=[Text(content="italic")]),
-                Text(content=" and "),
-                Code(content="code"),
-                Text(content=".")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Formatting Test")]),
+                Paragraph(
+                    content=[
+                        Text(content="Normal "),
+                        Strong(content=[Text(content="bold")]),
+                        Text(content=" and "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" and "),
+                        Code(content="code"),
+                        Text(content="."),
+                    ]
+                ),
+            ]
+        )
 
         renderer = PptxRenderer()
         output_file = tmp_path / "formatting.pptx"

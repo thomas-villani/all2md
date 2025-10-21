@@ -18,7 +18,9 @@ from all2md.transforms.builtin import (
     TextReplacerTransform,
 )
 
+
 # Fixtures
+
 
 @pytest.fixture
 def sample_document():
@@ -26,20 +28,18 @@ def sample_document():
     return Document(
         children=[
             Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[
-                Text(content="Hello "),
-                Link(url="https://example.com", content=[Text(content="world")])
-            ]),
-            Paragraph(content=[
-                Image(url="image.png", alt_text="An image")
-            ]),
+            Paragraph(
+                content=[Text(content="Hello "), Link(url="https://example.com", content=[Text(content="world")])]
+            ),
+            Paragraph(content=[Image(url="image.png", alt_text="An image")]),
             Paragraph(content=[Text(content="CONFIDENTIAL")]),
         ],
-        metadata={"author": "Test"}
+        metadata={"author": "Test"},
     )
 
 
 # RemoveImagesTransform tests
+
 
 class TestRemoveImagesTransform:
     """Tests for RemoveImagesTransform."""
@@ -81,12 +81,13 @@ class TestRemoveImagesTransform:
 
 # RemoveNodesTransform tests
 
+
 class TestRemoveNodesTransform:
     """Tests for RemoveNodesTransform."""
 
     def test_removes_specified_node_type(self, sample_document):
         """Test removing specific node type."""
-        transform = RemoveNodesTransform(node_types=['image'])
+        transform = RemoveNodesTransform(node_types=["image"])
         result = transform.transform(sample_document)
 
         # No images should remain
@@ -100,13 +101,15 @@ class TestRemoveNodesTransform:
 
     def test_removes_multiple_node_types(self):
         """Test removing multiple node types."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Text")]),
-            Paragraph(content=[Image(url="test.png")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Text")]),
+                Paragraph(content=[Image(url="test.png")]),
+            ]
+        )
 
-        transform = RemoveNodesTransform(node_types=['heading', 'image'])
+        transform = RemoveNodesTransform(node_types=["heading", "image"])
         result = transform.transform(doc)
 
         # Heading should be removed, image removed from paragraph
@@ -120,7 +123,7 @@ class TestRemoveNodesTransform:
 
     def test_preserves_unspecified_types(self, sample_document):
         """Test that unspecified types are preserved."""
-        transform = RemoveNodesTransform(node_types=['image'])
+        transform = RemoveNodesTransform(node_types=["image"])
         result = transform.transform(sample_document)
 
         # Should still have headings
@@ -129,7 +132,7 @@ class TestRemoveNodesTransform:
     def test_raises_error_for_document_type(self):
         """Test that attempting to remove 'document' raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            RemoveNodesTransform(node_types=['document'])
+            RemoveNodesTransform(node_types=["document"])
 
         assert "Cannot remove 'document' node type" in str(exc_info.value)
         assert "break the pipeline" in str(exc_info.value)
@@ -137,11 +140,13 @@ class TestRemoveNodesTransform:
     def test_allows_other_types_with_document_excluded(self):
         """Test that other types work normally when document is not included."""
         # This should work fine
-        transform = RemoveNodesTransform(node_types=['image', 'heading'])
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Text")]),
-        ])
+        transform = RemoveNodesTransform(node_types=["image", "heading"])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Text")]),
+            ]
+        )
 
         result = transform.transform(doc)
 
@@ -153,15 +158,18 @@ class TestRemoveNodesTransform:
 
 # HeadingOffsetTransform tests
 
+
 class TestHeadingOffsetTransform:
     """Tests for HeadingOffsetTransform."""
 
     def test_increases_heading_levels(self):
         """Test increasing heading levels."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="H1")]),
-            Heading(level=2, content=[Text(content="H2")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="H1")]),
+                Heading(level=2, content=[Text(content="H2")]),
+            ]
+        )
 
         transform = HeadingOffsetTransform(offset=1)
         result = transform.transform(doc)
@@ -172,10 +180,12 @@ class TestHeadingOffsetTransform:
 
     def test_decreases_heading_levels(self):
         """Test decreasing heading levels."""
-        doc = Document(children=[
-            Heading(level=3, content=[Text(content="H3")]),
-            Heading(level=4, content=[Text(content="H4")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=3, content=[Text(content="H3")]),
+                Heading(level=4, content=[Text(content="H4")]),
+            ]
+        )
 
         transform = HeadingOffsetTransform(offset=-1)
         result = transform.transform(doc)
@@ -186,10 +196,12 @@ class TestHeadingOffsetTransform:
 
     def test_clamps_to_valid_range(self):
         """Test that levels are clamped to 1-6."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="H1")]),
-            Heading(level=6, content=[Text(content="H6")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="H1")]),
+                Heading(level=6, content=[Text(content="H6")]),
+            ]
+        )
 
         # Try to go below 1
         transform = HeadingOffsetTransform(offset=-2)
@@ -206,21 +218,15 @@ class TestHeadingOffsetTransform:
 
 # LinkRewriterTransform tests
 
+
 class TestLinkRewriterTransform:
     """Tests for LinkRewriterTransform."""
 
     def test_rewrites_matching_links(self):
         """Test rewriting links that match pattern."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="/docs/page", content=[Text(content="Link")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Link(url="/docs/page", content=[Text(content="Link")])])])
 
-        transform = LinkRewriterTransform(
-            pattern=r'^/docs/',
-            replacement='https://example.com/docs/'
-        )
+        transform = LinkRewriterTransform(pattern=r"^/docs/", replacement="https://example.com/docs/")
         result = transform.transform(doc)
 
         link = result.children[0].content[0]
@@ -228,16 +234,11 @@ class TestLinkRewriterTransform:
 
     def test_preserves_non_matching_links(self):
         """Test that non-matching links are unchanged."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://other.com/page", content=[Text(content="Link")])
-            ])
-        ])
-
-        transform = LinkRewriterTransform(
-            pattern=r'^/docs/',
-            replacement='https://example.com/docs/'
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://other.com/page", content=[Text(content="Link")])])]
         )
+
+        transform = LinkRewriterTransform(pattern=r"^/docs/", replacement="https://example.com/docs/")
         result = transform.transform(doc)
 
         link = result.children[0].content[0]
@@ -245,16 +246,9 @@ class TestLinkRewriterTransform:
 
     def test_regex_groups(self):
         """Test using regex capture groups."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="/docs/guide/intro", content=[Text(content="Link")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Link(url="/docs/guide/intro", content=[Text(content="Link")])])])
 
-        transform = LinkRewriterTransform(
-            pattern=r'^/docs/(.+)$',
-            replacement=r'https://example.com/documentation/\1'
-        )
+        transform = LinkRewriterTransform(pattern=r"^/docs/(.+)$", replacement=r"https://example.com/documentation/\1")
         result = transform.transform(doc)
 
         link = result.children[0].content[0]
@@ -263,14 +257,13 @@ class TestLinkRewriterTransform:
 
 # TextReplacerTransform tests
 
+
 class TestTextReplacerTransform:
     """Tests for TextReplacerTransform."""
 
     def test_replaces_text(self):
         """Test basic text replacement."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="TODO: finish this")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="TODO: finish this")])])
 
         transform = TextReplacerTransform(find="TODO", replace="DONE")
         result = transform.transform(doc)
@@ -280,9 +273,7 @@ class TestTextReplacerTransform:
 
     def test_replaces_all_occurrences(self):
         """Test that all occurrences are replaced."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="TODO: do TODO items")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="TODO: do TODO items")])])
 
         transform = TextReplacerTransform(find="TODO", replace="DONE")
         result = transform.transform(doc)
@@ -292,9 +283,7 @@ class TestTextReplacerTransform:
 
     def test_case_sensitive(self):
         """Test that replacement is case-sensitive."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="TODO todo Todo")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="TODO todo Todo")])])
 
         transform = TextReplacerTransform(find="TODO", replace="DONE")
         result = transform.transform(doc)
@@ -305,85 +294,83 @@ class TestTextReplacerTransform:
 
 # AddHeadingIdsTransform tests
 
+
 class TestAddHeadingIdsTransform:
     """Tests for AddHeadingIdsTransform."""
 
     def test_adds_ids_to_headings(self):
         """Test that IDs are added to headings."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="My Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="My Title")])])
 
         transform = AddHeadingIdsTransform()
         result = transform.transform(doc)
 
         heading = result.children[0]
-        assert 'id' in heading.metadata
-        assert heading.metadata['id'] == "my-title"
+        assert "id" in heading.metadata
+        assert heading.metadata["id"] == "my-title"
 
     def test_handles_duplicates(self):
         """Test that duplicate headings get unique IDs."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Heading(level=2, content=[Text(content="Title")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="Title")]),
+            ]
+        )
 
         transform = AddHeadingIdsTransform()
         result = transform.transform(doc)
 
         h1, h2 = result.children
-        assert h1.metadata['id'] == "title"
-        assert h2.metadata['id'] == "title-2"
+        assert h1.metadata["id"] == "title"
+        assert h2.metadata["id"] == "title-2"
 
     def test_adds_prefix(self):
         """Test ID prefix."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
 
         transform = AddHeadingIdsTransform(id_prefix="doc-")
         result = transform.transform(doc)
 
         heading = result.children[0]
-        assert heading.metadata['id'] == "doc-title"
+        assert heading.metadata["id"] == "doc-title"
 
     def test_custom_separator(self):
         """Test custom separator."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="My Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="My Title")])])
 
         transform = AddHeadingIdsTransform(separator="_")
         result = transform.transform(doc)
 
         heading = result.children[0]
-        assert heading.metadata['id'] == "my_title"
+        assert heading.metadata["id"] == "my_title"
 
     def test_handles_special_characters(self):
         """Test that special characters are removed."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title! With @#$ Special")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title! With @#$ Special")])])
 
         transform = AddHeadingIdsTransform()
         result = transform.transform(doc)
 
         heading = result.children[0]
-        assert heading.metadata['id'] == "title-with-special"
+        assert heading.metadata["id"] == "title-with-special"
 
 
 # RemoveBoilerplateTextTransform tests
+
 
 class TestRemoveBoilerplateTextTransform:
     """Tests for RemoveBoilerplateTextTransform."""
 
     def test_removes_default_boilerplate(self):
         """Test removing default boilerplate patterns."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="CONFIDENTIAL")]),
-            Paragraph(content=[Text(content="Page 1 of 5")]),
-            Paragraph(content=[Text(content="Normal text")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="CONFIDENTIAL")]),
+                Paragraph(content=[Text(content="Page 1 of 5")]),
+                Paragraph(content=[Text(content="Normal text")]),
+            ]
+        )
 
         transform = RemoveBoilerplateTextTransform()
         result = transform.transform(doc)
@@ -395,10 +382,12 @@ class TestRemoveBoilerplateTextTransform:
 
     def test_custom_patterns(self):
         """Test custom boilerplate patterns."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="DRAFT")]),
-            Paragraph(content=[Text(content="Normal text")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="DRAFT")]),
+                Paragraph(content=[Text(content="Normal text")]),
+            ]
+        )
 
         transform = RemoveBoilerplateTextTransform(patterns=[r"^DRAFT$"])
         result = transform.transform(doc)
@@ -409,10 +398,12 @@ class TestRemoveBoilerplateTextTransform:
 
     def test_case_insensitive(self):
         """Test case-insensitive matching."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="confidential")]),
-            Paragraph(content=[Text(content="CONFIDENTIAL")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="confidential")]),
+                Paragraph(content=[Text(content="CONFIDENTIAL")]),
+            ]
+        )
 
         transform = RemoveBoilerplateTextTransform()
         result = transform.transform(doc)
@@ -422,6 +413,7 @@ class TestRemoveBoilerplateTextTransform:
 
 
 # AddConversionTimestampTransform tests
+
 
 class TestAddConversionTimestampTransform:
     """Tests for AddConversionTimestampTransform."""
@@ -433,9 +425,9 @@ class TestAddConversionTimestampTransform:
         transform = AddConversionTimestampTransform()
         result = transform.transform(doc)
 
-        assert 'conversion_timestamp' in result.metadata
+        assert "conversion_timestamp" in result.metadata
         # Check it's ISO format (contains T)
-        assert 'T' in result.metadata['conversion_timestamp']
+        assert "T" in result.metadata["conversion_timestamp"]
 
     def test_adds_unix_timestamp(self):
         """Test adding Unix timestamp."""
@@ -444,9 +436,9 @@ class TestAddConversionTimestampTransform:
         transform = AddConversionTimestampTransform(timestamp_format="unix")
         result = transform.transform(doc)
 
-        assert 'conversion_timestamp' in result.metadata
+        assert "conversion_timestamp" in result.metadata
         # Unix timestamp should be numeric
-        assert result.metadata['conversion_timestamp'].isdigit()
+        assert result.metadata["conversion_timestamp"].isdigit()
 
     def test_custom_field_name(self):
         """Test custom field name."""
@@ -455,7 +447,7 @@ class TestAddConversionTimestampTransform:
         transform = AddConversionTimestampTransform(field_name="converted_at")
         result = transform.transform(doc)
 
-        assert 'converted_at' in result.metadata
+        assert "converted_at" in result.metadata
 
     def test_custom_format(self):
         """Test custom strftime format."""
@@ -465,65 +457,59 @@ class TestAddConversionTimestampTransform:
         result = transform.transform(doc)
 
         # Should be in YYYY-MM-DD format
-        timestamp = result.metadata['conversion_timestamp']
+        timestamp = result.metadata["conversion_timestamp"]
         assert len(timestamp) == 10
-        assert timestamp.count('-') == 2
+        assert timestamp.count("-") == 2
 
 
 # CalculateWordCountTransform tests
+
 
 class TestCalculateWordCountTransform:
     """Tests for CalculateWordCountTransform."""
 
     def test_calculates_word_count(self):
         """Test word count calculation."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello world this is a test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello world this is a test")])])
 
         transform = CalculateWordCountTransform()
         result = transform.transform(doc)
 
-        assert result.metadata['word_count'] == 6
+        assert result.metadata["word_count"] == 6
 
     def test_calculates_char_count(self):
         """Test character count calculation."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello")])])
 
         transform = CalculateWordCountTransform()
         result = transform.transform(doc)
 
-        assert result.metadata['char_count'] == 5
+        assert result.metadata["char_count"] == 5
 
     def test_counts_across_multiple_nodes(self):
         """Test counting across document."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Hello world")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Hello world")]),
+            ]
+        )
 
         transform = CalculateWordCountTransform()
         result = transform.transform(doc)
 
-        assert result.metadata['word_count'] == 3  # "Title Hello world"
-        assert result.metadata['char_count'] > 0
+        assert result.metadata["word_count"] == 3  # "Title Hello world"
+        assert result.metadata["char_count"] > 0
 
     def test_custom_field_names(self):
         """Test custom field names."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Test")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
 
-        transform = CalculateWordCountTransform(
-            word_field="words",
-            char_field="characters"
-        )
+        transform = CalculateWordCountTransform(word_field="words", char_field="characters")
         result = transform.transform(doc)
 
-        assert 'words' in result.metadata
-        assert 'characters' in result.metadata
+        assert "words" in result.metadata
+        assert "characters" in result.metadata
 
     def test_empty_document(self):
         """Test with empty document."""
@@ -532,8 +518,8 @@ class TestCalculateWordCountTransform:
         transform = CalculateWordCountTransform()
         result = transform.transform(doc)
 
-        assert result.metadata['word_count'] == 0
-        assert result.metadata['char_count'] == 0
+        assert result.metadata["word_count"] == 0
+        assert result.metadata["char_count"] == 0
 
     def test_char_count_includes_synthetic_spaces(self):
         """Test that char_count includes spaces inserted during text extraction.
@@ -545,42 +531,37 @@ class TestCalculateWordCountTransform:
         # Create document where we know the exact text content
         # Two Text nodes: "hello" (5 chars) + "world" (5 chars) = 10 chars of actual text
         # But extract_text will join with space: "hello world" = 11 chars
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="hello"),
-                Text(content="world")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="hello"), Text(content="world")])])
 
         transform = CalculateWordCountTransform()
         result = transform.transform(doc)
 
         # Word count should be 2
-        assert result.metadata['word_count'] == 2
+        assert result.metadata["word_count"] == 2
 
         # Character count includes the synthetic space inserted by extract_text
         # "hello" + " " + "world" = 11 characters
-        assert result.metadata['char_count'] == 11
+        assert result.metadata["char_count"] == 11
 
     def test_char_count_multiple_paragraphs(self):
         """Test char_count with multiple paragraphs (block-level synthetic spaces)."""
         # Two paragraphs with single-word text
         # "First" (5 chars) + "Second" (6 chars) = 11 chars actual
         # But joined: "First Second" = 12 chars with synthetic space
-        doc = Document(children=[
-            Paragraph(content=[Text(content="First")]),
-            Paragraph(content=[Text(content="Second")])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="First")]), Paragraph(content=[Text(content="Second")])]
+        )
 
         transform = CalculateWordCountTransform()
         result = transform.transform(doc)
 
-        assert result.metadata['word_count'] == 2
+        assert result.metadata["word_count"] == 2
         # Includes synthetic space between paragraphs
-        assert result.metadata['char_count'] == 12
+        assert result.metadata["char_count"] == 12
 
 
 # AddAttachmentFootnotesTransform tests
+
 
 class TestAddAttachmentFootnotesTransform:
     """Tests for AddAttachmentFootnotesTransform."""
@@ -589,11 +570,7 @@ class TestAddAttachmentFootnotesTransform:
         """Test adding footnote definition for image with empty URL."""
         from all2md.ast.nodes import FootnoteDefinition
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="test_image.png")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="", alt_text="test_image.png")])])
 
         transform = AddAttachmentFootnotesTransform()
         result = transform.transform(doc)
@@ -612,11 +589,7 @@ class TestAddAttachmentFootnotesTransform:
         """Test adding footnote definition for link with empty URL."""
         from all2md.ast.nodes import FootnoteDefinition
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="", content=[Text(content="document.pdf")])
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Link(url="", content=[Text(content="document.pdf")])])])
 
         transform = AddAttachmentFootnotesTransform()
         result = transform.transform(doc)
@@ -630,11 +603,7 @@ class TestAddAttachmentFootnotesTransform:
         """Test that images with URLs are not processed."""
         from all2md.ast.nodes import FootnoteDefinition
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="http://example.com/image.png", alt_text="test")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="http://example.com/image.png", alt_text="test")])])
 
         transform = AddAttachmentFootnotesTransform()
         result = transform.transform(doc)
@@ -647,11 +616,7 @@ class TestAddAttachmentFootnotesTransform:
         """Test custom section title for footnotes."""
         from all2md.ast.nodes import Heading
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="test.png")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="", alt_text="test.png")])])
 
         transform = AddAttachmentFootnotesTransform(section_title="Image Sources")
         result = transform.transform(doc)
@@ -664,11 +629,7 @@ class TestAddAttachmentFootnotesTransform:
         """Test omitting section title."""
         from all2md.ast.nodes import FootnoteDefinition, Heading
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="test.png")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="", alt_text="test.png")])])
 
         transform = AddAttachmentFootnotesTransform(section_title=None)
         result = transform.transform(doc)
@@ -686,13 +647,17 @@ class TestAddAttachmentFootnotesTransform:
         """Test handling multiple attachment footnotes."""
         from all2md.ast.nodes import FootnoteDefinition
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="first.png"),
-                Text(content=" and "),
-                Image(url="", alt_text="second.jpg")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Image(url="", alt_text="first.png"),
+                        Text(content=" and "),
+                        Image(url="", alt_text="second.jpg"),
+                    ]
+                )
+            ]
+        )
 
         transform = AddAttachmentFootnotesTransform()
         result = transform.transform(doc)
@@ -710,12 +675,11 @@ class TestAddAttachmentFootnotesTransform:
         """Test disabling image footnote processing."""
         from all2md.ast.nodes import FootnoteDefinition
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="test.png"),
-                Link(url="", content=[Text(content="doc.pdf")])
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Image(url="", alt_text="test.png"), Link(url="", content=[Text(content="doc.pdf")])])
+            ]
+        )
 
         transform = AddAttachmentFootnotesTransform(add_definitions_for_images=False)
         result = transform.transform(doc)
@@ -738,12 +702,13 @@ class TestAddAttachmentFootnotesTransform:
         """Test that labels are properly sanitized."""
         from all2md.ast.nodes import FootnoteDefinition
 
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="my image (1).png"),
-                Image(url="", alt_text="file with spaces.jpg")
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[Image(url="", alt_text="my image (1).png"), Image(url="", alt_text="file with spaces.jpg")]
+                )
+            ]
+        )
 
         transform = AddAttachmentFootnotesTransform()
         result = transform.transform(doc)
@@ -760,15 +725,19 @@ class TestAddAttachmentFootnotesTransform:
         from all2md.ast.nodes import FootnoteDefinition
 
         # Create document with three images that would generate the same base label
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="test.png"),
-                Text(content=" "),
-                Image(url="", alt_text="test.jpg"),  # Different extension, same base
-                Text(content=" "),
-                Image(url="", alt_text="test.gif")   # Different extension, same base
-            ])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Image(url="", alt_text="test.png"),
+                        Text(content=" "),
+                        Image(url="", alt_text="test.jpg"),  # Different extension, same base
+                        Text(content=" "),
+                        Image(url="", alt_text="test.gif"),  # Different extension, same base
+                    ]
+                )
+            ]
+        )
 
         transform = AddAttachmentFootnotesTransform()
         result = transform.transform(doc)
@@ -789,11 +758,7 @@ class TestAddAttachmentFootnotesTransform:
 
         # This test verifies that the transform properly calls _transform_children
         # so that if this transform is part of a pipeline, other transforms can work
-        doc = Document(children=[
-            Paragraph(content=[
-                Image(url="", alt_text="test.png")
-            ])
-        ])
+        doc = Document(children=[Paragraph(content=[Image(url="", alt_text="test.png")])])
 
         # Apply the transform
         transform = AddAttachmentFootnotesTransform()
@@ -811,6 +776,7 @@ class TestAddAttachmentFootnotesTransform:
 
 # GenerateTocTransform tests
 
+
 class TestGenerateTocTransform:
     """Tests for GenerateTocTransform."""
 
@@ -818,11 +784,13 @@ class TestGenerateTocTransform:
         """Test basic TOC generation with simple headings."""
         from all2md.ast.nodes import List as ListNode
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Introduction")]),
-            Paragraph(content=[Text(content="Some text")]),
-            Heading(level=1, content=[Text(content="Conclusion")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Introduction")]),
+                Paragraph(content=[Text(content="Some text")]),
+                Heading(level=1, content=[Text(content="Conclusion")]),
+            ]
+        )
 
         transform = GenerateTocTransform()
         result = transform.transform(doc)
@@ -842,12 +810,14 @@ class TestGenerateTocTransform:
         """Test TOC with nested headings at different levels."""
         from all2md.ast.nodes import List as ListNode
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Heading(level=2, content=[Text(content="Section 1.1")]),
-            Heading(level=2, content=[Text(content="Section 1.2")]),
-            Heading(level=1, content=[Text(content="Chapter 2")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Heading(level=2, content=[Text(content="Section 1.1")]),
+                Heading(level=2, content=[Text(content="Section 1.2")]),
+                Heading(level=1, content=[Text(content="Chapter 2")]),
+            ]
+        )
 
         transform = GenerateTocTransform()
         result = transform.transform(doc)
@@ -870,12 +840,14 @@ class TestGenerateTocTransform:
         """Test that max_depth limits TOC depth."""
         from all2md.ast.nodes import List as ListNode
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="H1")]),
-            Heading(level=2, content=[Text(content="H2")]),
-            Heading(level=3, content=[Text(content="H3")]),
-            Heading(level=4, content=[Text(content="H4")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="H1")]),
+                Heading(level=2, content=[Text(content="H2")]),
+                Heading(level=3, content=[Text(content="H3")]),
+                Heading(level=4, content=[Text(content="H4")]),
+            ]
+        )
 
         # Only include levels 1-2
         transform = GenerateTocTransform(max_depth=2)
@@ -895,10 +867,12 @@ class TestGenerateTocTransform:
 
     def test_toc_position_top(self):
         """Test TOC at top of document."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Content")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Content")]),
+            ]
+        )
 
         transform = GenerateTocTransform(position="top")
         result = transform.transform(doc)
@@ -912,10 +886,12 @@ class TestGenerateTocTransform:
 
     def test_toc_position_bottom(self):
         """Test TOC at bottom of document."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")]),
-            Paragraph(content=[Text(content="Content")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Content")]),
+            ]
+        )
 
         transform = GenerateTocTransform(position="bottom")
         result = transform.transform(doc)
@@ -939,10 +915,12 @@ class TestGenerateTocTransform:
 
     def test_document_without_headings_no_toc(self):
         """Test that document without headings gets no TOC."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Just text")]),
-            Paragraph(content=[Text(content="More text")]),
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Just text")]),
+                Paragraph(content=[Text(content="More text")]),
+            ]
+        )
 
         transform = GenerateTocTransform()
         result = transform.transform(doc)
@@ -953,9 +931,11 @@ class TestGenerateTocTransform:
 
     def test_custom_toc_title(self):
         """Test custom TOC title."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Section")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Section")]),
+            ]
+        )
 
         transform = GenerateTocTransform(title="Contents")
         result = transform.transform(doc)
@@ -965,13 +945,11 @@ class TestGenerateTocTransform:
 
     def test_toc_with_links(self):
         """Test TOC includes links to headings with IDs."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Introduction")],
-                metadata={"id": "intro"}
-            ),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Introduction")], metadata={"id": "intro"}),
+            ]
+        )
 
         transform = GenerateTocTransform(add_links=True)
         result = transform.transform(doc)
@@ -990,13 +968,11 @@ class TestGenerateTocTransform:
 
     def test_toc_without_links(self):
         """Test TOC without links when add_links=False."""
-        doc = Document(children=[
-            Heading(
-                level=1,
-                content=[Text(content="Introduction")],
-                metadata={"id": "intro"}
-            ),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Introduction")], metadata={"id": "intro"}),
+            ]
+        )
 
         transform = GenerateTocTransform(add_links=False)
         result = transform.transform(doc)
@@ -1014,9 +990,11 @@ class TestGenerateTocTransform:
 
     def test_toc_generates_ids_when_missing(self):
         """Test that TOC generates IDs for headings that don't have them."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="My Title")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Title")]),
+            ]
+        )
 
         transform = GenerateTocTransform(add_links=True)
         result = transform.transform(doc)
@@ -1033,11 +1011,13 @@ class TestGenerateTocTransform:
 
     def test_toc_handles_duplicate_heading_text(self):
         """Test that duplicate heading text gets unique IDs."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Section")]),
-            Heading(level=1, content=[Text(content="Section")]),
-            Heading(level=1, content=[Text(content="Section")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Section")]),
+                Heading(level=1, content=[Text(content="Section")]),
+                Heading(level=1, content=[Text(content="Section")]),
+            ]
+        )
 
         transform = GenerateTocTransform(add_links=True)
         result = transform.transform(doc)
@@ -1058,9 +1038,11 @@ class TestGenerateTocTransform:
 
     def test_custom_separator(self):
         """Test custom separator for ID generation."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="My Title")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Title")]),
+            ]
+        )
 
         transform = GenerateTocTransform(add_links=True, separator="_")
         result = transform.transform(doc)
@@ -1094,14 +1076,16 @@ class TestGenerateTocTransform:
         """Test TOC with complex multi-level nesting."""
         from all2md.ast.nodes import List as ListNode
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Chapter 1")]),
-            Heading(level=2, content=[Text(content="Section 1.1")]),
-            Heading(level=3, content=[Text(content="Subsection 1.1.1")]),
-            Heading(level=3, content=[Text(content="Subsection 1.1.2")]),
-            Heading(level=2, content=[Text(content="Section 1.2")]),
-            Heading(level=1, content=[Text(content="Chapter 2")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter 1")]),
+                Heading(level=2, content=[Text(content="Section 1.1")]),
+                Heading(level=3, content=[Text(content="Subsection 1.1.1")]),
+                Heading(level=3, content=[Text(content="Subsection 1.1.2")]),
+                Heading(level=2, content=[Text(content="Section 1.2")]),
+                Heading(level=1, content=[Text(content="Chapter 2")]),
+            ]
+        )
 
         transform = GenerateTocTransform(max_depth=3)
         result = transform.transform(doc)
@@ -1128,9 +1112,11 @@ class TestGenerateTocTransform:
 
     def test_headings_with_special_characters(self):
         """Test TOC with headings containing special characters."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title! With @#$ Special")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title! With @#$ Special")]),
+            ]
+        )
 
         transform = GenerateTocTransform(add_links=True)
         result = transform.transform(doc)
@@ -1150,9 +1136,11 @@ class TestGenerateTocTransform:
         """Test TOC with empty title (no title heading)."""
         from all2md.ast.nodes import List as ListNode
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Section")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Section")]),
+            ]
+        )
 
         transform = GenerateTocTransform(title="")
         result = transform.transform(doc)

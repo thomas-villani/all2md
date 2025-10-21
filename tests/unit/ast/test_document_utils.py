@@ -52,13 +52,7 @@ class TestSectionClass:
         """Test creating a section."""
         heading = Heading(level=1, content=[Text("Title")])
         para = Paragraph(content=[Text("Content")])
-        section = Section(
-            heading=heading,
-            content=[para],
-            level=1,
-            start_index=0,
-            end_index=2
-        )
+        section = Section(heading=heading, content=[para], level=1, start_index=0, end_index=2)
 
         assert section.heading == heading
         assert len(section.content) == 1
@@ -70,13 +64,7 @@ class TestSectionClass:
         """Test converting section to document."""
         heading = Heading(level=2, content=[Text("Section")])
         para = Paragraph(content=[Text("Text")])
-        section = Section(
-            heading=heading,
-            content=[para],
-            level=2,
-            start_index=0,
-            end_index=0
-        )
+        section = Section(heading=heading, content=[para], level=2, start_index=0, end_index=0)
 
         doc = section.to_document()
         assert isinstance(doc, Document)
@@ -87,18 +75,9 @@ class TestSectionClass:
     def test_get_heading_text(self):
         """Test extracting heading text."""
         from all2md.ast import Strong
-        heading = Heading(level=1, content=[
-            Text("Hello "),
-            Strong(content=[Text("world")]),
-            Text("!")
-        ])
-        section = Section(
-            heading=heading,
-            content=[],
-            level=1,
-            start_index=0,
-            end_index=0
-        )
+
+        heading = Heading(level=1, content=[Text("Hello "), Strong(content=[Text("world")]), Text("!")])
+        section = Section(heading=heading, content=[], level=1, start_index=0, end_index=0)
 
         text = section.get_heading_text()
         # extract_text adds spaces between nodes, so "Hello " + "world " + "!" = "Hello  world !"
@@ -117,18 +96,13 @@ class TestGetAllSections:
 
     def test_no_headings(self):
         """Test document with no headings."""
-        doc = Document(children=[
-            Paragraph(content=[Text("No headings here")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text("No headings here")])])
         sections = get_all_sections(doc)
         assert sections == []
 
     def test_single_section(self):
         """Test document with single section."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")]), Paragraph(content=[Text("Content")])])
         sections = get_all_sections(doc)
 
         assert len(sections) == 1
@@ -138,12 +112,14 @@ class TestGetAllSections:
 
     def test_multiple_sections_same_level(self):
         """Test document with multiple sections at same level."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Paragraph(content=[Text("First content")]),
-            Heading(level=1, content=[Text("Second")]),
-            Paragraph(content=[Text("Second content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("First")]),
+                Paragraph(content=[Text("First content")]),
+                Heading(level=1, content=[Text("Second")]),
+                Paragraph(content=[Text("Second content")]),
+            ]
+        )
         sections = get_all_sections(doc)
 
         assert len(sections) == 2
@@ -152,16 +128,18 @@ class TestGetAllSections:
 
     def test_nested_sections(self):
         """Test document with nested section hierarchy."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Paragraph(content=[Text("Intro")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Paragraph(content=[Text("Content 1.1")]),
-            Heading(level=2, content=[Text("Section 1.2")]),
-            Paragraph(content=[Text("Content 1.2")]),
-            Heading(level=1, content=[Text("Chapter 2")]),
-            Paragraph(content=[Text("Chapter 2 content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Paragraph(content=[Text("Intro")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Paragraph(content=[Text("Content 1.1")]),
+                Heading(level=2, content=[Text("Section 1.2")]),
+                Paragraph(content=[Text("Content 1.2")]),
+                Heading(level=1, content=[Text("Chapter 2")]),
+                Paragraph(content=[Text("Chapter 2 content")]),
+            ]
+        )
         sections = get_all_sections(doc)
 
         assert len(sections) == 4
@@ -172,14 +150,16 @@ class TestGetAllSections:
 
     def test_level_filtering(self):
         """Test filtering sections by level range."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("H1")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("H2")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=3, content=[Text("H3")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("H1")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("H2")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=3, content=[Text("H3")]),
+                Paragraph(content=[Text("Content")]),
+            ]
+        )
 
         # Get only level 1
         sections_l1 = get_all_sections(doc, min_level=1, max_level=1)
@@ -194,13 +174,15 @@ class TestGetAllSections:
 
     def test_section_with_multiple_content_types(self):
         """Test section containing various content types."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Paragraph")]),
-            CodeBlock(content="code", language="python"),
-            BlockQuote(children=[Paragraph(content=[Text("Quote")])]),
-            Heading(level=1, content=[Text("Next")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Title")]),
+                Paragraph(content=[Text("Paragraph")]),
+                CodeBlock(content="code", language="python"),
+                BlockQuote(children=[Paragraph(content=[Text("Quote")])]),
+                Heading(level=1, content=[Text("Next")]),
+            ]
+        )
         sections = get_all_sections(doc)
 
         assert len(sections) == 2
@@ -223,12 +205,14 @@ class TestFindSectionByHeading:
 
     def test_find_existing_section(self):
         """Test finding a section by heading text."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Introduction")]),
-            Paragraph(content=[Text("Intro content")]),
-            Heading(level=1, content=[Text("Methods")]),
-            Paragraph(content=[Text("Methods content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Introduction")]),
+                Paragraph(content=[Text("Intro content")]),
+                Heading(level=1, content=[Text("Methods")]),
+                Paragraph(content=[Text("Methods content")]),
+            ]
+        )
 
         section = find_section_by_heading(doc, "Methods")
         assert section is not None
@@ -236,19 +220,14 @@ class TestFindSectionByHeading:
 
     def test_find_nonexistent_section(self):
         """Test finding non-existent section returns None."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")])])
 
         section = find_section_by_heading(doc, "Nonexistent")
         assert section is None
 
     def test_case_sensitive_search(self):
         """Test case-sensitive heading search."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Methods")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Methods")]), Paragraph(content=[Text("Content")])])
 
         # Case-sensitive: should not find
         section_sens = find_section_by_heading(doc, "methods", case_sensitive=True)
@@ -261,12 +240,14 @@ class TestFindSectionByHeading:
 
     def test_find_by_level(self):
         """Test finding section with specific level."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("Title")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Title")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("Title")]),
+                Paragraph(content=[Text("Content")]),
+            ]
+        )
 
         # Find level 1
         section_l1 = find_section_by_heading(doc, "Title", level=1)
@@ -280,12 +261,14 @@ class TestFindSectionByHeading:
 
     def test_find_first_match(self):
         """Test that first match is returned."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Duplicate")]),
-            Paragraph(content=[Text("First")]),
-            Heading(level=1, content=[Text("Duplicate")]),
-            Paragraph(content=[Text("Second")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Duplicate")]),
+                Paragraph(content=[Text("First")]),
+                Heading(level=1, content=[Text("Duplicate")]),
+                Paragraph(content=[Text("Second")]),
+            ]
+        )
 
         section = find_section_by_heading(doc, "Duplicate")
         assert section is not None
@@ -298,11 +281,13 @@ class TestFindSections:
 
     def test_find_by_level(self):
         """Test finding sections by level."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("H1")]),
-            Heading(level=2, content=[Text("H2")]),
-            Heading(level=3, content=[Text("H3")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("H1")]),
+                Heading(level=2, content=[Text("H2")]),
+                Heading(level=3, content=[Text("H3")]),
+            ]
+        )
 
         level_2_sections = find_sections(doc, lambda s: s.level == 2)
         assert len(level_2_sections) == 1
@@ -310,14 +295,16 @@ class TestFindSections:
 
     def test_find_by_content_length(self):
         """Test finding sections by content length."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Short")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Long")]),
-            Paragraph(content=[Text("Content 1")]),
-            Paragraph(content=[Text("Content 2")]),
-            Paragraph(content=[Text("Content 3")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Short")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Long")]),
+                Paragraph(content=[Text("Content 1")]),
+                Paragraph(content=[Text("Content 2")]),
+                Paragraph(content=[Text("Content 3")]),
+            ]
+        )
 
         long_sections = find_sections(doc, lambda s: len(s.content) >= 3)
         assert len(long_sections) == 1
@@ -325,19 +312,18 @@ class TestFindSections:
 
     def test_find_by_heading_text_pattern(self):
         """Test finding sections by heading text pattern."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("API Reference")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("API Usage")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Installation")]),
-            Paragraph(content=[Text("Content")])
-        ])
-
-        api_sections = find_sections(
-            doc,
-            lambda s: "API" in s.get_heading_text()
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("API Reference")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("API Usage")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Installation")]),
+                Paragraph(content=[Text("Content")]),
+            ]
         )
+
+        api_sections = find_sections(doc, lambda s: "API" in s.get_heading_text())
         assert len(api_sections) == 2
 
 
@@ -347,11 +333,13 @@ class TestGetSectionByIndex:
 
     def test_get_by_positive_index(self):
         """Test getting section by positive index."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Heading(level=1, content=[Text("Second")]),
-            Heading(level=1, content=[Text("Third")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("First")]),
+                Heading(level=1, content=[Text("Second")]),
+                Heading(level=1, content=[Text("Third")]),
+            ]
+        )
 
         section = get_section_by_index(doc, 1)
         assert section is not None
@@ -359,11 +347,13 @@ class TestGetSectionByIndex:
 
     def test_get_by_negative_index(self):
         """Test getting section by negative index."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Heading(level=1, content=[Text("Second")]),
-            Heading(level=1, content=[Text("Third")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("First")]),
+                Heading(level=1, content=[Text("Second")]),
+                Heading(level=1, content=[Text("Third")]),
+            ]
+        )
 
         section = get_section_by_index(doc, -1)
         assert section is not None
@@ -371,9 +361,7 @@ class TestGetSectionByIndex:
 
     def test_get_out_of_range(self):
         """Test getting section with out-of-range index."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Only")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Only")])])
 
         section = get_section_by_index(doc, 99)
         assert section is None
@@ -388,17 +376,14 @@ class TestAddSection:
 
     def test_add_section_after_by_heading(self):
         """Test adding section after target heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("First")]), Paragraph(content=[Text("Content")])])
 
         new_section = Section(
             heading=Heading(level=1, content=[Text("New")]),
             content=[Paragraph(content=[Text("New content")])],
             level=1,
             start_index=0,
-            end_index=0
+            end_index=0,
         )
 
         modified = add_section_after(doc, "First", new_section)
@@ -410,17 +395,14 @@ class TestAddSection:
 
     def test_add_section_before_by_heading(self):
         """Test adding section before target heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Second")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Second")]), Paragraph(content=[Text("Content")])])
 
         new_section = Section(
             heading=Heading(level=1, content=[Text("First")]),
             content=[Paragraph(content=[Text("First content")])],
             level=1,
             start_index=0,
-            end_index=0
+            end_index=0,
         )
 
         modified = add_section_before(doc, "Second", new_section)
@@ -432,17 +414,10 @@ class TestAddSection:
 
     def test_add_section_by_index(self):
         """Test adding section using index."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Heading(level=1, content=[Text("Third")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("First")]), Heading(level=1, content=[Text("Third")])])
 
         new_section = Section(
-            heading=Heading(level=1, content=[Text("Second")]),
-            content=[],
-            level=1,
-            start_index=0,
-            end_index=0
+            heading=Heading(level=1, content=[Text("Second")]), content=[], level=1, start_index=0, end_index=0
         )
 
         modified = add_section_after(doc, 0, new_section)
@@ -453,14 +428,9 @@ class TestAddSection:
 
     def test_add_section_document(self):
         """Test adding a Document instead of Section."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("First")])])
 
-        new_doc = Document(children=[
-            Heading(level=1, content=[Text("Second")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        new_doc = Document(children=[Heading(level=1, content=[Text("Second")]), Paragraph(content=[Text("Content")])])
 
         modified = add_section_after(doc, 0, new_doc)
 
@@ -469,16 +439,10 @@ class TestAddSection:
 
     def test_add_section_nonexistent_target(self):
         """Test that adding section to nonexistent target raises error."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Only")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Only")])])
 
         new_section = Section(
-            heading=Heading(level=1, content=[Text("New")]),
-            content=[],
-            level=1,
-            start_index=0,
-            end_index=0
+            heading=Heading(level=1, content=[Text("New")]), content=[], level=1, start_index=0, end_index=0
         )
 
         with pytest.raises(ValueError, match="Target section not found"):
@@ -491,13 +455,15 @@ class TestRemoveSection:
 
     def test_remove_section_by_heading(self):
         """Test removing section by heading text."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Keep")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Remove")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Keep")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Keep")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Remove")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Keep")]),
+            ]
+        )
 
         modified = remove_section(doc, "Remove")
 
@@ -507,11 +473,13 @@ class TestRemoveSection:
 
     def test_remove_section_by_index(self):
         """Test removing section by index."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Heading(level=1, content=[Text("Second")]),
-            Heading(level=1, content=[Text("Third")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("First")]),
+                Heading(level=1, content=[Text("Second")]),
+                Heading(level=1, content=[Text("Third")]),
+            ]
+        )
 
         modified = remove_section(doc, 1)
 
@@ -522,13 +490,15 @@ class TestRemoveSection:
 
     def test_remove_section_with_content(self):
         """Test that section content is removed with heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Remove")]),
-            Paragraph(content=[Text("Content 1")]),
-            Paragraph(content=[Text("Content 2")]),
-            CodeBlock(content="code"),
-            Heading(level=1, content=[Text("Keep")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Remove")]),
+                Paragraph(content=[Text("Content 1")]),
+                Paragraph(content=[Text("Content 2")]),
+                CodeBlock(content="code"),
+                Heading(level=1, content=[Text("Keep")]),
+            ]
+        )
 
         modified = remove_section(doc, "Remove")
 
@@ -537,9 +507,7 @@ class TestRemoveSection:
 
     def test_remove_nonexistent_section(self):
         """Test that removing nonexistent section raises error."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Only")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Only")])])
 
         with pytest.raises(ValueError, match="Target section not found"):
             remove_section(doc, "Nonexistent")
@@ -551,17 +519,14 @@ class TestReplaceSection:
 
     def test_replace_section_with_new_section(self):
         """Test replacing section with new content."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Old")]),
-            Paragraph(content=[Text("Old content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Old")]), Paragraph(content=[Text("Old content")])])
 
         new_section = Section(
             heading=Heading(level=1, content=[Text("New")]),
             content=[Paragraph(content=[Text("New content")])],
             level=1,
             start_index=0,
-            end_index=0
+            end_index=0,
         )
 
         modified = replace_section(doc, "Old", new_section)
@@ -572,15 +537,12 @@ class TestReplaceSection:
 
     def test_replace_section_with_nodes(self):
         """Test replacing section with list of nodes."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Old")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Old")]), Paragraph(content=[Text("Content")])])
 
         new_nodes = [
             Heading(level=1, content=[Text("Replaced")]),
             Paragraph(content=[Text("New paragraph 1")]),
-            Paragraph(content=[Text("New paragraph 2")])
+            Paragraph(content=[Text("New paragraph 2")]),
         ]
 
         modified = replace_section(doc, "Old", new_nodes)
@@ -596,10 +558,7 @@ class TestInsertIntoSection:
 
     def test_insert_at_end(self):
         """Test inserting content at end of section."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Existing")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")]), Paragraph(content=[Text("Existing")])])
 
         new_para = Paragraph(content=[Text("Added at end")])
         modified = insert_into_section(doc, "Title", new_para, position="end")
@@ -610,10 +569,7 @@ class TestInsertIntoSection:
 
     def test_insert_at_start(self):
         """Test inserting content at start of section."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Existing")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")]), Paragraph(content=[Text("Existing")])])
 
         new_para = Paragraph(content=[Text("Added at start")])
         modified = insert_into_section(doc, "Title", new_para, position="start")
@@ -624,10 +580,7 @@ class TestInsertIntoSection:
 
     def test_insert_after_heading(self):
         """Test inserting content right after heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Existing")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")]), Paragraph(content=[Text("Existing")])])
 
         new_para = Paragraph(content=[Text("After heading")])
         modified = insert_into_section(doc, "Title", new_para, position="after_heading")
@@ -637,15 +590,9 @@ class TestInsertIntoSection:
 
     def test_insert_multiple_nodes(self):
         """Test inserting multiple nodes at once."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Existing")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")]), Paragraph(content=[Text("Existing")])])
 
-        new_nodes = [
-            Paragraph(content=[Text("New 1")]),
-            Paragraph(content=[Text("New 2")])
-        ]
+        new_nodes = [Paragraph(content=[Text("New 1")]), Paragraph(content=[Text("New 2")])]
 
         modified = insert_into_section(doc, "Title", new_nodes, position="end")
 
@@ -659,11 +606,13 @@ class TestExtractSection:
 
     def test_extract_section_by_heading(self):
         """Test extracting section as standalone document."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Extract")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Other")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Extract")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Other")]),
+            ]
+        )
 
         extracted = extract_section(doc, "Extract")
 
@@ -674,11 +623,13 @@ class TestExtractSection:
 
     def test_extract_section_by_index(self):
         """Test extracting section by index."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Heading(level=1, content=[Text("Second")]),
-            Heading(level=1, content=[Text("Third")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("First")]),
+                Heading(level=1, content=[Text("Second")]),
+                Heading(level=1, content=[Text("Third")]),
+            ]
+        )
 
         extracted = extract_section(doc, 1)
 
@@ -693,12 +644,14 @@ class TestSplitBySection:
 
     def test_split_document(self):
         """Test splitting document into multiple documents."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First")]),
-            Paragraph(content=[Text("Content 1")]),
-            Heading(level=1, content=[Text("Second")]),
-            Paragraph(content=[Text("Content 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("First")]),
+                Paragraph(content=[Text("Content 1")]),
+                Heading(level=1, content=[Text("Second")]),
+                Paragraph(content=[Text("Content 2")]),
+            ]
+        )
 
         docs = split_by_sections(doc, include_preamble=False)
 
@@ -708,11 +661,13 @@ class TestSplitBySection:
 
     def test_split_with_preamble(self):
         """Test splitting document with preamble included."""
-        doc = Document(children=[
-            Paragraph(content=[Text("Preamble content")]),
-            Heading(level=1, content=[Text("First")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text("Preamble content")]),
+                Heading(level=1, content=[Text("First")]),
+                Paragraph(content=[Text("Content")]),
+            ]
+        )
 
         docs = split_by_sections(doc, include_preamble=True)
 
@@ -722,10 +677,7 @@ class TestSplitBySection:
 
     def test_split_without_preamble(self):
         """Test splitting document without preamble."""
-        doc = Document(children=[
-            Paragraph(content=[Text("Preamble")]),
-            Heading(level=1, content=[Text("First")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text("Preamble")]), Heading(level=1, content=[Text("First")])])
 
         docs = split_by_sections(doc, include_preamble=False)
 
@@ -738,13 +690,15 @@ class TestGenerateTOC:
 
     def test_generate_markdown_toc(self):
         """Test generating markdown-style TOC."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Chapter 2")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Chapter 2")]),
+            ]
+        )
 
         toc = generate_toc(doc, max_level=3, style="markdown")
 
@@ -755,10 +709,9 @@ class TestGenerateTOC:
 
     def test_generate_list_toc(self):
         """Test generating list-style TOC."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title 1")]),
-            Heading(level=1, content=[Text("Title 2")])
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text("Title 1")]), Heading(level=1, content=[Text("Title 2")])]
+        )
 
         toc = generate_toc(doc, style="list")
 
@@ -767,12 +720,14 @@ class TestGenerateTOC:
 
     def test_toc_max_level(self):
         """Test TOC respects max_level."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("H1")]),
-            Heading(level=2, content=[Text("H2")]),
-            Heading(level=3, content=[Text("H3")]),
-            Heading(level=4, content=[Text("H4")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("H1")]),
+                Heading(level=2, content=[Text("H2")]),
+                Heading(level=3, content=[Text("H3")]),
+                Heading(level=4, content=[Text("H4")]),
+            ]
+        )
 
         toc = generate_toc(doc, max_level=2, style="markdown")
 
@@ -783,16 +738,18 @@ class TestGenerateTOC:
 
     def test_generate_nested_toc_two_levels(self):
         """Test generating nested TOC with two levels (H1 > H2)."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("Section 1.2")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=1, content=[Text("Chapter 2")]),
-            Paragraph(content=[Text("Content")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("Section 1.2")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=1, content=[Text("Chapter 2")]),
+                Paragraph(content=[Text("Content")]),
+            ]
+        )
 
         toc = generate_toc(doc, max_level=3, style="nested")
 
@@ -813,13 +770,15 @@ class TestGenerateTOC:
 
     def test_generate_nested_toc_three_levels(self):
         """Test generating nested TOC with three levels (H1 > H2 > H3)."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Heading(level=3, content=[Text("Subsection 1.1.1")]),
-            Heading(level=3, content=[Text("Subsection 1.1.2")]),
-            Heading(level=2, content=[Text("Section 1.2")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Heading(level=3, content=[Text("Subsection 1.1.1")]),
+                Heading(level=3, content=[Text("Subsection 1.1.2")]),
+                Heading(level=2, content=[Text("Section 1.2")]),
+            ]
+        )
 
         toc = generate_toc(doc, max_level=3, style="nested")
 
@@ -842,11 +801,13 @@ class TestGenerateTOC:
 
     def test_generate_nested_toc_level_jumps(self):
         """Test generating nested TOC with level jumps (H1 > H3)."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Heading(level=3, content=[Text("Subsection 1.0.1")]),  # Skip H2
-            Heading(level=1, content=[Text("Chapter 2")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Heading(level=3, content=[Text("Subsection 1.0.1")]),  # Skip H2
+                Heading(level=1, content=[Text("Chapter 2")]),
+            ]
+        )
 
         toc = generate_toc(doc, max_level=3, style="nested")
 
@@ -873,13 +834,15 @@ class TestGenerateTOC:
 
     def test_generate_nested_toc_back_to_higher_level(self):
         """Test nested TOC correctly handles returning to higher levels."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Heading(level=3, content=[Text("Subsection 1.1.1")]),
-            Heading(level=1, content=[Text("Chapter 2")]),  # Back to H1
-            Heading(level=2, content=[Text("Section 2.1")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Heading(level=3, content=[Text("Subsection 1.1.1")]),
+                Heading(level=1, content=[Text("Chapter 2")]),  # Back to H1
+                Heading(level=2, content=[Text("Section 2.1")]),
+            ]
+        )
 
         toc = generate_toc(doc, max_level=3, style="nested")
 
@@ -896,12 +859,14 @@ class TestGenerateTOC:
 
     def test_generate_nested_vs_flat_toc(self):
         """Test that nested and flat TOC have same number of total items."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Heading(level=2, content=[Text("Section 1.2")]),
-            Heading(level=1, content=[Text("Chapter 2")]),
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Heading(level=2, content=[Text("Section 1.2")]),
+                Heading(level=1, content=[Text("Chapter 2")]),
+            ]
+        )
 
         flat_toc = generate_toc(doc, style="list")
         nested_toc = generate_toc(doc, style="nested")
@@ -931,10 +896,7 @@ class TestInsertTOC:
 
     def test_insert_toc_at_start(self):
         """Test inserting TOC at document start."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Chapter 1")]), Paragraph(content=[Text("Content")])])
 
         modified = insert_toc(doc, position="start", max_level=3)
 
@@ -942,11 +904,13 @@ class TestInsertTOC:
 
     def test_insert_toc_after_first_heading(self):
         """Test inserting TOC after first heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("Section")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Title")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("Section")]),
+            ]
+        )
 
         modified = insert_toc(doc, position="after_first_heading", max_level=3)
 
@@ -957,12 +921,14 @@ class TestInsertTOC:
         """Test that insert_toc builds AST directly without markdown parsing."""
         from all2md.ast import Link, ListItem
 
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Chapter 1")]),
-            Paragraph(content=[Text("Content")]),
-            Heading(level=2, content=[Text("Section 1.1")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("Chapter 1")]),
+                Paragraph(content=[Text("Content")]),
+                Heading(level=2, content=[Text("Section 1.1")]),
+                Paragraph(content=[Text("Content")]),
+            ]
+        )
 
         modified = insert_toc(doc, position="start", max_level=3, style="markdown")
 
@@ -999,12 +965,14 @@ class TestGetPreamble:
 
     def test_get_preamble_with_content(self):
         """Test getting preamble from document."""
-        doc = Document(children=[
-            Paragraph(content=[Text("Preamble line 1")]),
-            Paragraph(content=[Text("Preamble line 2")]),
-            Heading(level=1, content=[Text("First Section")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text("Preamble line 1")]),
+                Paragraph(content=[Text("Preamble line 2")]),
+                Heading(level=1, content=[Text("First Section")]),
+                Paragraph(content=[Text("Content")]),
+            ]
+        )
 
         preamble = get_preamble(doc)
 
@@ -1013,10 +981,9 @@ class TestGetPreamble:
 
     def test_get_preamble_empty(self):
         """Test getting preamble from document starting with heading."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("First Section")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(
+            children=[Heading(level=1, content=[Text("First Section")]), Paragraph(content=[Text("Content")])]
+        )
 
         preamble = get_preamble(doc)
 
@@ -1024,10 +991,7 @@ class TestGetPreamble:
 
     def test_get_preamble_no_headings(self):
         """Test getting preamble from document with no headings."""
-        doc = Document(children=[
-            Paragraph(content=[Text("All content")]),
-            Paragraph(content=[Text("More content")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text("All content")]), Paragraph(content=[Text("More content")])])
 
         preamble = get_preamble(doc)
 
@@ -1040,22 +1004,26 @@ class TestCountSections:
 
     def test_count_all_sections(self):
         """Test counting all sections."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("H1")]),
-            Heading(level=2, content=[Text("H2")]),
-            Heading(level=3, content=[Text("H3")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("H1")]),
+                Heading(level=2, content=[Text("H2")]),
+                Heading(level=3, content=[Text("H3")]),
+            ]
+        )
 
         count = count_sections(doc)
         assert count == 3
 
     def test_count_sections_by_level(self):
         """Test counting sections at specific level."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("H1")]),
-            Heading(level=2, content=[Text("H2")]),
-            Heading(level=3, content=[Text("H3")])
-        ])
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text("H1")]),
+                Heading(level=2, content=[Text("H2")]),
+                Heading(level=3, content=[Text("H3")]),
+            ]
+        )
 
         count_l1 = count_sections(doc, level=1)
         assert count_l1 == 1
@@ -1070,10 +1038,7 @@ class TestFindHeading:
 
     def test_find_heading_by_text(self):
         """Test finding heading by text."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")]),
-            Paragraph(content=[Text("Content")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")]), Paragraph(content=[Text("Content")])])
 
         result = find_heading(doc, "Title")
 
@@ -1083,9 +1048,7 @@ class TestFindHeading:
 
     def test_find_heading_returns_none(self):
         """Test finding nonexistent heading returns None."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")])])
 
         result = find_heading(doc, "Nonexistent")
 
@@ -1093,9 +1056,7 @@ class TestFindHeading:
 
     def test_find_heading_case_insensitive(self):
         """Test finding heading case-insensitively."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text("Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text("Title")])])
 
         result = find_heading(doc, "title", case_sensitive=False)
 

@@ -35,7 +35,7 @@ except ImportError:
     HAS_ODFPY = False
 
 
-def create_odt_with_formatting() -> 'OpenDocumentText':
+def create_odt_with_formatting() -> "OpenDocumentText":
     """Create an ODT with various text formatting for testing emphasis detection.
 
     Returns
@@ -114,7 +114,7 @@ def create_odt_with_formatting() -> 'OpenDocumentText':
     return doc
 
 
-def create_odt_with_lists() -> 'OpenDocumentText':
+def create_odt_with_lists() -> "OpenDocumentText":
     """Create an ODT with various list types for testing list conversion.
 
     Returns
@@ -228,7 +228,7 @@ def create_odt_with_lists() -> 'OpenDocumentText':
     return doc
 
 
-def create_odt_with_tables() -> 'OpenDocumentText':
+def create_odt_with_tables() -> "OpenDocumentText":
     """Create an ODT with tables for testing table conversion.
 
     Returns
@@ -284,7 +284,7 @@ def create_odt_with_tables() -> 'OpenDocumentText':
     data_rows = [
         ["Alice Johnson", "25", "New York"],
         ["Bob Smith", "30", "San Francisco"],
-        ["Charlie Brown", "22", "Seattle"]
+        ["Charlie Brown", "22", "Seattle"],
     ]
 
     for row_data in data_rows:
@@ -333,10 +333,7 @@ def create_odt_with_tables() -> 'OpenDocumentText':
     formatted_table.addElement(fmt_header_row)
 
     # Data with some formatting
-    fmt_data = [
-        ["Widget A", "$10.00"],
-        ["Widget B", "$15.00"]
-    ]
+    fmt_data = [["Widget A", "$10.00"], ["Widget B", "$15.00"]]
 
     for row_data in fmt_data:
         fmt_data_row = TableRow()
@@ -351,7 +348,7 @@ def create_odt_with_tables() -> 'OpenDocumentText':
     return doc
 
 
-def create_odt_with_spaces_and_formatting() -> 'OpenDocumentText':
+def create_odt_with_spaces_and_formatting() -> "OpenDocumentText":
     """Create an ODT with various spacing and text formatting scenarios.
 
     Returns
@@ -419,7 +416,7 @@ def create_odt_with_spaces_and_formatting() -> 'OpenDocumentText':
     return doc
 
 
-def save_odt_to_file(doc: 'OpenDocumentText', filepath: Path) -> None:
+def save_odt_to_file(doc: "OpenDocumentText", filepath: Path) -> None:
     """Save an ODT document to a file.
 
     Parameters
@@ -441,7 +438,7 @@ def save_odt_to_file(doc: 'OpenDocumentText', filepath: Path) -> None:
     doc.save(str(filepath))
 
 
-def save_odt_to_bytes(doc: 'OpenDocumentText') -> bytes:
+def save_odt_to_bytes(doc: "OpenDocumentText") -> bytes:
     """Save an ODT document to bytes.
 
     Parameters
@@ -477,7 +474,7 @@ def save_odt_to_bytes(doc: 'OpenDocumentText') -> bytes:
             pass
 
 
-def create_odp_with_slides() -> 'OpenDocumentPresentation':
+def create_odp_with_slides() -> "OpenDocumentPresentation":
     """Create an ODP presentation with multiple slides.
 
     Returns
@@ -501,10 +498,9 @@ def create_odp_with_slides() -> 'OpenDocumentPresentation':
 
     # Define basic page layout
     page_layout = PageLayout(name="StandardLayout")
-    page_layout.addElement(PageLayoutProperties(
-        margintop="1in", marginbottom="1in",
-        marginleft="1in", marginright="1in"
-    ))
+    page_layout.addElement(
+        PageLayoutProperties(margintop="1in", marginbottom="1in", marginleft="1in", marginright="1in")
+    )
     doc.automaticstyles.addElement(page_layout)
 
     # Master page
@@ -579,7 +575,7 @@ def create_odp_with_slides() -> 'OpenDocumentPresentation':
     return doc
 
 
-def create_ods_with_sheet() -> 'OpenDocumentSpreadsheet':
+def create_ods_with_sheet() -> "OpenDocumentSpreadsheet":
     """Create an ODS spreadsheet with a single table of data.
 
     Returns
@@ -627,7 +623,7 @@ def create_ods_with_sheet() -> 'OpenDocumentSpreadsheet':
     return doc
 
 
-def save_ods_to_file(doc: 'OpenDocumentSpreadsheet', filepath: Path) -> None:
+def save_ods_to_file(doc: "OpenDocumentSpreadsheet", filepath: Path) -> None:
     """Persist an ODS spreadsheet to disk."""
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -635,7 +631,7 @@ def save_ods_to_file(doc: 'OpenDocumentSpreadsheet', filepath: Path) -> None:
     doc.save(str(filepath))
 
 
-def save_ods_to_bytes(doc: 'OpenDocumentSpreadsheet') -> bytes:
+def save_ods_to_bytes(doc: "OpenDocumentSpreadsheet") -> bytes:
     """Serialize an ODS spreadsheet to bytes."""
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -653,7 +649,7 @@ def save_ods_to_bytes(doc: 'OpenDocumentSpreadsheet') -> bytes:
             pass
 
 
-def save_odp_to_bytes(doc: 'OpenDocumentPresentation') -> bytes:
+def save_odp_to_bytes(doc: "OpenDocumentPresentation") -> bytes:
     """Serialize an ODP presentation to bytes."""
     if not HAS_ODFPY:
         raise ImportError("odfpy library required for ODF fixture generation")
@@ -671,7 +667,7 @@ def save_odp_to_bytes(doc: 'OpenDocumentPresentation') -> bytes:
             pass
 
 
-def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
+def create_comprehensive_odt_test_document() -> "OpenDocumentText":
     """Create a comprehensive ODT document with all supported features.
 
     Returns
@@ -789,7 +785,7 @@ def create_comprehensive_odt_test_document() -> 'OpenDocumentText':
         ["Headings", "Supported", "Multiple levels"],
         ["Formatting", "Supported", "Bold and italic"],
         ["Lists", "Supported", "Bullet and numbered"],
-        ["Tables", "Supported", "Basic structure"]
+        ["Tables", "Supported", "Basic structure"],
     ]
 
     for row_data in data:

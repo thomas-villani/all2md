@@ -5,6 +5,7 @@ including text extraction, table detection, formatting preservation, and
 various PDF-specific features.
 
 """
+
 import tempfile
 
 import fitz
@@ -214,7 +215,6 @@ def test_resolve_links_overlap():
     assert res == "[click](http://test)"
 
 
-
 # ============================================================================
 # Tests for new PDF parser improvements
 # ============================================================================
@@ -324,8 +324,8 @@ def test_column_detection_mode_disabled():
 def test_column_detection_with_clustering():
     """Test k-means clustering for column detection."""
     blocks = [
-        {"bbox": [50, 100, 150, 120]},   # Column 1
-        {"bbox": [55, 130, 155, 150]},   # Column 1 (slightly offset)
+        {"bbox": [50, 100, 150, 120]},  # Column 1
+        {"bbox": [55, 130, 155, 150]},  # Column 1 (slightly offset)
         {"bbox": [300, 100, 400, 120]},  # Column 2
         {"bbox": [305, 130, 405, 150]},  # Column 2 (slightly offset)
     ]
@@ -359,6 +359,7 @@ def test_table_fallback_extraction_mode_option():
 @pytest.mark.unit
 def test_detect_tables_by_ruling_lines():
     """Test basic table detection using ruling lines."""
+
     # Create a mock page with drawing commands
     class MockPage:
         rect = fitz.Rect(0, 0, 600, 800)

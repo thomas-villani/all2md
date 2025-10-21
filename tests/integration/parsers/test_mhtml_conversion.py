@@ -8,6 +8,10 @@ import io
 from pathlib import Path
 
 import pytest
+
+from all2md import MhtmlOptions, to_markdown as mhtml_to_markdown
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
+from all2md.options import MarkdownOptions
 from fixtures.generators.mhtml_fixtures import (
     create_malformed_mhtml,
     create_mhtml_file,
@@ -18,11 +22,6 @@ from fixtures.generators.mhtml_fixtures import (
     create_simple_mhtml,
 )
 from utils import assert_markdown_valid
-
-from all2md import MhtmlOptions
-from all2md import to_markdown as mhtml_to_markdown
-from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options import MarkdownOptions
 
 
 @pytest.mark.integration
@@ -107,10 +106,7 @@ class TestMhtmlIntegrationImages:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         image_dir = temp_dir / "images"
-        options = MhtmlOptions(
-            attachment_mode="download",
-            attachment_output_dir=str(image_dir)
-        )
+        options = MhtmlOptions(attachment_mode="download", attachment_output_dir=str(image_dir))
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -141,12 +137,9 @@ class TestMhtmlIntegrationImages:
 
         # Enable local file access to test file:// URL processing
         from all2md.options.common import LocalFileAccessOptions
+
         options = MhtmlOptions(
-            attachment_mode="base64",
-            local_files=LocalFileAccessOptions(
-                allow_local_files=True,
-                allow_cwd_files=True
-            )
+            attachment_mode="base64", local_files=LocalFileAccessOptions(allow_local_files=True, allow_cwd_files=True)
         )
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
@@ -293,10 +286,7 @@ class TestMhtmlIntegrationOptions:
         mhtml_content = create_simple_mhtml()
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
-        md_options = MarkdownOptions(
-            emphasis_symbol="_",
-            bullet_symbols="+-*"
-        )
+        md_options = MarkdownOptions(emphasis_symbol="_", bullet_symbols="+-*")
         parser_options = MhtmlOptions()
         result = mhtml_to_markdown(mhtml_file, parser_options=parser_options, renderer_options=md_options)
 
@@ -311,9 +301,7 @@ class TestMhtmlIntegrationOptions:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         options = MhtmlOptions(
-            attachment_mode="skip",
-            attachment_output_dir="/custom/path",
-            attachment_base_url="https://example.com"
+            attachment_mode="skip", attachment_output_dir="/custom/path", attachment_base_url="https://example.com"
         )
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
@@ -329,13 +317,8 @@ class TestMhtmlIntegrationOptions:
             (MhtmlOptions(), None),  # Default options
             (MhtmlOptions(attachment_mode="base64"), None),
             (MhtmlOptions(attachment_mode="skip"), None),
-            (MhtmlOptions(
-                attachment_mode="download",
-                attachment_output_dir=str(temp_dir / "images")
-            ), None),
-            (MhtmlOptions(
-                attachment_mode="base64"
-            ), MarkdownOptions(emphasis_symbol="_")),
+            (MhtmlOptions(attachment_mode="download", attachment_output_dir=str(temp_dir / "images")), None),
+            (MhtmlOptions(attachment_mode="base64"), MarkdownOptions(emphasis_symbol="_")),
         ]
 
         for parser_options, renderer_options in option_combinations:
@@ -398,12 +381,8 @@ class TestMhtmlIntegrationPerformance:
         # Enable local file access to test file:// URL processing
         from all2md.options import MhtmlOptions
         from all2md.options.common import LocalFileAccessOptions
-        options = MhtmlOptions(
-            local_files=LocalFileAccessOptions(
-                allow_local_files=True,
-                allow_cwd_files=True
-            )
-        )
+
+        options = MhtmlOptions(local_files=LocalFileAccessOptions(allow_local_files=True, allow_cwd_files=True))
 
         # Convert same file multiple times
         for _i in range(3):
@@ -442,7 +421,7 @@ Content-Type: text/html; charset=utf-8
 
 --test-boundary--
 """
-        mhtml_content = mhtml_content_str.encode('utf-8')
+        mhtml_content = mhtml_content_str.encode("utf-8")
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         result = mhtml_to_markdown(str(mhtml_file))
@@ -539,9 +518,9 @@ Content-Type: text/html; charset=utf-8
 
         # Explicitly disable local file access
         from all2md.options.common import LocalFileAccessOptions
+
         local_files_options = LocalFileAccessOptions(
-            allow_local_files=False,
-            allow_cwd_files=True  # Should be ignored due to master switch
+            allow_local_files=False, allow_cwd_files=True  # Should be ignored due to master switch
         )
         options = MhtmlOptions(local_files=local_files_options)
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
@@ -573,10 +552,9 @@ Content-Type: text/html; charset=utf-8
 
         # Enable local files with allowlist
         from all2md.options.common import LocalFileAccessOptions
+
         local_files_options = LocalFileAccessOptions(
-            allow_local_files=True,
-            local_file_allowlist=["/allowed/path"],
-            allow_cwd_files=False
+            allow_local_files=True, local_file_allowlist=["/allowed/path"], allow_cwd_files=False
         )
         options = MhtmlOptions(local_files=local_files_options)
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
@@ -609,10 +587,9 @@ Content-Type: text/html; charset=utf-8
 
         # Enable local files with denylist
         from all2md.options.common import LocalFileAccessOptions
+
         local_files_options = LocalFileAccessOptions(
-            allow_local_files=True,
-            local_file_denylist=["/etc", "/var", "/usr"],
-            allow_cwd_files=False
+            allow_local_files=True, local_file_denylist=["/etc", "/var", "/usr"], allow_cwd_files=False
         )
         options = MhtmlOptions(local_files=local_files_options)
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
@@ -642,21 +619,24 @@ Content-Type: text/html; charset=utf-8
 </html>
 
 --test-boundary--
-""".encode('utf-8')
+""".encode(
+            "utf-8"
+        )
 
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         # Change to temp directory to test CWD access
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(temp_dir)
 
             # Enable CWD access properly
             from all2md.options.common import LocalFileAccessOptions
+
             local_files_options = LocalFileAccessOptions(
-                allow_local_files=True,  # Master switch must be True
-                allow_cwd_files=True
+                allow_local_files=True, allow_cwd_files=True  # Master switch must be True
             )
             options = MhtmlOptions(local_files=local_files_options)
             result = mhtml_to_markdown(mhtml_file, parser_options=options)

@@ -270,6 +270,193 @@ class DynamicCLIBuilder:
         """Expose cached options classes for external introspection."""
         return dict(self._get_options_classes())
 
+    def _handle_boolean_type(self, field: Any, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle boolean field type inference.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field
+        metadata : dict
+            Field metadata
+
+        Returns
+        -------
+        dict
+            Argparse kwargs for boolean fields
+
+        """
+        kwargs: Dict[str, Any] = {}
+        default_value: Any = MISSING
+
+        if self._has_default(field):
+            candidate_default = self._get_default(field)
+            if isinstance(candidate_default, bool):
+                default_value = candidate_default
+            elif callable(candidate_default):
+                logger.debug(
+                    "Boolean field %s uses default_factory; treating as no default for CLI",
+                    field.name,
+                )
+            else:
+                default_value = candidate_default
+
+        negate_via_metadata = bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False))
+
+        if negate_via_metadata and default_value not in (True, False, MISSING):
+            logger.debug(
+                "Boolean field %s sets cli_negates_default but default is %r; CLI will still use store_false",
+                field.name,
+                default_value,
+            )
+
+        if negate_via_metadata or default_value is True:
+            kwargs['action'] = 'store_false'
+        elif default_value is False:
+            kwargs['action'] = 'store_true'
+        elif default_value is MISSING:
+            kwargs['action'] = 'store_true'
+        else:
+            # For Optional[bool] defaulting to None, accept explicit true/false strings
+            kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
+
+        return kwargs
+
+    def _handle_union_type(self, resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
+        """Handle Union type inference (e.g., int | list[int]).
+
+        Parameters
+        ----------
+        resolved_type : Type
+            Resolved Union type
+
+        Returns
+        -------
+        tuple[dict, str | None]
+            Argparse kwargs and help suffix
+
+        """
+        kwargs: Dict[str, Any] = {}
+        help_suffix: str | None = None
+
+        args = get_args(resolved_type)
+        non_none_args = [arg for arg in args if arg is not type(None)]
+
+        # Check if this is Union[scalar, list[scalar]]
+        if len(non_none_args) == 2:
+            scalar_type = None
+            list_type = None
+
+            for arg in non_none_args:
+                if get_origin(arg) is list:
+                    list_args = get_args(arg)
+                    if list_args:
+                        list_type = list_args[0]
+                elif arg in (int, float, str):
+                    scalar_type = arg
+
+            # Create flexible parser for matching scalar and list types
+            if scalar_type and list_type and scalar_type == list_type and scalar_type is int:
+                def parse_int_or_list(value: str) -> int | list[int]:
+                    if ',' in value:
+                        try:
+                            return [int(x.strip()) for x in value.split(',')]
+                        except ValueError as e:
+                            raise argparse.ArgumentTypeError(
+                                f"Expected integer or comma-separated integers, got: {value}"
+                            ) from e
+                    else:
+                        try:
+                            return int(value)
+                        except ValueError as e:
+                            raise argparse.ArgumentTypeError(
+                                f"Expected integer or comma-separated integers, got: {value}"
+                            ) from e
+
+                kwargs['type'] = parse_int_or_list
+                help_suffix = '(single value or comma-separated)'
+
+        return kwargs, help_suffix
+
+    def _handle_list_type(self, resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
+        """Handle list type inference.
+
+        Parameters
+        ----------
+        resolved_type : Type
+            Resolved list type
+
+        Returns
+        -------
+        tuple[dict, str | None]
+            Argparse kwargs and help suffix
+
+        """
+        kwargs: Dict[str, Any] = {}
+        args = get_args(resolved_type)
+
+        if args:
+            item_type = args[0]
+            if item_type is int:
+                def parse_int_list(value: str) -> list[int]:
+                    try:
+                        return [int(x.strip()) for x in value.split(',')]
+                    except ValueError as e:
+                        raise argparse.ArgumentTypeError(
+                            f"Expected comma-separated integers, got: {value}"
+                        ) from e
+
+                kwargs['type'] = parse_int_list
+                return kwargs, '(comma-separated integers)'
+            elif item_type is float:
+                def parse_float_list(value: str) -> list[float]:
+                    try:
+                        return [float(x.strip()) for x in value.split(',')]
+                    except ValueError as e:
+                        raise argparse.ArgumentTypeError(
+                            f"Expected comma-separated floats, got: {value}"
+                        ) from e
+
+                kwargs['type'] = parse_float_list
+                return kwargs, '(comma-separated floats)'
+            else:
+                def parse_str_list(value: str) -> list[str]:
+                    return [x.strip() for x in value.split(',') if x.strip()]
+
+                kwargs['type'] = parse_str_list
+                return kwargs, '(comma-separated values)'
+        else:
+            # Fallback for untyped lists
+            def parse_str_list_fallback(value: str) -> list[str]:
+                return [x.strip() for x in value.split(',') if x.strip()]
+
+            kwargs['type'] = parse_str_list_fallback
+            return kwargs, '(comma-separated values)'
+
+    def _handle_dict_type(self) -> tuple[Dict[str, Any], str]:
+        """Handle dict type inference.
+
+        Returns
+        -------
+        tuple[dict, str]
+            Argparse kwargs and help suffix
+
+        """
+        import json
+
+        def parse_json_dict(value: str) -> dict:
+            try:
+                result = json.loads(value)
+                if not isinstance(result, dict):
+                    raise ValueError("Expected JSON object")
+                return result
+            except (json.JSONDecodeError, ValueError) as e:
+                raise argparse.ArgumentTypeError(
+                    f"Expected JSON object, got: {value}. Error: {e}"
+                ) from e
+
+        return {'type': parse_json_dict}, '(JSON format)'
+
     def _infer_argument_type_and_action(
             self, field: Any, resolved_type: Type,
             is_optional: bool, metadata: Dict[str, Any],
@@ -296,157 +483,28 @@ class DynamicCLIBuilder:
             Argparse kwargs (type/action/choices only) and optional help suffix
 
         """
-        kwargs: Dict[str, Any] = {}
-        help_suffix: str | None = None
-
         # Handle boolean fields
         if resolved_type is bool:
-            default_value: Any = MISSING
-
-            if self._has_default(field):
-                candidate_default = self._get_default(field)
-                if isinstance(candidate_default, bool):
-                    default_value = candidate_default
-                elif callable(candidate_default):
-                    logger.debug(
-                        "Boolean field %s uses default_factory; treating as no default for CLI",
-                        field.name,
-                    )
-                else:
-                    default_value = candidate_default
-
-            negate_via_metadata = bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False))
-
-            if negate_via_metadata and default_value not in (True, False, MISSING):
-                logger.debug(
-                    "Boolean field %s sets cli_negates_default but default is %r; CLI will still use store_false",
-                    field.name,
-                    default_value,
-                )
-
-            if negate_via_metadata or default_value is True:
-                kwargs['action'] = 'store_false'
-            elif default_value is False:
-                kwargs['action'] = 'store_true'
-            elif default_value is MISSING:
-                # No usable default specified - use store_true with False default
-                kwargs['action'] = 'store_true'
-            else:
-                # For other boolean values (e.g., Optional[bool] defaulting to None),
-                # accept explicit true/false strings instead of treating as a flag.
-                kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
+            return self._handle_boolean_type(field, metadata), None
 
         # Handle choices from metadata
-        elif 'choices' in metadata:
-            kwargs['choices'] = metadata['choices']
+        if 'choices' in metadata:
+            return {'choices': metadata['choices']}, None
 
-        # Handle Union types (for types like int | list[int])
-        elif get_origin(resolved_type) in (Union, types.UnionType):
-            args = get_args(resolved_type)
-            # Filter out None type
-            non_none_args = [arg for arg in args if arg is not type(None)]
+        # Handle Union types
+        if get_origin(resolved_type) in (Union, types.UnionType):
+            return self._handle_union_type(resolved_type)
 
-            # Check if this is Union[scalar, list[scalar]] (e.g., int | list[int])
-            if len(non_none_args) == 2:
-                scalar_type = None
-                list_type = None
+        # Handle list types
+        if get_origin(resolved_type) is list:
+            return self._handle_list_type(resolved_type)
 
-                for arg in non_none_args:
-                    if get_origin(arg) is list:
-                        list_args = get_args(arg)
-                        if list_args:
-                            list_type = list_args[0]
-                    elif arg in (int, float, str):
-                        scalar_type = arg
+        # Handle dict types
+        if get_origin(resolved_type) is dict:
+            return self._handle_dict_type()
 
-                # If we have matching scalar and list types, create a flexible parser
-                if scalar_type and list_type and scalar_type == list_type:
-                    if scalar_type is int:
-                        def parse_int_or_list(value: str) -> int | list[int]:
-                            if ',' in value:
-                                try:
-                                    return [int(x.strip()) for x in value.split(',')]
-                                except ValueError as e:
-                                    raise argparse.ArgumentTypeError(
-                                        f"Expected integer or comma-separated integers, got: {value}"
-                                    ) from e
-                            else:
-                                try:
-                                    return int(value)
-                                except ValueError as e:
-                                    raise argparse.ArgumentTypeError(
-                                        f"Expected integer or comma-separated integers, got: {value}"
-                                    ) from e
-
-                        kwargs['type'] = parse_int_or_list
-                        help_suffix = '(single value or comma-separated)'
-
-        # Handle list types using modern typing introspection
-        elif get_origin(resolved_type) is list:
-            # Get the list item type if available
-            args = get_args(resolved_type)
-            if args:
-                item_type = args[0]
-                if item_type is int:
-                    # Add type function to parse comma-separated integers
-                    def parse_int_list(value: str) -> list[int]:
-                        try:
-                            return [int(x.strip()) for x in value.split(',')]
-                        except ValueError as e:
-                            raise argparse.ArgumentTypeError(
-                                f"Expected comma-separated integers, got: {value}"
-                            ) from e
-
-                    kwargs['type'] = parse_int_list
-                    help_suffix = '(comma-separated integers)'
-                elif item_type is float:
-                    # Add type function to parse comma-separated floats
-                    def parse_float_list(value: str) -> list[float]:
-                        try:
-                            return [float(x.strip()) for x in value.split(',')]
-                        except ValueError as e:
-                            raise argparse.ArgumentTypeError(
-                                f"Expected comma-separated floats, got: {value}"
-                            ) from e
-
-                    kwargs['type'] = parse_float_list
-                    help_suffix = '(comma-separated floats)'
-                else:
-                    # Add type function to parse comma-separated strings
-                    def parse_str_list(value: str) -> list[str]:
-                        return [x.strip() for x in value.split(',') if x.strip()]
-
-                    kwargs['type'] = parse_str_list
-                    help_suffix = '(comma-separated values)'
-            else:
-                # Fallback for untyped lists
-                def parse_str_list_fallback(value: str) -> list[str]:
-                    return [x.strip() for x in value.split(',') if x.strip()]
-
-                kwargs['type'] = parse_str_list_fallback
-                help_suffix = '(comma-separated values)'
-
-        # Handle dict types using JSON parsing
-        elif get_origin(resolved_type) is dict:
-            import json
-
-            def parse_json_dict(value: str) -> dict:
-                try:
-                    result = json.loads(value)
-                    if not isinstance(result, dict):
-                        raise ValueError("Expected JSON object")
-                    return result
-                except (json.JSONDecodeError, ValueError) as e:
-                    raise argparse.ArgumentTypeError(
-                        f"Expected JSON object, got: {value}. Error: {e}"
-                    ) from e
-
-            kwargs['type'] = parse_json_dict
-            help_suffix = '(JSON format)'
-
-        # Handle special metadata types (legacy support for list_int)
-        elif metadata.get('type') == 'list_int':
-            # Add type function to parse comma-separated integers
+        # Handle legacy metadata types
+        if metadata.get('type') == 'list_int':
             def parse_legacy_int_list(value: str) -> list[int]:
                 try:
                     return [int(x.strip()) for x in value.split(',')]
@@ -455,17 +513,14 @@ class DynamicCLIBuilder:
                         f"Expected comma-separated integers, got: {value}"
                     ) from e
 
-            kwargs['type'] = parse_legacy_int_list
-            help_suffix = '(comma-separated integers)'
+            return {'type': parse_legacy_int_list}, '(comma-separated integers)'
 
         # Handle basic types
-        elif resolved_type in (int, float):
-            kwargs['type'] = resolved_type
-        elif resolved_type is str:
-            # str is default, don't specify unless needed
-            pass
+        if resolved_type in (int, float):
+            return {'type': resolved_type}, None
 
-        return kwargs, help_suffix
+        # str is default, don't specify
+        return {}, None
 
     def snake_to_kebab(self, name: str) -> str:
         """Convert snake_case to kebab-case.

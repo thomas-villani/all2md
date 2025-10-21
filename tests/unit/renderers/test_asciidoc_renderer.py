@@ -41,36 +41,28 @@ class TestHeadingRendering:
 
     def test_heading_level_1(self):
         """Test h1 renders with == prefix."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "== Title" in result
 
     def test_heading_level_2(self):
         """Test h2 renders with === prefix."""
-        doc = Document(children=[
-            Heading(level=2, content=[Text(content="Subtitle")])
-        ])
+        doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "=== Subtitle" in result
 
     def test_heading_level_3(self):
         """Test h3 renders with ==== prefix."""
-        doc = Document(children=[
-            Heading(level=3, content=[Text(content="Section")])
-        ])
+        doc = Document(children=[Heading(level=3, content=[Text(content="Section")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "==== Section" in result
 
     def test_no_setext_style(self):
         """Test that setext-style underlines are not used (not valid AsciiDoc)."""
-        doc = Document(children=[
-            Heading(level=1, content=[Text(content="Title")])
-        ])
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         # Should NOT have underline
@@ -85,14 +77,21 @@ class TestListItemContinuation:
 
     def test_list_item_with_code_block(self):
         """Test list item with code block has continuation marker."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Item with code")]),
-                    CodeBlock(content="print('hello')", language="python")
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Item with code")]),
+                                CodeBlock(content="print('hello')", language="python"),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -105,16 +104,21 @@ class TestListItemContinuation:
 
     def test_list_item_with_blockquote(self):
         """Test list item with blockquote has continuation marker."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Item text")]),
-                    BlockQuote(children=[
-                        Paragraph(content=[Text(content="Quoted text")])
-                    ])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Item text")]),
+                                BlockQuote(children=[Paragraph(content=[Text(content="Quoted text")])]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -125,18 +129,24 @@ class TestListItemContinuation:
 
     def test_list_item_with_nested_list(self):
         """Test list item with nested list has continuation marker."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Outer item")]),
-                    List(ordered=False, items=[
-                        ListItem(children=[
-                            Paragraph(content=[Text(content="Inner item")])
-                        ])
-                    ])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Outer item")]),
+                                List(
+                                    ordered=False,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="Inner item")])])],
+                                ),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -148,20 +158,29 @@ class TestListItemContinuation:
 
     def test_list_item_with_table(self):
         """Test list item with table has continuation marker."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Item with table")]),
-                    Table(
-                        header=TableRow(cells=[
-                            TableCell(content=[Text(content="Col1")]),
-                            TableCell(content=[Text(content="Col2")])
-                        ]),
-                        rows=[]
-                    )
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Item with table")]),
+                                Table(
+                                    header=TableRow(
+                                        cells=[
+                                            TableCell(content=[Text(content="Col1")]),
+                                            TableCell(content=[Text(content="Col2")]),
+                                        ]
+                                    ),
+                                    rows=[],
+                                ),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -172,13 +191,11 @@ class TestListItemContinuation:
 
     def test_list_item_first_child_is_block(self):
         """Test list item where first child is a block element."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    CodeBlock(content="first_item", language="python")
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(ordered=False, items=[ListItem(children=[CodeBlock(content="first_item", language="python")])])
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -192,16 +209,12 @@ class TestFootnoteFlattening:
 
     def test_footnote_with_paragraph(self):
         """Test footnote with simple paragraph content."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ]),
-            FootnoteDefinition(
-                identifier="1",
-                content=[Paragraph(content=[Text(content="Footnote text")])]
-            )
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="Footnote text")])]),
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -210,16 +223,12 @@ class TestFootnoteFlattening:
 
     def test_footnote_with_code_block(self):
         """Test footnote with code block gets flattened to inline code."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ]),
-            FootnoteDefinition(
-                identifier="1",
-                content=[CodeBlock(content="print('test')", language="python")]
-            )
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[CodeBlock(content="print('test')", language="python")]),
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -229,19 +238,18 @@ class TestFootnoteFlattening:
 
     def test_footnote_with_multiple_paragraphs(self):
         """Test footnote with multiple paragraphs gets flattened and joined."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ]),
-            FootnoteDefinition(
-                identifier="1",
-                content=[
-                    Paragraph(content=[Text(content="First para")]),
-                    Paragraph(content=[Text(content="Second para")])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(
+                    identifier="1",
+                    content=[
+                        Paragraph(content=[Text(content="First para")]),
+                        Paragraph(content=[Text(content="Second para")]),
+                    ],
+                ),
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -250,20 +258,14 @@ class TestFootnoteFlattening:
 
     def test_footnote_with_formatting(self):
         """Test footnote with inline formatting is preserved."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="Text"),
-                FootnoteReference(identifier="1")
-            ]),
-            FootnoteDefinition(
-                identifier="1",
-                content=[
-                    Paragraph(content=[
-                        Strong(content=[Text(content="bold")])
-                    ])
-                ]
-            )
-        ])
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(
+                    identifier="1", content=[Paragraph(content=[Strong(content=[Text(content="bold")])])]
+                ),
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -272,18 +274,19 @@ class TestFootnoteFlattening:
 
     def test_footnote_multiple_references(self):
         """Test multiple references to same footnote."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Text(content="First"),
-                FootnoteReference(identifier="1"),
-                Text(content=" and second"),
-                FootnoteReference(identifier="1")
-            ]),
-            FootnoteDefinition(
-                identifier="1",
-                content=[Paragraph(content=[Text(content="Note")])]
-            )
-        ])
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="First"),
+                        FootnoteReference(identifier="1"),
+                        Text(content=" and second"),
+                        FootnoteReference(identifier="1"),
+                    ]
+                ),
+                FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="Note")])]),
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
@@ -299,56 +302,44 @@ class TestBasicRendering:
 
     def test_paragraph(self):
         """Test simple paragraph rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Text(content="Hello world")])
-        ])
+        doc = Document(children=[Paragraph(content=[Text(content="Hello world")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "Hello world" in result
 
     def test_strong(self):
         """Test bold text rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Strong(content=[Text(content="bold")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Strong(content=[Text(content="bold")])])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "*bold*" in result
 
     def test_emphasis(self):
         """Test italic text rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Emphasis(content=[Text(content="italic")])])
-        ])
+        doc = Document(children=[Paragraph(content=[Emphasis(content=[Text(content="italic")])])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "_italic_" in result
 
     def test_code_inline(self):
         """Test inline code rendering."""
-        doc = Document(children=[
-            Paragraph(content=[Code(content="code")])
-        ])
+        doc = Document(children=[Paragraph(content=[Code(content="code")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "+code+" in result
 
     def test_link(self):
         """Test link rendering."""
-        doc = Document(children=[
-            Paragraph(content=[
-                Link(url="https://example.com", content=[Text(content="Example")])
-            ])
-        ])
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Example")])])]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "link:https://example.com[Example]" in result
 
     def test_code_block(self):
         """Test code block rendering."""
-        doc = Document(children=[
-            CodeBlock(content="print('hello')", language="python")
-        ])
+        doc = Document(children=[CodeBlock(content="print('hello')", language="python")])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "[source,python]" in result
@@ -357,12 +348,17 @@ class TestBasicRendering:
 
     def test_unordered_list(self):
         """Test unordered list rendering."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Item 2")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert "* Item 1" in result
@@ -370,12 +366,17 @@ class TestBasicRendering:
 
     def test_ordered_list(self):
         """Test ordered list rendering."""
-        doc = Document(children=[
-            List(ordered=True, items=[
-                ListItem(children=[Paragraph(content=[Text(content="First")])]),
-                ListItem(children=[Paragraph(content=[Text(content="Second")])])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                    ],
+                )
+            ]
+        )
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
         assert ". First" in result
@@ -388,16 +389,24 @@ class TestRendererOptions:
 
     def test_list_indent_option(self):
         """Test list indent spacing option."""
-        doc = Document(children=[
-            List(ordered=False, items=[
-                ListItem(children=[
-                    Paragraph(content=[Text(content="Outer")]),
-                    List(ordered=False, items=[
-                        ListItem(children=[Paragraph(content=[Text(content="Inner")])])
-                    ])
-                ])
-            ])
-        ])
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Outer")]),
+                                List(
+                                    ordered=False,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="Inner")])])],
+                                ),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
 
         # Test with custom indent
         options = AsciiDocRendererOptions(list_indent=4)
@@ -411,11 +420,8 @@ class TestRendererOptions:
     def test_use_attributes_option(self):
         """Test document attributes rendering."""
         doc = Document(
-            metadata={
-                "title": "Test Title",
-                "author": "Test Author"
-            },
-            children=[Paragraph(content=[Text(content="Content")])]
+            metadata={"title": "Test Title", "author": "Test Author"},
+            children=[Paragraph(content=[Text(content="Content")])],
         )
 
         # Test with attributes enabled

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from io import BytesIO
 
+
 # RTF specs expect ASCII; we keep content simple and deterministic.
+
 
 def create_basic_rtf_document() -> str:
     """Return a minimal RTF document with headings, lists, and table."""

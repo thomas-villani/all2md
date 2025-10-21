@@ -143,7 +143,7 @@ def create_pptx_with_tables() -> Presentation:
     data = [
         ("Alice Johnson", "25", "New York"),
         ("Bob Smith", "30", "San Francisco"),
-        ("Carol Davis", "28", "Los Angeles")
+        ("Carol Davis", "28", "Los Angeles"),
     ]
 
     for i, (name, age, city) in enumerate(data, 1):
@@ -171,7 +171,7 @@ def create_pptx_with_tables() -> Presentation:
     sales_data = [
         ("Product A", "100", "150", "250"),
         ("Product B", "200", "180", "380"),
-        ("Total", "300", "330", "630")
+        ("Total", "300", "330", "630"),
     ]
 
     for i, row_data in enumerate(sales_data, 1):
@@ -222,10 +222,7 @@ def create_pptx_with_shapes() -> Presentation:
     p.font.italic = True
 
     # Add rectangle with text
-    rectangle = slide.shapes.add_shape(
-        1,  # Rectangle shape type
-        Inches(6), Inches(2), Inches(2.5), Inches(1.5)
-    )
+    rectangle = slide.shapes.add_shape(1, Inches(6), Inches(2), Inches(2.5), Inches(1.5))  # Rectangle shape type
     rect_frame = rectangle.text_frame
     rect_frame.text = "Rectangle with text content"
 
@@ -286,15 +283,13 @@ def create_pptx_with_charts() -> Presentation:
 
     # Chart data
     chart_data = ChartData()
-    chart_data.categories = ['Q1', 'Q2', 'Q3', 'Q4']
-    chart_data.add_series('Product A', (100, 150, 120, 180))
-    chart_data.add_series('Product B', (200, 180, 220, 190))
+    chart_data.categories = ["Q1", "Q2", "Q3", "Q4"]
+    chart_data.add_series("Product A", (100, 150, 120, 180))
+    chart_data.add_series("Product B", (200, 180, 220, 190))
 
     # Add chart
     x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4)
-    slide.shapes.add_chart(
-        XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
-    )
+    slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
 
     # Line chart slide
     slide = prs.slides.add_slide(slide_layout)
@@ -305,14 +300,12 @@ def create_pptx_with_charts() -> Presentation:
 
     # Line chart data
     line_data = ChartData()
-    line_data.categories = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-    line_data.add_series('Revenue', (50, 65, 55, 70, 80, 85))
-    line_data.add_series('Expenses', (30, 35, 40, 38, 42, 45))
+    line_data.categories = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+    line_data.add_series("Revenue", (50, 65, 55, 70, 80, 85))
+    line_data.add_series("Expenses", (30, 35, 40, 38, 42, 45))
 
     # Add line chart
-    slide.shapes.add_chart(
-        XL_CHART_TYPE.LINE, x, y, cx, cy, line_data
-    )
+    slide.shapes.add_chart(XL_CHART_TYPE.LINE, x, y, cx, cy, line_data)
 
     # Pie chart slide
     slide = prs.slides.add_slide(slide_layout)
@@ -323,13 +316,11 @@ def create_pptx_with_charts() -> Presentation:
 
     # Pie chart data
     pie_data = ChartData()
-    pie_data.categories = ['Company A', 'Company B', 'Company C', 'Others']
-    pie_data.add_series('Market Share', (40, 25, 20, 15))
+    pie_data.categories = ["Company A", "Company B", "Company C", "Others"]
+    pie_data.add_series("Market Share", (40, 25, 20, 15))
 
     # Add pie chart
-    slide.shapes.add_chart(
-        XL_CHART_TYPE.PIE, x, y, cx, cy, pie_data
-    )
+    slide.shapes.add_chart(XL_CHART_TYPE.PIE, x, y, cx, cy, pie_data)
 
     return prs
 
@@ -491,7 +482,7 @@ def create_pptx_file(prs: Presentation, file_path: Optional[Path] = None) -> Pat
 
     """
     if file_path is None:
-        temp_file = tempfile.NamedTemporaryFile(suffix='.pptx', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(suffix=".pptx", delete=False)
         file_path = Path(temp_file.name)
         temp_file.close()
 
