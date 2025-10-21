@@ -147,7 +147,8 @@ The ``all2md config`` command provides tools for managing configuration files.
 
 .. _config-generate:
 
-**Generate Default Configuration**
+Generate Default Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create a configuration file with all available options:
 

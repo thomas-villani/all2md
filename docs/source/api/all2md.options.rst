@@ -14,6 +14,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   all2md.options.archive
    all2md.options.asciidoc
    all2md.options.ast_json
    all2md.options.base
@@ -35,7 +36,7 @@ Submodules
    all2md.options.org
    all2md.options.pdf
    all2md.options.pptx
-   all2md.options.rst
+   all2md.options.restructuredtext
    all2md.options.rtf
    all2md.options.sourcecode
    all2md.options.txt

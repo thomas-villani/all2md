@@ -205,6 +205,192 @@ Generated Reference
 
 This section is generated automatically from the options dataclasses.
 
+ARCHIVE Options
+~~~~~~~~~~~~~~~
+
+
+ARCHIVE Parser Options
+^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for archive (TAR/7Z/RAR) to Markdown conversion.
+
+This dataclass contains settings specific to archive processing,
+including file filtering, directory structure handling, and attachment extraction.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--archive-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--archive-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: core
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--archive-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--archive-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--archive-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--archive-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--archive-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--archive-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**include_patterns**
+
+   Glob patterns for files to include
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--archive-include``
+   :Default: ``None``
+   :Importance: core
+
+**exclude_patterns**
+
+   Glob patterns for files to exclude
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--archive-exclude``
+   :Default: ``None``
+   :Importance: core
+
+**max_depth**
+
+   Maximum directory depth to traverse
+
+   :Type: ``int | None``
+   :CLI flag: ``--archive-max-depth``
+   :Default: ``None``
+   :Importance: advanced
+
+**create_section_headings**
+
+   Create section headings for each file
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-no-section-headings``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_directory_structure**
+
+   Include directory path in section headings
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-no-preserve-directory``
+   :Default: ``True``
+   :Importance: core
+
+**flatten_structure**
+
+   Flatten directory structure in output
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-flatten``
+   :Default: ``False``
+   :Importance: advanced
+
+**extract_resource_files**
+
+   Extract non-parseable files to attachment directory
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-no-extract-resources``
+   :Default: ``True``
+   :Importance: core
+
+**skip_empty_files**
+
+   Skip files with no content or parse failures
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-no-skip-empty``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_resource_manifest**
+
+   Include manifest table of extracted resources
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-no-resource-manifest``
+   :Default: ``True``
+   :Importance: advanced
+
 ASCIIDOC Options
 ~~~~~~~~~~~~~~~~
 
@@ -367,7 +553,7 @@ into AST representation using a custom parser.
 
 **support_unconstrained_formatting**
 
-   Support unconstrained formatting (e.g., **b**old for mid-word)
+   Support unconstrained formatting (e.g., ``**b**old`` for mid-word)
 
    :Type: ``bool``
    :CLI flag: ``--asciidoc-no-unconstrained-formatting``
@@ -3282,7 +3468,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000022396D909C0>``
+   :Default: ``<object object at 0x000001C7A98D09C0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3292,7 +3478,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000022396D909C0>``
+   :Default: ``<object object at 0x000001C7A98D09C0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -3450,6 +3636,144 @@ modules to ensure consistent Markdown generation.
 MEDIAWIKI Options
 ~~~~~~~~~~~~~~~~~
 
+
+MEDIAWIKI Parser Options
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for MediaWiki-to-AST parsing.
+
+This dataclass contains settings specific to parsing MediaWiki/WikiText documents
+into AST representation using mwparserfromhell.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--mediawiki-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--mediawiki-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: core
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--mediawiki-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--mediawiki-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--mediawiki-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--mediawiki-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--mediawiki-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--mediawiki-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--mediawiki-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--mediawiki-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**parse_templates**
+
+   Parse templates or strip them
+
+   :Type: ``bool``
+   :CLI flag: ``--mediawiki-parse-templates``
+   :Default: ``False``
+   :Importance: core
+
+**parse_tags**
+
+   Parse parser tags (e.g., <ref>, <nowiki>)
+
+   :Type: ``bool``
+   :CLI flag: ``--mediawiki-no-parse-tags``
+   :Default: ``True``
+   :Importance: core
+
+**strip_comments**
+
+   Strip HTML comments from output
+
+   :Type: ``bool``
+   :CLI flag: ``--mediawiki-no-strip-comments``
+   :Default: ``True``
+   :Importance: core
+
+**html_passthrough_mode**
+
+   How to handle inline HTML: pass-through, escape, drop, or sanitize
+
+   :Type: ``HtmlPassthroughMode``
+   :CLI flag: ``--mediawiki-html-passthrough-mode``
+   :Default: ``'escape'``
+   :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
+   :Importance: security
 
 MEDIAWIKI Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3925,6 +4249,131 @@ processing, including slide selection, numbering, and notes.
    :Default: ``None``
    :Importance: core
 
+ODP Renderer Options
+^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for rendering AST to ODP format.
+
+This dataclass contains settings specific to OpenDocument Presentation
+generation from AST, including slide splitting strategies and layout.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--odp-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--odp-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--odp-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**slide_split_mode**
+
+   Slide splitting strategy: separator, heading, or auto
+
+   :Type: ``Literal['separator', 'heading', 'auto']``
+   :CLI flag: ``--odp-renderer-slide-split-mode``
+   :Default: ``'auto'``
+   :Choices: ``separator``, ``heading``, ``auto``
+   :Importance: core
+
+**slide_split_heading_level**
+
+   Heading level for slide splits (H2 = level 2)
+
+   :Type: ``int``
+   :CLI flag: ``--odp-renderer-slide-split-heading-level``
+   :Default: ``2``
+   :Importance: advanced
+
+**default_layout**
+
+   Default slide layout name
+
+   :Type: ``str``
+   :CLI flag: ``--odp-renderer-default-layout``
+   :Default: ``'Default'``
+   :Importance: advanced
+
+**title_slide_layout**
+
+   Layout for first slide
+
+   :Type: ``str``
+   :CLI flag: ``--odp-renderer-title-slide-layout``
+   :Default: ``'Title'``
+   :Importance: advanced
+
+**use_heading_as_slide_title**
+
+   Use first heading as slide title
+
+   :Type: ``bool``
+   :CLI flag: ``--odp-renderer-no-use-heading-as-slide-title``
+   :Default: ``True``
+   :Importance: core
+
+**template_path**
+
+   Path to .odp template file (None = default)
+
+   :Type: ``str | None``
+   :CLI flag: ``--odp-renderer-template-path``
+   :Default: ``None``
+   :Importance: core
+
+**default_font**
+
+   Default font for slide content
+
+   :Type: ``str``
+   :CLI flag: ``--odp-renderer-default-font``
+   :Default: ``'Liberation Sans'``
+   :Importance: core
+
+**default_font_size**
+
+   Default font size for body text
+
+   :Type: ``int``
+   :CLI flag: ``--odp-renderer-default-font-size``
+   :Default: ``18``
+   :Importance: core
+
+**title_font_size**
+
+   Font size for slide titles
+
+   :Type: ``int``
+   :CLI flag: ``--odp-renderer-title-font-size``
+   :Default: ``44``
+   :Importance: advanced
+
+**network**
+
+   Network security options for fetching remote images
+
+   :Type: ``NetworkFetchOptions``
+   :CLI flag: ``--odp-renderer-network``
+   :Default factory: ``NetworkFetchOptions``
+
 ODS Options
 ~~~~~~~~~~~
 
@@ -4281,6 +4730,121 @@ processing, including table preservation, footnotes, and comments.
    :CLI flag: ``--odt-no-include-endnotes``
    :Default: ``True``
    :Importance: core
+
+ODT Renderer Options
+^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for rendering AST to ODT format.
+
+This dataclass contains settings specific to OpenDocument Text generation,
+including fonts, styles, and formatting preferences.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--odt-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--odt-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**default_font**
+
+   Default font for body text
+
+   :Type: ``str``
+   :CLI flag: ``--odt-renderer-default-font``
+   :Default: ``'Liberation Sans'``
+   :Importance: core
+
+**default_font_size**
+
+   Default font size in points
+
+   :Type: ``int``
+   :CLI flag: ``--odt-renderer-default-font-size``
+   :Default: ``11``
+   :Importance: core
+
+**heading_font_sizes**
+
+   Font sizes for heading levels 1-6 as JSON object (e.g., '{"1": 24, "2": 18}')
+
+   :Type: ``dict[int, int] | None``
+   :CLI flag: ``--odt-renderer-heading-font-sizes``
+   :Default: ``None``
+   :Importance: advanced
+
+**use_styles**
+
+   Use built-in ODT styles vs direct formatting
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-no-use-styles``
+   :Default: ``True``
+   :Importance: advanced
+
+**code_font**
+
+   Font for code blocks and inline code
+
+   :Type: ``str``
+   :CLI flag: ``--odt-renderer-code-font``
+   :Default: ``'Liberation Mono'``
+   :Importance: core
+
+**code_font_size**
+
+   Font size for code
+
+   :Type: ``int``
+   :CLI flag: ``--odt-renderer-code-font-size``
+   :Default: ``10``
+   :Importance: core
+
+**preserve_formatting**
+
+   Preserve text formatting (bold, italic, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-no-preserve-formatting``
+   :Default: ``True``
+   :Importance: core
+
+**template_path**
+
+   Path to .odt template file for styles (None = default blank document)
+
+   :Type: ``str | None``
+   :CLI flag: ``--odt-renderer-template-path``
+   :Default: ``None``
+   :Importance: core
+
+**network**
+
+   Network security settings for remote image fetching
+
+   :Type: ``NetworkFetchOptions``
+   :CLI flag: ``--odt-renderer-network``
+   :Default factory: ``NetworkFetchOptions``
 
 ORG Options
 ~~~~~~~~~~~
@@ -4935,6 +5499,96 @@ including page selection, image handling, and formatting preferences.
    :Type: ``bool``
    :CLI flag: ``--pdf-lazy-image-processing``
    :Default: ``False``
+   :Importance: advanced
+
+Ocr Options
++++++++++++
+
+Configuration options for OCR (Optical Character Recognition) in PDF parsing.
+
+This dataclass contains settings for detecting and extracting text from scanned
+or image-based PDF pages using Tesseract OCR engine.
+
+**enabled**
+
+   Enable OCR for scanned/image-based PDF pages
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-ocr-enabled``
+   :Default: ``False``
+   :Importance: core
+
+**mode**
+
+   OCR mode: 'auto' (detect scanned pages), 'force' (all pages), 'off' (disable)
+
+   :Type: ``Literal['auto', 'force', 'off']``
+   :CLI flag: ``--pdf-ocr-mode``
+   :Default: ``'auto'``
+   :Choices: ``auto``, ``force``, ``off``
+   :Importance: core
+
+**languages**
+
+   Tesseract language code(s), e.g. 'eng', 'fra', 'eng+fra', or ['eng', 'fra']
+
+   :Type: ``UnionType[str, list[str]]``
+   :CLI flag: ``--pdf-ocr-languages``
+   :Default: ``'eng'``
+   :Importance: core
+
+**auto_detect_language**
+
+   Attempt to auto-detect document language (experimental)
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-ocr-auto-detect-language``
+   :Default: ``False``
+   :Importance: advanced
+
+**dpi**
+
+   DPI for rendering pages to images for OCR (150-600 recommended)
+
+   :Type: ``int``
+   :CLI flag: ``--pdf-ocr-dpi``
+   :Default: ``300``
+   :Importance: advanced
+
+**text_threshold**
+
+   Minimum characters to consider page text-based (for auto mode)
+
+   :Type: ``int``
+   :CLI flag: ``--pdf-ocr-text-threshold``
+   :Default: ``50``
+   :Importance: advanced
+
+**image_area_threshold**
+
+   Image area ratio (0.0-1.0) to trigger OCR (for auto mode)
+
+   :Type: ``float``
+   :CLI flag: ``--pdf-ocr-image-area-threshold``
+   :Default: ``0.5``
+   :Importance: advanced
+
+**preserve_existing_text**
+
+   Preserve PyMuPDF text when applying OCR (combine vs replace)
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-ocr-preserve-existing-text``
+   :Default: ``False``
+   :Importance: advanced
+
+**tesseract_config**
+
+   Custom Tesseract configuration flags (advanced)
+
+   :Type: ``str``
+   :CLI flag: ``--pdf-ocr-tesseract-config``
+   :Default: ``''``
    :Importance: advanced
 
 PDF Renderer Options
@@ -6922,7 +7576,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000022396D909C0>``
+   :Default: ``<object object at 0x000001C7A98D09C0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -6932,7 +7586,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000022396D909C0>``
+   :Default: ``<object object at 0x000001C7A98D09C0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

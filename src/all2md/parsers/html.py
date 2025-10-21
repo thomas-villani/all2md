@@ -470,12 +470,13 @@ class HtmlToAstConverter(BaseParser):
         Notes
         -----
         This method extracts metadata from:
-        - <title> tag in HTML head
-        - <meta> tags with various name/property attributes
-        - <link> tags with rel attributes
-        - Open Graph (og:*) and Twitter Card (twitter:*) meta tags
-        - Dublin Core (dc.*) meta tags
-        - Article meta tags (article:*)
+
+        - ``<title>`` tag in HTML head
+        - ``<meta>`` tags with various name/property attributes
+        - ``<link>`` tags with rel attributes
+        - Open Graph (og:\*) and Twitter Card (twitter:\*) meta tags
+        - Dublin Core (dc.\*) meta tags
+        - Article meta tags (article:\*)
 
         The method maps common meta tag names to standardized DocumentMetadata
         fields and stores unmapped tags in the custom dictionary.

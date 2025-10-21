@@ -24,9 +24,11 @@ Submodules
    all2md.renderers.latex
    all2md.renderers.markdown
    all2md.renderers.mediawiki
+   all2md.renderers.odp
+   all2md.renderers.odt
    all2md.renderers.org
    all2md.renderers.pdf
    all2md.renderers.plaintext
    all2md.renderers.pptx
-   all2md.renderers.rst
+   all2md.renderers.restructuredtext
    all2md.renderers.rtf

@@ -100,6 +100,7 @@ ColumnDetectionMode = Literal["auto", "force_single", "force_multi", "disabled"]
 TableExtractionMode = Literal["none", "grid", "text_clustering"]
 TableDetectionMode = Literal["pymupdf", "ruling", "both", "none"]
 ImageFormat = Literal["png", "jpeg"]
+OCRMode = Literal["auto", "force", "off"]
 
 # ==============================================================================
 
@@ -186,6 +187,17 @@ DEFAULT_PDF_FONT_FAMILY = "Helvetica"
 DEFAULT_PDF_FONT_SIZE = 12
 DEFAULT_PDF_CODE_FONT = "Courier"
 DEFAULT_PDF_LINE_SPACING = 1.2
+
+# OCR-related constants for PDF parsing
+DEFAULT_OCR_ENABLED = False
+DEFAULT_OCR_MODE = "auto"
+DEFAULT_OCR_LANGUAGES = "eng"
+DEFAULT_OCR_AUTO_DETECT_LANGUAGE = False
+DEFAULT_OCR_DPI = 300
+DEFAULT_OCR_TEXT_THRESHOLD = 50  # Minimum characters to consider page as text-based
+DEFAULT_OCR_IMAGE_AREA_THRESHOLD = 0.5  # Ratio of image area to page area to trigger OCR
+DEFAULT_OCR_PRESERVE_EXISTING_TEXT = False
+DEFAULT_OCR_TESSERACT_CONFIG = ""
 
 # =============================================================================
 # HTML to Markdown Constants

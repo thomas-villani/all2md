@@ -156,6 +156,11 @@ API Reference
 About
 -----
 
+.. toctree::
+   :maxdepth: 1
+
+   license
+
 **all2md** is developed by Tom Villani, Ph.D. and released under the MIT License.
 
 * **Source Code**: https://github.com/thomas.villani/all2md

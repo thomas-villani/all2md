@@ -14,6 +14,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   all2md.parsers.archive
    all2md.parsers.asciidoc
    all2md.parsers.ast_json
    all2md.parsers.base
@@ -26,6 +27,7 @@ Submodules
    all2md.parsers.ipynb
    all2md.parsers.latex
    all2md.parsers.markdown
+   all2md.parsers.mediawiki
    all2md.parsers.mhtml
    all2md.parsers.odp
    all2md.parsers.ods_spreadsheet
@@ -33,7 +35,7 @@ Submodules
    all2md.parsers.org
    all2md.parsers.pdf
    all2md.parsers.pptx
-   all2md.parsers.rst
+   all2md.parsers.restructuredtext
    all2md.parsers.rtf
    all2md.parsers.sourcecode
    all2md.parsers.txt

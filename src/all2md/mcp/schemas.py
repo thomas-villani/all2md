@@ -171,6 +171,7 @@ class EditDocumentSimpleInput:
     Notes
     -----
     Defaults (not configurable in simplified interface):
+
     - Format: markdown only (no AST JSON)
     - Case sensitivity: case-insensitive heading matching
     - Flavor: "gfm" (GitHub Flavored Markdown)

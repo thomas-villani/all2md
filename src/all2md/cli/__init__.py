@@ -13,31 +13,40 @@ environment variables.
 
 Examples
 --------
-Basic conversion:
+Basic conversion::
+
     $ all2md document.pdf
 
-Specify output file:
+Specify output file::
+
     $ all2md document.docx --out output.md
 
-Download attachments:
+Download attachments::
+
     $ all2md document.docx --attachment-mode download --attachment-output-dir ./attachments
 
-Use underscore emphasis:
+Use underscore emphasis::
+
     $ all2md document.html --markdown-emphasis-symbol "_"
 
-Convert multiple files:
+Convert multiple files::
+
     $ all2md *.pdf --output-dir ./converted
 
-Use rich formatting:
+Use rich formatting::
+
     $ all2md document.pdf --rich
 
-Process directory recursively:
+Process directory recursively::
+
     $ all2md ./documents --recursive --output-dir ./markdown
 
-Collate multiple files into one output:
+Collate multiple files into one output::
+
     $ all2md *.pdf --collate --out combined.md
 
-Use environment variables for defaults:
+Use environment variables for defaults::
+
     $ export ALL2MD_RICH=true
     $ export ALL2MD_OUTPUT_DIR=./converted
     $ export ALL2MD_MARKDOWN_EMPHASIS_SYMBOL="_"

@@ -955,21 +955,22 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
     Examples
     --------
-    List file content:
+    List file content::
 
         # This is a comment
         chapter1.pdf	Introduction
         chapter2.pdf	Background
         chapter3.pdf
 
-    Results in:
+    Results in::
+
         [
             (Path('chapter1.pdf'), 'Introduction'),
             (Path('chapter2.pdf'), 'Background'),
             (Path('chapter3.pdf'), None)
         ]
 
-    Reading from stdin:
+    Reading from stdin::
 
         $ echo "chapter1.pdf\\tIntro" | all2md --merge-from-list - --out book.md
 

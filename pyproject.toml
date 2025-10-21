@@ -111,6 +111,10 @@ archive = [
     "py7zr>=0.22.0",
     "rarfile>=4.2",
 ]
+ocr = [
+    "pytesseract>=0.3.10",
+    "Pillow>=9.0.0",
+]
 
 all = [
     "beautifulsoup4>=4.14.2",

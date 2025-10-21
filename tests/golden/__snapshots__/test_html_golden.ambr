@@ -1,0 +1,94 @@
+# serializer version: 1
+# name: TestHTMLGolden.test_basic_html_conversion
+  '''
+  # Main Heading
+  
+  This is a paragraph with **bold** and *italic* text.
+  
+  Another paragraph with a [link](https://example.com).
+  '''
+# ---
+# name: TestHTMLGolden.test_html_empty_document
+  ''
+# ---
+# name: TestHTMLGolden.test_html_with_code_blocks
+  '''
+  ## Code Example
+  
+  Inline `code` example.
+  
+  ```python
+  
+  def hello_world():
+      print("Hello, World!")
+  ```
+  '''
+# ---
+# name: TestHTMLGolden.test_html_with_complex_formatting
+  '''
+  # Complex Formatting
+  
+  Text with **bold**, *italic*, `code`, strikethrough, and highlighted text.
+  
+  Text with subscript and superscript.
+  
+  A paragraph with  
+  line  
+  breaks.
+  
+  ---
+  
+  After horizontal rule.
+  '''
+# ---
+# name: TestHTMLGolden.test_html_with_dangerous_content_stripped
+  '''
+  # Safe Content
+  
+  This is safe.
+  
+  More safe content.
+  '''
+# ---
+# name: TestHTMLGolden.test_html_with_images_alt_text_mode
+  '''
+  ## Images
+  
+  ![First image](https://example.com/image1.png)
+  
+  ![Second image](https://example.com/image2.jpg)
+  '''
+# ---
+# name: TestHTMLGolden.test_html_with_lists
+  '''
+  ## Lists
+  
+  * Unordered item 1
+  * Unordered item 2
+  * Unordered item 3
+  
+  1. Ordered item 1
+  2. Ordered item 2
+  3. Ordered item 3
+  '''
+# ---
+# name: TestHTMLGolden.test_html_with_metadata_extraction
+  '''
+  # Document Title
+  
+  ## Content
+  
+  Body text.
+  '''
+# ---
+# name: TestHTMLGolden.test_html_with_nested_elements
+  '# Main Title## SubsectionParagraph in subsection with **nested *formatting***.> A quote within the subsection.'
+# ---
+# name: TestHTMLGolden.test_html_with_table
+  '''
+  | Name | Age | City |
+  |---|---|---|
+  | Alice | 30 | New York |
+  | Bob | 25 | San Francisco |
+  '''
+# ---

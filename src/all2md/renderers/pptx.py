@@ -762,9 +762,10 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         **Bullet Handling in Text Boxes vs Placeholders:**
 
         PowerPoint behaves differently for text boxes vs content placeholders:
-        - **Content placeholders**: Bullets are enabled by default, setting `p.level`
+
+        - **Content placeholders**: Bullets are enabled by default, setting ``p.level``
           is sufficient to display bullets at the appropriate nesting level.
-        - **Text boxes**: Bullets are disabled by default. Setting `p.level` alone
+        - **Text boxes**: Bullets are disabled by default. Setting ``p.level`` alone
           will NOT show bullets. We must explicitly enable bullets via OOXML.
 
         This implementation uses python-pptx's OOXML API to programmatically enable

@@ -5,3 +5,4 @@ all2md.mcp.schemas
    :members:
    :show-inheritance:
    :undoc-members:
+   :noindex:

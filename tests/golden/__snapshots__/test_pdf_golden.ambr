@@ -1,0 +1,141 @@
+# serializer version: 1
+# name: TestPDFGolden.test_basic_pdf_conversion
+  '''
+  This is normal text.
+  
+  This is bold text.
+  
+  This is italic text.
+  
+  This is bold italic text.
+  
+  # Large Header Text
+  
+  Medium Subheader
+  
+  Regular paragraph text continues here with normal formatting
+  
+  This line has bold  and italic  text.
+  
+  def function():
+  
+  return 'code block'
+  '''
+# ---
+# name: TestPDFGolden.test_pdf_attachment_mode_skip
+  '''
+  # Test Document with Figures
+  
+  Figure 1: Sample chart showing data trends
+  
+  Figure 2: Additional visualization
+  
+  This document contains multiple figures for testing figure detection and caption recognition functionality.
+  '''
+# ---
+# name: TestPDFGolden.test_pdf_with_figures
+  '''
+  # Test Document with Figures
+  
+  Figure 1: Sample chart showing data trends
+  
+  Figure 2: Additional visualization
+  
+  This document contains multiple figures for testing figure detection and caption recognition functionality.
+  '''
+# ---
+# name: TestPDFGolden.test_pdf_with_tables
+  '''
+  # Test Document with Tables
+  
+  | Name | Age | City |
+  |---|---|---|
+  | Alice | 25 | NYC |
+  | Bob | 30 | SF |
+  | Carol | 28 | LA |
+  
+  Here is some text between the two tables.
+  
+  | Product | Price |
+  |---|---|
+  | Widget A | $10.99 |
+  | Widget B | $15.50 |
+  | Widget C | $8.25 |
+  '''
+# ---
+# name: TestPDFGoldenFromFiles.test_basic_pdf_file
+  '''
+  # Document Heading 1 
+  
+  This is a simple test document. 
+  
+  Second paragraph with **bold** text and *italic* text and ***both*** 
+  
+  Here’s some underlined text. 
+  
+  Here we want a longer paragraph that can span a few lines in a document. It should be like  3 or 4 sentences, which is the normal length of a paragraph. We can even include some  **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done. 
+  
+  First Section Heading 
+  
+  Right before this was the equivalent of an “h2” heading. Now we have some more stuff in  this section. I think a [hyperlink](https://example.com/) would be cool. 
+  
+  Now for an unordered list: 
+  
+  - First item on unordered list 
+  
+  - Second item 
+  
+  - Third 
+  
+  Let’s add some more stuff 
+  
+  Second Section Heading 
+  
+  And here’s an ordered list: 
+  
+  1. First item on ordered list 
+  
+  2. Second item on ordered list 
+  
+  3. Third item on ordered list 
+  
+  And now a multilevel list: 
+  
+  -  First level 
+  
+  -  First level 2 
+  
+        o Second level 1 
+  
+        o Second level 2 
+  
+  -  First level 3 
+  
+  -  First level 4 
+  
+        o Second level 3 
+  
+        o Second level 4 
+  
+  &lt;!-- PAGE_SEP:1/2 --&gt;
+  
+  -  First level 5 
+  
+   
+  
+  And a simple table with a header: 
+  
+  | Header A | Header B | Header C | Header D |
+  |---|---|---|---|
+  | Row 1, Col 1 | Row 1, Col 2 | Row 1, Col 3 | Rol 1, Col 4 |
+  | Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 | Row 2, Col 4 |
+  
+  We’ll put an inline image: 
+  
+   
+  
+  And the end. 
+  
+  ![Image from page 2]()
+  '''
+# ---

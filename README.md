@@ -29,7 +29,7 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
 -   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
--   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, and robust text extraction powered by PyMuPDF.
+-   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, and robust text extraction powered by PyMuPDF.
 -   **Extensible Plugin System**: Easily add support for new file formats (converters) or create custom document manipulations (transforms) using a simple entry-point system.
 -   **Powerful CLI**: A full-featured command-line interface with multi-file processing, parallel execution, directory watching, stdin/stdout piping, and dynamic, format-specific options.
 -   **Highly Configurable**: Fine-tune every aspect of the conversion process using clean, type-safe `dataclass` options for each format.
@@ -115,6 +115,9 @@ pip install "all2md[pdf,docx,html]"
 
 # Install support for spreadsheets and ODF documents
 pip install "all2md[spreadsheet,odf]"
+
+# Install PDF support with OCR for scanned documents
+pip install "all2md[pdf,ocr]"
 ```
 
 **3. Full Installation**
@@ -182,6 +185,9 @@ All conversion options are available as CLI flags. Use `--help` to see them all.
 # Convert only pages 1-3 and 5 from a PDF
 all2md report.pdf --pdf-pages "1-3,5"
 
+# Convert a scanned PDF using OCR (requires Tesseract)
+all2md scanned.pdf --ocr-enabled --ocr-mode auto --ocr-languages eng
+
 # Convert an HTML file, extracting the <title> as the main heading
 all2md page.html --html-extract-title
 
@@ -236,6 +242,12 @@ markdown_content = to_markdown(
     parser_options=pdf_opts,
     renderer_options=md_opts
 )
+
+# Convert a scanned PDF with OCR
+from all2md.options.pdf import OCROptions
+ocr_opts = OCROptions(enabled=True, mode="auto", languages="eng", dpi=300)
+pdf_opts_with_ocr = PdfOptions(ocr=ocr_opts)
+markdown_content = to_markdown('scanned.pdf', parser_options=pdf_opts_with_ocr)
 
 # Alternatively, pass options as keyword arguments
 markdown_content = to_markdown(

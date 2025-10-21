@@ -491,7 +491,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         "-n",
         "--narrative",
         type=Path,
-        default=Path(__file__).resolve().parent / "_options-narrative.rst",
+        default=Path(__file__).resolve().parent / "_templates" / "_options-narrative.rst",
         help="Narrative preface file",
     )
     return parser.parse_args(argv)

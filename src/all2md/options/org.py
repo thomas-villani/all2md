@@ -100,7 +100,7 @@ class OrgRendererOptions(BaseRendererOptions):
     ----------
     heading_style : {"stars"}, default "stars"
         Style for rendering headings. Currently only "stars" is supported
-        (e.g., * Level 1, ** Level 2, *** Level 3).
+        (e.g., ``*`` Level 1, ``**`` Level 2, ``***`` Level 3).
     preserve_drawers : bool, default False
         Whether to preserve drawer content in rendered output.
         When True, drawers stored in metadata are rendered back.
@@ -117,20 +117,20 @@ class OrgRendererOptions(BaseRendererOptions):
     Notes
     -----
     **Heading Rendering:**
-        Headings are rendered with stars (*, **, ***, etc.) based on level.
+        Headings are rendered with stars (``*``, ``**``, ``***``, etc.) based on level.
         TODO states and tags are preserved if present in metadata.
 
     **TODO States:**
-        If a heading has metadata["org_todo_state"], it's rendered before the heading text.
-        Example: * TODO Write documentation
+        If a heading has ``metadata["org_todo_state"]``, it's rendered before the heading text.
+        Example: ``* TODO Write documentation``
 
     **Tags:**
-        If preserve_tags is True and metadata["org_tags"] exists, tags are rendered.
-        Example: * Heading :work:urgent:
+        If preserve_tags is True and ``metadata["org_tags"]`` exists, tags are rendered.
+        Example: ``* Heading :work:urgent:``
 
     **Properties:**
-        If preserve_properties is True and metadata["org_properties"] exists,
-        a :PROPERTIES: drawer is rendered under the heading.
+        If preserve_properties is True and ``metadata["org_properties"]`` exists,
+        a ``:PROPERTIES:`` drawer is rendered under the heading.
 
     """
 

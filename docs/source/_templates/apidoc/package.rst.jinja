@@ -1,0 +1,43 @@
+{{ pkgname | escape | heading }}
+
+.. automodule:: {{ pkgname }}
+{%- for option in automodule_options %}
+   :{{ option }}:
+{%- endfor %}
+   :imported-members: False
+   :noindex:
+
+{%- if subpackages %}
+
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: {{ maxdepth }}
+{% for subpackage in subpackages %}
+   {{ subpackage }}
+{%- endfor %}
+{%- endif %}
+
+{%- if submodules %}
+
+Submodules
+----------
+{% if separatemodules %}
+.. toctree::
+   :maxdepth: {{ maxdepth }}
+{% for submodule in submodules %}
+   {{ submodule }}
+{%- endfor %}
+{%- else %}
+{%- for submodule in submodules %}
+{% if show_headings %}
+{{- [submodule, "module"] | join(" ") | escape | heading(2) }}
+{% endif %}
+.. automodule:: {{ submodule }}
+{%- for option in automodule_options %}
+   :{{ option }}:
+{%- endfor %}
+{% endfor %}
+{%- endif %}
+{%- endif %}

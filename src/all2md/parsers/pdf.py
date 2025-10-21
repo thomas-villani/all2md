@@ -1164,6 +1164,162 @@ class IdentifyHeaders:
         return self.debug_info
 
 
+def _calculate_image_coverage(page: "fitz.Page") -> float:
+    """Calculate the ratio of image area to total page area.
+
+    This function analyzes a PDF page to determine what fraction of the page
+    is covered by images, which helps identify image-based or scanned pages.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page to analyze
+
+    Returns
+    -------
+    float
+        Ratio of image area to page area (0.0 to 1.0)
+
+    Notes
+    -----
+    This function accounts for overlapping images by combining their bounding
+    boxes and calculating the total covered area.
+
+    """
+    page_area = page.rect.width * page.rect.height
+    if page_area == 0:
+        return 0.0
+
+    # Get all images on the page
+    image_list = page.get_images()
+    if not image_list:
+        return 0.0
+
+    # Calculate total image area (accounting for potential overlaps)
+    # We'll use a simple approach: sum individual image areas
+    # For more accuracy, we could use union of bounding boxes
+    total_image_area = 0.0
+
+    for img in image_list:
+        xref = img[0]
+        img_rects = page.get_image_rects(xref)
+        if img_rects:
+            # Use first occurrence of image on page
+            bbox = img_rects[0]
+            img_area = (bbox.width) * (bbox.height)
+            total_image_area += img_area
+
+    # Calculate ratio
+    coverage_ratio = min(1.0, total_image_area / page_area)
+    return coverage_ratio
+
+
+def _should_use_ocr(
+        page: "fitz.Page",
+        extracted_text: str,
+        options: "PdfOptions"
+) -> bool:
+    """Determine whether OCR should be applied to a PDF page.
+
+    Analyzes the page content based on the OCR mode and detection thresholds
+    to decide if OCR processing is needed.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page to analyze
+    extracted_text : str
+        Text extracted by PyMuPDF from the page
+    options : PdfOptions
+        PDF conversion options containing OCR settings
+
+    Returns
+    -------
+    bool
+        True if OCR should be applied, False otherwise
+
+    Notes
+    -----
+    Detection logic depends on ocr.mode:
+    - "off": Always returns False
+    - "force": Always returns True
+    - "auto": Uses text_threshold and image_area_threshold to detect scanned pages
+
+    """
+    # Import OCROptions type for type checking
+    from all2md.options.pdf import OCROptions
+
+    ocr_opts: OCROptions = options.ocr
+
+    # Check if OCR is enabled
+    if not ocr_opts.enabled or ocr_opts.mode == "off":
+        return False
+
+    # Force mode always uses OCR
+    if ocr_opts.mode == "force":
+        return True
+
+    # Auto mode: detect based on thresholds
+    if ocr_opts.mode == "auto":
+        # Check text threshold
+        text_length = len(extracted_text.strip())
+        if text_length < ocr_opts.text_threshold:
+            logger.debug(
+                f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), "
+                f"triggering OCR"
+            )
+            return True
+
+        # Check image coverage threshold
+        image_coverage = _calculate_image_coverage(page)
+        if image_coverage >= ocr_opts.image_area_threshold:
+            logger.debug(
+                f"Page has {image_coverage:.1%} image coverage "
+                f"(threshold: {ocr_opts.image_area_threshold:.1%}), triggering OCR"
+            )
+            return True
+
+    return False
+
+
+def _detect_page_language(page: "fitz.Page", options: "PdfOptions") -> str:
+    """Attempt to auto-detect the language of a PDF page for OCR.
+
+    This is an experimental feature that tries to determine the language
+    of the page content to optimize OCR accuracy.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page to analyze
+    options : PdfOptions
+        PDF conversion options containing OCR settings
+
+    Returns
+    -------
+    str
+        Tesseract language code (e.g., "eng", "fra", "deu")
+        Falls back to options.ocr.languages if detection fails
+
+    Notes
+    -----
+    This function is currently a placeholder. Full implementation would require
+    additional dependencies like langdetect or language detection via Tesseract itself.
+    For now, it simply returns the configured language from options.
+
+    """
+    # TODO: Implement actual language detection
+    # This could use:
+    # 1. langdetect library on existing text
+    # 2. Tesseract's orientation and script detection (OSD)
+    # 3. Statistical analysis of character frequencies
+
+    # For now, return the configured language
+    if isinstance(options.ocr.languages, list):
+        return "+".join(options.ocr.languages)
+    return options.ocr.languages
+
+
 class PdfToAstConverter(BaseParser):
     """Convert PDF to AST representation.
 
@@ -1634,6 +1790,99 @@ class PdfToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata.to_dict())
 
+    @staticmethod
+    @requires_dependencies("pdf", [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")])
+    def _ocr_page_to_text(page: "fitz.Page", options: "PdfOptions") -> str:
+        """Extract text from a PDF page using OCR (Optical Character Recognition).
+
+        This method renders the PDF page as an image and uses Tesseract OCR
+        to extract text from it. Useful for scanned documents or image-based PDFs.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page to extract text from
+        options : PdfOptions
+            PDF conversion options containing OCR settings
+
+        Returns
+        -------
+        str
+            Text extracted via OCR
+
+        Raises
+        ------
+        DependencyError
+            If pytesseract or Pillow are not installed
+        RuntimeError
+            If Tesseract is not properly installed on the system
+
+        Notes
+        -----
+        This method requires:
+        1. Python packages: pytesseract and Pillow (pip install all2md[ocr])
+        2. Tesseract OCR engine installed on the system (platform-specific)
+
+        """
+        import pytesseract
+        from PIL import Image
+
+        # Get OCR configuration
+        ocr_opts = options.ocr
+        dpi = ocr_opts.dpi
+
+        # Determine language to use
+        if ocr_opts.auto_detect_language:
+            lang = _detect_page_language(page, options)
+        else:
+            # Convert list to string if needed
+            if isinstance(ocr_opts.languages, list):
+                lang = "+".join(ocr_opts.languages)
+            else:
+                lang = ocr_opts.languages
+
+        # Render page to image (pixmap) at specified DPI
+        # DPI is specified via the matrix parameter (DPI/72 = zoom factor)
+        zoom = dpi / 72.0
+        import fitz
+        mat = fitz.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat)
+
+        # Convert PyMuPDF pixmap to PIL Image
+        # PyMuPDF uses RGB format
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+
+        # Run Tesseract OCR
+        try:
+            # Build custom config if provided
+            config = ocr_opts.tesseract_config if ocr_opts.tesseract_config else ""
+
+            # Extract text using pytesseract
+            ocr_text = pytesseract.image_to_string(
+                img,
+                lang=lang,
+                config=config
+            )
+
+            logger.debug(
+                f"OCR extracted {len(ocr_text)} characters using language '{lang}' at {dpi} DPI"
+            )
+
+            return ocr_text
+
+        except pytesseract.TesseractNotFoundError as e:
+            raise RuntimeError(
+                "Tesseract OCR is not installed or not in PATH. "
+                "Please install Tesseract: "
+                "https://github.com/tesseract-ocr/tesseract/wiki"
+            ) from e
+        except Exception as e:
+            logger.warning(f"OCR failed for page: {e}")
+            return ""
+        finally:
+            # Clean up resources
+            pix = None
+
     def _process_page_to_ast(
             self,
             page: "fitz.Page",
@@ -1738,6 +1987,85 @@ class PdfToAstConverter(BaseParser):
             )["blocks"]
         except (AttributeError, KeyError, Exception):
             return []
+
+        # Check if OCR should be applied to this page
+        # Extract plain text for OCR detection
+        extracted_text = ""
+        for block in all_blocks:
+            if block.get("type") == 0:  # Text block
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        extracted_text += span.get("text", "")
+
+        # Determine if OCR is needed
+        use_ocr = _should_use_ocr(page, extracted_text, self.options)
+
+        if use_ocr:
+            try:
+                ocr_text = self._ocr_page_to_text(page, self.options)
+
+                if ocr_text.strip():
+                    # Handle preserve_existing_text option
+                    if self.options.ocr.preserve_existing_text and extracted_text.strip():
+                        # Combine existing text with OCR text
+                        # Add OCR text as a new block at the end
+                        logger.debug(
+                            f"Supplementing existing text ({len(extracted_text)} chars) "
+                            f"with OCR ({len(ocr_text)} chars)"
+                        )
+                        # Create a synthetic block for OCR text
+                        ocr_block = {
+                            "type": 0,
+                            "bbox": page.rect,
+                            "lines": [
+                                {
+                                    "spans": [
+                                        {
+                                            "text": ocr_text,
+                                            "font": "OCR",
+                                            "size": 11,
+                                            "flags": 0,
+                                            "color": 0,
+                                        }
+                                    ],
+                                    "bbox": page.rect,
+                                }
+                            ],
+                        }
+                        all_blocks.append(ocr_block)
+                    else:
+                        # Replace existing blocks with OCR text
+                        logger.debug(
+                            f"Replacing PyMuPDF text ({len(extracted_text)} chars) "
+                            f"with OCR ({len(ocr_text)} chars)"
+                        )
+                        # Create a single block for all OCR text
+                        all_blocks = [
+                            {
+                                "type": 0,
+                                "bbox": page.rect,
+                                "lines": [
+                                    {
+                                        "spans": [
+                                            {
+                                                "text": ocr_text,
+                                                "font": "OCR",
+                                                "size": 11,
+                                                "flags": 0,
+                                                "color": 0,
+                                            }
+                                        ],
+                                        "bbox": page.rect,
+                                    }
+                                ],
+                            }
+                        ]
+                else:
+                    logger.warning("OCR returned empty text, keeping original extraction")
+
+            except Exception as e:
+                logger.warning(f"OCR processing failed: {e}. Falling back to standard text extraction.")
+                # Continue with original all_blocks
 
         # Filter headers/footers if enabled
         if self.options.trim_headers_footers:
@@ -2828,10 +3156,13 @@ CONVERTER_METADATA = ConverterMetadata(
     renders_as_string=False,
     parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
     renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
-    optional_packages=[],
+    optional_packages=[
+        ("pytesseract", "pytesseract", ">=0.3.10"),
+        ("Pillow", "PIL", ">=9.0.0"),
+    ],
     import_error_message=("PDF conversion requires 'PyMuPDF'. " "Install with: pip install pymupdf"),
     parser_options_class=PdfOptions,
     renderer_options_class="all2md.options.pdf.PdfRendererOptions",
-    description="Convert PDF documents to/from AST with table detection",
+    description="Convert PDF documents to/from AST with table detection and optional OCR support",
     priority=10,
 )

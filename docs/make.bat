@@ -45,6 +45,15 @@ if errorlevel 1 (
     echo Error: sphinx-apidoc failed
     exit /b 1
 )
+echo.
+echo Fixing .rst.rst filename conflicts...
+..\\.venv\\Scripts\\python.exe fix_rst_filenames.py
+if errorlevel 1 (
+    echo.
+    echo Error: Failed to fix .rst.rst filenames
+    exit /b 1
+)
+echo.
 echo API documentation regenerated successfully!
 echo The :imported-members: False directive was automatically added to package files.
 goto end

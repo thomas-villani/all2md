@@ -101,7 +101,7 @@ from generate_options_doc import generate_options_document  # noqa: E402
 def _generate_options_reference(_app) -> None:
     """Build the generated options reference before the documentation build."""
     output_path = DOCS_SOURCE_DIR / "options.rst"
-    narrative_path = DOCS_SOURCE_DIR / "_options-narrative.rst"
+    narrative_path = DOCS_SOURCE_DIR / "_templates" / "_options-narrative.rst"
     generate_options_document(output_path, narrative_path)
 
 

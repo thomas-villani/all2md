@@ -22,10 +22,10 @@ class ZipOptions(BaseParserOptions):
     Parameters
     ----------
     include_patterns : list[str] or None, default None
-        Glob patterns for files to include (e.g., ['*.pdf', '*.docx']).
+        Glob patterns for files to include (e.g., ``['*.pdf', '*.docx']``).
         If None, all parseable files are included.
     exclude_patterns : list[str] or None, default None
-        Glob patterns for files to exclude (e.g., ['__MACOSX/*', '.DS_Store']).
+        Glob patterns for files to exclude (e.g., ``['__MACOSX/*', '.DS_Store']``).
     max_depth : int or None, default None
         Maximum directory depth to traverse. None means unlimited.
     create_section_headings : bool, default True

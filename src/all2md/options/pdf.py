@@ -30,6 +30,15 @@ from all2md.constants import (
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
+    DEFAULT_OCR_AUTO_DETECT_LANGUAGE,
+    DEFAULT_OCR_DPI,
+    DEFAULT_OCR_ENABLED,
+    DEFAULT_OCR_IMAGE_AREA_THRESHOLD,
+    DEFAULT_OCR_LANGUAGES,
+    DEFAULT_OCR_MODE,
+    DEFAULT_OCR_PRESERVE_EXISTING_TEXT,
+    DEFAULT_OCR_TESSERACT_CONFIG,
+    DEFAULT_OCR_TEXT_THRESHOLD,
     DEFAULT_PDF_CODE_FONT,
     DEFAULT_PDF_FONT_FAMILY,
     DEFAULT_PDF_FONT_SIZE,
@@ -44,11 +53,184 @@ from all2md.constants import (
     DEFAULT_USE_COLUMN_CLUSTERING,
     ColumnDetectionMode,
     ImageFormat,
+    OCRMode,
     PageSize,
     TableDetectionMode,
 )
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
+
+
+@dataclass(frozen=True)
+class OCROptions:
+    """Configuration options for OCR (Optical Character Recognition) in PDF parsing.
+
+    This dataclass contains settings for detecting and extracting text from scanned
+    or image-based PDF pages using Tesseract OCR engine.
+
+    Parameters
+    ----------
+    enabled : bool, default False
+        Master switch to enable/disable OCR functionality. When False, all OCR
+        processing is skipped regardless of other settings.
+    mode : {"auto", "force", "off"}, default "auto"
+        OCR triggering mode:
+        - "auto": Automatically detect scanned pages and apply OCR when needed
+        - "force": Apply OCR to all pages regardless of text content
+        - "off": Disable OCR (same as enabled=False)
+    languages : str or list[str], default "eng"
+        Tesseract language code(s) for OCR. Can be:
+        - Single language: "eng", "fra", "deu", "spa", "chi_sim", etc.
+        - Multiple languages: "eng+fra" or ["eng", "fra"]
+        See Tesseract documentation for available language codes.
+    auto_detect_language : bool, default False
+        Attempt to automatically detect the document language before OCR.
+        Requires Tesseract language detection support (experimental).
+    dpi : int, default 300
+        DPI (dots per inch) for rendering PDF pages to images for OCR.
+        Higher values improve OCR accuracy but increase processing time.
+        Recommended: 150 (fast), 300 (balanced), 600 (high quality).
+    text_threshold : int, default 50
+        Minimum number of characters extracted by PyMuPDF to consider a page
+        as text-based. Pages with fewer characters may trigger OCR in "auto" mode.
+    image_area_threshold : float, default 0.5
+        Minimum ratio of image area to total page area (0.0-1.0) to consider
+        a page as image-based. Pages exceeding this threshold may trigger OCR
+        in "auto" mode even if some text is present.
+    preserve_existing_text : bool, default False
+        Whether to preserve text extracted by PyMuPDF when OCR is applied:
+        - False: Replace PyMuPDF text entirely with OCR results
+        - True: Combine PyMuPDF text with OCR results (supplements sparse text)
+    tesseract_config : str, default ""
+        Custom Tesseract configuration flags (advanced users).
+        Example: "--psm 6 --oem 3" for custom page segmentation mode.
+
+    Notes
+    -----
+    OCR requires the optional dependencies pytesseract and Pillow, plus the
+    Tesseract OCR engine installed on your system. Install with::
+
+        pip install all2md[ocr]
+
+    Then install Tesseract system package (platform-specific).
+
+    Examples
+    --------
+    Enable OCR with auto-detection::
+
+        >>> ocr = OCROptions(enabled=True, mode="auto")
+
+    Force OCR on all pages with French language::
+
+        >>> ocr = OCROptions(enabled=True, mode="force", languages="fra")
+
+    High-quality OCR with multiple languages::
+
+        >>> ocr = OCROptions(
+        ...     enabled=True,
+        ...     mode="auto",
+        ...     languages="eng+fra+deu",
+        ...     dpi=600,
+        ...     preserve_existing_text=True
+        ... )
+
+    """
+
+    enabled: bool = field(
+        default=DEFAULT_OCR_ENABLED,
+        metadata={
+            "help": "Enable OCR for scanned/image-based PDF pages",
+            "importance": "core",
+        },
+    )
+    mode: OCRMode = field(
+        default=DEFAULT_OCR_MODE,
+        metadata={
+            "help": "OCR mode: 'auto' (detect scanned pages), 'force' (all pages), 'off' (disable)",
+            "choices": ["auto", "force", "off"],
+            "importance": "core",
+        },
+    )
+    languages: str | list[str] = field(
+        default=DEFAULT_OCR_LANGUAGES,
+        metadata={
+            "help": "Tesseract language code(s), e.g. 'eng', 'fra', 'eng+fra', or ['eng', 'fra']",
+            "importance": "core",
+        },
+    )
+    auto_detect_language: bool = field(
+        default=DEFAULT_OCR_AUTO_DETECT_LANGUAGE,
+        metadata={
+            "help": "Attempt to auto-detect document language (experimental)",
+            "importance": "advanced",
+        },
+    )
+    dpi: int = field(
+        default=DEFAULT_OCR_DPI,
+        metadata={
+            "help": "DPI for rendering pages to images for OCR (150-600 recommended)",
+            "type": int,
+            "importance": "advanced",
+        },
+    )
+    text_threshold: int = field(
+        default=DEFAULT_OCR_TEXT_THRESHOLD,
+        metadata={
+            "help": "Minimum characters to consider page text-based (for auto mode)",
+            "type": int,
+            "importance": "advanced",
+        },
+    )
+    image_area_threshold: float = field(
+        default=DEFAULT_OCR_IMAGE_AREA_THRESHOLD,
+        metadata={
+            "help": "Image area ratio (0.0-1.0) to trigger OCR (for auto mode)",
+            "type": float,
+            "importance": "advanced",
+        },
+    )
+    preserve_existing_text: bool = field(
+        default=DEFAULT_OCR_PRESERVE_EXISTING_TEXT,
+        metadata={
+            "help": "Preserve PyMuPDF text when applying OCR (combine vs replace)",
+            "importance": "advanced",
+        },
+    )
+    tesseract_config: str = field(
+        default=DEFAULT_OCR_TESSERACT_CONFIG,
+        metadata={
+            "help": "Custom Tesseract configuration flags (advanced)",
+            "importance": "advanced",
+        },
+    )
+
+    def __post_init__(self) -> None:
+        """Validate OCR option values.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate DPI range (reasonable values)
+        if not 72 <= self.dpi <= 1200:
+            raise ValueError(f"dpi must be in range [72, 1200], got {self.dpi}")
+
+        # Validate threshold ranges
+        if self.text_threshold < 0:
+            raise ValueError(f"text_threshold must be non-negative, got {self.text_threshold}")
+
+        if not 0.0 <= self.image_area_threshold <= 1.0:
+            raise ValueError(f"image_area_threshold must be in range [0.0, 1.0], got {self.image_area_threshold}")
+
+        # Validate languages format (basic check)
+        if isinstance(self.languages, list):
+            if not self.languages:
+                raise ValueError("languages list cannot be empty")
+            for lang in self.languages:
+                if not isinstance(lang, str) or not lang.strip():
+                    raise ValueError(f"Invalid language code in list: {lang}")
 
 
 # src/all2md/options/pdf.py
@@ -156,6 +338,10 @@ class PdfOptions(PaginatedParserOptions):
         Skip all image extraction for text-only conversion (improves performance for large PDFs).
     lazy_image_processing : bool, default False
         Placeholder for future lazy image loading support (currently no effect).
+    ocr : OCROptions, default OCROptions()
+        OCR settings for extracting text from scanned/image-based PDF pages.
+        Requires optional dependencies: pip install all2md[ocr]
+        See OCROptions documentation for detailed configuration options.
 
     Notes
     -----
@@ -200,6 +386,12 @@ class PdfOptions(PaginatedParserOptions):
         >>> options = PdfOptions(
         ...     table_detection_mode="ruling",
         ...     table_fallback_extraction_mode="grid"
+        ... )
+
+    Enable OCR for scanned PDF documents:
+        >>> from all2md.options.pdf import OCROptions
+        >>> options = PdfOptions(
+        ...     ocr=OCROptions(enabled=True, mode="auto", languages="eng")
         ... )
 
     """
@@ -471,6 +663,16 @@ class PdfOptions(PaginatedParserOptions):
         metadata={
             "help": "Placeholder for future lazy image loading support. Note: Full implementation would require "
                     "paginator interface for streaming large PDFs. Currently has no effect.",
+            "importance": "advanced",
+        },
+    )
+
+    # OCR options
+    ocr: OCROptions = field(
+        default_factory=OCROptions,
+        metadata={
+            "help": "OCR settings for extracting text from scanned/image-based PDF pages",
+            "cli_flatten": True,
             "importance": "advanced",
         },
     )
