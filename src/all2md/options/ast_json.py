@@ -9,12 +9,10 @@ documents in JSON-serialized AST format.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
-
-# FIXME: these should be `field()` objects
 
 
 @dataclass(frozen=True)
@@ -29,10 +27,20 @@ class AstJsonParserOptions(BaseParserOptions):
         Whether to fail on unknown node types or attributes
 
     """
-
-    validate_schema: bool = True
-    strict_mode: bool = False
-
+    validate_schema: bool = field(
+        default=True,
+        metadata={
+            "help": "Validate schema version during parsing",
+            "importance": "core"
+        }
+    )
+    strict_mode: bool = field(
+        default=False,
+        metadata={
+            "help": "Fail on unknown node types or attributes",
+            "importance": "advanced"
+        }
+    )
 
 @dataclass(frozen=True)
 class AstJsonRendererOptions(BaseRendererOptions):
@@ -59,7 +67,25 @@ class AstJsonRendererOptions(BaseRendererOptions):
         >>> options = AstJsonRendererOptions(ensure_ascii=True)
 
     """
-
-    indent: int | None = 2
-    ensure_ascii: bool = False
-    sort_keys: bool = False
+    indent: int | None = field(
+        default=2,
+        metadata={
+            "help": "JSON indentation spaces (None for compact)",
+            "type": int,
+            "importance": "core"
+        }
+    )
+    ensure_ascii: bool = field(
+        default=False,
+        metadata={
+            "help": "Escape non-ASCII characters in JSON",
+            "importance": "advanced"
+        }
+    )
+    sort_keys: bool = field(
+        default=False,
+        metadata={
+            "help": "Sort JSON object keys alphabetically",
+            "importance": "advanced"
+        }
+    )

@@ -1221,48 +1221,6 @@ def handle_help_command(args: list[str] | None = None) -> int | None:
     return 0
 
 
-def handle_convert_command(args: list[str] | None = None) -> int | None:
-    """Handle the `convert` subcommand for bidirectional conversions."""
-    # TODO: remove this legacy command once users have fully transitioned to the top-level CLI.
-    if not args:
-        args = sys.argv[1:]
-
-    if not args or args[0] != "convert":
-        return None
-
-    convert_args = args[1:]
-    parser = create_parser()
-    parsed_args = parser.parse_args(convert_args)
-
-    provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
-
-    if "output_type" not in provided_args:
-        parsed_args.output_type = "auto"
-
-    if not parsed_args.out and not parsed_args.output_dir and len(parsed_args.input) == 2:
-        parsed_args.out = parsed_args.input[-1]
-        parsed_args.input = parsed_args.input[:1]
-
-    if not parsed_args.config:
-        env_config = os.environ.get("ALL2MD_CONFIG")
-        if env_config:
-            parsed_args.config = env_config
-
-    if parsed_args.about:
-        print(_get_about_info())
-        return 0
-
-    if parsed_args.save_config:
-        try:
-            save_config_to_file(parsed_args, parsed_args.save_config)
-            return 0
-        except Exception as exc:
-            print(f"Error saving configuration: {exc}", file=sys.stderr)
-            return 1
-
-    return _run_convert_command(parsed_args)
-
-
 def _run_convert_command(parsed_args: argparse.Namespace) -> int:
     options, format_arg, transforms = setup_and_validate_options(parsed_args)
 

@@ -117,7 +117,6 @@ class PptxToAstConverter(BaseParser):
 
         # Validate and convert input
         try:
-
             doc_input, input_type = validate_and_convert_input(
                 input_data, supported_types=["path-like", "file-like", "pptx.Presentation objects"]
             )
@@ -254,6 +253,12 @@ class PptxToAstConverter(BaseParser):
                     nodes.extend(shape_nodes)
                 else:
                     nodes.append(shape_nodes)
+
+        # Process speaker notes if requested
+        if self.options.include_notes:
+            notes_nodes = self._extract_slide_notes(slide)
+            if notes_nodes:
+                nodes.extend(notes_nodes)
 
         return nodes
 
@@ -449,8 +454,8 @@ class PptxToAstConverter(BaseParser):
         return self._standard_data_to_table(categories, series_rows)
 
     def _scatter_data_to_table(
-            self,
-            series_data: list[tuple[str, list[float], list[float]]],
+        self,
+        series_data: list[tuple[str, list[float], list[float]]],
     ) -> AstTable | None:
         if not series_data:
             return None
@@ -479,9 +484,9 @@ class PptxToAstConverter(BaseParser):
         return AstTable(header=header_row, rows=all_rows)
 
     def _standard_data_to_table(
-            self,
-            categories: list[str],
-            series_rows: list[tuple[str, list[Any]]],
+        self,
+        categories: list[str],
+        series_rows: list[tuple[str, list[Any]]],
     ) -> AstTable | None:
         if not series_rows:
             return None
@@ -492,9 +497,9 @@ class PptxToAstConverter(BaseParser):
         return build_chart_table(categories=categories, series_data=series_rows, category_header="Category")
 
     def _scatter_chart_to_mermaid(
-            self,
-            chart: Any,
-            series_data: list[tuple[str, list[float], list[float]]],
+        self,
+        chart: Any,
+        series_data: list[tuple[str, list[float], list[float]]],
     ) -> str | None:
         if not series_data:
             return None
@@ -549,11 +554,11 @@ class PptxToAstConverter(BaseParser):
         return "\n".join(lines)
 
     def _standard_chart_to_mermaid(
-            self,
-            chart: Any,
-            chart_type: Any,
-            categories: list[str],
-            series_rows: list[tuple[str, list[Any]]],
+        self,
+        chart: Any,
+        chart_type: Any,
+        categories: list[str],
+        series_rows: list[tuple[str, list[Any]]],
     ) -> str | None:
         if not series_rows:
             return None
@@ -602,7 +607,7 @@ class PptxToAstConverter(BaseParser):
             # Pad values to match axis length
             if len(formatted_values) < max_cols:
                 formatted_values.extend(["null"] * (max_cols - len(formatted_values)))
-            lines.append(f'  {mermaid_series_type} "{series_label}" ' f"[{', '.join(formatted_values)}]")
+            lines.append(f'  {mermaid_series_type} "{series_label}" [{", ".join(formatted_values)}]')
 
         return "\n".join(lines)
 
@@ -950,6 +955,48 @@ class PptxToAstConverter(BaseParser):
             logger.debug(f"Failed to process image: {e}")
             return None
 
+    def _extract_slide_notes(self, slide: Any) -> list[Node]:
+        """Extract speaker notes from a slide.
+
+        Parameters
+        ----------
+        slide : Slide
+            PPTX slide to extract notes from
+
+        Returns
+        -------
+        list of Node
+            List of AST nodes representing the speaker notes
+
+        """
+        notes_nodes: list[Node] = []
+
+        try:
+            # Check if slide has notes
+            if not hasattr(slide, "notes_slide"):
+                return notes_nodes
+
+            notes_slide = slide.notes_slide
+            if not hasattr(notes_slide, "notes_text_frame"):
+                return notes_nodes
+
+            notes_text_frame = notes_slide.notes_text_frame
+            if not notes_text_frame or not notes_text_frame.text.strip():
+                return notes_nodes
+
+            # Add a heading to identify speaker notes section
+            notes_nodes.append(Heading(level=3, content=[Text(content="Speaker Notes")]))
+
+            # Process the notes text frame using existing text frame processing
+            frame_nodes = self._process_text_frame_to_ast(notes_text_frame)
+            if frame_nodes:
+                notes_nodes.extend(frame_nodes)
+
+        except Exception as e:
+            logger.debug(f"Failed to extract speaker notes from slide: {e}")
+
+        return notes_nodes
+
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from PPTX presentation.
 
@@ -1107,10 +1154,9 @@ def _detect_list_item(paragraph: Any, slide_context: dict | None = None, strict_
 
     # Check if this looks like a numbered list item based on context
     if (
-            slide_context
-            and slide_context.get("has_numbered_list", False)
-            and (
-            "item" in text.lower() or "first" in text.lower() or "second" in text.lower() or "third" in text.lower())
+        slide_context
+        and slide_context.get("has_numbered_list", False)
+        and ("item" in text.lower() or "first" in text.lower() or "second" in text.lower() or "third" in text.lower())
     ):
         return True, "number"
 
@@ -1153,11 +1199,11 @@ def _analyze_slide_context(frame: Any) -> dict:
         # Check if any paragraph looks like a numbered list
         text = paragraph.text.strip()
         if (
-                re.match(r"^\d+[\.\)]\s", text)
-                or "numbered" in text.lower()
-                or "first item" in text.lower()
-                or "second item" in text.lower()
-                or "third item" in text.lower()
+            re.match(r"^\d+[\.\)]\s", text)
+            or "numbered" in text.lower()
+            or "first item" in text.lower()
+            or "second item" in text.lower()
+            or "third item" in text.lower()
         ):
             context["has_numbered_list"] = True
 

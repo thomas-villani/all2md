@@ -543,7 +543,7 @@ class TestComplexStructures:
         assert any(isinstance(child, Table) for child in ast_doc.children)
 
     def test_slide_with_notes(self) -> None:
-        """Test that slide notes are handled appropriately."""
+        """Test that slide notes are extracted when include_notes=True."""
         prs = Presentation()
         layout = prs.slide_layouts[0]
         slide = prs.slides.add_slide(layout)
@@ -551,13 +551,177 @@ class TestComplexStructures:
 
         # Add notes
         notes_slide = slide.notes_slide
-        notes_slide.notes_text_frame.text = "Speaker notes"
+        notes_slide.notes_text_frame.text = "Speaker notes content"
 
         converter = PptxToAstConverter()
         ast_doc = converter.convert_to_ast(prs)
 
-        # Should have title at minimum
-        assert len(ast_doc.children) >= 1
+        # Should have title heading, "Speaker Notes" heading, and notes content
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        assert len(headings) >= 2, "Should have slide title and 'Speaker Notes' heading"
+
+        # Check for "Speaker Notes" heading
+        speaker_notes_heading = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_heading) == 1, "Should have exactly one 'Speaker Notes' heading"
+        assert speaker_notes_heading[0].level == 3, "Speaker Notes should be H3"
+
+        # Check that notes content appears in the document
+        # Notes are detected as list items by heuristics (short text)
+        list_nodes = [child for child in ast_doc.children if isinstance(child, List)]
+        assert len(list_nodes) >= 1, "Notes content should be present"
+
+    def test_slide_with_notes_disabled(self) -> None:
+        """Test that slide notes are not extracted when include_notes=False."""
+        prs = Presentation()
+        layout = prs.slide_layouts[0]
+        slide = prs.slides.add_slide(layout)
+        slide.shapes.title.text = "Title"
+
+        # Add notes
+        notes_slide = slide.notes_slide
+        notes_slide.notes_text_frame.text = "Speaker notes content"
+
+        # Disable notes extraction
+        options = PptxOptions(include_notes=False)
+        converter = PptxToAstConverter(options=options)
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have title but NOT "Speaker Notes" heading
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        speaker_notes_heading = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_heading) == 0, "Should not have 'Speaker Notes' heading when disabled"
+
+    def test_slide_with_formatted_notes(self) -> None:
+        """Test that speaker notes with formatting are extracted correctly."""
+        prs = Presentation()
+        layout = prs.slide_layouts[0]
+        slide = prs.slides.add_slide(layout)
+        slide.shapes.title.text = "Title"
+
+        # Add notes with formatting
+        notes_slide = slide.notes_slide
+        tf = notes_slide.notes_text_frame
+        p = tf.paragraphs[0]
+
+        # Add bold text
+        run1 = p.add_run()
+        run1.text = "Bold text"
+        run1.font.bold = True
+
+        # Add italic text
+        run2 = p.add_run()
+        run2.text = " and italic text"
+        run2.font.italic = True
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have "Speaker Notes" heading
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        speaker_notes_heading = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_heading) == 1, "Should have 'Speaker Notes' heading"
+
+        # Check that notes contain formatted content (detected as list by heuristics)
+        list_nodes = [child for child in ast_doc.children if isinstance(child, List)]
+        assert len(list_nodes) >= 1, "Notes content should be present as list"
+
+        # Verify formatting is preserved
+        list_item = list_nodes[0].items[0]
+        para_content = list_item.children[0].content
+        # Should have Strong and Emphasis nodes
+        assert any(isinstance(node, Strong) for node in para_content), "Should have bold text"
+        assert any(isinstance(node, Emphasis) for node in para_content), "Should have italic text"
+
+    def test_slide_with_multiline_notes(self) -> None:
+        """Test that speaker notes with multiple paragraphs are extracted."""
+        prs = Presentation()
+        layout = prs.slide_layouts[0]
+        slide = prs.slides.add_slide(layout)
+        slide.shapes.title.text = "Title"
+
+        # Add notes with multiple paragraphs
+        notes_slide = slide.notes_slide
+        tf = notes_slide.notes_text_frame
+        tf.text = "First paragraph"
+        tf.add_paragraph().text = "Second paragraph"
+        tf.add_paragraph().text = "Third paragraph"
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have "Speaker Notes" heading
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        speaker_notes_heading = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_heading) == 1, "Should have 'Speaker Notes' heading"
+
+        # Should have multiple list items (one per paragraph, detected by heuristics)
+        list_nodes = [child for child in ast_doc.children if isinstance(child, List)]
+        assert len(list_nodes) >= 1, "Notes content should be present"
+        # Should have multiple items (all short text detected as list items)
+        total_items = sum(len(list_node.items) for list_node in list_nodes)
+        assert total_items >= 3, "Should have at least 3 list items from 3 paragraphs"
+
+    def test_slide_without_notes(self) -> None:
+        """Test that slides without notes don't add Speaker Notes section."""
+        prs = Presentation()
+        layout = prs.slide_layouts[0]
+        slide = prs.slides.add_slide(layout)
+        slide.shapes.title.text = "Title"
+
+        # Don't add any notes
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should not have "Speaker Notes" heading
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        speaker_notes_heading = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_heading) == 0, "Should not have 'Speaker Notes' heading when no notes"
+
+    def test_slide_with_empty_notes(self) -> None:
+        """Test that slides with empty notes don't add Speaker Notes section."""
+        prs = Presentation()
+        layout = prs.slide_layouts[0]
+        slide = prs.slides.add_slide(layout)
+        slide.shapes.title.text = "Title"
+
+        # Add empty notes (whitespace only)
+        notes_slide = slide.notes_slide
+        notes_slide.notes_text_frame.text = "   \n  \t  "
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should not have "Speaker Notes" heading for empty/whitespace notes
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        speaker_notes_heading = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_heading) == 0, "Should not have 'Speaker Notes' heading for empty notes"
+
+    def test_multiple_slides_with_notes(self) -> None:
+        """Test that multiple slides can each have their own notes."""
+        prs = Presentation()
+        layout = prs.slide_layouts[0]
+
+        # First slide with notes
+        slide1 = prs.slides.add_slide(layout)
+        slide1.shapes.title.text = "Slide 1"
+        slide1.notes_slide.notes_text_frame.text = "Notes for slide 1"
+
+        # Second slide with notes
+        slide2 = prs.slides.add_slide(layout)
+        slide2.shapes.title.text = "Slide 2"
+        slide2.notes_slide.notes_text_frame.text = "Notes for slide 2"
+
+        # Third slide without notes
+        slide3 = prs.slides.add_slide(layout)
+        slide3.shapes.title.text = "Slide 3"
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have exactly 2 "Speaker Notes" headings (for slides 1 and 2)
+        headings = [child for child in ast_doc.children if isinstance(child, Heading)]
+        speaker_notes_headings = [h for h in headings if "Speaker Notes" in h.content[0].content]
+        assert len(speaker_notes_headings) == 2, "Should have 'Speaker Notes' heading for each slide with notes"
 
     def test_multiple_shapes_per_slide(self) -> None:
         """Test slide with multiple text boxes."""

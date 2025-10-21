@@ -104,9 +104,6 @@ __all__ = [
 
 def main(args: list[str] | None = None) -> int:
     """Execute main CLI entry point with focused delegation to specialized processors."""
-    convert_result = handle_convert_command(args)
-    if convert_result is not None:
-        return convert_result
 
     help_result = handle_help_command(args)
     if help_result is not None:
