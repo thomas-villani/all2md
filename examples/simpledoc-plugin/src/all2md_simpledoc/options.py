@@ -12,6 +12,9 @@ from dataclasses import dataclass, field
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
+# Frozen dataclass pattern: Make options immutable for thread safety and clarity
+# frozen=True prevents accidental modification after creation
+# This is best practice for configuration classes
 @dataclass(frozen=True)
 class SimpleDocOptions(BaseParserOptions):
     """Options for parsing SimpleDoc documents.
@@ -33,6 +36,10 @@ class SimpleDocOptions(BaseParserOptions):
 
     """
 
+    # Field metadata: Enables CLI integration and documentation
+    # "help": Description shown in --help
+    # "cli_flag": Command-line flag name for this option
+    # The CLI system automatically reads this metadata to generate arguments
     include_frontmatter: bool = field(
         default=True,
         metadata={
@@ -63,6 +70,8 @@ class SimpleDocOptions(BaseParserOptions):
     )
 
 
+# Separate options for renderer: Parser and renderer can have different configuration needs
+# This separation of concerns keeps each class focused and maintainable
 @dataclass(frozen=True)
 class SimpleDocRendererOptions(BaseRendererOptions):
     """Options for rendering SimpleDoc documents.
@@ -119,6 +128,9 @@ class SimpleDocRendererOptions(BaseRendererOptions):
         },
     )
 
+    # Validation pattern: Use __post_init__ to validate field values
+    # This runs after dataclass __init__, allowing us to validate the complete object
+    # frozen=True requires special handling: use object.__setattr__ if you need to set derived fields
     def __post_init__(self) -> None:
         """Validate option values.
 
@@ -128,14 +140,17 @@ class SimpleDocRendererOptions(BaseRendererOptions):
             If option values are invalid
 
         """
+        # Always call parent __post_init__ for proper inheritance
         super().__post_init__()
 
+        # Validate numeric constraints
         if self.indent_size < 0:
             raise ValueError(f"indent_size must be non-negative, got {self.indent_size}")
 
         if self.newlines_between_blocks < 0:
             raise ValueError(f"newlines_between_blocks must be non-negative, got {self.newlines_between_blocks}")
 
+        # Validate string constraints (markers cannot be empty)
         if not self.heading_marker:
             raise ValueError("heading_marker cannot be empty")
 

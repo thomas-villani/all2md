@@ -1970,7 +1970,13 @@ def process_files_unified(
     if rich_dependency_error:
         print(f"Warning: {rich_dependency_error}", file=sys.stderr)
 
-    target_format_default = getattr(args, "output_type", "markdown")
+    # Check if output_type was explicitly provided by user
+    # If not, use "auto" to enable format detection from output filename
+    provided_args = getattr(args, "_provided_args", set())
+    if "output_type" in provided_args:
+        target_format_default = args.output_type
+    else:
+        target_format_default = "auto"
 
     # Special case: single item to stdout
     if len(items) == 1 and not args.out and not args.output_dir:

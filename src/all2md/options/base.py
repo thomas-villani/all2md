@@ -107,6 +107,7 @@ class BaseRendererOptions(CloneFrozenMixin):
         if self.max_asset_size_bytes <= 0:
             raise ValueError(f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}")
 
+# TODO: not all classes have attachments, perhaps we
 
 @dataclass(frozen=True)
 class BaseParserOptions(CloneFrozenMixin):

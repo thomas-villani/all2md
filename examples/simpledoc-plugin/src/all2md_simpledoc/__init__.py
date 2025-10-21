@@ -41,42 +41,69 @@ __version__ = "1.0.0"
 __author__ = "All2md Contributors"
 
 # Converter metadata for plugin discovery
-# This is the key object that registers the plugin with all2md
+# This is the KEY object that registers your plugin with all2md
+# The entry point in pyproject.toml points to this CONVERTER_METADATA object
 CONVERTER_METADATA = ConverterMetadata(
-    # Format identifier
+    # Format identifier: Unique name for your format (lowercase, no spaces)
+    # Used in CLI (--format simpledoc) and API (get_parser("simpledoc"))
     format_name="simpledoc",
-    # File extensions for this format
+
+    # File extensions: List of extensions for auto-detection
+    # When a file ends with .sdoc, all2md automatically uses this plugin
     extensions=[".sdoc", ".simpledoc"],
-    # MIME type (custom for our invented format)
+
+    # MIME types: For web/HTTP-based format detection
+    # Use standard MIME types if they exist, or invent x- prefixed ones
     mime_types=["text/x-simpledoc", "application/x-simpledoc"],
-    # Magic bytes for format detection
-    # SimpleDoc files typically start with "---\n" (frontmatter)
+
+    # Magic bytes: Binary signatures for format detection from file content
+    # Format: list of (byte_pattern, offset) tuples
+    # This allows detection even when file extension is missing/wrong
     magic_bytes=[
-        (b"---\n", 0),  # Frontmatter at start of file
+        (b"---\n", 0),  # Frontmatter at start of file (Unix line endings)
         (b"---\r\n", 0),  # Frontmatter with Windows line endings
     ],
-    # Parser class (can be direct class reference or string path)
+
+    # Parser class: Can be direct class reference (shown here) or string path
+    # Direct reference is preferred for plugins (avoids import issues)
     parser_class=SimpleDocParser,
-    # Renderer class
+
+    # Renderer class: Enables bidirectional conversion (AST -> SimpleDoc)
+    # If you only need parsing, you can omit this or use a standard renderer
     renderer_class=SimpleDocRenderer,
-    # Renderer produces string output (not binary)
+
+    # Output type: True if renderer produces string, False for binary (bytes)
+    # SimpleDoc is text, so True. PDF/DOCX would be False.
     renders_as_string=True,
-    # No external dependencies required for this parser
+
+    # Dependencies: List required packages as (pip_name, import_name, version_spec)
+    # Example: [("python-docx", "docx", ">=0.8.11")]
+    # Empty list means no dependencies
     parser_required_packages=[],
-    # No external dependencies required for renderer
     renderer_required_packages=[],
-    # Optional packages (none for this simple format)
+
+    # Optional packages: Nice-to-have but not required
+    # Example: [("pillow", "PIL", ">=9.0")] for optional image processing
     optional_packages=[],
-    # Custom error message if dependencies are missing (not applicable here)
+
+    # Error message: Shown when required dependencies are missing
+    # Provide helpful installation instructions
     import_error_message="SimpleDoc conversion requires no external dependencies.",
-    # Options classes
+
+    # Options classes: Configuration for parser and renderer
+    # These enable CLI flags and programmatic options
     parser_options_class=SimpleDocOptions,
     renderer_options_class=SimpleDocRendererOptions,
-    # Human-readable description
+
+    # Description: Human-readable description for --list-formats
     description="Convert SimpleDoc lightweight markup format to and from AST. "
     "SimpleDoc is an educational format demonstrating plugin development.",
-    # Detection priority (higher = checked first)
-    # Set to 5 to be checked before generic text but after specialized formats
+
+    # Priority: Controls detection order when multiple formats match
+    # Higher numbers checked first. Range: 0-10
+    # 10 = very specific formats (PDF, DOCX)
+    # 5 = medium specificity (our format)
+    # 0 = generic fallbacks (plain text)
     priority=5,
 )
 

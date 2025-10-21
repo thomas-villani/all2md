@@ -14,6 +14,8 @@ The plugin system is built around two key components:
 1. **ConverterMetadata**: A data class that describes the converter's capabilities
 2. **Entry Points**: Python packaging mechanism for plugin discovery
 
+When ``all2md`` starts up, it automatically scans for plugins registered under the ``all2md.converters`` entry point group and loads their metadata. This enables seamless integration of custom formats.
+
 Creating a Plugin
 ------------------
 
@@ -25,194 +27,289 @@ A typical plugin package should have the following structure:
 .. code-block::
 
     all2md_myformat/
-    ├── pyproject.toml
-    ├── README.md
-    └── all2md_myformat/
-        ├── __init__.py
-        └── converter.py
+    ├── pyproject.toml          # Package configuration with entry point
+    ├── README.md               # Documentation
+    ├── LICENSE                 # License file
+    └── src/
+        └── all2md_myformat/
+            ├── __init__.py     # Metadata registration
+            ├── parser.py       # Parser implementation
+            ├── renderer.py     # Renderer implementation (optional)
+            └── options.py      # Configuration options
 
-Implementing the Converter
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Complete Plugin Walkthrough
+----------------------------
 
-1. **Create a parser class**
+The best way to learn plugin development is to study a complete, working example. The ``simpledoc-plugin`` in the ``examples/`` directory demonstrates all aspects of building a bidirectional converter plugin.
 
-Your parser should inherit from ``BaseParser`` and implement both the ``parse()`` and
-``extract_metadata()`` methods:
+**SimpleDoc** is a lightweight markup format created specifically for this example. It supports:
 
-.. code-block:: python
+- Frontmatter metadata (YAML-style between ``---`` delimiters)
+- Headings (lines starting with ``@@``)
+- Lists (lines starting with ``-``)
+- Code blocks (triple backticks)
+- Paragraphs (separated by blank lines)
 
-    # all2md_myformat/parser.py
-    from pathlib import Path
-    from typing import IO, Any, Optional, Union
-    from all2md.parsers.base import BaseParser
-    from all2md.ast import Document, Paragraph, Text
-    from all2md.options import BaseParserOptions
-    from all2md.progress import ProgressCallback
-    from all2md.utils.metadata import DocumentMetadata
-    from all2md.exceptions import ParsingError
+The complete simpledoc-plugin source is available at:
+``examples/simpledoc-plugin/``
 
-    class MyFormatParser(BaseParser):
-        """Convert MyFormat documents to AST representation.
+Parser Implementation
+~~~~~~~~~~~~~~~~~~~~~
 
-        Parameters
-        ----------
-        options : BaseParserOptions or None
-            Conversion options
-        progress_callback : ProgressCallback or None
-            Optional callback for progress updates during parsing
-        """
+A parser converts your format into the all2md AST (Abstract Syntax Tree). Here's how the SimpleDoc parser implements the core ``parse()`` method:
 
-        def __init__(
-            self,
-            options: BaseParserOptions | None = None,
-            progress_callback: Optional[ProgressCallback] = None
-        ):
-            """Initialize the parser with options and progress callback."""
-            super().__init__(options or BaseParserOptions(), progress_callback)
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+   :language: python
+   :lines: 51-93
+   :linenos:
+   :emphasize-lines: 20-22,24-25,31-33,35-36,38-39,41-43
+   :caption: SimpleDocParser.parse() - Main parsing entry point
 
-        def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
-            """Parse MyFormat input into an AST Document.
+Key parser patterns demonstrated:
 
-            Parameters
-            ----------
-            input_data : str, Path, IO[bytes], or bytes
-                The input document to parse
+1. **Progress tracking**: Use ``_emit_progress()`` for CLI feedback
+2. **Two-phase parsing**: Separate metadata extraction from content parsing
+3. **Error handling**: Wrap in try/except and raise ``ParsingError``
+4. **Input flexibility**: Handle str, Path, IO[bytes], and bytes
 
-            Returns
-            -------
-            Document
-                AST Document node representing the parsed document structure
+Input Type Handling
+^^^^^^^^^^^^^^^^^^^
 
-            Raises
-            ------
-            ParsingError
-                If parsing fails due to invalid format or corruption
-            """
-            # Emit started event for progress tracking
-            self._emit_progress("started", "Converting MyFormat document", current=0, total=1)
+The parser must handle multiple input types uniformly:
 
-            # Read content based on input type
-            try:
-                if isinstance(input_data, (str, Path)):
-                    with open(input_data, 'rb') as f:
-                        content = f.read()
-                elif isinstance(input_data, bytes):
-                    content = input_data
-                else:
-                    content = input_data.read()
-            except Exception as e:
-                raise ParsingError(f"Failed to read MyFormat file: {e}") from e
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+   :language: python
+   :lines: 102-134
+   :linenos:
+   :emphasize-lines: 15-16,18-20,23,26-28
+   :caption: SimpleDocParser._read_content() - Multi-format input handling
 
-            # Process the content and build AST
-            children = self._convert_to_ast_nodes(content)
+Content Parsing
+^^^^^^^^^^^^^^^
 
-            # Emit finished event
-            self._emit_progress("finished", "MyFormat conversion completed", current=1, total=1)
+The core parsing logic uses a line-by-line state machine approach:
 
-            return Document(children=children)
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+   :language: python
+   :lines: 213-272
+   :linenos:
+   :emphasize-lines: 15-16,29-30,32-34,39-40,47-48,54
+   :caption: SimpleDocParser._parse_content() - State machine parser
 
-        def extract_metadata(self, document: Any) -> DocumentMetadata:
-            """Extract metadata from MyFormat document.
+The parser demonstrates:
 
-            Parameters
-            ----------
-            document : Any
-                The loaded document object (format-specific type)
+- **Pattern matching**: Check line prefixes to determine block type
+- **Look-ahead parsing**: Pass remaining lines to sub-parsers
+- **Option-driven behavior**: Respect user configuration
+- **Clean separation**: Each block type has its own parser method
 
-            Returns
-            -------
-            DocumentMetadata
-                Extracted metadata including title, author, dates, keywords, etc.
-                Returns empty DocumentMetadata if no metadata is available.
-            """
-            metadata = DocumentMetadata()
-            # Extract metadata from your format here
-            # Example:
-            # metadata.title = document.get("title")
-            # metadata.author = document.get("author")
-            return metadata
+Metadata Extraction
+^^^^^^^^^^^^^^^^^^^
 
-        def _convert_to_ast_nodes(self, content: bytes) -> list:
-            """Convert format-specific content to AST nodes.
+Metadata can be extracted separately from full parsing:
 
-            This is a helper method for your conversion logic.
-            """
-            # Your conversion logic here
-            # Example: parse content and return AST nodes
-            text = content.decode('utf-8', errors='replace')
-            return [Paragraph(content=[Text(content=text)])]
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+   :language: python
+   :lines: 136-211
+   :linenos:
+   :emphasize-lines: 17-18,21-22,26-29,34-39,44-49,56-66
+   :caption: SimpleDocParser._extract_frontmatter() - Metadata parsing
 
-2. **Define the converter metadata**
+Renderer Implementation
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Create a ``ConverterMetadata`` object that describes your converter:
+A renderer converts the all2md AST back into your format. The SimpleDoc renderer uses the visitor pattern:
 
-.. code-block:: python
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 52-105
+   :linenos:
+   :emphasize-lines: 24-26,29-30,47-54
+   :caption: SimpleDocRenderer - Core rendering structure
 
-    # all2md_myformat/parser.py (continued)
-    from all2md.converter_metadata import ConverterMetadata
-    from all2md.options import BaseParserOptions
+Visitor Pattern Basics
+^^^^^^^^^^^^^^^^^^^^^^
 
-    CONVERTER_METADATA = ConverterMetadata(
-        format_name="myformat",
-        extensions=[".myf", ".myformat"],
-        mime_types=["application/x-myformat"],
-        magic_bytes=[
-            (b"MYFORMAT", 0),  # File signature at offset 0
-            (b"MYF\x01", 0),   # Alternative signature
-        ],
-        parser_class=MyFormatParser,  # Direct class reference (recommended for plugins)
-        # Or use fully qualified string: "all2md_myformat.parser.MyFormatParser"
-        renderer_class="all2md.renderers.markdown.MarkdownRenderer",  # Full module path
-        renders_as_string=True,  # True if renderer produces string output
-        parser_required_packages=[
-            ("myformat-parser", "myformat_parser", ">=1.0.0"),
-            ("some-dependency", "some_dep", ""),
-        ],
-        renderer_required_packages=[],  # No special packages needed for markdown rendering
-        optional_packages=[
-            ("advanced-feature", "advanced_feature", ">=2.0"),
-        ],
-        import_error_message=(
-            "MyFormat conversion requires 'myformat-parser' version 1.0.0 or later. "
-            "Install with: pip install 'myformat-parser>=1.0.0'"
-        ),
-        parser_options_class=BaseParserOptions,  # Direct class reference
-        # Or use string: "all2md.options.BaseParserOptions"
-        renderer_options_class="all2md.options.markdown.MarkdownOptions",
-        description="Convert MyFormat documents to Markdown with advanced features",
-        priority=5  # Higher numbers = higher priority for format detection
-    )
+The renderer implements ``visit_*()`` methods for each AST node type:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 121-141
+   :linenos:
+   :emphasize-lines: 10-12,14-16,18-21
+   :caption: SimpleDocRenderer.visit_document() - Visitor pattern dispatch
+
+Inline Content Rendering
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the ``InlineContentMixin`` helper for inline nodes:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 181-194
+   :linenos:
+   :emphasize-lines: 10-14
+   :caption: SimpleDocRenderer.visit_heading() - Inline content extraction
+
+Renderer Implementation Patterns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When implementing a renderer plugin, you must provide ``visit_*()`` methods for **all** AST node types, even if your format doesn't support them. There are three standard patterns for handling unsupported nodes:
+
+Pattern 1: Extract Content from Formatting Nodes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For nodes that represent formatting your format doesn't support (bold, italic, strikethrough, underline, superscript, subscript), **extract and render the text content**:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 343-358
+   :linenos:
+   :emphasize-lines: 12-16
+   :caption: Handling unsupported formatting - Extract text content
+
+This preserves the text content even if the formatting is lost. Apply this pattern to:
+
+- ``Strong`` (bold)
+- ``Emphasis`` (italic)
+- ``Strikethrough``
+- ``Underline``
+- ``Superscript``
+- ``Subscript``
+- ``Code`` (inline code)
+
+Pattern 2: Provide Simplified Representation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For elements that have some meaningful equivalent, provide a simplified representation:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 387-403
+   :linenos:
+   :emphasize-lines: 13-17
+   :caption: Handling links - Include URL in plain text
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 284-319
+   :linenos:
+   :emphasize-lines: 13-14,17-26,28-36
+   :caption: Handling tables - Simplified text representation
+
+This approach preserves information even if not in ideal format. Apply this pattern to:
+
+- ``Link`` - Include URL in parentheses
+- ``Image`` - Show alt text or description
+- ``Table`` - Render as formatted text
+- ``DefinitionList`` - Render as key-value pairs
+- ``BlockQuote`` - Render children as-is or with prefix
+
+Pattern 3: Skip Unsupported Elements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For elements your format truly cannot represent, use ``pass`` with clear documentation:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 526-542
+   :linenos:
+   :emphasize-lines: 14-17
+   :caption: Handling HTML blocks - Skip entirely
+
+**Always document why** you're skipping an element. Don't leave empty methods unexplained. Apply this pattern to:
+
+- ``HTMLBlock`` / ``HTMLInline`` - Raw HTML
+- ``FootnoteReference`` / ``FootnoteDefinition`` - Footnotes
+- ``MathInline`` / ``MathBlock`` - Mathematical notation
+- ``ThematicBreak`` - Horizontal rule (if no equivalent)
+
+Pattern 4: Parent-Handled Structural Nodes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some nodes are only rendered as part of their parent:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+   :language: python
+   :lines: 495-510
+   :linenos:
+   :emphasize-lines: 13-16
+   :caption: Structural nodes handled by parent
+
+Apply this pattern to:
+
+- ``TableCell`` - Handled by ``visit_table``
+- ``TableRow`` - Handled by ``visit_table``
+- ``DefinitionTerm`` / ``DefinitionDescription`` - Handled by ``visit_definition_list``
+
+Options Classes
+~~~~~~~~~~~~~~~
+
+Define custom options for parser and renderer configuration:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/options.py
+   :language: python
+   :lines: 15-70
+   :linenos:
+   :emphasize-lines: 1-3,25-28,29-35
+   :caption: SimpleDocOptions - Parser configuration with CLI integration
+
+Key patterns:
+
+- **Frozen dataclass**: Use ``frozen=True`` for immutability
+- **Field metadata**: Enables automatic CLI flag generation
+- **Validation**: Use ``__post_init__`` for validation
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/options.py
+   :language: python
+   :lines: 131-158
+   :linenos:
+   :emphasize-lines: 1-3,13-14,16-21,23-28
+   :caption: __post_init__ validation pattern
+
+Metadata Registration
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``ConverterMetadata`` object is the key to plugin discovery:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/__init__.py
+   :language: python
+   :lines: 43-108
+   :linenos:
+   :emphasize-lines: 1-3,5-7,17-23,25-27,51-53
+   :caption: CONVERTER_METADATA - Plugin registration
+
+Key fields:
+
+- ``format_name``: Unique identifier (used in CLI and API)
+- ``extensions``: File extensions for auto-detection
+- ``mime_types``: MIME types for web/HTTP detection
+- ``magic_bytes``: Binary signatures for content-based detection
+- ``parser_class`` / ``renderer_class``: Implementation classes
+- ``parser_options_class`` / ``renderer_options_class``: Configuration classes
+- ``parser_required_packages``: Dependencies as ``(pip_name, import_name, version_spec)`` tuples
+- ``priority``: Detection order (0-10, higher = checked first)
 
 Package Configuration
 ~~~~~~~~~~~~~~~~~~~~~
 
-Configure your ``pyproject.toml`` to register the plugin:
+Register your plugin via entry points in ``pyproject.toml``:
+
+.. literalinclude:: ../../examples/simpledoc-plugin/pyproject.toml
+   :language: toml
+   :lines: 1-38
+   :linenos:
+   :emphasize-lines: 1-3,5-14,24-26,33-35
+   :caption: pyproject.toml - Package configuration with entry point
+
+The critical element is the entry point:
 
 .. code-block:: toml
 
-    [build-system]
-    requires = ["hatchling"]
-    build-backend = "hatchling.build"
-
-    [project]
-    name = "all2md-myformat"
-    version = "1.0.0"
-    description = "MyFormat support for all2md"
-    authors = [
-        {name = "Your Name", email = "your.email@example.com"},
-    ]
-    requires-python = ">=3.12"
-    dependencies = [
-        "all2md",
-        "myformat-parser>=1.0.0",
-    ]
-
     [project.entry-points."all2md.converters"]
-    myformat = "all2md_myformat.parser:CONVERTER_METADATA"
+    simpledoc = "all2md_simpledoc:CONVERTER_METADATA"
 
-    [project.urls]
-    Homepage = "https://github.com/yourusername/all2md-myformat"
-    Repository = "https://github.com/yourusername/all2md-myformat"
+This tells all2md to load ``CONVERTER_METADATA`` from the ``all2md_simpledoc`` package when discovering plugins.
 
 Advanced Features
 -----------------
@@ -262,7 +359,7 @@ For custom options classes in your plugin package:
     from dataclasses import dataclass, field
     from all2md.options.base import BaseParserOptions
 
-    @dataclass
+    @dataclass(frozen=True)
     class MyFormatOptions(BaseParserOptions):
         """Options for MyFormat conversion."""
 
@@ -289,20 +386,6 @@ Then reference it in your metadata (either direct or string reference):
         # ... other fields ...
         parser_options_class=MyFormatOptions,  # Direct reference
         # Or: parser_options_class="all2md_myformat.options.MyFormatOptions",
-        # ... rest of metadata ...
-    )
-
-**No Options Class**
-
-If your converter doesn't need custom options, use ``BaseParserOptions``:
-
-.. code-block:: python
-
-    from all2md.options import BaseParserOptions
-
-    CONVERTER_METADATA = ConverterMetadata(
-        # ... other fields ...
-        parser_options_class=BaseParserOptions,
         # ... rest of metadata ...
     )
 
@@ -390,7 +473,7 @@ Example magic bytes patterns:
 Testing Your Plugin
 -------------------
 
-Create comprehensive tests for your plugin:
+Create comprehensive tests for your plugin. Here's an example test suite:
 
 .. code-block:: python
 
@@ -463,6 +546,76 @@ Create comprehensive tests for your plugin:
         result = parser.parse(b"MYFORMAT test content")
         assert isinstance(result, Document)
 
+Testing Renderer
+~~~~~~~~~~~~~~~~
+
+Test the renderer with a variety of AST structures:
+
+.. code-block:: python
+
+    def test_renderer_basic():
+        """Test basic rendering."""
+        from all2md.ast import Document, Paragraph, Text
+        from all2md_myformat.renderer import MyFormatRenderer
+
+        doc = Document(children=[
+            Paragraph(content=[Text(content="Hello, world!")])
+        ])
+
+        renderer = MyFormatRenderer()
+        output = renderer.render_to_string(doc)
+        assert "Hello, world!" in output
+
+    def test_unsupported_formatting_preserves_content():
+        """Test that unsupported formatting still renders text content."""
+        from all2md.ast import Document, Paragraph, Strikethrough, Text
+        from all2md_myformat.renderer import MyFormatRenderer
+
+        doc = Document(children=[
+            Paragraph(content=[
+                Strikethrough(content=[Text(content="crossed out")])
+            ])
+        ])
+
+        renderer = MyFormatRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Content should be preserved even without strikethrough
+        assert "crossed out" in output
+
+    def test_complex_document():
+        """Test rendering a complex document with all node types."""
+        from all2md.ast import (
+            Document, Heading, Paragraph, List, ListItem,
+            CodeBlock, Strong, Emphasis, Link, Image, Text
+        )
+        from all2md_myformat.renderer import MyFormatRenderer
+
+        # Build complex document with many node types
+        doc = Document(children=[
+            Heading(level=1, content=[Text(content="Title")]),
+            Paragraph(content=[
+                Strong(content=[Text(content="bold")]),
+                Text(content=" and "),
+                Emphasis(content=[Text(content="italic")]),
+            ]),
+            List(ordered=False, items=[
+                ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+            ]),
+            CodeBlock(language="python", content="print('hello')"),
+        ])
+
+        renderer = MyFormatRenderer()
+        output = renderer.render_to_string(doc)
+
+        # Verify all content is present
+        assert "Title" in output
+        assert "bold" in output
+        assert "italic" in output
+        assert "Item 1" in output
+        assert "print('hello')" in output
+
 Publishing Your Plugin
 ----------------------
 
@@ -504,6 +657,8 @@ Best Practices
 5. **Testing**: Test with various file types and edge cases
 6. **Performance**: Optimize for large files and consider memory usage
 7. **Compatibility**: Ensure compatibility with all supported Python versions
+8. **Complete visitor implementation**: Implement all ``visit_*()`` methods in renderers, even if just ``pass``
+9. **Document unsupported features**: Clearly document which AST node types your format doesn't support
 
 Example Plugins
 ---------------
@@ -513,9 +668,22 @@ Here are some ideas for useful plugins:
 - **all2md-visio**: Microsoft Visio diagrams
 - **all2md-dwg**: AutoCAD drawings
 - **all2md-pages**: Apple Pages documents
-- **all2md-latex**: LaTeX documents
 - **all2md-confluence**: Confluence wiki pages
 - **all2md-notion**: Notion exports
+- **all2md-custom-transforms**: Custom AST transforms for specialized workflows
+
+Reference Implementation
+-------------------------
+
+The complete SimpleDoc plugin serves as a reference implementation:
+
+- **Source code**: ``examples/simpledoc-plugin/``
+- **Parser**: ``src/all2md_simpledoc/parser.py`` (full bidirectional parser)
+- **Renderer**: ``src/all2md_simpledoc/renderer.py`` (complete visitor implementation)
+- **Options**: ``src/all2md_simpledoc/options.py`` (parser and renderer options)
+- **Metadata**: ``src/all2md_simpledoc/__init__.py`` (plugin registration)
+- **Tests**: ``tests/test_simpledoc.py`` (comprehensive test coverage)
+- **README**: Detailed usage examples and format specification
 
 Community
 ---------
@@ -529,6 +697,7 @@ Support
 
 If you encounter issues developing plugins:
 
-1. Check the `plugin development examples <https://github.com/yourusername/all2md/tree/main/examples/plugins>`_
-2. Review existing plugin implementations
-3. Open an issue with the ``plugin-development`` label
+1. Check the SimpleDoc plugin example in ``examples/simpledoc-plugin/``
+2. Review the RENDERER_PATTERNS.md guide in the simpledoc-plugin directory
+3. Review existing plugin implementations
+4. Open an issue with the ``plugin-development`` label

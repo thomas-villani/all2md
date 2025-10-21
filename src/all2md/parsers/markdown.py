@@ -232,6 +232,9 @@ class MarkdownToAstConverter(BaseParser):
             return self._process_heading(token)
         elif token_type == "paragraph":
             return self._process_paragraph(token)
+        elif token_type == "block_text":
+            # block_text is used for tight list items - treat like paragraph
+            return self._process_paragraph(token)
         elif token_type == "block_code":
             return self._process_code_block(token)
         elif token_type == "block_quote":

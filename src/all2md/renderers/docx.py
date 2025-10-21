@@ -441,14 +441,31 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._current_paragraph = para
 
         # Render children
+        # Special handling: first Paragraph child should render inline with the list marker,
+        # while subsequent Paragraphs create new paragraphs (for multi-paragraph list items)
+        is_first_paragraph = True
         for child in node.children:
-            if isinstance(child, (ASTParagraph, List)):
-                # For nested elements, handle specially
+            if isinstance(child, ASTParagraph):
+                if is_first_paragraph:
+                    # First paragraph: render inline content directly into list item's paragraph
+                    is_first_paragraph = False
+                    # Render the paragraph's inline content directly
+                    for inline_child in child.content:
+                        inline_child.accept(self)
+                else:
+                    # Subsequent paragraphs: create new paragraphs (multi-paragraph list items)
+                    saved_para = self._current_paragraph
+                    self._current_paragraph = None
+                    child.accept(self)
+                    self._current_paragraph = saved_para
+            elif isinstance(child, List):
+                # Nested lists: handle normally
                 saved_para = self._current_paragraph
                 self._current_paragraph = None
                 child.accept(self)
                 self._current_paragraph = saved_para
             else:
+                # Other inline content (should be rare, but handle it)
                 child.accept(self)
 
         self._current_paragraph = None

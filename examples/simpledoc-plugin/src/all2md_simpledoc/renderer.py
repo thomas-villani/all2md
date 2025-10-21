@@ -72,8 +72,13 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def __init__(self, options: SimpleDocRendererOptions | None = None):
         """Initialize the SimpleDoc renderer with options."""
         options = options or SimpleDocRendererOptions()
+        # Multiple inheritance: Initialize all base classes
+        # NodeVisitor provides visit_*() dispatching, InlineContentMixin provides helpers,
+        # BaseRenderer provides common renderer infrastructure
         BaseRenderer.__init__(self, options)
         self.options: SimpleDocRendererOptions = options
+        # Output accumulation: Build output incrementally as we traverse the AST
+        # Using a list for efficient string concatenation (vs. repeated string +=)
         self._output: list[str] = []
 
     def render_to_string(self, document: Document) -> str:
@@ -90,8 +95,12 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             SimpleDoc format output
 
         """
+        # Reset output buffer for fresh rendering
         self._output = []
+        # Visitor pattern: Call accept() on root node to start traversal
+        # This triggers visit_document(), which recursively visits all children
         document.accept(self)
+        # Finalize: Join accumulated strings and ensure single trailing newline
         result = "".join(self._output)
         return result.rstrip() + "\n"
 
@@ -118,15 +127,16 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Document to render
 
         """
-        # Render frontmatter if enabled and metadata exists
+        # Frontmatter rendering: Optional based on settings
         if self.options.include_frontmatter and node.metadata:
             self._render_frontmatter(node.metadata)
 
-        # Render children with spacing
+        # Traverse children: Each child.accept(self) dispatches to the appropriate visit_*() method
         for i, child in enumerate(node.children):
-            child.accept(self)
+            child.accept(self)  # Visitor pattern dispatch
 
-            # Add spacing between blocks
+            # Block spacing: Add configurable blank lines between elements
+            # This keeps output readable and matches SimpleDoc conventions
             if i < len(node.children) - 1:
                 self._output.append("\n" * (self.options.newlines_between_blocks + 1))
 
@@ -177,7 +187,10 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Heading to render
 
         """
+        # InlineContentMixin: Use helper to extract text from inline nodes
+        # This handles nested formatting (bold, italic, links) within headings
         content = self._render_inline_content(node.content)
+        # SimpleDoc format: All headings use same marker (no levels)
         self._output.append(f"{self.options.heading_marker} {content}\n")
 
     def visit_paragraph(self, node: Paragraph) -> None:
@@ -236,19 +249,20 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             List item to render
 
         """
-        # For SimpleDoc, we just render the first child (paragraph) content
+        # Nested rendering: Capture child output separately
+        # This pattern is useful when you need to process child content before appending
         if node.children:
-            # Save output to capture child content
+            # Save and reset output buffer to capture child content
             saved_output = self._output
             self._output = []
 
-            # Render first child
+            # Render first child (typically a Paragraph)
             node.children[0].accept(self)
 
-            # Get the rendered content
+            # Get the captured content
             child_content = "".join(self._output).strip()
 
-            # Restore output and append with list marker
+            # Restore main output buffer and append formatted list item
             self._output = saved_output
             self._output.append(f"{self.options.list_marker} {child_content}\n")
 
@@ -279,7 +293,8 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Table to render
 
         """
-        # Render as a simple list format
+        # Direct child access pattern: We directly access cell.content instead of calling accept()
+        # This gives us control over formatting while avoiding the need for TableCell visitor logic
         self._output.append("Table:\n")
 
         # Render header if present
@@ -288,11 +303,12 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             for i, cell in enumerate(node.header.cells):
                 if i > 0:
                     self._output.append(" | ")
+                # Extract inline content from cells directly
                 content = self._render_inline_content(cell.content)
                 self._output.append(content)
             self._output.append("\n")
 
-        # Render rows
+        # Render data rows
         for row_idx, row in enumerate(node.rows):
             self._output.append(f"Row {row_idx + 1}: ")
             for i, cell in enumerate(row.cells):
@@ -335,6 +351,9 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Strong to render
 
         """
+        # Pattern 1: Extract content from unsupported formatting
+        # We preserve the text but lose the bold formatting
+        # This is the standard approach for formatting nodes your format doesn't support
         content = self._render_inline_content(node.content)
         self._output.append(content)
 
@@ -377,6 +396,9 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Link to render
 
         """
+        # Pattern 2: Provide simplified representation
+        # Instead of just dropping the link, we include the URL in plain text
+        # This preserves information even if not in ideal format
         content = self._render_inline_content(node.content)
         self._output.append(f"{content} ({node.url})")
 
@@ -482,6 +504,9 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Table cell to render
 
         """
+        # Structural node pattern: Parent handles rendering
+        # Some nodes (cells, rows, etc.) are only rendered as part of their parent
+        # We still need this method to satisfy NodeVisitor, but it does nothing
         pass
 
     def visit_thematic_break(self, node: ThematicBreak) -> None:
@@ -511,6 +536,9 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             HTML block to render
 
         """
+        # Pattern 3: Skip unsupported elements entirely
+        # Use 'pass' for elements your format truly cannot represent
+        # IMPORTANT: Always document WHY you're skipping, don't leave empty methods unexplained
         pass
 
     def visit_html_inline(self, node: HTMLInline) -> None:
