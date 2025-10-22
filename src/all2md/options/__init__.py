@@ -20,6 +20,7 @@ from all2md.options.chm import ChmOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
 from all2md.options.csv import CsvOptions
 from all2md.options.docx import DocxOptions, DocxRendererOptions
+from all2md.options.dokuwiki import DokuWikiOptions, DokuWikiParserOptions
 from all2md.options.eml import EmlOptions
 from all2md.options.epub import EpubOptions, EpubRendererOptions
 from all2md.options.html import HtmlOptions, HtmlRendererOptions
@@ -85,6 +86,8 @@ __all__ = [
     "CsvOptions",
     "DocxOptions",
     "DocxRendererOptions",
+    "DokuWikiOptions",
+    "DokuWikiParserOptions",
     "EmlOptions",
     "EpubOptions",
     "EpubRendererOptions",

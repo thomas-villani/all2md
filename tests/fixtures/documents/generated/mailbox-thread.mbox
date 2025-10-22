@@ -1,0 +1,45 @@
+From MAILER-DAEMON Wed Oct 22 04:05:20 2025
+Subject: Bug in Production
+From: qa@company.com
+To: dev@company.com
+Message-ID: <bug-report-001@company.com>
+Date: Sat, 01 Jun 2024 10:00:00 +0000
+
+Team,
+
+We found a critical bug in the payment flow.
+Users cannot complete checkout.
+
+QA Team
+
+From MAILER-DAEMON Wed Oct 22 04:05:20 2025
+Subject: Re: Bug in Production
+From: dev1@company.com
+To: qa@company.com
+Cc: dev@company.com
+Message-ID: <reply-001@company.com>
+In-Reply-To: <bug-report-001@company.com>
+References: <bug-report-001@company.com>
+Date: Sat, 01 Jun 2024 10:30:00 +0000
+
+Looking into it now. Will have a fix in 30 minutes.
+
+On Sat, Jun 1, 2024 at 10:00 AM qa@company.com wrote:
+> Team,
+> We found a critical bug in the payment flow.
+> Users cannot complete checkout.
+
+From MAILER-DAEMON Wed Oct 22 04:05:20 2025
+Subject: Re: Bug in Production
+From: dev1@company.com
+To: qa@company.com
+Cc: dev@company.com
+Message-ID: <reply-002@company.com>
+In-Reply-To: <reply-001@company.com>
+References: <bug-report-001@company.com> <reply-001@company.com>
+Date: Sat, 01 Jun 2024 11:00:00 +0000
+
+Fix deployed. Please verify.
+
+Thanks!
+

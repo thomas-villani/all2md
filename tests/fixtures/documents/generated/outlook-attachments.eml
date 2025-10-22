@@ -1,0 +1,35 @@
+Subject: Q2 Report - Please Review
+From: finance@company.com
+To: executives@company.com
+Cc: managers@company.com
+Date: Sun, 30 Jun 2024 16:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============1902149174420343718=="
+
+--===============1902149174420343718==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Dear Executives,
+
+Please find attached the Q2 financial report.
+
+Highlights:
+- Revenue: $5.2M (+15% YoY)
+- Profit: $1.8M (+20% YoY)
+- Customer growth: 2,500 new customers
+
+Please review and let us know if you have questions.
+
+Finance Team
+
+--===============1902149174420343718==
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="q2-report.png"
+MIME-Version: 1.0
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9FpQHLwA
+AAAASUVORK5CYII=
+
+--===============1902149174420343718==--

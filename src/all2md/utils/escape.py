@@ -322,6 +322,112 @@ def escape_mediawiki(text: str) -> str:
     return text
 
 
+def escape_dokuwiki(text: str, context: str = "text") -> str:
+    r"""Escape special DokuWiki characters in text content.
+
+    DokuWiki uses several special character sequences for formatting.
+    This function escapes them to prevent unintended formatting.
+
+    Parameters
+    ----------
+    text : str
+        Text to escape
+    context : {'text', 'table', 'link', 'code'}, default = 'text'
+        Context where text will be used. Different contexts have different
+        escaping requirements:
+        - 'text': Regular paragraph text (escape all special sequences)
+        - 'table': Table cell content (escape | and ^ additionally)
+        - 'link': Link text or URL (escape brackets)
+        - 'code': Code context (minimal escaping, preserve literal characters)
+
+    Returns
+    -------
+    str
+        Escaped text safe for DokuWiki rendering
+
+    Examples
+    --------
+    Escape formatting characters:
+        >>> escape_dokuwiki("Text with **bold** and //italic//")
+        'Text with \\*\\*bold\\*\\* and \\/\\/italic\\/\\/'
+
+    Table context:
+        >>> escape_dokuwiki("Cell | with | pipes", context="table")
+        'Cell \\| with \\| pipes'
+
+    Code context (minimal escaping):
+        >>> escape_dokuwiki("code_example()", context="code")
+        'code_example()'
+
+    Notes
+    -----
+    DokuWiki special sequences that need escaping:
+    - ** for bold
+    - // for italic
+    - __ for underline
+    - '' for monospace (two single quotes)
+    - [[ and ]] for links
+    - {{ and }} for images
+    - \\\\ for line breaks (four backslashes in source become two in display)
+    - | and ^ for tables
+    - \\ at end of line for forced line break
+
+    In DokuWiki, backslash is used as the escape character. To display
+    a literal special character, prefix it with backslash.
+
+    """
+    if not text:
+        return text
+
+    # Code context: minimal escaping, preserve most characters literally
+    if context == "code":
+        # In code context, only escape the backslash itself
+        return text.replace("\\", "\\\\")
+
+    # Link context: only escape brackets
+    if context == "link":
+        result = text.replace("[", r"\[")
+        result = result.replace("]", r"\]")
+        return result
+
+    # Table context: escape table delimiters and all text formatting
+    if context == "table":
+        # Start with text escaping
+        result = text
+        # Escape backslashes first to avoid double-escaping
+        result = result.replace("\\", "\\\\")
+        # Escape table-specific characters
+        result = result.replace("|", r"\|")
+        result = result.replace("^", r"\^")
+        # Escape formatting characters
+        result = result.replace("*", r"\*")
+        result = result.replace("/", r"\/")
+        result = result.replace("_", r"\_")
+        result = result.replace("'", r"\'")
+        result = result.replace("[", r"\[")
+        result = result.replace("]", r"\]")
+        result = result.replace("{", r"\{")
+        result = result.replace("}", r"\}")
+        return result
+
+    # Default text context: escape all DokuWiki special characters
+    result = text
+    # Escape backslashes first to avoid double-escaping
+    result = result.replace("\\", "\\\\")
+    # Escape formatting characters
+    result = result.replace("*", r"\*")
+    result = result.replace("/", r"\/")
+    result = result.replace("_", r"\_")
+    result = result.replace("'", r"\'")
+    # Escape link/image brackets
+    result = result.replace("[", r"\[")
+    result = result.replace("]", r"\]")
+    result = result.replace("{", r"\{")
+    result = result.replace("}", r"\}")
+
+    return result
+
+
 def escape_html_entities(text: str) -> str:
     """Escape HTML special characters to entities.
 

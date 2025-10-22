@@ -1,16 +1,16 @@
 Subject: Release Notes
 From: releases@example.com
 To: team@example.com
-Message-ID: <176098668206.23108.2797891267016366637@example.com>
+Message-ID: <176110592046.7896.4060087441285479939@example.com>
 Date: Sat, 01 Mar 2025 09:00:00 -0000
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============2147940224082084961=="
+Content-Type: multipart/mixed; boundary="===============3067492941842395822=="
 
---===============2147940224082084961==
+--===============3067492941842395822==
 Content-Type: multipart/alternative;
- boundary="===============7600030590724504386=="
+ boundary="===============5473924076453011255=="
 
---===============7600030590724504386==
+--===============5473924076453011255==
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 
@@ -21,7 +21,7 @@ Release 2.3.0 is live. See the HTML body for highlights.
 Thanks,
 Release Engineering
 
---===============7600030590724504386==
+--===============5473924076453011255==
 Content-Type: text/html; charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 MIME-Version: 1.0
@@ -30,9 +30,9 @@ MIME-Version: 1.0
 hboard</li>  <li><strong>Improvement:</strong> Faster exports</li></ul><p>Reg=
 ards,<br>Release Engineering</p></body></html>
 
---===============7600030590724504386==--
+--===============5473924076453011255==--
 
---===============2147940224082084961==
+--===============3067492941842395822==
 Content-Type: image/png
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="chart.png"
@@ -41,4 +41,4 @@ MIME-Version: 1.0
 iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9FpQHLwA
 AAAASUVORK5CYII=
 
---===============2147940224082084961==--
+--===============3067492941842395822==--

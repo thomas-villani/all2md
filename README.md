@@ -80,7 +80,9 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **PowerPoint Presentation**   | `.pptx`                                       |       ✅       |        ✅      | `pptx`             |
 | **HTML**                      | `.html`, `.htm`                               |       ✅       |        ✅      | `html`             |
 | **MHTML Web Archive**         | `.mhtml`, `.mht`                              |       ✅       |       (N/A)    | `html`             |
-| **Email Message**             | `.eml`, `.msg`                                |       ✅       |       (N/A)    | (built-in)         |
+| **Email Message**             | `.eml`                                        |       ✅       |       (N/A)    | (built-in)         |
+| **MBOX Mailbox Archive**      | `.mbox`, `.mbx`                               |       ✅       |       (N/A)    | (built-in)         |
+| **Outlook Message/Archive**   | `.msg`, `.pst`, `.ost`                        |       ✅       |       (N/A)    | `outlook`          |
 | **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |        ✅      | (built-in)         |
 | **EPUB E-book**               | `.epub`                                       |       ✅       |        ✅      | `epub`             |
 | **CHM (Compiled HTML Help)** | `.chm`                                        |       ✅       |       (N/A)    | `chm`              |
@@ -123,6 +125,12 @@ pip install "all2md[spreadsheet,odf]"
 
 # Install PDF support with OCR for scanned documents
 pip install "all2md[pdf,ocr]"
+
+# Install support for Outlook MSG files
+pip install "all2md[outlook]"
+
+# Note: PST/OST support requires additional manual installation
+# pip install libpff-python  # For PST/OST files (platform-specific)
 ```
 
 **3. Full Installation**
@@ -198,6 +206,12 @@ all2md page.html --html-extract-title
 
 # Convert a DOCX and download images to a folder
 all2md document.docx --attachment-mode download --attachment-output-dir ./images
+
+# Convert an MBOX mailbox, limiting to 100 messages
+all2md archive.mbox --mbox-max-messages 100
+
+# Convert an Outlook PST file with folder filtering
+all2md outlook.pst --outlook-folder-filter "Inbox" "Sent Items"
 ```
 
 **Using Transforms**
@@ -262,6 +276,27 @@ markdown_content = to_markdown(
     flavor="gfm",             # MarkdownOptions
     emphasis_symbol="_"       # MarkdownOptions
 )
+
+# Convert an MBOX mailbox with message filtering
+from all2md.options.mbox import MboxOptions
+import datetime
+
+mbox_opts = MboxOptions(
+    max_messages=100,
+    date_range_start=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+    output_structure="hierarchical"
+)
+markdown_content = to_markdown('archive.mbox', parser_options=mbox_opts)
+
+# Convert an Outlook PST file with folder filtering
+from all2md.options.outlook import OutlookOptions
+
+outlook_opts = OutlookOptions(
+    folder_filter=["Inbox", "Sent Items"],
+    skip_folders=["Deleted Items", "Junk Email"],
+    max_messages=500
+)
+markdown_content = to_markdown('mailbox.pst', parser_options=outlook_opts)
 ```
 
 **Bidirectional Conversion**

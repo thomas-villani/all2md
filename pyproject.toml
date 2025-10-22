@@ -115,6 +115,12 @@ ocr = [
     "pytesseract>=0.3.10",
     "Pillow>=9.0.0",
 ]
+outlook = [
+    "extract-msg>=0.47.0",
+    # Note: PST/OST support requires libpff-python (pypff) which is not included
+    # due to platform-specific installation challenges. Install manually if needed:
+    # pip install libpff-python
+]
 
 all = [
     "beautifulsoup4>=4.14.2",
@@ -122,6 +128,7 @@ all = [
     "readability-lxml>=0.8.1",
     "docutils>=0.20",
     "ebooklib>=0.19",
+    "extract-msg>=0.47.0",
     "fastmcp>=2.0.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.0",

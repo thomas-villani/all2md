@@ -315,6 +315,25 @@ DEFAULT_URL_WRAPPERS = [
 DEFAULT_PRESERVE_RAW_HEADERS = False
 
 # =============================================================================
+# Email Archive (MBOX/Outlook) Constants
+# =============================================================================
+
+# Output structure modes
+OutputStructureMode = Literal["flat", "hierarchical"]
+DEFAULT_OUTPUT_STRUCTURE: OutputStructureMode = "flat"
+
+# Mailbox format detection
+MailboxFormatType = Literal["auto", "mbox", "maildir", "mh", "babyl", "mmdf"]
+DEFAULT_MAILBOX_FORMAT: MailboxFormatType = "auto"
+
+# Default folders to skip for PST/OST
+DEFAULT_OUTLOOK_SKIP_FOLDERS = ["Deleted Items", "Junk Email", "Trash", "Drafts"]
+
+# Message processing defaults
+DEFAULT_MAX_MESSAGES = None  # None means no limit
+DEFAULT_INCLUDE_SUBFOLDERS = True
+
+# =============================================================================
 # PDF to Markdown Constants
 # =============================================================================
 
@@ -382,6 +401,18 @@ DEFAULT_MEDIAWIKI_IMAGE_THUMB = True
 DEFAULT_MEDIAWIKI_PARSE_TEMPLATES = False
 DEFAULT_MEDIAWIKI_PARSE_TAGS = True
 DEFAULT_MEDIAWIKI_STRIP_COMMENTS = True
+
+# =============================================================================
+# DokuWiki Constants
+# =============================================================================
+
+DEFAULT_DOKUWIKI_USE_HTML_FOR_UNSUPPORTED = True
+DEFAULT_DOKUWIKI_MONOSPACE_FENCE = False
+
+# DokuWiki Parser Options
+DEFAULT_DOKUWIKI_PARSE_PLUGINS = False
+DEFAULT_DOKUWIKI_STRIP_COMMENTS = True
+DEFAULT_DOKUWIKI_PARSE_INTERWIKI = True
 
 # =============================================================================
 # Org-Mode Constants

@@ -48,6 +48,17 @@ from fixtures.generators.eml_fixtures import (
     create_simple_email,
     email_to_bytes,
 )
+from fixtures.generators.mbox_fixtures import (
+    create_mbox_with_thread,
+    create_simple_mbox,
+    write_mbox_to_file,
+)
+from fixtures.generators.outlook_fixtures import (
+    create_msg_with_attachments_data,
+    create_simple_msg_data,
+    msg_data_to_email_message,
+    write_email_as_eml,
+)
 from fixtures.generators.epub_fixtures import create_epub_with_images, create_simple_epub
 from fixtures.generators.ipynb_fixtures import (
     create_notebook_with_images,
@@ -142,6 +153,34 @@ def _epub_builder(func: Callable[[], bytes]) -> Callable[[], bytes]:
 def _eml_builder(func: Callable[[], object]) -> Callable[[], bytes]:
     def builder() -> bytes:
         return email_to_bytes(func())
+
+    return builder
+
+
+def _mbox_builder(func: Callable[[], object]) -> Callable[[], bytes]:
+    def builder() -> bytes:
+        import tempfile
+        mbox = func()
+        # Read the mbox file and return its contents
+        with open(mbox._path, "rb") as f:
+            data = f.read()
+        # Clean up the temp file
+        try:
+            Path(mbox._path).unlink()
+        except Exception:
+            pass
+        return data
+
+    return builder
+
+
+def _outlook_msg_builder(func: Callable[[], dict]) -> Callable[[], bytes]:
+    def builder() -> bytes:
+        # Convert MSG data to EmailMessage for testing
+        # Real MSG files require extract-msg which may not be installed
+        msg_data = func()
+        email_msg = msg_data_to_email_message(msg_data)
+        return email_to_bytes(email_msg)
 
     return builder
 
@@ -376,6 +415,30 @@ FIXTURE_SPECS: list[FixtureTarget] = [
         description="Threaded reply email with In-Reply-To headers.",
     ),
     FixtureTarget(
+        name="mbox-simple",
+        filename="mailbox-simple.mbox",
+        builder=_mbox_builder(create_simple_mbox),
+        description="MBOX mailbox archive with 3 messages.",
+    ),
+    FixtureTarget(
+        name="mbox-thread",
+        filename="mailbox-thread.mbox",
+        builder=_mbox_builder(create_mbox_with_thread),
+        description="MBOX mailbox with threaded conversation.",
+    ),
+    FixtureTarget(
+        name="msg-simple",
+        filename="outlook-simple.eml",
+        builder=_outlook_msg_builder(create_simple_msg_data),
+        description="Outlook MSG data as EML (simple message).",
+    ),
+    FixtureTarget(
+        name="msg-attachments",
+        filename="outlook-attachments.eml",
+        builder=_outlook_msg_builder(create_msg_with_attachments_data),
+        description="Outlook MSG data as EML (with attachments).",
+    ),
+    FixtureTarget(
         name="zip-simple",
         filename="archive-simple.zip",
         builder=create_simple_zip,
@@ -440,6 +503,10 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "eml-simple",
         "eml-html",
         "eml-thread",
+        "mbox-simple",
+        "mbox-thread",
+        "msg-simple",
+        "msg-attachments",
     ),
 }
 
