@@ -9,15 +9,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
 
 
 @dataclass(frozen=True)
-class ZipOptions(BaseParserOptions):
+class ZipOptions(BaseParserOptions, AttachmentOptionsMixin):
     r"""Configuration options for ZIP archive to Markdown conversion.
 
     This dataclass contains settings specific to ZIP/archive processing,
     including file filtering, directory structure handling, and attachment extraction.
+    Inherits attachment handling from AttachmentOptionsMixin for extracting embedded
+    resources.
 
     Parameters
     ----------

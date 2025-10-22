@@ -9,17 +9,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
 from all2md.options.html import HtmlOptions
 
 
 @dataclass(frozen=True)
-class ChmOptions(BaseParserOptions):
+class ChmOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for CHM-to-Markdown conversion.
 
     This dataclass contains settings specific to Microsoft Compiled HTML Help (CHM)
     document processing, including page handling, table of contents generation, and
-    HTML parsing configuration.
+    HTML parsing configuration. Inherits attachment handling from AttachmentOptionsMixin
+    for embedded images and resources.
 
     Parameters
     ----------

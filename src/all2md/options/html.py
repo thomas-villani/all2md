@@ -22,7 +22,7 @@ from all2md.constants import (
     HTML_PASSTHROUGH_MODES,
     HtmlPassthroughMode,
 )
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
 
 
@@ -267,12 +267,13 @@ class HtmlRendererOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
-class HtmlOptions(BaseParserOptions):
+class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for HTML-to-Markdown conversion.
 
     This dataclass contains settings specific to HTML document processing,
     including heading styles, title extraction, image handling, content
-    sanitization, and advanced formatting options.
+    sanitization, and advanced formatting options. Inherits attachment
+    handling from AttachmentOptionsMixin for images and embedded media.
 
     Parameters
     ----------

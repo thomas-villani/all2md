@@ -1051,6 +1051,9 @@ class TextReplacer(NodeTransformer):
     ------
     ValueError
         If use_regex=True and pattern is not a valid regular expression
+    SecurityError
+        If use_regex=True and pattern contains dangerous constructs that
+        could lead to ReDoS (Regular Expression Denial of Service) attacks
 
     Examples
     --------
@@ -1061,6 +1064,14 @@ class TextReplacer(NodeTransformer):
     >>> # Use regex for pattern matching
     >>> transformer = TextReplacer(r"\\d+", "NUMBER", use_regex=True)
     >>> new_doc = transformer.transform(doc)
+
+    Notes
+    -----
+    For security reasons, when ``use_regex=True``, this transform validates
+    user-supplied regex patterns to prevent ReDoS attacks. Patterns with
+    nested quantifiers or excessive backtracking potential are rejected.
+    See ``validate_user_regex_pattern()`` for details on what patterns are
+    considered safe.
 
     """
 
@@ -1080,6 +1091,8 @@ class TextReplacer(NodeTransformer):
         ------
         ValueError
             If use_regex=True and pattern is not a valid regular expression
+        SecurityError
+            If use_regex=True and pattern contains dangerous constructs
 
         """
         self.pattern = pattern
@@ -1089,6 +1102,11 @@ class TextReplacer(NodeTransformer):
 
         # Compile and validate regex pattern if using regex mode
         if self.use_regex:
+            # Validate pattern for ReDoS protection
+            from all2md.utils.security import validate_user_regex_pattern
+
+            validate_user_regex_pattern(pattern)
+
             try:
                 self._compiled_pattern = re.compile(pattern)
             except re.error as e:

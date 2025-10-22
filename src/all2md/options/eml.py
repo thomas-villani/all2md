@@ -23,15 +23,16 @@ from all2md.constants import (
     DateFormatMode,
 )
 from all2md.options import NetworkFetchOptions
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
 
 
 @dataclass(frozen=True)
-class EmlOptions(BaseParserOptions):
+class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for EML-to-Markdown conversion.
 
     This dataclass contains settings specific to email message processing,
     including robust parsing, date handling, quote processing, and URL cleaning.
+    Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
     Parameters
     ----------

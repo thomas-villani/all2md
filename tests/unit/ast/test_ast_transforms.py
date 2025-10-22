@@ -460,20 +460,52 @@ class TestTextReplacer:
         assert text.content == "baz bar baz"
 
     def test_invalid_regex_pattern_raises_error(self) -> None:
-        """Test that invalid regex patterns raise ValueError."""
+        """Test that invalid regex patterns raise SecurityError."""
+        from all2md.exceptions import SecurityError
+
         # Invalid regex: unmatched parenthesis
-        with pytest.raises(ValueError, match="Invalid regular expression pattern"):
+        with pytest.raises(SecurityError, match="Invalid regex pattern"):
             TextReplacer(r"(invalid", "replacement", use_regex=True)
 
         # Invalid regex: invalid escape sequence
-        with pytest.raises(ValueError, match="Invalid regular expression pattern"):
+        with pytest.raises(SecurityError, match="Invalid regex pattern"):
             TextReplacer(r"\k", "replacement", use_regex=True)
 
-        # Invalid regex: nested quantifiers (catastrophic backtracking)
-        # Note: Python's re will accept this but it's still a valid regex
-        # The pattern itself compiles, so we test with an actually invalid one
-        with pytest.raises(ValueError, match="Invalid regular expression pattern"):
+        # Invalid regex: incomplete named group
+        with pytest.raises(SecurityError, match="Invalid regex pattern"):
             TextReplacer(r"(?P<invalid)", "replacement", use_regex=True)
+
+    def test_dangerous_regex_pattern_raises_security_error(self) -> None:
+        """Test that dangerous regex patterns raise SecurityError for ReDoS protection."""
+        from all2md.exceptions import SecurityError
+
+        # Nested quantifiers that could cause catastrophic backtracking
+        dangerous_patterns = [
+            r"(a+)+",  # Classic nested quantifier
+            r"(b*)*",  # Nested star
+            r"(c+)*",  # Mixed nested quantifiers
+            r"(?=.*)+",  # Lookahead with quantifier
+            r"(a|ab)*",  # Overlapping alternation
+        ]
+
+        for pattern in dangerous_patterns:
+            with pytest.raises(SecurityError, match="dangerous nested quantifiers"):
+                TextReplacer(pattern, "replacement", use_regex=True)
+
+    def test_safe_regex_patterns_accepted(self) -> None:
+        """Test that safe regex patterns are accepted without errors."""
+        # These should all pass without exception
+        safe_patterns = [
+            r"\d+",  # Simple digit match
+            r"^test$",  # Anchored pattern
+            r"[a-zA-Z]+",  # Character class with quantifier
+            r"(foo|bar)",  # Alternation without quantifier
+            r"test{2,5}",  # Bounded quantifier
+        ]
+
+        for pattern in safe_patterns:
+            transformer = TextReplacer(pattern, "replacement", use_regex=True)
+            assert transformer._compiled_pattern is not None
 
     def test_valid_regex_compiles_once(self) -> None:
         """Test that valid regex is compiled once in __init__."""

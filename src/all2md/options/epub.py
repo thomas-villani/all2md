@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
 from all2md.options.html import HtmlOptions
 
 
@@ -100,11 +100,12 @@ class EpubRendererOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
-class EpubOptions(BaseParserOptions):
+class EpubOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for EPUB-to-Markdown conversion.
 
     This dataclass contains settings specific to EPUB document processing,
     including chapter handling, table of contents generation, and image handling.
+    Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
     Parameters
     ----------

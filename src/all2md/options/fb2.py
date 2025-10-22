@@ -7,12 +7,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
 
 
 @dataclass(frozen=True)
-class Fb2Options(BaseParserOptions):
+class Fb2Options(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for FB2-to-AST conversion.
+
+    Inherits attachment handling from AttachmentOptionsMixin for embedded images
+    in FictionBook 2.0 ebooks.
 
     Parameters
     ----------

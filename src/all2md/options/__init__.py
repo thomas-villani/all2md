@@ -15,7 +15,7 @@ from typing import Any
 
 from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
 from all2md.options.ast_json import AstJsonParserOptions, AstJsonRendererOptions
-from all2md.options.base import UNSET, BaseParserOptions, BaseRendererOptions, CloneFrozenMixin
+from all2md.options.base import UNSET, AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions, CloneFrozenMixin
 from all2md.options.chm import ChmOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
 from all2md.options.csv import CsvOptions
@@ -77,6 +77,7 @@ __all__ = [
     "CloneFrozenMixin",
     "BaseRendererOptions",
     "BaseParserOptions",
+    "AttachmentOptionsMixin",
     "NetworkFetchOptions",
     "LocalFileAccessOptions",
     "AsciiDocRendererOptions",

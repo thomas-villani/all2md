@@ -107,15 +107,14 @@ class BaseRendererOptions(CloneFrozenMixin):
         if self.max_asset_size_bytes <= 0:
             raise ValueError(f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}")
 
-# TODO: not all classes have attachments, perhaps we refactor these options to a mixin (AttachmentsMixin) that is
-#  inherited only be the parsers that actually have attachments (e.g. epub, HTML, PDF, docx, etc.)
 
 @dataclass(frozen=True)
-class BaseParserOptions(CloneFrozenMixin):
-    """Base class for all parser options.
+class AttachmentOptionsMixin(CloneFrozenMixin):
+    """Mixin providing attachment handling options for parsers.
 
-    This class serves as the foundation for format-specific parser options.
-    Parsers convert source documents into AST representation.
+    This mixin adds attachment-related configuration options to parser classes
+    that need to handle embedded images, downloads, and other binary assets.
+    Only parsers that actually process attachments should inherit from this mixin.
 
     Parameters
     ----------
@@ -123,12 +122,42 @@ class BaseParserOptions(CloneFrozenMixin):
         How to handle attachments/images during parsing
     alt_text_mode : AltTextMode
         How to render alt-text content
-    extract_metadata : bool
-        Whether to extract document metadata
+    attachment_output_dir : str or None
+        Directory to save attachments when using download mode
+    attachment_base_url : str or None
+        Base URL for resolving attachment references
+    max_asset_size_bytes : int
+        Maximum allowed size in bytes for any single asset
+    attachment_filename_template : str
+        Template for attachment filenames
+    attachment_overwrite : Literal["unique", "overwrite", "skip"]
+        File collision strategy
+    attachment_deduplicate_by_hash : bool
+        Avoid saving duplicate attachments by content hash
+    attachments_footnotes_section : str or None
+        Section title for footnote-style attachment references
 
     Notes
     -----
-    Subclasses should define format-specific parsing options as frozen dataclass fields.
+    This mixin should be used by parsers that handle formats with embedded
+    images or binary assets (PDF, DOCX, HTML, EPUB, etc.). Pure text formats
+    (CSV, plaintext, source code) should not use this mixin.
+
+    Examples
+    --------
+    Parser with attachments::
+
+        @dataclass(frozen=True)
+        class PdfOptions(BaseParserOptions, AttachmentOptionsMixin):
+            # PDF-specific options here
+            pass
+
+    Pure text parser without attachments::
+
+        @dataclass(frozen=True)
+        class CsvOptions(BaseParserOptions):
+            # CSV-specific options here
+            pass
 
     """
 
@@ -155,10 +184,6 @@ class BaseParserOptions(CloneFrozenMixin):
     attachment_base_url: str | None = field(
         default=DEFAULT_ATTACHMENT_BASE_URL,
         metadata={"help": "Base URL for resolving attachment references", "importance": "advanced"},
-    )
-    extract_metadata: bool = field(
-        default=DEFAULT_EXTRACT_METADATA,
-        metadata={"help": "Extract document metadata as YAML front matter", "importance": "core"},
     )
     max_asset_size_bytes: int = field(
         default=DEFAULT_MAX_ASSET_SIZE_BYTES,
@@ -197,7 +222,7 @@ class BaseParserOptions(CloneFrozenMixin):
     )
 
     def __post_init__(self) -> None:
-        """Validate numeric ranges for base parser options.
+        """Validate numeric ranges for attachment options.
 
         Raises
         ------
@@ -208,3 +233,37 @@ class BaseParserOptions(CloneFrozenMixin):
         # Validate positive asset size limit
         if self.max_asset_size_bytes <= 0:
             raise ValueError(f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}")
+
+
+@dataclass(frozen=True)
+class BaseParserOptions(CloneFrozenMixin):
+    """Base class for all parser options.
+
+    This class serves as the foundation for format-specific parser options.
+    Parsers convert source documents into AST representation.
+
+    For parsers that handle attachments (images, downloads, etc.), also inherit
+    from AttachmentOptionsMixin to get attachment-related configuration fields.
+
+    Parameters
+    ----------
+    extract_metadata : bool
+        Whether to extract document metadata
+
+    Notes
+    -----
+    Subclasses should define format-specific parsing options as frozen dataclass fields.
+
+    For parsers handling binary assets (PDF, DOCX, HTML, etc.), also inherit from
+    AttachmentOptionsMixin::
+
+        @dataclass(frozen=True)
+        class PdfOptions(BaseParserOptions, AttachmentOptionsMixin):
+            pass
+
+    """
+
+    extract_metadata: bool = field(
+        default=DEFAULT_EXTRACT_METADATA,
+        metadata={"help": "Extract document metadata as YAML front matter", "importance": "core"},
+    )

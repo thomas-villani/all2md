@@ -16,7 +16,7 @@ from all2md.constants import (
     DEFAULT_DOCX_TABLE_STYLE,
     CommentMode,
 )
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions
 
 
@@ -117,11 +117,12 @@ class DocxRendererOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
-class DocxOptions(BaseParserOptions):
+class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for DOCX-to-Markdown conversion.
 
     This dataclass contains settings specific to Word document processing,
-    including image handling and formatting preferences.
+    including image handling and formatting preferences. Inherits attachment
+    handling from AttachmentOptionsMixin for embedded images and media.
 
     Parameters
     ----------

@@ -9,16 +9,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions
 
 
 @dataclass(frozen=True)
-class OdtOptions(BaseParserOptions):
+class OdtOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for ODT-to-Markdown conversion.
 
     This dataclass contains settings specific to OpenDocument Text (ODT)
     processing, including table preservation, footnotes, and comments.
+    Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
     Parameters
     ----------

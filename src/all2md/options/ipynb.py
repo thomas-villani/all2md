@@ -11,16 +11,17 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_LINES, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownOptions
 
 
 @dataclass(frozen=True)
-class IpynbOptions(BaseParserOptions):
+class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for IPYNB-to-Markdown conversion.
 
     This dataclass contains settings specific to Jupyter Notebook processing,
-    including output handling and image conversion preferences.
+    including output handling and image conversion preferences. Inherits
+    attachment handling from AttachmentOptionsMixin for notebook output images.
 
     Parameters
     ----------

@@ -10,15 +10,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseParserOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
 
 
 @dataclass(frozen=True)
-class ArchiveOptions(BaseParserOptions):
+class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     r"""Configuration options for archive (TAR/7Z/RAR) to Markdown conversion.
 
     This dataclass contains settings specific to archive processing,
     including file filtering, directory structure handling, and attachment extraction.
+    Inherits attachment handling from AttachmentOptionsMixin for extracting embedded
+    resources.
 
     Parameters
     ----------

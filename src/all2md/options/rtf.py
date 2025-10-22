@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
 
 
 @dataclass(frozen=True)
@@ -44,15 +44,16 @@ class RtfRendererOptions(BaseRendererOptions):
 
 
 @dataclass(frozen=True)
-class RtfOptions(BaseParserOptions):
+class RtfOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for RTF-to-Markdown conversion.
 
     This dataclass contains settings specific to Rich Text Format processing,
-    primarily for handling embedded images and other attachments.
+    including handling of embedded images and other attachments. Inherits
+    attachment handling from AttachmentOptionsMixin.
 
     Parameters
     ----------
-    Inherited from `BaseParserOptions`
+    Inherited from `BaseParserOptions` and `AttachmentOptionsMixin`
 
     """
 

@@ -35,7 +35,7 @@ from all2md.constants import (
     HeaderCaseOption,
     OCRMode,
 )
-from all2md.options.base import BaseParserOptions, CloneFrozenMixin
+from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, CloneFrozenMixin
 
 logger = logging.getLogger(__name__)
 
@@ -218,11 +218,12 @@ class LocalFileAccessOptions(CloneFrozenMixin):
 
 
 @dataclass(frozen=True)
-class PaginatedParserOptions(BaseParserOptions):
+class PaginatedParserOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Base class for parsers that handle paginated documents (PDF, PPTX, ODP).
 
     This base class provides common options for documents with pages/slides,
-    including page separator templates.
+    including page separator templates. Inherits attachment handling from
+    AttachmentOptionsMixin since paginated documents typically contain images.
 
     Parameters
     ----------
@@ -243,11 +244,13 @@ class PaginatedParserOptions(BaseParserOptions):
 
 
 @dataclass(frozen=True)
-class SpreadsheetParserOptions(BaseParserOptions):
+class SpreadsheetParserOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Base class for spreadsheet parsers (XLSX, ODS).
 
     This base class provides common options for spreadsheet documents,
-    including sheet selection, data limits, and cell formatting.
+    including sheet selection, data limits, and cell formatting. Inherits
+    attachment handling from AttachmentOptionsMixin since spreadsheets can
+    contain embedded charts and images.
 
     Parameters
     ----------
