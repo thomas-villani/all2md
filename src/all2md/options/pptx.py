@@ -1,5 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """PPTX parser and renderer options."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -64,6 +65,11 @@ class PptxRendererOptions(BaseRendererOptions):
         Width for images in inches (aspect ratio maintained).
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security options for fetching remote images in slides.
+    include_notes : bool, default True
+        Whether to detect and render speaker notes from "Speaker Notes" sections.
+        When True, H3 headings with "Speaker Notes" text are detected, and content
+        after them is rendered to slide speaker notes. When False, speaker notes
+        sections are ignored and rendered as regular slide content.
 
     Notes
     -----
@@ -168,6 +174,14 @@ class PptxRendererOptions(BaseRendererOptions):
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
     )
+    include_notes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include speaker notes in rendered slides",
+            "cli_name": "no-include-notes",
+            "importance": "core",
+        },
+    )
 
 
 @dataclass(frozen=True)
@@ -211,7 +225,7 @@ class PptxOptions(PaginatedParserOptions):
         default="data",
         metadata={
             "help": "Chart conversion mode: 'data' (default, tables only), "
-                    "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
+            "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
             "choices": ["data", "mermaid", "both"],
             "importance": "advanced",
         },
@@ -228,8 +242,8 @@ class PptxOptions(PaginatedParserOptions):
         default=False,
         metadata={
             "help": "Use strict list detection (XML-only, no heuristics). "
-                    "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
-                    "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
+            "When True, only paragraphs with explicit list formatting in XML are treated as lists. "
+            "When False (default), uses XML detection with heuristic fallbacks for unformatted lists.",
             "importance": "advanced",
         },
     )

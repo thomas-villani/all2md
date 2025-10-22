@@ -25,6 +25,7 @@ from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, sav
 from utils import assert_markdown_valid
 
 from all2md import convert, from_ast, from_markdown, to_ast, to_markdown
+from all2md.exceptions import MalformedFileError, FormatError
 from all2md.ast import Document, Heading, Paragraph, Strong, Table
 from all2md.options import DocxOptions, HtmlOptions, HtmlRendererOptions, MarkdownOptions, PdfOptions, PptxOptions
 
@@ -983,12 +984,11 @@ class TestFullConversionPipeline:
         invalid_content = b"This is not a valid document"
 
         # Should handle gracefully
-        with pytest.raises(Exception):  # Specific exception depends on implementation
+        with pytest.raises(MalformedFileError):  # Specific exception depends on implementation
             to_markdown(BytesIO(invalid_content), source_format="docx")
 
-        # Test with unsupported format - should fallback to text
-        result = to_markdown(BytesIO(b"content"), source_format="unsupported")
-        assert result == "content"  # Should fallback to treating as text
+        with pytest.raises(FormatError):
+            result = to_markdown(BytesIO(b"content"), source_format="unsupported")
 
     def test_large_document_pipeline_performance(self, temp_dir):
         """Test pipeline performance with larger documents."""

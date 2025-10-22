@@ -1153,7 +1153,7 @@ class TestNewAPI:
 
         # Reset and process as plain text (force format)
         html_io.seek(0)
-        result_text = to_markdown(html_io, source_format="txt")
+        result_text = to_markdown(html_io, source_format="plaintext")
         assert "<html>" in result_text  # Should preserve HTML tags
         assert "<body>" in result_text
 

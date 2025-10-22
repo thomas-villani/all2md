@@ -470,31 +470,33 @@ IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
 
 # TODO: Make sure this list is complete! It governs the CLI
 DocumentFormat = Literal[
-    "auto",  # Auto-detect from filename/content
-    "asciidoc",
-    "ast",  # JSON-serialized AST format
-    "csv",
-    "epub",
-    "latex",
-    "mhtml",
-    "odp",
-    "pdf",  # PDF documents
-    "docx",  # Word documents
-    "pptx",  # PowerPoint presentations
-    "html",  # HTML documents
-    "mhtml",  # MHTML single-file web archives
-    "rtf",  # Rich Text Format
-    "spreadsheet",  # CSV, TSV, XLSX
-    "sourcecode",  # Source code files with syntax highlighting
-    "txt",  # Plain text
-    "markdown",  # Markdown documents
-    "eml",  # Email messages
-    "ipynb",  # Jupyter Notebooks
-    "odf",  # OpenDocument Format
-    "epub",  # EPUB e-books
-    "rst",
-    "org",
-    "odt",
-    "xlsx",
-    "zip",
+    "auto",             # Auto-detect from filename/content
+    "archive",          # tar/7z archive
+    "asciidoc",         # asciidoc format
+    "ast",              # JSON-serialized AST format
+    "chm",              # Compiled help format (Microsoft)
+    "csv",              # CSV/TSV
+    "docx",             # Word documents
+    "eml",              # Email messages
+    "epub",             # Ebook format
+    "latex",            # LaTex notation files
+    "mhtml",            # Bundled HTML document
+    "pdf",              # PDF documents
+    "pptx",             # PowerPoint presentations
+    "html",             # HTML documents
+    "ipynb",            # Jupyter Notebooks
+    "org",              # org-mode
+    "odp",              # Open Document Presentation format
+    "odt",              # Open Document Text format
+    "ods",              # Open Document Spreadsheet format
+    "plaintext",        # Unformatted plain text
+    "markdown",         # Markdown documents
+    "mediawiki",        # MediaWiki format
+    "mhtml",            # MHTML single-file web archives
+    "rtf",              # Rich Text Format
+    "rst",              # ReStructuredText
+    "spreadsheet",      # CSV, TSV, XLSX
+    "sourcecode",       # Source code files with syntax highlighting
+    "xlsx",             # Excel
+    "zip",              # zip archive
 ]

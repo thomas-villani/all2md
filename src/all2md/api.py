@@ -496,43 +496,8 @@ def to_markdown(
                 progress_callback=progress_callback,
                 remote_input_options=remote_input_options,
             )
-    except DependencyError:
+    except All2MdError:
         raise
-    # TODO: remove the following?
-    except FormatError as e:
-        # Handle unknown formats by falling back to text
-        if actual_format not in ["txt", "image"]:
-            logger.warning(f"Unknown format '{actual_format}', falling back to text")
-            actual_format = "txt"
-
-        if actual_format == "image":
-            raise FormatError("Invalid source type: `image` not supported.") from e
-        else:
-            # Plain text handling - return content directly without AST
-            plain_text: str
-            data_source = detection_input
-            if isinstance(data_source, (str, Path)):
-                try:
-                    with open(data_source, "r", encoding="utf-8", errors="replace") as f:
-                        plain_text = f.read()
-                except Exception as exc:
-                    raise ParsingError(f"Could not read file as UTF-8: {data_source}") from exc
-            elif isinstance(data_source, bytes):
-                try:
-                    plain_text = data_source.decode("utf-8", errors="replace")
-                except Exception as exc:
-                    raise ParsingError("Could not decode bytes as UTF-8") from exc
-            else:
-                # File-like object (must be IO[bytes] since we excluded IO[str] earlier)
-                file = cast(IO[bytes], data_source)
-                file.seek(0)
-                try:
-                    file_content = file.read()
-                    plain_text = file_content.decode("utf-8", errors="replace")
-                except Exception as exc:
-                    raise ParsingError("Could not decode file as UTF-8") from exc
-
-            return plain_text.replace("\r\n", "\n").replace("\r", "\n")
 
     # Apply transforms and render using pipeline
     content: str

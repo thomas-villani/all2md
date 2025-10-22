@@ -241,7 +241,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             return auto_split_ast(doc, heading_level=self.options.slide_split_heading_level)
 
     def _create_slide(
-            self, prs: Any, heading: Heading | None, content_nodes: list[Node], is_first: bool = False
+        self, prs: Any, heading: Heading | None, content_nodes: list[Node], is_first: bool = False
     ) -> Any:
         """Create a slide with content.
 
@@ -268,19 +268,26 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         # Create page (slide) with master page
         page = Page(name=f"page{id(heading) if heading else id(content_nodes)}", masterpagename=self._master_page)
 
+        # Separate slide content from speaker notes (if enabled)
+        if self.options.include_notes:
+            slide_content, notes_content = self._extract_speaker_notes(content_nodes)
+        else:
+            slide_content = content_nodes
+            notes_content = []
+
         # Determine title
         title = ""
-        nodes_to_render = content_nodes
+        nodes_to_render = slide_content
 
         if self.options.use_heading_as_slide_title:
             if heading:
                 # Heading provided by splitting strategy (heading mode)
                 title = extract_heading_text(heading)
-            elif content_nodes and isinstance(content_nodes[0], Heading):
+            elif slide_content and isinstance(slide_content[0], Heading):
                 # Extract first heading from content (separator mode)
-                title = extract_heading_text(content_nodes[0])
+                title = extract_heading_text(slide_content[0])
                 # Don't render the heading again in content
-                nodes_to_render = content_nodes[1:]
+                nodes_to_render = slide_content[1:]
 
         # Create title frame if we have a title
         if title:
@@ -313,6 +320,10 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         content_frame.addElement(content_textbox)
         page.addElement(content_frame)
+
+        # Add speaker notes if present
+        if notes_content:
+            self._add_speaker_notes(page, notes_content)
 
         # Add page to presentation
         prs.presentation.addElement(page)
@@ -529,6 +540,89 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                     f"Failed to fetch remote image {url}: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
             return None
+
+    def _extract_speaker_notes(self, nodes: list[Node]) -> tuple[list[Node], list[Node]]:
+        """Extract speaker notes from slide content nodes.
+
+        Scans for an H3 heading with "Speaker Notes" text and splits the nodes
+        into slide content (before the heading) and notes content (after the heading).
+
+        Parameters
+        ----------
+        nodes : list of Node
+            All nodes for the slide
+
+        Returns
+        -------
+        tuple of (list of Node, list of Node)
+            (slide_content_nodes, notes_content_nodes)
+
+        """
+        slide_content: list[Node] = []
+        notes_content: list[Node] = []
+        found_notes_heading = False
+
+        for i, node in enumerate(nodes):
+            # Check if this is a "Speaker Notes" heading (H3)
+            if isinstance(node, Heading) and node.level == 3:
+                # Extract heading text
+                heading_text = self._extract_text_from_nodes(node.content).strip()
+                if heading_text == "Speaker Notes":
+                    # Found it! Everything after this (excluding the heading itself) is notes
+                    found_notes_heading = True
+                    # Capture remaining nodes as notes content
+                    notes_content = nodes[i + 1 :]
+                    break
+
+            # If we haven't found the notes heading yet, add to slide content
+            if not found_notes_heading:
+                slide_content.append(node)
+
+        return slide_content, notes_content
+
+    def _add_speaker_notes(self, page: Any, notes_nodes: list[Node]) -> None:
+        """Add speaker notes to a page.
+
+        Parameters
+        ----------
+        page : Page
+            ODP page to add notes to
+        notes_nodes : list of Node
+            AST nodes to render as speaker notes
+
+        """
+        try:
+            from odf import presentation
+            from odf.draw import Frame, TextBox
+
+            # Create notes element
+            notes = presentation.Notes()
+
+            # Create frame and textbox for notes content
+            notes_frame = Frame(width="16cm", height="10cm", x="2cm", y="2cm")
+            notes_textbox = TextBox()
+
+            # Temporarily set current frame to notes textbox
+            saved_frame = self._current_frame
+            self._current_frame = notes_textbox
+
+            # Render notes content using visitor pattern
+            for node in notes_nodes:
+                node.accept(self)
+
+            # Restore previous frame
+            self._current_frame = saved_frame
+
+            # Assemble notes structure
+            notes_frame.addElement(notes_textbox)
+            notes.addElement(notes_frame)
+
+            # Add notes to page
+            page.addElement(notes)
+
+        except Exception as e:
+            # Log warning but don't fail rendering
+            logger.warning(f"Failed to add speaker notes to page: {e}")
 
     def _extract_text_from_nodes(self, nodes: list[Node]) -> str:
         """Extract plain text from inline nodes.

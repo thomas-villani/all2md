@@ -506,3 +506,141 @@ class TestComplexPresentation:
         renderer.render(doc, output_file)
 
         assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestSpeakerNotes:
+    """Tests for speaker notes rendering."""
+
+    def test_render_with_speaker_notes(self, tmp_path):
+        """Test rendering slide with speaker notes."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="These are speaker notes")]),
+            ]
+        )
+
+        renderer = PptxRenderer()
+        output_file = tmp_path / "with_notes.pptx"
+        renderer.render(doc, output_file)
+
+        # Verify notes were added
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+        slide = prs.slides[0]
+        notes_text = slide.notes_slide.notes_text_frame.text
+        assert "speaker notes" in notes_text.lower()
+
+    def test_render_without_notes_when_disabled(self, tmp_path):
+        """Test that notes are not rendered when include_notes=False."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="These should not appear")]),
+            ]
+        )
+
+        options = PptxRendererOptions(include_notes=False)
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "no_notes.pptx"
+        renderer.render(doc, output_file)
+
+        # Verify notes were not added (or are empty)
+        prs = Presentation(str(output_file))
+        slide = prs.slides[0]
+        notes_text = slide.notes_slide.notes_text_frame.text.strip()
+        # Notes should be empty or only contain the "Speaker Notes" heading as regular content
+        assert "These should not appear" not in notes_text
+
+    def test_render_slide_without_notes_section(self, tmp_path):
+        """Test rendering slide without speaker notes section."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+            ]
+        )
+
+        renderer = PptxRenderer()
+        output_file = tmp_path / "no_notes_section.pptx"
+        renderer.render(doc, output_file)
+
+        # Should not crash, notes should be empty
+        prs = Presentation(str(output_file))
+        slide = prs.slides[0]
+        notes_text = slide.notes_slide.notes_text_frame.text.strip()
+        assert notes_text == ""
+
+    def test_render_notes_with_formatting(self, tmp_path):
+        """Test rendering speaker notes with formatting."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(
+                    content=[
+                        Strong(content=[Text(content="Bold")]),
+                        Text(content=" and "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text"),
+                    ]
+                ),
+            ]
+        )
+
+        renderer = PptxRenderer()
+        output_file = tmp_path / "formatted_notes.pptx"
+        renderer.render(doc, output_file)
+
+        # Verify notes contain the text
+        prs = Presentation(str(output_file))
+        slide = prs.slides[0]
+        notes_text = slide.notes_slide.notes_text_frame.text
+        assert "Bold" in notes_text
+        assert "italic" in notes_text
+
+    def test_render_multiple_slides_with_notes(self, tmp_path):
+        """Test rendering multiple slides each with their own notes."""
+        doc = Document(
+            children=[
+                # Slide 1
+                Heading(level=2, content=[Text(content="Slide 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="Notes for slide 1")]),
+                ThematicBreak(),
+                # Slide 2
+                Heading(level=2, content=[Text(content="Slide 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="Notes for slide 2")]),
+                ThematicBreak(),
+                # Slide 3 without notes
+                Heading(level=2, content=[Text(content="Slide 3")]),
+                Paragraph(content=[Text(content="Content 3")]),
+            ]
+        )
+
+        renderer = PptxRenderer()
+        output_file = tmp_path / "multi_notes.pptx"
+        renderer.render(doc, output_file)
+
+        # Verify each slide has correct notes
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 3
+
+        notes1 = prs.slides[0].notes_slide.notes_text_frame.text
+        assert "Notes for slide 1" in notes1
+
+        notes2 = prs.slides[1].notes_slide.notes_text_frame.text
+        assert "Notes for slide 2" in notes2
+
+        notes3 = prs.slides[2].notes_slide.notes_text_frame.text.strip()
+        assert notes3 == ""  # No notes for slide 3

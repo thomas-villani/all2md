@@ -5,6 +5,7 @@
 
 This module defines options for parsing and rendering ODP presentation files.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -89,6 +90,11 @@ class OdpRendererOptions(BaseRendererOptions):
         Font size for slide titles.
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security options for fetching remote images in slides.
+    include_notes : bool, default True
+        Whether to detect and render speaker notes from "Speaker Notes" sections.
+        When True, H3 headings with "Speaker Notes" text are detected, and content
+        after them is rendered to slide speaker notes. When False, speaker notes
+        sections are ignored and rendered as regular slide content.
 
     """
 
@@ -132,4 +138,12 @@ class OdpRendererOptions(BaseRendererOptions):
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
+    )
+    include_notes: bool = field(
+        default=True,
+        metadata={
+            "help": "Include speaker notes in rendered slides",
+            "cli_name": "no-include-notes",
+            "importance": "core",
+        },
     )

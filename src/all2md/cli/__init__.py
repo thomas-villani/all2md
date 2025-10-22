@@ -65,7 +65,6 @@ from all2md.cli.commands import (
     _configure_logging,
     _get_about_info,
     collect_input_files,
-    handle_convert_command,
     handle_dependency_commands,
     handle_help_command,
     save_config_to_file,

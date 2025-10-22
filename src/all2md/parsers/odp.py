@@ -305,15 +305,40 @@ class OdpToAstConverter(BaseParser):
             Notes nodes
 
         """
-        # ODP notes are typically in a notes page associated with the slide
-        # This is a simplified implementation
-        notes: list[Node] = []
+        notes_nodes: list[Node] = []
 
-        # Look for notes elements
-        # FIXME: This is a placeholder - actual notes extraction may require
-        # more complex logic depending on ODP structure
+        try:
+            # Look for presentation:notes elements within the slide
+            for child in slide_element.childNodes:
+                if not hasattr(child, "qname"):
+                    continue
 
-        return notes
+                # Check if this is a notes element
+                if child.qname == (self.PRESENTATIONNS, "notes"):
+                    # Process notes content
+                    notes_content: list[Node] = []
+
+                    # Process all elements within the notes
+                    for notes_child in child.childNodes:
+                        node = self._process_element(notes_child, doc)
+                        if node:
+                            if isinstance(node, list):
+                                notes_content.extend(node)
+                            else:
+                                notes_content.append(node)
+
+                    # Only add notes section if we found content
+                    if notes_content:
+                        # Add heading to identify speaker notes section (consistent with PPTX)
+                        notes_nodes.append(Heading(level=3, content=[Text(content="Speaker Notes")]))
+                        notes_nodes.extend(notes_content)
+
+                    break  # Only process first notes element
+
+        except Exception as e:
+            logger.debug(f"Failed to extract speaker notes from slide: {e}")
+
+        return notes_nodes
 
     def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
         """Process an ODP element to AST node(s).

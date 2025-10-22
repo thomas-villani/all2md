@@ -229,7 +229,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return auto_split_ast(doc, heading_level=self.options.slide_split_heading_level)
 
     def _create_slide(
-            self, prs: "Presentation", heading: Heading | None, content_nodes: list[Node], is_first: bool = False
+        self, prs: "Presentation", heading: Heading | None, content_nodes: list[Node], is_first: bool = False
     ) -> "Slide":
         """Create a slide with content.
 
@@ -269,19 +269,26 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Create slide
         slide = prs.slides.add_slide(layout)
 
+        # Separate slide content from speaker notes (if enabled)
+        if self.options.include_notes:
+            slide_content, notes_content = self._extract_speaker_notes(content_nodes)
+        else:
+            slide_content = content_nodes
+            notes_content = []
+
         # Set title
         title = ""
-        nodes_to_render = content_nodes
+        nodes_to_render = slide_content
 
         if self.options.use_heading_as_slide_title:
             if heading:
                 # Heading provided by splitting strategy (heading mode)
                 title = extract_heading_text(heading)
-            elif content_nodes and isinstance(content_nodes[0], Heading):
+            elif slide_content and isinstance(slide_content[0], Heading):
                 # Extract first heading from content (separator mode)
-                title = extract_heading_text(content_nodes[0])
+                title = extract_heading_text(slide_content[0])
                 # Don't render the heading again in content
-                nodes_to_render = content_nodes[1:]
+                nodes_to_render = slide_content[1:]
 
         # Add title to slide if it has a title placeholder
         if slide.shapes.title and title:
@@ -289,6 +296,10 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         # Render content nodes
         self._render_slide_content(slide, nodes_to_render)
+
+        # Add speaker notes if present
+        if notes_content:
+            self._write_speaker_notes(slide, notes_content)
 
         return slide
 
@@ -547,6 +558,81 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                     f"Failed to fetch remote image {url}: {e!r}", rendering_stage="image_processing", original_error=e
                 ) from e
             return None
+
+    def _extract_speaker_notes(self, nodes: list[Node]) -> tuple[list[Node], list[Node]]:
+        """Extract speaker notes from slide content nodes.
+
+        Scans for an H3 heading with "Speaker Notes" text and splits the nodes
+        into slide content (before the heading) and notes content (after the heading).
+
+        Parameters
+        ----------
+        nodes : list of Node
+            All nodes for the slide
+
+        Returns
+        -------
+        tuple of (list of Node, list of Node)
+            (slide_content_nodes, notes_content_nodes)
+
+        """
+        slide_content: list[Node] = []
+        notes_content: list[Node] = []
+        found_notes_heading = False
+
+        for i, node in enumerate(nodes):
+            # Check if this is a "Speaker Notes" heading (H3)
+            if isinstance(node, Heading) and node.level == 3:
+                # Extract heading text
+                heading_text = self._extract_text_from_nodes(node.content).strip()
+                if heading_text == "Speaker Notes":
+                    # Found it! Everything after this (excluding the heading itself) is notes
+                    found_notes_heading = True
+                    # Capture remaining nodes as notes content
+                    notes_content = nodes[i + 1 :]
+                    break
+
+            # If we haven't found the notes heading yet, add to slide content
+            if not found_notes_heading:
+                slide_content.append(node)
+
+        return slide_content, notes_content
+
+    def _write_speaker_notes(self, slide: "Slide", notes_nodes: list[Node]) -> None:
+        """Write speaker notes to a slide.
+
+        Parameters
+        ----------
+        slide : Slide
+            Slide to add notes to
+        notes_nodes : list of Node
+            AST nodes to render as speaker notes
+
+        """
+        try:
+            # Access the notes slide
+            notes_slide = slide.notes_slide
+
+            # Get the notes text frame
+            notes_text_frame = notes_slide.notes_text_frame
+
+            # Clear any existing notes
+            notes_text_frame.clear()
+
+            # Temporarily set current textbox to notes frame
+            saved_textbox = self._current_textbox
+            self._current_textbox = notes_text_frame
+
+            # Render notes content using visitor pattern
+            for node in notes_nodes:
+                node.accept(self)
+
+            # Restore previous textbox
+            self._current_textbox = saved_textbox
+
+        except Exception as e:
+            # Log warning but don't fail rendering
+            logger.warning(f"Failed to write speaker notes to slide: {e}")
 
     def _extract_text_from_nodes(self, nodes: list[Node]) -> str:
         """Extract plain text from inline nodes.

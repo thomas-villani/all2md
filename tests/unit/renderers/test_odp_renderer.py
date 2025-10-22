@@ -469,3 +469,174 @@ class TestComplexPresentation:
         renderer.render(doc, output_file)
 
         assert output_file.exists()
+
+
+@pytest.mark.unit
+class TestSpeakerNotes:
+    """Tests for speaker notes rendering."""
+
+    def test_render_with_speaker_notes(self, tmp_path):
+        """Test rendering slide with speaker notes."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="These are speaker notes")]),
+            ]
+        )
+
+        renderer = OdpRenderer()
+        output_file = tmp_path / "with_notes.odp"
+        renderer.render(doc, output_file)
+
+        # Verify file was created successfully
+        assert output_file.exists()
+
+        # Verify notes were added by checking ODP structure
+        from odf import draw, presentation
+        from odf.opendocument import load
+
+        odp = load(str(output_file))
+        pages = odp.presentation.getElementsByType(draw.Page)
+        assert len(pages) >= 1
+
+        # Check for notes element
+        page = pages[0]
+        notes_elements = page.getElementsByType(presentation.Notes)
+        assert len(notes_elements) > 0, "Should have notes element"
+
+    def test_render_without_notes_when_disabled(self, tmp_path):
+        """Test that notes are not rendered when include_notes=False."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="These should not appear")]),
+            ]
+        )
+
+        options = OdpRendererOptions(include_notes=False)
+        renderer = OdpRenderer(options)
+        output_file = tmp_path / "no_notes.odp"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify no notes were added
+        from odf import draw, presentation
+        from odf.opendocument import load
+
+        odp = load(str(output_file))
+        pages = odp.presentation.getElementsByType(draw.Page)
+        page = pages[0]
+        notes_elements = page.getElementsByType(presentation.Notes)
+        assert len(notes_elements) == 0, "Should not have notes when disabled"
+
+    def test_render_slide_without_notes_section(self, tmp_path):
+        """Test rendering slide without speaker notes section."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+            ]
+        )
+
+        renderer = OdpRenderer()
+        output_file = tmp_path / "no_notes_section.odp"
+        renderer.render(doc, output_file)
+
+        # Should not crash
+        assert output_file.exists()
+
+        # Verify no notes element
+        from odf import draw, presentation
+        from odf.opendocument import load
+
+        odp = load(str(output_file))
+        pages = odp.presentation.getElementsByType(draw.Page)
+        page = pages[0]
+        notes_elements = page.getElementsByType(presentation.Notes)
+        assert len(notes_elements) == 0
+
+    def test_render_notes_with_formatting(self, tmp_path):
+        """Test rendering speaker notes with formatting."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide Title")]),
+                Paragraph(content=[Text(content="Slide content")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(
+                    content=[
+                        Strong(content=[Text(content="Bold")]),
+                        Text(content=" and "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text"),
+                    ]
+                ),
+            ]
+        )
+
+        renderer = OdpRenderer()
+        output_file = tmp_path / "formatted_notes.odp"
+        renderer.render(doc, output_file)
+
+        # Verify notes element exists
+        assert output_file.exists()
+
+        from odf import draw, presentation
+        from odf.opendocument import load
+
+        odp = load(str(output_file))
+        pages = odp.presentation.getElementsByType(draw.Page)
+        page = pages[0]
+        notes_elements = page.getElementsByType(presentation.Notes)
+        assert len(notes_elements) > 0
+
+    def test_render_multiple_slides_with_notes(self, tmp_path):
+        """Test rendering multiple slides each with their own notes."""
+        doc = Document(
+            children=[
+                # Slide 1
+                Heading(level=2, content=[Text(content="Slide 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="Notes for slide 1")]),
+                ThematicBreak(),
+                # Slide 2
+                Heading(level=2, content=[Text(content="Slide 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+                Heading(level=3, content=[Text(content="Speaker Notes")]),
+                Paragraph(content=[Text(content="Notes for slide 2")]),
+                ThematicBreak(),
+                # Slide 3 without notes
+                Heading(level=2, content=[Text(content="Slide 3")]),
+                Paragraph(content=[Text(content="Content 3")]),
+            ]
+        )
+
+        renderer = OdpRenderer()
+        output_file = tmp_path / "multi_notes.odp"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify each slide has correct notes status
+        from odf import draw, presentation
+        from odf.opendocument import load
+
+        odp = load(str(output_file))
+        pages = odp.presentation.getElementsByType(draw.Page)
+        assert len(pages) == 3
+
+        # Slide 1 and 2 should have notes
+        notes1 = pages[0].getElementsByType(presentation.Notes)
+        assert len(notes1) > 0, "Slide 1 should have notes"
+
+        notes2 = pages[1].getElementsByType(presentation.Notes)
+        assert len(notes2) > 0, "Slide 2 should have notes"
+
+        # Slide 3 should not have notes
+        notes3 = pages[2].getElementsByType(presentation.Notes)
+        assert len(notes3) == 0, "Slide 3 should not have notes"
