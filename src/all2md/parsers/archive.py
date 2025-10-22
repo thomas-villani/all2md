@@ -10,12 +10,14 @@ TAR, 7Z, and RAR archives, converts parseable files to AST, and handles resource
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import io
 import logging
 import os
 import tarfile
 import tempfile
 from collections.abc import Callable
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import IO, Any
 
@@ -36,6 +38,77 @@ from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
+
+
+def _process_archive_file_worker(
+    file_path: str, file_data: bytes, options_dict: dict[str, Any]
+) -> tuple[str, Document | None, dict[str, Any] | None]:
+    """Worker function for parallel file processing.
+
+    This function is defined at module level to be picklable for multiprocessing.
+
+    Parameters
+    ----------
+    file_path : str
+        Path of file in archive
+    file_data : bytes
+        File content bytes
+    options_dict : dict[str, Any]
+        Serialized options dictionary
+
+    Returns
+    -------
+    tuple
+        (file_path, Document or None, error_dict or None)
+        Document is None on failure, error_dict contains error details if failed
+
+    """
+    from all2md import to_ast
+    from all2md.constants import RESOURCE_FILE_EXTENSIONS
+
+    try:
+        # Check if this file should be treated as a resource
+        resource_extensions = options_dict.get("resource_file_extensions")
+        if resource_extensions is None:
+            resource_extensions = RESOURCE_FILE_EXTENSIONS
+        elif len(resource_extensions) == 0:
+            resource_extensions = []
+
+        file_ext = Path(file_path).suffix.lower()
+        if file_ext and resource_extensions and file_ext in [ext.lower() for ext in resource_extensions]:
+            # This is a resource file, don't parse it
+            return (file_path, None, None)
+
+        # Create a BytesIO object with a name attribute for better format detection
+        file_obj = io.BytesIO(file_data)
+        file_obj.name = file_path
+
+        # Detect format using registry
+        detected_format = registry.detect_format(file_obj)
+
+        # Check if we have a parser for this format
+        try:
+            _parser_class = registry.get_parser(detected_format)
+        except FormatError:
+            # No parser available
+            return (file_path, None, None)
+
+        # Reset the file object position for parsing
+        file_obj.seek(0)
+
+        # Convert using the detected format (no progress callback in parallel mode)
+        doc = to_ast(file_obj, source_format=detected_format, progress=None)  # type: ignore[arg-type]
+
+        return (file_path, doc, None)
+
+    except Exception as e:
+        # Return error information
+        error_dict = {
+            "file_path": file_path,
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+        }
+        return (file_path, None, error_dict)
 
 
 class ArchiveToAstConverter(BaseParser):
@@ -60,6 +133,8 @@ class ArchiveToAstConverter(BaseParser):
         self.options: ArchiveOptions = options
         # Track extracted resources for manifest
         self._extracted_resources: list[dict[str, Any]] = []
+        # Track failed files for error reporting
+        self._failed_files: list[dict[str, Any]] = []
         # Store archive type for metadata extraction
         self._archive_type: str = ""
 
@@ -522,11 +597,18 @@ class ArchiveToAstConverter(BaseParser):
 
         """
         children: list[Node] = []
-        # Reset extracted resources list
+        # Reset extracted resources and failed files lists
         self._extracted_resources = []
+        self._failed_files = []
 
         # Get list of files to process
         file_list = self._get_file_list(archive, archive_type)
+
+        # Check if parallel processing should be used
+        if self._should_use_parallel_processing(len(file_list)):
+            return self._convert_to_ast_parallel(archive, archive_type, file_list)
+
+        # Otherwise use sequential processing (original code below)
 
         logger.debug(f"Found {len(file_list)} files to process: {file_list}")
 
@@ -601,6 +683,16 @@ class ArchiveToAstConverter(BaseParser):
 
             except Exception as e:
                 logger.warning(f"Failed to process file {file_path}: {e}")
+                # Track error for error report
+                error_type = type(e).__name__
+                error_message = str(e)
+                self._failed_files.append(
+                    {
+                        "file_path": file_path,
+                        "error_type": error_type,
+                        "error_message": error_message,
+                    }
+                )
                 if not self.options.skip_empty_files:
                     display_path = self._get_display_path(file_path)
                     if self.options.create_section_headings:
@@ -612,6 +704,180 @@ class ArchiveToAstConverter(BaseParser):
         # Add resource manifest if requested and resources were extracted
         if self.options.include_resource_manifest and self.options.extract_resource_files and self._extracted_resources:
             self._add_resource_manifest(children)
+
+        # Add error report if any files failed to process
+        if self._failed_files:
+            self._add_error_report_table(children)
+
+        return Document(children=children)
+
+    def _should_use_parallel_processing(self, file_count: int) -> bool:
+        """Check if parallel processing should be used based on file count and options.
+
+        Parameters
+        ----------
+        file_count : int
+            Number of files to process
+
+        Returns
+        -------
+        bool
+            True if parallel processing should be used
+
+        """
+        return (
+            self.options.enable_parallel_processing
+            and file_count >= self.options.parallel_threshold
+        )
+
+    def _convert_to_ast_parallel(self, archive: Any, archive_type: str, file_list: list[str]) -> Document:
+        """Convert archive to AST using parallel processing.
+
+        Parameters
+        ----------
+        archive : Any
+            Opened archive object
+        archive_type : str
+            Type of archive
+        file_list : list[str]
+            List of files to process
+
+        Returns
+        -------
+        Document
+            AST document node
+
+        """
+        children: list[Node] = []
+
+        logger.info(f"Using parallel processing for {len(file_list)} files")
+
+        if not file_list:
+            logger.warning("No files to process in archive")
+            children.append(Paragraph(content=[Text(content="(Empty archive or no matching files)")]))
+            return Document(children=children)
+
+        # Prepare options dict for workers
+        options_dict = {
+            "resource_file_extensions": self.options.resource_file_extensions,
+        }
+
+        # For 7z archives, extract all files at once since py7zr.read() consumes the archive
+        file_data_cache: dict[str, bytes] = {}
+        if archive_type == "7z":
+            try:
+                data_dict = archive.read(file_list)
+                for fname, bio in data_dict.items():
+                    if hasattr(bio, "read"):
+                        file_data_cache[fname] = bio.read()
+                    elif isinstance(bio, bytes):
+                        file_data_cache[fname] = bio
+                    else:
+                        file_data_cache[fname] = b""
+            except Exception as e:
+                logger.warning(f"Failed to extract 7z files: {e}")
+                children.append(Paragraph(content=[Text(content=f"(Error extracting archive: {e!s})")]))
+                return Document(children=children)
+
+        # Read all files into memory for parallel processing
+        file_data_map: dict[str, bytes] = {}
+        for file_path in file_list:
+            try:
+                # For 7z, use cached data; for others, read directly
+                if archive_type == "7z" and file_path in file_data_cache:
+                    file_data_map[file_path] = file_data_cache[file_path]
+                else:
+                    file_data = self._read_archive_file(archive, archive_type, file_path)
+                    file_data_map[file_path] = file_data
+            except Exception as e:
+                logger.warning(f"Failed to read file {file_path}: {e}")
+                self._failed_files.append(
+                    {
+                        "file_path": file_path,
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                    }
+                )
+
+        # Process files in parallel
+        max_workers = self.options.max_workers
+        results_map: dict[str, tuple[Document | None, dict[str, Any] | None]] = {}
+
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            future_to_file = {}
+            for file_path, file_data in file_data_map.items():
+                if not file_data and self.options.skip_empty_files:
+                    logger.debug(f"Skipping empty file: {file_path}")
+                    continue
+                future = executor.submit(_process_archive_file_worker, file_path, file_data, options_dict)
+                future_to_file[future] = file_path
+
+            # Collect results as they complete
+            for future in as_completed(future_to_file):
+                file_path = future_to_file[future]
+                try:
+                    result_file_path, doc, error_dict = future.result()
+                    results_map[result_file_path] = (doc, error_dict)
+
+                    # Track errors
+                    if error_dict:
+                        self._failed_files.append(error_dict)
+                except Exception as e:
+                    logger.warning(f"Worker exception for {file_path}: {e}")
+                    self._failed_files.append(
+                        {
+                            "file_path": file_path,
+                            "error_type": type(e).__name__,
+                            "error_message": str(e),
+                        }
+                    )
+
+        # Reconstruct document in original order
+        for file_path in file_list:
+            if file_path not in results_map:
+                # File was skipped or failed to read
+                continue
+
+            doc, error_dict = results_map[file_path]
+
+            # Handle resource files (doc is None but no error)
+            if doc is None and error_dict is None:
+                # This is a resource file
+                if self.options.extract_resource_files and self.options.attachment_output_dir:
+                    file_data = file_data_map.get(file_path, b"")
+                    self._extract_resource_file(file_path, file_data)
+                continue
+
+            # Handle conversion errors (error_dict is not None)
+            if error_dict:
+                if not self.options.skip_empty_files:
+                    display_path = self._get_display_path(file_path)
+                    if self.options.create_section_headings:
+                        children.append(Heading(level=2, content=[Text(content=display_path)]))
+                    error_msg = f"(Error processing file: {error_dict['error_message']})"
+                    children.append(Paragraph(content=[Text(content=error_msg)]))
+                continue
+
+            # Add successfully converted content
+            if doc and doc.children:
+                if self.options.create_section_headings:
+                    display_path = self._get_display_path(file_path)
+                    children.append(Heading(level=2, content=[Text(content=display_path)]))
+                children.extend(doc.children)
+            elif not self.options.skip_empty_files:
+                display_path = self._get_display_path(file_path)
+                if self.options.create_section_headings:
+                    children.append(Heading(level=2, content=[Text(content=display_path)]))
+                children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
+
+        # Add resource manifest if requested and resources were extracted
+        if self.options.include_resource_manifest and self.options.extract_resource_files and self._extracted_resources:
+            self._add_resource_manifest(children)
+
+        # Add error report if any files failed to process
+        if self._failed_files:
+            self._add_error_report_table(children)
 
         return Document(children=children)
 
@@ -909,12 +1175,16 @@ class ArchiveToAstConverter(BaseParser):
             # Write the file
             output_file.write_bytes(file_data)
 
+            # Compute SHA256 hash for audit trail
+            sha256_hash = hashlib.sha256(file_data).hexdigest()
+
             # Track for manifest
             self._extracted_resources.append(
                 {
                     "filename": Path(file_path).name,
                     "path": file_path,
                     "size": len(file_data),
+                    "sha256": sha256_hash,
                     "output_path": str(output_file),
                 }
             )
@@ -944,21 +1214,69 @@ class ArchiveToAstConverter(BaseParser):
             TableCell(content=[Text(content="Filename")], alignment="left"),
             TableCell(content=[Text(content="Archive Path")], alignment="left"),
             TableCell(content=[Text(content="Size (bytes)")], alignment="right"),
+            TableCell(content=[Text(content="SHA256 Hash")], alignment="left"),
         ]
         header_row = TableRow(cells=header_cells, is_header=True)
 
         # Build data rows
         data_rows = []
+        total_size = 0
         for resource in self._extracted_resources:
             row_cells = [
                 TableCell(content=[Text(content=resource["filename"])], alignment="left"),
                 TableCell(content=[Text(content=resource["path"])], alignment="left"),
                 TableCell(content=[Text(content=str(resource["size"]))], alignment="right"),
+                TableCell(content=[Text(content=resource.get("sha256", "N/A"))], alignment="left"),
+            ]
+            data_rows.append(TableRow(cells=row_cells, is_header=False))
+            total_size += resource["size"]
+
+        # Add total size summary row
+        summary_cells = [
+            TableCell(content=[Text(content="TOTAL")], alignment="left"),
+            TableCell(content=[Text(content="")], alignment="left"),
+            TableCell(content=[Text(content=str(total_size))], alignment="right"),
+            TableCell(content=[Text(content="")], alignment="left"),
+        ]
+        data_rows.append(TableRow(cells=summary_cells, is_header=False))
+
+        # Create table
+        alignments: list[Alignment | None] = ["left", "left", "right", "left"]
+        table = Table(header=header_row, rows=data_rows, alignments=alignments)
+        children.append(table)
+
+    def _add_error_report_table(self, children: list[Node]) -> None:
+        """Add an error report table of failed files to the document.
+
+        Parameters
+        ----------
+        children : list[Node]
+            Document children list to append error report to
+
+        """
+        # Add heading
+        children.append(Heading(level=2, content=[Text(content="Processing Errors")]))
+
+        # Build error report table
+        header_cells = [
+            TableCell(content=[Text(content="File Path")], alignment="left"),
+            TableCell(content=[Text(content="Error Type")], alignment="left"),
+            TableCell(content=[Text(content="Error Message")], alignment="left"),
+        ]
+        header_row = TableRow(cells=header_cells, is_header=True)
+
+        # Build data rows
+        data_rows = []
+        for error_info in self._failed_files:
+            row_cells = [
+                TableCell(content=[Text(content=error_info["file_path"])], alignment="left"),
+                TableCell(content=[Text(content=error_info["error_type"])], alignment="left"),
+                TableCell(content=[Text(content=error_info["error_message"])], alignment="left"),
             ]
             data_rows.append(TableRow(cells=row_cells, is_header=False))
 
         # Create table
-        alignments: list[Alignment | None] = ["left", "left", "right"]
+        alignments: list[Alignment | None] = ["left", "left", "left"]
         table = Table(header=header_row, rows=data_rows, alignments=alignments)
         children.append(table)
 

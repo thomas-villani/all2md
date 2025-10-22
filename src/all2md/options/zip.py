@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions
+from all2md.options.common import AttachmentOptionsMixin
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,16 @@ class ZipOptions(BaseParserOptions, AttachmentOptionsMixin):
         Whether to skip files with no content or that fail to parse.
     include_resource_manifest : bool, default True
         Whether to include a manifest table of extracted resources at the end of the document.
+    enable_parallel_processing : bool, default False
+        Whether to enable parallel processing for large archives (opt-in).
+        When enabled and file count exceeds parallel_threshold, files are processed
+        in parallel using a process pool for improved performance.
+    max_workers : int or None, default None
+        Maximum number of worker processes for parallel processing.
+        If None, defaults to the number of CPU cores available.
+    parallel_threshold : int, default 10
+        Minimum number of files required to enable parallel processing.
+        Archives with fewer files are always processed sequentially.
 
     """
 
@@ -120,6 +130,33 @@ class ZipOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={
             "help": "Include manifest table of extracted resources",
             "cli_name": "no-resource-manifest",
+            "importance": "advanced",
+        },
+    )
+
+    enable_parallel_processing: bool = field(
+        default=False,
+        metadata={
+            "help": "Enable parallel processing for large archives (opt-in)",
+            "cli_name": "parallel",
+            "importance": "advanced",
+        },
+    )
+
+    max_workers: int | None = field(
+        default=None,
+        metadata={
+            "help": "Maximum worker processes for parallel processing (None=auto-detect CPU cores)",
+            "cli_name": "max-workers",
+            "importance": "advanced",
+        },
+    )
+
+    parallel_threshold: int = field(
+        default=10,
+        metadata={
+            "help": "Minimum number of files to enable parallel processing",
+            "cli_name": "parallel-threshold",
             "importance": "advanced",
         },
     )
