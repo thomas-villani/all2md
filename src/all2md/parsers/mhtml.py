@@ -22,6 +22,7 @@ from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.encoding import read_text_with_encoding_detection
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 
@@ -101,7 +102,7 @@ class MhtmlToAstConverter(BaseParser):
         return doc
 
     def _extract_html_from_mhtml(self, msg: email.message.EmailMessage) -> str:
-        """Extract HTML content from MHTML message.
+        """Extract HTML content from MHTML message with proper charset handling.
 
         Parameters
         ----------
@@ -122,13 +123,33 @@ class MhtmlToAstConverter(BaseParser):
                 if content_type == "text/html":
                     payload = part.get_payload(decode=True)
                     if payload and isinstance(payload, bytes):
-                        html_content = payload.decode("utf-8", errors="ignore")
+                        # Get charset from Content-Type header
+                        charset = part.get_content_charset()
+                        if charset:
+                            # Try the declared charset first, then fallback to detection
+                            fallback_encodings = [charset, "utf-8", "utf-8-sig", "latin-1"]
+                            html_content = read_text_with_encoding_detection(
+                                payload, fallback_encodings=fallback_encodings
+                            )
+                        else:
+                            # No charset declared, use full detection
+                            html_content = read_text_with_encoding_detection(payload)
                         break
         else:
             if msg.get_content_type() == "text/html":
                 payload = msg.get_payload(decode=True)
                 if payload and isinstance(payload, bytes):
-                    html_content = payload.decode("utf-8", errors="ignore")
+                    # Get charset from Content-Type header
+                    charset = msg.get_content_charset()
+                    if charset:
+                        # Try the declared charset first, then fallback to detection
+                        fallback_encodings = [charset, "utf-8", "utf-8-sig", "latin-1"]
+                        html_content = read_text_with_encoding_detection(
+                            payload, fallback_encodings=fallback_encodings
+                        )
+                    else:
+                        # No charset declared, use full detection
+                        html_content = read_text_with_encoding_detection(payload)
 
         return html_content
 

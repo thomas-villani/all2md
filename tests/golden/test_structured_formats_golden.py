@@ -6,9 +6,6 @@ import json
 from io import BytesIO
 
 import pytest
-
-from all2md import to_markdown
-from all2md.exceptions import DependencyError
 from fixtures.generators.csv_fixtures import (
     create_basic_csv,
     create_csv_with_special_characters,
@@ -36,6 +33,9 @@ from fixtures.generators.xlsx_fixtures import (
     create_xlsx_with_image,
     create_xlsx_with_multiple_sheets,
 )
+
+from all2md import to_markdown
+from all2md.exceptions import DependencyError
 
 
 @pytest.mark.golden

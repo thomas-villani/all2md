@@ -18,7 +18,6 @@ from all2md.transforms.builtin import (
     TextReplacerTransform,
 )
 
-
 # Fixtures
 
 

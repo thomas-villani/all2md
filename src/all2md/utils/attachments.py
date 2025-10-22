@@ -25,11 +25,11 @@ import base64
 import logging
 import os
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import quote as url_quote, urljoin
-
-import unicodedata
+from urllib.parse import quote as url_quote
+from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 from all2md.utils.escape import escape_markdown_context_aware

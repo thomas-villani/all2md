@@ -22,7 +22,6 @@ from all2md.ast import (
     Document,
     Emphasis,
     Heading,
-    Image,
     LineBreak,
     Link,
     Node,
@@ -186,7 +185,7 @@ class Fb2ToAstConverter(BaseParser):
             if path.name.lower().endswith(".fb2.zip") or path.suffix.lower() == ".zip":
                 with self._validated_zip_input(path, suffix=".zip") as validated:
                     return self._extract_fb2_from_zip(validated)
-                
+
             return path.read_bytes()
 
         if isinstance(input_data, bytes):

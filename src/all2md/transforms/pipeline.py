@@ -54,7 +54,7 @@ from typing import Any, Optional, Union
 
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
-from all2md.options import MarkdownOptions
+from all2md.options.markdown import MarkdownOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.renderers.base import BaseRendererOptions
 from all2md.transforms.hooks import HookCallable, HookContext, HookManager, HookTarget

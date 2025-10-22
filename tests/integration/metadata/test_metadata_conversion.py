@@ -4,10 +4,10 @@ import json
 from io import BytesIO
 
 import pytest
+from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md import EmlOptions, HtmlOptions, IpynbOptions, MhtmlOptions, to_markdown
 from all2md.options import MarkdownOptions
-from utils import cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.integration

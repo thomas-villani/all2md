@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new AsciiDoc parser improvements."""
 
-import pytest
 
 from all2md.ast import (
     BlockQuote,
@@ -10,8 +9,6 @@ from all2md.ast import (
     DefinitionTerm,
     Paragraph,
     Table,
-    TableCell,
-    TableRow,
     Text,
     ThematicBreak,
 )

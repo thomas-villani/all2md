@@ -8,10 +8,6 @@ import io
 from pathlib import Path
 
 import pytest
-
-from all2md import MhtmlOptions, to_markdown as mhtml_to_markdown
-from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options import MarkdownOptions
 from fixtures.generators.mhtml_fixtures import (
     create_malformed_mhtml,
     create_mhtml_file,
@@ -22,6 +18,11 @@ from fixtures.generators.mhtml_fixtures import (
     create_simple_mhtml,
 )
 from utils import assert_markdown_valid
+
+from all2md import MhtmlOptions
+from all2md import to_markdown as mhtml_to_markdown
+from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
+from all2md.options import MarkdownOptions
 
 
 @pytest.mark.integration

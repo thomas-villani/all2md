@@ -64,7 +64,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.exceptions import RenderingError
-from all2md.options import DocxRendererOptions
+from all2md.options.docx import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file

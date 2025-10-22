@@ -50,6 +50,7 @@ from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.encoding import read_text_with_encoding_detection
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
 
@@ -157,7 +158,7 @@ class MarkdownToAstConverter(BaseParser):
 
     @staticmethod
     def _load_markdown_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load markdown content from various input types.
+        """Load markdown content from various input types with encoding detection.
 
         Parameters
         ----------
@@ -171,14 +172,16 @@ class MarkdownToAstConverter(BaseParser):
 
         """
         if isinstance(input_data, bytes):
-            return input_data.decode("utf-8", errors="replace")
+            return read_text_with_encoding_detection(input_data)
         elif isinstance(input_data, Path):
-            return input_data.read_text(encoding="utf-8")
+            with open(input_data, "rb") as f:
+                return read_text_with_encoding_detection(f.read())
         elif isinstance(input_data, str):
             # Could be file path or markdown content
             path = Path(input_data)
             if path.exists() and path.is_file():
-                return path.read_text(encoding="utf-8")
+                with open(path, "rb") as f:
+                    return read_text_with_encoding_detection(f.read())
             else:
                 # Assume it's markdown content
                 return input_data
@@ -186,7 +189,7 @@ class MarkdownToAstConverter(BaseParser):
             # File-like object (IO[bytes])
             input_data.seek(0)
             content_bytes = input_data.read()
-            return content_bytes.decode("utf-8", errors="replace")
+            return read_text_with_encoding_detection(content_bytes)
 
     def _extract_frontmatter(self, content: str) -> tuple[str, DocumentMetadata]:
         """Extract and parse frontmatter from markdown content.

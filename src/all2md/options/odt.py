@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options import AttachmentOptionsMixin
 from all2md.options.common import NetworkFetchOptions
 
 

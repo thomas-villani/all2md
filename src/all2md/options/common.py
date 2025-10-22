@@ -17,6 +17,11 @@ from all2md.constants import (
     DEFAULT_ALLOW_LOCAL_FILES,
     DEFAULT_ALLOW_REMOTE_FETCH,
     DEFAULT_ALLOWED_HOSTS,
+    DEFAULT_ALT_TEXT_MODE,
+    DEFAULT_ATTACHMENT_BASE_URL,
+    DEFAULT_ATTACHMENT_MODE,
+    DEFAULT_ATTACHMENT_OUTPUT_DIR,
+    DEFAULT_MAX_ASSET_SIZE_BYTES,
     DEFAULT_MAX_CONCURRENT_REQUESTS,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_NETWORK_TIMEOUT,
@@ -32,11 +37,11 @@ from all2md.constants import (
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_REQUIRE_HEAD_SUCCESS,
     DEFAULT_REQUIRE_HTTPS,
+    AltTextMode,
+    AttachmentMode,
     HeaderCaseOption,
-    OCRMode, AttachmentMode, DEFAULT_ATTACHMENT_MODE, AltTextMode, DEFAULT_ALT_TEXT_MODE, DEFAULT_ATTACHMENT_OUTPUT_DIR,
-    DEFAULT_ATTACHMENT_BASE_URL, DEFAULT_MAX_ASSET_SIZE_BYTES,
+    OCRMode,
 )
-from all2md.options import CloneFrozenMixin
 from all2md.options.base import BaseParserOptions, CloneFrozenMixin
 
 logger = logging.getLogger(__name__)

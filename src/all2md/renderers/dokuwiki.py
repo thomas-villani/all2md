@@ -49,7 +49,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import DokuWikiOptions
+from all2md.options.dokuwiki import DokuWikiOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.escape import escape_dokuwiki, escape_html_entities
 from all2md.utils.html_sanitizer import sanitize_html_content

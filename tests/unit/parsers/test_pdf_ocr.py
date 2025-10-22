@@ -4,15 +4,17 @@ Tests the OCR detection logic, configuration options, and integration
 with the PDF parser. Uses mocking to avoid dependency on Tesseract.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from all2md.options.common import OCROptions
 from all2md.options.pdf import PdfOptions
 from all2md.parsers.pdf import (
-    _calculate_image_coverage,
-    _should_use_ocr,
-    _detect_page_language,
     PdfToAstConverter,
+    _calculate_image_coverage,
+    _detect_page_language,
+    _should_use_ocr,
 )
 
 

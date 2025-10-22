@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from all2md import IpynbOptions, to_markdown as ipynb_to_markdown
+from all2md import IpynbOptions
+from all2md import to_markdown as ipynb_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownOptions
 

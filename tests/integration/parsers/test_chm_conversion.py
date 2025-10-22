@@ -10,12 +10,6 @@ would need to provide actual CHM files as test fixtures.
 """
 
 import pytest
-
-from all2md.options.chm import ChmOptions
-from all2md.options.html import HtmlOptions
-from all2md.options.markdown import MarkdownOptions
-from all2md.parsers.chm import ChmParser
-from all2md.renderers.markdown import MarkdownRenderer
 from fixtures.generators.chm_fixtures import (
     create_chm_with_code,
     create_chm_with_images,
@@ -24,6 +18,12 @@ from fixtures.generators.chm_fixtures import (
     create_simple_chm,
 )
 from utils import assert_markdown_valid
+
+from all2md.options.chm import ChmOptions
+from all2md.options.html import HtmlOptions
+from all2md.options.markdown import MarkdownOptions
+from all2md.parsers.chm import ChmParser
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 @pytest.mark.integration

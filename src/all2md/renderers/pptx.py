@@ -900,27 +900,28 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             # For unordered lists, use PowerPoint's built-in bullet system
             p.level = nesting_level
 
-            # Explicitly enable bullets via OOXML for text boxes
+            # Explicitly enable bullets via OOXML for text boxes (if enabled)
             # This ensures bullets appear in both text boxes and content placeholders
-            try:
-                # Access paragraph properties element
-                pPr = p._element.get_or_add_pPr()
-                # Enable bullet numbering by adding/updating buFont, buChar, or buAutoNum
-                # For simple bullets, we add a buChar element (bullet character)
-                from pptx.oxml import parse_xml
+            if self.options.force_textbox_bullets:
+                try:
+                    # Access paragraph properties element
+                    pPr = p._element.get_or_add_pPr()
+                    # Enable bullet numbering by adding/updating buFont, buChar, or buAutoNum
+                    # For simple bullets, we add a buChar element (bullet character)
+                    from pptx.oxml import parse_xml
 
-                # Check if bullet is already configured
-                ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
-                if pPr.find(".//a:buChar", namespaces=ns) is None:
-                    # Add bullet character (standard bullet: U+2022)
-                    xml_ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
-                    bu_char_xml = f'<a:buChar xmlns:a="{xml_ns}" char="\u2022"/>'
-                    bu_char = parse_xml(bu_char_xml)
-                    pPr.append(bu_char)
-            except Exception as e:
-                # If OOXML manipulation fails, log warning but continue
-                # Bullets may not appear in text boxes, but rendering won't fail
-                logger.debug(f"Failed to enable bullets via OOXML: {e}")
+                    # Check if bullet is already configured
+                    ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+                    if pPr.find(".//a:buChar", namespaces=ns) is None:
+                        # Add bullet character (standard bullet: U+2022)
+                        xml_ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
+                        bu_char_xml = f'<a:buChar xmlns:a="{xml_ns}" char="\u2022"/>'
+                        bu_char = parse_xml(bu_char_xml)
+                        pPr.append(bu_char)
+                except Exception as e:
+                    # If OOXML manipulation fails, log warning but continue
+                    # Bullets may not appear in text boxes, but rendering won't fail
+                    logger.debug(f"Failed to enable bullets via OOXML: {e}")
 
             # Apply configurable indentation for nested lists
             # Note: list_indent_per_level option documents intent, but actual

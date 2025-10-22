@@ -16,7 +16,8 @@ Test Coverage:
 from io import BytesIO
 
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from all2md import HtmlOptions, to_markdown
 from all2md.options import NetworkFetchOptions

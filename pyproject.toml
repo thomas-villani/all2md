@@ -85,9 +85,11 @@ cli_extras = [
 ]
 spreadsheet = [
     "openpyxl>=3.1.5",
+    "chardet>=5.2.0",
 ]
 markdown = [
     "mistune>=3.0.0",
+    "chardet>=5.2.0",
 ]
 pdf_render = [
     "reportlab>=4.0.0",
@@ -103,9 +105,11 @@ templates = [
 ]
 rst = [
     "docutils>=0.20",
+    "chardet>=5.2.0",
 ]
 org = [
     "orgparse>=0.4.20250520",
+    "chardet>=5.2.0",
 ]
 archive = [
     "py7zr>=0.22.0",
@@ -123,6 +127,7 @@ outlook = [
 ]
 textile = [
     "textile>=4.0.1",
+    "chardet>=5.2.0",
 ]
 
 all = [
@@ -156,6 +161,7 @@ all = [
 ]
 wiki = [
     "mwparserfromhell>=0.7.2",
+    "chardet>=5.2.0",
 ]
 
 [project.scripts]

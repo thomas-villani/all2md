@@ -15,12 +15,10 @@ For large PST/OST files, streaming processing is used to minimize memory usage.
 from __future__ import annotations
 
 import datetime
-import io
 import logging
 import tempfile
 from email import policy
 from email.message import EmailMessage
-from email.utils import formataddr, parsedate_to_datetime
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 

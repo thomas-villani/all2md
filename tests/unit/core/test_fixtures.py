@@ -7,7 +7,6 @@ before attempting to run the full test suite.
 from pathlib import Path
 
 import pytest
-
 from fixtures.generators.docx_fixtures import create_minimal_docx, save_docx_to_bytes
 from fixtures.generators.html_fixtures import create_minimal_html
 from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures

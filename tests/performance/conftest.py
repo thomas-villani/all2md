@@ -388,7 +388,7 @@ def save_benchmark_results(request: pytest.FixtureRequest, session_benchmark_run
         if request.config.getoption("--benchmark-save", default=False):
             csv_path = session_benchmark_runner.save_results_csv()
             json_path = session_benchmark_runner.save_results_json()
-            print(f"\nBenchmark results saved to:")
+            print("\nBenchmark results saved to:")
             print(f"  CSV:  {csv_path}")
             print(f"  JSON: {json_path}")
 
@@ -430,4 +430,4 @@ def pytest_configure(config: pytest.Config) -> None:
 
     """
     if not config.getoption("--benchmark"):
-        setattr(config.option, "markexpr", "not benchmark")
+        config.option.markexpr = "not benchmark"

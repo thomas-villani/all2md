@@ -22,7 +22,7 @@ from all2md.constants import (
     DEFAULT_URL_WRAPPERS,
     DateFormatMode,
 )
-from all2md.options import NetworkFetchOptions, AttachmentOptionsMixin
+from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 from all2md.options.base import BaseParserOptions
 
 

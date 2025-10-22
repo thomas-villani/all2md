@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Optional, Union
 
 from all2md.ast import (
     BlockQuote,
@@ -24,7 +24,6 @@ from all2md.ast import (
     Emphasis,
     FootnoteReference,
     Heading,
-    HTMLInline,
     Image,
     LineBreak,
     Link,
@@ -48,7 +47,8 @@ from all2md.exceptions import ParsingError
 from all2md.options.dokuwiki import DokuWikiParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.html_sanitizer import sanitize_html_content, sanitize_url
+from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -196,7 +196,7 @@ class DokuWikiParser(BaseParser):
 
     @staticmethod
     def _load_dokuwiki_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load DokuWiki content from various input types.
+        """Load DokuWiki content from various input types with encoding detection.
 
         Parameters
         ----------
@@ -210,26 +210,26 @@ class DokuWikiParser(BaseParser):
 
         """
         if isinstance(input_data, bytes):
-            return input_data.decode("utf-8", errors="replace")
+            return read_text_with_encoding_detection(input_data)
 
         if isinstance(input_data, str):
             # Check if it's a file path
             path = Path(input_data)
             if path.exists() and path.is_file():
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    return f.read()
+                with open(path, "rb") as f:
+                    return read_text_with_encoding_detection(f.read())
             # Otherwise treat as literal content
             return input_data
 
         if isinstance(input_data, Path):
-            with open(input_data, "r", encoding="utf-8", errors="replace") as f:
-                return f.read()
+            with open(input_data, "rb") as f:
+                return read_text_with_encoding_detection(f.read())
 
         # File-like object
         if hasattr(input_data, "read"):
             content = input_data.read()
             if isinstance(content, bytes):
-                return content.decode("utf-8", errors="replace")
+                return read_text_with_encoding_detection(content)
             return content
 
         raise ValueError(f"Unsupported input type: {type(input_data)}")

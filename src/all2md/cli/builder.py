@@ -233,7 +233,7 @@ class DynamicCLIBuilder:
 
         options_classes: Dict[str, Type[Any]] = {}
 
-        from all2md.options import BaseParserOptions, BaseRendererOptions
+        from all2md.options.base import BaseParserOptions, BaseRendererOptions
         from all2md.utils.input_sources import RemoteInputOptions
 
         options_classes['base'] = BaseParserOptions
@@ -684,7 +684,7 @@ class DynamicCLIBuilder:
         # Get BaseOptions fields to exclude if requested
         base_field_names = set()
         if exclude_base_fields:
-            from all2md.options import BaseParserOptions
+            from all2md.options.base import BaseParserOptions
             base_field_names = {f.name for f in fields(BaseParserOptions)}
 
         # Create argument group if requested
@@ -1077,7 +1077,7 @@ Examples:
                             help="Show detailed information about all2md and exit")
 
         # Add BaseOptions as universal options (no prefix)
-        from all2md.options import BaseParserOptions
+        from all2md.options.base import BaseParserOptions
         from all2md.utils.input_sources import RemoteInputOptions
         self.add_options_class_arguments(
             parser,

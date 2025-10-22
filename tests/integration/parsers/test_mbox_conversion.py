@@ -12,7 +12,6 @@ Tests cover:
 """
 
 import datetime
-from pathlib import Path
 
 import pytest
 

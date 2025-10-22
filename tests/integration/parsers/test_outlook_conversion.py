@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from all2md import to_markdown
-from all2md.ast import Document, Heading, ThematicBreak
+from all2md.ast import Document, Heading
 from all2md.options.outlook import OutlookOptions
 from all2md.parsers.outlook import OutlookToAstConverter
 
@@ -226,7 +226,6 @@ class TestOutlookPSTHandling:
         """Test that PST files require file path input."""
         import io
 
-        from all2md.exceptions import ValidationError
 
         parser = OutlookToAstConverter()
 

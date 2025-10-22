@@ -7,14 +7,14 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
-
-from all2md import PptxOptions, to_markdown
 from fixtures.generators.markdown_fixtures import (
     create_markdown_with_code_and_lists,
     create_markdown_with_tables,
     markdown_bytes_io,
 )
 from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, save_pptx_to_bytes
+
+from all2md import PptxOptions, to_markdown
 
 
 @pytest.mark.golden

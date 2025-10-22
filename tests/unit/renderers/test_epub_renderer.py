@@ -40,7 +40,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.options import EpubRendererOptions
+from all2md.options import EpubRendererOptions, NetworkFetchOptions
 
 if EBOOKLIB_AVAILABLE:
     from all2md.renderers.epub import EpubRenderer
@@ -627,3 +627,150 @@ class TestImageEmbedding:
         chapter_html = chapters[0].get_content().decode("utf-8")
         # Should contain internal path like "images/img_001.png"
         assert "images/img_" in chapter_html or "Test" in chapter_html
+
+
+@pytest.mark.unit
+class TestRemoteImageFetching:
+    """Tests for remote image fetching with NetworkFetchOptions."""
+
+    def test_remote_image_disabled_by_default(self, tmp_path):
+        """Test that remote image fetching is disabled by default."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Chapter")]),
+                Paragraph(content=[Image(url="https://example.com/image.png", alt_text="Remote image")]),
+            ]
+        )
+
+        renderer = EpubRenderer()
+        output_file = tmp_path / "remote_disabled.epub"
+        renderer.render(doc, output_file)
+
+        # Should create EPUB but not fetch the image
+        assert output_file.exists()
+
+        # Verify no images were embedded (only external URLs preserved)
+        book = epub.read_epub(str(output_file))
+        images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+        assert len(images) == 0
+
+    def test_remote_image_with_allow_remote_fetch(self, tmp_path):
+        """Test remote image fetching when enabled."""
+        import unittest.mock as mock
+
+        # Create fake image data
+        png_data = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+
+        # Mock fetch_image_securely
+        with mock.patch("all2md.renderers.epub.fetch_image_securely", return_value=png_data):
+            with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=False):
+                doc = Document(
+                    children=[
+                        Heading(level=1, content=[Text(content="Chapter")]),
+                        Paragraph(content=[Image(url="https://example.com/image.png", alt_text="Remote image")]),
+                    ]
+                )
+
+                # Enable remote fetching
+                network = NetworkFetchOptions(allow_remote_fetch=True)
+                options = EpubRendererOptions(network=network)
+                renderer = EpubRenderer(options)
+                output_file = tmp_path / "remote_enabled.epub"
+                renderer.render(doc, output_file)
+
+                assert output_file.exists()
+
+                # Verify image was embedded
+                book = epub.read_epub(str(output_file))
+                images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+                assert len(images) == 1
+
+    def test_remote_image_with_network_disabled(self, tmp_path):
+        """Test remote image skipped when network is disabled."""
+        import unittest.mock as mock
+
+        with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=True):
+            doc = Document(
+                children=[
+                    Heading(level=1, content=[Text(content="Chapter")]),
+                    Paragraph(content=[Image(url="https://example.com/image.png", alt_text="Remote image")]),
+                ]
+            )
+
+            # Even with remote fetch enabled, network disabled should skip
+            network = NetworkFetchOptions(allow_remote_fetch=True)
+            options = EpubRendererOptions(network=network)
+            renderer = EpubRenderer(options)
+            output_file = tmp_path / "network_disabled.epub"
+            renderer.render(doc, output_file)
+
+            assert output_file.exists()
+
+            # Verify no images were fetched
+            book = epub.read_epub(str(output_file))
+            images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+            assert len(images) == 0
+
+    def test_remote_image_fetch_failure(self, tmp_path):
+        """Test handling of remote image fetch failure."""
+        import unittest.mock as mock
+
+        # Mock fetch to raise an exception
+        with mock.patch("all2md.renderers.epub.fetch_image_securely", side_effect=Exception("Network error")):
+            with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=False):
+                doc = Document(
+                    children=[
+                        Heading(level=1, content=[Text(content="Chapter")]),
+                        Paragraph(content=[Image(url="https://example.com/image.png", alt_text="Remote image")]),
+                    ]
+                )
+
+                network = NetworkFetchOptions(allow_remote_fetch=True)
+                options = EpubRendererOptions(network=network)
+                renderer = EpubRenderer(options)
+                output_file = tmp_path / "fetch_failure.epub"
+
+                # Should not raise exception - just skip the image
+                renderer.render(doc, output_file)
+                assert output_file.exists()
+
+    def test_mixed_local_and_remote_images(self, tmp_path):
+        """Test rendering with both local and remote images."""
+        import unittest.mock as mock
+
+        # Create local image
+        local_image = tmp_path / "local.png"
+        png_data = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        local_image.write_bytes(png_data)
+
+        # Mock remote fetch
+        with mock.patch("all2md.renderers.epub.fetch_image_securely", return_value=png_data):
+            with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=False):
+                doc = Document(
+                    children=[
+                        Heading(level=1, content=[Text(content="Chapter")]),
+                        Paragraph(content=[Image(url=str(local_image), alt_text="Local image")]),
+                        Paragraph(content=[Image(url="https://example.com/remote.png", alt_text="Remote image")]),
+                    ]
+                )
+
+                network = NetworkFetchOptions(allow_remote_fetch=True)
+                options = EpubRendererOptions(network=network)
+                renderer = EpubRenderer(options)
+                output_file = tmp_path / "mixed_images.epub"
+                renderer.render(doc, output_file)
+
+                assert output_file.exists()
+
+                # Should have both images
+                book = epub.read_epub(str(output_file))
+                images = [item for item in book.get_items() if item.get_type() == ebooklib.ITEM_IMAGE]
+                assert len(images) == 2

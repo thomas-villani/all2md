@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown renderer improvements."""
 
-import pytest
 
 from all2md.ast import Document, Heading, Link, Paragraph, Strong, Text
 from all2md.options.markdown import MarkdownOptions

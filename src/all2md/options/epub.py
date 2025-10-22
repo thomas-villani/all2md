@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options import AttachmentOptionsMixin
+from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 from all2md.options.html import HtmlOptions
 
 
@@ -49,6 +49,10 @@ class EpubRendererOptions(BaseRendererOptions):
         Include cover image in EPUB package.
     cover_image_path : str or None, default None
         Path to cover image file. Only used if include_cover=True.
+    network : NetworkFetchOptions, default NetworkFetchOptions()
+        Network security options for fetching remote images. By default,
+        remote image fetching is disabled (allow_remote_fetch=False).
+        Set network.allow_remote_fetch=True to enable secure remote image fetching.
 
     """
 
@@ -97,6 +101,10 @@ class EpubRendererOptions(BaseRendererOptions):
     include_cover: bool = field(default=False, metadata={"help": "Include cover image in EPUB", "importance": "core"})
     cover_image_path: str | None = field(
         default=None, metadata={"help": "Path to cover image file", "importance": "advanced"}
+    )
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
+        metadata={"help": "Network security options for fetching remote images", "importance": "security"},
     )
 
 

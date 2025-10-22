@@ -8,10 +8,6 @@ import io
 from pathlib import Path
 
 import pytest
-
-from all2md import EpubOptions, to_markdown as epub_to_markdown
-from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options import MarkdownOptions
 from fixtures.generators.epub_fixtures import (
     create_epub_file,
     create_epub_with_footnotes,
@@ -20,6 +16,11 @@ from fixtures.generators.epub_fixtures import (
     create_simple_epub,
 )
 from utils import assert_markdown_valid
+
+from all2md import EpubOptions
+from all2md import to_markdown as epub_to_markdown
+from all2md.exceptions import MalformedFileError, ParsingError
+from all2md.options import MarkdownOptions
 
 # Skip tests if ebooklib is not available
 try:

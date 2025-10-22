@@ -17,13 +17,13 @@ from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions
 from all2md.options.ast_json import AstJsonParserOptions, AstJsonRendererOptions
 from all2md.options.base import UNSET, BaseParserOptions, BaseRendererOptions, CloneFrozenMixin
 from all2md.options.chm import ChmOptions
-from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions, AttachmentOptionsMixin
+from all2md.options.common import AttachmentOptionsMixin, LocalFileAccessOptions, NetworkFetchOptions
 from all2md.options.csv import CsvOptions
 from all2md.options.docx import DocxOptions, DocxRendererOptions
 from all2md.options.dokuwiki import DokuWikiOptions, DokuWikiParserOptions
 from all2md.options.eml import EmlOptions
-from all2md.options.fb2 import Fb2Options
 from all2md.options.epub import EpubOptions, EpubRendererOptions
+from all2md.options.fb2 import Fb2Options
 from all2md.options.html import HtmlOptions, HtmlRendererOptions
 from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
 from all2md.options.latex import LatexOptions, LatexRendererOptions

@@ -18,6 +18,7 @@ Tests cover:
 import docx
 import pytest
 from docx.oxml import parse_xml
+from fixtures import FIXTURES_PATH
 
 from all2md.ast import (
     BlockQuote,
@@ -41,7 +42,6 @@ from all2md.ast import (
 from all2md.ast.transforms import extract_nodes
 from all2md.options import DocxOptions
 from all2md.parsers.docx import DocxToAstConverter
-from fixtures import FIXTURES_PATH
 
 FIXTURE_FOOTNOTES_DOC = FIXTURES_PATH / "documents" / "footnotes-endnotes-comments.docx"
 FIXTURE_MATH_DOC = FIXTURES_PATH / "documents" / "math-basic.docx"

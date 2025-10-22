@@ -5,9 +5,9 @@ using real PDF fixtures to test font flag interpretation and emphasis mapping.
 """
 
 import pytest
+from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
 from all2md.parsers.pdf import IdentifyHeaders
-from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
 
 @pytest.mark.unit
@@ -68,7 +68,6 @@ class TestPdfFormattingDetection:
 
     def test_emphasis_detection_logic(self):
         """Test the logic for detecting emphasis from font flags."""
-
         # This tests the logic without mocking by checking flag interpretation
 
         def detect_emphasis(flags):

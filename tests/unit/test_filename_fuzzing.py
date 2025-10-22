@@ -16,7 +16,8 @@ Test Coverage:
 from pathlib import Path
 
 import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from all2md.utils.attachments import sanitize_attachment_filename
 

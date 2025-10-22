@@ -70,6 +70,11 @@ class PptxRendererOptions(BaseRendererOptions):
         When True, H3 headings with "Speaker Notes" text are detected, and content
         after them is rendered to slide speaker notes. When False, speaker notes
         sections are ignored and rendered as regular slide content.
+    force_textbox_bullets : bool, default True
+        Enable bullets via OOXML manipulation for unordered lists in text boxes.
+        When True (default), bullets are explicitly enabled via OOXML for all text boxes.
+        When False, bullets are only applied to content placeholders (native PowerPoint behavior).
+        Set to False if using strict templates that conflict with OOXML manipulation.
 
     Notes
     -----
@@ -180,6 +185,14 @@ class PptxRendererOptions(BaseRendererOptions):
             "help": "Include speaker notes in rendered slides",
             "cli_name": "no-include-notes",
             "importance": "core",
+        },
+    )
+    force_textbox_bullets: bool = field(
+        default=True,
+        metadata={
+            "help": "Enable bullets via OOXML for text boxes (disable for strict templates)",
+            "cli_name": "no-force-textbox-bullets",
+            "importance": "advanced",
         },
     )
 

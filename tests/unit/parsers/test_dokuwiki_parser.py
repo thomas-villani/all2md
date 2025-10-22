@@ -1,13 +1,11 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for DokuWiki parser."""
 
-import pytest
 
 from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
-    Document,
     Emphasis,
     FootnoteReference,
     Heading,
@@ -15,15 +13,12 @@ from all2md.ast import (
     LineBreak,
     Link,
     List,
-    ListItem,
     Paragraph,
     Strikethrough,
     Strong,
     Subscript,
     Superscript,
     Table,
-    TableCell,
-    TableRow,
     Text,
     ThematicBreak,
     Underline,

@@ -54,7 +54,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options import MarkdownOptions
+from all2md.options.markdown import MarkdownOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.flavors import (
     CommonMarkFlavor,

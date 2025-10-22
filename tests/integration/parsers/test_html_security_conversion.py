@@ -15,7 +15,8 @@ import shutil
 from pathlib import Path
 from unittest.mock import patch
 
-from all2md import EmlOptions, HtmlOptions, to_markdown as html_to_markdown
+from all2md import EmlOptions, HtmlOptions
+from all2md import to_markdown as html_to_markdown
 from all2md.options import NetworkFetchOptions
 
 

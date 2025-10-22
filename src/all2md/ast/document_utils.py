@@ -45,10 +45,9 @@ Generate a table of contents:
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Callable, Literal
-
-import unicodedata
 
 from all2md.ast.nodes import (
     Document,

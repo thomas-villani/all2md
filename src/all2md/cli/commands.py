@@ -24,7 +24,6 @@ from all2md.cli.builder import (
     EXIT_FILE_ERROR,
     EXIT_VALIDATION_ERROR,
     DynamicCLIBuilder,
-    create_parser,
 )
 from all2md.cli.help_formatter import display_help
 from all2md.cli.input_items import CLIInputItem

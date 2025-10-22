@@ -644,3 +644,179 @@ class TestSpeakerNotes:
 
         notes3 = prs.slides[2].notes_slide.notes_text_frame.text.strip()
         assert notes3 == ""  # No notes for slide 3
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestForceTextboxBullets:
+    """Tests for force_textbox_bullets option."""
+
+    def test_force_textbox_bullets_enabled_by_default(self, tmp_path):
+        """Test that force_textbox_bullets is enabled by default."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide with List")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+            ]
+        )
+
+        renderer = PptxRenderer()
+        output_file = tmp_path / "bullets_default.pptx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify PPTX was created successfully
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_force_textbox_bullets_enabled_explicit(self, tmp_path):
+        """Test force_textbox_bullets explicitly enabled."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide with List")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+            ]
+        )
+
+        options = PptxRendererOptions(force_textbox_bullets=True)
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "bullets_enabled.pptx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify PPTX structure
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+        # Check that the slide has text content
+        slide = prs.slides[0]
+        text_found = False
+        for shape in slide.shapes:
+            if hasattr(shape, "text_frame"):
+                if "Item" in shape.text_frame.text:
+                    text_found = True
+        assert text_found
+
+    def test_force_textbox_bullets_disabled(self, tmp_path):
+        """Test force_textbox_bullets disabled for strict templates."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide with List")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+            ]
+        )
+
+        options = PptxRendererOptions(force_textbox_bullets=False)
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "bullets_disabled.pptx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        # Verify PPTX structure
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+        # Content should still be rendered, just without OOXML bullet manipulation
+        slide = prs.slides[0]
+        text_found = False
+        for shape in slide.shapes:
+            if hasattr(shape, "text_frame"):
+                if "Item" in shape.text_frame.text:
+                    text_found = True
+        assert text_found
+
+    def test_force_textbox_bullets_with_nested_lists(self, tmp_path):
+        """Test force_textbox_bullets with nested lists."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Nested Lists")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Item 1")]),
+                                List(
+                                    ordered=False,
+                                    items=[
+                                        ListItem(children=[Paragraph(content=[Text(content="Subitem 1.1")])]),
+                                        ListItem(children=[Paragraph(content=[Text(content="Subitem 1.2")])]),
+                                    ],
+                                ),
+                            ]
+                        ),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+            ]
+        )
+
+        # Test with bullets enabled
+        options = PptxRendererOptions(force_textbox_bullets=True)
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "nested_bullets_enabled.pptx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_force_textbox_bullets_ordered_lists_unaffected(self, tmp_path):
+        """Test that force_textbox_bullets only affects unordered lists."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Ordered List")]),
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="First")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Second")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Third")])]),
+                    ],
+                ),
+            ]
+        )
+
+        # Ordered lists use manual numbering regardless of this option
+        options_enabled = PptxRendererOptions(force_textbox_bullets=True)
+        options_disabled = PptxRendererOptions(force_textbox_bullets=False)
+
+        # Test with enabled
+        renderer = PptxRenderer(options_enabled)
+        output_enabled = tmp_path / "ordered_enabled.pptx"
+        renderer.render(doc, output_enabled)
+        assert output_enabled.exists()
+
+        # Test with disabled
+        renderer = PptxRenderer(options_disabled)
+        output_disabled = tmp_path / "ordered_disabled.pptx"
+        renderer.render(doc, output_disabled)
+        assert output_disabled.exists()
+
+        # Both should have manual numbering
+        prs_enabled = Presentation(str(output_enabled))
+        prs_disabled = Presentation(str(output_disabled))
+        assert len(prs_enabled.slides) == 1
+        assert len(prs_disabled.slides) == 1

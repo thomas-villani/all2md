@@ -1,9 +1,8 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown parser improvements."""
 
-import pytest
 
-from all2md.ast import Document, HTMLBlock, HTMLInline, Paragraph, Text
+from all2md.ast import HTMLBlock, HTMLInline, Paragraph
 from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.markdown import MarkdownToAstConverter
 

@@ -49,7 +49,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.converter_metadata import ConverterMetadata
-from all2md.options import MediaWikiOptions
+from all2md.options.mediawiki import MediaWikiOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.escape import escape_html_entities, escape_mediawiki
 from all2md.utils.html_sanitizer import sanitize_html_content

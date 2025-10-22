@@ -25,8 +25,8 @@ from fixtures.generators.pptx_fixtures import create_pptx_with_basic_slides, sav
 from utils import assert_markdown_valid
 
 from all2md import convert, from_ast, from_markdown, to_ast, to_markdown
-from all2md.exceptions import MalformedFileError, FormatError
 from all2md.ast import Document, Heading, Paragraph, Strong, Table
+from all2md.exceptions import FormatError, MalformedFileError
 from all2md.options import DocxOptions, HtmlOptions, HtmlRendererOptions, MarkdownOptions, PdfOptions, PptxOptions
 
 

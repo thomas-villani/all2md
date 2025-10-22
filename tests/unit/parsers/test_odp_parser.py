@@ -11,7 +11,6 @@ Tests cover:
 """
 
 import pytest
-
 from fixtures import FIXTURES_PATH
 
 try:

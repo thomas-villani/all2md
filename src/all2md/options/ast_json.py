@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
-
 @dataclass(frozen=True)
 class AstJsonParserOptions(BaseParserOptions):
     """Options for parsing JSON AST documents.
@@ -27,6 +26,7 @@ class AstJsonParserOptions(BaseParserOptions):
         Whether to fail on unknown node types or attributes
 
     """
+
     validate_schema: bool = field(
         default=True,
         metadata={
@@ -67,6 +67,7 @@ class AstJsonRendererOptions(BaseRendererOptions):
         >>> options = AstJsonRendererOptions(ensure_ascii=True)
 
     """
+
     indent: int | None = field(
         default=2,
         metadata={

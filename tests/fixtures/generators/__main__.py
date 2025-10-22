@@ -48,17 +48,6 @@ from fixtures.generators.eml_fixtures import (
     create_simple_email,
     email_to_bytes,
 )
-from fixtures.generators.mbox_fixtures import (
-    create_mbox_with_thread,
-    create_simple_mbox,
-    write_mbox_to_file,
-)
-from fixtures.generators.outlook_fixtures import (
-    create_msg_with_attachments_data,
-    create_simple_msg_data,
-    msg_data_to_email_message,
-    write_email_as_eml,
-)
 from fixtures.generators.epub_fixtures import create_epub_with_images, create_simple_epub
 from fixtures.generators.ipynb_fixtures import (
     create_notebook_with_images,
@@ -71,6 +60,10 @@ from fixtures.generators.latex_fixtures import (
 from fixtures.generators.markdown_fixtures import (
     create_markdown_with_code_and_lists,
     create_markdown_with_tables,
+)
+from fixtures.generators.mbox_fixtures import (
+    create_mbox_with_thread,
+    create_simple_mbox,
 )
 from fixtures.generators.mhtml_fixtures import (
     create_mhtml_with_image,
@@ -86,6 +79,11 @@ from fixtures.generators.odf_fixtures import (
     save_odt_to_bytes,
 )
 from fixtures.generators.org_fixtures import create_org_agenda_document
+from fixtures.generators.outlook_fixtures import (
+    create_msg_with_attachments_data,
+    create_simple_msg_data,
+    msg_data_to_email_message,
+)
 from fixtures.generators.plaintext_fixtures import (
     create_plaintext_with_code_block,
     create_plaintext_with_sections,
@@ -159,7 +157,6 @@ def _eml_builder(func: Callable[[], object]) -> Callable[[], bytes]:
 
 def _mbox_builder(func: Callable[[], object]) -> Callable[[], bytes]:
     def builder() -> bytes:
-        import tempfile
         mbox = func()
         # Read the mbox file and return its contents
         with open(mbox._path, "rb") as f:

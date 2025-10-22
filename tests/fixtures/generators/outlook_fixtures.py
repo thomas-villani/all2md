@@ -10,10 +10,8 @@ Note: This requires extract-msg to be installed for MSG file creation.
 from __future__ import annotations
 
 import datetime
-import tempfile
 from email.message import EmailMessage
 from email.utils import format_datetime
-from pathlib import Path
 from typing import Iterable
 
 from tests.utils import MINIMAL_PNG_BYTES

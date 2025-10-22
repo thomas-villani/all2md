@@ -14,7 +14,7 @@ import plistlib
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
-from all2md.ast import Document, Heading, Node, Paragraph, Text
+from all2md.ast import Document, Heading, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options.webarchive import WebArchiveOptions

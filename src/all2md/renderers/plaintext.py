@@ -56,7 +56,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options import PlainTextOptions
+from all2md.options.txt import PlainTextOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 
 

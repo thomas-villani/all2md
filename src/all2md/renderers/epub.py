@@ -19,11 +19,13 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import IO, Any, Union
+from urllib.parse import urlparse
 
 from all2md.ast.nodes import Document, Heading, Image, Node
 from all2md.ast.transforms import clone_node
 from all2md.exceptions import RenderingError
-from all2md.options import EpubRendererOptions, HtmlRendererOptions
+from all2md.options.epub import EpubRendererOptions
+from all2md.options.html import HtmlRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,
     extract_heading_text,
@@ -34,6 +36,7 @@ from all2md.renderers.base import BaseRenderer
 from all2md.renderers.html import HtmlRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image
+from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +79,9 @@ class EpubRenderer(BaseRenderer):
         # Create HTML renderer for chapter content
         html_options = HtmlRendererOptions(standalone=False, css_style="embedded")  # Generate fragments, not full HTML
         self.html_renderer = HtmlRenderer(html_options)
+
+        # Track temporary files for cleanup
+        self._temp_files: list[str] = []
 
     @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -185,6 +191,16 @@ class EpubRenderer(BaseRenderer):
             raise RenderingError(
                 f"Failed to write EPUB file: {e!r}", rendering_stage="rendering", original_error=e
             ) from e
+        finally:
+            # Clean up temporary files
+            import os
+
+            for temp_file in self._temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.unlink(temp_file)
+                except Exception:
+                    pass  # Ignore cleanup errors
 
     @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
     def render_to_bytes(self, doc: Document) -> bytes:
@@ -347,6 +363,70 @@ class EpubRenderer(BaseRenderer):
             return (image_data, image_format)
         return None
 
+    def _fetch_remote_image(self, url: str) -> tuple[bytes, str] | None:
+        """Fetch remote image securely.
+
+        Parameters
+        ----------
+        url : str
+            Remote image URL
+
+        Returns
+        -------
+        tuple of (bytes, str) or None
+            (image_data, image_format) or None if fetch failed
+
+        """
+        # Check global network disable flag
+        if is_network_disabled():
+            logger.debug(f"Network disabled, skipping remote image: {url}")
+            return None
+
+        # Check if remote fetching is allowed
+        if not self.options.network.allow_remote_fetch:
+            logger.debug(f"Remote fetching disabled, skipping image: {url}")
+            return None
+
+        try:
+            # Fetch image data securely
+            image_data = fetch_image_securely(
+                url=url,
+                allowed_hosts=self.options.network.allowed_hosts,
+                require_https=self.options.network.require_https,
+                max_size_bytes=self.options.max_asset_size_bytes,
+                timeout=self.options.network.network_timeout,
+                require_head_success=self.options.network.require_head_success,
+            )
+
+            # Detect image format from URL or content
+            from all2md.utils.images import detect_image_format_from_bytes
+
+            detected_format = detect_image_format_from_bytes(image_data[:32])
+
+            if detected_format:
+                image_format = detected_format
+            else:
+                # Fall back to extension from URL
+                parsed = urlparse(url)
+                path_lower = parsed.path.lower()
+                if path_lower.endswith((".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg")):
+                    image_format = path_lower.split(".")[-1]
+                else:
+                    # Default to png
+                    image_format = "png"
+                    logger.debug(f"Could not detect format from content or URL, defaulting to png: {url}")
+
+            logger.debug(f"Successfully fetched remote image: {url}")
+            return (image_data, image_format)
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch remote image {url}: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to fetch remote image {url}: {e!r}", rendering_stage="image_processing", original_error=e
+                ) from e
+            return None
+
     def _add_image_to_epub(self, book: Any, image_node: Image, index: int) -> str | None:
         """Add an image to the EPUB and return the internal path.
 
@@ -391,8 +471,28 @@ class EpubRenderer(BaseRenderer):
 
                 return internal_path
 
+            # Handle remote HTTP/HTTPS URLs
+            elif image_url.startswith(("http://", "https://")):
+                # Fetch remote image securely
+                fetched = self._fetch_remote_image(image_url)
+                if not fetched:
+                    return None
+
+                image_data, image_format = fetched
+                internal_path = f"images/img_{index:03d}.{image_format}"
+
+                # Create EPUB image item
+                epub_image = epub.EpubImage()
+                epub_image.file_name = internal_path
+                epub_image.content = image_data
+
+                # Add to book
+                book.add_item(epub_image)
+
+                return internal_path
+
             # Handle local file paths
-            elif not image_url.startswith(("http://", "https://")):
+            else:
                 # Try to read local file
                 image_path = Path(image_url)
                 if image_path.exists() and image_path.is_file():
@@ -425,10 +525,9 @@ class EpubRenderer(BaseRenderer):
 
                     return internal_path
 
-            # For HTTP/HTTPS URLs, we skip them as they're external
-            # EPUB readers should handle external images
-            logger.debug(f"Skipping external image URL: {image_url}")
-            return None
+                # Local file not found
+                logger.debug(f"Local file not found: {image_url}")
+                return None
 
         except Exception as e:
             # If anything fails, log and optionally raise

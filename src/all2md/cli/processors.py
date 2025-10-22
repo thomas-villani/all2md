@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 from all2md import convert, from_ast, to_ast, to_markdown
-from all2md.ast.nodes import Document as ASTDocument, Heading, Text, ThematicBreak
+from all2md.ast.nodes import Document as ASTDocument
+from all2md.ast.nodes import Heading, Text, ThematicBreak
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,

@@ -20,6 +20,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options.sourcecode import SourceCodeOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.encoding import read_text_with_encoding_detection
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -76,19 +77,22 @@ class SourceCodeToAstConverter(BaseParser):
         elif hasattr(input_data, "name") and input_data.name:
             filename = input_data.name
 
-        # Read content based on input type
+        # Read content based on input type with encoding detection
         try:
             if isinstance(input_data, (str, Path)):
                 # Read from file path
-                with open(input_data, "r", encoding="utf-8", errors="replace") as f:
-                    content = f.read()
+                with open(input_data, "rb") as f:
+                    content = read_text_with_encoding_detection(f.read())
             elif isinstance(input_data, bytes):
-                # Decode bytes directly
-                content = input_data.decode("utf-8", errors="replace")
+                # Decode bytes with encoding detection
+                content = read_text_with_encoding_detection(input_data)
             elif hasattr(input_data, "read"):
                 # Handle file-like object (IO[bytes])
                 raw_content = input_data.read()
-                content = raw_content.decode("utf-8", errors="replace")
+                if isinstance(raw_content, bytes):
+                    content = read_text_with_encoding_detection(raw_content)
+                else:
+                    content = str(raw_content)
             else:
                 raise ValueError(f"Unsupported input type: {type(input_data)}")
         except Exception as e:

@@ -2,8 +2,9 @@
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
-from all2md import to_markdown as html_to_markdown
 from utils import assert_markdown_valid
+
+from all2md import to_markdown as html_to_markdown
 
 
 class TestHtmlCodeBlocks:

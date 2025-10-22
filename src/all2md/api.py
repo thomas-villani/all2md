@@ -12,7 +12,7 @@ import all2md.transforms as transforms_module
 from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
-from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError
+from all2md.exceptions import All2MdError, FormatError, ParsingError
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
 from all2md.progress import ProgressCallback

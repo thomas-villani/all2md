@@ -22,11 +22,62 @@ from all2md.exceptions import ParsingError
 from all2md.options.csv import CsvOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.encoding import read_text_with_encoding_detection
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.spreadsheet import build_table_ast, sanitize_cell_text, transform_header_case
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_csv_delimiter(
+    sample: str, dialect: type[csv.Dialect], min_columns: int = 2, min_valid_lines: int = 2
+) -> bool:
+    """Validate that a CSV dialect produces reasonable column counts.
+
+    Parameters
+    ----------
+    sample : str
+        Sample text to validate
+    dialect : type[csv.Dialect]
+        CSV dialect to test
+    min_columns : int, default 2
+        Minimum number of columns expected (1 column suggests wrong delimiter)
+    min_valid_lines : int, default 2
+        Minimum number of lines that should have >= min_columns
+
+    Returns
+    -------
+    bool
+        True if the dialect appears to produce valid column counts
+
+    """
+    try:
+        reader = csv.reader(io.StringIO(sample), dialect=dialect)
+        valid_line_count = 0
+        total_lines = 0
+
+        for row in reader:
+            total_lines += 1
+            # Count non-empty cells
+            non_empty_cells = sum(1 for cell in row if cell.strip())
+            if non_empty_cells >= min_columns:
+                valid_line_count += 1
+
+            # Early exit if we have enough valid lines
+            if valid_line_count >= min_valid_lines:
+                return True
+
+            # Don't check too many lines
+            if total_lines >= 10:
+                break
+
+        # Valid if we have enough lines with multiple columns
+        return valid_line_count >= min_valid_lines
+
+    except Exception as e:
+        logger.debug(f"Dialect validation failed: {e}")
+        return False
 
 
 def _make_csv_dialect(
@@ -201,8 +252,36 @@ class CsvToAstConverter(BaseParser):
         elif self.options.detect_csv_dialect:
             try:
                 sniffer = csv.Sniffer()
-                dialect_obj = sniffer.sniff(sample, delimiters=",\t;|\x1f")
-            except Exception:
+                detected_dialect = sniffer.sniff(sample, delimiters=",\t;|\x1f")
+
+                # Validate the detected delimiter - ensure it produces multiple columns
+                if _validate_csv_delimiter(sample, detected_dialect):
+                    dialect_obj = detected_dialect
+                    logger.debug(f"CSV Sniffer detected and validated delimiter: {repr(detected_dialect.delimiter)}")
+                else:
+                    # Detected delimiter produces single-column output, try alternatives
+                    logger.debug(
+                        f"CSV Sniffer detected delimiter {repr(detected_dialect.delimiter)} "
+                        f"but validation failed, trying alternatives"
+                    )
+                    # Try delimiters in preference order: comma, tab, semicolon, pipe
+                    delimiter_candidates = [",", "\t", ";", "|"]
+                    dialect_obj = None
+
+                    for candidate in delimiter_candidates:
+                        test_dialect = _make_csv_dialect(delimiter=candidate)
+                        if _validate_csv_delimiter(sample, test_dialect):
+                            dialect_obj = test_dialect
+                            logger.debug(f"Alternative delimiter validated: {repr(candidate)}")
+                            break
+
+                    # If no candidate validated, fall back to detected or default
+                    if dialect_obj is None:
+                        logger.debug("No delimiter validated, using detected or default")
+                        dialect_obj = detected_dialect
+
+            except Exception as e:
+                logger.debug(f"CSV dialect detection failed: {e}, using fallback")
                 dialect_obj = _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
         else:
             dialect_obj = _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
@@ -293,7 +372,7 @@ class CsvToAstConverter(BaseParser):
         return Document(children=children, metadata=metadata.to_dict())
 
     def _read_text_stream_for_csv(self, input_data: Any) -> io.StringIO:
-        """Read binary or text input and return a StringIO for CSV parsing.
+        """Read binary or text input and return a StringIO for CSV parsing with encoding detection.
 
         Parameters
         ----------
@@ -320,10 +399,10 @@ class CsvToAstConverter(BaseParser):
 
             raw = input_data.read()
             if isinstance(raw, bytes):
-                try:
-                    content = raw.decode("utf-8-sig")
-                except UnicodeDecodeError:
-                    content = raw.decode("utf-8", errors="replace")
+                # Use encoding detection with utf-8-sig as first fallback (handles BOM)
+                content = read_text_with_encoding_detection(
+                    raw, fallback_encodings=["utf-8-sig", "utf-8", "latin-1"]
+                )
             else:
                 content = str(raw)
 

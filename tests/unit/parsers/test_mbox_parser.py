@@ -6,12 +6,10 @@ Tests the MBOX mailbox archive parser with various configurations.
 
 import datetime
 import mailbox
-import tempfile
-from pathlib import Path
 
 import pytest
 
-from all2md.ast import Document, Heading, Paragraph, Text, ThematicBreak
+from all2md.ast import Document, Heading, Text, ThematicBreak
 from all2md.options.mbox import MboxOptions
 from all2md.parsers.mbox import MboxToAstConverter, _detect_mailbox_format, _filter_message, _get_mailbox_class
 

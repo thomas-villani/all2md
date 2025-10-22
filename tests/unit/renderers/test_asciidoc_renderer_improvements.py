@@ -3,8 +3,6 @@
 
 import logging
 
-import pytest
-
 from all2md.ast import Document, FootnoteDefinition, FootnoteReference, LineBreak, Paragraph, Text
 from all2md.options.asciidoc import AsciiDocRendererOptions
 from all2md.renderers.asciidoc import AsciiDocRenderer

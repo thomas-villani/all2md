@@ -9,7 +9,6 @@ from __future__ import annotations
 import datetime
 import mailbox
 import tempfile
-from email.message import EmailMessage
 from email.utils import format_datetime
 from pathlib import Path
 from typing import Iterable
