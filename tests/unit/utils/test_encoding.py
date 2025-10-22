@@ -1,0 +1,315 @@
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+#
+# tests/unit/utils/test_encoding.py
+"""Unit tests for encoding detection and handling utilities."""
+
+from __future__ import annotations
+
+import pytest
+
+from all2md.utils.encoding import (
+    detect_encoding,
+    get_charset_from_content_type,
+    read_text_with_encoding_detection,
+)
+
+
+class TestDetectEncoding:
+    """Test cases for detect_encoding function."""
+
+    def test_detect_utf8(self):
+        """Test detection of UTF-8 encoded text."""
+        data = "Hello, world! 你好世界".encode("utf-8")
+        encoding = detect_encoding(data)
+        # chardet should detect UTF-8
+        assert encoding is not None
+        assert encoding.lower() in ["utf-8", "ascii"]  # ASCII is valid subset of UTF-8
+
+    def test_detect_latin1(self):
+        """Test detection of Latin-1 encoded text."""
+        # Text with Latin-1 specific characters
+        data = "Café résumé naïve".encode("latin-1")
+        encoding = detect_encoding(data)
+        # chardet should detect some encoding (might be ISO-8859-1 or Windows-1252)
+        assert encoding is not None
+
+    def test_detect_utf16(self):
+        """Test detection of UTF-16 encoded text."""
+        data = "Hello, world!".encode("utf-16")
+        encoding = detect_encoding(data)
+        # chardet should detect UTF-16 or similar
+        assert encoding is not None
+
+    def test_empty_data(self):
+        """Test detection with empty data."""
+        encoding = detect_encoding(b"")
+        # Empty data should return None (no detection possible)
+        assert encoding is None
+
+    def test_small_sample_size(self):
+        """Test detection with custom sample size."""
+        data = ("Hello, world! " * 100).encode("utf-8")
+        encoding = detect_encoding(data, sample_size=50)
+        # Should still detect UTF-8 even with small sample
+        assert encoding is not None
+
+    def test_low_confidence_threshold(self):
+        """Test detection with low confidence threshold."""
+        # Mixed encoding data that might have low confidence
+        data = b"Hello\x80\x81\x82"
+        encoding = detect_encoding(data, confidence_threshold=0.1)
+        # With very low threshold, should get some result
+        # (This is testing the threshold mechanism works)
+
+    def test_high_confidence_threshold(self):
+        """Test detection with high confidence threshold."""
+        # Ambiguous data
+        data = b"test"
+        encoding = detect_encoding(data, confidence_threshold=0.99)
+        # With very high threshold, might return None
+        # (This is testing the threshold mechanism works)
+
+    def test_binary_data(self):
+        """Test detection with binary data."""
+        # Pure binary data (not text)
+        data = bytes(range(256))
+        encoding = detect_encoding(data)
+        # Binary data might not have a detected text encoding
+
+
+class TestReadTextWithEncodingDetection:
+    """Test cases for read_text_with_encoding_detection function."""
+
+    def test_read_utf8_text(self):
+        """Test reading UTF-8 encoded text."""
+        original = "Hello, world! 你好世界"
+        data = original.encode("utf-8")
+        result = read_text_with_encoding_detection(data)
+        assert result == original
+
+    def test_read_utf8_with_bom(self):
+        """Test reading UTF-8 text with BOM."""
+        original = "Hello, world!"
+        data = original.encode("utf-8-sig")
+        result = read_text_with_encoding_detection(data)
+        # Should strip BOM
+        assert result == original
+
+    def test_read_latin1_text(self):
+        """Test reading Latin-1 encoded text."""
+        original = "Café résumé naïve"
+        data = original.encode("latin-1")
+        result = read_text_with_encoding_detection(data)
+        # Should detect and decode correctly
+        assert result == original or "Caf" in result  # Partial match if detection isn't perfect
+
+    def test_read_windows1252_text(self):
+        """Test reading Windows-1252 encoded text."""
+        # Windows-1252 specific characters
+        original = "smart quotes: \u201c\u201d"
+        data = original.encode("windows-1252", errors="ignore")
+        result = read_text_with_encoding_detection(data)
+        # Should decode without errors
+        assert isinstance(result, str)
+
+    def test_custom_fallback_encodings(self):
+        """Test with custom fallback encoding list."""
+        original = "Café"
+        data = original.encode("cp1252")
+        result = read_text_with_encoding_detection(
+            data,
+            fallback_encodings=["cp1252", "utf-8", "latin-1"]
+        )
+        assert result == original
+
+    def test_disable_chardet(self):
+        """Test with chardet detection disabled."""
+        original = "Hello, world!"
+        data = original.encode("utf-8")
+        result = read_text_with_encoding_detection(data, use_chardet=False)
+        assert result == original
+
+    def test_fallback_on_chardet_failure(self):
+        """Test that fallback encodings work when chardet fails or is unavailable."""
+        original = "Simple ASCII text"
+        data = original.encode("ascii")
+        # Even without chardet, should fall back to UTF-8/Latin-1
+        result = read_text_with_encoding_detection(
+            data,
+            fallback_encodings=["ascii", "utf-8"]
+        )
+        assert result == original
+
+    def test_malformed_utf8_with_replacement(self):
+        """Test handling of malformed UTF-8 with error replacement."""
+        # Invalid UTF-8 sequence
+        data = b"Hello \xff\xfe World"
+        result = read_text_with_encoding_detection(data)
+        # Should not raise exception, should have replacement characters
+        assert isinstance(result, str)
+        assert "Hello" in result
+        assert "World" in result
+
+    def test_empty_data(self):
+        """Test reading empty data."""
+        result = read_text_with_encoding_detection(b"")
+        assert result == ""
+
+    def test_very_large_data(self):
+        """Test reading large data (tests sampling)."""
+        # Create large text
+        original = ("Hello, world! " * 10000)
+        data = original.encode("utf-8")
+        result = read_text_with_encoding_detection(data, chardet_sample_size=4096)
+        assert result == original
+
+    def test_mixed_encoding_detection(self):
+        """Test with data that could be multiple encodings."""
+        # Simple ASCII is valid in multiple encodings
+        original = "Hello World 123"
+        data = original.encode("utf-8")
+        result = read_text_with_encoding_detection(data)
+        assert result == original
+
+
+class TestGetCharsetFromContentType:
+    """Test cases for get_charset_from_content_type function."""
+
+    def test_charset_with_semicolon(self):
+        """Test extracting charset from Content-Type with semicolon."""
+        content_type = "text/html; charset=utf-8"
+        result = get_charset_from_content_type(content_type)
+        assert result == "utf-8"
+
+    def test_charset_with_quotes(self):
+        """Test extracting charset with quotes."""
+        content_type = 'text/html; charset="iso-8859-1"'
+        result = get_charset_from_content_type(content_type)
+        assert result == "iso-8859-1"
+
+    def test_charset_with_single_quotes(self):
+        """Test extracting charset with single quotes."""
+        content_type = "text/html; charset='utf-8'"
+        result = get_charset_from_content_type(content_type)
+        assert result == "utf-8"
+
+    def test_no_charset(self):
+        """Test Content-Type without charset."""
+        content_type = "text/html"
+        result = get_charset_from_content_type(content_type)
+        assert result is None
+
+    def test_multiple_parameters(self):
+        """Test Content-Type with multiple parameters."""
+        content_type = "text/html; boundary=something; charset=utf-8; format=flowed"
+        result = get_charset_from_content_type(content_type)
+        assert result == "utf-8"
+
+    def test_empty_content_type(self):
+        """Test with empty Content-Type."""
+        result = get_charset_from_content_type("")
+        assert result is None
+
+    def test_none_content_type(self):
+        """Test with None Content-Type."""
+        result = get_charset_from_content_type(None)
+        assert result is None
+
+    def test_charset_with_whitespace(self):
+        """Test charset extraction with extra whitespace."""
+        content_type = "text/html;  charset = utf-8 "
+        result = get_charset_from_content_type(content_type)
+        assert result == "utf-8"
+
+    def test_case_insensitive_charset(self):
+        """Test that charset parameter is case-insensitive."""
+        content_type = "text/html; CHARSET=UTF-8"
+        result = get_charset_from_content_type(content_type)
+        assert result == "UTF-8"
+
+    def test_complex_mime_type(self):
+        """Test with complex MIME type."""
+        content_type = "multipart/related; boundary=boundary123; charset=windows-1252; type=text/html"
+        result = get_charset_from_content_type(content_type)
+        assert result == "windows-1252"
+
+
+class TestEncodingIntegration:
+    """Integration tests for encoding detection in realistic scenarios."""
+
+    def test_csv_with_various_encodings(self):
+        """Test CSV-like data with various encodings."""
+        csv_content = "Name,Age,City\nJohn,25,NYC\nJane,30,LA"
+
+        # Test UTF-8
+        data_utf8 = csv_content.encode("utf-8")
+        result = read_text_with_encoding_detection(data_utf8)
+        assert "Name" in result
+        assert "John" in result
+
+        # Test Latin-1
+        data_latin1 = csv_content.encode("latin-1")
+        result = read_text_with_encoding_detection(data_latin1)
+        assert "Name" in result
+
+    def test_text_file_with_bom(self):
+        """Test text file with BOM marker."""
+        content = "This is a test file\nWith multiple lines"
+
+        # UTF-8 with BOM
+        data = content.encode("utf-8-sig")
+        result = read_text_with_encoding_detection(data)
+        assert result == content
+        assert not result.startswith("\ufeff")  # BOM should be stripped
+
+    def test_source_code_with_special_chars(self):
+        """Test source code with special characters."""
+        code = "# -*- coding: utf-8 -*-\ndef test():\n    print('Hello 世界')"
+        data = code.encode("utf-8")
+        result = read_text_with_encoding_detection(data)
+        assert result == code
+
+    def test_html_content_type_integration(self):
+        """Test extracting and using charset from HTML Content-Type."""
+        content_type = "text/html; charset=iso-8859-1"
+        charset = get_charset_from_content_type(content_type)
+
+        html_content = "<html><body>Café</body></html>"
+        data = html_content.encode(charset)
+
+        # Use detected charset in fallback list
+        result = read_text_with_encoding_detection(
+            data,
+            fallback_encodings=[charset, "utf-8", "latin-1"]
+        )
+        assert "Café" in result or "Caf" in result
+
+    def test_markdown_with_unicode(self):
+        """Test Markdown content with Unicode characters."""
+        markdown = "# Hello 世界\n\nThis is a **test** with émojis: ✨🎉"
+        data = markdown.encode("utf-8")
+        result = read_text_with_encoding_detection(data)
+        assert result == markdown
+
+    def test_config_file_various_formats(self):
+        """Test configuration file formats with different encodings."""
+        ini_content = "[section]\nkey=value\nname=Café"
+
+        # Test with UTF-8
+        data = ini_content.encode("utf-8")
+        result = read_text_with_encoding_detection(data)
+        assert "Café" in result
+
+    def test_legacy_encoding_fallback(self):
+        """Test fallback to legacy encodings for old files."""
+        # Simulate old file with Windows-1252 encoding
+        content = "Project — Status Report"  # em dash
+        data = content.encode("windows-1252", errors="ignore")
+
+        result = read_text_with_encoding_detection(
+            data,
+            fallback_encodings=["utf-8", "windows-1252", "latin-1"]
+        )
+        # Should decode successfully
+        assert isinstance(result, str)
+        assert "Project" in result

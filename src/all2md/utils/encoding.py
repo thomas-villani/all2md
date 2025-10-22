@@ -200,13 +200,16 @@ def get_charset_from_content_type(content_type: str) -> str | None:
     parts = content_type.split(";")
     for part in parts[1:]:  # Skip the media type part
         part = part.strip()
-        if part.lower().startswith("charset="):
-            charset = part[8:].strip()  # Remove 'charset='
-            # Remove quotes if present
-            if charset.startswith('"') and charset.endswith('"'):
-                charset = charset[1:-1]
-            if charset.startswith("'") and charset.endswith("'"):
-                charset = charset[1:-1]
-            return charset.strip()
+        # Handle both "charset=value" and "charset = value"
+        if "=" in part:
+            key, value = part.split("=", 1)
+            if key.strip().lower() == "charset":
+                charset = value.strip()
+                # Remove quotes if present
+                if charset.startswith('"') and charset.endswith('"'):
+                    charset = charset[1:-1]
+                if charset.startswith("'") and charset.endswith("'"):
+                    charset = charset[1:-1]
+                return charset.strip()
 
     return None
