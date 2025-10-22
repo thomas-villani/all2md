@@ -468,6 +468,56 @@ DOCUMENT_EXTENSIONS = [
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
 
+RESOURCE_FILE_EXTENSIONS = [
+    # Images
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".svg",
+    ".webp",
+    ".ico",
+    ".tiff",
+    ".tif",
+    # Stylesheets
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    # Scripts (may be parsed as sourcecode, but often better as resources in archives)
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+    # Media
+    ".mp4",
+    ".mp3",
+    ".wav",
+    ".avi",
+    ".mov",
+    ".mkv",
+    ".webm",
+    ".ogg",
+    ".flac",
+    ".m4a",
+    # Fonts
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".eot",
+    # Binary/compiled files
+    ".bin",
+    ".dat",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".class",
+]
+
 # TODO: Make sure this list is complete! It governs the CLI
 DocumentFormat = Literal[
     "auto",             # Auto-detect from filename/content

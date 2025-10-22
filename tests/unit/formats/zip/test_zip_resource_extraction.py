@@ -33,14 +33,14 @@ class TestZipResourceExtraction:
             # Add a markdown file (parseable)
             zf.writestr("document.md", "# Heading\n\nSome content.")
 
-            # Add an image file (non-parseable resource)
+            # Add resource files (will be extracted, not parsed)
             fake_png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
             zf.writestr("image.png", fake_png_data)
 
-            # Add a CSS file (non-parseable resource)
+            # Add a CSS file (resource)
             zf.writestr("style.css", "body { color: red; }")
 
-            # Add a JavaScript file (non-parseable resource)
+            # Add a JavaScript file (resource)
             zf.writestr("script.js", 'console.log("hello");')
 
         zip_buffer.seek(0)

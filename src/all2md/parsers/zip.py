@@ -306,6 +306,38 @@ class ZipToAstConverter(BaseParser):
             return Path(file_path).name
         return file_path
 
+    def _is_resource_file(self, file_path: str) -> bool:
+        """Check if a file should be treated as a resource based on its extension.
+
+        Parameters
+        ----------
+        file_path : str
+            Path of file in archive
+
+        Returns
+        -------
+        bool
+            True if file should be treated as a resource, False if it should be parsed
+
+        """
+        from all2md.constants import RESOURCE_FILE_EXTENSIONS
+
+        # Get the configured resource extensions (None means use defaults)
+        resource_extensions = self.options.resource_file_extensions
+        if resource_extensions is None:
+            resource_extensions = RESOURCE_FILE_EXTENSIONS
+        elif len(resource_extensions) == 0:
+            # Empty list means treat nothing as a resource (parse everything)
+            return False
+
+        # Get file extension (case-insensitive)
+        file_ext = Path(file_path).suffix.lower()
+        if not file_ext:
+            return False
+
+        # Check if extension is in the resource list (case-insensitive)
+        return file_ext in [ext.lower() for ext in resource_extensions]
+
     def _convert_file(self, file_path: str, file_data: bytes) -> Document | None:
         """Convert a single file to AST.
 
@@ -324,6 +356,13 @@ class ZipToAstConverter(BaseParser):
         """
         # Import here to avoid circular dependency
         from all2md import to_ast
+
+        # Check if this file should be treated as a resource BEFORE attempting to parse
+        if self._is_resource_file(file_path):
+            logger.debug(f"Treating as resource file (by extension): {file_path}")
+            if self.options.extract_resource_files and self.options.attachment_output_dir:
+                self._extract_resource_file(file_path, file_data)
+            return None
 
         try:
             # Create a BytesIO object with a name attribute for better format detection

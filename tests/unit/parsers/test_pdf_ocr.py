@@ -215,14 +215,14 @@ class TestDetectPageLanguage:
 class TestOCRPageToText:
     """Test OCR text extraction method."""
 
-    @patch('all2md.parsers.pdf.fitz')
-    @patch('all2md.parsers.pdf.pytesseract')
-    @patch('all2md.parsers.pdf.Image')
+    @patch('fitz.Matrix')
+    @patch('pytesseract.image_to_string')
+    @patch('PIL.Image')
     def test_ocr_page_to_text_success(
         self,
         mock_image: Mock,
         mock_pytesseract: Mock,
-        mock_fitz: Mock
+        mock_matrix_class: Mock
     ) -> None:
         """Test successful OCR extraction."""
         # Mock page and pixmap
@@ -238,28 +238,29 @@ class TestOCRPageToText:
         mock_image.frombytes.return_value = mock_img
 
         # Mock pytesseract
-        mock_pytesseract.image_to_string.return_value = "Extracted text from OCR"
+        mock_pytesseract.return_value = "Extracted text from OCR"
 
         # Mock fitz.Matrix
         mock_matrix = Mock()
-        mock_fitz.Matrix.return_value = mock_matrix
+        mock_matrix_class.return_value = mock_matrix
 
         options = PdfOptions(ocr=OCROptions(enabled=True, languages="eng", dpi=300))
 
         result = PdfToAstConverter._ocr_page_to_text(mock_page, options)
 
         assert result == "Extracted text from OCR"
-        mock_pytesseract.image_to_string.assert_called_once()
-        mock_fitz.Matrix.assert_called_once_with(300/72.0, 300/72.0)
+        mock_pytesseract.assert_called_once()
+        mock_matrix_class.assert_called_once_with(300/72.0, 300/72.0)
 
-    @patch('all2md.parsers.pdf.fitz')
-    @patch('all2md.parsers.pdf.pytesseract')
-    @patch('all2md.parsers.pdf.Image')
+    @patch('fitz.Matrix')
+    @patch('pytesseract.image_to_string')
+    @patch('pytesseract.TesseractNotFoundError', new=Exception)
+    @patch('PIL.Image')
     def test_ocr_page_to_text_tesseract_not_found(
         self,
         mock_image: Mock,
         mock_pytesseract: Mock,
-        mock_fitz: Mock
+        mock_matrix_class: Mock
     ) -> None:
         """Test OCR when Tesseract is not installed."""
         # Mock page and pixmap
@@ -275,28 +276,25 @@ class TestOCRPageToText:
         mock_image.frombytes.return_value = mock_img
 
         # Mock pytesseract raising TesseractNotFoundError
-        mock_pytesseract.TesseractNotFoundError = Exception
-        mock_pytesseract.image_to_string.side_effect = mock_pytesseract.TesseractNotFoundError(
-            "Tesseract not found"
-        )
+        mock_pytesseract.side_effect = Exception("Tesseract not found")
 
         # Mock fitz.Matrix
         mock_matrix = Mock()
-        mock_fitz.Matrix.return_value = mock_matrix
+        mock_matrix_class.return_value = mock_matrix
 
         options = PdfOptions(ocr=OCROptions(enabled=True, languages="eng"))
 
         with pytest.raises(RuntimeError, match="Tesseract OCR is not installed"):
             PdfToAstConverter._ocr_page_to_text(mock_page, options)
 
-    @patch('all2md.parsers.pdf.fitz')
-    @patch('all2md.parsers.pdf.pytesseract')
-    @patch('all2md.parsers.pdf.Image')
+    @patch('fitz.Matrix')
+    @patch('pytesseract.image_to_string')
+    @patch('PIL.Image')
     def test_ocr_page_to_text_with_config(
         self,
         mock_image: Mock,
         mock_pytesseract: Mock,
-        mock_fitz: Mock
+        mock_matrix_class: Mock
     ) -> None:
         """Test OCR with custom Tesseract config."""
         # Mock page and pixmap
@@ -312,11 +310,11 @@ class TestOCRPageToText:
         mock_image.frombytes.return_value = mock_img
 
         # Mock pytesseract
-        mock_pytesseract.image_to_string.return_value = "OCR text"
+        mock_pytesseract.return_value = "OCR text"
 
         # Mock fitz.Matrix
         mock_matrix = Mock()
-        mock_fitz.Matrix.return_value = mock_matrix
+        mock_matrix_class.return_value = mock_matrix
 
         options = PdfOptions(
             ocr=OCROptions(
@@ -330,7 +328,7 @@ class TestOCRPageToText:
 
         assert result == "OCR text"
         # Verify custom config was passed
-        call_args = mock_pytesseract.image_to_string.call_args
+        call_args = mock_pytesseract.call_args
         assert call_args[1]['config'] == "--psm 6"
 
 

@@ -37,6 +37,11 @@ class ArchiveOptions(BaseParserOptions):
         Whether to flatten directory structure (ignore paths in output).
     extract_resource_files : bool, default True
         Whether to extract non-parseable files (images, CSS, etc.) to attachment directory.
+    resource_file_extensions : list[str] or None, default None
+        List of file extensions to treat as resources (e.g., ``['.png', '.css', '.js']``).
+        If None, uses default list from ``RESOURCE_FILE_EXTENSIONS`` in constants.
+        If empty list ``[]``, no files are treated as resources (all are parsed).
+        Extensions should include the leading dot and are case-insensitive.
     skip_empty_files : bool, default True
         Whether to skip files with no content or that fail to parse.
     include_resource_manifest : bool, default True
@@ -87,6 +92,15 @@ class ArchiveOptions(BaseParserOptions):
             "help": "Extract non-parseable files to attachment directory",
             "cli_name": "no-extract-resources",
             "importance": "core",
+        },
+    )
+
+    resource_file_extensions: list[str] | None = field(
+        default=None,
+        metadata={
+            "help": "File extensions to treat as resources (None=use defaults, []=parse all)",
+            "cli_name": "resource-extensions",
+            "importance": "advanced",
         },
     )
 

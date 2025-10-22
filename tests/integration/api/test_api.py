@@ -1236,7 +1236,7 @@ class TestNewAPI:
         text_io = BytesIO(simple_text)
 
         result = to_markdown(
-            text_io, parser_options=pdf_options, source_format="txt"  # Force as text since we don't have real PDF
+            text_io, parser_options=pdf_options, source_format="plaintext"  # Force as text since we don't have real PDF
         )
 
         assert result.strip() == "Simple text content"
@@ -1346,7 +1346,7 @@ class TestNewAPI:
         """Test detection for edge cases and unusual file types."""
         # Test with empty file
         empty_io = BytesIO(b"")
-        result = to_markdown(empty_io, source_format="txt")
+        result = to_markdown(empty_io, source_format="plaintext")
         assert result == ""
 
         # Test with binary data that doesn't match any signature

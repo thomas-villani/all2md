@@ -122,12 +122,12 @@ class TestCLIIntegration:
         with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "<h1>HTML Content</h1>"
 
-            result = main([str(html_file), "--format", "txt"])
+            result = main([str(html_file), "--format", "plaintext"])
 
             assert result == 0
             # Verify format was overridden
             call_args = mock_to_markdown.call_args
-            assert call_args[1]["source_format"] == "txt"
+            assert call_args[1]["source_format"] == "plaintext"
 
     def test_attachment_validation_warning(self, capsys):
         """Test warning when attachment-output-dir used without download mode."""
@@ -449,12 +449,12 @@ class TestCLIIntegration:
         with patch("all2md.cli.processors.to_markdown") as mock_to_markdown:
             mock_to_markdown.return_value = "# Document\n\nForced as ODT"
 
-            result = main([str(test_file), "--format", "odf"])
+            result = main([str(test_file), "--format", "odt"])
 
             assert result == 0
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
-            assert kwargs["source_format"] == "odf"
+            assert kwargs["source_format"] == "odt"
 
     def test_odf_attachment_handling(self):
         """Test ODF attachment handling options."""

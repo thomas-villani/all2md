@@ -533,7 +533,7 @@ class TestCLIParser:
         parser = create_parser()
 
         # Valid format choices
-        valid_formats = ["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "txt"]
+        valid_formats = ["auto", "pdf", "docx", "pptx", "html", "eml", "rtf", "ipynb", "plaintext"]
         for fmt in valid_formats:
             args = parser.parse_args(["test.pdf", "--format", fmt])
             assert args.format == fmt

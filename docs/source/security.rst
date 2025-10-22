@@ -1,14 +1,61 @@
 Security
 ========
 
-all2md includes comprehensive security features to protect against common vulnerabilities when processing documents, especially from untrusted sources. This guide covers network security, local file access controls, and best practices for secure document conversion.
+all2md includes comprehensive security features to protect against common vulnerabilities when processing documents, especially from untrusted sources. This guide covers the security model, network and filesystem controls, archive validation, and best practices for secure document conversion.
 
 .. contents::
    :local:
    :depth: 2
 
-Overview
---------
+Security Model Overview
+-----------------------
+
+The all2md threat model assumes every input could be hostile. The converter is designed to:
+
+* Treat uploaded or scraped documents as **untrusted** while keeping parsing and rendering code **trusted**
+* Default to least-privilege access for the network, filesystem, and process resources
+* Fail securely when validation checks cannot be completed
+* Provide layered defenses so a misconfiguration in one area does not expose the entire pipeline
+
+For a deeper threat-model walk-through and architectural context, see :doc:`threat_model`.
+
+Secure by Default
+-----------------
+
+.. important::
+
+   all2md follows a ``secure by default`` philosophy:
+
+   - Remote fetching is DISABLED by default
+   - Local file access is DISABLED by default
+   - HTML is ESCAPED by default
+   - OCR is DISABLED by default
+   - Dangerous URL schemes are BLOCKED
+   - Private IP ranges are BLOCKED
+
+   Users must explicitly opt-in to potentially risky features.
+
+.. code-block:: text
+   :caption: Defense-in-depth layers
+
+           ┌─────────────────────────────┐
+           │  CLI presets & env guards   │  -- opt-in switches (``--safe-mode``, ``ALL2MD_DISABLE_NETWORK``)
+           └──────────────┬──────────────┘
+                          │
+           ┌──────────────▼──────────────┐
+           │ Parser options & validators │  -- ``NetworkFetchOptions``, ``LocalFileAccessOptions``
+           └──────────────┬──────────────┘
+                          │
+           ┌──────────────▼──────────────┐
+           │   Runtime policy checks     │  -- private IP blocking, SSRF filters, archive inspection
+           └──────────────┬──────────────┘
+                          │
+           ┌──────────────▼──────────────┐
+           │      Sanitized output       │  -- HTML escaping, attachment policies, metadata limits
+           └─────────────────────────────┘
+
+Key Risk Areas
+--------------
 
 When processing documents from untrusted sources, several security risks must be addressed:
 
@@ -20,7 +67,7 @@ When processing documents from untrusted sources, several security risks must be
 all2md provides defense mechanisms for all these scenarios through configurable security options and built-in protections.
 
 Network Security (SSRF Protection)
------------------------------------
+----------------------------------
 
 Understanding SSRF Risks
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -32,10 +79,15 @@ Server-Side Request Forgery occurs when a document converter fetches remote reso
 * Exfiltrate data to external servers
 * Bypass firewall restrictions
 
+Default stance
+~~~~~~~~~~~~~~
+
+Remote fetching is **disabled** unless explicitly enabled. The defaults in ``all2md.constants`` set ``DEFAULT_ALLOW_REMOTE_FETCH = False`` and ``DEFAULT_REQUIRE_HTTPS = True`` so HTML conversion runs with a closed network boundary out of the box. CLI presets such as ``--safe-mode`` and environment toggles like ``ALL2MD_DISABLE_NETWORK=1`` reinforce this posture without writing code.
+
 NetworkFetchOptions
 ~~~~~~~~~~~~~~~~~~~
 
-all2md provides ``NetworkFetchOptions`` to control remote resource fetching:
+When you need remote assets, ``NetworkFetchOptions`` controls how fetching occurs:
 
 .. code-block:: python
 
@@ -58,14 +110,16 @@ all2md provides ``NetworkFetchOptions`` to control remote resource fetching:
        )
    )
 
-   # With size and timeout limits
+   # With size, timeout, and rate limits
    limited_config = HtmlOptions(
        network=NetworkFetchOptions(
            allow_remote_fetch=True,
            allowed_hosts=["trusted-cdn.com"],
            require_https=True,
-           network_timeout=5.0,  # 5 second timeout
-           max_remote_asset_bytes=2*1024*1024  # 2MB limit
+           network_timeout=5.0,          # 5 second timeout
+           max_remote_asset_bytes=2*1024*1024,  # 2MB limit
+           max_requests_per_second=3.0,
+           max_concurrent_requests=2,
        )
    )
 
@@ -82,7 +136,7 @@ The ``allowed_hosts`` field has three distinct behaviors:
      - Behavior
      - Use Case
    * - ``None`` (default)
-     - All hosts allowed
+     - All hosts allowed (still subject to private-IP blocking)
      - Development, trusted sources
    * - ``[]`` (empty list)
      - All hosts blocked
@@ -129,17 +183,19 @@ The ``require_https`` option forces all remote fetches to use HTTPS:
    html_opts = HtmlOptions(network=network_opts)
    markdown = to_markdown("webpage.html", options=html_opts)
 
-Size and Timeout Limits
-~~~~~~~~~~~~~~~~~~~~~~~~
+Size, Rate, and Timeout Limits
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Protect against resource exhaustion with limits:
+Protect against resource exhaustion with limits and throttling:
 
 .. code-block:: python
 
    network_opts = NetworkFetchOptions(
        allow_remote_fetch=True,
-       network_timeout=10.0,  # Timeout after 10 seconds
-       max_remote_asset_bytes=5*1024*1024  # 5MB max per asset (default: 20MB)
+       network_timeout=10.0,       # Timeout after 10 seconds
+       max_remote_asset_bytes=5*1024*1024,  # 5MB max per asset (default: 20MB)
+       max_requests_per_second=2.0,
+       max_concurrent_requests=1,
    )
 
 Global Network Disable
@@ -157,8 +213,20 @@ For maximum security, disable all network access globally using the environment 
 
 This is useful in production environments where you want to ensure no network requests occur.
 
+Private IP and Scheme Validation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Even when remote fetching is enabled, URLs pass through ``all2md.utils.network_security.validate_url_security``. The validator blocks:
+
+* Private, loopback, and link-local IPv4/IPv6 ranges (``10.0.0.0/8``, ``192.168.0.0/16``, ``fc00::/7``)
+* Cloud metadata endpoints and benchmarking ranges (``169.254.169.254``, ``198.18.0.0/15``)
+* Non-HTTP(S) schemes such as ``file:``, ``ftp:``, ``javascript:``, or custom handlers
+* Hosts not present in the allowlist when one is configured
+
+Requests are also paced by ``network_security.RateLimiter`` so that a compromised document cannot perform high-volume reconnaissance.
+
 Network Security Configuration Table
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Quick reference for ``HtmlOptions.network.*`` settings:
 
@@ -184,14 +252,20 @@ Quick reference for ``HtmlOptions.network.*`` settings:
    * - ``max_remote_asset_bytes``
      - ``20971520``
      - Max download size per asset (20MB default)
+   * - ``max_requests_per_second``
+     - ``10.0``
+     - Rate limit for remote asset fetching
+   * - ``max_concurrent_requests``
+     - ``5``
+     - Maximum concurrent network requests
 
 Local File Access Security
----------------------------
+--------------------------
 
 Controlling file:// URLs
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Documents may reference local files using ``file://`` URLs. This can expose sensitive system files:
+Documents may reference local files using ``file://`` URLs. This can expose sensitive system files. By default ``DEFAULT_ALLOW_LOCAL_FILES = False`` and ``DEFAULT_ALLOW_CWD_FILES = False`` so HTML parsing cannot read from disk unless explicitly granted.
 
 .. code-block:: python
 
@@ -254,13 +328,14 @@ Control which directories can be accessed:
 Archive Security
 ----------------
 
-ZIP Bomb Protection
-~~~~~~~~~~~~~~~~~~~
+Handling ZIP-based formats
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-all2md includes protection against ZIP bombs and other malicious archives:
+Many office formats (``.docx``, ``.pptx``, ``.xlsx``) and EPUB bundles are ZIP archives. all2md validates archives before extraction to mitigate decompression bombs and path traversal attempts:
 
 .. code-block:: python
 
+   from all2md import to_markdown
    from all2md.utils.security import validate_zip_archive
 
    # Validate before processing
@@ -275,12 +350,24 @@ all2md includes protection against ZIP bombs and other malicious archives:
    except SecurityError as e:
        print(f"Archive validation failed: {e}")
 
-The validation checks:
+Quick facts:
 
-* Total uncompressed size limit
-* Individual file size limits
-* Compression ratio (detects bombs)
-* Directory traversal in file names
+.. list-table:: Archive validation safeguards
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Check
+     - Purpose
+   * - Total and per-file size caps
+     - Prevent archive bombs or payloads that exhaust disk/memory resources
+   * - Compression ratio threshold
+     - Flags suspicious archives that expand disproportionately (classic ZIP bombs)
+   * - Directory traversal rejection
+     - Blocks ``../`` paths that could overwrite or read files outside the extraction root
+   * - Optional MIME allowlists
+     - Focus processing on expected content types
+
+Choose validation thresholds based on your deployment’s storage limits. For extremely risky inputs, pair validation with a sandboxed extraction directory mounted with minimal privileges.
 
 CLI Security Presets
 --------------------
@@ -339,11 +426,33 @@ Paranoid mode enables:
 * Strict timeouts and size limits
 * Attachment mode set to ``skip`` (no file writes)
 
+Recommended Secure Configurations
+---------------------------------
+
+Use the following starting points and adjust to match your threat model:
+
+.. list-table:: Common security configurations
+   :header-rows: 1
+   :widths: 25 25 50
+
+   * - Scenario
+     - How to enable
+     - Highlights
+   * - Locked-down HTML ingestion
+     - ``HtmlOptions`` with ``allow_remote_fetch=False``, ``allow_local_files=False``, ``strip_dangerous_elements=True``; CLI ``--paranoid-mode``
+     - Maximizes isolation by blocking network/local files and stripping risky markup
+   * - Balanced safe defaults
+     - CLI ``--safe-mode`` or preset ``security.safe``
+     - Keeps HTTPS-only remote fetch, sanitizes HTML, and limits attachments while allowing opt-in flexibility
+   * - Trusted-source pipeline
+     - Allowlist trusted hosts/directories, enable attachments with output dir
+     - Maintains protections against private IPs and dangerous schemes but relaxes access for vetted content
+
 Security Best Practices
 -----------------------
 
-Web Application Integration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Library Integration
+~~~~~~~~~~~~~~~~~~~
 
 When integrating all2md into a web application:
 
@@ -448,8 +557,8 @@ For trusted sources, you can relax restrictions:
        attachment_output_dir='./downloaded_images'
    )
 
-Batch Processing
-~~~~~~~~~~~~~~~~
+Automated Batch Processing
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When processing multiple files, validate before conversion:
 
@@ -496,6 +605,7 @@ When processing documents from untrusted sources, ensure:
 - [ ] Set reasonable ``network_timeout`` values
 - [ ] Limit ``max_remote_asset_bytes`` appropriately
 - [ ] Consider ``ALL2MD_DISABLE_NETWORK`` environment variable in production
+- [ ] Monitor request rate with ``max_requests_per_second`` and ``max_concurrent_requests``
 
 **Local File Security:**
 
