@@ -431,6 +431,13 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         node : Image
             Image to render
 
+        Notes
+        -----
+        MediaWiki image syntax: [[File:filename|options|caption]]
+        - When image_thumb=True and caption_mode is configured, renders with caption
+        - Caption can be derived from alt_text or title metadata
+        - alt= attribute and caption text can be controlled separately via image_caption_mode
+
         """
         # MediaWiki image syntax: [[File:filename|options|caption]]
         parts = [f"File:{node.url}"]
@@ -438,8 +445,24 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if self.options.image_thumb:
             parts.append("thumb")
 
-        if node.alt_text:
-            parts.append(f"alt={node.alt_text}")
+            # Handle caption rendering based on mode
+            caption_text = node.title if hasattr(node, "title") and node.title else node.alt_text
+
+            if self.options.image_caption_mode == "auto" and caption_text:
+                # Auto mode: render both alt attribute and caption text
+                if node.alt_text:
+                    parts.append(f"alt={node.alt_text}")
+                parts.append(caption_text)
+            elif self.options.image_caption_mode == "alt_only" and node.alt_text:
+                # Only render alt attribute, no caption
+                parts.append(f"alt={node.alt_text}")
+            elif self.options.image_caption_mode == "caption_only" and caption_text:
+                # Only render caption, no alt attribute
+                parts.append(caption_text)
+        else:
+            # When not thumbnail, just add alt if available
+            if node.alt_text:
+                parts.append(f"alt={node.alt_text}")
 
         self._output.append("[[" + "|".join(parts) + "]]")
 

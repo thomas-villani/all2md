@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from all2md.constants import (
     DEFAULT_RST_CODE_STYLE,
+    DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS,
     DEFAULT_RST_HARD_LINE_BREAK_MODE,
     DEFAULT_RST_HEADING_CHARS,
     DEFAULT_RST_LINE_LENGTH,
@@ -96,6 +97,10 @@ class RstRendererOptions(BaseRendererOptions):
         How to render hard line breaks:
         - "line_block": Use RST line block syntax (``| `` prefix), the standard approach
         - "raw": Use plain newline, less faithful but simpler in complex containers
+    hard_line_break_fallback_in_containers : bool, default True
+        Automatically fallback to raw mode for line breaks inside lists or blockquotes.
+        When True, prevents semantic changes from line block syntax in containers.
+        When False, always uses the configured hard_line_break_mode.
 
     Notes
     -----
@@ -150,6 +155,14 @@ class RstRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Hard line break rendering mode: line_block (use | syntax) or raw (plain newline)",
             "choices": ["line_block", "raw"],
+            "importance": "advanced",
+        },
+    )
+    hard_line_break_fallback_in_containers: bool = field(
+        default=DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS,
+        metadata={
+            "help": "Automatically fallback to raw mode for line breaks inside lists/blockquotes",
+            "cli_name": "no-hard-line-break-fallback-in-containers",
             "importance": "advanced",
         },
     )

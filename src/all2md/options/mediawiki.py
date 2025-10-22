@@ -10,12 +10,14 @@ from dataclasses import dataclass, field
 
 from all2md.constants import (
     DEFAULT_HTML_PASSTHROUGH_MODE,
+    DEFAULT_MEDIAWIKI_IMAGE_CAPTION_MODE,
     DEFAULT_MEDIAWIKI_IMAGE_THUMB,
     DEFAULT_MEDIAWIKI_PARSE_TAGS,
     DEFAULT_MEDIAWIKI_PARSE_TEMPLATES,
     DEFAULT_MEDIAWIKI_STRIP_COMMENTS,
     DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
     HtmlPassthroughMode,
+    MediaWikiImageCaptionMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
@@ -37,6 +39,11 @@ class MediaWikiOptions(BaseRendererOptions):
         Whether to render images as thumbnails.
         When True, images use \|thumb option in MediaWiki syntax.
         When False, images are rendered at full size.
+    image_caption_mode : {"auto", "alt_only", "caption_only"}, default "alt_only"
+        How to render image captions when image_thumb is True:
+        - "auto": Use alt_text as caption, with alt attribute when available
+        - "alt_only": Only render alt attribute, no caption text (default, backward compatible)
+        - "caption_only": Only render caption text, no alt attribute
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
         How to handle HTMLBlock and HTMLInline nodes:
         - "pass-through": Pass through unchanged (use only with trusted content)
@@ -70,6 +77,14 @@ class MediaWikiOptions(BaseRendererOptions):
     image_thumb: bool = field(
         default=DEFAULT_MEDIAWIKI_IMAGE_THUMB,
         metadata={"help": "Render images as thumbnails", "cli_name": "no-image-thumb", "importance": "core"},
+    )
+    image_caption_mode: MediaWikiImageCaptionMode = field(
+        default=DEFAULT_MEDIAWIKI_IMAGE_CAPTION_MODE,
+        metadata={
+            "help": "How to render image captions: auto (use alt_text as caption), alt_only, caption_only",
+            "choices": ["auto", "alt_only", "caption_only"],
+            "importance": "core",
+        },
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
         default="pass-through",

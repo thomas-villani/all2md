@@ -13,6 +13,7 @@ from all2md.constants import (
     DEFAULT_ORG_HEADING_STYLE,
     DEFAULT_ORG_PARSE_DRAWERS,
     DEFAULT_ORG_PARSE_PROPERTIES,
+    DEFAULT_ORG_PARSE_SCHEDULING,
     DEFAULT_ORG_PARSE_TAGS,
     DEFAULT_ORG_PRESERVE_DRAWERS,
     DEFAULT_ORG_PRESERVE_PROPERTIES,
@@ -42,6 +43,10 @@ class OrgParserOptions(BaseParserOptions):
     parse_tags : bool, default True
         Whether to parse heading tags (e.g., :work:urgent:).
         When True, tags are extracted and stored in heading metadata.
+    parse_scheduling : bool, default True
+        Whether to parse SCHEDULED and DEADLINE timestamps.
+        When True, scheduling info is extracted and stored in metadata.
+        For the first heading, scheduling is also added to Document.metadata.custom.
     todo_keywords : list[str], default ["TODO", "DONE"]
         List of TODO keywords to recognize in headings.
         Common keywords: TODO, DONE, IN-PROGRESS, WAITING, CANCELLED, etc.
@@ -80,6 +85,14 @@ class OrgParserOptions(BaseParserOptions):
         metadata={
             "help": "Parse heading tags (e.g., :work:urgent:)",
             "cli_name": "no-parse-tags",
+            "importance": "core",
+        },
+    )
+    parse_scheduling: bool = field(
+        default=DEFAULT_ORG_PARSE_SCHEDULING,
+        metadata={
+            "help": "Parse SCHEDULED and DEADLINE timestamps",
+            "cli_name": "no-parse-scheduling",
             "importance": "core",
         },
     )

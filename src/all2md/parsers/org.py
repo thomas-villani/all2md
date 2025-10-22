@@ -294,6 +294,13 @@ class OrgParser(BaseParser):
         if self.options.parse_properties and hasattr(node, "properties") and node.properties:
             heading_metadata["org_properties"] = dict(node.properties)
 
+        # Extract scheduling information if enabled (SCHEDULED/DEADLINE)
+        if self.options.parse_scheduling:
+            if hasattr(node, "scheduled") and node.scheduled:
+                heading_metadata["org_scheduled"] = str(node.scheduled)
+            if hasattr(node, "deadline") and node.deadline:
+                heading_metadata["org_deadline"] = str(node.deadline)
+
         return Heading(level=level, content=content, metadata=heading_metadata)
 
     def _process_body(self, body_text: str) -> list[Node]:
@@ -480,20 +487,34 @@ class OrgParser(BaseParser):
         Returns
         -------
         CodeBlock or None
-            Code block AST node
+            Code block AST node with optional header args in metadata
 
         """
         lines = block.split("\n")
         if len(lines) < 2:
             return None
 
-        # Extract language from first line
+        # Extract language and header args from first line
+        # Format: #+BEGIN_SRC language :arg1 value1 :arg2 value2
         first_line = lines[0].strip()
         language = None
+        header_args = None
+
         if " " in first_line:
+            # Split to get everything after #+BEGIN_SRC
             parts = first_line.split(None, 1)
             if len(parts) > 1:
-                language = parts[1].strip()
+                rest = parts[1].strip()
+                # Split on first space to separate language from args
+                if " " in rest:
+                    lang_part, args_part = rest.split(None, 1)
+                    language = lang_part.strip()
+                    # Store header args if they start with : (Org-mode convention)
+                    if args_part.strip().startswith(":"):
+                        header_args = args_part.strip()
+                else:
+                    # No args, just language
+                    language = rest
 
         # Extract code content (between BEGIN_SRC and END_SRC)
         code_lines = []
@@ -508,7 +529,12 @@ class OrgParser(BaseParser):
                 code_lines.append(line)
 
         code_content = "\n".join(code_lines)
-        return CodeBlock(content=code_content, language=language)
+
+        # Build metadata with header args if present
+        if header_args:
+            return CodeBlock(content=code_content, language=language, metadata={"org_header_args": header_args})
+        else:
+            return CodeBlock(content=code_content, language=language)
 
     def _parse_table(self, block: str) -> Table | None:
         """Parse an Org table.
@@ -670,6 +696,14 @@ class OrgParser(BaseParser):
             first_child = document.children[0]
             if hasattr(first_child, "heading") and first_child.heading:
                 metadata.title = first_child.heading
+
+        # Extract scheduling info from first heading into custom metadata if enabled
+        if self.options.parse_scheduling and document.children:
+            first_child = document.children[0]
+            if hasattr(first_child, "scheduled") and first_child.scheduled:
+                metadata.custom["org_scheduled"] = str(first_child.scheduled)
+            if hasattr(first_child, "deadline") and first_child.deadline:
+                metadata.custom["org_deadline"] = str(first_child.deadline)
 
         return metadata
 

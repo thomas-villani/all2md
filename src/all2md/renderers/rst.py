@@ -94,6 +94,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output: list[str] = []
         self._in_list: bool = False
         self._list_depth: int = 0
+        self._in_blockquote: int = 0
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to RST string.
@@ -112,6 +113,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output = []
         self._in_list = False
         self._list_depth = 0
+        self._in_blockquote = 0
 
         document.accept(self)
 
@@ -294,8 +296,13 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         saved_output = self._output
         self._output = []
 
+        # Track blockquote depth
+        self._in_blockquote += 1
+
         for child in node.children:
             child.accept(self)
+
+        self._in_blockquote -= 1
 
         quoted = "".join(self._output)
         lines = quoted.split("\n")
@@ -608,7 +615,12 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # RST link syntax: `text <url>`_
         if node.url:
-            self._output.append(f"`{content} <{node.url}>`_")
+            # Escape URL to prevent breaking RST syntax
+            # Only escape characters that would break the <url> context:
+            # - backticks (`) could break out of the outer backticks
+            # - angle brackets (>) would close the URL prematurely
+            escaped_url = node.url.replace("`", r"\`").replace(">", r"\>")
+            self._output.append(f"`{content} <{escaped_url}>`_")
         else:
             self._output.append(content)
 
@@ -648,18 +660,29 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         **raw mode**: Uses plain newlines. Less faithful to RST but simpler in
         complex containers. May not preserve visual breaks in all RST processors.
 
+        **Automatic fallback**: When ``hard_line_break_fallback_in_containers`` is True
+        and we're inside a list or blockquote, automatically uses raw mode to prevent
+        semantic changes from line block syntax.
+
         """
         if node.soft:
             # Soft breaks render as space in RST
             self._output.append(" ")
         else:
-            # Hard line break rendering depends on configured mode
-            if self.options.hard_line_break_mode == "line_block":
-                # Standard RST line block syntax
-                self._output.append("\n| ")
-            else:  # "raw"
+            # Hard line break rendering depends on configured mode and context
+            # Check if we should fallback to raw mode in containers
+            in_container = self._in_list or self._in_blockquote > 0
+            use_raw_mode = (
+                self.options.hard_line_break_mode == "raw"
+                or (self.options.hard_line_break_fallback_in_containers and in_container)
+            )
+
+            if use_raw_mode:
                 # Plain newline (simpler but less faithful)
                 self._output.append("\n")
+            else:
+                # Standard RST line block syntax
+                self._output.append("\n| ")
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.
