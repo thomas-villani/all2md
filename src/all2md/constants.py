@@ -495,6 +495,7 @@ DOCUMENT_EXTENSIONS = [
     ".epub",
     ".mht",
     ".mhtml",
+    ".webarchive",
 ]
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
@@ -578,6 +579,7 @@ DocumentFormat = Literal[
     "rst",              # ReStructuredText
     "spreadsheet",      # CSV, TSV, XLSX
     "sourcecode",       # Source code files with syntax highlighting
+    "webarchive",       # Safari WebArchive format
     "xlsx",             # Excel
     "zip",              # zip archive
 ]

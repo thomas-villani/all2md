@@ -35,15 +35,12 @@ from all2md.cli.processors import (
 from all2md.cli.validation import (
     validate_arguments,
 )
-from all2md.constants import DOCUMENT_EXTENSIONS, PLAINTEXT_EXTENSIONS
 from all2md.converter_registry import registry
 from all2md.dependencies import check_version_requirement, get_package_version
 from all2md.logging_utils import configure_logging as configure_root_logging
 from all2md.transforms import registry as transform_registry
 
 logger = logging.getLogger(__name__)
-
-ALL_ALLOWED_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS
 
 
 def _is_probable_uri(candidate: str) -> bool:
@@ -481,7 +478,8 @@ def collect_input_files(
     with the document loader infrastructure.
     """
     if extensions is None:
-        extensions = ALL_ALLOWED_EXTENSIONS.copy()
+        # Get all supported extensions dynamically from registry
+        extensions = list(registry.get_all_extensions())
 
     normalized_exts = {ext.lower() for ext in extensions} if extensions else None
 

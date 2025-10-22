@@ -645,6 +645,48 @@ class ConverterRegistry:
 
         return f".{format_name}" if not format_name.startswith(".") else format_name
 
+    def get_all_extensions(self) -> set[str]:
+        """Get all supported file extensions from registered converters.
+
+        This method dynamically queries all registered converters and collects
+        their supported file extensions. Useful for CLI file filtering, format
+        detection, and determining which files can be processed.
+
+        Returns
+        -------
+        set[str]
+            Set of all supported file extensions with leading dots (e.g., {'.pdf', '.docx', '.md'})
+
+        Notes
+        -----
+        This method provides a dynamic alternative to hardcoded extension lists.
+        When new parsers are registered (including via plugins), their extensions
+        are automatically included.
+
+        Examples
+        --------
+        Check if a file extension is supported:
+            >>> extensions = registry.get_all_extensions()
+            >>> '.webarchive' in extensions
+            True
+            >>> '.xyz' in extensions
+            False
+
+        Get all supported extensions for file filtering:
+            >>> from pathlib import Path
+            >>> supported = registry.get_all_extensions()
+            >>> files = [f for f in Path('.').glob('*') if f.suffix in supported]
+
+        """
+        all_extensions: set[str] = set()
+        for format_name in self.list_formats():
+            format_info = self.get_format_info(format_name)
+            if format_info:
+                for metadata in format_info:
+                    if metadata.extensions:
+                        all_extensions.update(metadata.extensions)
+        return all_extensions
+
     def check_dependencies(
             self,
             format_name: Optional[str] = None,
