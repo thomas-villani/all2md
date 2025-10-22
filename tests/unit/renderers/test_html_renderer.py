@@ -642,10 +642,10 @@ class TestSecurityFeatures:
         options = HtmlRendererOptions(standalone=True)
         assert options.allow_remote_scripts is False
 
-    def test_csp_enabled_default_false(self):
-        """Test that csp_enabled defaults to False."""
+    def test_csp_enabled_default_true(self):
+        """Test that csp_enabled defaults to True for security."""
         options = HtmlRendererOptions(standalone=True)
-        assert options.csp_enabled is False
+        assert options.csp_enabled is True
 
     def test_remote_scripts_disabled_no_mathjax_script(self):
         """Test that MathJax script is NOT included when allow_remote_scripts=False."""

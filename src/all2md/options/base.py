@@ -107,7 +107,8 @@ class BaseRendererOptions(CloneFrozenMixin):
         if self.max_asset_size_bytes <= 0:
             raise ValueError(f"max_asset_size_bytes must be positive, got {self.max_asset_size_bytes}")
 
-# TODO: not all classes have attachments, perhaps we
+# TODO: not all classes have attachments, perhaps we refactor these options to a mixin (AttachmentsMixin) that is
+#  inherited only be the parsers that actually have attachments (e.g. epub, HTML, PDF, docx, etc.)
 
 @dataclass(frozen=True)
 class BaseParserOptions(CloneFrozenMixin):

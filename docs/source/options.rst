@@ -2543,7 +2543,7 @@ including document structure, styling, templating, and feature toggles.
 
    :Type: ``bool``
    :CLI flag: ``--html-renderer-csp-enabled``
-   :Default: ``False``
+   :Default: ``True``
    :Importance: security
 
 **csp_policy**

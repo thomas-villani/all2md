@@ -241,7 +241,7 @@ TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "
 
 # HTML rendering security defaults
 DEFAULT_ALLOW_REMOTE_SCRIPTS = False  # Secure by default - require opt-in for CDN scripts
-DEFAULT_CSP_ENABLED = False
+DEFAULT_CSP_ENABLED = True  # Secure by default - enable CSP protection for standalone HTML
 DEFAULT_CSP_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
 
 # Local file security
