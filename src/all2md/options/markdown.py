@@ -358,6 +358,9 @@ class MarkdownOptions(BaseRendererOptions):
             incompatible with the selected flavor.
 
         """
+        # Call parent validation
+        super().__post_init__()
+
         flavor_defaults = get_flavor_defaults(self.flavor)
 
         # Apply flavor defaults for any fields that are still unset

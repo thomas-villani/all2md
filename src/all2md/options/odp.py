@@ -147,3 +147,26 @@ class OdpRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for ODP renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate heading level range
+        if not 1 <= self.slide_split_heading_level <= 6:
+            raise ValueError(f"slide_split_heading_level must be in range [1, 6], got {self.slide_split_heading_level}")
+
+        # Validate positive font sizes
+        if self.default_font_size <= 0:
+            raise ValueError(f"default_font_size must be positive, got {self.default_font_size}")
+
+        if self.title_font_size <= 0:
+            raise ValueError(f"title_font_size must be positive, got {self.title_font_size}")

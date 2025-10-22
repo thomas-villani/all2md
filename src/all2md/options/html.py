@@ -258,6 +258,9 @@ class HtmlRendererOptions(BaseRendererOptions):
             If dependent field constraints are violated.
 
         """
+        # Call parent validation
+        super().__post_init__()
+
         # Validate that template_mode requires template_file
         if self.template_mode is not None and self.template_file is None:
             raise ValueError(f"template_mode='{self.template_mode}' requires template_file to be set")

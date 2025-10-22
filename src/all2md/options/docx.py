@@ -115,6 +115,33 @@ class DocxRendererOptions(BaseRendererOptions):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for DOCX renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate positive font sizes
+        if self.default_font_size <= 0:
+            raise ValueError(f"default_font_size must be positive, got {self.default_font_size}")
+
+        if self.code_font_size <= 0:
+            raise ValueError(f"code_font_size must be positive, got {self.code_font_size}")
+
+        # Validate heading font sizes dictionary
+        if self.heading_font_sizes is not None:
+            for level, size in self.heading_font_sizes.items():
+                if not 1 <= level <= 6:
+                    raise ValueError(f"heading_font_sizes keys must be in range [1, 6], got {level}")
+                if size <= 0:
+                    raise ValueError(f"heading_font_sizes values must be positive, got {size} for level {level}")
+
 
 @dataclass(frozen=True)
 class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):

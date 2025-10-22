@@ -487,6 +487,29 @@ class SpreadsheetParserOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges and ensure immutability for spreadsheet options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation (AttachmentOptionsMixin has __post_init__)
+        super().__post_init__()
+
+        # Defensive copy of mutable collections to ensure immutability
+        if isinstance(self.sheets, list):
+            object.__setattr__(self, "sheets", list(self.sheets))
+
+        # Validate max rows/cols (when not None)
+        if self.max_rows is not None and self.max_rows <= 0:
+            raise ValueError(f"max_rows must be positive when specified, got {self.max_rows}")
+
+        if self.max_cols is not None and self.max_cols <= 0:
+            raise ValueError(f"max_cols must be positive when specified, got {self.max_cols}")
+
 
 @dataclass(frozen=True)
 class OCROptions(CloneFrozenMixin):

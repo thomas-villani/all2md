@@ -105,6 +105,9 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
             If any field value is outside its valid range.
 
         """
+        # Call parent validation
+        super().__post_init__()
+
         # Validate image quality (1-100)
         if not 1 <= self.image_quality <= 100:
             raise ValueError(f"image_quality must be in range [1, 100], got {self.image_quality}")

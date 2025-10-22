@@ -1,9 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
-# all2md/options/txt.py
+# all2md/options/plaintext.py
 """Configuration options for plain text rendering.
 
 This module defines options for rendering AST to plain text format.
 """
+
 from dataclasses import dataclass, field
 
 from all2md.options.base import BaseRendererOptions
@@ -34,6 +35,11 @@ class PlainTextOptions(BaseRendererOptions):
     preserve_code_blocks : bool, default True
         Whether to preserve code block content with original formatting.
         When False, code blocks are treated like regular paragraphs.
+    preserve_blank_lines : bool, default True
+        Whether to preserve consecutive blank lines in the output.
+        When False, consecutive blank lines are collapsed according to
+        paragraph_separator. When True, provides literal pass-through of
+        blank lines for consumers that need exact whitespace preservation.
 
     Examples
     --------
@@ -76,6 +82,14 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Preserve code block formatting",
             "cli_name": "no-preserve-code-blocks",
+            "importance": "core",
+        },
+    )
+    preserve_blank_lines: bool = field(
+        default=True,
+        metadata={
+            "help": "Preserve consecutive blank lines in output",
+            "cli_name": "no-preserve-blank-lines",
             "importance": "core",
         },
     )

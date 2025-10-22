@@ -56,7 +56,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options.txt import PlainTextOptions
+from all2md.options.plaintext import PlainTextOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 
 
@@ -143,6 +143,10 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Tab characters are protected during wrapping to prevent them from being
         expanded to spaces by textwrap.fill().
 
+        When preserve_blank_lines is True (default), consecutive blank lines are
+        preserved exactly as they appear. When False, consecutive blank lines are
+        collapsed according to the paragraph_separator setting.
+
         """
         # Protect tab characters from being expanded by textwrap
         # Use a unique placeholder that won't appear in normal text
@@ -171,7 +175,9 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     else:
                         wrapped_lines.append("")
                 wrapped_paragraphs.append("\n".join(wrapped_lines))
-            else:
+            elif self.options.preserve_blank_lines:
+                # Only preserve empty paragraphs if option is enabled
+                # When disabled, consecutive blank lines are collapsed
                 wrapped_paragraphs.append("")
 
         result = self.options.paragraph_separator.join(wrapped_paragraphs)

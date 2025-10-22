@@ -166,3 +166,23 @@ class RstRendererOptions(BaseRendererOptions):
             "importance": "advanced",
         },
     )
+
+    def __post_init__(self) -> None:
+        """Validate RST renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is invalid.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate positive line length
+        if self.line_length <= 0:
+            raise ValueError(f"line_length must be positive, got {self.line_length}")
+
+        # Validate non-empty heading chars
+        if not self.heading_chars or len(self.heading_chars) == 0:
+            raise ValueError("heading_chars must not be empty")

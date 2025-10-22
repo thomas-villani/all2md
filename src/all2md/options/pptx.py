@@ -196,6 +196,59 @@ class PptxRendererOptions(BaseRendererOptions):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for PPTX renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate heading level range
+        if not 1 <= self.slide_split_heading_level <= 6:
+            raise ValueError(f"slide_split_heading_level must be in range [1, 6], got {self.slide_split_heading_level}")
+
+        # Validate positive font sizes
+        if self.default_font_size <= 0:
+            raise ValueError(f"default_font_size must be positive, got {self.default_font_size}")
+
+        if self.title_font_size <= 0:
+            raise ValueError(f"title_font_size must be positive, got {self.title_font_size}")
+
+        # Validate non-negative spacing
+        if self.list_number_spacing < 0:
+            raise ValueError(f"list_number_spacing must be non-negative, got {self.list_number_spacing}")
+
+        if self.list_indent_per_level < 0:
+            raise ValueError(f"list_indent_per_level must be non-negative, got {self.list_indent_per_level}")
+
+        # Validate non-negative table dimensions
+        if self.table_left < 0:
+            raise ValueError(f"table_left must be non-negative, got {self.table_left}")
+
+        if self.table_top < 0:
+            raise ValueError(f"table_top must be non-negative, got {self.table_top}")
+
+        if self.table_width < 0:
+            raise ValueError(f"table_width must be non-negative, got {self.table_width}")
+
+        if self.table_height_per_row < 0:
+            raise ValueError(f"table_height_per_row must be non-negative, got {self.table_height_per_row}")
+
+        # Validate non-negative image dimensions
+        if self.image_left < 0:
+            raise ValueError(f"image_left must be non-negative, got {self.image_left}")
+
+        if self.image_top < 0:
+            raise ValueError(f"image_top must be non-negative, got {self.image_top}")
+
+        if self.image_width < 0:
+            raise ValueError(f"image_width must be non-negative, got {self.image_width}")
+
 
 @dataclass(frozen=True)
 class PptxOptions(PaginatedParserOptions):

@@ -167,3 +167,23 @@ class AsciiDocRendererOptions(BaseRendererOptions):
             "importance": "security",
         },
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for AsciiDoc renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate non-negative indentation
+        if self.list_indent < 0:
+            raise ValueError(f"list_indent must be non-negative, got {self.list_indent}")
+
+        # Validate non-negative line length
+        if self.line_length < 0:
+            raise ValueError(f"line_length must be non-negative, got {self.line_length}")

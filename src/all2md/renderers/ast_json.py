@@ -15,6 +15,7 @@ The renderer uses the ast.serialization module for conversion.
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from typing import IO, Union
@@ -100,6 +101,10 @@ class AstJsonRenderer(BaseRenderer):
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to JSON and write to output.
 
+        This method uses streaming JSON output via json.dump() to avoid
+        building the entire JSON string in memory, making it suitable for
+        large AST documents.
+
         Parameters
         ----------
         doc : Document
@@ -108,5 +113,32 @@ class AstJsonRenderer(BaseRenderer):
             Output destination (file path or file-like object)
 
         """
-        json_str = self.render_to_string(doc)
-        self.write_text_output(json_str, output)
+        # Convert AST to dict and add schema version
+        node_dict = ast_to_dict(doc)
+        versioned_dict = {"schema_version": 1, **node_dict}
+
+        if isinstance(output, (str, Path)):
+            # Write to file path using streaming approach
+            with Path(output).open("w", encoding="utf-8") as f:
+                json.dump(
+                    versioned_dict,
+                    f,
+                    indent=self.options.indent,
+                    ensure_ascii=self.options.ensure_ascii,
+                    sort_keys=self.options.sort_keys,
+                )
+        else:
+            # File-like object (binary mode) - wrap with text mode
+            text_wrapper = io.TextIOWrapper(output, encoding="utf-8", write_through=True)
+            try:
+                json.dump(
+                    versioned_dict,
+                    text_wrapper,
+                    indent=self.options.indent,
+                    ensure_ascii=self.options.ensure_ascii,
+                    sort_keys=self.options.sort_keys,
+                )
+                text_wrapper.flush()
+            finally:
+                # Detach to prevent closing the underlying stream
+                text_wrapper.detach()

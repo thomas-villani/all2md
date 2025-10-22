@@ -140,3 +140,23 @@ class LatexRendererOptions(BaseRendererOptions):
         default=True,
         metadata={"help": "Allow Unicode characters in output", "cli_name": "no-use-unicode", "importance": "advanced"},
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges and ensure immutability for LaTeX renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Defensive copy of mutable collections to ensure immutability
+        if self.packages is not None:
+            object.__setattr__(self, "packages", list(self.packages))
+
+        # Validate non-negative line width
+        if self.line_width < 0:
+            raise ValueError(f"line_width must be non-negative, got {self.line_width}")

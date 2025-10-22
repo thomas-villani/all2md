@@ -107,6 +107,24 @@ class EpubRendererOptions(BaseRendererOptions):
         metadata={"help": "Network security options for fetching remote images", "importance": "security"},
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for EPUB renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate heading level range
+        if not 1 <= self.chapter_split_heading_level <= 6:
+            raise ValueError(
+                f"chapter_split_heading_level must be in range [1, 6], got {self.chapter_split_heading_level}"
+            )
+
 
 @dataclass(frozen=True)
 class EpubOptions(BaseParserOptions, AttachmentOptionsMixin):

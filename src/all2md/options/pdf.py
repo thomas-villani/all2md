@@ -505,6 +505,9 @@ class PdfOptions(PaginatedParserOptions):
             field constraints are violated.
 
         """
+        # Call parent validation
+        super().__post_init__()
+
         # Validate percentage-based thresholds (0-100)
         if not 0 <= self.header_percentile_threshold <= 100:
             raise ValueError(
@@ -650,6 +653,9 @@ class PdfRendererOptions(BaseRendererOptions):
             If any field value is outside its valid range.
 
         """
+        # Call parent validation
+        super().__post_init__()
+
         # Validate positive line spacing
         if self.line_spacing <= 0:
             raise ValueError(f"line_spacing must be positive, got {self.line_spacing}")

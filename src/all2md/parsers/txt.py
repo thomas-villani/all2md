@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/parsers/txt.py
+# src/all2md/parsers/plaintext.py
 """Plain text to AST converter.
 
 This module provides a simple converter for plain text files (.txt) that

@@ -123,6 +123,26 @@ class CsvOptions(BaseParserOptions):
         default=False, metadata={"help": "Strip leading/trailing whitespace from all cells", "importance": "core"}
     )
 
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for CSV options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Validate positive dialect sample size
+        if self.dialect_sample_size <= 0:
+            raise ValueError(f"dialect_sample_size must be positive, got {self.dialect_sample_size}")
+
+        # Validate max rows/cols (when not None)
+        if self.max_rows is not None and self.max_rows <= 0:
+            raise ValueError(f"max_rows must be positive when specified, got {self.max_rows}")
+
+        if self.max_cols is not None and self.max_cols <= 0:
+            raise ValueError(f"max_cols must be positive when specified, got {self.max_cols}")
+
 
 @dataclass(frozen=True)
 class CsvRendererOptions(BaseRendererOptions):
@@ -264,3 +284,19 @@ class CsvRendererOptions(BaseRendererOptions):
         default=False,
         metadata={"help": "Include UTF-8 BOM for Excel compatibility", "importance": "advanced"},
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for CSV renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        # Call parent validation
+        super().__post_init__()
+
+        # Validate non-negative table index (when not None)
+        if self.table_index is not None and self.table_index < 0:
+            raise ValueError(f"table_index must be non-negative when specified, got {self.table_index}")

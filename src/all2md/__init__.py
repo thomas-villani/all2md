@@ -120,7 +120,7 @@ from all2md.options.pptx import PptxOptions, PptxRendererOptions
 from all2md.options.rst import RstParserOptions, RstRendererOptions
 from all2md.options.rtf import RtfOptions
 from all2md.options.sourcecode import SourceCodeOptions
-from all2md.options.txt import PlainTextOptions
+from all2md.options.plaintext import PlainTextOptions
 from all2md.options.xlsx import XlsxOptions
 from all2md.options.zip import ZipOptions
 from all2md.progress import ProgressCallback, ProgressEvent
