@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
+from all2md.options.base import BaseParserOptions
+from all2md.options import AttachmentOptionsMixin
 
 
 @dataclass(frozen=True)

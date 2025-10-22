@@ -16,7 +16,8 @@ from all2md.constants import (
     DEFAULT_DOCX_TABLE_STYLE,
     CommentMode,
 )
-from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions, BaseRendererOptions
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options import AttachmentOptionsMixin
 from all2md.options.common import NetworkFetchOptions
 
 

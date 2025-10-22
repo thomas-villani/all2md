@@ -22,8 +22,8 @@ from all2md.constants import (
     DEFAULT_URL_WRAPPERS,
     DateFormatMode,
 )
-from all2md.options import NetworkFetchOptions
-from all2md.options.base import AttachmentOptionsMixin, BaseParserOptions
+from all2md.options import NetworkFetchOptions, AttachmentOptionsMixin
+from all2md.options.base import BaseParserOptions
 
 
 @dataclass(frozen=True)
