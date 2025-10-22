@@ -160,7 +160,9 @@ def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> 
     return assignments
 
 
-def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clustering: bool = False) -> list[list[dict]]:
+def detect_columns(
+    blocks: list, column_gap_threshold: float = 20, use_clustering: bool = False, force_multi_column: bool = False
+) -> list[list[dict]]:
     """Detect multi-column layout in text blocks with enhanced whitespace analysis.
 
     Analyzes the x-coordinates of text blocks to identify column boundaries
@@ -175,6 +177,10 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
         Minimum gap between columns in points
     use_clustering : bool, default False
         Use k-means clustering on x-coordinates for improved robustness
+    force_multi_column : bool, default False
+        Force multi-column detection by bypassing spanning block heuristics.
+        When True, skips the check that treats wide blocks as single-column indicators.
+        Useful when you know the document has multi-column layout despite wide headers/footers.
 
     Returns
     -------
@@ -186,6 +192,11 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
     When use_clustering=True, the function uses k-means clustering to identify
     column groupings based on block center positions. This can be more robust
     for complex layouts but requires estimating the number of columns first.
+
+    When force_multi_column=True, the function bypasses heuristics that would
+    normally detect single-column layouts (e.g., blocks spanning most of the page width).
+    This is useful when you have headers/footers spanning the full width but want to
+    detect multi-column content in the body.
 
     """
     if not blocks:
@@ -269,7 +280,8 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
     for i, (x0, x1) in enumerate(block_ranges):
         width = x1 - x0
         # Skip blocks that span most of the page (headers, footers, etc)
-        if width > spanning_threshold * page_width:
+        # UNLESS force_multi_column is enabled (bypasses this heuristic)
+        if not force_multi_column and width > spanning_threshold * page_width:
             continue
         # Group by rounded x0 position
         x0_key = round(x0 / x_tolerance) * x_tolerance
@@ -368,7 +380,8 @@ def detect_columns(blocks: list, column_gap_threshold: float = 20, use_clusterin
         return [blocks]
 
     # Check if we have overlapping blocks that suggest single column
-    if len(block_ranges) >= 3:
+    # UNLESS force_multi_column is enabled (bypasses this heuristic)
+    if not force_multi_column and len(block_ranges) >= 3:
         # Find the median width to determine if blocks are mostly full-width
         widths = [x1 - x0 for x0, x1 in block_ranges]
         median_width = sorted(widths)[len(widths) // 2]
@@ -1774,6 +1787,13 @@ class PdfToAstConverter(BaseParser):
         # Extract and attach metadata
         metadata = self.extract_metadata(doc)
 
+        # Attach header detection debug info if enabled
+        if self.options.header_debug_output and self._hdr_identifier:
+            debug_info = self._hdr_identifier.get_debug_info()
+            if debug_info:
+                metadata.custom["pdf_header_debug"] = debug_info
+                logger.debug("Attached PDF header detection debug info to document metadata")
+
         # Append footnote definitions if any were collected
         if self.options.attachments_footnotes_section:
             self._append_attachment_footnotes(
@@ -2097,10 +2117,26 @@ class PdfToAstConverter(BaseParser):
             if not is_in_table:
                 text_blocks.append(block)
 
+        # Calculate average line height for auto-calibration of link overlap threshold
+        line_heights = []
+        for block in text_blocks:
+            for line in block.get("lines", []):
+                if "bbox" in line:
+                    line_height = line["bbox"][3] - line["bbox"][1]
+                    if line_height > 0:
+                        line_heights.append(line_height)
+        average_line_height: float | None = None
+        if line_heights:
+            average_line_height = sum(line_heights) / len(line_heights)
+
         # Apply column detection to text blocks (excluding table content) if enabled
         if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
+            force_multi = self.options.column_detection_mode == "force_multi"
             columns = detect_columns(
-                text_blocks, self.options.column_gap_threshold, use_clustering=self.options.use_column_clustering
+                text_blocks,
+                self.options.column_gap_threshold,
+                use_clustering=self.options.use_column_clustering,
+                force_multi_column=force_multi,
             )
         else:
             # No column detection - treat as single column
@@ -2147,7 +2183,7 @@ class PdfToAstConverter(BaseParser):
                         links = [line for line in page.get_links() if line["kind"] == 2]
                     except (AttributeError, Exception):
                         links = []
-                    block_nodes = self._process_single_block_to_ast(item_data, links, page_num)
+                    block_nodes = self._process_single_block_to_ast(item_data, links, page_num, average_line_height)
                     nodes.extend(block_nodes)
                 elif item_type == "table":
                     # Process table
@@ -2234,21 +2270,42 @@ class PdfToAstConverter(BaseParser):
                 # Force single column layout
                 blocks_to_process = blocks
             elif self.options.column_detection_mode == "force_multi":
-                # Force multi-column detection
+                # Force multi-column detection with heuristic bypass
                 columns: list[list[dict]] = detect_columns(
-                    blocks, self.options.column_gap_threshold, use_clustering=self.options.use_column_clustering
+                    blocks,
+                    self.options.column_gap_threshold,
+                    use_clustering=self.options.use_column_clustering,
+                    force_multi_column=True,
                 )
                 # Process blocks in proper reading order: top-to-bottom, left-to-right
                 blocks_to_process = self._merge_columns_for_reading_order(columns)
             else:  # "auto" mode (default)
                 columns = detect_columns(
-                    blocks, self.options.column_gap_threshold, use_clustering=self.options.use_column_clustering
+                    blocks,
+                    self.options.column_gap_threshold,
+                    use_clustering=self.options.use_column_clustering,
+                    force_multi_column=False,
                 )
                 # Process blocks in proper reading order: top-to-bottom, left-to-right
                 # Merge columns with position-based sorting instead of column-by-column
                 blocks_to_process = self._merge_columns_for_reading_order(columns)
         else:
             blocks_to_process = blocks
+
+        # Calculate average line height for auto-calibration of link overlap threshold
+        # This helps handle PDFs with varying font sizes / tall spans
+        line_heights = []
+        for block in blocks_to_process:
+            for line in block.get("lines", []):
+                if "bbox" in line:
+                    line_height = line["bbox"][3] - line["bbox"][1]  # y1 - y0
+                    if line_height > 0:
+                        line_heights.append(line_height)
+
+        average_line_height: float | None = None
+        if line_heights:
+            average_line_height = sum(line_heights) / len(line_heights)
+            logger.debug(f"Calculated average line height for page: {average_line_height:.2f} points")
 
         # Track if we're in a code block
         in_code_block = False
@@ -2313,7 +2370,7 @@ class PdfToAstConverter(BaseParser):
 
                 if header_level > 0:
                     # This is a heading
-                    inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                    inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
                     if inline_content:
                         nodes.append(
                             Heading(
@@ -2324,7 +2381,7 @@ class PdfToAstConverter(BaseParser):
                         )
                 else:
                     # Regular paragraph
-                    inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                    inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
                     if inline_content:
                         nodes.append(
                             AstParagraph(
@@ -2341,7 +2398,9 @@ class PdfToAstConverter(BaseParser):
 
         return nodes
 
-    def _process_text_spans_to_inline(self, spans: list[dict], links: list[dict], page_num: int) -> list[Node]:
+    def _process_text_spans_to_inline(
+        self, spans: list[dict], links: list[dict], page_num: int, average_line_height: float | None = None
+    ) -> list[Node]:
         """Process text spans to inline AST nodes.
 
         Parameters
@@ -2352,6 +2411,8 @@ class PdfToAstConverter(BaseParser):
             Links on the page
         page_num : int
             Page number for source tracking
+        average_line_height : float or None, optional
+            Average line height for the page, used for link threshold auto-calibration
 
         Returns
         -------
@@ -2375,8 +2436,8 @@ class PdfToAstConverter(BaseParser):
             bold = span["flags"] & 16
             italic = span["flags"] & 2
 
-            # Check for links
-            link_url = self._resolve_link_for_span(links, span)
+            # Check for links with auto-calibrated threshold
+            link_url = self._resolve_link_for_span(links, span, average_line_height)
 
             # Build the inline node
             if mono and not is_list_bullet:
@@ -2410,7 +2471,9 @@ class PdfToAstConverter(BaseParser):
 
         return result
 
-    def _process_single_block_to_ast(self, block: dict, links: list[dict], page_num: int) -> list[Node]:
+    def _process_single_block_to_ast(
+        self, block: dict, links: list[dict], page_num: int, average_line_height: float | None = None
+    ) -> list[Node]:
         """Process a single text block to AST nodes.
 
         Parameters
@@ -2421,6 +2484,8 @@ class PdfToAstConverter(BaseParser):
             Links on the page
         page_num : int
             Page number for source tracking
+        average_line_height : float or None, optional
+            Average line height for the page, used for link threshold auto-calibration
 
         Returns
         -------
@@ -2523,7 +2588,7 @@ class PdfToAstConverter(BaseParser):
                     paragraph_bbox = None
 
                 # This is a heading
-                inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
                 if inline_content:
                     nodes.append(
                         Heading(
@@ -2545,7 +2610,7 @@ class PdfToAstConverter(BaseParser):
                     paragraph_bbox = None
 
                 # Accumulate inline content
-                inline_content = self._process_text_spans_to_inline(spans, links, page_num)
+                inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
                 if inline_content:
                     # Add space between lines if we're continuing a paragraph
                     if paragraph_content:
@@ -2580,8 +2645,10 @@ class PdfToAstConverter(BaseParser):
 
         return nodes
 
-    def _resolve_link_for_span(self, links: list[dict], span: dict) -> str | None:
-        """Resolve link URL for a text span.
+    def _resolve_link_for_span(
+        self, links: list[dict], span: dict, average_line_height: float | None = None
+    ) -> str | None:
+        """Resolve link URL for a text span with auto-calibrated overlap threshold.
 
         Parameters
         ----------
@@ -2589,6 +2656,9 @@ class PdfToAstConverter(BaseParser):
             Links on the page
         span : dict
             Text span
+        average_line_height : float or None, optional
+            Average line height for the page, used for auto-calibration of threshold
+            for spans with unusual heights (e.g., large fonts)
 
         Returns
         -------
@@ -2598,7 +2668,9 @@ class PdfToAstConverter(BaseParser):
         Notes
         -----
         Uses the link_overlap_threshold option from self.options to determine
-        the minimum overlap required for link detection.
+        the minimum overlap required for link detection. When average_line_height
+        is provided, automatically adjusts the threshold for spans that are
+        significantly taller than average (common in documents with font scaling).
 
         """
         if not links or not span.get("text"):
@@ -2608,8 +2680,26 @@ class PdfToAstConverter(BaseParser):
 
         bbox = fitz.Rect(span["bbox"])
 
+        # Calculate span height
+        span_height = bbox.height
+
         # Use threshold from options
         threshold_percent = self.options.link_overlap_threshold
+
+        # Auto-calibrate threshold for tall spans if average line height is available
+        if average_line_height and average_line_height > 0 and span_height > average_line_height * 1.5:
+            # Span is significantly taller than average (>1.5x), likely due to font scaling
+            # Relax the threshold to compensate for the increased bbox area
+            # Scale down threshold proportionally to the height ratio
+            height_ratio = span_height / average_line_height
+            adjusted_threshold = threshold_percent / (height_ratio ** 0.5)  # Square root dampening
+            adjusted_threshold = max(adjusted_threshold, 30.0)  # Don't go below 30%
+            threshold_percent = adjusted_threshold
+            logger.debug(
+                f"Auto-calibrated link threshold for tall span: "
+                f"{self.options.link_overlap_threshold:.1f}% -> {threshold_percent:.1f}% "
+                f"(span height: {span_height:.1f}, avg: {average_line_height:.1f})"
+            )
 
         # Find all links that overlap with this span
         for link in links:

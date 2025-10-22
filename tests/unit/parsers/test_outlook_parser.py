@@ -206,7 +206,7 @@ class TestOutlookParser:
             with pytest.raises(DependencyError) as exc_info:
                 parser.parse(pst_file)
 
-            assert "pypff" in str(exc_info.value).lower()
+            assert "libpff-python" in str(exc_info.value).lower()
             assert "platform-specific" in str(exc_info.value).lower()
 
     def test_metadata_extraction(self):

@@ -220,7 +220,7 @@ class TestOutlookPSTHandling:
                 parser.parse(pst_file)
 
             error_msg = str(exc_info.value).lower()
-            assert "pypff" in error_msg or "pst" in error_msg
+            assert "libpff-python" in error_msg
 
     def test_pst_validation_requires_file_path(self):
         """Test that PST files require file path input."""

@@ -291,75 +291,19 @@ class HtmlToAstConverter(BaseParser):
             for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
                 comment.extract()
 
-        # Strip dangerous elements if requested
-        if self.options.strip_dangerous_elements:
-            # Remove script and style tags completely (including all content for security)
-            for tag in soup.find_all(["script", "style"]):
-                # Decompose completely to avoid any script content in output
-                tag.decompose()
+        # Sanitize HTML: Use single-pass bleach when possible, fall back to multi-pass BeautifulSoup
+        # This reduces duplication and aligns with HtmlRenderer's sanitization approach
+        if self.options.strip_dangerous_elements and self.options.allowed_attributes is None:
+            # Use shared sanitization utility from html_sanitizer module for single-pass approach
+            # This provides comprehensive sanitization with bleach (when available) or BeautifulSoup fallback
+            from all2md.utils.html_sanitizer import _sanitize_html_string
 
-            # Collect other dangerous elements and elements with dangerous attributes
-            elements_to_remove = []
-            for element in soup.find_all():
-                if hasattr(element, "name"):
-                    # Check for other dangerous elements (not script/style, already removed)
-                    if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ["script", "style"]:
-                        elements_to_remove.append(element)
-                    # Check for dangerous attributes
-                    elif not self._sanitize_element(element):
-                        elements_to_remove.append(element)
-
-            # Remove collected elements completely for security (defense-in-depth)
-            for element in elements_to_remove:
-                # Decompose all dangerous elements and elements with dangerous attributes.
-                # This fully removes both tags and their content to prevent fallback content,
-                # misleading text, or edge cases in malformed HTML from being preserved.
-                element.decompose()
-
-        # Apply whitelist filters if specified
-        if self.options.allowed_elements is not None:
-            elements_to_remove = []
-            for element in soup.find_all():
-                if hasattr(element, "name") and element.name not in self.options.allowed_elements:
-                    elements_to_remove.append(element)
-            for element in elements_to_remove:
-                # Unwrap instead of decompose to keep children
-                element.unwrap()
-
-        if self.options.allowed_attributes is not None:
-            # Support both global allowlist (tuple) and per-element allowlist (dict)
-            is_per_element = isinstance(self.options.allowed_attributes, dict)
-
-            for element in soup.find_all():
-                if hasattr(element, "attrs") and hasattr(element, "name"):
-                    allowed_attrs: Union[tuple[str, ...], dict[str, tuple[str, ...]]]
-                    if is_per_element:
-                        # Per-element allowlist: check element-specific allowed attributes
-                        assert isinstance(self.options.allowed_attributes, dict)
-                        allowed_attrs = self.options.allowed_attributes.get(element.name, ())
-                    else:
-                        # Global allowlist: same attributes allowed for all elements
-                        allowed_attrs = self.options.allowed_attributes
-
-                    # Remove attributes not in the allowlist
-                    attrs_to_remove = [attr for attr in element.attrs if attr not in allowed_attrs]
-                    for attr in attrs_to_remove:
-                        del element.attrs[attr]
-
-        # Final security pass: sanitize attributes on all remaining elements (defense-in-depth)
-        # This catches any dangerous attributes that may have been preserved during whitelisting
-        if self.options.strip_dangerous_elements:
-            elements_to_remove = []
-            for element in soup.find_all():
-                if hasattr(element, "name"):
-                    # Use _sanitize_element to check for dangerous attributes
-                    if not self._sanitize_element(element):
-                        elements_to_remove.append(element)
-
-            # Remove elements that failed final sanitization check
-            for element in elements_to_remove:
-                # Decompose completely for security (don't preserve children from dangerous elements)
-                element.decompose()
+            sanitized_html = _sanitize_html_string(str(soup))
+            soup = BeautifulSoup(sanitized_html, "html.parser")
+            logger.debug("Applied single-pass HTML sanitization via html_sanitizer utility")
+        elif self.options.strip_dangerous_elements or self.options.allowed_attributes is not None:
+            # Use multi-pass BeautifulSoup for custom attribute allowlists
+            soup = self._apply_custom_sanitization(soup)
 
         # Build document children
         children: list[Node] = []
@@ -449,7 +393,7 @@ class HtmlToAstConverter(BaseParser):
         )
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
-        """Extract metadata from HTML document.
+        r"""Extract metadata from HTML document.
 
         This method extracts metadata from the parsed HTML document, including
         title, author, description, keywords, and other standard metadata fields
@@ -682,6 +626,96 @@ class HtmlToAstConverter(BaseParser):
 
         # Use centralized element safety check from html_sanitizer utility
         return is_element_safe(element)
+
+    def _apply_custom_sanitization(self, soup: Any) -> Any:
+        """Apply custom sanitization with user-specified attribute allowlists.
+
+        This method handles sanitization when custom allowed_elements or allowed_attributes
+        are specified, using multi-pass BeautifulSoup processing. For standard sanitization
+        without custom allowlists, use the shared html_sanitizer utility instead.
+
+        Parameters
+        ----------
+        soup : BeautifulSoup
+            BeautifulSoup object to sanitize
+
+        Returns
+        -------
+        BeautifulSoup
+            Sanitized BeautifulSoup object
+
+        """
+        # Strip dangerous elements if requested
+        if self.options.strip_dangerous_elements:
+            # Remove script and style tags completely (including all content for security)
+            for tag in soup.find_all(["script", "style"]):
+                # Decompose completely to avoid any script content in output
+                tag.decompose()
+
+            # Collect other dangerous elements and elements with dangerous attributes
+            elements_to_remove = []
+            for element in soup.find_all():
+                if hasattr(element, "name"):
+                    # Check for other dangerous elements (not script/style, already removed)
+                    if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ["script", "style"]:
+                        elements_to_remove.append(element)
+                    # Check for dangerous attributes
+                    elif not self._sanitize_element(element):
+                        elements_to_remove.append(element)
+
+            # Remove collected elements completely for security (defense-in-depth)
+            for element in elements_to_remove:
+                # Decompose all dangerous elements and elements with dangerous attributes.
+                # This fully removes both tags and their content to prevent fallback content,
+                # misleading text, or edge cases in malformed HTML from being preserved.
+                element.decompose()
+
+        # Apply whitelist filters if specified
+        if self.options.allowed_elements is not None:
+            elements_to_remove = []
+            for element in soup.find_all():
+                if hasattr(element, "name") and element.name not in self.options.allowed_elements:
+                    elements_to_remove.append(element)
+            for element in elements_to_remove:
+                # Unwrap instead of decompose to keep children
+                element.unwrap()
+
+        if self.options.allowed_attributes is not None:
+            # Support both global allowlist (tuple) and per-element allowlist (dict)
+            is_per_element = isinstance(self.options.allowed_attributes, dict)
+
+            for element in soup.find_all():
+                if hasattr(element, "attrs") and hasattr(element, "name"):
+                    allowed_attrs: Union[tuple[str, ...], dict[str, tuple[str, ...]]]
+                    if is_per_element:
+                        # Per-element allowlist: check element-specific allowed attributes
+                        assert isinstance(self.options.allowed_attributes, dict)
+                        allowed_attrs = self.options.allowed_attributes.get(element.name, ())
+                    else:
+                        # Global allowlist: same attributes allowed for all elements
+                        allowed_attrs = self.options.allowed_attributes
+
+                    # Remove attributes not in the allowlist
+                    attrs_to_remove = [attr for attr in element.attrs if attr not in allowed_attrs]
+                    for attr in attrs_to_remove:
+                        del element.attrs[attr]
+
+        # Final security pass: sanitize attributes on all remaining elements (defense-in-depth)
+        # This catches any dangerous attributes that may have been preserved during whitelisting
+        if self.options.strip_dangerous_elements:
+            elements_to_remove = []
+            for element in soup.find_all():
+                if hasattr(element, "name"):
+                    # Use _sanitize_element to check for dangerous attributes
+                    if not self._sanitize_element(element):
+                        elements_to_remove.append(element)
+
+            # Remove elements that failed final sanitization check
+            for element in elements_to_remove:
+                # Decompose completely for security (don't preserve children from dangerous elements)
+                element.decompose()
+
+        return soup
 
     def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
         """Process a BeautifulSoup node to AST nodes.
@@ -1463,6 +1497,9 @@ class HtmlToAstConverter(BaseParser):
     def _process_children_to_inline(self, node: Any) -> list[Node]:
         """Process node children to inline nodes.
 
+        Handles consecutive BR tags by ensuring proper spacing when inline
+        text follows multiple line breaks.
+
         Parameters
         ----------
         node : Any
@@ -1475,14 +1512,38 @@ class HtmlToAstConverter(BaseParser):
 
         """
         result: list[Node] = []
+        consecutive_breaks = 0
 
         for child in node.children:
             ast_nodes = self._process_node_to_ast(child)
             if ast_nodes:
                 if isinstance(ast_nodes, list):
-                    result.extend(ast_nodes)
+                    for ast_node in ast_nodes:
+                        if isinstance(ast_node, LineBreak):
+                            consecutive_breaks += 1
+                            result.append(ast_node)
+                        else:
+                            # Non-LineBreak node: check if we need spacing after consecutive breaks
+                            if consecutive_breaks > 1 and isinstance(ast_node, Text):
+                                # Add a separator space to prevent text merging after multiple breaks
+                                # Only if the text doesn't already start with whitespace
+                                if ast_node.content and not ast_node.content[0].isspace():
+                                    result.append(Text(content=" "))
+                            result.append(ast_node)
+                            consecutive_breaks = 0
                 else:
-                    result.append(ast_nodes)
+                    if isinstance(ast_nodes, LineBreak):
+                        consecutive_breaks += 1
+                        result.append(ast_nodes)
+                    else:
+                        # Non-LineBreak node: check if we need spacing after consecutive breaks
+                        if consecutive_breaks > 1 and isinstance(ast_nodes, Text):
+                            # Add a separator space to prevent text merging after multiple breaks
+                            # Only if the text doesn't already start with whitespace
+                            if ast_nodes.content and not ast_nodes.content[0].isspace():
+                                result.append(Text(content=" "))
+                        result.append(ast_nodes)
+                        consecutive_breaks = 0
 
         return result
 
