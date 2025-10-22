@@ -433,70 +433,16 @@ DEFAULT_ORG_PRESERVE_TAGS = True
 # =============================================================================
 # File Extension Lists
 # =============================================================================
-_PLAINTEXT_EXTENSIONS_JSON_FILE = Path(__file__).parent / "_plaintext-exts.json"
-if _PLAINTEXT_EXTENSIONS_JSON_FILE.exists():
-    PLAINTEXT_EXTENSIONS = json.loads(_PLAINTEXT_EXTENSIONS_JSON_FILE.read_text(encoding="utf-8"))
-else:
-    # Fallback to most common
-    PLAINTEXT_EXTENSIONS = [
-        ".js",
-        ".html",
-        ".css",
-        ".py",
-        ".java",
-        ".cpp",
-        ".c",
-        ".h",
-        ".ts",
-        ".md",
-        ".xml",
-        ".sh",
-        ".rb",
-        ".go",
-        ".php",
-        ".swift",
-        ".rs",
-        ".yaml",
-        ".yml",
-        ".txt",
-        ".jsx",
-        ".tsx",
-        ".json5",
-        ".m",
-        ".pl",
-        ".bat",
-        ".ps1",
-        ".lua",
-        ".coffee",
-        ".dart",
-        ".scss",
-        ".sass",
-        ".less",
-        ".vue",
-        ".graphql",
-        ".gradle",
-        ".toml",
-        ".ini",
-        ".conf",
-        ".dockerfile",
-    ]
-
-DOCUMENT_EXTENSIONS = [
-    ".pdf",
-    ".csv",
-    ".xlsx",
-    ".docx",
-    ".pptx",
-    ".eml",
-    ".rtf",
-    ".ipynb",
-    ".odt",
-    ".odp",
-    ".epub",
-    ".mht",
-    ".mhtml",
-    ".webarchive",
-]
+# NOTE: Supported document and plaintext extensions are now dynamically
+# determined by the converter registry. Use:
+#   from all2md.converter_registry import registry
+#   extensions = registry.get_all_extensions()
+#
+# This ensures new parsers (including plugins) are automatically recognized
+# without requiring manual constant updates.
+#
+# The _plaintext-exts.json file is still used by the sourcecode parser to
+# populate its CONVERTER_METADATA extensions list.
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif"]
 
@@ -550,7 +496,9 @@ RESOURCE_FILE_EXTENSIONS = [
     ".class",
 ]
 
-# TODO: Make sure this list is complete! It governs the CLI
+# TODO: Consider auto-generating this from registry.list_formats() in future
+# For now, manually keep in sync with registered formats in parsers/
+# Used for type hints, CLI autocomplete, and API documentation
 DocumentFormat = Literal[
     "auto",             # Auto-detect from filename/content
     "archive",          # tar/7z archive

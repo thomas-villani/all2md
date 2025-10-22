@@ -116,10 +116,12 @@ class ConversionEventHandler(FileSystemEventHandler):
             logger.debug(f"Skipping {file_path}: already processing")
             return False
 
-        # Check extension - use supported extensions
-        ALL_EXTENSIONS = PLAINTEXT_EXTENSIONS + DOCUMENT_EXTENSIONS + IMAGE_EXTENSIONS
+        # Check extension - use supported extensions dynamically from registry
+        supported_extensions = registry.get_all_extensions()
+        # Add IMAGE_EXTENSIONS for watch mode (images can be converted)
+        all_extensions = supported_extensions | set(IMAGE_EXTENSIONS)
 
-        if path.suffix.lower() not in ALL_EXTENSIONS:
+        if path.suffix.lower() not in all_extensions:
             logger.debug(f"Skipping {file_path}: unsupported extension")
             return False
 
