@@ -81,13 +81,15 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **HTML**                      | `.html`, `.htm`                               |       ✅       |        ✅      | `html`             |
 | **MHTML Web Archive**         | `.mhtml`, `.mht`                              |       ✅       |       (N/A)    | `html`             |
 | **Email Message**             | `.eml`, `.msg`                                |       ✅       |       (N/A)    | (built-in)         |
-| **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |       (N/A)    | (built-in)         |
+| **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |        ✅      | (built-in)         |
 | **EPUB E-book**               | `.epub`                                       |       ✅       |        ✅      | `epub`             |
 | **OpenDocument Text**         | `.odt`                                        |       ✅       |        ✅      | `odf`              |
 | **OpenDocument Presentation** | `.odp`                                        |       ✅       |        ✅      | `odf`              |
 | **Excel Spreadsheet**         | `.xlsx`                                       |       ✅       |       (N/A)    | `spreadsheet`      |
-| **CSV / TSV**                 | `.csv`, `.tsv`                                |       ✅       |       (N/A)    | (built-in)         |
-| **Rich Text Format**          | `.rtf`                                        |       ✅       |       (N/A)    | `rtf`              |
+| **CSV / TSV**                 | `.csv`, `.tsv`                                |       ✅       |        ✅      | (built-in)         |
+| **Rich Text Format**          | `.rtf`                                        |       ✅       |        ✅      | `rtf`              |
+| **LaTeX**                     | `.tex`, `.latex`                              |       ✅       |        ✅      | `latex`            |
+| **AsciiDoc**                  | `.adoc`, `.asciidoc`, `.asc`                  |       ✅       |        ✅      | (built-in)         |
 | **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `markdown`         |
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
 | **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `mediawiki`        |
