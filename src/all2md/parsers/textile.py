@@ -117,11 +117,13 @@ class TextileParser(BaseParser):
         self._emit_progress("item_done", "Converted Textile to HTML", current=50, total=100, item_type="conversion")
 
         # Use HtmlToAstConverter to convert HTML to AST
-        # The HtmlOptions doesn't directly accept html_passthrough_mode in constructor
-        # We'll use default options
+        # Configure network options to allow HTTP links (not just HTTPS)
+        # since Textile documents may legitimately reference HTTP resources
+        from all2md.options.common import NetworkFetchOptions
         from all2md.options.html import HtmlOptions
 
-        html_options = HtmlOptions()
+        network_options = NetworkFetchOptions(require_https=False)
+        html_options = HtmlOptions(network=network_options)
 
         html_converter = HtmlToAstConverter(options=html_options, progress_callback=self.progress_callback)
 

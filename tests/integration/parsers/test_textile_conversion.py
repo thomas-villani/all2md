@@ -13,6 +13,9 @@ Tests cover:
 
 import pytest
 
+# Skip all tests if textile is not installed
+pytest.importorskip("textile")
+
 from all2md.parsers.markdown import MarkdownToAstConverter
 from all2md.parsers.textile import TextileParser
 from all2md.renderers.markdown import MarkdownRenderer

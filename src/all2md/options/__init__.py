@@ -22,6 +22,7 @@ from all2md.options.csv import CsvOptions
 from all2md.options.docx import DocxOptions, DocxRendererOptions
 from all2md.options.dokuwiki import DokuWikiOptions, DokuWikiParserOptions
 from all2md.options.eml import EmlOptions
+from all2md.options.fb2 import Fb2Options
 from all2md.options.epub import EpubOptions, EpubRendererOptions
 from all2md.options.html import HtmlOptions, HtmlRendererOptions
 from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
@@ -91,6 +92,7 @@ __all__ = [
     "EmlOptions",
     "EpubOptions",
     "EpubRendererOptions",
+    "Fb2Options",
     "HtmlRendererOptions",
     "HtmlOptions",
     "IpynbOptions",

@@ -23,6 +23,8 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     HTMLBlock,
     HTMLInline,
@@ -31,6 +33,8 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Paragraph,
     Strikethrough,
     Strong,
@@ -570,6 +574,64 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         pass
 
+    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+        """Render a FootnoteReference node.
+
+        Textile doesn't have native footnote syntax, so we render as superscript
+        with the identifier.
+
+        Parameters
+        ----------
+        node : FootnoteReference
+            Footnote reference to render
+
+        """
+        self._output.append(f"^[{node.identifier}]^")
+
+    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+        """Render a FootnoteDefinition node.
+
+        Textile doesn't have native footnote syntax, so we render as a paragraph
+        with a bold identifier followed by the content.
+
+        Parameters
+        ----------
+        node : FootnoteDefinition
+            Footnote definition to render
+
+        """
+        self._output.append(f"*[{node.identifier}]* ")
+        for child in node.content:
+            child.accept(self)
+
+    def visit_math_inline(self, node: "MathInline") -> None:
+        """Render a MathInline node.
+
+        Textile doesn't have native math support, so we render as inline code.
+
+        Parameters
+        ----------
+        node : MathInline
+            Inline math to render
+
+        """
+        content, _ = node.get_preferred_representation("latex")
+        self._output.append(f"@{content}@")
+
+    def visit_math_block(self, node: "MathBlock") -> None:
+        """Render a MathBlock node.
+
+        Textile doesn't have native math support, so we render as a code block.
+
+        Parameters
+        ----------
+        node : MathBlock
+            Math block to render
+
+        """
+        content, _ = node.get_preferred_representation("latex")
+        self._output.append(f"bc. {content}")
+
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to Textile and write to output.
 
@@ -595,7 +657,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_class=TextileRenderer,
     renders_as_string=True,
     parser_required_packages=[("textile", "textile", "")],
-    renderer_required_packages=[("textile", "textile", "")],
+    renderer_required_packages=[],
     optional_packages=[],
     import_error_message="",
     parser_options_class="all2md.options.textile.TextileParserOptions",

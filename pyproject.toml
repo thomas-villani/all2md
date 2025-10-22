@@ -112,14 +112,17 @@ archive = [
     "rarfile>=4.2",
 ]
 ocr = [
+    "pillow>=11.3.0",
     "pytesseract>=0.3.10",
-    "Pillow>=9.0.0",
 ]
 outlook = [
-    "extract-msg>=0.47.0",
     # Note: PST/OST support requires libpff-python (pypff) which is not included
     # due to platform-specific installation challenges. Install manually if needed:
     # pip install libpff-python
+    "extract-msg>=0.37.1",
+]
+textile = [
+    "textile>=4.0.1",
 ]
 
 all = [
@@ -128,7 +131,7 @@ all = [
     "readability-lxml>=0.8.1",
     "docutils>=0.20",
     "ebooklib>=0.19",
-    "extract-msg>=0.47.0",
+    "extract-msg>=0.37.1",
     "fastmcp>=2.0.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.0",
@@ -136,8 +139,10 @@ all = [
     "odfpy>=1.4.1",
     "openpyxl>=3.1.5",
     "orgparse>=0.4.20250520",
+    "pillow>=11.3.0",
     "py7zr>=0.22.0",
     "pymupdf>=1.26.5",
+    "pytesseract>=0.3.10",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "pyth3>=0.7",
@@ -145,6 +150,7 @@ all = [
     "rarfile>=4.2",
     "reportlab>=4.0.0",
     "rich>=14.2.0",
+    "textile>=4.0.1",
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
 ]
