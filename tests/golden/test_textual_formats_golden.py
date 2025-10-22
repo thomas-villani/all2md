@@ -5,9 +5,6 @@ from __future__ import annotations
 from io import BytesIO
 
 import pytest
-
-from all2md import to_markdown
-from all2md.exceptions import DependencyError
 from fixtures.generators.asciidoc_fixtures import (
     create_asciidoc_with_formatting,
     create_asciidoc_with_lists,
@@ -40,6 +37,18 @@ from fixtures.generators.sourcecode_fixtures import (
     create_python_module,
     sourcecode_bytes_io,
 )
+from fixtures.generators.textile_fixtures import (
+    create_textile_complex_document,
+    create_textile_with_code_blocks,
+    create_textile_with_formatting,
+    create_textile_with_links_and_images,
+    create_textile_with_lists,
+    create_textile_with_tables,
+    textile_bytes_io,
+)
+
+from all2md import to_markdown
+from all2md.exceptions import DependencyError
 
 
 @pytest.mark.golden
@@ -147,6 +156,66 @@ class TestLatexGolden:
         stream = latex_bytes_io(create_latex_with_math())
         try:
             result = to_markdown(stream, source_format="latex")
+        except DependencyError as exc:
+            pytest.skip(str(exc))
+        assert result == snapshot
+
+
+@pytest.mark.golden
+@pytest.mark.unit
+class TestTextileGolden:
+    """Golden tests for Textile conversion."""
+
+    def test_textile_with_formatting(self, snapshot):
+        """Test Textile with various text formatting."""
+        stream = textile_bytes_io(create_textile_with_formatting())
+        try:
+            result = to_markdown(stream, source_format="textile")
+        except DependencyError as exc:
+            pytest.skip(str(exc))
+        assert result == snapshot
+
+    def test_textile_with_lists(self, snapshot):
+        """Test Textile with various list structures."""
+        stream = textile_bytes_io(create_textile_with_lists())
+        try:
+            result = to_markdown(stream, source_format="textile")
+        except DependencyError as exc:
+            pytest.skip(str(exc))
+        assert result == snapshot
+
+    def test_textile_with_tables(self, snapshot):
+        """Test Textile with table structures."""
+        stream = textile_bytes_io(create_textile_with_tables())
+        try:
+            result = to_markdown(stream, source_format="textile")
+        except DependencyError as exc:
+            pytest.skip(str(exc))
+        assert result == snapshot
+
+    def test_textile_with_code_blocks(self, snapshot):
+        """Test Textile with code blocks."""
+        stream = textile_bytes_io(create_textile_with_code_blocks())
+        try:
+            result = to_markdown(stream, source_format="textile")
+        except DependencyError as exc:
+            pytest.skip(str(exc))
+        assert result == snapshot
+
+    def test_textile_with_links_and_images(self, snapshot):
+        """Test Textile with links and images."""
+        stream = textile_bytes_io(create_textile_with_links_and_images())
+        try:
+            result = to_markdown(stream, source_format="textile")
+        except DependencyError as exc:
+            pytest.skip(str(exc))
+        assert result == snapshot
+
+    def test_textile_complex_document(self, snapshot):
+        """Test complex Textile document with multiple elements."""
+        stream = textile_bytes_io(create_textile_complex_document())
+        try:
+            result = to_markdown(stream, source_format="textile")
         except DependencyError as exc:
             pytest.skip(str(exc))
         assert result == snapshot
