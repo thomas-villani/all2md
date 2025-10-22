@@ -471,6 +471,22 @@ class MarkdownParserOptions(BaseParserOptions):
             "importance": "security",
         },
     )
+    html_handling: str = field(
+        default="drop",
+        metadata={
+            "help": "How to handle HTML when preserve_html=False: drop (remove entirely), sanitize (clean dangerous content)",
+            "choices": ["drop", "sanitize"],
+            "importance": "security",
+        },
+    )
+    parse_frontmatter: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse YAML/TOML/JSON frontmatter at document start",
+            "cli_name": "no-parse-frontmatter",
+            "importance": "core",
+        },
+    )
 
 
 def get_flavor_defaults(flavor: FlavorType) -> dict[str, Any]:

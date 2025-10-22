@@ -141,9 +141,11 @@ class AsciiDocLexer:
         self.heading_pattern = re.compile(r"^(={1,6})\s+(.+?)(?:\s+\1)?$")
         self.ul_pattern = re.compile(r"^(\*{1,5})\s+(.*)$")
         self.ol_pattern = re.compile(r"^(\.{1,5})\s+(.*)$")
-        self.desc_pattern = re.compile(r"^(.+?)::(?:\s+(.*))?$")
+        # Description list: supports both :: and ; delimiters
+        self.desc_pattern_double_colon = re.compile(r"^(.+?)::(?:\s+(.*))?$")
+        self.desc_pattern_semicolon = re.compile(r"^(.+?);(?:\s+(.*))?$")
         self.checklist_pattern = re.compile(r"^(\*+)\s+\[([ x*])\]\s+(.*)$")
-        self.attribute_pattern = re.compile(r"^:([^:]+):\s*(.*)$")
+        self.attribute_pattern = re.compile(r"^:([^:!]+)(!)?:\s*(.*)$")
         self.block_attr_pattern = re.compile(r"^\[([^\]]+)\]$")
         self.anchor_pattern = re.compile(r"^\[\[([^\]]+)\]\]$")
 
@@ -214,8 +216,9 @@ class AsciiDocLexer:
             if delimiter_char in delimiter_map:
                 return Token(delimiter_map[delimiter_char], stripped, line_num, indent)
 
-        # Thematic break (triple apostrophes, hyphens, or asterisks)
-        if stripped in ("'''", "---", "***"):
+        # Thematic break (3+ identical chars of ', -, *, _)
+        # Note: 4+ of -, _, * are caught earlier as block delimiters
+        if len(stripped) >= 3 and all(c == stripped[0] for c in stripped) and stripped[0] in ("'", "-", "*", "_"):
             return Token(TokenType.THEMATIC_BREAK, stripped, line_num, indent)
 
         # Heading
@@ -235,10 +238,47 @@ class AsciiDocLexer:
         if block_attr_match:
             return Token(TokenType.BLOCK_ATTRIBUTE, block_attr_match.group(1), line_num, indent)
 
-        # Document attribute
+        # Document attribute (with continuation support)
         attr_match = self.attribute_pattern.match(stripped)
         if attr_match:
-            return Token(TokenType.ATTRIBUTE, attr_match.group(1), line_num, indent, {"value": attr_match.group(2)})
+            attr_name = attr_match.group(1)
+            is_unset = attr_match.group(2) is not None  # Check for ! marker
+            attr_value = attr_match.group(3) if not is_unset else None
+
+            # Check for continuation (value ending with ' +')
+            if attr_value and attr_value.endswith(" +"):
+                # Collect continuation lines
+                value_parts = [attr_value[:-2]]  # Remove ' +' from current line
+
+                # Look ahead for continuation lines
+                continuation_line_num = line_num + 1
+                while continuation_line_num < len(self.lines):
+                    cont_line = self.lines[continuation_line_num]
+                    cont_stripped = cont_line.strip()
+
+                    # Empty line ends continuation
+                    if not cont_stripped:
+                        break
+
+                    # Check if this line ends with ' +' (more continuation)
+                    if cont_stripped.endswith(" +"):
+                        value_parts.append(cont_stripped[:-2])
+                        continuation_line_num += 1
+                    else:
+                        # Last continuation line
+                        value_parts.append(cont_stripped)
+                        continuation_line_num += 1
+                        break
+
+                # Join all parts with space
+                attr_value = " ".join(value_parts)
+
+                # Skip the continuation lines we consumed
+                # (they'll be tokenized as blank or skipped)
+                for _ in range(line_num + 1, continuation_line_num):
+                    self.current_line += 1
+
+            return Token(TokenType.ATTRIBUTE, attr_name, line_num, indent, {"value": attr_value, "unset": is_unset})
 
         # Checklist item
         checklist_match = self.checklist_pattern.match(stripped)
@@ -262,8 +302,12 @@ class AsciiDocLexer:
             content = ol_match.group(2)
             return Token(TokenType.ORDERED_LIST, content, line_num, indent, {"level": level})
 
-        # Description list
-        desc_match = self.desc_pattern.match(stripped)
+        # Description list (try double-colon first, then semicolon)
+        desc_match = self.desc_pattern_double_colon.match(stripped)
+        if not desc_match:
+            # Try semicolon syntax
+            desc_match = self.desc_pattern_semicolon.match(stripped)
+
         if desc_match:
             term = desc_match.group(1)
             description = desc_match.group(2) or ""
@@ -290,12 +334,12 @@ class AsciiDocParser(BaseParser):
       - Monospace: \`code\`
       - Superscript: ^text^
       - Subscript: ~text~
-      - Escape sequences: \\\*, \_, \{, etc.
+      - Escape sequences: \\\*, \_, \\{, \\+, \\#, \\!, \\:, etc.
     - Lists with nesting:
       - Unordered (\* through \*****)
       - Ordered (. through .....)
       - Checklists (\* [x] or \* [ ])
-      - Description lists (term::)
+      - Description lists (term:: or term;)
     - Code blocks (----) with language support via [source,lang]
     - Literal blocks (....) for preformatted text
     - Block quotes (____)
@@ -311,15 +355,15 @@ class AsciiDocParser(BaseParser):
     - Attribute references: ``{name}``
     - Block attributes: [#id], [.role], [source,python], [options="header"]
     - Anchors: [[anchor-id]]
-    - Thematic breaks (''', ---, \***)
+    - Thematic breaks (''', ---, \***, ___, or 3+ of same char)
     - Passthrough: ++text++, +text+, pass:[text]
-    - Document attributes (:name: value)
+    - Document attributes (:name: value, :name!: to unset, multi-line with +)
+    - Admonitions: [NOTE], [TIP], [IMPORTANT], [WARNING], [CAUTION]
 
     Limitations
     -----------
     - No support for: includes, conditionals, complex macros
-    - Tables: no cell spanning, multi-line cells, or nested tables
-    - Admonitions: not yet implemented
+    - Tables: no multi-line cells or nested tables (cell spanning is supported)
     - Some advanced inline formatting edge cases
 
     Parameters
@@ -587,6 +631,7 @@ class AsciiDocParser(BaseParser):
         - [#anchor-id] -> id: anchor-id
         - [.role-name] -> role: role-name
         - [options="header"] -> options: ["header"]
+        - [NOTE], [TIP], etc. -> admonition: note/tip/etc.
 
         Parameters
         ----------
@@ -604,6 +649,14 @@ class AsciiDocParser(BaseParser):
         # Check for role (.role)
         if attr_content.startswith("."):
             self.pending_block_attrs["role"] = attr_content[1:]
+            return
+
+        # Check for admonitions
+        admonition_types = {"NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"}
+        attr_upper = attr_content.upper()
+        if attr_upper in admonition_types and self.options.parse_admonitions:
+            # Mark this as an admonition
+            self.pending_block_attrs["admonition"] = attr_upper.lower()
             return
 
         # Parse positional and named attributes
@@ -688,8 +741,15 @@ class AsciiDocParser(BaseParser):
 
             if token.type == TokenType.ATTRIBUTE:
                 attr_name = token.content
-                attr_value = token.metadata.get("value", "") if token.metadata else ""
-                self.attributes[attr_name] = attr_value
+                is_unset = token.metadata.get("unset", False) if token.metadata else False
+
+                if is_unset:
+                    # Remove attribute if it exists
+                    self.attributes.pop(attr_name, None)
+                else:
+                    # Set attribute value
+                    attr_value = token.metadata.get("value", "") if token.metadata else ""
+                    self.attributes[attr_name] = attr_value
 
             self._advance()
 
@@ -793,15 +853,16 @@ class AsciiDocParser(BaseParser):
         else:
             return Heading(level=level, content=content)
 
-    def _parse_paragraph(self) -> Paragraph:
+    def _parse_paragraph(self) -> Paragraph | BlockQuote:
         """Parse a paragraph (consecutive text lines).
 
         Supports hard line breaks via trailing space+plus (` +`).
+        If an admonition attribute is pending, wraps the paragraph in BlockQuote.
 
         Returns
         -------
-        Paragraph
-            Paragraph node
+        Paragraph or BlockQuote
+            Paragraph node, or BlockQuote if admonition
 
         """
         # Consume pending attributes
@@ -859,10 +920,19 @@ class AsciiDocParser(BaseParser):
         if "role" in attrs:
             metadata["role"] = attrs["role"]
 
+        # Create paragraph
         if metadata:
-            return Paragraph(content=content, metadata=metadata)
+            paragraph = Paragraph(content=content, metadata=metadata)
         else:
-            return Paragraph(content=content)
+            paragraph = Paragraph(content=content)
+
+        # If this is an admonition, wrap in BlockQuote with role
+        if "admonition" in attrs:
+            admonition_type = attrs["admonition"]
+            admonition_metadata = {"role": admonition_type}
+            return BlockQuote(children=[paragraph], metadata=admonition_metadata)
+
+        return paragraph
 
     def _preprocess_escapes(self, text: str) -> tuple[str, dict[str, str]]:
         """Preprocess text to handle escape sequences.
@@ -881,8 +951,8 @@ class AsciiDocParser(BaseParser):
         escape_map: dict[str, str] = {}
         counter = 0
 
-        # Find all escaped characters: \* \_ \{ etc.
-        escaped_chars_pattern = re.compile(r"\\([\*_`~\^\{\}\[\]\\])")
+        # Find all escaped characters: \* \_ \{ \+ \# \! \: etc.
+        escaped_chars_pattern = re.compile(r"\\([\*_`~\^\{\}\[\]\\+#!:])")
 
         def replace_escape(match: re.Match[str]) -> str:
             nonlocal counter
@@ -1214,7 +1284,10 @@ class AsciiDocParser(BaseParser):
             return cast(list[Node], built_doc.children)
 
     def _parse_description_list(self) -> DefinitionList:
-        """Parse a description list.
+        """Parse a description list with multi-line support.
+
+        Supports multi-line descriptions and nested blocks within descriptions.
+        Continuation lines must be indented or preceded by an explicit continuation (+).
 
         Returns
         -------
@@ -1235,13 +1308,52 @@ class AsciiDocParser(BaseParser):
             descriptions: list[DefinitionDescription] = []
             description_text = (token.metadata.get("description", "") if token.metadata else "").strip()
 
+            # Collect description content nodes
+            desc_nodes: list[Node] = []
+
+            # Add first-line description if present
             if description_text:
                 desc_content = self._parse_inline(description_text)
-                descriptions.append(DefinitionDescription(content=[Paragraph(content=desc_content)]))
+                desc_nodes.append(Paragraph(content=desc_content))
+
+            # Check for continuation lines (indented text or explicit blocks)
+            # Continue while we have text lines that are indented or continuation markers
+            while self._current_token().type in (TokenType.TEXT_LINE, TokenType.BLANK_LINE):
+                next_token = self._current_token()
+
+                # If it's a blank line, check if the next non-blank is still part of description
+                if next_token.type == TokenType.BLANK_LINE:
+                    # Peek ahead to see if there's more indented content
+                    saved_index = self.current_token_index
+                    self._advance()  # Skip blank line
+
+                    peek_token = self._current_token()
+                    # If next is indented text, it's part of description
+                    if peek_token.type == TokenType.TEXT_LINE and peek_token.indent > 0:
+                        # Continue collecting description
+                        continue
+                    else:
+                        # End of description, restore position
+                        self.current_token_index = saved_index
+                        break
+
+                # Check if this line is indented (continuation)
+                if next_token.type == TokenType.TEXT_LINE and next_token.indent > 0:
+                    self._advance()
+                    # Add continuation line to description
+                    line_content = self._parse_inline(next_token.content)
+                    desc_nodes.append(Paragraph(content=line_content))
+                else:
+                    # Not indented, end of description
+                    break
+
+            # Create description from collected nodes
+            if desc_nodes:
+                descriptions.append(DefinitionDescription(content=desc_nodes))
 
             items.append((term, descriptions))
 
-            # Skip blank line
+            # Skip trailing blank line
             if self._current_token().type == TokenType.BLANK_LINE:
                 self._advance()
 
@@ -1446,8 +1558,12 @@ class AsciiDocParser(BaseParser):
         # Check block attributes for header options
         if header_mode == "attribute-based":
             options_str = attrs.get("options", "")
-            if "noheader" in options_str or options_str == "noheader":
+            # Support both explicit "header" and "noheader" options
+            if "header" in options_str:
+                has_header = True
+            elif "noheader" in options_str or options_str == "noheader":
                 has_header = False
+            # If neither is specified, use default (has_header = True)
         elif header_mode == "first-row":
             has_header = True
         # "auto" mode: could implement heuristics, for now treat as first-row
@@ -1484,7 +1600,13 @@ class AsciiDocParser(BaseParser):
         r"""Parse a table row from a line.
 
         Handles escaped pipes (\|) within cells and preserves empty cells.
-        AsciiDoc table rows typically start with | which creates a leading empty split.
+        Optionally parses colspan/rowspan syntax like 2+|cell or .3+|cell.
+
+        This uses a single-pass approach:
+        1. Replace escaped pipes with placeholder
+        2. Split on literal '|'
+        3. Parse span specifications (if enabled)
+        4. Restore placeholder in cell content
 
         Parameters
         ----------
@@ -1497,14 +1619,12 @@ class AsciiDocParser(BaseParser):
             Table row node
 
         """
-        # Placeholder for escaped pipes
+        # Placeholder for escaped pipes (unlikely to appear in normal content)
         escaped_pipe_placeholder = "\x00PIPE\x00"
 
-        # Replace escaped pipes with placeholder
+        # Single-pass optimization: replace escaped pipes, then split on literal pipes
         line = line.replace(r"\|", escaped_pipe_placeholder)
-
-        # Split by unescaped pipes using regex
-        parts = re.split(r"(?<!\\)\|", line)
+        parts = line.split("|")
 
         # Remove leading empty part caused by starting | delimiter
         # AsciiDoc rows always start with |, which creates a leading empty string
@@ -1517,12 +1637,76 @@ class AsciiDocParser(BaseParser):
 
         cells: list[TableCell] = []
 
+        # Track pending span specs from previous parts
+        pending_colspan: int | None = None
+        pending_rowspan: int | None = None
+
         for part in parts:
             # Restore escaped pipes
             part = part.replace(escaped_pipe_placeholder, "|")
+
+            # Parse colspan/rowspan if enabled
+            colspan = pending_colspan  # Use pending span from previous part
+            rowspan = pending_rowspan
+            pending_colspan = None  # Reset pending
+            pending_rowspan = None
+
+            if self.options.parse_table_spans:
+                # Pattern: [colspan].[rowspan]+
+                # Examples: 2+, .3+, 2.3+
+                # Also supports: 2* for duplication (treated as colspan)
+                import re
+
+                span_pattern = r"^(\d+)?\.?(\d+)?([+*])\s*"
+                match = re.match(span_pattern, part.strip())
+
+                if match:
+                    col_spec = match.group(1)
+                    row_spec = match.group(2)
+                    operator = match.group(3)
+
+                    if operator == "+":
+                        # Standard span syntax
+                        if col_spec and not row_spec:
+                            # Just colspan: 2+
+                            colspan = int(col_spec)
+                        elif row_spec and not col_spec:
+                            # Just rowspan: .3+
+                            rowspan = int(row_spec)
+                        elif col_spec and row_spec:
+                            # Both: 2.3+
+                            colspan = int(col_spec)
+                            rowspan = int(row_spec)
+                    elif operator == "*":
+                        # Duplication syntax (treat as colspan for simplicity)
+                        if col_spec:
+                            colspan = int(col_spec)
+
+                    # Remove the span specification from content
+                    part = part[match.end() :]
+
             # Strip whitespace but preserve empty cells
-            content = self._parse_inline(part.strip())
-            cells.append(TableCell(content=content))
+            content_text = part.strip()
+
+            # If content is empty and we have a span, this is likely a standalone
+            # span spec (like |2+| where the content is in the next part)
+            # Save the span for the next cell and skip this part
+            if not content_text and (colspan is not None or rowspan is not None):
+                pending_colspan = colspan
+                pending_rowspan = rowspan
+                continue
+
+            content = self._parse_inline(content_text)
+
+            # Create cell with colspan/rowspan if present
+            # TableCell expects colspan/rowspan as direct attributes, not in metadata
+            cell_kwargs = {"content": content}
+            if colspan is not None:
+                cell_kwargs["colspan"] = colspan
+            if rowspan is not None:
+                cell_kwargs["rowspan"] = rowspan
+
+            cells.append(TableCell(**cell_kwargs))
 
         return TableRow(cells=cells)
 
@@ -1557,9 +1741,16 @@ class AsciiDocParser(BaseParser):
         if "lang" in self.attributes or "language" in self.attributes:
             metadata.language = self.attributes.get("lang") or self.attributes.get("language")
 
+        # Revision metadata
+        if "revnumber" in self.attributes:
+            metadata.version = self.attributes["revnumber"]
+        if "revdate" in self.attributes:
+            metadata.custom["revdate"] = self.attributes["revdate"]
+
         # Store all other AsciiDoc attributes in custom field
+        standard_fields = {"title", "author", "description", "keywords", "lang", "language", "revnumber", "revdate"}
         for key, value in self.attributes.items():
-            if key not in ("title", "author", "description", "keywords", "lang", "language"):
+            if key not in standard_fields:
                 metadata.custom[key] = value
 
         return metadata

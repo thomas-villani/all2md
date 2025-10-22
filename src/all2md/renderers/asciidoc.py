@@ -221,6 +221,66 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     escaped_value = escape_asciidoc_attribute(str(value))
                     self._output.append(f":{key}: {escaped_value}\n")
 
+    def _wrap_text(self, text: str, width: int) -> str:
+        """Wrap text to specified line width while preserving hard breaks.
+
+        Preserves AsciiDoc hard breaks (lines ending with ' +').
+
+        Parameters
+        ----------
+        text : str
+            Text to wrap
+        width : int
+            Maximum line width (0 or negative means no wrapping)
+
+        Returns
+        -------
+        str
+            Wrapped text
+
+        """
+        if width <= 0:
+            return text
+
+        import textwrap
+
+        # Split on hard breaks first to preserve them
+        hard_break_marker = " +"
+        lines = text.split("\n")
+        wrapped_lines = []
+
+        for line in lines:
+            # Check if this line has a hard break
+            has_hard_break = line.rstrip().endswith(hard_break_marker)
+
+            if has_hard_break:
+                # Remove the hard break marker temporarily
+                line_content = line.rstrip()[: -len(hard_break_marker)].rstrip()
+            else:
+                line_content = line
+
+            # Wrap this line
+            if line_content:
+                wrapped = textwrap.fill(
+                    line_content,
+                    width=width,
+                    break_long_words=False,
+                    break_on_hyphens=False,
+                )
+
+                # Re-add hard break marker if it was present
+                if has_hard_break:
+                    # Add marker to the last wrapped line
+                    wrapped_parts = wrapped.split("\n")
+                    wrapped_parts[-1] = wrapped_parts[-1] + hard_break_marker
+                    wrapped = "\n".join(wrapped_parts)
+
+                wrapped_lines.append(wrapped)
+            else:
+                wrapped_lines.append("")
+
+        return "\n".join(wrapped_lines)
+
     def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
 
@@ -242,7 +302,9 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append(f"{prefix} {content}")
 
     def visit_paragraph(self, node: Paragraph) -> None:
-        """Render a Paragraph node.
+        """Render a Paragraph node with optional line wrapping.
+
+        Wraps text to options.line_length if set, while preserving hard breaks.
 
         Parameters
         ----------
@@ -251,6 +313,11 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
+
+        # Apply line wrapping if line_length is configured
+        if self.options.line_length > 0:
+            content = self._wrap_text(content, self.options.line_length)
+
         self._output.append(content)
 
     def visit_code_block(self, node: CodeBlock) -> None:
@@ -766,6 +833,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(f"footnote:{canonical_id}[{footnote_text}]")
             else:
                 # No definition found, just emit the reference
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Footnote reference '{canonical_id}' has no definition", stacklevel=2)
                 self._output.append(f"footnote:{canonical_id}[]")
 
             self._footnotes_emitted.add(canonical_id)

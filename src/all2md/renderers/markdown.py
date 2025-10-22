@@ -179,6 +179,43 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return self._cleanup_output(result)
 
+    def _get_plain_text_from_nodes(self, nodes: list) -> str:
+        """Extract plain text from a list of inline nodes for length calculation.
+
+        This method recursively extracts text content from inline nodes,
+        stripping all formatting markup to get the actual visible text length.
+        Used for setext heading underlines.
+
+        Parameters
+        ----------
+        nodes : list
+            List of inline AST nodes
+
+        Returns
+        -------
+        str
+            Plain text without markup
+
+        """
+        text_parts = []
+        for node in nodes:
+            if isinstance(node, Text):
+                text_parts.append(node.content)
+            elif hasattr(node, "content") and isinstance(node.content, list):
+                # Recursively extract from nested nodes (Strong, Emphasis, etc.)
+                text_parts.append(self._get_plain_text_from_nodes(node.content))
+            elif isinstance(node, Code):
+                # Code nodes have string content
+                text_parts.append(node.content)
+            elif isinstance(node, Link):
+                # For links, use the link text, not the URL
+                text_parts.append(self._get_plain_text_from_nodes(node.content))
+            elif isinstance(node, Image):
+                # For images, use alt text
+                text_parts.append(node.alt_text)
+            # Skip other node types (LineBreak, etc.)
+        return "".join(text_parts)
+
     def _cleanup_output(self, text: str) -> str:
         """Clean up the final output.
 
@@ -281,60 +318,70 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         Notes
         -----
-        This implementation uses a more robust URL regex that handles:
+        This implementation uses a robust URL regex inspired by the GFM autolink spec.
+        It handles:
         - Balanced parentheses (e.g., Wikipedia URLs)
         - Query strings with punctuation
         - URL fragments (#section)
         - Trailing punctuation that's not part of the URL
+        - Nested parentheses in URLs
 
         **Edge Cases Handled:**
         - `https://en.wikipedia.org/wiki/Foo_(bar)` - keeps closing paren
         - `http://example.com?q=test` - handles query params
         - `(see http://example.com)` - strips closing paren
         - `http://example.com.` - strips trailing period
+        - `http://example.com/path(foo(bar))` - handles nested parens
 
         """
-        # Improved URL pattern that handles common URL schemes
-        # Pattern breakdown:
-        # 1. Scheme: https?:// or ftps?://
-        # 2. Domain/path: [^\s<>]+ but with special handling
-        # 3. Balanced parentheses and smart trailing punctuation
-
-        # Main URL character class: all except whitespace and angle brackets
-        # We'll handle parentheses and trailing punctuation specially
+        # Improved URL pattern based on GFM autolink extension
+        # Pattern matches:
+        # 1. Scheme: http://, https://, ftp://, ftps://
+        # 2. Domain and path: any non-whitespace except angle brackets
+        # The pattern is intentionally greedy; we clean up trailing chars later
         url_pattern = r"(https?://[^\s<>]+|ftps?://[^\s<>]+)"
 
         def replace_url(match: re.Match[str]) -> str:
             url = match.group(1)
 
-            # Smart trailing punctuation removal
-            # Remove trailing punctuation ONLY if it's not part of URL structure
-            # (i.e., not in query params or fragments)
+            # GFM-style trailing punctuation removal
+            # Ref: https://github.github.com/gfm/#extended-autolink-path-validation
 
-            # Check if URL has query string or fragment
+            # Track original URL components for smart handling
             has_query = "?" in url
-            has_fragment = "#" in url
+            has_fragment = "#" in url.split("?")[0]  # Fragment before query
 
-            # If no query/fragment, aggressively strip trailing punctuation
-            if not has_query and not has_fragment:
-                while url and url[-1] in ".,;:!?":
+            # Step 1: Remove trailing punctuation that's unlikely to be part of URL
+            # Be conservative: only remove if not in query string/fragment context
+            trailing_chars = ".,;:!?"
+            if not has_query:
+                # No query string: safe to strip sentence-ending punctuation
+                while url and url[-1] in trailing_chars:
                     url = url[:-1]
             else:
-                # With query/fragment, only strip obvious sentence-ending punctuation
-                # but preserve URL-valid characters like '&', '=', etc.
-                while url and url[-1] in ",;:":
+                # Has query string: only strip commas/semicolons (never in URLs)
+                while url and url[-1] in ",;":
                     url = url[:-1]
 
-            # Handle unbalanced parentheses:
-            # If URL ends with ')' but doesn't have balanced parens, strip it
-            # This handles "(see http://example.com)" correctly
+            # Step 2: Handle parentheses balancing (GFM spec)
+            # Count parentheses in the URL to handle nested parens correctly
             if url.endswith(")"):
+                # Count how many parens are in the URL
                 open_count = url.count("(")
                 close_count = url.count(")")
-                # Remove extra closing parens
+
+                # Remove unbalanced closing parens from the end
+                # This handles both "(see http://example.com)"
+                # and "http://example.com/path(foo(bar))" correctly
                 while close_count > open_count and url.endswith(")"):
                     url = url[:-1]
                     close_count -= 1
+
+            # Step 3: Final cleanup - remove trailing punctuation after paren removal
+            # (in case removing parens exposed more punctuation)
+            if not has_query and url and url[-1] in ".,;:!?":
+                while url and url[-1] in ".,;:!?":
+                    url = url[:-1]
 
             return f"<{url}>"
 
@@ -516,7 +563,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Use setext style if hash headings are disabled or prefer_setext is set for h1/h2
         if (not self.options.use_hash_headings or self.options.prefer_setext_headings) and adjusted_level <= 2:
             underline_char = "=" if adjusted_level == 1 else "-"
-            underline = underline_char * len(content)
+            # Calculate underline width based on plain text length, not markup length
+            plain_text = self._get_plain_text_from_nodes(node.content)
+            underline = underline_char * len(plain_text)
             self._output.append(f"{content}\n{underline}")
         else:
             # Use hash style for h3-h6 or when use_hash_headings is True

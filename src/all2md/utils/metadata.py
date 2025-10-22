@@ -306,6 +306,8 @@ class DocumentMetadata:
         SHA-256 hash of the source document
     extraction_date : str | None
         Date and time when the document was converted
+    version : str | None
+        Document version (e.g., from AsciiDoc revnumber)
     custom : dict[str, Any]
         Custom metadata fields specific to document format
 
@@ -327,6 +329,7 @@ class DocumentMetadata:
     word_count: Optional[int] = None
     sha256: Optional[str] = None
     extraction_date: Optional[str] = None
+    version: Optional[str] = None
     custom: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -381,6 +384,8 @@ class DocumentMetadata:
             result["sha256"] = self.sha256
         if self.extraction_date:
             result["extraction_date"] = self.extraction_date
+        if self.version:
+            result["version"] = self.version
 
         # Add custom fields
         for key, value in self.custom.items():

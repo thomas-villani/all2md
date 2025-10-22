@@ -111,6 +111,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         self._temp_files: list[str] = []
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
+        self._in_table_header: bool = False  # Track if rendering table header cell
 
     @requires_dependencies("odt_render", [("odfpy", "odf", "")])
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
@@ -217,6 +218,50 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         blockquote_para_props = ParagraphProperties(marginleft="0.5in")
         blockquote_style.addElement(blockquote_para_props)
         self.document.styles.addElement(blockquote_style)
+
+        # Create text formatting styles
+        bold_style = Style(name="Bold", family="text")
+        bold_props = TextProperties(fontweight="bold")
+        bold_style.addElement(bold_props)
+        self.document.styles.addElement(bold_style)
+
+        italic_style = Style(name="Italic", family="text")
+        italic_props = TextProperties(fontstyle="italic")
+        italic_style.addElement(italic_props)
+        self.document.styles.addElement(italic_style)
+
+        underline_style = Style(name="Underline", family="text")
+        underline_props = TextProperties(
+            textunderlinestyle="solid", textunderlinewidth="auto", textunderlinecolor="font-color"
+        )
+        underline_style.addElement(underline_props)
+        self.document.styles.addElement(underline_style)
+
+        strikethrough_style = Style(name="Strikethrough", family="text")
+        strikethrough_props = TextProperties(textlinethroughstyle="solid")
+        strikethrough_style.addElement(strikethrough_props)
+        self.document.styles.addElement(strikethrough_style)
+
+        superscript_style = Style(name="Superscript", family="text")
+        superscript_props = TextProperties(textposition="super 58%")
+        superscript_style.addElement(superscript_props)
+        self.document.styles.addElement(superscript_style)
+
+        subscript_style = Style(name="Subscript", family="text")
+        subscript_props = TextProperties(textposition="sub 58%")
+        subscript_style.addElement(subscript_props)
+        self.document.styles.addElement(subscript_style)
+
+        # Create definition list styles
+        defterm_style = Style(name="DefinitionTerm", family="paragraph")
+        defterm_props = TextProperties(fontweight="bold")
+        defterm_style.addElement(defterm_props)
+        self.document.styles.addElement(defterm_style)
+
+        defdesc_style = Style(name="DefinitionDescription", family="paragraph")
+        defdesc_para_props = ParagraphProperties(marginleft="0.5in")
+        defdesc_style.addElement(defdesc_para_props)
+        self.document.styles.addElement(defdesc_style)
 
     def _cleanup_temp_files(self) -> None:
         """Remove temporary files created during rendering."""
@@ -533,14 +578,17 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         para = P()
         self._current_paragraph = para
 
+        # Set flag for header cells to apply bold formatting
+        if is_header:
+            self._in_table_header = True
+
         # Render cell content
         for child in ast_cell.content:
             child.accept(self)
 
-        # Make header cells bold
+        # Reset header flag
         if is_header:
-            # TODO: Apply bold style to all runs in paragraph
-            pass
+            self._in_table_header = False
 
         odt_cell.addElement(para)
         self._current_paragraph = None
@@ -610,7 +658,15 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
         """
         if self._current_paragraph:
-            self._current_paragraph.addText(node.content)
+            # Wrap in bold span if in table header
+            if self._in_table_header and self.options.preserve_formatting:
+                from odf.text import Span
+
+                span = Span(stylename="Bold")
+                span.addText(node.content)
+                self._current_paragraph.addElement(span)
+            else:
+                self._current_paragraph.addText(node.content)
 
     def visit_emphasis(self, node: Emphasis) -> None:
         """Render an Emphasis node.
@@ -627,8 +683,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create span with italic style
-        span = Span()
-        # TODO: Apply italic style
+        if self.options.preserve_formatting:
+            span = Span(stylename="Italic")
+        else:
+            span = Span()
+
         saved_para = self._current_paragraph
         self._current_paragraph = span
 
@@ -653,8 +712,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create span with bold style
-        span = Span()
-        # TODO: Apply bold style
+        if self.options.preserve_formatting:
+            span = Span(stylename="Bold")
+        else:
+            span = Span()
+
         saved_para = self._current_paragraph
         self._current_paragraph = span
 
@@ -881,8 +943,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create span with strikethrough style
-        span = Span()
-        # TODO: Apply strikethrough style
+        if self.options.preserve_formatting:
+            span = Span(stylename="Strikethrough")
+        else:
+            span = Span()
+
         saved_para = self._current_paragraph
         self._current_paragraph = span
 
@@ -907,8 +972,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create span with underline style
-        span = Span()
-        # TODO: Apply underline style
+        if self.options.preserve_formatting:
+            span = Span(stylename="Underline")
+        else:
+            span = Span()
+
         saved_para = self._current_paragraph
         self._current_paragraph = span
 
@@ -933,8 +1001,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create span with superscript style
-        span = Span()
-        # TODO: Apply superscript style
+        if self.options.preserve_formatting:
+            span = Span(stylename="Superscript")
+        else:
+            span = Span()
+
         saved_para = self._current_paragraph
         self._current_paragraph = span
 
@@ -959,8 +1030,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Create span with subscript style
-        span = Span()
-        # TODO: Apply subscript style
+        if self.options.preserve_formatting:
+            span = Span(stylename="Subscript")
+        else:
+            span = Span()
+
         saved_para = self._current_paragraph
         self._current_paragraph = span
 
@@ -997,9 +1071,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Render as superscript text
-        span = Span()
+        if self.options.preserve_formatting:
+            span = Span(stylename="Superscript")
+        else:
+            span = Span()
         span.addText(f"[{node.identifier}]")
-        # TODO: Apply superscript style
         self._current_paragraph.addElement(span)
 
     def visit_math_inline(self, node: MathInline) -> None:
@@ -1039,9 +1115,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
         # Render as a separate paragraph
         para = P()
-        span = Span()
+        if self.options.preserve_formatting:
+            span = Span(stylename="Superscript")
+        else:
+            span = Span()
         span.addText(f"[{node.identifier}]: ")
-        # TODO: Apply superscript style to span
         para.addElement(span)
 
         self._current_paragraph = para
@@ -1065,20 +1143,23 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         for term, descriptions in node.items:
             # Render term as bold paragraph
             if self.document:
-                term_para = P()
+                # Apply DefinitionTerm style for bold formatting
+                if self.options.preserve_formatting:
+                    term_para = P(stylename="DefinitionTerm")
+                else:
+                    term_para = P()
+
                 self._current_paragraph = term_para
 
                 for child in term.content:
                     child.accept(self)
 
-                # TODO: Make term bold
-
                 self.document.text.addElement(term_para)
 
                 # Render descriptions as indented paragraphs
                 for desc in descriptions:
-                    desc_para = P()
-                    # TODO: Apply indentation
+                    # Apply DefinitionDescription style for indentation
+                    desc_para = P(stylename="DefinitionDescription")
                     self._current_paragraph = desc_para
 
                     for child in desc.content:

@@ -83,8 +83,10 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **Email Message**             | `.eml`, `.msg`                                |       ✅       |       (N/A)    | (built-in)         |
 | **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |        ✅      | (built-in)         |
 | **EPUB E-book**               | `.epub`                                       |       ✅       |        ✅      | `epub`             |
+| **CHM (Compiled HTML Help)** | `.chm`                                        |       ✅       |       (N/A)    | `chm`              |
 | **OpenDocument Text**         | `.odt`                                        |       ✅       |        ✅      | `odf`              |
 | **OpenDocument Presentation** | `.odp`                                        |       ✅       |        ✅      | `odf`              |
+| **OpenDocument Spreadsheet**  | `.ods`                                        |       ✅       |       (N/A)    | `odf`              |
 | **Excel Spreadsheet**         | `.xlsx`                                       |       ✅       |       (N/A)    | `spreadsheet`      |
 | **CSV / TSV**                 | `.csv`, `.tsv`                                |       ✅       |        ✅      | (built-in)         |
 | **Rich Text Format**          | `.rtf`                                        |       ✅       |        ✅      | `rtf`              |
@@ -93,6 +95,7 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `markdown`         |
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
 | **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `mediawiki`        |
+| **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
 | **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |

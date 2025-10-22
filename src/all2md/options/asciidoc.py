@@ -105,6 +105,14 @@ class AsciiDocOptions(BaseParserOptions):
             "importance": "advanced",
         },
     )
+    parse_table_spans: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse table colspan/rowspan syntax (e.g., 2+|cell)",
+            "cli_name": "no-parse-table-spans",
+            "importance": "advanced",
+        },
+    )
 
 
 @dataclass(frozen=True)

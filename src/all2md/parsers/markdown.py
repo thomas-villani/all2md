@@ -115,6 +115,10 @@ class MarkdownToAstConverter(BaseParser):
         # Reset parser state to prevent leakage across parse calls
         self._footnote_definitions = {}
 
+        # Extract and parse frontmatter before parsing content
+        # This also strips frontmatter from the content
+        markdown_content, frontmatter_metadata = self._extract_frontmatter(markdown_content)
+
         import mistune
 
         # Configure mistune plugins based on options
@@ -148,9 +152,8 @@ class MarkdownToAstConverter(BaseParser):
             for identifier, content in self._footnote_definitions.items():
                 children.append(FootnoteDefinition(identifier=identifier, content=content))
 
-        # Extract and attach metadata
-        metadata = self.extract_metadata(markdown_content)
-        return Document(children=children, metadata=metadata.to_dict())
+        # Use frontmatter metadata as document metadata
+        return Document(children=children, metadata=frontmatter_metadata.to_dict())
 
     @staticmethod
     def _load_markdown_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
@@ -184,6 +187,165 @@ class MarkdownToAstConverter(BaseParser):
             input_data.seek(0)
             content_bytes = input_data.read()
             return content_bytes.decode("utf-8", errors="replace")
+
+    def _extract_frontmatter(self, content: str) -> tuple[str, DocumentMetadata]:
+        """Extract and parse frontmatter from markdown content.
+
+        Supports YAML (---), TOML (+++), and JSON frontmatter formats.
+
+        Parameters
+        ----------
+        content : str
+            Markdown content that may contain frontmatter
+
+        Returns
+        -------
+        tuple[str, DocumentMetadata]
+            Content with frontmatter removed and parsed metadata
+
+        """
+        metadata = DocumentMetadata()
+
+        if not self.options.parse_frontmatter:
+            return content, metadata
+
+        # Try YAML frontmatter (--- ... ---)
+        if content.startswith("---\n") or content.startswith("---\r\n"):
+            lines = content.splitlines(keepends=True)
+            end_index = -1
+
+            # Find closing --- (must be on its own line)
+            for i in range(1, len(lines)):
+                if lines[i].strip() == "---":
+                    end_index = i
+                    break
+
+            if end_index > 0:
+                # Extract YAML content
+                yaml_content = "".join(lines[1:end_index])
+                remaining_content = "".join(lines[end_index + 1 :])
+
+                # Parse YAML
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(yaml_content)
+                    if isinstance(data, dict):
+                        metadata = self._dict_to_metadata(data)
+                except ImportError:
+                    pass  # YAML not available, skip parsing
+                except Exception:
+                    pass  # Invalid YAML, skip parsing
+
+                return remaining_content, metadata
+
+        # Try TOML frontmatter (+++ ... +++)
+        if content.startswith("+++\n") or content.startswith("+++\r\n"):
+            lines = content.splitlines(keepends=True)
+            end_index = -1
+
+            # Find closing +++
+            for i in range(1, len(lines)):
+                if lines[i].strip() == "+++":
+                    end_index = i
+                    break
+
+            if end_index > 0:
+                # Extract TOML content
+                toml_content = "".join(lines[1:end_index])
+                remaining_content = "".join(lines[end_index + 1 :])
+
+                # Parse TOML
+                try:
+                    import tomllib
+                except ImportError:
+                    try:
+                        import tomli as tomllib  # type: ignore[no-redef]
+                    except ImportError:
+                        tomllib = None  # type: ignore[assignment]
+
+                if tomllib:
+                    try:
+                        data = tomllib.loads(toml_content)
+                        if isinstance(data, dict):
+                            metadata = self._dict_to_metadata(data)
+                    except Exception:
+                        pass  # Invalid TOML, skip parsing
+
+                return remaining_content, metadata
+
+        # Try JSON frontmatter ({ ... } on first line)
+        if content.startswith("{"):
+            try:
+                import json
+
+                # Find the end of JSON object
+                brace_count = 0
+                end_pos = 0
+                for i, char in enumerate(content):
+                    if char == "{":
+                        brace_count += 1
+                    elif char == "}":
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end_pos = i + 1
+                            break
+
+                if end_pos > 0:
+                    json_content = content[:end_pos]
+                    remaining_content = content[end_pos:].lstrip()
+
+                    # Parse JSON
+                    data = json.loads(json_content)
+                    if isinstance(data, dict):
+                        metadata = self._dict_to_metadata(data)
+
+                    return remaining_content, metadata
+            except Exception:
+                pass  # Invalid JSON, treat as regular content
+
+        return content, metadata
+
+    def _dict_to_metadata(self, data: dict) -> DocumentMetadata:
+        """Convert frontmatter dictionary to DocumentMetadata.
+
+        Parameters
+        ----------
+        data : dict
+            Parsed frontmatter dictionary
+
+        Returns
+        -------
+        DocumentMetadata
+            Document metadata object
+
+        """
+        metadata = DocumentMetadata()
+
+        # Map standard fields
+        if "title" in data:
+            metadata.title = str(data["title"])
+        if "author" in data:
+            metadata.author = str(data["author"])
+        if "description" in data:
+            metadata.subject = str(data["description"])
+        if "keywords" in data:
+            if isinstance(data["keywords"], list):
+                metadata.keywords = [str(k) for k in data["keywords"]]
+            else:
+                metadata.keywords = [str(data["keywords"])]
+        if "language" in data or "lang" in data:
+            metadata.language = str(data.get("language") or data.get("lang"))
+        if "date" in data:
+            metadata.creation_date = str(data["date"])
+
+        # Store all other fields in custom
+        standard_fields = {"title", "author", "description", "keywords", "language", "lang", "date"}
+        for key, value in data.items():
+            if key not in standard_fields:
+                metadata.custom[key] = value
+
+        return metadata
 
     def _process_tokens(self, tokens: list[dict[str, Any]]) -> list[Node]:
         """Process a list of mistune tokens into AST nodes.
@@ -512,13 +674,23 @@ class MarkdownToAstConverter(BaseParser):
         Returns
         -------
         HTMLBlock or None
-            HTML block node if preserve_html is True, None otherwise
+            HTML block node based on preserve_html and html_handling options
 
         """
-        if not self.options.preserve_html:
-            return None
-
         content = token.get("raw", "")
+
+        if not self.options.preserve_html:
+            # When preserve_html is False, use html_handling option
+            if self.options.html_handling == "sanitize":
+                # Sanitize HTML content
+                from all2md.utils.html_sanitizer import sanitize_html_content
+
+                sanitized = sanitize_html_content(content)
+                return HTMLBlock(content=sanitized)
+            else:  # "drop"
+                return None
+
+        # preserve_html is True, keep raw content
         return HTMLBlock(content=content)
 
     def _process_math_block(self, token: dict[str, Any]) -> MathBlock:
@@ -709,9 +881,20 @@ class MarkdownToAstConverter(BaseParser):
             return Strikethrough(content=content)
 
         elif token_type == "inline_html":
-            if not self.options.preserve_html:
-                return None
             content = token.get("raw", "")
+
+            if not self.options.preserve_html:
+                # When preserve_html is False, use html_handling option
+                if self.options.html_handling == "sanitize":
+                    # Sanitize HTML content
+                    from all2md.utils.html_sanitizer import sanitize_html_content
+
+                    sanitized = sanitize_html_content(content)
+                    return HTMLInline(content=sanitized)
+                else:  # "drop"
+                    return None
+
+            # preserve_html is True, keep raw content
             return HTMLInline(content=content)
 
         elif token_type == "inline_math":
