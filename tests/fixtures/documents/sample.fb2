@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0" xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>fantasy</genre>
+      <author>
+        <first-name>Jane</first-name>
+        <last-name>Doe</last-name>
+      </author>
+      <book-title>Sample FB2 Book</book-title>
+      <annotation>
+        <p>This is a <emphasis>sample</emphasis> FB2 file used for testing.</p>
+      </annotation>
+      <keywords>sample,fb2,testing</keywords>
+      <date value="2024-01-01">2024</date>
+      <coverpage>
+        <image l:href="#cover.png" />
+      </coverpage>
+      <lang>en</lang>
+    </title-info>
+    <document-info>
+      <author>
+        <nickname>Builder Bot</nickname>
+      </author>
+      <publisher>all2md test lab</publisher>
+      <date value="2024-02-01">2024</date>
+      <id>urn:uuid:1234-5678-test</id>
+    </document-info>
+  </description>
+  <body>
+    <title>
+      <p>Chapter One</p>
+    </title>
+    <section>
+      <title>
+        <p>Introduction</p>
+      </title>
+      <p>Hello <strong>world</strong> and <emphasis>friends</emphasis>.</p>
+      <p>See the cover image below:</p>
+      <image l:href="#cover.png" alt="Cover image" />
+      <poem>
+        <stanza>
+          <v>Roses are red</v>
+          <v>Violets are blue</v>
+        </stanza>
+      </poem>
+    </section>
+    <section type="notes">
+      <title>
+        <p>Inline Notes</p>
+      </title>
+      <p>This is a note section that should appear near the end.</p>
+    </section>
+  </body>
+  <body name="notes" type="notes">
+    <title>
+      <p>External Notes</p>
+    </title>
+    <section>
+      <p>Second note stored in dedicated body.</p>
+    </section>
+  </body>
+  <binary id="cover.png" content-type="image/png">
+    iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==
+  </binary>
+</FictionBook>

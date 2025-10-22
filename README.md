@@ -85,6 +85,7 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **Outlook Message/Archive**   | `.msg`, `.pst`, `.ost`                        |       ✅       |       (N/A)    | `outlook`          |
 | **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |        ✅      | (built-in)         |
 | **EPUB E-book**               | `.epub`                                       |       ✅       |        ✅      | `epub`             |
+| **FictionBook 2.0 (FB2)**     | `.fb2`, `.fb2.zip`                            |       ✅       |       (N/A)    | (built-in)         |
 | **CHM (Compiled HTML Help)** | `.chm`                                        |       ✅       |       (N/A)    | `chm`              |
 | **OpenDocument Text**         | `.odt`                                        |       ✅       |        ✅      | `odf`              |
 | **OpenDocument Presentation** | `.odp`                                        |       ✅       |        ✅      | `odf`              |
@@ -97,6 +98,7 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `markdown`         |
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
 | **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `mediawiki`        |
+| **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
 | **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |

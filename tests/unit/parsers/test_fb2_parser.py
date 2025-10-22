@@ -9,7 +9,7 @@ from all2md.ast.utils import extract_text
 from all2md.options.fb2 import Fb2Options
 from all2md.parsers.fb2 import Fb2ToAstConverter
 
-FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "fb2"
+FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "documents"
 
 
 @pytest.fixture(scope="module")

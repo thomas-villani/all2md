@@ -109,6 +109,17 @@ EPUB eBooks
 - Chapter-aware extraction with configurable TOC generation and chapter merging
 - Automatically resolves embedded resources and applies attachment policy
 
+FictionBook 2.0 (FB2)
+~~~~~~~~~~~~~~~~~~~~
+
+*Parser:* ``Fb2ToAstConverter``
+
+- Supports standalone ``.fb2`` files and zipped ``.fb2`` bundles, validating archives before parsing
+- Preserves FictionBook metadata (titles, authors, annotations, genres) and merges note bodies when desired
+- Converts sections, poems, and epigraphs into structured headings and paragraphs while reusing HTML inline semantics
+- Attachment pipeline handles embedded binaries (images) with the full ``attachment_mode`` feature set
+- Options: ``Fb2Options`` (note inclusion, notes heading label, encoding fallbacks)
+
 Compiled HTML Help (CHM)
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -144,6 +155,16 @@ reStructuredText
 
 - Parses documents using docutils, including directives, definition lists, and field lists
 - Renderer targets Sphinx-friendly output and supports flavour-specific sanitisation
+
+Textile
+~~~~~~~
+
+*Parser & Renderer:* ``TextileParser`` / ``TextileRenderer``
+
+- Uses the ``textile`` library to turn Textile markup into HTML before reusing the HTML parser for AST construction
+- Supports inline formatting, tables, and footnotes while honouring the shared attachment and security pipeline
+- Rendering offers extended block syntax, HTML passthrough controls, and line-wrapping preferences
+- Options: ``TextileParserOptions`` / ``TextileRendererOptions``
 
 Org Mode
 ~~~~~~~~
