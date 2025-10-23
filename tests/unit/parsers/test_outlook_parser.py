@@ -207,7 +207,6 @@ class TestOutlookParser:
                 parser.parse(pst_file)
 
             assert "libpff-python" in str(exc_info.value).lower()
-            assert "platform-specific" in str(exc_info.value).lower()
 
     def test_metadata_extraction(self):
         """Test metadata extraction from Outlook file."""

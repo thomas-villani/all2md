@@ -66,10 +66,22 @@ def _is_openapi_content(content: bytes) -> bool:
             if isinstance(data, dict):
                 # Check for OpenAPI 3.x
                 if "openapi" in data and "paths" in data and "info" in data:
-                    return True
+                    # Validate version format (must be string starting with "3.")
+                    if isinstance(data["openapi"], str) and data["openapi"].startswith("3."):
+                        # Validate paths is a dict
+                        if isinstance(data["paths"], dict):
+                            # Validate info is a dict with required title field
+                            if isinstance(data["info"], dict) and "title" in data["info"]:
+                                return True
                 # Check for Swagger 2.0
                 if "swagger" in data and "paths" in data and "info" in data:
-                    return True
+                    # Validate version format (must be string "2.0" or starting with "2.")
+                    if isinstance(data["swagger"], str) and data["swagger"].startswith("2."):
+                        # Validate paths is a dict
+                        if isinstance(data["paths"], dict):
+                            # Validate info is a dict with required title field
+                            if isinstance(data["info"], dict) and "title" in data["info"]:
+                                return True
         except json.JSONDecodeError:
             pass
 
@@ -81,10 +93,28 @@ def _is_openapi_content(content: bytes) -> bool:
             if isinstance(data, dict):
                 # Check for OpenAPI 3.x
                 if "openapi" in data and "paths" in data and "info" in data:
-                    return True
+                    # Validate version format (must be string starting with "3.")
+                    openapi_version = data["openapi"]
+                    if isinstance(openapi_version, (str, float, int)):
+                        openapi_str = str(openapi_version)
+                        if openapi_str.startswith("3."):
+                            # Validate paths is a dict
+                            if isinstance(data["paths"], dict):
+                                # Validate info is a dict with required title field
+                                if isinstance(data["info"], dict) and "title" in data["info"]:
+                                    return True
                 # Check for Swagger 2.0
                 if "swagger" in data and "paths" in data and "info" in data:
-                    return True
+                    # Validate version format (must be string/number "2.0" or starting with "2.")
+                    swagger_version = data["swagger"]
+                    if isinstance(swagger_version, (str, float, int)):
+                        swagger_str = str(swagger_version)
+                        if swagger_str.startswith("2."):
+                            # Validate paths is a dict
+                            if isinstance(data["paths"], dict):
+                                # Validate info is a dict with required title field
+                                if isinstance(data["info"], dict) and "title" in data["info"]:
+                                    return True
         except Exception:
             pass
 

@@ -22,6 +22,7 @@ from fixtures import FIXTURES_PATH
 
 from all2md.ast import (
     BlockQuote,
+    CommentInline,
     Document,
     Emphasis,
     FootnoteDefinition,
@@ -52,6 +53,22 @@ def _inline_text(nodes: list) -> str:
     for node in nodes:
         if isinstance(node, Text):
             parts.append(node.content)
+        elif isinstance(node, CommentInline):
+            # Handle inline comments similar to markdown renderer
+            render_mode = node.metadata.get("render_mode", "html")
+            if render_mode == "blockquote":
+                comment_text = node.content
+                if node.metadata.get("author"):
+                    author = node.metadata.get("author")
+                    label = node.metadata.get("label", "")
+                    prefix = f"[Comment {label}" if label else "[Comment"
+                    comment_text = f"{prefix} by {author}: {comment_text}]"
+                else:
+                    comment_text = f"[{comment_text}]"
+                parts.append(comment_text)
+            else:
+                # For html mode, include content but not in HTML comment syntax
+                parts.append(node.content)
         elif hasattr(node, "content"):
             child = node.content
             if isinstance(child, list):

@@ -435,7 +435,7 @@ class ConverterRegistry:
 
         Uses multiple strategies:
         1. Explicit hint if provided
-        2. Filename extension matching
+        2. Filename extension matching (validated with content_detector if available)
         3. MIME type detection
         4. Magic bytes content analysis
         5. Default fallback
@@ -457,24 +457,16 @@ class ConverterRegistry:
         if hint and hint in self._converters:
             return hint
 
-        # Try filename-based detection
+        # Get filename for extension-based detection
+        filename: str | None = None
         if isinstance(input_data, (str, Path)):
             filename = str(input_data)
-            format_name = self._detect_by_filename(filename)
-            if format_name:
-                logger.debug(f"Format detected from filename: {format_name}")
-                return format_name
-
-        # For file-like objects, try to get filename.
         elif hasattr(input_data, "name") or hasattr(input_data, "filename"):
             file_obj_name: str | None = getattr(input_data, "name", None) or getattr(input_data, "filename", None)
             if file_obj_name and file_obj_name != "unknown":
-                format_name = self._detect_by_filename(file_obj_name)
-                if format_name:
-                    logger.debug(f"Format detected from file object name: {format_name}")
-                    return format_name
+                filename = file_obj_name
 
-        # Try content-based detection
+        # Get content for validation
         content: bytes | str | None = None
         if isinstance(input_data, bytes):
             content = input_data
@@ -505,6 +497,14 @@ class ConverterRegistry:
         if isinstance(content, str):
             content = content.encode("utf-8", errors="ignore")
 
+        # Try filename-based detection with content validation
+        if filename:
+            format_name = self._detect_by_filename(filename, content)
+            if format_name:
+                logger.debug(f"Format detected from filename: {format_name}")
+                return format_name
+
+        # Try content-based detection
         if content:
             format_name = self._detect_by_content(content)
             if format_name:
@@ -515,19 +515,26 @@ class ConverterRegistry:
         logger.debug("No format detected, defaulting to txt")
         return "plaintext"
 
-    def _detect_by_filename(self, filename: str) -> Optional[str]:
-        """Detect format from filename.
+    def _detect_by_filename(self, filename: str, content: Optional[bytes] = None) -> Optional[str]:
+        """Detect format from filename with optional content validation.
 
         Parameters
         ----------
         filename : str
             Filename to analyze
+        content : bytes, optional
+            File content for validation with content_detector
 
         Returns
         -------
         str or None
-            Format name if detected
+            Format name if detected and validated
 
+        Notes
+        -----
+        If content is provided and a converter has a content_detector, the content
+        will be validated before returning that format. This prevents false positives
+        for ambiguous extensions like .json (which could be OpenAPI, generic JSON data, etc.)
         """
         # Flatten all converters and sort by priority
         all_converters = [
@@ -537,10 +544,24 @@ class ConverterRegistry:
         ]
         sorted_converters = sorted(all_converters, key=lambda x: x[1].priority, reverse=True)
 
-        # Check extensions
+        # Check extensions with content validation
         for format_name, metadata in sorted_converters:
             if metadata.matches_extension(filename):
-                return format_name
+                # If content is available and converter has a content_detector, validate
+                if content and metadata.content_detector:
+                    if metadata.content_detector(content):
+                        logger.debug(
+                            f"Format '{format_name}' matched extension and validated by content_detector"
+                        )
+                        return format_name
+                    else:
+                        logger.debug(
+                            f"Format '{format_name}' matched extension but failed content_detector validation"
+                        )
+                        continue  # Try next converter
+                else:
+                    # No content detector or no content available - trust extension match
+                    return format_name
 
         # Check MIME type
         mime_type, _ = mimetypes.guess_type(filename)

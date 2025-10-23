@@ -1113,7 +1113,13 @@ class DocxToAstConverter(BaseParser):
         return comments
 
     def _process_comments(self) -> list[Node]:
-        """Render collected comments as block-level Comment nodes."""
+        """Render collected comments as block-level nodes.
+
+        Generates different node types based on comment_mode:
+        - 'html': HTMLBlock with HTML comment syntax
+        - 'blockquote': BlockQuote with comment text and attribution
+        - other: Comment node with metadata (for future renderer support)
+        """
         nodes: list[Node] = []
         mode = self.options.comment_mode
 
@@ -1124,20 +1130,34 @@ class DocxToAstConverter(BaseParser):
             if not comment.text:
                 continue
 
-            # Create Comment node with rich metadata
-            nodes.append(
-                Comment(
-                    content=comment.text,
-                    metadata={
-                        "comment_type": "docx_review",
-                        "identifier": comment.identifier,
-                        "label": comment.label,
-                        "author": comment.author,
-                        "date": comment.date,
-                        "render_mode": mode,  # Track how it should be rendered
-                    },
+            if mode == "html":
+                # Generate HTML comment block
+                header = self._format_comment_header(comment, include_id=True, include_prefix=True)
+                html_comment = f"<!-- {header}: {comment.text} -->"
+                nodes.append(HTMLBlock(content=html_comment))
+            elif mode == "blockquote":
+                # Generate blockquote with comment text and attribution
+                header = self._format_comment_header(comment, include_id=True, include_prefix=False)
+                blockquote_content = [
+                    AstParagraph(content=[Text(content=comment.text)]),
+                    AstParagraph(content=[Emphasis(content=[Text(content=f"— {header}")])]),
+                ]
+                nodes.append(BlockQuote(children=blockquote_content))
+            else:
+                # Create Comment node with rich metadata (for future renderer support)
+                nodes.append(
+                    Comment(
+                        content=comment.text,
+                        metadata={
+                            "comment_type": "docx_review",
+                            "identifier": comment.identifier,
+                            "label": comment.label,
+                            "author": comment.author,
+                            "date": comment.date,
+                            "render_mode": mode,
+                        },
+                    )
                 )
-            )
 
         return nodes
 

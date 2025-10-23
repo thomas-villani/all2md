@@ -7,7 +7,19 @@ This module defines options for rendering AST to plain text format.
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseRendererOptions
+from all2md.options.base import BaseRendererOptions, BaseParserOptions
+
+@dataclass(frozen=True)
+class PlainTextParserOptions(BaseParserOptions):
+
+    preserve_single_newlines: bool = field(
+        default=False,
+        metadata={
+            "help": "Preserve single newlines characters in text",
+            "type": bool, "importance": "core",
+        },
+    )
+
 
 
 @dataclass(frozen=True)

@@ -282,8 +282,9 @@ CMD ["python", "app.py"]"""
             assert "FROM python:3.9" in result
 
             # Test that without explicit format, it falls back to plain text
+            # Note: plaintext parser converts single newlines to spaces within paragraphs
             result_auto = to_markdown(str(dockerfile_path))
-            assert "FROM python:3.9 RUN pip install" in result_auto
+            assert "FROM python:3.9 RUN pip install requests CMD" in result_auto
             assert not result_auto.startswith("```dockerfile\n")
 
         finally:

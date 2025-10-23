@@ -100,6 +100,10 @@ class PlainTextToAstConverter(BaseParser):
             AST document with text content
 
         """
+        # Normalize line endings to Unix-style (\n) to handle Windows (\r\n) and Mac (\r) files
+        # This prevents \r characters from appearing as unwanted spaces in the output
+        content = content.replace("\r\n", "\n").replace("\r", "\n")
+
         # Split content into paragraphs (double newline separated)
         # This preserves some structure while keeping it simple
         paragraphs = content.split("\n\n")

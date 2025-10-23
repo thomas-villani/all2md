@@ -443,10 +443,11 @@ class TestLinkSchemeSecurityIntegration:
         assert "[Click]()" in result_default
 
         # Test with strip_dangerous_elements=True
-        # Entire element is removed during DOM sanitization
+        # Link scheme validation happens independently of strip_dangerous_elements
+        # The <a> tag is preserved (not a dangerous element), but href is neutralized
         options_strict = HtmlOptions(strip_dangerous_elements=True)
         result_strict = html_to_markdown(html_content, source_format="html", parser_options=options_strict)
-        assert result_strict.strip() == ""  # Element removed entirely
+        assert "[Click]()" in result_strict  # Link preserved, href neutralized
 
     def test_case_insensitive_scheme_detection(self):
         """Test that scheme detection is case-insensitive."""

@@ -108,11 +108,12 @@ class TestZipResourceExtraction:
                 manifest_table = tables[-1]
 
                 # Check that the table has the expected columns
-                # Columns: Filename, Archive Path, Size (bytes)
-                assert len(manifest_table.header.cells) == 3
+                # Columns: Filename, Archive Path, Size (bytes), SHA256 Hash
+                assert len(manifest_table.header.cells) == 4
                 assert manifest_table.header.cells[0].content[0].content == "Filename"
                 assert manifest_table.header.cells[1].content[0].content == "Archive Path"
                 assert "Size" in manifest_table.header.cells[2].content[0].content
+                assert "SHA256" in manifest_table.header.cells[3].content[0].content
 
                 # Check that there are data rows (extracted resources)
                 assert len(manifest_table.rows) > 0
