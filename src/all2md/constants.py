@@ -434,6 +434,17 @@ DEFAULT_ORG_PRESERVE_PROPERTIES = True
 DEFAULT_ORG_PRESERVE_TAGS = True
 
 # =============================================================================
+# BBCode Constants
+# =============================================================================
+
+BBCodeUnknownTagMode = Literal["preserve", "strip", "escape"]
+
+DEFAULT_BBCODE_UNKNOWN_TAG_MODE: BBCodeUnknownTagMode = "strip"
+DEFAULT_BBCODE_PARSE_COLOR_SIZE = True
+DEFAULT_BBCODE_PARSE_ALIGNMENT = True
+DEFAULT_BBCODE_STRICT_MODE = False
+
+# =============================================================================
 # File Extension Lists
 # =============================================================================
 # NOTE: Supported document and plaintext extensions are now dynamically
@@ -507,6 +518,7 @@ DocumentFormat = Literal[
     "archive",          # tar/7z archive
     "asciidoc",         # asciidoc format
     "ast",              # JSON-serialized AST format
+    "bbcode",           # BBCode bulletin board markup
     "chm",              # Compiled help format (Microsoft)
     "csv",              # CSV/TSV
     "docx",             # Word documents
