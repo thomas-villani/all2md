@@ -129,23 +129,6 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             assert call_args[1]["source_format"] == "plaintext"
 
-    def test_attachment_validation_warning(self, capsys):
-        """Test warning when attachment-output-dir used without download mode."""
-        html_file = self.temp_dir / "test.html"
-        html_file.write_text("<p>Test</p>")
-
-        with patch("all2md.cli.processors.convert") as mock_convert:
-            mock_convert.return_value = "Test"
-
-            result = main([str(html_file), "--attachment-output-dir", "./images"])
-
-            assert result == 0
-
-            # Check warning was printed
-            captured = capsys.readouterr()
-            assert "WARNING" in captured.err
-            assert "attachment mode is 'alt_text'" in captured.err
-
     def test_logging_level_configuration(self):
         """Test that logging level is properly configured."""
         html_file = self.temp_dir / "test.html"

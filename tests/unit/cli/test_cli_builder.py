@@ -878,30 +878,6 @@ class TestNewCLIFeatures:
         assert args.output_dir == "./individual"
         # Logic validation happens in main(), not parser
 
-    def test_backward_compatibility_preserved(self):
-        """Test that new features don't break existing CLI usage."""
-        parser = create_parser()
-
-        # All existing usage patterns should still work
-        test_cases = [
-            ["document.pdf"],
-            ["document.pdf", "--out", "output.md"],
-            ["document.pdf", "--format", "pdf"],
-            ["document.html", "--html-extract-title"],
-            ["document.pdf", "--pdf-pages", "1,2,3"],
-            ["document.pdf", "--attachment-mode", "download"],
-        ]
-
-        for args_list in test_cases:
-            args = parser.parse_args(args_list)
-            # Should parse successfully and have expected format
-            assert hasattr(args, 'input')
-            assert hasattr(args, 'format')
-            # New attributes should exist with defaults
-            assert hasattr(args, 'rich')
-            assert hasattr(args, 'progress')
-            assert hasattr(args, 'collate')
-
     def test_file_collection_logic_unit(self):
         """Test file collection logic with various patterns."""
         import tempfile

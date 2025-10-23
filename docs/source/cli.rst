@@ -1845,6 +1845,50 @@ all2md supports processing multiple files with parallel execution and rich outpu
       # Combine to stdout
       all2md *.pdf --collate > all_documents.md
 
+Format-Specific Options in Batch Mode
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When processing multiple formats in a single batch, you can use format-specific flags to override global settings. This is particularly useful when different formats require different attachment handling strategies.
+
+**Global + Format-Specific Overrides:**
+
+.. code-block:: bash
+
+   # Skip attachments by default, but download from PDFs
+   all2md *.* --attachment-mode skip \
+       --pdf-attachment-mode download \
+       --pdf-attachment-output-dir ./pdf_images \
+       --output-dir ./converted
+
+   # Use alt-text globally, but embed base64 for presentations
+   all2md docs/* reports/*.pdf slides/*.pptx \
+       --attachment-mode alt_text \
+       --pptx-attachment-mode base64 \
+       --output-dir ./output
+
+   # Different attachment directories per format
+   all2md mixed_content/* \
+       --attachment-mode download \
+       --pdf-attachment-output-dir ./assets/pdf \
+       --docx-attachment-output-dir ./assets/word \
+       --html-attachment-output-dir ./assets/web \
+       --output-dir ./converted
+
+**How It Works:**
+
+1. Global flags (``--attachment-mode``, ``--attachment-output-dir``, etc.) apply to ALL formats
+2. Format-specific flags (``--pdf-attachment-mode``, ``--docx-attachment-mode``, etc.) override global settings for that format
+3. Format-specific flags always take precedence over global flags
+
+**Use Cases:**
+
+* **Security policies** - Strict defaults with exceptions for trusted formats
+* **Performance optimization** - Fast modes for text formats, thorough modes for complex documents
+* **Mixed format directories** - Different strategies per format type
+* **Selective processing** - Skip attachments except where needed
+
+For a complete list of format-specific flags, see :doc:`attachments` or run ``all2md help <format>``.
+
 Merge from List
 ~~~~~~~~~~~~~~~
 

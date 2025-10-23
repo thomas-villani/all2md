@@ -938,6 +938,63 @@ class DynamicCLIBuilder:
                 # Skip problematic transforms
                 logger.warning(f"Could not add CLI args for transform {transform_name}: {e}")
 
+    def add_global_attachment_arguments(self, parser: argparse.ArgumentParser) -> None:
+        """Add global attachment handling arguments that apply to all formats.
+
+        These arguments are extracted from AttachmentOptionsMixin and apply to
+        all formats unless overridden by format-specific arguments.
+
+        Parameters
+        ----------
+        parser : ArgumentParser
+            Parser to add arguments to
+
+        """
+        from all2md.options.common import AttachmentOptionsMixin
+
+        # Create argument group for global attachment options
+        attachment_group = parser.add_argument_group(
+            'Global attachment options',
+            'Apply to all formats unless format-specific overrides are provided. '
+            'These options work consistently across PDF, DOCX, HTML, and all other formats.'
+        )
+
+        # Iterate over AttachmentOptionsMixin fields
+        for field in fields(AttachmentOptionsMixin):
+            # Build CLI flag name (no prefix for global)
+            cli_name = f"--{self.snake_to_kebab(field.name)}"
+
+            # Get metadata
+            field_metadata = dict(field.metadata) if field.metadata else {}
+
+            # Build argument kwargs using existing builder logic
+            kwargs = self.get_argument_kwargs(field, field_metadata, cli_name, AttachmentOptionsMixin)
+
+            # Set dest (no dot notation - just field name for global)
+            # and use tracking actions
+            if 'action' in kwargs:
+                if kwargs['action'] == 'store_true':
+                    kwargs['action'] = TrackingStoreTrueAction
+                    kwargs['dest'] = field.name
+                elif kwargs['action'] == 'store_false':
+                    kwargs['action'] = TrackingStoreFalseAction
+                    kwargs['dest'] = field.name
+                elif kwargs['action'] == 'append':
+                    kwargs['action'] = TrackingAppendAction
+                    kwargs['dest'] = field.name
+            else:
+                # For non-boolean arguments, use TrackingStoreAction
+                kwargs['action'] = TrackingStoreAction
+                kwargs['dest'] = field.name
+
+            # Add the argument
+            try:
+                attachment_group.add_argument(cli_name, **kwargs)
+                # Track mapping from dest name to actual CLI flag
+                self.dest_to_cli_flag[field.name] = cli_name
+            except Exception as e:
+                logger.warning(f"Could not add global attachment argument {cli_name}: {e}")
+
     def build_parser(self) -> argparse.ArgumentParser:
         """Build the complete argument parser with dynamic arguments.
 
@@ -1329,6 +1386,12 @@ Examples:
         # Track unknown arguments for validation
         unknown_args = []
 
+        # Build set of global attachment field names
+        from all2md.options.common import AttachmentOptionsMixin
+        from dataclasses import fields as get_fields
+
+        global_attachment_fields = {field.name for field in get_fields(AttachmentOptionsMixin)}
+
         # Define CLI-only arguments that should not be mapped to converter options
         # These are arguments handled directly by the CLI layer
         cli_only_args = {
@@ -1354,7 +1417,7 @@ Examples:
             'toc_position', 'list_separator', 'no_section_titles',
             # Batch-from-list arguments
             'batch_from_list'
-        }
+        } | global_attachment_fields  # Union with global attachment fields
 
         # Process each argument
         for arg_name, arg_value in args_dict.items():
@@ -1434,6 +1497,34 @@ Examples:
                     if not field_found and arg_value is not None:
                         # Track unknown argument
                         unknown_args.append(arg_name)
+
+        # Handle global attachment flags - propagate to all formats
+        from all2md.options.common import AttachmentOptionsMixin
+        from dataclasses import fields as get_fields
+
+        attachment_field_names = {field.name for field in get_fields(AttachmentOptionsMixin)}
+
+        for field_name in attachment_field_names:
+            # Check if global flag was provided
+            if field_name in provided_args and field_name in args_dict:
+                global_value = args_dict[field_name]
+
+                # Apply to each format that supports attachments
+                for format_name, options_class in options_classes.items():
+                    if format_name in ['base', 'renderer_base', 'markdown', 'remote_input']:
+                        continue
+
+                    # Check if this options class has this attachment field
+                    has_field = any(field.name == field_name for field in get_fields(options_class))
+                    if not has_field:
+                        continue
+
+                    # Build format-specific key
+                    format_field_key = f'{format_name}.{field_name}'
+
+                    # Only apply global if format-specific wasn't explicitly provided
+                    if format_field_key not in provided_args:
+                        options[format_field_key] = global_value
 
         # Validate unknown arguments
         if unknown_args:
@@ -1600,6 +1691,9 @@ def create_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser using dynamic generation."""
     builder = DynamicCLIBuilder()
     parser = builder.build_parser()
+
+    # Add global attachment arguments that apply to all formats
+    builder.add_global_attachment_arguments(parser)
 
     # Add new CLI options for enhanced features
     parser.add_argument(

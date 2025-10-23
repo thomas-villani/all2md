@@ -258,6 +258,82 @@ Images and other compatible files are encoded as base64 and embedded inline. Thi
 
    all2md presentation.pptx --attachment-mode base64
 
+Global vs Format-Specific Flags
+--------------------------------
+
+all2md provides both global and format-specific attachment flags for maximum flexibility:
+
+**Global Flags (recommended for most use cases):**
+
+.. code-block:: bash
+
+   # Applies to all formats
+   all2md document.pdf --attachment-mode download --attachment-output-dir ./images
+
+Available global flags:
+
+* ``--attachment-mode`` - Attachment handling mode (skip, alt_text, download, base64)
+* ``--attachment-output-dir`` - Directory to save attachments
+* ``--attachment-base-url`` - Base URL for attachment references
+* ``--alt-text-mode`` - How to render alt-text (default, plain_filename, strict_markdown, footnote)
+* ``--max-asset-size-bytes`` - Maximum size for individual assets
+* ``--attachment-filename-template`` - Template for attachment filenames
+* ``--attachment-overwrite`` - File collision strategy (unique, overwrite, skip)
+* ``--attachment-deduplicate-by-hash`` - Deduplicate attachments by content hash
+* ``--attachments-footnotes-section`` - Section title for footnote-style references
+
+**Format-Specific Overrides (for advanced batch processing):**
+
+When processing multiple formats, you can use format-specific flags to override global settings:
+
+.. code-block:: bash
+
+   # Skip attachments by default, but download from PDFs
+   all2md *.* --attachment-mode skip --pdf-attachment-mode download --pdf-attachment-output-dir ./pdf_images
+
+   # Use alt-text globally, but embed base64 for presentations
+   all2md docs/* reports/*.pdf slides/*.pptx \
+       --attachment-mode alt_text \
+       --pptx-attachment-mode base64
+
+   # Different output directories per format
+   all2md mixed_docs/* \
+       --attachment-mode download \
+       --pdf-attachment-output-dir ./pdf_assets \
+       --docx-attachment-output-dir ./word_assets \
+       --html-attachment-output-dir ./web_assets
+
+**Override Precedence:**
+
+Format-specific flags always take precedence over global flags:
+
+.. code-block:: bash
+
+   # PDFs use 'download', all others use 'skip'
+   all2md *.* --attachment-mode skip --pdf-attachment-mode download
+
+This is particularly useful for:
+
+* **Mixed format directories** - Different attachment strategies per format
+* **Selective processing** - Skip attachments for most formats, enable for specific ones
+* **Performance optimization** - Use faster modes for some formats, thorough modes for others
+* **Security policies** - Apply strict rules globally with exceptions for trusted formats
+
+**Format Prefixes:**
+
+Each format has its own prefix for format-specific flags:
+
+* PDF: ``--pdf-attachment-mode``, ``--pdf-attachment-output-dir``, etc.
+* Word: ``--docx-attachment-mode``, ``--docx-attachment-output-dir``, etc.
+* PowerPoint: ``--pptx-attachment-mode``, ``--pptx-attachment-output-dir``, etc.
+* HTML: ``--html-attachment-mode``, ``--html-attachment-output-dir``, etc.
+* Email: ``--eml-attachment-mode``, ``--eml-attachment-output-dir``, etc.
+* EPUB: ``--epub-attachment-mode``, ``--epub-attachment-output-dir``, etc.
+* Jupyter: ``--ipynb-attachment-mode``, ``--ipynb-attachment-output-dir``, etc.
+* OpenDocument: ``--odt-attachment-mode``, ``--odp-attachment-mode``, etc.
+* Excel: ``--xlsx-attachment-mode``, ``--xlsx-attachment-output-dir``, etc.
+* And more... (see ``all2md help <format>`` for complete list)
+
 Format-Specific Behavior
 -------------------------
 
