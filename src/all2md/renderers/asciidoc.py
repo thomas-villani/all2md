@@ -18,6 +18,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -585,6 +587,43 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if sanitized:
             self._output.append(sanitized)
 
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        AsciiDoc comments use // prefix for single-line comments.
+        For multi-line comments, each line is prefixed with //.
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        # Build comment text with metadata if available
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        # Check if content is multiline
+        lines = comment_text.split("\n")
+        if len(lines) == 1:
+            # Single-line comment
+            self._output.append(f"// {comment_text}")
+        else:
+            # Multi-line comment - prefix each line with //
+            for line in lines:
+                self._output.append(f"// {line}\n")
+            # Remove trailing newline from last line
+            if self._output and self._output[-1].endswith("\n"):
+                self._output[-1] = self._output[-1].rstrip("\n")
+
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
 
@@ -743,6 +782,33 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
         if sanitized:
             self._output.append(sanitized)
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        AsciiDoc doesn't have native inline comments, so we fall back to HTML
+        comment syntax which is widely supported in AsciiDoc processors.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Build comment text with metadata if available
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        # Use HTML comment for inline comments (AsciiDoc supports passthrough HTML)
+        self._output.append(f"<!-- {comment_text} -->")
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.

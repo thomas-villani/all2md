@@ -28,6 +28,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -1305,3 +1307,150 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         run = para.add_run(text)
         run.font.name = self.options.code_font
         run.font.size = self._Pt(self.options.code_font_size)
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        if not self.document:
+            return
+
+        # Try to use native DOCX comments if supported
+        try:
+            # Create a paragraph to attach the comment to
+            para = self.document.add_paragraph(node.content)
+
+            # Extract comment metadata
+            author = node.metadata.get("author", "")
+            initials = node.metadata.get("initials", "")
+            if not initials and author:
+                # Generate initials from author name
+                parts = author.split()
+                initials = "".join(p[0].upper() for p in parts if p)[:3]
+
+            # Add native DOCX comment using python-docx 1.2.0+ API
+            if hasattr(self.document, "add_comment"):
+                self.document.add_comment(
+                    runs=para.runs,
+                    text=node.content,
+                    author=author,
+                    initials=initials,
+                )
+                # Clear the paragraph content since comment is attached
+                para.text = ""
+            else:
+                # Fallback: render as highlighted text with comment styling
+                self._render_comment_fallback(para, node, is_inline=False)
+
+        except Exception as e:
+            logger.warning(f"Failed to add block comment to DOCX: {e}")
+            # Fallback: render as styled paragraph
+            if self.document:
+                para = self.document.add_paragraph()
+                run = para.add_run(f"[Comment: {node.content}]")
+                run.font.italic = True
+                run.font.color.rgb = self._RGBColor(128, 128, 128)
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        if not self.document or self._current_paragraph is None:
+            return
+
+        # Try to use native DOCX comments if supported
+        try:
+            # Extract comment metadata
+            author = node.metadata.get("author", "")
+            initials = node.metadata.get("initials", "")
+            if not initials and author:
+                # Generate initials from author name
+                parts = author.split()
+                initials = "".join(p[0].upper() for p in parts if p)[:3]
+
+            # For inline comments, we need to create a temporary run to attach the comment to
+            # Add a placeholder character that will be commented
+            placeholder_run = self._current_paragraph.add_run("\u200B")  # Zero-width space
+
+            # Add native DOCX comment using python-docx 1.2.0+ API
+            if hasattr(self.document, "add_comment"):
+                self.document.add_comment(
+                    runs=[placeholder_run],
+                    text=node.content,
+                    author=author,
+                    initials=initials,
+                )
+            else:
+                # Fallback: render as highlighted text with comment styling
+                self._render_comment_fallback(self._current_paragraph, node, is_inline=True)
+
+        except Exception as e:
+            logger.warning(f"Failed to add inline comment to DOCX: {e}")
+            # Fallback: render as styled text
+            if self._current_paragraph:
+                run = self._current_paragraph.add_run(f"[{node.content}]")
+                run.font.italic = True
+                run.font.color.rgb = self._RGBColor(128, 128, 128)
+
+    def _render_comment_fallback(
+        self, paragraph: Paragraph, node: Comment | CommentInline, is_inline: bool
+    ) -> None:
+        """Render comment as styled text when native comments are not supported.
+
+        This fallback method renders comments as highlighted text with metadata,
+        providing a visual alternative when python-docx doesn't support comments.
+
+        Parameters
+        ----------
+        paragraph : Paragraph
+            Target paragraph to render into
+        node : Comment or CommentInline
+            Comment node to render
+        is_inline : bool
+            Whether this is an inline comment
+
+        """
+        # Build comment text with metadata
+        comment_text = node.content
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+
+        # Format comment with metadata
+        if author or date or label:
+            prefix_parts = []
+            if label:
+                prefix_parts.append(f"Comment {label}")
+            else:
+                prefix_parts.append("Comment")
+
+            if author:
+                prefix_parts.append(f"by {author}")
+
+            if date:
+                prefix_parts.append(f"({date})")
+
+            prefix = " ".join(prefix_parts)
+            comment_text = f"[{prefix}: {comment_text}]"
+        else:
+            comment_text = f"[Comment: {comment_text}]"
+
+        # Add styled run
+        run = paragraph.add_run(comment_text)
+        run.font.italic = True
+        run.font.color.rgb = self._RGBColor(255, 165, 0)  # Orange color for visibility
+
+        # Add highlight/background if not inline
+        if not is_inline:
+            # Set paragraph shading for block comments
+            self._set_paragraph_shading(paragraph, "FFF8DC")  # Cornsilk color

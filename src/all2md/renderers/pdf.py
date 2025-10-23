@@ -30,6 +30,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -1138,3 +1140,27 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         )
         self._flowables.append(pre)
         self._flowables.append(self._Spacer(1, 0.1 * self._inch))
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (strip in PDF).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment to render
+
+        """
+        # Skip comments in PDF output (PDF is read-only output)
+        pass
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (strip in PDF).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Skip inline comments in PDF output (PDF is read-only output)
+        pass

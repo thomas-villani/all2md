@@ -10,6 +10,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -448,3 +450,108 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     def visit_footnote_reference(self, node: FootnoteReference) -> Any:
         """Render a footnote reference marker."""
         return [self._create_text_run(f"[^{node.identifier}]")]
+
+    def visit_comment(self, node: Comment) -> Any:
+        r"""Render a block-level comment node.
+
+        RTF supports native annotations via the \annotation control word, but the pyth3
+        library does not expose direct support for annotations. We use a fallback approach
+        with bracketed text that includes comment metadata when available.
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        Returns
+        -------
+        Any
+            Pyth paragraph object with comment content
+
+        """
+        # Build comment text with metadata
+        comment_text = node.content
+
+        # Check render_mode in metadata
+        render_mode = node.metadata.get("render_mode", "bracketed")
+
+        if render_mode == "drop":
+            # Drop comments entirely
+            return None
+
+        # Add author/date info if available
+        author = node.metadata.get("author")
+        date = node.metadata.get("date")
+        label = node.metadata.get("label")
+
+        if author or date or label:
+            prefix_parts = []
+            if label:
+                prefix_parts.append(f"Comment {label}")
+            else:
+                prefix_parts.append("Comment")
+
+            if author:
+                prefix_parts.append(f"by {author}")
+
+            if date:
+                prefix_parts.append(f"({date})")
+
+            prefix = " ".join(prefix_parts)
+            comment_text = f"{prefix}: {comment_text}"
+
+        # Render as bracketed text paragraph
+        Paragraph_cls = cast(Any, self._Paragraph)
+        return Paragraph_cls(content=[self._create_text_run(f"[{comment_text}]")])
+
+    def visit_comment_inline(self, node: CommentInline) -> Any:
+        r"""Render an inline comment node.
+
+        RTF supports native annotations via the \annotation control word, but the pyth3
+        library does not expose direct support for annotations. We use a fallback approach
+        with bracketed inline text that includes comment metadata when available.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        Returns
+        -------
+        Any
+            List containing pyth text run with comment content
+
+        """
+        # Build comment text with metadata
+        comment_text = node.content
+
+        # Check render_mode in metadata
+        render_mode = node.metadata.get("render_mode", "bracketed")
+
+        if render_mode == "drop":
+            # Drop comments entirely
+            return []
+
+        # Add author/date info if available
+        author = node.metadata.get("author")
+        date = node.metadata.get("date")
+        label = node.metadata.get("label")
+
+        if author or date or label:
+            prefix_parts = []
+            if label:
+                prefix_parts.append(f"Comment {label}")
+            else:
+                prefix_parts.append("Comment")
+
+            if author:
+                prefix_parts.append(f"by {author}")
+
+            if date:
+                prefix_parts.append(f"({date})")
+
+            prefix = " ".join(prefix_parts)
+            comment_text = f"{prefix}: {comment_text}"
+
+        # Render as bracketed inline text
+        return [self._create_text_run(f"[{comment_text}]")]

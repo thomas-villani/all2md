@@ -26,6 +26,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -632,6 +634,30 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         preferred: Literal["latex", "mathml", "html"] = "latex"
         content, notation = node.get_preferred_representation(preferred)
         self._output.append(content.rstrip())
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (strip in plain text).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment to render
+
+        """
+        # Skip comments in plain text output
+        pass
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (strip in plain text).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Skip inline comments in plain text output
+        pass
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to plain text and write to output.

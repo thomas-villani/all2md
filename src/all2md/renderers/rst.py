@@ -22,6 +22,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -855,6 +857,70 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         lines = content.split("\n")
         for line in lines:
             self._output.append(f"   {line}\n")
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        Notes
+        -----
+        Renders as RST comment using the .. syntax with indented content.
+        Each line of the comment content is indented with 3 spaces.
+
+        """
+        # RST comments use .. followed by indented content
+        self._output.append("..\n")
+
+        # Build comment text with metadata if available
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        # Indent each line of content
+        lines = comment_text.split("\n")
+        for line in lines:
+            self._output.append(f"   {line}\n")
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        Notes
+        -----
+        RST does not have native inline comments. This method falls back
+        to HTML comment syntax for inline comments, which is supported by
+        RST processors.
+
+        """
+        # RST doesn't have inline comments, fall back to HTML comment
+        # Build comment text with metadata if available
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        self._output.append(f"<!-- {comment_text} -->")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to RST and write to output.

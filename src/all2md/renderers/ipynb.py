@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import IO, Any, Dict, List, Optional, Tuple, Union
 
 from all2md.ast import Document
-from all2md.ast.nodes import CodeBlock, Image, Node
+from all2md.ast.nodes import CodeBlock, Comment, CommentInline, Image, Node
 from all2md.options.ipynb import IpynbRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.renderers.markdown import MarkdownRenderer
@@ -480,3 +480,37 @@ class IpynbRenderer(BaseRenderer):
         if not text.endswith("\n"):
             text = f"{text}\n"
         return text.splitlines(keepends=True)
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (no-op, handled by markdown renderer).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment to render
+
+        Notes
+        -----
+        Comments are handled by the MarkdownRenderer which is used to render
+        markdown cell content. This method exists only to satisfy the visitor
+        pattern but is never called during normal rendering flow.
+
+        """
+        pass
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (no-op, handled by markdown renderer).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        Notes
+        -----
+        Inline comments are handled by the MarkdownRenderer which is used to
+        render markdown cell content. This method exists only to satisfy the
+        visitor pattern but is never called during normal rendering flow.
+
+        """
+        pass

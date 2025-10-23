@@ -31,6 +31,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -1214,3 +1216,117 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             child.accept(self)
 
         self._current_paragraph = None
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node as speaker notes.
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        Notes
+        -----
+        Block-level comments are rendered as speaker notes in PowerPoint.
+        This provides a natural mapping for comments, review notes, and
+        annotations from source documents.
+
+        The comment content and metadata (author, date, label) are formatted
+        and added to the current slide's speaker notes. If no slide context
+        exists, the comment is silently skipped.
+
+        """
+        # Comments are rendered as speaker notes, but we need slide context
+        # In the current architecture, comments within slide content are
+        # handled during slide rendering. Comments at document level would
+        # need special handling which is not currently supported.
+        # For now, comments within slides will be captured if they appear
+        # in the content nodes passed to _render_slide_content.
+
+        # Format comment with metadata
+        comment_parts = []
+
+        # Add metadata header if available
+        if node.metadata.get("author") or node.metadata.get("date") or node.metadata.get("label"):
+            header_parts = []
+            if node.metadata.get("label"):
+                header_parts.append(f"Comment {node.metadata['label']}")
+            else:
+                header_parts.append("Comment")
+
+            if node.metadata.get("author"):
+                header_parts.append(f"by {node.metadata['author']}")
+
+            if node.metadata.get("date"):
+                header_parts.append(f"({node.metadata['date']})")
+
+            comment_parts.append(" ".join(header_parts))
+            comment_parts.append(": ")
+
+        comment_parts.append(node.content)
+        comment_text = "".join(comment_parts)
+
+        # Render as paragraph in current context (likely speaker notes)
+        if self._current_textbox:
+            p = self._current_textbox.add_paragraph()
+            run = p.add_run()
+            run.text = comment_text
+            run.font.italic = True
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        Notes
+        -----
+        Inline comments are rendered as italic text within the current paragraph.
+        This provides visual distinction while keeping the content readable.
+
+        In PowerPoint, inline comments could potentially be rendered as:
+        - Italic text (current implementation)
+        - Parenthetical notes
+        - Superscript references
+
+        The current implementation uses italic text for simplicity and
+        maximum compatibility across slide layouts.
+
+        """
+        if not self._current_paragraph:
+            return
+
+        # Format comment with metadata
+        comment_parts = []
+
+        # Add metadata prefix if available
+        if node.metadata.get("author"):
+            prefix_parts = []
+            if node.metadata.get("label"):
+                prefix_parts.append(f"[Comment {node.metadata['label']}")
+            else:
+                prefix_parts.append("[Comment")
+
+            prefix_parts.append(f"by {node.metadata['author']}")
+
+            if node.metadata.get("date"):
+                prefix_parts.append(f"({node.metadata['date']})")
+
+            comment_parts.append(" ".join(prefix_parts))
+            comment_parts.append(": ")
+        elif node.metadata.get("label"):
+            comment_parts.append(f"[Comment {node.metadata['label']}: ")
+
+        comment_parts.append(node.content)
+
+        if node.metadata.get("author") or node.metadata.get("label"):
+            comment_parts.append("]")
+
+        comment_text = "".join(comment_parts)
+
+        # Render as italic text run
+        run = self._current_paragraph.add_run()
+        run.text = comment_text
+        run.font.italic = True

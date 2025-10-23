@@ -21,6 +21,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     Document,
     Emphasis,
     Heading,
@@ -406,6 +408,111 @@ class TestMetadataRendering:
 
         assert "#+TITLE: My Document" in org
         assert "#+AUTHOR: John Doe" in org
+
+
+@pytest.mark.unit
+class TestComments:
+    """Tests for comment rendering."""
+
+    def test_simple_comment(self) -> None:
+        """Test rendering a simple comment."""
+        doc = Document(
+            children=[Comment(content="This is a comment")]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "# This is a comment" in org
+
+    def test_multiline_comment(self) -> None:
+        """Test rendering a multi-line comment."""
+        doc = Document(
+            children=[Comment(content="Line 1\nLine 2\nLine 3")]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "# Line 1" in org
+        assert "# Line 2" in org
+        assert "# Line 3" in org
+
+    def test_comment_with_metadata(self) -> None:
+        """Test rendering a comment with author and date metadata."""
+        doc = Document(
+            children=[
+                Comment(
+                    content="Important note",
+                    metadata={
+                        "author": "John Doe",
+                        "date": "2025-01-15",
+                        "label": "1"
+                    }
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "# Comment 1 by John Doe (2025-01-15)" in org
+        assert "# Important note" in org
+
+    def test_comment_with_author_only(self) -> None:
+        """Test rendering a comment with author but no date."""
+        doc = Document(
+            children=[
+                Comment(
+                    content="Review this",
+                    metadata={"author": "Jane Smith"}
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "# Comment by Jane Smith" in org
+        assert "# Review this" in org
+
+    def test_inline_comment(self) -> None:
+        """Test rendering an inline comment (fallback to HTML)."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Some text "),
+                        CommentInline(content="inline note"),
+                        Text(content=" more text")
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "<!-- inline note -->" in org
+
+    def test_inline_comment_with_metadata(self) -> None:
+        """Test rendering an inline comment with metadata."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        CommentInline(
+                            content="note",
+                            metadata={
+                                "author": "Bob",
+                                "date": "2025-01-15",
+                                "label": "2"
+                            }
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "<!-- Comment 2 by Bob (2025-01-15): note -->" in org
 
 
 @pytest.mark.unit

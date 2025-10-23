@@ -22,6 +22,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -698,6 +700,60 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         pass
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        # Org-mode uses # for comments
+        # Each line should be prefixed with #
+        lines = node.content.split("\n")
+
+        # Add metadata header if available
+        if node.metadata.get("author") or node.metadata.get("date"):
+            author = node.metadata.get("author", "Unknown")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            header = f"Comment {label} by {author}" if label else f"Comment by {author}"
+            if date:
+                header += f" ({date})"
+            self._output.append(f"# {header}\n")
+
+        # Render each line as an Org comment
+        for i, line in enumerate(lines):
+            if i > 0:
+                self._output.append("\n")
+            self._output.append(f"# {line}")
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Org-mode doesn't have inline comments
+        # Fallback to HTML comment for inline contexts
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        # Use HTML comment as fallback since Org doesn't support inline comments
+        self._output.append(f"<!-- {comment_text} -->")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to Org-Mode and write to output.

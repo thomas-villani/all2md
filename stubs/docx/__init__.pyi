@@ -77,6 +77,28 @@ class Document:
         """
         ...
 
+    def add_comment(self, runs: Any, text: str = "", author: str = "", initials: str = "") -> Any:
+        """Add a comment to the document.
+
+        Parameters
+        ----------
+        runs : Run or sequence of Run
+            Run or runs to attach the comment to
+        text : str, default = ""
+            Comment text content
+        author : str, default = ""
+            Comment author name
+        initials : str, default = ""
+            Author initials
+
+        Returns
+        -------
+        Comment
+            The created comment object
+
+        """
+        ...
+
     def save(self, path_or_stream: str | Path | IO[bytes]) -> None:
         """Save the document.
 

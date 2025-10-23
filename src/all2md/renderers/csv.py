@@ -23,7 +23,7 @@ import logging
 from pathlib import Path
 from typing import IO, Union
 
-from all2md.ast.nodes import Document, Heading, Node, Table, TableRow, Text
+from all2md.ast.nodes import Comment, CommentInline, Document, Heading, Node, Table, TableRow, Text
 from all2md.exceptions import RenderingError
 from all2md.options.csv import CsvRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -360,3 +360,27 @@ class CsvRenderer(BaseRenderer):
                 parts.append(self._extract_text_content(node.content))
 
         return "".join(parts)
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (strip in CSV).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment to render
+
+        """
+        # Skip comments in CSV output (doesn't make sense in CSV)
+        pass
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (strip in CSV).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Skip inline comments in CSV output (doesn't make sense in CSV)
+        pass

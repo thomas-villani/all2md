@@ -24,6 +24,8 @@ from all2md.ast.nodes import (  # noqa: E402
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -181,7 +183,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Add Content-Security-Policy meta tag if enabled
         if self.options.csp_enabled:
             csp_policy = self.options.csp_policy or (
-                "default-src 'self'; " "script-src 'self'; " "style-src 'self' 'unsafe-inline';"
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
             )
             escaped_csp = escape_html(csp_policy, enabled=self.options.escape_html)
             parts.append(f'<meta http-equiv="Content-Security-Policy" content="{escaped_csp}">')
@@ -511,7 +513,7 @@ hr {
             from bs4 import BeautifulSoup
         except ImportError as e:
             raise ImportError(
-                "BeautifulSoup4 is required for inject template mode. " "Install with: pip install beautifulsoup4"
+                "BeautifulSoup4 is required for inject template mode. Install with: pip install beautifulsoup4"
             ) from e
 
         from pathlib import Path
@@ -572,7 +574,7 @@ hr {
         try:
             from jinja2 import Environment, FileSystemLoader, select_autoescape
         except ImportError as e:
-            raise ImportError("Jinja2 is required for jinja template mode. " "Install with: pip install jinja2") from e
+            raise ImportError("Jinja2 is required for jinja template mode. Install with: pip install jinja2") from e
 
         from pathlib import Path
 
@@ -1021,6 +1023,45 @@ hr {
         if sanitized:
             self._output.append(sanitized)
 
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Build comment text with metadata if available
+        comment_text = node.content
+
+        # Add metadata information if available
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            comment_type = node.metadata.get("comment_type", "")
+
+            # Build metadata prefix
+            prefix_parts = []
+            if comment_type:
+                prefix_parts.append(comment_type.upper())
+            if label:
+                prefix_parts.append(f"#{label}")
+
+            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+            # Build full comment text
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        # Render as HTML comment
+        # Escape any -- sequences in comment to avoid breaking HTML comment syntax
+        safe_text = comment_text.replace("--", "- -")
+        self._output.append(f"<!-- {safe_text} -->")
+
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
 
@@ -1133,3 +1174,42 @@ hr {
         if not markup.endswith("\n"):
             markup += "\n"
         self._output.append(markup)
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        # Build comment text with metadata if available
+        comment_text = node.content
+
+        # Add metadata information if available
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            comment_type = node.metadata.get("comment_type", "")
+
+            # Build metadata prefix
+            prefix_parts = []
+            if comment_type:
+                prefix_parts.append(comment_type.upper())
+            if label:
+                prefix_parts.append(f"#{label}")
+
+            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+            # Build full comment text
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        # Render as HTML comment
+        # Escape any -- sequences in comment to avoid breaking HTML comment syntax
+        safe_text = comment_text.replace("--", "- -")
+        self._output.append(f"<!-- {safe_text} -->\n")

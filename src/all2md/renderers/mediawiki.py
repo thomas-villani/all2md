@@ -18,6 +18,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -335,6 +337,30 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if sanitized:
             self._output.append(sanitized)
 
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        MediaWiki supports HTML comments which are not visible in the rendered output.
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        self._output.append(f"<!-- {comment_text} -->")
+
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
 
@@ -550,6 +576,30 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         sanitized = sanitize_html_content(node.content, mode=self.options.html_passthrough_mode)
         if sanitized:
             self._output.append(sanitized)
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        MediaWiki supports HTML comments which are not visible in the rendered output.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        self._output.append(f"<!-- {comment_text} -->")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import IO, Any, Union
 from urllib.parse import urlparse
 
-from all2md.ast.nodes import Document, Heading, Image, Node
+from all2md.ast.nodes import Comment, CommentInline, Document, Heading, Image, Node
 from all2md.ast.transforms import clone_node
 from all2md.exceptions import RenderingError
 from all2md.options.epub import EpubRendererOptions
@@ -591,3 +591,37 @@ class EpubRenderer(BaseRenderer):
                 raise RenderingError(
                     f"Failed to add cover image: {e!r}", rendering_stage="cover_image", original_error=e
                 ) from e
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (no-op, handled by HTML renderer).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment to render
+
+        Notes
+        -----
+        Comments are handled by the HtmlRenderer which is used to render
+        EPUB chapter content. This method exists only to satisfy the visitor
+        pattern but is never called during normal rendering flow.
+
+        """
+        pass
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (no-op, handled by HTML renderer).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        Notes
+        -----
+        Inline comments are handled by the HtmlRenderer which is used to
+        render EPUB chapter content. This method exists only to satisfy the
+        visitor pattern but is never called during normal rendering flow.
+
+        """
+        pass

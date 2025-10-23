@@ -18,6 +18,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -579,6 +581,69 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         # LaTeX doesn't support HTML - comment it out
         self._output.append(f"% HTML: {node.content}")
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        # Build comment text with metadata if available
+        comment_lines = []
+
+        # Add metadata header if present
+        if node.metadata.get("author") or node.metadata.get("date"):
+            author = node.metadata.get("author", "Unknown")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+
+            header_parts = ["Comment"]
+            if label:
+                header_parts.append(label)
+            header_parts.append(f"by {author}")
+            if date:
+                header_parts.append(f"({date})")
+
+            comment_lines.append("% " + " ".join(header_parts))
+
+        # Add content - split multiline content and prefix each line
+        content_lines = node.content.split("\n")
+        for line in content_lines:
+            comment_lines.append(f"% {line}")
+
+        self._output.append("\n".join(comment_lines))
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Build comment text with metadata if available
+        comment_text = node.content
+
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+
+            prefix_parts = ["Comment"]
+            if label:
+                prefix_parts.append(label)
+            prefix_parts.append(f"by {author}")
+            if date:
+                prefix_parts.append(f"({date})")
+
+            comment_text = " ".join(prefix_parts) + f": {comment_text}"
+
+        # Render as inline LaTeX comment
+        self._output.append(f"% {comment_text}")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

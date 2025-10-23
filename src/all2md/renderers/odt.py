@@ -27,6 +27,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -1218,3 +1220,85 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         span.addText(text)
         para.addElement(span)
         self.document.text.addElement(para)
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        from odf.dc import Creator, Date
+        from odf.office import Annotation
+        from odf.text import P
+
+        if not self.document:
+            return
+
+        # Create annotation using odfpy's native annotation support
+        annotation = Annotation()
+
+        # Add author if available
+        if node.metadata.get("author"):
+            creator = Creator()
+            creator.addText(str(node.metadata["author"]))
+            annotation.addElement(creator)
+
+        # Add date if available
+        if node.metadata.get("date"):
+            date = Date()
+            date.addText(str(node.metadata["date"]))
+            annotation.addElement(date)
+
+        # Add comment content as paragraph(s)
+        comment_para = P()
+        comment_para.addText(node.content)
+        annotation.addElement(comment_para)
+
+        # In ODT, annotations must be anchored within paragraphs
+        # For block-level comments, we create a paragraph to contain the annotation
+        anchor_para = P()
+        anchor_para.addElement(annotation)
+        self.document.text.addElement(anchor_para)
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        from odf.dc import Creator, Date
+        from odf.office import Annotation
+        from odf.text import P
+
+        if not self._current_paragraph:
+            return
+
+        # Create inline annotation using odfpy's native annotation support
+        annotation = Annotation()
+
+        # Add author if available
+        if node.metadata.get("author"):
+            creator = Creator()
+            creator.addText(str(node.metadata["author"]))
+            annotation.addElement(creator)
+
+        # Add date if available
+        if node.metadata.get("date"):
+            date = Date()
+            date.addText(str(node.metadata["date"]))
+            annotation.addElement(date)
+
+        # Add comment content as paragraph
+        comment_para = P()
+        comment_para.addText(node.content)
+        annotation.addElement(comment_para)
+
+        # Add annotation to current paragraph
+        # In ODT, inline annotations are embedded within paragraphs
+        self._current_paragraph.addElement(annotation)

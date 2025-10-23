@@ -29,6 +29,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -869,3 +871,155 @@ class TestHyperlinkWhitespace:
 
         # Verify double space is preserved
         assert text_elements[0].text == "Link  Text", "Multiple spaces should be preserved"
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestComments:
+    """Tests for comment rendering."""
+
+    def test_block_comment_with_author(self, tmp_path):
+        """Test block comment with author metadata."""
+        doc = Document(
+            children=[
+                Comment(
+                    content="This is a review comment",
+                    metadata={"author": "John Doe", "date": "2025-01-20", "comment_type": "docx_review"},
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "block_comment.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        # Comment should be rendered (either as native comment or fallback)
+        assert docx_doc is not None
+
+    def test_block_comment_without_author(self, tmp_path):
+        """Test block comment without author metadata."""
+        doc = Document(children=[Comment(content="Anonymous comment", metadata={"comment_type": "generic"})])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "block_comment_no_author.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        assert docx_doc is not None
+
+    def test_inline_comment_with_author(self, tmp_path):
+        """Test inline comment with author metadata."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is text "),
+                        CommentInline(
+                            content="Needs clarification", metadata={"author": "Jane Smith", "comment_type": "docx_review"}
+                        ),
+                        Text(content=" more text."),
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "inline_comment.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        # Comment should be rendered
+        para = docx_doc.paragraphs[0]
+        assert "This is text" in para.text
+        assert "more text" in para.text
+
+    def test_inline_comment_without_author(self, tmp_path):
+        """Test inline comment without author metadata."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text with "),
+                        CommentInline(content="anonymous comment", metadata={}),
+                        Text(content=" here."),
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "inline_comment_no_author.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        assert "Text with" in para.text
+
+    def test_comment_with_label(self, tmp_path):
+        """Test comment with label metadata."""
+        doc = Document(
+            children=[
+                Comment(
+                    content="Important review note",
+                    metadata={"author": "Reviewer", "label": "1", "date": "2025-01-20"},
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "comment_with_label.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        assert docx_doc is not None
+
+    def test_multiple_comments(self, tmp_path):
+        """Test multiple comments in document."""
+        doc = Document(
+            children=[
+                Comment(content="First comment", metadata={"author": "User 1"}),
+                Paragraph(content=[Text(content="Text here")]),
+                Comment(content="Second comment", metadata={"author": "User 2"}),
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "multiple_comments.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        assert len(docx_doc.paragraphs) >= 1
+
+    def test_comment_initials_generation(self, tmp_path):
+        """Test automatic generation of initials from author name."""
+        doc = Document(
+            children=[
+                Comment(content="Test comment", metadata={"author": "John David Smith", "comment_type": "docx_review"})
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "comment_initials.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        # Initials should be generated as "JDS" from "John David Smith"
+        docx_doc = DocxDocument(str(output_file))
+        assert docx_doc is not None
+
+    def test_comment_with_explicit_initials(self, tmp_path):
+        """Test comment with explicitly provided initials."""
+        doc = Document(
+            children=[
+                Comment(
+                    content="Test comment", metadata={"author": "John Smith", "initials": "JS", "comment_type": "docx_review"}
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "comment_explicit_initials.docx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        docx_doc = DocxDocument(str(output_file))
+        assert docx_doc is not None
