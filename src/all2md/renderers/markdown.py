@@ -24,6 +24,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -1020,6 +1022,52 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        # Check if render_mode is specified in metadata
+        render_mode = node.metadata.get("render_mode", "html")
+
+        if render_mode == "blockquote":
+            # Render as blockquote for readability
+            self._output.append("> ")
+            # Add author/date info if available
+            if node.metadata.get("author") or node.metadata.get("date"):
+                author = node.metadata.get("author", "Unknown")
+                date = node.metadata.get("date", "")
+                label = node.metadata.get("label", "")
+                header = f"Comment {label} by {author}" if label else f"Comment by {author}"
+                if date:
+                    header += f" ({date})"
+                self._output.append(f"> *{header}*\n> \n> {node.content}")
+            else:
+                self._output.append(f"> {node.content}")
+        else:
+            # Default to HTML comment for maximum compatibility
+            # Build comment text with metadata if available
+            comment_text = node.content
+            if node.metadata.get("author"):
+                author = node.metadata.get("author")
+                date = node.metadata.get("date", "")
+                label = node.metadata.get("label", "")
+                prefix = f"Comment {label}" if label else "Comment"
+                if date:
+                    comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+                else:
+                    comment_text = f"{prefix} by {author}: {comment_text}"
+
+            self._output.append(f"<!-- {comment_text} -->")
+
+        # Emit block references if using after_block placement
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
+            self._emit_block_references()
+
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
 
@@ -1232,6 +1280,45 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         processed_html = self._process_html_content(node.content)
         if processed_html:  # Only append if not empty (e.g., after "drop" mode)
             self._output.append(processed_html)
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        # Check if render_mode is specified in metadata
+        render_mode = node.metadata.get("render_mode", "html")
+
+        if render_mode == "blockquote":
+            # For inline comments in blockquote mode, render as text with attribution
+            comment_text = node.content
+            if node.metadata.get("author"):
+                author = node.metadata.get("author")
+                label = node.metadata.get("label", "")
+                prefix = f"[Comment {label}" if label else "[Comment"
+                comment_text = f"{prefix} by {author}: {comment_text}]"
+            else:
+                comment_text = f"[{comment_text}]"
+            self._output.append(comment_text)
+        else:
+            # Default to HTML comment for inline comments
+            # Build comment text with metadata if available
+            comment_text = node.content
+            if node.metadata.get("author"):
+                author = node.metadata.get("author")
+                date = node.metadata.get("date", "")
+                label = node.metadata.get("label", "")
+                prefix = f"Comment {label}" if label else "Comment"
+                if date:
+                    comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+                else:
+                    comment_text = f"{prefix} by {author}: {comment_text}"
+
+            self._output.append(f"<!-- {comment_text} -->")
 
     def visit_footnote_reference(self, node: "FootnoteReference") -> None:
         """Render a FootnoteReference node.

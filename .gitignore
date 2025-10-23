@@ -1,4 +1,5 @@
 # Python-generated files
+.idea
 __pycache__/
 *.py[oc]
 build/
@@ -12,6 +13,8 @@ wslvenv
 
 # Supplementary local files
 review/
+ideas/
+htmlcov
 
 .hypothesis
 .coverage
