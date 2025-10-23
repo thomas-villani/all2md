@@ -125,6 +125,12 @@ class HTMLInlineDetector(NodeVisitor):
         self.found_htmlinline = True
         self.htmlinline_contents.append(node.content)
 
+    def visit_comment(self, node):
+        pass
+
+    def visit_comment_inline(self, node):
+        pass
+
     def visit_footnote_reference(self, node):
         pass
 
