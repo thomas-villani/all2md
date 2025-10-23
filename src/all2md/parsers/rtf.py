@@ -18,11 +18,15 @@ from all2md.ast import (
     Document,
     Emphasis,
     Image,
+    Link,
     List,
     ListItem,
     Node,
     Paragraph,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Text,
     Underline,
 )
@@ -305,6 +309,14 @@ class RtfToAstConverter(BaseParser):
         Node, list[Node], or None
             AST inline node(s) with formatting
 
+        Notes
+        -----
+        The pyth library has limited support for RTF formatting. This method attempts
+        to extract all available formatting properties including:
+        - bold, italic, underline (well supported)
+        - strikethrough, superscript, subscript (may or may not be exposed by pyth)
+        - hyperlinks (not well supported by pyth - would require URL property)
+
         """
         # Text.content is a list of strings, so join them
         content = "".join(text.content) if isinstance(text.content, list) else str(text.content)
@@ -317,13 +329,32 @@ class RtfToAstConverter(BaseParser):
         # Apply formatting based on properties
         props = text.properties if hasattr(text, "properties") else {}
 
-        # Wrap in formatting nodes (innermost first)
+        # Wrap in formatting nodes (innermost to outermost)
+        # Note: pyth may not expose all these properties, so we use .get() with defaults
+
+        # Check for strikethrough (might be "strike" or "strikethrough")
+        if props.get("strikethrough") or props.get("strike"):
+            text_node = Strikethrough(content=[text_node])
+
+        # Check for subscript/superscript
+        if props.get("sub") or props.get("subscript"):
+            text_node = Subscript(content=[text_node])
+        elif props.get("super") or props.get("superscript"):
+            text_node = Superscript(content=[text_node])
+
+        # Standard formatting
         if props.get("underline"):
             text_node = Underline(content=[text_node])
         if props.get("italic"):
             text_node = Emphasis(content=[text_node])
         if props.get("bold"):
             text_node = Strong(content=[text_node])
+
+        # Check for hyperlinks (pyth support is limited)
+        # If pyth exposes a URL property, we could wrap in Link node
+        url = props.get("url") or props.get("hyperlink")
+        if url:
+            text_node = Link(url=url, content=[text_node])
 
         return text_node
 

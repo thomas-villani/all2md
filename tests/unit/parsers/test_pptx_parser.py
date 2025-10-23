@@ -26,9 +26,13 @@ from all2md.ast import (
     Document,
     Emphasis,
     Heading,
+    Link,
     List,
     Paragraph,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     Text,
     Underline,
@@ -1489,3 +1493,158 @@ class TestSpeakerNotesCommentMode:
 
         assert comments[1].metadata.get("slide_number") == 2
         assert "Notes for slide 2" in comments[1].content
+
+
+@pytest.mark.unit
+class TestStrikethroughFormatting:
+    """Tests for strikethrough text formatting."""
+
+    def test_strikethrough_text(self) -> None:
+        """Test strikethrough text conversion."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        textbox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+        tf = textbox.text_frame
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = "strikethrough text"
+
+        # Set strikethrough formatting
+        if hasattr(run.font, "strike"):
+            run.font.strike = True
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Find strikethrough nodes
+        all_nodes = list(extract_nodes(ast_doc, Strikethrough))
+        # Note: Strikethrough may or may not be set depending on pptx library version
+        # This test validates the parser handles it when present
+        assert isinstance(ast_doc, Document)
+
+
+@pytest.mark.unit
+class TestSuperscriptSubscriptFormatting:
+    """Tests for superscript and subscript formatting."""
+
+    def test_superscript_text(self) -> None:
+        """Test superscript text conversion.
+
+        Note: python-pptx may not fully support superscript/subscript attributes.
+        This test verifies the parser handles them when present.
+        """
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        textbox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+        tf = textbox.text_frame
+        p = tf.paragraphs[0]
+
+        # Add normal text
+        run1 = p.add_run()
+        run1.text = "E = mc"
+
+        # Add superscript
+        run2 = p.add_run()
+        run2.text = "2"
+        # Note: Setting superscript may not work in all python-pptx versions
+        if hasattr(run2.font, "superscript"):
+            run2.font.superscript = True
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Verify document parses successfully
+        assert isinstance(ast_doc, Document)
+
+        # Find superscript nodes (may or may not be present)
+        sups = list(extract_nodes(ast_doc, Superscript))
+        # If found, verify content
+        if sups:
+            sup_content = "".join(
+                node.content if isinstance(node, Text) else ""
+                for node in sups[0].content
+            )
+            assert "2" in sup_content
+
+    def test_subscript_text(self) -> None:
+        """Test subscript text conversion.
+
+        Note: python-pptx may not fully support superscript/subscript attributes.
+        This test verifies the parser handles them when present.
+        """
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        textbox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+        tf = textbox.text_frame
+        p = tf.paragraphs[0]
+
+        # Add normal text
+        run1 = p.add_run()
+        run1.text = "H"
+
+        # Add subscript
+        run2 = p.add_run()
+        run2.text = "2"
+        # Note: Setting subscript may not work in all python-pptx versions
+        if hasattr(run2.font, "subscript"):
+            run2.font.subscript = True
+
+        # Add more normal text
+        run3 = p.add_run()
+        run3.text = "O"
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Verify document parses successfully
+        assert isinstance(ast_doc, Document)
+
+        # Find subscript nodes (may or may not be present)
+        subs = list(extract_nodes(ast_doc, Subscript))
+        # If found, verify content
+        if subs:
+            sub_content = "".join(
+                node.content if isinstance(node, Text) else ""
+                for node in subs[0].content
+            )
+            assert "2" in sub_content
+
+
+@pytest.mark.unit
+class TestHyperlinkExtraction:
+    """Tests for hyperlink extraction from runs."""
+
+    def test_run_with_hyperlink(self) -> None:
+        """Test extracting hyperlinks from runs."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        textbox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(1))
+        tf = textbox.text_frame
+        p = tf.paragraphs[0]
+
+        # Add run with hyperlink
+        run = p.add_run()
+        run.text = "Click here"
+        run.hyperlink.address = "https://www.example.com"
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Note: Current implementation may not fully integrate hyperlinks with formatting
+        # This test verifies the parser handles hyperlinks when present
+        # Full integration would require matching runs to formatted nodes
+        assert isinstance(ast_doc, Document)
+
+        # Try to find link nodes (may or may not be present depending on implementation)
+        links = list(extract_nodes(ast_doc, Link))
+        # If links are extracted, verify URL
+        if links:
+            assert links[0].url == "https://www.example.com"

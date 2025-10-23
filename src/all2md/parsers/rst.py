@@ -25,15 +25,23 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     LineBreak,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
@@ -235,6 +243,15 @@ class RestructuredTextParser(BaseParser):
         elif isinstance(node, docutils_nodes.docinfo):
             # Docinfo is handled by metadata extraction
             return None
+        elif isinstance(node, docutils_nodes.footnote):
+            # Footnote definition
+            return self._process_footnote(node)
+        elif isinstance(node, docutils_nodes.math_block):
+            # Math block (displayed equation)
+            return self._process_math_block(node)
+        elif isinstance(node, docutils_nodes.raw):
+            # Raw content (could be HTML or other formats)
+            return self._process_raw_block(node)
         else:
             # Unknown node type - log and skip
             logger.debug(f"Skipping unknown docutils node type: {node_type}")
@@ -647,6 +664,23 @@ class RestructuredTextParser(BaseParser):
             return Image(url=url, alt_text=alt_text)
         elif hasattr(docutils_nodes, "line_break") and isinstance(node, docutils_nodes.line_break):
             return LineBreak(soft=False)
+        elif isinstance(node, docutils_nodes.footnote_reference):
+            # Footnote reference
+            return self._process_footnote_reference(node)
+        elif isinstance(node, docutils_nodes.math):
+            # Inline math
+            return self._process_math_inline(node)
+        elif isinstance(node, docutils_nodes.raw):
+            # Raw inline content (could be HTML)
+            return self._process_raw_inline(node)
+        elif isinstance(node, docutils_nodes.superscript):
+            # Superscript
+            content = self._process_inline_nodes(node.children)
+            return Superscript(content=content)
+        elif isinstance(node, docutils_nodes.subscript):
+            # Subscript
+            content = self._process_inline_nodes(node.children)
+            return Subscript(content=content)
         else:
             # Unknown inline node - extract text if possible
             if hasattr(node, "astext"):
@@ -654,6 +688,157 @@ class RestructuredTextParser(BaseParser):
                 if text:
                     return Text(content=text)
             return None
+
+    def _process_footnote(self, node: Any) -> FootnoteDefinition | None:
+        """Process a footnote definition.
+
+        Parameters
+        ----------
+        node : docutils.nodes.footnote
+            Footnote node to process
+
+        Returns
+        -------
+        FootnoteDefinition or None
+            Footnote definition AST node
+
+        """
+        # Extract footnote identifier
+        identifier = None
+        if hasattr(node, "get"):
+            # Try to get footnote IDs
+            ids = node.get("ids", [])
+            if ids:
+                identifier = ids[0]
+            # Also check names attribute
+            if not identifier:
+                names = node.get("names", [])
+                if names:
+                    identifier = names[0]
+
+        if not identifier:
+            # Fallback to auto-numbering
+            identifier = "footnote"
+
+        # Process footnote content
+        content = []
+        for child in node.children:
+            # Skip the label node (first child)
+            if hasattr(child, "tagname") and child.tagname == "label":
+                continue
+
+            ast_node = self._process_node(child)
+            if ast_node is not None:
+                if isinstance(ast_node, list):
+                    content.extend(ast_node)
+                else:
+                    content.append(ast_node)
+
+        return FootnoteDefinition(identifier=identifier, content=content)
+
+    def _process_footnote_reference(self, node: Any) -> FootnoteReference:
+        """Process a footnote reference.
+
+        Parameters
+        ----------
+        node : docutils.nodes.footnote_reference
+            Footnote reference node
+
+        Returns
+        -------
+        FootnoteReference
+            Footnote reference AST node
+
+        """
+        # Extract identifier from refid or refname
+        identifier = node.get("refid") or node.get("refname") or "footnote"
+        return FootnoteReference(identifier=identifier)
+
+    def _process_math_block(self, node: Any) -> MathBlock:
+        """Process a math block (displayed equation).
+
+        Parameters
+        ----------
+        node : docutils.nodes.math_block
+            Math block node
+
+        Returns
+        -------
+        MathBlock
+            Math block AST node
+
+        """
+        content = node.astext()
+        # RST math is typically LaTeX
+        return MathBlock(content=content, notation="latex")
+
+    def _process_math_inline(self, node: Any) -> MathInline:
+        """Process inline math.
+
+        Parameters
+        ----------
+        node : docutils.nodes.math
+            Inline math node
+
+        Returns
+        -------
+        MathInline
+            Inline math AST node
+
+        """
+        content = node.astext()
+        # RST math is typically LaTeX
+        return MathInline(content=content, notation="latex")
+
+    def _process_raw_block(self, node: Any) -> HTMLBlock | None:
+        """Process raw block content.
+
+        Parameters
+        ----------
+        node : docutils.nodes.raw
+            Raw block node
+
+        Returns
+        -------
+        HTMLBlock or None
+            HTML block if format is html, None otherwise
+
+        """
+        # Check format attribute
+        format_attr = node.get("format", "").lower()
+
+        # Only process HTML raw blocks
+        if "html" in format_attr:
+            content = node.astext()
+            return HTMLBlock(content=content)
+
+        # For other formats, skip
+        return None
+
+    def _process_raw_inline(self, node: Any) -> HTMLInline | None:
+        """Process raw inline content.
+
+        Parameters
+        ----------
+        node : docutils.nodes.raw
+            Raw inline node
+
+        Returns
+        -------
+        HTMLInline or None
+            HTML inline if format is html, None otherwise
+
+        """
+        # Check format attribute
+        format_attr = node.get("format", "").lower()
+
+        # Only process HTML raw content
+        if "html" in format_attr:
+            content = node.astext()
+            return HTMLInline(content=content)
+
+        # For other formats, skip
+        return None
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from docutils document.

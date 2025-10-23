@@ -571,3 +571,93 @@ class TestFormattingPreservation:
         # Empty paragraph should be skipped or create minimal structure
         # Implementation may vary
         assert isinstance(ast_doc, Document)
+
+
+@pytest.mark.unit
+class TestExtendedFormatting:
+    """Tests for extended formatting support (strikethrough, superscript, subscript, links).
+
+    Note: These features depend on the pyth library exposing the relevant properties.
+    The parser includes defensive code to handle these if available.
+    """
+
+    def test_strikethrough_if_supported(self) -> None:
+        """Test strikethrough formatting if pyth supports it."""
+        from all2md.ast import Strikethrough
+
+        # Create text with strikethrough property
+        text = MockPythText()
+        text.content = "strikethrough text"
+        text.properties = {"strikethrough": True, "bold": False, "italic": False, "underline": False}
+
+        para = _create_mock_pyth_paragraph(text)
+        doc = _create_mock_pyth_document(para)
+
+        converter = RtfToAstConverter()
+        _setup_converter_with_mocks(converter)
+        ast_doc = converter.convert_to_ast(doc)
+
+        para_node = ast_doc.children[0]
+        # Should have Strikethrough wrapper
+        assert isinstance(para_node.content[0], Strikethrough)
+
+    def test_superscript_if_supported(self) -> None:
+        """Test superscript formatting if pyth supports it."""
+        from all2md.ast import Superscript
+
+        # Create text with superscript property
+        text = MockPythText()
+        text.content = "2"
+        text.properties = {"superscript": True, "bold": False, "italic": False, "underline": False}
+
+        para = _create_mock_pyth_paragraph(text)
+        doc = _create_mock_pyth_document(para)
+
+        converter = RtfToAstConverter()
+        _setup_converter_with_mocks(converter)
+        ast_doc = converter.convert_to_ast(doc)
+
+        para_node = ast_doc.children[0]
+        # Should have Superscript wrapper
+        assert isinstance(para_node.content[0], Superscript)
+
+    def test_subscript_if_supported(self) -> None:
+        """Test subscript formatting if pyth supports it."""
+        from all2md.ast import Subscript
+
+        # Create text with subscript property
+        text = MockPythText()
+        text.content = "2"
+        text.properties = {"subscript": True, "bold": False, "italic": False, "underline": False}
+
+        para = _create_mock_pyth_paragraph(text)
+        doc = _create_mock_pyth_document(para)
+
+        converter = RtfToAstConverter()
+        _setup_converter_with_mocks(converter)
+        ast_doc = converter.convert_to_ast(doc)
+
+        para_node = ast_doc.children[0]
+        # Should have Subscript wrapper
+        assert isinstance(para_node.content[0], Subscript)
+
+    def test_hyperlink_if_supported(self) -> None:
+        """Test hyperlink extraction if pyth supports it."""
+        from all2md.ast import Link
+
+        # Create text with URL property
+        text = MockPythText()
+        text.content = "Click here"
+        text.properties = {"url": "https://example.com", "bold": False, "italic": False, "underline": False}
+
+        para = _create_mock_pyth_paragraph(text)
+        doc = _create_mock_pyth_document(para)
+
+        converter = RtfToAstConverter()
+        _setup_converter_with_mocks(converter)
+        ast_doc = converter.convert_to_ast(doc)
+
+        para_node = ast_doc.children[0]
+        # Should have Link wrapper
+        assert isinstance(para_node.content[0], Link)
+        assert para_node.content[0].url == "https://example.com"

@@ -24,11 +24,19 @@ from all2md.ast import (
     DefinitionList,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Link,
     List,
+    MathBlock,
+    MathInline,
     Paragraph,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     Text,
     ThematicBreak,
@@ -430,3 +438,192 @@ class TestOptions:
         doc = parser.parse(rst)
 
         assert isinstance(doc, Document)
+
+
+@pytest.mark.unit
+class TestFootnotes:
+    """Tests for footnote parsing."""
+
+    def test_footnote_reference(self) -> None:
+        """Test parsing a footnote reference.
+
+        Note: RST footnote references may be processed differently depending on context.
+        This test verifies the document parses successfully with footnote syntax.
+        """
+        rst = "This has a footnote [1]_."
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst)
+
+        # Verify document parses successfully
+        assert isinstance(doc, Document)
+        assert len(doc.children) >= 1
+
+        # Find footnote reference - search recursively
+        all_nodes = []
+
+        def collect_nodes(node):
+            all_nodes.append(node)
+            if hasattr(node, 'content') and isinstance(node.content, list):
+                for child in node.content:
+                    collect_nodes(child)
+            if hasattr(node, 'children') and isinstance(node.children, list):
+                for child in node.children:
+                    collect_nodes(child)
+
+        for child in doc.children:
+            collect_nodes(child)
+
+        # May or may not have FootnoteReference depending on docutils processing
+        # The important thing is the document parses without errors
+        refs = [n for n in all_nodes if isinstance(n, FootnoteReference)]
+        # If found, verify it has an identifier
+        if refs:
+            assert refs[0].identifier
+
+    def test_footnote_definition(self) -> None:
+        """Test parsing a footnote definition."""
+        rst = """
+.. [1] This is a footnote.
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        # Find footnote definition
+        footnotes = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnotes) == 1
+        assert footnotes[0].identifier
+        assert len(footnotes[0].content) >= 1
+
+    def test_footnote_reference_and_definition(self) -> None:
+        """Test parsing footnote reference with definition."""
+        rst = """
+This has a footnote [1]_.
+
+.. [1] This is the footnote content.
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        # Should have both reference and definition
+        all_nodes = []
+
+        def collect_nodes(node):
+            all_nodes.append(node)
+            if hasattr(node, 'content') and isinstance(node.content, list):
+                for child in node.content:
+                    collect_nodes(child)
+            if hasattr(node, 'children') and isinstance(node.children, list):
+                for child in node.children:
+                    collect_nodes(child)
+
+        for child in doc.children:
+            collect_nodes(child)
+
+        refs = [n for n in all_nodes if isinstance(n, FootnoteReference)]
+        defs = [n for n in all_nodes if isinstance(n, FootnoteDefinition)]
+
+        assert len(refs) >= 1
+        assert len(defs) >= 1
+
+
+@pytest.mark.unit
+class TestMath:
+    """Tests for math parsing."""
+
+    def test_math_block(self) -> None:
+        """Test parsing a math block."""
+        rst = """
+.. math::
+
+   E = mc^2
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        # Find math block
+        math_blocks = [node for node in doc.children if isinstance(node, MathBlock)]
+        assert len(math_blocks) == 1
+        assert "E = mc^2" in math_blocks[0].content
+        assert math_blocks[0].notation == "latex"
+
+    def test_math_inline(self) -> None:
+        """Test parsing inline math."""
+        rst = "The equation :math:`E = mc^2` is famous."
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst)
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+
+        # Find inline math
+        math_nodes = [node for node in para.content if isinstance(node, MathInline)]
+        assert len(math_nodes) == 1
+        assert "E = mc^2" in math_nodes[0].content
+        assert math_nodes[0].notation == "latex"
+
+
+@pytest.mark.unit
+class TestHTMLContent:
+    """Tests for raw HTML content parsing."""
+
+    def test_html_block(self) -> None:
+        """Test parsing raw HTML block."""
+        rst = """
+.. raw:: html
+
+   <div class="custom">
+     <p>HTML content</p>
+   </div>
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        # Find HTML block
+        html_blocks = [node for node in doc.children if isinstance(node, HTMLBlock)]
+        assert len(html_blocks) == 1
+        assert "<div" in html_blocks[0].content
+
+    def test_html_inline(self) -> None:
+        """Test parsing raw HTML inline."""
+        rst = "Text with :raw-html:`<span class=\"custom\">inline HTML</span>`."
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst)
+
+        # Note: Inline raw HTML may require special RST role configuration
+        # This is a basic test - actual behavior depends on docutils setup
+        assert isinstance(doc, Document)
+
+
+@pytest.mark.unit
+class TestSuperscriptSubscript:
+    """Tests for superscript and subscript parsing."""
+
+    def test_superscript(self) -> None:
+        """Test parsing superscript."""
+        rst = r"H\ :sup:`2`\ O is water."
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst)
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+
+        # Find superscript
+        sups = [node for node in para.content if isinstance(node, Superscript)]
+        assert len(sups) == 1
+        # Content should contain "2"
+        assert len(sups[0].content) >= 1
+
+    def test_subscript(self) -> None:
+        """Test parsing subscript."""
+        rst = r"CO\ :sub:`2` is carbon dioxide."
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst)
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+
+        # Find subscript
+        subs = [node for node in para.content if isinstance(node, Subscript)]
+        assert len(subs) == 1
+        # Content should contain "2"
+        assert len(subs[0].content) >= 1

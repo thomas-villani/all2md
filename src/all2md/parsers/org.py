@@ -20,21 +20,32 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
+    LineBreak,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
     Text,
+    ThematicBreak,
     Underline,
 )
 from all2md.converter_metadata import ConverterMetadata
@@ -322,9 +333,34 @@ class OrgParser(BaseParser):
         # Split into blocks (separated by blank lines)
         blocks = re.split(r"\n\n+", body_text)
 
+        # Track footnote definitions for later
+        footnote_defs: list[FootnoteDefinition] = []
+
         for block in blocks:
             block = block.strip()
             if not block:
+                continue
+
+            # Check for horizontal rules (5+ dashes)
+            if re.match(r"^-{5,}$", block):
+                result.append(ThematicBreak())
+                continue
+
+            # Check for footnote definitions [fn:id] content
+            footnote_match = re.match(r"^\[fn:([^\]]+)\]\s+(.+)$", block, re.DOTALL)
+            if footnote_match:
+                footnote_id = footnote_match.group(1)
+                footnote_content_text = footnote_match.group(2)
+                # Parse footnote content as inline
+                footnote_content = [Paragraph(content=self._parse_inline(footnote_content_text))]
+                footnote_defs.append(FootnoteDefinition(identifier=footnote_id, content=footnote_content))
+                continue
+
+            # Check for math blocks \[...\]
+            math_block_match = re.match(r"^\\\[(.+?)\\\]$", block, re.DOTALL)
+            if math_block_match:
+                math_content = math_block_match.group(1).strip()
+                result.append(MathBlock(content=math_content, notation="latex"))
                 continue
 
             # Check for code blocks (#+BEGIN_SRC / #+END_SRC)
@@ -340,6 +376,13 @@ class OrgParser(BaseParser):
                 if table:
                     result.append(table)
                 continue
+
+            # Check for definition lists (- term :: definition)
+            if re.search(r"^-\s+.+?\s+::\s+", block, re.MULTILINE):
+                def_list = self._parse_definition_list(block)
+                if def_list:
+                    result.append(def_list)
+                    continue
 
             # Check for lists (lines starting with -, +, *, or numbers)
             if re.match(r"^[\-\+\*]|\d+[\.\)]", block):
@@ -359,6 +402,9 @@ class OrgParser(BaseParser):
             para = self._parse_paragraph(block)
             if para:
                 result.append(para)
+
+        # Append footnote definitions at the end
+        result.extend(footnote_defs)
 
         return result
 
@@ -386,10 +432,15 @@ class OrgParser(BaseParser):
         - *bold* -> Strong
         - /italic/ -> Emphasis
         - =code= or ~verbatim~ -> Code
-        - _underline_ -> Underline
+        - _underline_ -> Underline (note: conflicts with subscript)
         - +strikethrough+ -> Strikethrough
         - [[url][description]] -> Link
         - [[file:path]] -> Image (if it's an image file)
+        - [fn:id] -> FootnoteReference
+        - \\(...\\) or $...$ -> MathInline
+        - ^{text} -> Superscript
+        - _{text} -> Subscript
+        - \\\\ -> LineBreak
 
         Parameters
         ----------
@@ -406,17 +457,22 @@ class OrgParser(BaseParser):
         pos = 0
 
         # Pattern for Org inline formatting
-        # Note: orgparse strips [[]] from links, so we detect plain URLs instead
-        # Matches: *bold*, /italic/, =code=, ~verbatim~, _underline_, +strikethrough+, URLs
+        # Extended to include footnotes, math, superscript, subscript, line breaks
         pattern = re.compile(
+            r"\\\\\s*$|"  # Line break at end of line
+            r"\[fn:([^\]]+)\]|"  # [fn:id] footnote reference
+            r"\\\(([^)]+)\\\)|"  # \(...\) inline math - note single backslash in pattern
+            r"\$([^$]+)\$|"  # $...$ inline math (alternative)
+            r"\^{([^}]+)}|"  # ^{super} superscript
+            r"_{([^}]+)}|"  # _{sub} subscript
             r"\*([^*]+)\*|"  # *bold*
             r"/([^/]+)/|"  # /italic/
             r"=([^=]+)=|"  # =code=
             r"~([^~]+)~|"  # ~verbatim~
-            r"_([^_]+)_|"  # _underline_
+            r"_([^_\s]{1}[^_]*[^_\s]{1}|[^_\s])_(?=\s|[,\.;:!?\)]|$)|"  # _underline_ (with word boundaries)
             r"\+([^+]+)\+|"  # +strikethrough+
-            r"\[\[([^\]]+?)(?:\]\[([^\]]+))?\]\]|"  # [[url]] or [[url][desc]] (if not processed)
-            r'(?:https?|ftp)://[^\s<>"{}|\\^`\[\]]+'  # Plain URLs (after orgparse processing)
+            r"\[\[([^\]]+?)(?:\]\[([^\]]+))?\]\]|"  # [[url]] or [[url][desc]]
+            r'(?:https?|ftp)://[^\s<>"{}|\\^`\[\]]+'  # Plain URLs
         )
 
         for match in pattern.finditer(text):
@@ -424,22 +480,41 @@ class OrgParser(BaseParser):
             if match.start() > pos:
                 result.append(Text(content=text[pos: match.start()]))
 
-            # Process the match
-            if match.group(1):  # *bold*
-                result.append(Strong(content=[Text(content=match.group(1))]))
-            elif match.group(2):  # /italic/
-                result.append(Emphasis(content=[Text(content=match.group(2))]))
-            elif match.group(3):  # =code=
-                result.append(Code(content=match.group(3)))
-            elif match.group(4):  # ~verbatim~
-                result.append(Code(content=match.group(4)))
-            elif match.group(5):  # _underline_
-                result.append(Underline(content=[Text(content=match.group(5))]))
-            elif match.group(6):  # +strikethrough+
-                result.append(Strikethrough(content=[Text(content=match.group(6))]))
-            elif match.group(7):  # [[link]] with optional description
-                url = match.group(7)
-                description = match.group(8) if match.group(8) else url
+            # Process the match based on which group matched
+            matched_groups = match.groups()
+
+            if match.group(0).strip() == "\\\\":  # Line break
+                result.append(LineBreak(soft=False))
+            elif matched_groups[0]:  # [fn:id] footnote reference
+                footnote_id = matched_groups[0]
+                result.append(FootnoteReference(identifier=footnote_id))
+            elif matched_groups[1]:  # \(...\) inline math
+                math_content = matched_groups[1]
+                result.append(MathInline(content=math_content, notation="latex"))
+            elif matched_groups[2]:  # $...$ inline math
+                math_content = matched_groups[2]
+                result.append(MathInline(content=math_content, notation="latex"))
+            elif matched_groups[3]:  # ^{super} superscript
+                super_content = matched_groups[3]
+                result.append(Superscript(content=[Text(content=super_content)]))
+            elif matched_groups[4]:  # _{sub} subscript
+                sub_content = matched_groups[4]
+                result.append(Subscript(content=[Text(content=sub_content)]))
+            elif matched_groups[5]:  # *bold*
+                result.append(Strong(content=[Text(content=matched_groups[5])]))
+            elif matched_groups[6]:  # /italic/
+                result.append(Emphasis(content=[Text(content=matched_groups[6])]))
+            elif matched_groups[7]:  # =code=
+                result.append(Code(content=matched_groups[7]))
+            elif matched_groups[8]:  # ~verbatim~
+                result.append(Code(content=matched_groups[8]))
+            elif matched_groups[9]:  # _underline_
+                result.append(Underline(content=[Text(content=matched_groups[9])]))
+            elif matched_groups[10]:  # +strikethrough+
+                result.append(Strikethrough(content=[Text(content=matched_groups[10])]))
+            elif matched_groups[11]:  # [[link]] with optional description
+                url = matched_groups[11]
+                description = matched_groups[12] if matched_groups[12] else url
 
                 # Check if it's an image link
                 if url.startswith("file:") or any(
@@ -455,7 +530,7 @@ class OrgParser(BaseParser):
                     # Sanitize URL to prevent XSS attacks
                     url = sanitize_url(url)
                     result.append(Link(url=url, content=[Text(content=description)]))
-            else:  # Plain URL (orgparse stripped the brackets)
+            else:  # Plain URL
                 url = match.group(0)
                 # Check if it's an image URL
                 if any(url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".svg"]):
@@ -611,6 +686,50 @@ class OrgParser(BaseParser):
                 items.append(ListItem(children=[Paragraph(content=content)]))
 
         return List(ordered=ordered, items=items)
+
+    def _parse_definition_list(self, block: str) -> DefinitionList | None:
+        """Parse an Org definition list.
+
+        Org syntax: - term :: definition
+
+        Parameters
+        ----------
+        block : str
+            Definition list block text
+
+        Returns
+        -------
+        DefinitionList or None
+            Definition list AST node
+
+        """
+        lines = block.split("\n")
+        items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
+
+        for line in lines:
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+
+            # Match definition list item: - term :: definition
+            match = re.match(r"^-\s+(.+?)\s+::\s+(.+)$", line_stripped)
+            if match:
+                term_text = match.group(1)
+                definition_text = match.group(2)
+
+                # Parse term and definition content
+                term_content = self._parse_inline(term_text)
+                term = DefinitionTerm(content=term_content)
+
+                def_content = self._parse_inline(definition_text)
+                definition = DefinitionDescription(content=[Paragraph(content=def_content)])
+
+                items.append((term, [definition]))
+
+        if not items:
+            return None
+
+        return DefinitionList(items=items)
 
     def _parse_block_quote(self, block: str) -> BlockQuote:
         """Parse a block quote (lines starting with :).
