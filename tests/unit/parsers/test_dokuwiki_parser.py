@@ -7,6 +7,7 @@ from all2md.ast import (
     Code,
     CodeBlock,
     Emphasis,
+    FootnoteDefinition,
     FootnoteReference,
     Heading,
     Image,
@@ -448,6 +449,122 @@ class TestDokuWikiParserMiscellaneous:
         # Find FootnoteReference node
         footnote = next((node for node in para.content if isinstance(node, FootnoteReference)), None)
         assert footnote is not None
+
+
+class TestDokuWikiParserFootnotes:
+    """Tests for DokuWiki footnote parsing with FootnoteDefinition support."""
+
+    def test_footnote_creates_reference_and_definition(self) -> None:
+        """Test that footnotes create both reference and definition nodes."""
+        parser = DokuWikiParser()
+        doc = parser.parse("Text with ((footnote text)) reference")
+
+        # Check for FootnoteReference in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        footnote_ref = next((node for node in para.content if isinstance(node, FootnoteReference)), None)
+        assert footnote_ref is not None
+        assert footnote_ref.identifier
+
+        # Check for FootnoteDefinition at end of document
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == footnote_ref.identifier
+        # Check that definition contains the footnote text
+        assert len(footnote_defs[0].content) > 0
+
+    def test_multiple_footnotes(self) -> None:
+        """Test parsing multiple footnotes creates multiple definitions."""
+        parser = DokuWikiParser()
+        doc = parser.parse("First ((footnote one)) and second ((footnote two)) references")
+
+        # Find all footnote references
+        para = doc.children[0]
+        footnote_refs = [node for node in para.content if isinstance(node, FootnoteReference)]
+        assert len(footnote_refs) == 2
+
+        # Find all footnote definitions
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 2
+
+        # Verify identifiers match
+        ref_ids = {ref.identifier for ref in footnote_refs}
+        def_ids = {defn.identifier for defn in footnote_defs}
+        assert ref_ids == def_ids
+
+    def test_duplicate_footnotes_share_definition(self) -> None:
+        """Test that duplicate footnote text shares the same definition."""
+        parser = DokuWikiParser()
+        doc = parser.parse("First ((same text)) and second ((same text)) references")
+
+        # Find all footnote references
+        para = doc.children[0]
+        footnote_refs = [node for node in para.content if isinstance(node, FootnoteReference)]
+        assert len(footnote_refs) == 2
+
+        # Both references should have the same identifier
+        assert footnote_refs[0].identifier == footnote_refs[1].identifier
+
+        # Should only have one definition
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+    def test_footnote_with_formatting(self) -> None:
+        """Test footnote with inline formatting in content."""
+        parser = DokuWikiParser()
+        doc = parser.parse("Text ((footnote with **bold** text)) reference")
+
+        # Find footnote definition
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+        # Check that definition content has formatting
+        # The definition should have a Paragraph containing Strong node
+        defn = footnote_defs[0]
+        assert len(defn.content) > 0
+        para = defn.content[0]
+        assert isinstance(para, Paragraph)
+        # Look for Strong node in paragraph content
+        has_strong = any(isinstance(node, Strong) for node in para.content)
+        assert has_strong
+
+    def test_footnote_in_complex_document(self) -> None:
+        """Test footnotes in a complex document with multiple elements."""
+        content = """====== Title ======
+
+This paragraph has ((first footnote)) reference.
+
+Another paragraph with ((second footnote)) here.
+
+* List item with ((third footnote)) reference
+* Another item
+
+^ Header 1 ^
+| Cell with ((fourth footnote)) |"""
+
+        parser = DokuWikiParser()
+        doc = parser.parse(content)
+
+        # Find all footnote references
+        all_refs = []
+        for child in doc.children:
+            if isinstance(child, Paragraph):
+                all_refs.extend([node for node in child.content if isinstance(node, FootnoteReference)])
+            elif isinstance(child, List):
+                for item in child.items:
+                    for item_child in item.children:
+                        if isinstance(item_child, Paragraph):
+                            all_refs.extend([node for node in item_child.content if isinstance(node, FootnoteReference)])
+            elif isinstance(child, Table):
+                for row in child.rows:
+                    for cell in row.cells:
+                        all_refs.extend([node for node in cell.content if isinstance(node, FootnoteReference)])
+
+        assert len(all_refs) >= 3  # At least the paragraph footnotes
+
+        # Find all footnote definitions
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) >= 3  # At least the paragraph footnotes
 
 
 class TestDokuWikiParserOptions:

@@ -29,13 +29,20 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     LineBreak,
     Link,
     List,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
+    Strikethrough,
     Strong,
     Subscript,
     Superscript,
@@ -44,6 +51,7 @@ from all2md.ast import (
     TableRow,
     Text,
     ThematicBreak,
+    Underline,
 )
 from all2md.ast.builder import ListBuilder
 from all2md.converter_metadata import ConverterMetadata
@@ -407,6 +415,10 @@ class AsciiDocParser(BaseParser):
         self.attributes: dict[str, str] = {}
         self.pending_block_attrs: dict[str, Any] = {}
 
+        # Footnote collection for tracking footnote definitions
+        self._footnote_definitions: dict[str, str] = {}  # identifier -> footnote content
+        self._footnote_counter = 0  # Counter for auto-generated footnote IDs
+
         # Inline patterns
         self._setup_inline_patterns()
 
@@ -453,6 +465,24 @@ class AsciiDocParser(BaseParser):
         # Passthrough
         self.passthrough_pattern = re.compile(r"(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])")
 
+        # Footnotes
+        # footnote:[text] - inline footnote with content
+        # footnoteref:[id,text] - footnote reference with optional text (first occurrence defines, rest reference)
+        # footnoteref:[id] - footnote reference without text (must be defined elsewhere)
+        self.footnote_pattern = re.compile(r"footnote:\[([^\]]+)\]")
+        self.footnoteref_pattern = re.compile(r"footnoteref:\[([^\],]+)(?:,([^\]]+))?\]")
+
+        # Math
+        # latexmath:[$...$] or latexmath:[...] - inline LaTeX math
+        # stem:[$...$] or stem:[...] - inline STEM math (default is LaTeX)
+        self.latexmath_inline_pattern = re.compile(r"latexmath:\[(?:\$([^\$]+)\$|([^\]]+))\]")
+        self.stem_inline_pattern = re.compile(r"stem:\[(?:\$([^\$]+)\$|([^\]]+))\]")
+
+        # Roles for special formatting
+        # [line-through]#text# - strikethrough
+        # [underline]#text# - underline
+        self.role_pattern = re.compile(r"\[([^\]]+)\]#([^#]+)#")
+
         # Combined pattern for efficient scanning (finds ANY special construct)
         self._compile_combined_inline_pattern()
 
@@ -484,6 +514,11 @@ class AsciiDocParser(BaseParser):
                 r"<<([^,\>]+)(?:,([^\>]+))?>>",  # Cross-reference
                 r"\{([^\}]+)\}",  # Attribute reference
                 r"(?:\+\+([^\+]+)\+\+|\+([^\+]+)\+|pass:\[([^\]]+)\])",  # Passthrough
+                r"footnote:\[([^\]]+)\]",  # Footnote with inline content
+                r"footnoteref:\[([^\],]+)(?:,([^\]]+))?\]",  # Footnote reference
+                r"latexmath:\[(?:\$([^\$]+)\$|([^\]]+))\]",  # LaTeX math inline
+                r"stem:\[(?:\$([^\$]+)\$|([^\]]+))\]",  # STEM math inline
+                r"\[([^\]]+)\]#([^#]+)#",  # Role (strikethrough, underline, etc.)
             ]
         )
 
@@ -522,6 +557,8 @@ class AsciiDocParser(BaseParser):
         self.tokens = []
         self.current_token_index = 0
         self.pending_block_attrs = {}
+        self._footnote_definitions = {}
+        self._footnote_counter = 0
 
         # Emit progress event
         self._emit_progress("started", "Parsing AsciiDoc", current=0, total=100)
@@ -535,6 +572,9 @@ class AsciiDocParser(BaseParser):
 
         # Parse tokens into AST
         children = self._parse_document()
+
+        # Append footnote definitions at the end of the document
+        self._append_footnote_definitions(children)
 
         # Extract metadata
         metadata = self.extract_metadata(content)
@@ -1072,13 +1112,16 @@ class AsciiDocParser(BaseParser):
             matched = False
 
             # Check for passthrough first (highest priority)
+            # WARNING: Passthrough content is rendered as HTMLInline and should be
+            # sanitized by the renderer to prevent XSS attacks
             match = self.passthrough_pattern.match(remaining[pos:])
             if match:
                 # Extract passthrough content (don't process further)
                 passthrough_content = match.group(1) or match.group(2) or match.group(3)
                 # Restore escapes in passthrough content
                 passthrough_content = self._postprocess_escapes(passthrough_content, escape_map)
-                nodes.append(Text(content=passthrough_content))
+                # Create HTMLInline node for passthrough content
+                nodes.append(HTMLInline(content=passthrough_content))
                 pos += match.end()
                 matched = True
                 continue
@@ -1234,6 +1277,89 @@ class AsciiDocParser(BaseParser):
                 matched = True
                 continue
 
+            # Check for footnote with inline content (footnote:[text])
+            match = self.footnote_pattern.match(remaining[pos:])
+            if match:
+                footnote_text = match.group(1)
+                # Generate unique identifier for this footnote
+                self._footnote_counter += 1
+                identifier = str(self._footnote_counter)
+                # Restore escapes in footnote content
+                footnote_text = self._postprocess_escapes(footnote_text, escape_map)
+                # Collect footnote definition
+                self._footnote_definitions[identifier] = footnote_text
+                # Create footnote reference
+                nodes.append(FootnoteReference(identifier=identifier))
+                pos += match.end()
+                matched = True
+                continue
+
+            # Check for footnoteref (footnoteref:[id,text] or footnoteref:[id])
+            match = self.footnoteref_pattern.match(remaining[pos:])
+            if match:
+                identifier = match.group(1).strip()
+                footnote_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
+
+                # If footnote text is provided, this is the first occurrence (definition)
+                if footnote_text:
+                    # Restore escapes in footnote content
+                    footnote_text = self._postprocess_escapes(footnote_text, escape_map)
+                    # Collect footnote definition only if not already defined
+                    if identifier not in self._footnote_definitions:
+                        self._footnote_definitions[identifier] = footnote_text
+
+                # Create footnote reference
+                nodes.append(FootnoteReference(identifier=identifier))
+                pos += match.end()
+                matched = True
+                continue
+
+            # Check for LaTeX math inline (latexmath:[...] or latexmath:[$...$])
+            match = self.latexmath_inline_pattern.match(remaining[pos:])
+            if match:
+                # Extract math content from either $...$ or plain [...] format
+                math_content = match.group(1) if match.group(1) else match.group(2)
+                # Restore escapes in math content
+                math_content = self._postprocess_escapes(math_content, escape_map)
+                nodes.append(MathInline(content=math_content, notation="latex"))
+                pos += match.end()
+                matched = True
+                continue
+
+            # Check for STEM math inline (stem:[...] or stem:[$...$])
+            match = self.stem_inline_pattern.match(remaining[pos:])
+            if match:
+                # Extract math content from either $...$ or plain [...] format
+                math_content = match.group(1) if match.group(1) else match.group(2)
+                # Restore escapes in math content
+                math_content = self._postprocess_escapes(math_content, escape_map)
+                # STEM defaults to LaTeX notation
+                nodes.append(MathInline(content=math_content, notation="latex"))
+                pos += match.end()
+                matched = True
+                continue
+
+            # Check for roles ([role]#text#) - strikethrough, underline, etc.
+            match = self.role_pattern.match(remaining[pos:])
+            if match:
+                role = match.group(1).lower().strip()
+                role_text = match.group(2)
+                # Recursively parse the role content
+                inner_nodes = self._parse_inline_recursive(role_text, escape_map)
+
+                # Apply appropriate formatting based on role
+                if role == "line-through":
+                    nodes.append(Strikethrough(content=inner_nodes))
+                elif role == "underline":
+                    nodes.append(Underline(content=inner_nodes))
+                else:
+                    # Unknown role - just include the text without special formatting
+                    nodes.extend(inner_nodes)
+
+                pos += match.end()
+                matched = True
+                continue
+
             # No pattern matched - consume text until next special construct
             if not matched:
                 # Use combined pattern for efficient scanning
@@ -1260,6 +1386,33 @@ class AsciiDocParser(BaseParser):
                 pos = next_special
 
         return nodes
+
+    def _append_footnote_definitions(self, children: list[Node]) -> None:
+        """Append collected footnote definitions to the end of the document.
+
+        Parameters
+        ----------
+        children : list[Node]
+            List of AST nodes to append footnote definitions to
+
+        Notes
+        -----
+        This method processes the collected footnote definitions and appends
+        FootnoteDefinition nodes at the end of the document for proper AST
+        representation. Footnote content is parsed as inline text.
+
+        """
+        if not self._footnote_definitions:
+            return
+
+        # Append each footnote definition
+        for identifier, footnote_text in self._footnote_definitions.items():
+            # Parse the footnote content as inline text
+            footnote_content = self._parse_inline(footnote_text)
+            # Wrap in a paragraph
+            content_nodes = [Paragraph(content=footnote_content)]
+            # Create and append the footnote definition
+            children.append(FootnoteDefinition(identifier=identifier, content=content_nodes))
 
     def _parse_list(self) -> List | list[Node]:
         """Parse an ordered or unordered list with nesting support.
@@ -1393,20 +1546,24 @@ class AsciiDocParser(BaseParser):
 
         return DefinitionList(items=items)
 
-    def _parse_code_block(self) -> CodeBlock:
-        """Parse a code block.
+    def _parse_code_block(self) -> CodeBlock | MathBlock:
+        """Parse a code block or math block.
 
         Returns
         -------
-        CodeBlock
-            Code block node
+        CodeBlock | MathBlock
+            Code block or math block node
 
         """
-        # Consume pending attributes (may contain language info)
+        # Consume pending attributes (may contain language info or math type)
         attrs = self._consume_pending_attrs()
 
         # Skip opening delimiter
         self._advance()
+
+        # Check if this is a math block
+        block_type = attrs.get("type", "").lower()
+        is_math_block = block_type in ("latexmath", "stem")
 
         # Extract language from block attributes if present
         language: Optional[str] = attrs.get("language")
@@ -1428,6 +1585,14 @@ class AsciiDocParser(BaseParser):
         if "id" in attrs:
             metadata["id"] = attrs["id"]
 
+        # Return MathBlock for latexmath or stem blocks
+        if is_math_block:
+            if metadata:
+                return MathBlock(content=content, notation="latex", metadata=metadata)
+            else:
+                return MathBlock(content=content, notation="latex")
+
+        # Return CodeBlock for regular code blocks
         if metadata:
             return CodeBlock(content=content, language=language, metadata=metadata)
         else:
@@ -1532,15 +1697,19 @@ class AsciiDocParser(BaseParser):
 
         return BlockQuote(children=cast(list[Node], children), metadata=metadata)
 
-    def _parse_example_block(self) -> BlockQuote:
-        """Parse an example block.
+    def _parse_example_block(self) -> BlockQuote | HTMLBlock:
+        """Parse an example block or HTML passthrough block.
 
         Example blocks (====) are rendered as block quotes with role='example'.
+        If the block has a "pass" or "passthrough" role/type, it's rendered as HTMLBlock.
+
+        WARNING: HTML passthrough blocks should be sanitized by the renderer to
+        prevent XSS attacks.
 
         Returns
         -------
-        BlockQuote
-            Block quote with example role
+        BlockQuote | HTMLBlock
+            Block quote with example role, or HTMLBlock for passthrough
 
         """
         # Consume pending attributes
@@ -1549,7 +1718,34 @@ class AsciiDocParser(BaseParser):
         # Skip opening delimiter
         self._advance()
 
-        # Collect content until closing delimiter
+        # Check if this is a passthrough block (HTML block)
+        block_type = attrs.get("type", "").lower()
+        block_role = attrs.get("role", "").lower()
+        is_passthrough = block_type in ("pass", "passthrough") or block_role in ("pass", "passthrough")
+
+        if is_passthrough:
+            # Collect content as lines (raw HTML)
+            lines, _closed = parse_delimited_block(
+                current_token_fn=self._current_token,
+                advance_fn=self._advance,
+                opening_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
+                closing_delimiter_type=TokenType.EXAMPLE_BLOCK_DELIMITER,
+                eof_type=TokenType.EOF,
+                collect_mode="lines",
+            )
+            content = "\n".join(lines)
+
+            # Apply metadata if present
+            metadata = {}
+            if "id" in attrs:
+                metadata["id"] = attrs["id"]
+
+            if metadata:
+                return HTMLBlock(content=content, metadata=metadata)
+            else:
+                return HTMLBlock(content=content)
+
+        # Regular example block - collect as blocks
         children, _closed = parse_delimited_block(
             current_token_fn=self._current_token,
             advance_fn=self._advance,

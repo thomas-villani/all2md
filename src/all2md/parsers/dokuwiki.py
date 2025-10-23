@@ -24,6 +24,7 @@ from all2md.ast import (
     CommentInline,
     Document,
     Emphasis,
+    FootnoteDefinition,
     FootnoteReference,
     Heading,
     Image,
@@ -154,6 +155,7 @@ class DokuWikiParser(BaseParser):
         options = options or DokuWikiParserOptions()
         super().__init__(options, progress_callback)
         self.options: DokuWikiParserOptions = options
+        self._footnote_definitions: dict[str, str] = {}  # identifier -> footnote content
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse DokuWiki input into AST Document.
@@ -180,6 +182,9 @@ class DokuWikiParser(BaseParser):
         """
         # Load DokuWiki content from various input types
         dokuwiki_content = self._load_dokuwiki_content(input_data)
+
+        # Reset parser state to prevent leakage across parse calls
+        self._footnote_definitions = {}
 
         # Extract metadata before processing (do this before stripping comments)
         metadata = self.extract_metadata(dokuwiki_content)
@@ -435,7 +440,37 @@ class DokuWikiParser(BaseParser):
         if inline_buffer:
             result.append(Paragraph(content=inline_buffer))
 
+        # Append footnote definitions at the end of the document
+        self._append_footnote_definitions(result)
+
         return result
+
+    def _append_footnote_definitions(self, result: list[Node]) -> None:
+        """Append collected footnote definitions to the end of the document.
+
+        Parameters
+        ----------
+        result : list[Node]
+            List of AST nodes to append footnote definitions to
+
+        Notes
+        -----
+        This method processes the collected footnote definitions and appends
+        FootnoteDefinition nodes at the end of the document for proper AST
+        representation.
+
+        """
+        if not self._footnote_definitions:
+            return
+
+        # Append each footnote definition
+        for identifier, footnote_text in self._footnote_definitions.items():
+            # Parse the footnote content as inline text
+            footnote_content = self._process_inline(footnote_text)
+            # Wrap in a paragraph
+            content_nodes = [Paragraph(content=footnote_content)]
+            # Create and append the footnote definition
+            result.append(FootnoteDefinition(identifier=identifier, content=content_nodes))
 
     def _process_inline(self, text: str) -> list[Node]:
         """Process inline formatting in text.
@@ -552,6 +587,11 @@ class DokuWikiParser(BaseParser):
             import hashlib
 
             identifier = hashlib.md5(footnote_text.encode()).hexdigest()[:8]
+
+            # Collect footnote definition for later appending to document
+            if identifier not in self._footnote_definitions:
+                self._footnote_definitions[identifier] = footnote_text
+
             result.append(FootnoteReference(identifier=identifier))
 
         elif earliest_type == "bold":

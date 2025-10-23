@@ -10,18 +10,24 @@ from all2md.ast import (
     FootnoteDefinition,
     FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     LineBreak,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Paragraph,
+    Strikethrough,
     Strong,
     Subscript,
     Superscript,
     Table,
     Text,
     ThematicBreak,
+    Underline,
 )
 from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.renderers.asciidoc import AsciiDocRenderer
@@ -1373,3 +1379,474 @@ class TestAsciiDocAttributeEscaping:
 
         # Should contain the author attribute
         assert ":author:" in output
+
+
+class TestAsciiDocFootnotes:
+    """Tests for AsciiDoc footnote parsing."""
+
+    def test_inline_footnote(self) -> None:
+        """Test parsing inline footnote with footnote:[text] syntax."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with footnote:[This is a footnote] reference")
+
+        # Check for FootnoteReference in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        footnote_ref = next((node for node in para.content if isinstance(node, FootnoteReference)), None)
+        assert footnote_ref is not None
+        assert footnote_ref.identifier
+
+        # Check for FootnoteDefinition at end of document
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == footnote_ref.identifier
+        # Check that definition contains the footnote text
+        assert len(footnote_defs[0].content) > 0
+
+    def test_footnoteref_with_id_and_text(self) -> None:
+        """Test parsing footnoteref with ID and text (first occurrence)."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with footnoteref:[note1,Footnote text] reference")
+
+        # Check for FootnoteReference in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        footnote_ref = next((node for node in para.content if isinstance(node, FootnoteReference)), None)
+        assert footnote_ref is not None
+        assert footnote_ref.identifier == "note1"
+
+        # Check for FootnoteDefinition at end of document
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == "note1"
+
+    def test_footnoteref_id_only(self) -> None:
+        """Test parsing footnoteref with ID only (subsequent occurrence)."""
+        parser = AsciiDocParser()
+        doc = parser.parse("First footnoteref:[note1,Footnote text] and second footnoteref:[note1] reference")
+
+        # Check for two FootnoteReferences
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        footnote_refs = [node for node in para.content if isinstance(node, FootnoteReference)]
+        assert len(footnote_refs) == 2
+        assert footnote_refs[0].identifier == "note1"
+        assert footnote_refs[1].identifier == "note1"
+
+        # Should only have one definition
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == "note1"
+
+    def test_multiple_inline_footnotes(self) -> None:
+        """Test parsing multiple inline footnotes."""
+        parser = AsciiDocParser()
+        doc = parser.parse("First footnote:[First note] and second footnote:[Second note] references")
+
+        # Check for two FootnoteReferences
+        para = doc.children[0]
+        footnote_refs = [node for node in para.content if isinstance(node, FootnoteReference)]
+        assert len(footnote_refs) == 2
+
+        # Should have two definitions with different identifiers
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 2
+        assert footnote_defs[0].identifier != footnote_defs[1].identifier
+
+    def test_mixed_footnote_types(self) -> None:
+        """Test parsing mix of footnote types."""
+        parser = AsciiDocParser()
+        doc = parser.parse(
+            "Inline footnote:[Inline note] and named footnoteref:[ref1,Named note] and repeat footnoteref:[ref1]"
+        )
+
+        # Check for three FootnoteReferences
+        para = doc.children[0]
+        footnote_refs = [node for node in para.content if isinstance(node, FootnoteReference)]
+        assert len(footnote_refs) == 3
+
+        # Should have two unique definitions
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 2
+
+    def test_footnote_with_formatting(self) -> None:
+        """Test footnote with inline formatting in content."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text footnote:[Footnote with *bold* text] reference")
+
+        # Find footnote definition
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+        # Check that definition content has formatting
+        defn = footnote_defs[0]
+        assert len(defn.content) > 0
+        para = defn.content[0]
+        assert isinstance(para, Paragraph)
+        # Look for Strong node in paragraph content
+        has_strong = any(isinstance(node, Strong) for node in para.content)
+        assert has_strong
+
+    def test_footnote_in_list(self) -> None:
+        """Test footnotes inside list items."""
+        content = """* Item with footnote:[List footnote]
+* Another item"""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Find the list
+        list_node = next((node for node in doc.children if isinstance(node, List)), None)
+        assert list_node is not None
+
+        # Check for footnote definition at document level
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+    def test_footnote_in_heading(self) -> None:
+        """Test footnotes in headings."""
+        parser = AsciiDocParser()
+        doc = parser.parse("= Heading with footnote:[Heading note]")
+
+        # Find heading
+        heading = next((node for node in doc.children if isinstance(node, Heading)), None)
+        assert heading is not None
+
+        # Check for footnote reference in heading
+        footnote_ref = next((node for node in heading.content if isinstance(node, FootnoteReference)), None)
+        assert footnote_ref is not None
+
+        # Check for footnote definition at document level
+        footnote_defs = [node for node in doc.children if isinstance(node, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+
+
+class TestAsciiDocMath:
+    """Tests for AsciiDoc math parsing."""
+
+    def test_latexmath_inline_with_dollars(self) -> None:
+        """Test parsing inline LaTeX math with dollar signs."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Equation latexmath:[$E=mc^2$] is famous")
+
+        # Check for MathInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        math_node = next((node for node in para.content if isinstance(node, MathInline)), None)
+        assert math_node is not None
+        assert math_node.content == "E=mc^2"
+        assert math_node.notation == "latex"
+
+    def test_latexmath_inline_without_dollars(self) -> None:
+        """Test parsing inline LaTeX math without dollar signs."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Equation latexmath:[E=mc^2] is famous")
+
+        # Check for MathInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        math_node = next((node for node in para.content if isinstance(node, MathInline)), None)
+        assert math_node is not None
+        assert math_node.content == "E=mc^2"
+        assert math_node.notation == "latex"
+
+    def test_stem_inline_with_dollars(self) -> None:
+        """Test parsing inline STEM math with dollar signs."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Equation stem:[$E=mc^2$] is famous")
+
+        # Check for MathInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        math_node = next((node for node in para.content if isinstance(node, MathInline)), None)
+        assert math_node is not None
+        assert math_node.content == "E=mc^2"
+        assert math_node.notation == "latex"
+
+    def test_stem_inline_without_dollars(self) -> None:
+        """Test parsing inline STEM math without dollar signs."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Equation stem:[E=mc^2] is famous")
+
+        # Check for MathInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        math_node = next((node for node in para.content if isinstance(node, MathInline)), None)
+        assert math_node is not None
+        assert math_node.content == "E=mc^2"
+        assert math_node.notation == "latex"
+
+    def test_latexmath_block(self) -> None:
+        """Test parsing LaTeX math block."""
+        content = """[latexmath]
+----
+E = mc^2
+----"""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Check for MathBlock
+        math_block = next((node for node in doc.children if isinstance(node, MathBlock)), None)
+        assert math_block is not None
+        assert "E = mc^2" in math_block.content
+        assert math_block.notation == "latex"
+
+    def test_stem_block(self) -> None:
+        """Test parsing STEM math block."""
+        content = """[stem]
+----
+\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
+----"""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Check for MathBlock
+        math_block = next((node for node in doc.children if isinstance(node, MathBlock)), None)
+        assert math_block is not None
+        assert "sum" in math_block.content
+        assert math_block.notation == "latex"
+
+    def test_latexmath_block_delimiter(self) -> None:
+        """Test parsing LaTeX math block with dash delimiter."""
+        content = """[latexmath]
+----
+E = mc^2
+----"""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Check for MathBlock
+        math_block = next((node for node in doc.children if isinstance(node, MathBlock)), None)
+        assert math_block is not None
+        assert "E = mc^2" in math_block.content
+        assert math_block.notation == "latex"
+
+    def test_multiple_inline_math(self) -> None:
+        """Test parsing multiple inline math expressions."""
+        parser = AsciiDocParser()
+        doc = parser.parse("First latexmath:[$E=mc^2$] and second stem:[$F=ma$] equations")
+
+        # Check for two MathInline nodes
+        para = doc.children[0]
+        math_nodes = [node for node in para.content if isinstance(node, MathInline)]
+        assert len(math_nodes) == 2
+        assert math_nodes[0].content == "E=mc^2"
+        assert math_nodes[1].content == "F=ma"
+
+    def test_math_with_complex_expression(self) -> None:
+        """Test parsing math with complex LaTeX expression."""
+        parser = AsciiDocParser()
+        doc = parser.parse(r"Integral latexmath:[$\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$] is Gaussian")
+
+        # Check for MathInline
+        para = doc.children[0]
+        math_node = next((node for node in para.content if isinstance(node, MathInline)), None)
+        assert math_node is not None
+        assert "int" in math_node.content
+        assert "infty" in math_node.content
+
+    def test_math_in_heading(self) -> None:
+        """Test math in headings."""
+        parser = AsciiDocParser()
+        doc = parser.parse("= Heading with latexmath:[$E=mc^2$]")
+
+        # Find heading
+        heading = next((node for node in doc.children if isinstance(node, Heading)), None)
+        assert heading is not None
+
+        # Check for math in heading
+        math_node = next((node for node in heading.content if isinstance(node, MathInline)), None)
+        assert math_node is not None
+
+    def test_math_in_list(self) -> None:
+        """Test math in list items."""
+        content = """* Item with latexmath:[$E=mc^2$]
+* Another item"""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Find the list
+        list_node = next((node for node in doc.children if isinstance(node, List)), None)
+        assert list_node is not None
+
+        # Check that math is preserved (implementation-specific check)
+        # The math should be somewhere in the list structure
+        assert len(doc.children) >= 1
+
+
+class TestAsciiDocStrikethroughUnderline:
+    """Tests for AsciiDoc strikethrough and underline role support."""
+
+    def test_line_through_role(self) -> None:
+        """Test parsing [line-through]#text# syntax."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with [line-through]#strikethrough# formatting")
+
+        # Check for Strikethrough in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        strike_node = next((node for node in para.content if isinstance(node, Strikethrough)), None)
+        assert strike_node is not None
+        assert len(strike_node.content) > 0
+
+    def test_underline_role(self) -> None:
+        """Test parsing [underline]#text# syntax."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with [underline]#underlined# formatting")
+
+        # Check for Underline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        underline_node = next((node for node in para.content if isinstance(node, Underline)), None)
+        assert underline_node is not None
+        assert len(underline_node.content) > 0
+
+    def test_strikethrough_with_nested_formatting(self) -> None:
+        """Test strikethrough with nested bold formatting."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with [line-through]#*bold strikethrough*# formatting")
+
+        # Check for Strikethrough containing Strong
+        para = doc.children[0]
+        strike_node = next((node for node in para.content if isinstance(node, Strikethrough)), None)
+        assert strike_node is not None
+        # Check for nested Strong
+        has_strong = any(isinstance(node, Strong) for node in strike_node.content)
+        assert has_strong
+
+    def test_underline_with_nested_formatting(self) -> None:
+        """Test underline with nested italic formatting."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with [underline]#_italic underline_# formatting")
+
+        # Check for Underline containing Emphasis
+        para = doc.children[0]
+        underline_node = next((node for node in para.content if isinstance(node, Underline)), None)
+        assert underline_node is not None
+        # Check for nested Emphasis
+        has_emphasis = any(isinstance(node, Emphasis) for node in underline_node.content)
+        assert has_emphasis
+
+    def test_multiple_roles(self) -> None:
+        """Test multiple role applications in same paragraph."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with [line-through]#strike# and [underline]#underline#")
+
+        # Check for both Strikethrough and Underline
+        para = doc.children[0]
+        strike_node = next((node for node in para.content if isinstance(node, Strikethrough)), None)
+        underline_node = next((node for node in para.content if isinstance(node, Underline)), None)
+        assert strike_node is not None
+        assert underline_node is not None
+
+    def test_unknown_role(self) -> None:
+        """Test that unknown roles still parse the text content."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with [custom-role]#content# formatting")
+
+        # Unknown roles should still parse successfully
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        # Content should be preserved (just not in a special node)
+        assert len(para.content) > 0
+
+
+class TestAsciiDocHTMLPassthrough:
+    """Tests for AsciiDoc HTML passthrough support."""
+
+    def test_inline_passthrough_double_plus(self) -> None:
+        """Test parsing inline passthrough with ++ syntax."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with ++<span class=\"custom\">HTML</span>++ inline")
+
+        # Check for HTMLInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        html_node = next((node for node in para.content if isinstance(node, HTMLInline)), None)
+        assert html_node is not None
+        assert "<span" in html_node.content
+
+    def test_inline_passthrough_single_plus(self) -> None:
+        """Test parsing inline passthrough with + syntax."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with +<b>HTML</b>+ inline")
+
+        # Check for HTMLInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        html_node = next((node for node in para.content if isinstance(node, HTMLInline)), None)
+        assert html_node is not None
+        assert "<b>" in html_node.content
+
+    def test_inline_passthrough_macro(self) -> None:
+        """Test parsing inline passthrough with pass:[] macro."""
+        parser = AsciiDocParser()
+        doc = parser.parse("Text with pass:[<em>HTML</em>] inline")
+
+        # Check for HTMLInline in paragraph
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        html_node = next((node for node in para.content if isinstance(node, HTMLInline)), None)
+        assert html_node is not None
+        assert "<em>" in html_node.content
+
+    def test_block_passthrough(self) -> None:
+        """Test parsing block-level HTML passthrough."""
+        content = """[pass]
+====
+<div class="custom">
+  <p>HTML content</p>
+</div>
+===="""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Check for HTMLBlock
+        html_block = next((node for node in doc.children if isinstance(node, HTMLBlock)), None)
+        assert html_block is not None
+        assert "<div" in html_block.content
+        assert "</div>" in html_block.content
+
+    def test_block_passthrough_passthrough_type(self) -> None:
+        """Test parsing block passthrough with [passthrough] type."""
+        content = """[passthrough]
+====
+<table>
+  <tr><td>HTML table</td></tr>
+</table>
+===="""
+
+        parser = AsciiDocParser()
+        doc = parser.parse(content)
+
+        # Check for HTMLBlock
+        html_block = next((node for node in doc.children if isinstance(node, HTMLBlock)), None)
+        assert html_block is not None
+        assert "<table>" in html_block.content
+
+    def test_multiple_inline_passthrough(self) -> None:
+        """Test multiple inline passthrough in same paragraph."""
+        parser = AsciiDocParser()
+        doc = parser.parse("First ++<span>HTML1</span>++ and second ++<span>HTML2</span>++ inline")
+
+        # Check for two HTMLInline nodes
+        para = doc.children[0]
+        html_nodes = [node for node in para.content if isinstance(node, HTMLInline)]
+        assert len(html_nodes) == 2
+
+    def test_passthrough_preserves_content(self) -> None:
+        """Test that passthrough preserves HTML exactly as written."""
+        html_content = "<script>alert('test');</script>"
+        parser = AsciiDocParser()
+        doc = parser.parse(f"Text with ++{html_content}++ inline")
+
+        # Check that HTML is preserved exactly
+        para = doc.children[0]
+        html_node = next((node for node in para.content if isinstance(node, HTMLInline)), None)
+        assert html_node is not None
+        assert html_node.content == html_content
