@@ -37,6 +37,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -296,6 +298,10 @@ class NodeTransformer(NodeVisitor):
         """Transform an HTMLBlock node."""
         return HTMLBlock(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
 
+    def visit_comment(self, node: Comment) -> Comment:
+        """Transform a Comment node (block-level)."""
+        return Comment(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
+
     def visit_text(self, node: Text) -> Text:
         """Transform a Text node."""
         return Text(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
@@ -357,6 +363,10 @@ class NodeTransformer(NodeVisitor):
     def visit_html_inline(self, node: HTMLInline) -> HTMLInline:
         """Transform an HTMLInline node."""
         return HTMLInline(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
+
+    def visit_comment_inline(self, node: CommentInline) -> CommentInline:
+        """Transform a CommentInline node (inline)."""
+        return CommentInline(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
 
     def visit_footnote_reference(self, node: "FootnoteReference") -> "FootnoteReference":
         """Transform a FootnoteReference node."""
@@ -520,6 +530,10 @@ class NodeCollector(NodeVisitor):
         """Visit an HTMLBlock node."""
         self._collect_if_match(node)
 
+    def visit_comment(self, node: Comment) -> None:
+        """Visit a Comment node (block-level)."""
+        self._collect_if_match(node)
+
     def visit_text(self, node: Text) -> None:
         """Visit a Text node."""
         self._collect_if_match(node)
@@ -573,6 +587,10 @@ class NodeCollector(NodeVisitor):
 
     def visit_html_inline(self, node: HTMLInline) -> None:
         """Visit an HTMLInline node."""
+        self._collect_if_match(node)
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Visit a CommentInline node (inline)."""
         self._collect_if_match(node)
 
     def visit_footnote_reference(self, node: "FootnoteReference") -> None:
