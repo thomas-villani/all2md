@@ -5,6 +5,7 @@
 
 This module defines options for parsing email files and message chains.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -22,8 +23,8 @@ from all2md.constants import (
     DEFAULT_URL_WRAPPERS,
     DateFormatMode,
 )
-from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 from all2md.options.base import BaseParserOptions
+from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 
 
 @dataclass(frozen=True)

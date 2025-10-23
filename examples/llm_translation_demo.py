@@ -43,7 +43,7 @@ class LLMTranslateTransform(NodeTransformer):
         target_language: str,
         llm_client: Callable[[str, str], str],
         preserve_code: bool = True,
-        preserve_links: bool = True
+        preserve_links: bool = True,
     ):
         """Initialize the LLM translation transform.
 
@@ -73,7 +73,7 @@ class LLMTranslateTransform(NodeTransformer):
         except Exception as e:
             # On error, return original text with error in metadata
             metadata = node.metadata.copy()
-            metadata['translation_error'] = str(e)
+            metadata["translation_error"] = str(e)
             return Text(content=node.content, metadata=metadata)
 
     def visit_code_block(self, node):
@@ -115,12 +115,7 @@ def mock_llm_translate(text: str, target_language: str) -> str:
     return f"[{target_language.upper()}] {text}"
 
 
-def translate_document(
-    input_path: str,
-    output_path: str,
-    target_language: str,
-    llm_client: callable = None
-):
+def translate_document(input_path: str, output_path: str, target_language: str, llm_client: callable = None):
     """Translate a document while preserving its format.
 
     This function demonstrates the full workflow:
@@ -161,14 +156,14 @@ def translate_document(
     # Auto-detect output format from extension
     ext = os.path.splitext(output_path)[1].lower()
     format_map = {
-        '.md': 'markdown',
-        '.pdf': 'pdf',
-        '.docx': 'docx',
-        '.html': 'html',
-        '.sdoc': 'simpledoc',
-        '.json': 'simpledoc'
+        ".md": "markdown",
+        ".pdf": "pdf",
+        ".docx": "docx",
+        ".html": "html",
+        ".sdoc": "simpledoc",
+        ".json": "simpledoc",
     }
-    output_format = format_map.get(ext, 'markdown')
+    output_format = format_map.get(ext, "markdown")
 
     print(f"Rendering to {output_format} format...")
     from_ast(translated_ast, output_format=output_format, output_path=output_path)
@@ -210,14 +205,11 @@ def openai_translate(text: str, target_language: str) -> str:
                     f"You are a professional translator. Translate the following text to {target_language}. "
                     "Preserve all formatting, markdown syntax, and technical terms. "
                     "Return only the translated text, nothing else."
-                )
+                ),
             },
-            {
-                "role": "user",
-                "content": text
-            }
+            {"role": "user", "content": text},
         ],
-        temperature=0.3
+        temperature=0.3,
     )
 
     return response.choices[0].message.content
@@ -258,9 +250,9 @@ def anthropic_translate(text: str, target_language: str) -> str:
                     f"Translate the following text to {target_language}. "
                     "Preserve all formatting, markdown syntax, and technical terms. "
                     f"Return only the translated text:\n\n{text}"
-                )
+                ),
             }
-        ]
+        ],
     )
 
     return message.content[0].text
@@ -276,47 +268,38 @@ def main():
     parser.add_argument("output", help="Output document path")
     parser.add_argument("--language", "-l", default="Spanish", help="Target language (default: Spanish)")
     parser.add_argument(
-        "--llm",
-        choices=["mock", "openai", "anthropic"],
-        default="mock",
-        help="LLM provider to use (default: mock)"
+        "--llm", choices=["mock", "openai", "anthropic"], default="mock", help="LLM provider to use (default: mock)"
     )
 
     args = parser.parse_args()
 
     # Select LLM client
-    llm_clients = {
-        "mock": mock_llm_translate,
-        "openai": openai_translate,
-        "anthropic": anthropic_translate
-    }
+    llm_clients = {"mock": mock_llm_translate, "openai": openai_translate, "anthropic": anthropic_translate}
 
     llm_client = llm_clients[args.llm]
 
     # Check for API keys if using real LLMs
     if args.llm == "openai":
         import os
+
         if not os.environ.get("OPENAI_API_KEY"):
             print("Error: OPENAI_API_KEY environment variable not set")
             sys.exit(1)
     elif args.llm == "anthropic":
         import os
+
         if not os.environ.get("ANTHROPIC_API_KEY"):
             print("Error: ANTHROPIC_API_KEY environment variable not set")
             sys.exit(1)
 
     # Translate the document
-    translate_document(
-        args.input,
-        args.output,
-        args.language,
-        llm_client
-    )
+    translate_document(args.input, args.output, args.language, llm_client)
 
 
 if __name__ == "__main__":
     # Example usage without arguments
     import sys
+
     if len(sys.argv) == 1:
         print("LLM Translation Demo")
         print("=" * 50)

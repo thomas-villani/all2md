@@ -4,7 +4,6 @@ from typing import Any, Callable, Generic, TypeVar
 
 _T = TypeVar("_T")
 
-
 class Length:
     """Represents a length measurement in EMUs (English Metric Units)."""
 
@@ -49,7 +48,6 @@ class Length:
         """Length in English Metric Units."""
         ...
 
-
 def Inches(inches: float) -> Length:
     """Create a Length object from inches.
 
@@ -65,7 +63,6 @@ def Inches(inches: float) -> Length:
 
     """
     ...
-
 
 def Cm(cm: float) -> Length:
     """Create a Length object from centimeters.
@@ -83,7 +80,6 @@ def Cm(cm: float) -> Length:
     """
     ...
 
-
 def Pt(points: float) -> Length:
     """Create a Length object from points.
 
@@ -99,7 +95,6 @@ def Pt(points: float) -> Length:
 
     """
     ...
-
 
 def Emu(emu: int) -> Length:
     """Create a Length object from EMUs.
@@ -117,7 +112,6 @@ def Emu(emu: int) -> Length:
     """
     ...
 
-
 def Mm(mm: float) -> Length:
     """Create a Length object from millimeters.
 
@@ -134,7 +128,6 @@ def Mm(mm: float) -> Length:
     """
     ...
 
-
 def Centipoints(centipoints: int) -> Length:
     """Create a Length object from centipoints.
 
@@ -150,7 +143,6 @@ def Centipoints(centipoints: int) -> Length:
 
     """
     ...
-
 
 class lazyproperty(Generic[_T]):
     """Decorator like property, but evaluated only on first access.

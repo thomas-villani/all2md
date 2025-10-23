@@ -226,7 +226,6 @@ class TestOutlookPSTHandling:
         """Test that PST files require file path input."""
         import io
 
-
         parser = OutlookToAstConverter()
 
         # PST parser requires file path, not IO streams
@@ -243,7 +242,7 @@ class TestOutlookFormatDetection:
         from all2md.parsers.outlook import _detect_outlook_format
 
         msg_file = tmp_path / "test.msg"
-        msg_file.write_bytes(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" + b"\x00" * 100)
+        msg_file.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 100)
 
         format_type = _detect_outlook_format(msg_file)
         assert format_type == "msg"

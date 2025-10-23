@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown renderer improvements."""
 
-
 from all2md.ast import Document, Heading, Link, Paragraph, Strong, Text
 from all2md.options.markdown import MarkdownOptions
 from all2md.renderers.markdown import MarkdownRenderer
@@ -124,9 +123,7 @@ class TestMarkdownBareUrlAutolinking:
 
     def test_url_with_deeply_nested_parentheses(self) -> None:
         """Test URL with deeply nested parentheses."""
-        doc = Document(
-            children=[Paragraph(content=[Text(content="URL http://example.com/path(foo(bar)) here")])]
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="URL http://example.com/path(foo(bar)) here")])])
 
         options = MarkdownOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
@@ -159,9 +156,7 @@ class TestMarkdownBareUrlAutolinking:
 
     def test_url_with_trailing_comma(self) -> None:
         """Test URL with trailing comma is autolinked."""
-        doc = Document(
-            children=[Paragraph(content=[Text(content="Sites: http://example.com, http://test.com")])]
-        )
+        doc = Document(children=[Paragraph(content=[Text(content="Sites: http://example.com, http://test.com")])])
 
         options = MarkdownOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)

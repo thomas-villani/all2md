@@ -5,6 +5,7 @@
 
 This module defines options for parsing Unix mailbox format files.
 """
+
 from __future__ import annotations
 
 import datetime

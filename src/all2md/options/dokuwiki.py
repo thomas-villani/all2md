@@ -5,6 +5,7 @@
 This module defines options for parsing DokuWiki markup to AST and
 rendering AST to DokuWiki format.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

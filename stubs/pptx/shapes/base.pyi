@@ -90,7 +90,6 @@ class BaseShape:
         """Internal paragraph XML element."""
         ...
 
-
 class PlaceholderFormat:
     """Provides access to placeholder-specific properties."""
 

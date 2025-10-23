@@ -4,6 +4,7 @@
 
 This module defines options for rendering AST to MediaWiki format.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

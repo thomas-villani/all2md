@@ -113,9 +113,7 @@ class GenerationReport:
     examples_failed: int = 0
 
 
-def extract_api_sections(
-    doc: Document, target_language: Optional[str] = None
-) -> list[APISection]:
+def extract_api_sections(doc: Document, target_language: Optional[str] = None) -> list[APISection]:
     """Extract API sections from documentation.
 
     Parameters
@@ -291,9 +289,7 @@ def validate_code(code: str, language: str) -> tuple[bool, str]:
         return True, "Validation not available for this language"
 
 
-def generate_example_with_llm(
-    section: APISection, llm_client: Callable[[str], str]
-) -> GeneratedExample:
+def generate_example_with_llm(section: APISection, llm_client: Callable[[str], str]) -> GeneratedExample:
     """Generate code example using LLM.
 
     Parameters
@@ -391,7 +387,7 @@ def mock_llm_client(prompt: str) -> str:
     api_name = api_match.group(1) if api_match else "example_function"
 
     if language == "python":
-        code = f'''# Import required modules
+        code = f"""# Import required modules
 import example_module
 
 # Initialize the API
@@ -402,9 +398,9 @@ result = api.execute()
 
 # Print the result
 print(f"Result: {{result}}")
-'''
+"""
     else:
-        code = f'''// Import required modules
+        code = f"""// Import required modules
 const exampleModule = require('example-module');
 
 // Initialize the API
@@ -415,7 +411,7 @@ const result = api.execute();
 
 // Print the result
 console.log(`Result: ${{result}}`);
-'''
+"""
 
     return f"""```{language}
 {code}
@@ -557,9 +553,7 @@ class ExampleInserterTransform(NodeTransformer):
                     example = self.examples_by_heading[heading_text]
 
                     builder = DocumentBuilder()
-                    builder.add_paragraph(
-                        builder.text(f"Example ({example.language}):")
-                    )
+                    builder.add_paragraph(builder.text(f"Example ({example.language}):"))
                     builder.add_code_block(example.code, language=example.language)
                     builder.add_paragraph(builder.text(example.explanation))
 
@@ -681,9 +675,7 @@ def main():
     """Run the code example generator."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate code examples for API documentation"
-    )
+    parser = argparse.ArgumentParser(description="Generate code examples for API documentation")
     parser.add_argument("input", help="Input documentation file")
     parser.add_argument("output", help="Output documentation file")
     parser.add_argument(

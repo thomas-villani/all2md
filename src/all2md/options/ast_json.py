@@ -28,19 +28,12 @@ class AstJsonParserOptions(BaseParserOptions):
     """
 
     validate_schema: bool = field(
-        default=True,
-        metadata={
-            "help": "Validate schema version during parsing",
-            "importance": "core"
-        }
+        default=True, metadata={"help": "Validate schema version during parsing", "importance": "core"}
     )
     strict_mode: bool = field(
-        default=False,
-        metadata={
-            "help": "Fail on unknown node types or attributes",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Fail on unknown node types or attributes", "importance": "advanced"}
     )
+
 
 @dataclass(frozen=True)
 class AstJsonRendererOptions(BaseRendererOptions):
@@ -69,24 +62,11 @@ class AstJsonRendererOptions(BaseRendererOptions):
     """
 
     indent: int | None = field(
-        default=2,
-        metadata={
-            "help": "JSON indentation spaces (None for compact)",
-            "type": int,
-            "importance": "core"
-        }
+        default=2, metadata={"help": "JSON indentation spaces (None for compact)", "type": int, "importance": "core"}
     )
     ensure_ascii: bool = field(
-        default=False,
-        metadata={
-            "help": "Escape non-ASCII characters in JSON",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Escape non-ASCII characters in JSON", "importance": "advanced"}
     )
     sort_keys: bool = field(
-        default=False,
-        metadata={
-            "help": "Sort JSON object keys alphabetically",
-            "importance": "advanced"
-        }
+        default=False, metadata={"help": "Sort JSON object keys alphabetically", "importance": "advanced"}
     )

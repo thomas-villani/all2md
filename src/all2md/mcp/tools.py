@@ -119,7 +119,7 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
         logger.debug("Skipping path detection: appears to be data URI")
     # 1. Try to resolve as file path (if looks plausible and not HTML/JSON/etc)
     elif (
-            "/" in source or "\\" in source or ("." in source and len(source) < 500)  # Has path separators
+        "/" in source or "\\" in source or ("." in source and len(source) < 500)  # Has path separators
     ):  # Or has dot and reasonable length
         try:
             path_obj = Path(source)
@@ -272,7 +272,7 @@ def read_document_as_markdown_impl(input_data: ReadDocumentAsMarkdownInput, conf
 
 
 def save_document_from_markdown_impl(
-        input_data: SaveDocumentFromMarkdownInput, config: MCPConfig
+    input_data: SaveDocumentFromMarkdownInput, config: MCPConfig
 ) -> SaveDocumentFromMarkdownOutput:
     """Implement save_document_from_markdown tool with simplified API.
 

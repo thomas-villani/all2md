@@ -136,7 +136,9 @@ Content.
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="extract", doc=str(md_file), target="#1"  # Second section (zero-based)
+            action="extract",
+            doc=str(md_file),
+            target="#1",  # Second section (zero-based)
         )
 
         result = edit_document_impl(input_data, config)
@@ -489,7 +491,9 @@ class TestMCPDocumentToolErrorHandling:
 
         config = MCPConfig(read_allowlist=[str(tmp_path)])
         input_data = EditDocumentSimpleInput(
-            action="extract", doc=str(md_file), target="#abc"  # Invalid - not a number
+            action="extract",
+            doc=str(md_file),
+            target="#abc",  # Invalid - not a number
         )
 
         result = edit_document_impl(input_data, config)

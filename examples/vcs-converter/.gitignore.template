@@ -1,0 +1,29 @@
+# VCS Document Converter - Recommended .gitignore additions
+#
+# Add these lines to your repository's .gitignore to properly track
+# converted documents while excluding binary originals (optional).
+
+# Option 1: Track markdown only (exclude binary originals)
+# Uncomment these lines to only commit the markdown versions
+#*.docx
+#*.pptx
+#*.pdf
+#*.doc
+#*.ppt
+
+# Option 2: Track both (default)
+# Keep both binary and markdown versions in git
+# No exclusions needed
+
+# Always track the VCS markdown directory
+!.vcs-docs/
+
+# Exclude temporary Office files
+~$*.docx
+~$*.pptx
+.~*.docx
+.~*.pptx
+*.tmp
+
+# VCS converter temporary files
+.vcs-converter-cache/

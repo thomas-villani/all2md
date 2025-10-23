@@ -49,11 +49,7 @@ class TestRtfRendererBasic:
 
     def test_render_block_comment_basic(self) -> None:
         """Render a basic block-level comment."""
-        doc = Document(
-            children=[
-                Comment(content="This is a block comment", metadata={})
-            ]
-        )
+        doc = Document(children=[Comment(content="This is a block comment", metadata={})])
         renderer = RtfRenderer()
         rtf_output = renderer.render_to_string(doc)
         assert "This is a block comment" in rtf_output
@@ -63,12 +59,7 @@ class TestRtfRendererBasic:
         doc = Document(
             children=[
                 Comment(
-                    content="Review this section",
-                    metadata={
-                        "author": "John Doe",
-                        "date": "2025-01-15",
-                        "label": "1"
-                    }
+                    content="Review this section", metadata={"author": "John Doe", "date": "2025-01-15", "label": "1"}
                 )
             ]
         )
@@ -84,7 +75,7 @@ class TestRtfRendererBasic:
             children=[
                 Paragraph(content=[Text(content="Before comment")]),
                 Comment(content="This should be dropped"),
-                Paragraph(content=[Text(content="After comment")])
+                Paragraph(content=[Text(content="After comment")]),
             ]
         )
         renderer = RtfRenderer(options=RtfRendererOptions(comment_mode="ignore"))
@@ -101,7 +92,7 @@ class TestRtfRendererBasic:
                     content=[
                         Text(content="Before "),
                         CommentInline(content="inline comment", metadata={}),
-                        Text(content=" after")
+                        Text(content=" after"),
                     ]
                 )
             ]
@@ -119,14 +110,8 @@ class TestRtfRendererBasic:
                 Paragraph(
                     content=[
                         Text(content="Text with "),
-                        CommentInline(
-                            content="annotated section",
-                            metadata={
-                                "author": "Jane Smith",
-                                "label": "2"
-                            }
-                        ),
-                        Text(content=" here")
+                        CommentInline(content="annotated section", metadata={"author": "Jane Smith", "label": "2"}),
+                        Text(content=" here"),
                     ]
                 )
             ]
@@ -140,13 +125,7 @@ class TestRtfRendererBasic:
         """Render an inline comment with ignore mode (drops comment)."""
         doc = Document(
             children=[
-                Paragraph(
-                    content=[
-                        Text(content="Start "),
-                        CommentInline(content="dropped"),
-                        Text(content="end")
-                    ]
-                )
+                Paragraph(content=[Text(content="Start "), CommentInline(content="dropped"), Text(content="end")])
             ]
         )
         renderer = RtfRenderer(options=RtfRendererOptions(comment_mode="ignore"))

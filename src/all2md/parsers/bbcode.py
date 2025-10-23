@@ -23,7 +23,6 @@ from typing import IO, Any, Optional, Union
 
 from all2md.ast import (
     BlockQuote,
-    Code,
     CodeBlock,
     Document,
     Emphasis,
@@ -125,22 +124,16 @@ class BBCodeParser(BaseParser):
     """
 
     # Regex pattern for BBCode tags
-    TAG_PATTERN = re.compile(
-        r'\[(/?)(\w+)(?:=([^\]]+))?\]',
-        re.IGNORECASE
-    )
+    TAG_PATTERN = re.compile(r"\[(/?)(\w+)(?:=([^\]]+))?\]", re.IGNORECASE)
 
     # Block-level tags that should create new blocks
-    BLOCK_TAGS = {
-        'quote', 'code', 'list', 'table', 'center', 'left', 'right',
-        'hr', 'spoiler', 'youtube', 'video'
-    }
+    BLOCK_TAGS = {"quote", "code", "list", "table", "center", "left", "right", "hr", "spoiler", "youtube", "video"}
 
     # Tags that should be treated as headings
-    HEADING_TAGS = {'h1', 'h2', 'h3', 'h4', 'h5', 'h6'}
+    HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 
     # Self-closing tags
-    SELF_CLOSING_TAGS = {'hr', '*', 'br'}
+    SELF_CLOSING_TAGS = {"hr", "*", "br"}
 
     def __init__(
         self, options: BBCodeParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
@@ -253,7 +246,7 @@ class BBCodeParser(BaseParser):
 
         """
         # Normalize line endings
-        bbcode = bbcode.replace('\r\n', '\n').replace('\r', '\n')
+        bbcode = bbcode.replace("\r\n", "\n").replace("\r", "\n")
 
         # Parse into blocks and inline content
         return self._parse_blocks(bbcode)
@@ -289,18 +282,18 @@ class BBCodeParser(BaseParser):
 
             # Add text before tag to buffer
             if match.start() > pos:
-                text_before = bbcode[pos:match.start()]
+                text_before = bbcode[pos : match.start()]
                 inline_buffer.append(text_before)
 
-            is_closing = match.group(1) == '/'
+            is_closing = match.group(1) == "/"
             tag_name = match.group(2).lower()
             tag_value = match.group(3)
 
             # Check for horizontal rule first (self-closing block tag)
-            if tag_name == 'hr' and not is_closing:
+            if tag_name == "hr" and not is_closing:
                 # Horizontal rule (self-closing)
                 if inline_buffer:
-                    inline_content = ''.join(inline_buffer)
+                    inline_content = "".join(inline_buffer)
                     if inline_content.strip():
                         result.extend(self._split_paragraphs(inline_content))
                     inline_buffer = []
@@ -312,7 +305,7 @@ class BBCodeParser(BaseParser):
             elif tag_name in self.BLOCK_TAGS and not is_closing:
                 # Flush inline buffer
                 if inline_buffer:
-                    inline_content = ''.join(inline_buffer)
+                    inline_content = "".join(inline_buffer)
                     if inline_content.strip():
                         result.extend(self._split_paragraphs(inline_content))
                     inline_buffer = []
@@ -326,7 +319,7 @@ class BBCodeParser(BaseParser):
             elif tag_name in self.HEADING_TAGS and not is_closing:
                 # Flush inline buffer
                 if inline_buffer:
-                    inline_content = ''.join(inline_buffer)
+                    inline_content = "".join(inline_buffer)
                     if inline_content.strip():
                         result.extend(self._split_paragraphs(inline_content))
                     inline_buffer = []
@@ -339,12 +332,12 @@ class BBCodeParser(BaseParser):
 
             else:
                 # Inline tag or closing tag - include in buffer
-                inline_buffer.append(bbcode[match.start():match.end()])
+                inline_buffer.append(bbcode[match.start() : match.end()])
                 pos = match.end()
 
         # Flush remaining inline buffer
         if inline_buffer:
-            inline_content = ''.join(inline_buffer)
+            inline_content = "".join(inline_buffer)
             if inline_content.strip():
                 result.extend(self._split_paragraphs(inline_content))
 
@@ -365,7 +358,7 @@ class BBCodeParser(BaseParser):
 
         """
         paragraphs: list[Node] = []
-        parts = re.split(r'\n\s*\n', content)
+        parts = re.split(r"\n\s*\n", content)
 
         for part in parts:
             part = part.strip()
@@ -373,7 +366,7 @@ class BBCodeParser(BaseParser):
                 continue
 
             # Check for thematic break
-            if re.match(r'^-{3,}$', part):
+            if re.match(r"^-{3,}$", part):
                 paragraphs.append(ThematicBreak())
             else:
                 # Parse inline content
@@ -406,7 +399,7 @@ class BBCodeParser(BaseParser):
 
         """
         # Find closing tag
-        closing_pattern = re.compile(rf'\[/{tag_name}\]', re.IGNORECASE)
+        closing_pattern = re.compile(rf"\[/{tag_name}\]", re.IGNORECASE)
         closing_match = closing_pattern.search(bbcode, match.end())
 
         if not closing_match:
@@ -417,22 +410,22 @@ class BBCodeParser(BaseParser):
                 return None, match.end()
 
         # Extract content between tags
-        content = bbcode[match.end():closing_match.start()]
+        content = bbcode[match.end() : closing_match.start()]
 
         # Parse based on tag type
-        if tag_name == 'quote':
+        if tag_name == "quote":
             return self._create_quote(content, tag_value), closing_match.end()
-        elif tag_name == 'code':
+        elif tag_name == "code":
             return self._create_code_block(content, tag_value), closing_match.end()
-        elif tag_name == 'list':
+        elif tag_name == "list":
             return self._create_list(content, tag_value), closing_match.end()
-        elif tag_name == 'table':
+        elif tag_name == "table":
             return self._create_table(content), closing_match.end()
-        elif tag_name in ('center', 'left', 'right'):
+        elif tag_name in ("center", "left", "right"):
             return self._create_aligned_paragraph(content, tag_name), closing_match.end()
-        elif tag_name == 'spoiler':
+        elif tag_name == "spoiler":
             return self._create_spoiler(content), closing_match.end()
-        elif tag_name in ('youtube', 'video'):
+        elif tag_name in ("youtube", "video"):
             return self._create_media_block(content, tag_name), closing_match.end()
         else:
             # Unknown block tag - handle based on option
@@ -460,7 +453,7 @@ class BBCodeParser(BaseParser):
         level = int(tag_name[1])
 
         # Find closing tag
-        closing_pattern = re.compile(rf'\[/{tag_name}\]', re.IGNORECASE)
+        closing_pattern = re.compile(rf"\[/{tag_name}\]", re.IGNORECASE)
         closing_match = closing_pattern.search(bbcode, match.end())
 
         if not closing_match:
@@ -470,7 +463,7 @@ class BBCodeParser(BaseParser):
                 return None, match.end()
 
         # Extract and parse content
-        content = bbcode[match.end():closing_match.start()]
+        content = bbcode[match.end() : closing_match.start()]
         inline_nodes = self._parse_inline(content)
 
         return Heading(level=level, content=inline_nodes), closing_match.end()
@@ -504,10 +497,10 @@ class BBCodeParser(BaseParser):
 
             # Add text before tag
             if match.start() > pos:
-                text_before = content[pos:match.start()]
+                text_before = content[pos : match.start()]
                 result.append(Text(content=text_before))
 
-            is_closing = match.group(1) == '/'
+            is_closing = match.group(1) == "/"
             tag_name = match.group(2).lower()
             tag_value = match.group(3)
 
@@ -526,7 +519,7 @@ class BBCodeParser(BaseParser):
                     if node:
                         result.append(node)
                     pos = match.end()
-                elif tag_name in ('img',):
+                elif tag_name in ("img",):
                     # Special handling for img tag
                     node = self._parse_img_tag(content, match, tag_value)
                     if node:
@@ -550,10 +543,8 @@ class BBCodeParser(BaseParser):
                             pos = match.end()
                     else:
                         # Extract content and create node
-                        inner_content = content[match.end():closing_pos]
-                        node = self._create_inline_formatted_node(
-                            tag_name, tag_value, inner_content
-                        )
+                        inner_content = content[match.end() : closing_pos]
+                        node = self._create_inline_formatted_node(tag_name, tag_value, inner_content)
                         if node:
                             result.append(node)
                         # Move past closing tag
@@ -588,7 +579,7 @@ class BBCodeParser(BaseParser):
             if not match:
                 break
 
-            is_closing = match.group(1) == '/'
+            is_closing = match.group(1) == "/"
             current_tag = match.group(2).lower()
 
             if current_tag == tag_name:
@@ -603,9 +594,7 @@ class BBCodeParser(BaseParser):
 
         return None
 
-    def _create_inline_formatted_node(
-        self, tag_name: str, tag_value: Optional[str], inner_content: str
-    ) -> Node | None:
+    def _create_inline_formatted_node(self, tag_name: str, tag_value: Optional[str], inner_content: str) -> Node | None:
         """Create a formatted inline AST node.
 
         Parameters
@@ -627,19 +616,19 @@ class BBCodeParser(BaseParser):
         inner_nodes = self._parse_inline(inner_content) if inner_content else [Text(content="")]
 
         # Create appropriate node based on tag
-        if tag_name == 'b':
+        if tag_name == "b":
             return Strong(content=inner_nodes)
-        elif tag_name == 'i':
+        elif tag_name == "i":
             return Emphasis(content=inner_nodes)
-        elif tag_name == 'u':
+        elif tag_name == "u":
             return Underline(content=inner_nodes)
-        elif tag_name == 's':
+        elif tag_name == "s":
             return Strikethrough(content=inner_nodes)
-        elif tag_name == 'sup':
+        elif tag_name == "sup":
             return Superscript(content=inner_nodes)
-        elif tag_name == 'sub':
+        elif tag_name == "sub":
             return Subscript(content=inner_nodes)
-        elif tag_name == 'url':
+        elif tag_name == "url":
             # If tag_value is set, use it as URL; otherwise use inner content
             if tag_value:
                 url = sanitize_url(tag_value)
@@ -652,7 +641,7 @@ class BBCodeParser(BaseParser):
                     inner_nodes = [Text(content=url_text)]
 
             return Link(url=url, content=inner_nodes)
-        elif tag_name == 'email':
+        elif tag_name == "email":
             # If tag_value is set, use it as email; otherwise use inner content
             if tag_value:
                 email = tag_value
@@ -661,7 +650,7 @@ class BBCodeParser(BaseParser):
 
             url = f"mailto:{email}"
             return Link(url=url, content=inner_nodes)
-        elif tag_name in ('color', 'size', 'font'):
+        elif tag_name in ("color", "size", "font"):
             # Styled text - wrap in a container with metadata if option is set
             if self.options.parse_color_size and tag_value:
                 # For styled text, we can't use metadata on Text nodes effectively
@@ -695,7 +684,7 @@ class BBCodeParser(BaseParser):
 
         """
         # Find closing [/img] tag
-        closing_pos = self._find_closing_tag_position(content, match.end(), 'img')
+        closing_pos = self._find_closing_tag_position(content, match.end(), "img")
         if closing_pos is None:
             if self.options.strict_mode:
                 raise ParsingError(f"Unclosed [img] tag at position {match.start()}")
@@ -703,16 +692,16 @@ class BBCodeParser(BaseParser):
                 return None
 
         # Extract image URL
-        url = content[match.end():closing_pos].strip()
+        url = content[match.end() : closing_pos].strip()
         url = sanitize_url(url)
 
         # Parse size if provided
         metadata: dict[str, Any] = {}
-        if tag_value and 'x' in tag_value.lower():
+        if tag_value and "x" in tag_value.lower():
             try:
-                width, height = tag_value.lower().split('x')
-                metadata['width'] = width.strip()
-                metadata['height'] = height.strip()
+                width, height = tag_value.lower().split("x")
+                metadata["width"] = width.strip()
+                metadata["height"] = height.strip()
             except ValueError:
                 pass
 
@@ -734,9 +723,9 @@ class BBCodeParser(BaseParser):
             Created node
 
         """
-        if tag_name == 'br':
+        if tag_name == "br":
             return LineBreak(soft=False)
-        elif tag_name == '*':
+        elif tag_name == "*":
             # List item marker - should not appear in inline context
             return None
         else:
@@ -803,11 +792,11 @@ class BBCodeParser(BaseParser):
             List AST node
 
         """
-        ordered = list_type == '1'
+        ordered = list_type == "1"
         items: list[ListItem] = []
 
         # Split by [*] markers
-        parts = re.split(r'\[\*\]', content)
+        parts = re.split(r"\[\*\]", content)
 
         for part in parts:
             part = part.strip()
@@ -838,7 +827,7 @@ class BBCodeParser(BaseParser):
         header: Optional[TableRow] = None
 
         # Find all [tr]...[/tr] pairs
-        tr_pattern = re.compile(r'\[tr\](.*?)\[/tr\]', re.IGNORECASE | re.DOTALL)
+        tr_pattern = re.compile(r"\[tr\](.*?)\[/tr\]", re.IGNORECASE | re.DOTALL)
         tr_matches = tr_pattern.findall(content)
 
         for row_content in tr_matches:
@@ -846,11 +835,11 @@ class BBCodeParser(BaseParser):
             is_header = False
 
             # Find all [td] or [th] cells
-            td_pattern = re.compile(r'\[(td|th)\](.*?)\[/\1\]', re.IGNORECASE | re.DOTALL)
+            td_pattern = re.compile(r"\[(td|th)\](.*?)\[/\1\]", re.IGNORECASE | re.DOTALL)
             cell_matches = td_pattern.findall(row_content)
 
             for cell_type, cell_content in cell_matches:
-                if cell_type.lower() == 'th':
+                if cell_type.lower() == "th":
                     is_header = True
 
                 # Parse cell content as inline
@@ -886,7 +875,7 @@ class BBCodeParser(BaseParser):
         metadata: dict[str, Any] = {}
 
         if self.options.parse_alignment:
-            metadata['alignment'] = alignment
+            metadata["alignment"] = alignment
 
         return Paragraph(content=inline_nodes, metadata=metadata if metadata else {})
 
@@ -925,7 +914,7 @@ class BBCodeParser(BaseParser):
         """
         content = content.strip()
 
-        if media_type == 'youtube':
+        if media_type == "youtube":
             # Convert YouTube ID to URL
             url = f"https://www.youtube.com/watch?v={content}"
         else:
@@ -935,9 +924,7 @@ class BBCodeParser(BaseParser):
         link = Link(url=url, content=[Text(content=f"[{media_type.upper()}]")])
         return Paragraph(content=[link])
 
-    def _handle_unknown_block(
-        self, content: str, tag_name: str, tag_value: Optional[str]
-    ) -> Node:
+    def _handle_unknown_block(self, content: str, tag_name: str, tag_value: Optional[str]) -> Node:
         """Handle unknown block-level tags.
 
         Parameters
@@ -1031,7 +1018,7 @@ class BBCodeParser(BaseParser):
         if isinstance(document, str):
             # Try to find first heading
             for i in range(1, 7):
-                pattern = rf'\[h{i}\](.*?)\[/h{i}\]'
+                pattern = rf"\[h{i}\](.*?)\[/h{i}\]"
                 match = re.search(pattern, document, re.IGNORECASE)
                 if match:
                     metadata.title = match.group(1).strip()

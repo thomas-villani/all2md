@@ -3,6 +3,7 @@
 
 This module defines options for Markdown conversion with flavor support.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -220,7 +221,7 @@ class MarkdownOptions(BaseRendererOptions):
         default=False,
         metadata={
             "help": "Raise errors on flavor-incompatible options instead of just warnings. "
-                    "When True, validate_flavor_compatibility warnings become ValueError exceptions.",
+            "When True, validate_flavor_compatibility warnings become ValueError exceptions.",
             "importance": "advanced",
         },
     )
@@ -228,8 +229,8 @@ class MarkdownOptions(BaseRendererOptions):
         default=UNSET,
         metadata={
             "help": "How to handle tables when flavor doesn't support them: "
-                    "drop (skip entirely), ascii (render as ASCII art), "
-                    "force (render as pipe tables anyway), html (render as HTML table)",
+            "drop (skip entirely), ascii (render as ASCII art), "
+            "force (render as pipe tables anyway), html (render as HTML table)",
             "choices": ["drop", "ascii", "force", "html"],
             "importance": "advanced",
         },
@@ -238,8 +239,8 @@ class MarkdownOptions(BaseRendererOptions):
         default=UNSET,
         metadata={
             "help": "How to handle inline elements unsupported by flavor: "
-                    "plain (render content without formatting), "
-                    "force (use markdown syntax anyway), html (use HTML tags)",
+            "plain (render content without formatting), "
+            "force (use markdown syntax anyway), html (use HTML tags)",
             "choices": ["plain", "force", "html"],
             "importance": "advanced",
         },
@@ -344,9 +345,9 @@ class MarkdownOptions(BaseRendererOptions):
         default=DEFAULT_MARKDOWN_HTML_SANITIZATION,
         metadata={
             "help": "How to handle raw HTML content in markdown: "
-                    "pass-through (allow HTML as-is), escape (show as text), "
-                    "drop (remove entirely), sanitize (remove dangerous elements). "
-                    "Default is 'escape' for security. Does not affect code blocks.",
+            "pass-through (allow HTML as-is), escape (show as text), "
+            "drop (remove entirely), sanitize (remove dangerous elements). "
+            "Default is 'escape' for security. Does not affect code blocks.",
             "choices": ["pass-through", "escape", "drop", "sanitize"],
             "importance": "security",
         },
@@ -355,9 +356,9 @@ class MarkdownOptions(BaseRendererOptions):
         default=DEFAULT_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), "
-                    "ignore (skip comment nodes entirely). Controls presentation of comments "
-                    "from DOCX, HTML, and other formats that support annotations.",
+            "html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), "
+            "ignore (skip comment nodes entirely). Controls presentation of comments "
+            "from DOCX, HTML, and other formats that support annotations.",
             "choices": ["html", "blockquote", "ignore"],
             "importance": "core",
         },
@@ -607,8 +608,8 @@ def get_flavor_defaults(flavor: FlavorType) -> dict[str, Any]:
 
 
 def validate_flavor_compatibility(
-        flavor: FlavorType,
-        options: MarkdownOptions,
+    flavor: FlavorType,
+    options: MarkdownOptions,
 ) -> list[str]:
     """Validate option compatibility with markdown flavor and return warnings.
 

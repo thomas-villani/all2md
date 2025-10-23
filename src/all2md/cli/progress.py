@@ -192,7 +192,7 @@ class SummaryRenderer:
                 self.use_rich = False
 
     def render_conversion_summary(
-            self, successful: int, failed: int, total: int, title: str = "Conversion Summary"
+        self, successful: int, failed: int, total: int, title: str = "Conversion Summary"
     ) -> None:
         """Render a conversion summary table.
 
@@ -229,7 +229,7 @@ class SummaryRenderer:
             print(f"  Total:      {total}", file=sys.stderr)
 
     def render_two_column_table(
-            self, rows: list[tuple[str, str]], title: str, col1_header: str = "Item", col2_header: str = "Status"
+        self, rows: list[tuple[str, str]], title: str, col1_header: str = "Item", col2_header: str = "Status"
     ) -> None:
         """Render a generic two-column table.
 

@@ -5,6 +5,7 @@
 
 This module defines options for Org-Mode document conversion.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -191,8 +192,8 @@ class OrgRendererOptions(BaseRendererOptions):
         default=DEFAULT_ORG_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "comment (# comments), drawer (:COMMENT: drawer), "
-                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "comment (# comments), drawer (:COMMENT: drawer), "
+            "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
             "choices": ["comment", "drawer", "ignore"],
             "importance": "core",
         },

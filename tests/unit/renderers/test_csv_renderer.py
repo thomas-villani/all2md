@@ -32,9 +32,7 @@ class TestBasicRendering:
                 cells=[TableCell(content=[Text(content="Name")]), TableCell(content=[Text(content="Age")])]
             ),
             rows=[
-                TableRow(
-                    cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]
-                ),
+                TableRow(cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]),
                 TableRow(cells=[TableCell(content=[Text(content="Bob")]), TableCell(content=[Text(content="25")])]),
             ],
         )
@@ -49,9 +47,7 @@ class TestBasicRendering:
         """Test rendering a table without header row."""
         table = Table(
             rows=[
-                TableRow(
-                    cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]
-                ),
+                TableRow(cells=[TableCell(content=[Text(content="Alice")]), TableCell(content=[Text(content="30")])]),
                 TableRow(cells=[TableCell(content=[Text(content="Bob")]), TableCell(content=[Text(content="25")])]),
             ]
         )
@@ -249,9 +245,7 @@ class TestMultiTableMode:
             ]
         )
 
-        options = CsvRendererOptions(
-            multi_table_mode="all", table_index=None, include_table_headings=True
-        )
+        options = CsvRendererOptions(multi_table_mode="all", table_index=None, include_table_headings=True)
         renderer = CsvRenderer(options)
         result = renderer.render_to_string(doc)
 

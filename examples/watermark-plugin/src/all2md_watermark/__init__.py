@@ -15,17 +15,14 @@ METADATA = TransformMetadata(
     description="Embed or record watermarks for images",
     transformer_class=WatermarkTransform,
     parameters={
-        'text': ParameterSpec(
-            type=str,
-            default="CONFIDENTIAL",
-            help="Watermark text to add to images",
-            cli_flag='--watermark-text'
+        "text": ParameterSpec(
+            type=str, default="CONFIDENTIAL", help="Watermark text to add to images", cli_flag="--watermark-text"
         )
     },
     priority=100,
     tags=["images", "metadata"],
     version="1.1.0",
-    author="Your Name"
+    author="Your Name",
 )
 
 __version__ = "1.1.0"

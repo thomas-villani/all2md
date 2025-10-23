@@ -1,12 +1,9 @@
 """Type stubs for pptx.oxml.ns module."""
 
-
-
 class NamespacePrefixedTag:
     """Represents a namespace-prefixed XML tag."""
 
     ...
-
 
 def qn(tag: str) -> str:
     """Return qualified name for tag.
@@ -24,7 +21,6 @@ def qn(tag: str) -> str:
     """
     ...
 
-
 def nsuri(prefix: str) -> str:
     """Return namespace URI for prefix.
 
@@ -40,7 +36,6 @@ def nsuri(prefix: str) -> str:
 
     """
     ...
-
 
 namespaces: dict[str, str]
 nsmap: dict[str, str]

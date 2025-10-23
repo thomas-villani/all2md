@@ -19,7 +19,6 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
-    Comment,
     CommentInline,
     Document,
     Emphasis,

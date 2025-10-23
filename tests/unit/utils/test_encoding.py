@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from all2md.utils.encoding import (
     detect_encoding,
     get_charset_from_content_type,
@@ -116,10 +114,7 @@ class TestReadTextWithEncodingDetection:
         """Test with custom fallback encoding list."""
         original = "Café"
         data = original.encode("cp1252")
-        result = read_text_with_encoding_detection(
-            data,
-            fallback_encodings=["cp1252", "utf-8", "latin-1"]
-        )
+        result = read_text_with_encoding_detection(data, fallback_encodings=["cp1252", "utf-8", "latin-1"])
         assert result == original
 
     def test_disable_chardet(self):
@@ -134,10 +129,7 @@ class TestReadTextWithEncodingDetection:
         original = "Simple ASCII text"
         data = original.encode("ascii")
         # Even without chardet, should fall back to UTF-8/Latin-1
-        result = read_text_with_encoding_detection(
-            data,
-            fallback_encodings=["ascii", "utf-8"]
-        )
+        result = read_text_with_encoding_detection(data, fallback_encodings=["ascii", "utf-8"])
         assert result == original
 
     def test_malformed_utf8_with_replacement(self):
@@ -158,7 +150,7 @@ class TestReadTextWithEncodingDetection:
     def test_very_large_data(self):
         """Test reading large data (tests sampling)."""
         # Create large text
-        original = ("Hello, world! " * 10000)
+        original = "Hello, world! " * 10000
         data = original.encode("utf-8")
         result = read_text_with_encoding_detection(data, chardet_sample_size=4096)
         assert result == original
@@ -278,10 +270,7 @@ class TestEncodingIntegration:
         data = html_content.encode(charset)
 
         # Use detected charset in fallback list
-        result = read_text_with_encoding_detection(
-            data,
-            fallback_encodings=[charset, "utf-8", "latin-1"]
-        )
+        result = read_text_with_encoding_detection(data, fallback_encodings=[charset, "utf-8", "latin-1"])
         assert "Café" in result or "Caf" in result
 
     def test_markdown_with_unicode(self):
@@ -306,10 +295,7 @@ class TestEncodingIntegration:
         content = "Project — Status Report"  # em dash
         data = content.encode("windows-1252", errors="ignore")
 
-        result = read_text_with_encoding_detection(
-            data,
-            fallback_encodings=["utf-8", "windows-1252", "latin-1"]
-        )
+        result = read_text_with_encoding_detection(data, fallback_encodings=["utf-8", "windows-1252", "latin-1"])
         # Should decode successfully
         assert isinstance(result, str)
         assert "Project" in result

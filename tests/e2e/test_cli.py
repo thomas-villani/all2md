@@ -45,7 +45,10 @@ class TestCLIEndToEnd:
         """
         cmd = [sys.executable, "-m", "all2md"] + args
         return subprocess.run(
-            cmd, cwd=self.cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
+            cmd,
+            cwd=self.cli_path.parent.parent.parent,
+            capture_output=True,
+            text=True,  # Run from project root
         )
 
     def test_html_file_conversion(self):
@@ -759,7 +762,10 @@ class TestEpubCLIEndToEnd:
         cmd = [sys.executable, "-m", "all2md"] + args
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
         return subprocess.run(
-            cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
+            cmd,
+            cwd=cli_path.parent.parent.parent,
+            capture_output=True,
+            text=True,  # Run from project root
         )
 
     def test_epub_basic_conversion(self):
@@ -938,7 +944,10 @@ class TestMhtmlCLIEndToEnd:
         cmd = [sys.executable, "-m", "all2md"] + args
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
         return subprocess.run(
-            cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
+            cmd,
+            cwd=cli_path.parent.parent.parent,
+            capture_output=True,
+            text=True,  # Run from project root
         )
 
     def test_mhtml_basic_conversion(self):
@@ -1094,7 +1103,10 @@ class TestAdvancedCLIFeaturesE2E:
         cmd = [sys.executable, "-m", "all2md"] + args
         cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
         return subprocess.run(
-            cmd, cwd=cli_path.parent.parent.parent, capture_output=True, text=True  # Run from project root
+            cmd,
+            cwd=cli_path.parent.parent.parent,
+            capture_output=True,
+            text=True,  # Run from project root
         )
 
     def test_rich_output_e2e(self):

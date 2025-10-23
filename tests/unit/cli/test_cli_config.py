@@ -25,13 +25,13 @@ def require_tomli_w() -> None:
 
 from all2md.cli.commands import handle_config_generate_command, handle_config_show_command
 from all2md.cli.config import (
+    _load_pyproject_all2md_section,
     discover_config_file,
     find_config_in_parents,
     get_config_search_paths,
     load_config_file,
     load_config_with_priority,
     merge_configs,
-    _load_pyproject_all2md_section,
 )
 from all2md.cli.presets import (
     apply_preset,

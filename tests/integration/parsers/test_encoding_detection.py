@@ -9,8 +9,6 @@ import io
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.parsers.csv import CsvToAstConverter
 from all2md.parsers.dokuwiki import DokuWikiParser
@@ -18,10 +16,10 @@ from all2md.parsers.markdown import MarkdownToAstConverter
 from all2md.parsers.mediawiki import MediaWikiParser
 from all2md.parsers.mhtml import MhtmlToAstConverter
 from all2md.parsers.org import OrgParser
+from all2md.parsers.plaintext import PlainTextToAstConverter
 from all2md.parsers.rst import RestructuredTextParser
 from all2md.parsers.sourcecode import SourceCodeToAstConverter
 from all2md.parsers.textile import TextileParser
-from all2md.parsers.plaintext import PlainTextToAstConverter
 
 
 class TestCSVEncodingDetection:

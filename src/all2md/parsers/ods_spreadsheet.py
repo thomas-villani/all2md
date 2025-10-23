@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_ods_images(
-        doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
+    doc: Any, table: Any, base_filename: str, attachment_sequencer: Any, options: Any
 ) -> tuple[list[Node], dict[str, str]]:
     """Extract images from an ODS table and convert to Image AST nodes.
 
@@ -229,7 +229,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
     """
 
     def __init__(
-            self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
+        self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         # Import here to avoid circular dependency
@@ -451,7 +451,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
             # Add truncation indicator if needed
             truncated = (self.options.max_rows is not None and len(rows_elem) - 1 > self.options.max_rows) or (
-                    self.options.max_cols is not None and any(len(row) > self.options.max_cols for row in raw_rows)
+                self.options.max_cols is not None and any(len(row) > self.options.max_cols for row in raw_rows)
             )
             if truncated:
                 children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))

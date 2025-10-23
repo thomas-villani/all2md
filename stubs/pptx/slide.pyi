@@ -20,7 +20,6 @@ class Slide:
         """Slide layout for this slide."""
         ...
 
-
 class SlideLayout:
     """Represents a slide layout."""
 
@@ -33,7 +32,6 @@ class SlideLayout:
     def placeholders(self) -> Any:
         """Placeholders in this layout."""
         ...
-
 
 class Slides:
     """Collection of slides in a presentation."""

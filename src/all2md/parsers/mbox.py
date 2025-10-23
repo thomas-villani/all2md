@@ -243,7 +243,9 @@ class MboxToAstConverter(BaseParser):
             doc = self._format_mailbox_as_ast(messages)
             doc.metadata = metadata.to_dict()
 
-            self._emit_progress("finished", f"Processed {len(messages)} messages", current=len(messages), total=len(messages))
+            self._emit_progress(
+                "finished", f"Processed {len(messages)} messages", current=len(messages), total=len(messages)
+            )
 
             return doc
 
@@ -327,11 +329,14 @@ class MboxToAstConverter(BaseParser):
                 if msg_data and _filter_message(msg_data, self.options):
                     messages.append(msg_data)
 
-                self._emit_progress("message_done", f"Message {i}", current=i, total=len(mbox) if hasattr(mbox, "__len__") else 0)
+                self._emit_progress(
+                    "message_done", f"Message {i}", current=i, total=len(mbox) if hasattr(mbox, "__len__") else 0
+                )
 
             except Exception as e:
                 # Log error but continue processing
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Failed to process message {key}: {e}")
                 continue
@@ -376,6 +381,7 @@ class MboxToAstConverter(BaseParser):
             except Exception as e:
                 # Log error but continue processing
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.warning(f"Failed to process message {key} in folder {folder_name}: {e}")
                 continue
@@ -422,6 +428,7 @@ class MboxToAstConverter(BaseParser):
 
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to parse message: {e}")
             return None
@@ -506,6 +513,7 @@ class MboxToAstConverter(BaseParser):
 
             if "date" in msg and msg["date"] is not None:
                 from all2md.parsers.eml import _format_date
+
                 formatted_date = _format_date(msg["date"], self.options)
                 if formatted_date:
                     header_lines.append(f"Date: {formatted_date}")
@@ -523,6 +531,7 @@ class MboxToAstConverter(BaseParser):
         if content.strip():
             # Split content into paragraphs
             import re
+
             paragraphs = re.split(r"\n\n+", content.strip())
             for para_text in paragraphs:
                 para_text = para_text.strip()

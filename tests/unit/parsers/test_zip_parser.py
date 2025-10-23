@@ -96,7 +96,8 @@ class TestZipParser:
         zip_data = create_test_zip(files)
 
         options = ZipOptions(
-            include_patterns=["*.txt", "*.json"], skip_empty_files=False  # Include unparseable files like JSON
+            include_patterns=["*.txt", "*.json"],
+            skip_empty_files=False,  # Include unparseable files like JSON
         )
 
         parser = ZipToAstConverter(options=options)

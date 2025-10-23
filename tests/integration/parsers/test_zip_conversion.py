@@ -103,7 +103,6 @@ class TestZipIntegration:
         assert isinstance(markdown, str)
         assert "data.json" in markdown
 
-
     def test_zip_with_mixed_parseable_files(self):
         """Test ZIP with multiple parseable file types.
 

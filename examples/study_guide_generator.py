@@ -106,9 +106,7 @@ class StudyGuide:
     practice_problems: list[str] = field(default_factory=list)
 
 
-def get_first_paragraph_after_heading(
-    ast_doc: Document, heading_idx: int
-) -> Optional[str]:
+def get_first_paragraph_after_heading(ast_doc: Document, heading_idx: int) -> Optional[str]:
     """Get the first paragraph after a specific heading.
 
     Parameters
@@ -161,9 +159,7 @@ def extract_code_blocks_with_context(ast_doc: Document) -> list[CodeExample]:
                     break
 
             language = child.language or "text"
-            examples.append(
-                CodeExample(language=language, code=child.content, context=context)
-            )
+            examples.append(CodeExample(language=language, code=child.content, context=context))
 
     return examples
 
@@ -190,9 +186,7 @@ def extract_study_sections(ast_doc: Document) -> list[StudySection]:
             heading_text = extract_text(child.content, joiner="")
             summary = get_first_paragraph_after_heading(ast_doc, i) or ""
 
-            section = StudySection(
-                heading=heading_text, level=child.level, summary=summary
-            )
+            section = StudySection(heading=heading_text, level=child.level, summary=summary)
 
             sections.append(section)
 
@@ -225,10 +219,7 @@ def mock_llm_quiz_generator(section: StudySection) -> list[str]:
 
     if section.code_examples:
         example = section.code_examples[0]
-        questions.append(
-            f"Q: What programming language is used in '{section.heading}'?\n"
-            f"A: {example.language}"
-        )
+        questions.append(f"Q: What programming language is used in '{section.heading}'?\n" f"A: {example.language}")
 
     return questions
 
@@ -263,9 +254,7 @@ def mock_llm_practice_generator(code_examples: list[CodeExample]) -> list[str]:
     return problems
 
 
-def llm_quiz_generator(
-    section: StudySection, llm_client: Callable[[str], str]
-) -> list[str]:
+def llm_quiz_generator(section: StudySection, llm_client: Callable[[str], str]) -> list[str]:
     """Generate quiz questions using an LLM.
 
     Parameters
@@ -299,9 +288,7 @@ A: [answer]
         return [f"Error generating quiz: {e}"]
 
 
-def llm_practice_generator(
-    code_examples: list[CodeExample], llm_client: Callable[[str], str]
-) -> list[str]:
+def llm_practice_generator(code_examples: list[CodeExample], llm_client: Callable[[str], str]) -> list[str]:
     """Generate practice problems using an LLM.
 
     Parameters
@@ -321,10 +308,7 @@ def llm_practice_generator(
         return []
 
     examples_text = "\n\n".join(
-        [
-            f"Language: {ex.language}\nContext: {ex.context}\nCode:\n{ex.code[:200]}"
-            for ex in code_examples[:3]
-        ]
+        [f"Language: {ex.language}\nContext: {ex.context}\nCode:\n{ex.code[:200]}" for ex in code_examples[:3]]
     )
 
     prompt = f"""Based on these code examples, generate 2-3 practice coding problems:
@@ -563,19 +547,11 @@ def main():
     """Run the study guide generator."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate study guide from documents"
-    )
+    parser = argparse.ArgumentParser(description="Generate study guide from documents")
     parser.add_argument("input", help="Input document path")
-    parser.add_argument(
-        "--output", "-o", default="study_guide.md", help="Output markdown file"
-    )
-    parser.add_argument(
-        "--quiz", action="store_true", help="Generate quiz questions"
-    )
-    parser.add_argument(
-        "--practice", action="store_true", help="Generate practice problems"
-    )
+    parser.add_argument("--output", "-o", default="study_guide.md", help="Output markdown file")
+    parser.add_argument("--quiz", action="store_true", help="Generate quiz questions")
+    parser.add_argument("--practice", action="store_true", help="Generate practice problems")
     parser.add_argument(
         "--llm",
         choices=["mock", "openai", "anthropic"],

@@ -97,10 +97,7 @@ def create_mbox_with_thread() -> mailbox.mbox:
     msg1["Message-ID"] = "<bug-report-001@company.com>"
     msg1["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 10, 0, tzinfo=datetime.timezone.utc))
     msg1.set_payload(
-        "Team,\n\n"
-        "We found a critical bug in the payment flow.\n"
-        "Users cannot complete checkout.\n\n"
-        "QA Team"
+        "Team,\n\n" "We found a critical bug in the payment flow.\n" "Users cannot complete checkout.\n\n" "QA Team"
     )
     mbox.add(msg1)
 
@@ -195,6 +192,7 @@ def write_mbox_to_file(mbox: mailbox.mbox, path: str) -> None:
     """
     # Get the temp file path from the mbox
     import shutil
+
     shutil.copy(mbox._path, path)
 
 

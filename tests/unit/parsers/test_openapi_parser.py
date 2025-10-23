@@ -161,9 +161,7 @@ paths:
         doc = parser.parse(spec.encode("utf-8"))
 
         # Should have tag headings
-        tag_headings = [
-            child for child in doc.children if isinstance(child, Heading) and child.level == 3
-        ]
+        tag_headings = [child for child in doc.children if isinstance(child, Heading) and child.level == 3]
         assert len(tag_headings) >= 2
 
     def test_schemas_section(self) -> None:
@@ -288,11 +286,12 @@ paths:
 
         # Should have DEPRECATED marker
         deprecated_found = any(
-            isinstance(child, Paragraph) and
-            any(isinstance(node, Strong) and
-                any(isinstance(text, Text) and "DEPRECATED" in text.content
-                    for text in node.content)
-                for node in child.content)
+            isinstance(child, Paragraph)
+            and any(
+                isinstance(node, Strong)
+                and any(isinstance(text, Text) and "DEPRECATED" in text.content for text in node.content)
+                for node in child.content
+            )
             for child in doc.children
         )
         assert deprecated_found
@@ -303,9 +302,8 @@ paths:
 
         # Should not have legacy endpoint
         has_legacy = any(
-            isinstance(child, Heading) and
-            any(isinstance(node, Text) and "legacy" in node.content.lower()
-                for node in child.content)
+            isinstance(child, Heading)
+            and any(isinstance(node, Text) and "legacy" in node.content.lower() for node in child.content)
             for child in doc.children
         )
         assert not has_legacy
@@ -394,80 +392,68 @@ class TestOpenApiDetection:
 
     def test_valid_openapi_3x_detected(self) -> None:
         """Test that valid OpenAPI 3.x specs are detected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "3.0.0",
-            "paths": {"/test": {}},
-            "info": {"title": "Test API", "version": "1.0"}
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps(
+            {"openapi": "3.0.0", "paths": {"/test": {}}, "info": {"title": "Test API", "version": "1.0"}}
+        ).encode()
 
         assert _is_openapi_content(spec) is True
 
     def test_valid_openapi_31_detected(self) -> None:
         """Test that OpenAPI 3.1 specs are detected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "3.1.0",
-            "paths": {},
-            "info": {"title": "API v3.1"}
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps({"openapi": "3.1.0", "paths": {}, "info": {"title": "API v3.1"}}).encode()
 
         assert _is_openapi_content(spec) is True
 
     def test_valid_swagger_20_detected(self) -> None:
         """Test that valid Swagger 2.0 specs are detected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "swagger": "2.0",
-            "paths": {},
-            "info": {"title": "Swagger API", "version": "1.0"}
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps({"swagger": "2.0", "paths": {}, "info": {"title": "Swagger API", "version": "1.0"}}).encode()
 
         assert _is_openapi_content(spec) is True
 
     def test_json_with_wrong_types_not_detected(self) -> None:
         """Test that JSON with correct field names but wrong types is rejected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
+        from all2md.parsers.openapi import _is_openapi_content
+
         # Fields exist but are wrong types
-        spec = json.dumps({
-            "openapi": "not_a_version",
-            "paths": "not_a_dict",
-            "info": "not_a_dict"
-        }).encode()
+        spec = json.dumps({"openapi": "not_a_version", "paths": "not_a_dict", "info": "not_a_dict"}).encode()
 
         assert _is_openapi_content(spec) is False
 
     def test_json_missing_title_not_detected(self) -> None:
         """Test that JSON missing required title field in info is rejected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "3.0.0",
-            "paths": {},
-            "info": {"version": "1.0"}  # Missing required title
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps(
+            {"openapi": "3.0.0", "paths": {}, "info": {"version": "1.0"}}  # Missing required title
+        ).encode()
 
         assert _is_openapi_content(spec) is False
 
     def test_json_wrong_version_not_detected(self) -> None:
         """Test that JSON with invalid version string is rejected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "4.0.0",  # Invalid version (not 3.x)
-            "paths": {},
-            "info": {"title": "API", "version": "1.0"}
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps(
+            {"openapi": "4.0.0", "paths": {}, "info": {"title": "API", "version": "1.0"}}  # Invalid version (not 3.x)
+        ).encode()
 
         assert _is_openapi_content(spec) is False
 
@@ -480,13 +466,11 @@ class TestOpenApiDetection:
 
     def test_json_with_only_openapi_field_not_detected(self) -> None:
         """Test that JSON with only openapi field is rejected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "3.0.0",
-            "data": "some data"
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps({"openapi": "3.0.0", "data": "some data"}).encode()
 
         assert _is_openapi_content(spec) is False
 
@@ -515,26 +499,22 @@ paths: {}
 
     def test_json_with_paths_not_dict_not_detected(self) -> None:
         """Test that JSON with paths field that is not a dict is rejected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "3.0.0",
-            "paths": [],  # Should be dict, not list
-            "info": {"title": "API"}
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps(
+            {"openapi": "3.0.0", "paths": [], "info": {"title": "API"}}  # Should be dict, not list
+        ).encode()
 
         assert _is_openapi_content(spec) is False
 
     def test_json_with_info_not_dict_not_detected(self) -> None:
         """Test that JSON with info field that is not a dict is rejected."""
-        from all2md.parsers.openapi import _is_openapi_content
         import json
 
-        spec = json.dumps({
-            "openapi": "3.0.0",
-            "paths": {},
-            "info": []  # Should be dict, not list
-        }).encode()
+        from all2md.parsers.openapi import _is_openapi_content
+
+        spec = json.dumps({"openapi": "3.0.0", "paths": {}, "info": []}).encode()  # Should be dict, not list
 
         assert _is_openapi_content(spec) is False

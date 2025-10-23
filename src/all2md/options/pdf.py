@@ -4,6 +4,7 @@
 This module defines options for parsing PDF documents with advanced
 table detection and layout analysis.
 """
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -31,6 +32,7 @@ from all2md.constants import (
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_PDF_CODE_FONT,
+    DEFAULT_PDF_COMMENT_MODE,
     DEFAULT_PDF_FONT_FAMILY,
     DEFAULT_PDF_FONT_SIZE,
     DEFAULT_PDF_LINE_SPACING,
@@ -47,7 +49,6 @@ from all2md.constants import (
     PageSize,
     PdfCommentMode,
     TableDetectionMode,
-    DEFAULT_PDF_COMMENT_MODE,
 )
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, OCROptions, PaginatedParserOptions
@@ -482,7 +483,7 @@ class PdfOptions(PaginatedParserOptions):
         default=False,
         metadata={
             "help": "Placeholder for future lazy image loading support. Note: Full implementation would require "
-                    "paginator interface for streaming large PDFs. Currently has no effect.",
+            "paginator interface for streaming large PDFs. Currently has no effect.",
             "importance": "advanced",
         },
     )

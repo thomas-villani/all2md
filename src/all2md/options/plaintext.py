@@ -10,17 +10,17 @@ from dataclasses import dataclass, field
 from all2md.constants import DEFAULT_PLAINTEXT_COMMENT_MODE, PlainTextCommentMode
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
+
 @dataclass(frozen=True)
 class PlainTextParserOptions(BaseParserOptions):
-
     preserve_single_newlines: bool = field(
         default=False,
         metadata={
             "help": "Preserve single newlines characters in text",
-            "type": bool, "importance": "core",
+            "type": bool,
+            "importance": "core",
         },
     )
-
 
 
 @dataclass(frozen=True)

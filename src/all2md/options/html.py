@@ -4,6 +4,7 @@
 This module defines options for HTML document conversion with sanitization
 and security controls.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -24,9 +25,8 @@ from all2md.constants import (
     HtmlCommentMode,
     HtmlPassthroughMode,
 )
-from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
+from all2md.options.common import AttachmentOptionsMixin, LocalFileAccessOptions, NetworkFetchOptions
 
 
 # src/all2md/options/html.py
@@ -239,7 +239,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         default=DEFAULT_ALLOW_REMOTE_SCRIPTS,
         metadata={
             "help": "Allow loading remote scripts (e.g., MathJax/KaTeX CDN). "
-                    "Default is False for security - opt-in required for CDN usage.",
+            "Default is False for security - opt-in required for CDN usage.",
             "importance": "security",
         },
     )
@@ -261,9 +261,9 @@ class HtmlRendererOptions(BaseRendererOptions):
         default=DEFAULT_HTML_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "native (HTML comments <!-- -->), visible (visible <div>/<span> elements), "
-                    "ignore (skip comment nodes entirely). Controls presentation of comments "
-                    "from DOCX, HTML parsers, and other formats with annotations.",
+            "native (HTML comments <!-- -->), visible (visible <div>/<span> elements), "
+            "ignore (skip comment nodes entirely). Controls presentation of comments "
+            "from DOCX, HTML parsers, and other formats with annotations.",
             "choices": ["native", "visible", "ignore"],
             "importance": "core",
         },
@@ -406,7 +406,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         default=False,
         metadata={
             "help": "Extract main article content by stripping navigation and other non-readable content "
-                    "using readability-lxml",
+            "using readability-lxml",
             "importance": "advanced",
         },
     )
@@ -430,11 +430,11 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         default=None,
         metadata={
             "help": "Whitelist of allowed HTML attributes. Can be a tuple of attribute names "
-                    "(global allowlist) or a dict mapping element names to tuples of allowed "
-                    "attributes (per-element allowlist). Examples: ('class', 'id') or "
-                    "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
-                    "CLI note: For complex dict structures, pass as JSON string: "
-                    '--allowed-attributes \'{"img": ["src", "alt"], "a": ["href"]}\'',
+            "(global allowlist) or a dict mapping element names to tuples of allowed "
+            "attributes (per-element allowlist). Examples: ('class', 'id') or "
+            "{'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. "
+            "CLI note: For complex dict structures, pass as JSON string: "
+            '--allowed-attributes \'{"img": ["src", "alt"], "a": ["href"]}\'',
             "action": "append",
             "importance": "security",
         },

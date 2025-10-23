@@ -83,7 +83,7 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
                     return EditDocumentSimpleOutput(
                         success=False,
                         message=f"[ERROR] Invalid target index format: {input_data.target!r}. "
-                                "Expected format like '#0', '#1', '#2'.",
+                        "Expected format like '#0', '#1', '#2'.",
                     )
             else:
                 target = target_str
@@ -93,7 +93,7 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
             return EditDocumentSimpleOutput(
                 success=False,
                 message=f"[ERROR] The '{input_data.action}' action requires a target "
-                        "(heading text or index like '#0').",
+                "(heading text or index like '#0').",
             )
 
         # Validate content is provided when needed
@@ -237,7 +237,11 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
             position = position_map[input_data.action]
 
             modified_doc = insert_into_section(
-                doc, target, content_doc.children, position=position, case_sensitive=False  # type: ignore[arg-type]
+                doc,
+                target,
+                content_doc.children,
+                position=position,
+                case_sensitive=False,  # type: ignore[arg-type]
             )
 
             # Serialize to markdown

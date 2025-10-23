@@ -2,78 +2,78 @@
 # name: TestAsciiDocGolden.test_asciidoc_with_formatting
   '''
   # Formatting Test Document
-  
+
   ## Basic Formatting
-  
+
   This paragraph contains **bold text**, *italic text*, and `inline code`.
-  
+
   This paragraph has ***bold and italic text*** combined.
-  
+
   ## All Heading Levels
-  
+
   ### Level 3 Heading
-  
+
   Content under level 3 heading.
-  
+
   #### Level 4 Heading
-  
+
   Content under level 4 heading.
-  
+
   ##### Level 5 Heading
-  
+
   Content under level 5 heading.
-  
+
   ###### Level 6 Heading
-  
+
   Content under level 6 heading.
-  
+
   ## Advanced Formatting
-  
+
   Text with <sup>superscript</sup> and <sub>subscript</sub>.
-  
+
   Text with \[line-through\]#strikethrough# content.
-  
+
   ## Block Quote
-  
+
   > This is a block quote with some important information. It can span multiple lines.
-  
+
   ## Thematic Break
-  
+
   ---
-  
+
   Content after thematic break.
   '''
 # ---
 # name: TestAsciiDocGolden.test_asciidoc_with_lists
   '''
   # List Test Document
-  
+
   ## Unordered List
-  
+
   * First item
   * Second item
   * Third item
     - Nested item 1
     - Nested item 2
   * Fourth item
-  
+
   ## Ordered List
-  
+
   1. First item
   2. Second item
   3. Third item
      1. Nested ordered item 1
      2. Nested ordered item 2
   4. Fourth item
-  
+
   ## Checklist
-  
+
   * [x] Completed task
   * [ ] Pending task
   * [x] Another completed task
-  
+
   ## Description List
-  
+
   <dl>
     <dt>CPU</dt>
     <dd>The brain of the computer</dd>
@@ -82,37 +82,37 @@
     <dt>GPU</dt>
     <dd>Graphics Processing Unit</dd>
   </dl>
-  
+
   ## Mixed Lists
-  
+
   1. First ordered item
-  
+
   * Nested unordered item
   * Another nested item
-  
+
   1. Second ordered item
   '''
 # ---
 # name: TestLatexGolden.test_latex_basic_document
   '''
   article
-  
+
   # Introduction
-  
-  This paragraph contains 
-  
+
+  This paragraph contains
+
   **bold**
-  
-   and 
-  
+
+   and
+
   *italic*
-  
+
    text.
-  
+
   # Lists
-  
+
   # Table
-  
+
   | Name | Role | Score |
   |---|---|---|
   | Alice | Developer | 95 |
@@ -122,21 +122,21 @@
 # name: TestLatexGolden.test_latex_with_math
   '''
   article
-  
+
   amsmath
-  
-  Inline math such as 
-  
+
+  Inline math such as
+
   $E = mc^2$
-  
+
    should render properly.
-  
+
   $$
   \int_0^1 x^2 \; dx = \frac{1}{3}
   $$
-  
+
   $$
-  
+
   f(x) &= x^2 + 2x + 1\\
   g(x) &= \frac{x^3}{3} - x\n
   $$
@@ -146,19 +146,19 @@
   '''
   \#~~TITLE: Sprint Notes
   #~~AUTHOR: Test User
-  
+
   # Implement feature A
-  
+
   * \[ \] Write design
   * \[ \] Implement
   * \[ \] Review
-  
+
   # Ship bug fixes
-  
+
   # Notes
-  
+
   Some inline `code` and **bold** text.
-  
+
   | Task | Owner | Status |
   |---|---|---|
   | Feature A | Alex | TODO |
@@ -168,45 +168,45 @@
 # name: TestPlainTextGolden.test_plaintext_sections
   '''
   Sample Document ==============
-  
+
   This is an example of plain text that contains a few paragraphs. It should convert to Markdown without any additional formatting.
-  
+
   Another Section ---------------
-  
+
   Bullet-style lines: - Item one - Item two
-  
+
   Numbered-style lines: 1. First 2. Second
   '''
 # ---
 # name: TestPlainTextGolden.test_plaintext_with_code_block
   '''
   Log Output ==========
-  
+
   The following snippet mimics a shell transcript:
-  
+
   $ ls -la total 12 drwxr-xr-x  3 user staff  96 Mar  1 10:00 . drwxr-xr-x 10 user staff 320 Mar  1 09:59 .. -rw-r--r--  1 user staff 120 Mar  1 10:00 README.txt
   '''
 # ---
 # name: TestRstGolden.test_rst_with_directives
   '''
   # Fixture Document
-  
+
   # Section Heading
-  
+
   Paragraph with **bold** and *italic* text and a [reference](https://example.com) link.
-  
+
   Bullet list:
-  
+
   ```
   - Item one
   - Item two
   ```
-  
+
   ```python
   def greet(name):
       return f"Hello, {name}!"
   ```
-  
+
   | Column A | Column B |
   |---|---|
   | Alpha | 1 |
@@ -216,20 +216,20 @@
 # name: TestRtfGolden.test_rtf_basic_document
   '''
   Fixture Title
-  
+
   This paragraph contains **bold** and *italic* text.
-  
+
   Item one
-  
+
   Item two
-  
+
   NameRoleScoreAliceDeveloper95BobDesigner88
   '''
 # ---
 # name: TestRtfGolden.test_rtf_with_code_block
   '''
   Code Listing
-  
+
   def hello():
      return 'Hello RTF'
   '''
@@ -238,22 +238,22 @@
   '''
   ```text
   """Example module used in conversion tests."""
-  
+
   from __future__ import annotations
-  
+
   class Greeter:
       """Simple greeter with configurable salutation."""
-  
+
       def __init__(self, salutation: str = "Hello") -> None:
           self.salutation = salutation
-  
+
       def greet(self, name: str) -> str:
           return f"{self.salutation}, {name}!"
-  
+
   def main() -> None:
       greeter = Greeter()
       print(greeter.greet("World"))
-  
+
   if __name__ == "__main__":
       main()
   ```
@@ -265,7 +265,7 @@
   // Example demonstrating converter support for fenced comments.
   /*
   # Heading in comment
-  
+
   - bullet item
   - another item
   */

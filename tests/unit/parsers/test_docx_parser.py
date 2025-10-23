@@ -729,6 +729,7 @@ class TestComments:
 
         # Parser creates Comment nodes (not BlockQuote) - renderer decides presentation
         from all2md.ast import Comment
+
         comments = [node for node in ast_doc.children if isinstance(node, Comment)]
         assert comments, "Expected comments to be appended as Comment nodes"
 

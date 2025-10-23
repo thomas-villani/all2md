@@ -74,6 +74,7 @@ dev = [
     "types-lxml",
     "types-docutils",
     "types-reportlab",
+    "pre-commit>=4.3.0",
 ]
 epub = [
     "ebooklib>=0.19",

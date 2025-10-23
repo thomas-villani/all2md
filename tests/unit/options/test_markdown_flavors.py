@@ -1,5 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Tests for markdown flavor functionality."""
+
 import pytest
 
 from all2md import to_markdown
@@ -143,7 +144,9 @@ class TestFlavorValidation:
     def test_commonmark_strikethrough_force_warning(self):
         """Test warning when forcing strikethrough with CommonMark."""
         options = MarkdownOptions(
-            flavor="commonmark", unsupported_inline_mode="force", unsupported_table_mode="html"  # Avoid table warning
+            flavor="commonmark",
+            unsupported_inline_mode="force",
+            unsupported_table_mode="html",  # Avoid table warning
         )
         warnings = validate_flavor_compatibility("commonmark", options)
         assert len(warnings) > 0

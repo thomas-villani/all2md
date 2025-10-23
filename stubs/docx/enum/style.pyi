@@ -10,7 +10,6 @@ class WD_STYLE_TYPE(IntEnum):
     TABLE = 3
     LIST = 4
 
-
 class WD_BUILTIN_STYLE(IntEnum):
     """Built-in style identifiers."""
 

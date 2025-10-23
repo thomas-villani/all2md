@@ -22,7 +22,6 @@ class Table:
 
     @style.setter
     def style(self, value: str | Any) -> None: ...
-
     def cell(self, row_idx: int, col_idx: int) -> Any:
         """Get a specific cell.
 
@@ -46,7 +45,6 @@ class Table:
         """Internal XML element."""
         ...
 
-
 class _Row:
     """Represents a table row."""
 
@@ -60,7 +58,6 @@ class _Row:
         """Internal XML element."""
         ...
 
-
 class _Cell:
     """Represents a table cell."""
 
@@ -71,7 +68,6 @@ class _Cell:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def paragraphs(self) -> list[Any]:
         """List of paragraphs in the cell."""

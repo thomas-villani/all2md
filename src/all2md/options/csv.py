@@ -5,6 +5,7 @@
 
 This module defines options for parsing CSV files with customizable dialects.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

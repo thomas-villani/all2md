@@ -5,6 +5,7 @@
 
 This module defines options for parsing MHTML (MIME HTML) web archives.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -180,7 +180,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
 
 
 def validate_and_convert_input(
-        input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
+    input_data: InputType, supported_types: list[str] | None = None, require_binary: bool = False
 ) -> tuple[Any, str]:
     """Validate input and convert to appropriate format for processing.
 

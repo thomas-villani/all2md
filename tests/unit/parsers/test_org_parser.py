@@ -485,10 +485,10 @@ class TestFootnotes:
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
-            if hasattr(node, 'children') and isinstance(node.children, list):
+            if hasattr(node, "children") and isinstance(node.children, list):
                 for child in node.children:
                     collect_nodes(child)
 
@@ -530,10 +530,10 @@ This has a footnote [fn:test].
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
-            if hasattr(node, 'children') and isinstance(node.children, list):
+            if hasattr(node, "children") and isinstance(node.children, list):
                 for child in node.children:
                     collect_nodes(child)
 
@@ -584,7 +584,7 @@ Text after.
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
 
@@ -607,7 +607,7 @@ Text after.
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
 
@@ -634,7 +634,7 @@ class TestSuperscriptSubscript:
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
 
@@ -644,7 +644,7 @@ class TestSuperscriptSubscript:
         sups = [n for n in all_nodes if isinstance(n, Superscript)]
         assert len(sups) == 1
         # Should contain "2"
-        assert any("2" in getattr(c, 'content', '') for c in sups[0].content if isinstance(c, Text))
+        assert any("2" in getattr(c, "content", "") for c in sups[0].content if isinstance(c, Text))
 
     def test_subscript(self) -> None:
         """Test parsing subscript."""
@@ -657,7 +657,7 @@ class TestSuperscriptSubscript:
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
 
@@ -667,7 +667,7 @@ class TestSuperscriptSubscript:
         subs = [n for n in all_nodes if isinstance(n, Subscript)]
         assert len(subs) == 1
         # Should contain "2"
-        assert any("2" in getattr(c, 'content', '') for c in subs[0].content if isinstance(c, Text))
+        assert any("2" in getattr(c, "content", "") for c in subs[0].content if isinstance(c, Text))
 
 
 @pytest.mark.unit
@@ -720,7 +720,7 @@ class TestLineBreak:
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
 

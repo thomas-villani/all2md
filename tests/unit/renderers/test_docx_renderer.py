@@ -916,7 +916,8 @@ class TestComments:
                     content=[
                         Text(content="This is text "),
                         CommentInline(
-                            content="Needs clarification", metadata={"author": "Jane Smith", "comment_type": "docx_review"}
+                            content="Needs clarification",
+                            metadata={"author": "Jane Smith", "comment_type": "docx_review"},
                         ),
                         Text(content=" more text."),
                     ]
@@ -1012,7 +1013,8 @@ class TestComments:
         doc = Document(
             children=[
                 Comment(
-                    content="Test comment", metadata={"author": "John Smith", "initials": "JS", "comment_type": "docx_review"}
+                    content="Test comment",
+                    metadata={"author": "John Smith", "initials": "JS", "comment_type": "docx_review"},
                 )
             ]
         )

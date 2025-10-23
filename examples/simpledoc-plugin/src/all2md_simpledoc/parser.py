@@ -41,9 +41,7 @@ class SimpleDocParser(BaseParser):
 
     """
 
-    def __init__(
-        self, options: SimpleDocOptions | None = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: SimpleDocOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the SimpleDoc parser with options and progress callback."""
         super().__init__(options or SimpleDocOptions(), progress_callback)
         self.options: SimpleDocOptions = options or SimpleDocOptions()

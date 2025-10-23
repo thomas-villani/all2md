@@ -5,6 +5,7 @@
 
 This module defines options for parsing ZIP files with resource extraction.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

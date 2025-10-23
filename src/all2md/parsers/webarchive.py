@@ -101,9 +101,7 @@ class WebArchiveToAstConverter(BaseParser):
                 archive_data = plistlib.load(doc_input)
 
         except plistlib.InvalidFileException as e:
-            raise MalformedFileError(
-                f"Invalid WebArchive plist format: {e}", file_path=None, original_error=e
-            ) from e
+            raise MalformedFileError(f"Invalid WebArchive plist format: {e}", file_path=None, original_error=e) from e
         except Exception as e:
             raise ParsingError(
                 f"Failed to parse WebArchive file: {e}", parsing_stage="plist_parsing", original_error=e
@@ -155,18 +153,12 @@ class WebArchiveToAstConverter(BaseParser):
         """
         main_resource = archive_data.get("WebMainResource")
         if not main_resource:
-            raise ParsingError(
-                "WebMainResource not found in WebArchive",
-                parsing_stage="content_extraction"
-            )
+            raise ParsingError("WebMainResource not found in WebArchive", parsing_stage="content_extraction")
 
         # Extract the resource data
         html_data = main_resource.get("WebResourceData")
         if not html_data:
-            raise ParsingError(
-                "WebResourceData not found in WebMainResource",
-                parsing_stage="content_extraction"
-            )
+            raise ParsingError("WebResourceData not found in WebMainResource", parsing_stage="content_extraction")
 
         # Get encoding (default to UTF-8)
         encoding = main_resource.get("WebResourceTextEncodingName", "UTF-8")
@@ -183,9 +175,7 @@ class WebArchiveToAstConverter(BaseParser):
                 html_content = html_data.decode("utf-8", errors="replace")
             except Exception as e2:
                 raise ParsingError(
-                    f"Failed to decode HTML content: {e2}",
-                    parsing_stage="content_decoding",
-                    original_error=e2
+                    f"Failed to decode HTML content: {e2}", parsing_stage="content_decoding", original_error=e2
                 ) from e2
 
         return html_content
@@ -280,9 +270,7 @@ class WebArchiveToAstConverter(BaseParser):
 
             except Exception as e:
                 logger.warning(f"Failed to process subframe {idx}: {e}")
-                doc.children.append(
-                    Paragraph(content=[Text(content=f"(Error processing nested frame: {e})")])
-                )
+                doc.children.append(Paragraph(content=[Text(content=f"(Error processing nested frame: {e})")]))
                 continue
 
     def _mime_to_extension(self, mime_type: str) -> str:
@@ -339,6 +327,7 @@ class WebArchiveToAstConverter(BaseParser):
             metadata.custom["url"] = str(url)
             # Use domain/path as title if no better title found
             from urllib.parse import urlparse
+
             parsed = urlparse(str(url))
             if parsed.netloc:
                 metadata.title = f"{parsed.netloc}{parsed.path}"

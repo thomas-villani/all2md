@@ -29,14 +29,14 @@ def detailed_progress_handler(event: ProgressEvent):
         percentage = (event.current / event.total) * 100 if event.total > 0 else 0
         print(f"  Page {event.current}/{event.total} done ({percentage:.1f}%)")
     elif event.event_type == "table_detected":
-        table_count = event.metadata.get('table_count', 0)
-        page = event.metadata.get('page', '?')
+        table_count = event.metadata.get("table_count", 0)
+        page = event.metadata.get("page", "?")
         print(f"  Found {table_count} table(s) on page {page}")
     elif event.event_type == "finished":
         print("-" * 50)
         print(f"Conversion complete: {event.message}")
     elif event.event_type == "error":
-        error = event.metadata.get('error', 'Unknown error')
+        error = event.metadata.get("error", "Unknown error")
         print(f"  ERROR: {error}")
     print()
 

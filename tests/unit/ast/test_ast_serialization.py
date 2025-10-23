@@ -1,5 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Tests for AST serialization and deserialization."""
+
 import json
 
 import pytest

@@ -836,12 +836,12 @@ class PptxToAstConverter(BaseParser):
             # So we return in reverse order: (sup, sub, strike, italic, bold, underline)
             if run.font:
                 return (
-                    bool(getattr(run.font, "superscript", False)),    # Index 0 - applied last (outermost)
-                    bool(getattr(run.font, "subscript", False)),      # Index 1
-                    bool(getattr(run.font, "strike", False)),         # Index 2 - strikethrough
-                    bool(run.font.italic),                             # Index 3
-                    bool(run.font.bold),                               # Index 4
-                    bool(run.font.underline),                          # Index 5 - applied first (innermost)
+                    bool(getattr(run.font, "superscript", False)),  # Index 0 - applied last (outermost)
+                    bool(getattr(run.font, "subscript", False)),  # Index 1
+                    bool(getattr(run.font, "strike", False)),  # Index 2 - strikethrough
+                    bool(run.font.italic),  # Index 3
+                    bool(run.font.bold),  # Index 4
+                    bool(run.font.underline),  # Index 5 - applied first (innermost)
                 )
             return (False, False, False, False, False, False)
 
@@ -849,12 +849,12 @@ class PptxToAstConverter(BaseParser):
         # Loop processes from high index to low: 5, 4, 3, 2, 1, 0
         # Application order: underline, bold, italic, strike, subscript, superscript
         format_builders = (
-            lambda nodes: Superscript(content=nodes),    # Index 0 - applied last (outermost)
-            lambda nodes: Subscript(content=nodes),      # Index 1
+            lambda nodes: Superscript(content=nodes),  # Index 0 - applied last (outermost)
+            lambda nodes: Subscript(content=nodes),  # Index 1
             lambda nodes: Strikethrough(content=nodes),  # Index 2
-            lambda nodes: Emphasis(content=nodes),       # Index 3
-            lambda nodes: Strong(content=nodes),         # Index 4
-            lambda nodes: Underline(content=nodes),      # Index 5 - applied first (innermost)
+            lambda nodes: Emphasis(content=nodes),  # Index 3
+            lambda nodes: Strong(content=nodes),  # Index 4
+            lambda nodes: Underline(content=nodes),  # Index 5 - applied first (innermost)
         )
 
         # Process runs with formatting

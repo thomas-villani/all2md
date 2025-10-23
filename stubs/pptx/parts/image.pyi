@@ -1,6 +1,5 @@
 """Type stubs for pptx.parts.image module."""
 
-
 class Image:
     """Represents an image part in a PowerPoint presentation."""
 

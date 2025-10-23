@@ -19,11 +19,11 @@ def escape_html(text: str, *, enabled: bool = True) -> str:
 
 
 def render_math_html(
-        content: str,
-        notation: MathNotation,
-        *,
-        inline: bool,
-        escape_enabled: bool = True,
+    content: str,
+    notation: MathNotation,
+    *,
+    inline: bool,
+    escape_enabled: bool = True,
 ) -> str:
     """Render math content as HTML wrapper with notation metadata.
 

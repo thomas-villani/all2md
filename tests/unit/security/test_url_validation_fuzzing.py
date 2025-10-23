@@ -301,7 +301,6 @@ class TestURLEncodingFuzzing:
 
         # Test hex notation (if values allow)
         if all(0 <= x <= 255 for x in [a, b, c, d]):
-
             is_private = _is_private_or_reserved_ip(ip)
 
             if is_private:

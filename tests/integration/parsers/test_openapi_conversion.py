@@ -86,7 +86,7 @@ class TestOpenApiIntegrationServers:
         spec = create_openapi_with_servers()
 
         parser = OpenApiParser()
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         # Should have servers heading
         has_servers = any(
@@ -107,7 +107,7 @@ class TestOpenApiIntegrationServers:
         spec = create_openapi_with_servers()
 
         parser = OpenApiParser(OpenApiParserOptions(include_servers=False))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         # Should not have servers heading
         has_servers = any(
@@ -127,7 +127,7 @@ class TestOpenApiIntegrationParameters:
         spec = create_openapi_with_parameters()
 
         parser = OpenApiParser()
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         # Should have parameters table
         has_table = any(isinstance(child, Table) for child in doc.children)
@@ -152,7 +152,7 @@ class TestOpenApiIntegrationRequestBody:
         spec = create_openapi_with_request_body()
 
         parser = OpenApiParser()
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
@@ -165,7 +165,7 @@ class TestOpenApiIntegrationRequestBody:
         spec = create_openapi_with_request_body()
 
         parser = OpenApiParser(OpenApiParserOptions(include_examples=True))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
@@ -184,12 +184,10 @@ class TestOpenApiIntegrationTags:
         spec = create_openapi_with_tags()
 
         parser = OpenApiParser(OpenApiParserOptions(group_by_tag=True))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         # Should have tag headings
-        tag_headings = [
-            child for child in doc.children if isinstance(child, Heading) and child.level == 3
-        ]
+        tag_headings = [child for child in doc.children if isinstance(child, Heading) and child.level == 3]
         assert len(tag_headings) >= 2
 
         renderer = MarkdownRenderer()
@@ -203,7 +201,7 @@ class TestOpenApiIntegrationTags:
         spec = create_openapi_with_tags()
 
         parser = OpenApiParser(OpenApiParserOptions(group_by_tag=False))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
@@ -222,7 +220,7 @@ class TestOpenApiIntegrationSchemas:
         spec = create_openapi_with_schemas()
 
         parser = OpenApiParser()
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         # Should have schemas heading
         has_schemas = any(
@@ -242,7 +240,7 @@ class TestOpenApiIntegrationSchemas:
         spec = create_openapi_with_schemas()
 
         parser = OpenApiParser(OpenApiParserOptions(include_schemas=False))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         # Should not have schemas heading
         has_schemas = any(
@@ -262,7 +260,7 @@ class TestOpenApiIntegrationDeprecated:
         spec = create_openapi_with_deprecated()
 
         parser = OpenApiParser(OpenApiParserOptions(include_deprecated=True))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
@@ -275,7 +273,7 @@ class TestOpenApiIntegrationDeprecated:
         spec = create_openapi_with_deprecated()
 
         parser = OpenApiParser(OpenApiParserOptions(include_deprecated=False))
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
@@ -294,7 +292,7 @@ class TestOpenApiIntegrationComplex:
         spec = create_openapi_complex()
 
         parser = OpenApiParser()
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         assert isinstance(doc, Document)
         assert len(doc.children) > 10  # Should have many sections
@@ -314,7 +312,7 @@ class TestOpenApiIntegrationComplex:
         spec = create_openapi_complex()
 
         parser = OpenApiParser()
-        doc = parser.parse(spec.encode('utf-8'))
+        doc = parser.parse(spec.encode("utf-8"))
 
         assert doc.metadata.get("title") == "E-Commerce API"
         assert "comprehensive" in doc.metadata.get("description", "").lower()

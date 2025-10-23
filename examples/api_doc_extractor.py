@@ -313,7 +313,7 @@ def generate_python_test_file(blocks: list[ExtractedCode]) -> str:
     lines.append("")
     lines.append("def run_all_examples():")
     lines.append('    """Run all extracted examples."""')
-    lines.append('    examples = [')
+    lines.append("    examples = [")
     for i in range(1, len(blocks) + 1):
         lines.append(f'        ("Example {i}", example_{i}),')
     lines.append("    ]")
@@ -382,16 +382,16 @@ def generate_javascript_test_file(blocks: list[ExtractedCode]) -> str:
         lines.append(f'    {{ name: "Example {i}", func: example{i} }},')
     lines.append("  ];")
     lines.append("")
-    lines.append('  console.log(`Running ${examples.length} examples...`);')
+    lines.append("  console.log(`Running ${examples.length} examples...`);")
     lines.append('  console.log("-".repeat(60));')
     lines.append("")
     lines.append("  examples.forEach(({ name, func }) => {")
     lines.append("    try {")
-    lines.append('      console.log(`Running ${name}...`);')
+    lines.append("      console.log(`Running ${name}...`);")
     lines.append("      func();")
     lines.append('      console.log("  OK");')
     lines.append("    } catch (e) {")
-    lines.append('      console.log(`  FAILED: ${e.message}`);')
+    lines.append("      console.log(`  FAILED: ${e.message}`);")
     lines.append("    }")
     lines.append("  });")
     lines.append("")
@@ -477,9 +477,7 @@ def generate_readme(result: ExtractionResult, output_dir: str) -> str:
 
     lines.append("# Extracted Code Examples")
     lines.append("")
-    lines.append(
-        "This directory contains code examples extracted from documentation."
-    )
+    lines.append("This directory contains code examples extracted from documentation.")
     lines.append("")
 
     lines.append("## Summary")
@@ -499,9 +497,7 @@ def generate_readme(result: ExtractionResult, output_dir: str) -> str:
     if result.invalid_blocks:
         lines.append("## Validation Issues")
         lines.append("")
-        lines.append(
-            f"Found {len(result.invalid_blocks)} blocks with syntax errors:"
-        )
+        lines.append(f"Found {len(result.invalid_blocks)} blocks with syntax errors:")
         for block in result.invalid_blocks:
             lines.append(f"- {block.language}: {block.heading}")
         lines.append("")
@@ -525,9 +521,7 @@ def generate_readme(result: ExtractionResult, output_dir: str) -> str:
     return "\n".join(lines)
 
 
-def extract_and_generate(
-    input_path: str, output_dir: str, validate: bool = True
-) -> ExtractionResult:
+def extract_and_generate(input_path: str, output_dir: str, validate: bool = True) -> ExtractionResult:
     """Extract code and generate test files.
 
     Parameters
@@ -579,9 +573,7 @@ def main():
     """Run the API documentation extractor."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Extract code examples from documentation"
-    )
+    parser = argparse.ArgumentParser(description="Extract code examples from documentation")
     parser.add_argument("input", help="Input documentation file")
     parser.add_argument(
         "--output",
@@ -597,9 +589,7 @@ def main():
 
     args = parser.parse_args()
 
-    result = extract_and_generate(
-        args.input, args.output, validate=not args.no_validate
-    )
+    result = extract_and_generate(args.input, args.output, validate=not args.no_validate)
 
     print("\n" + "=" * 70)
     print("Extraction Complete")

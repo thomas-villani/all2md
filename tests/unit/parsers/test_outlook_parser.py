@@ -18,7 +18,7 @@ class TestOutlookFormatDetection:
     def test_detect_msg_from_extension(self, tmp_path):
         """Test detection of MSG format from file extension."""
         msg_file = tmp_path / "test.msg"
-        msg_file.write_bytes(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" + b"\x00" * 100)
+        msg_file.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 100)
 
         assert _detect_outlook_format(msg_file) == "msg"
 
@@ -39,7 +39,7 @@ class TestOutlookFormatDetection:
     def test_detect_msg_from_magic_bytes(self):
         """Test detection of MSG format from magic bytes."""
         # OLE/CFBF magic bytes
-        magic = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"
+        magic = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
         assert _detect_outlook_format(magic) == "msg"
 
     def test_detect_pst_from_magic_bytes(self):
@@ -174,7 +174,7 @@ class TestOutlookParser:
 
         # Create a dummy MSG file (won't actually parse, just test dependency check)
         msg_file = tmp_path / "test.msg"
-        msg_file.write_bytes(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1" + b"\x00" * 100)
+        msg_file.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 100)
 
         parser = OutlookToAstConverter()
 
@@ -199,6 +199,7 @@ class TestOutlookParser:
         # Try to parse PST - should raise DependencyError if pypff not available
         try:
             import pypff
+
             # pypff is available, skip this test
             pytest.skip("pypff is installed, cannot test missing dependency error")
         except ImportError:

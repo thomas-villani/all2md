@@ -200,9 +200,7 @@ class FrontmatterGenerator:
 
         return normalized
 
-    def _extract_taxonomy(
-        self, metadata: Dict[str, Any], primary_key: str, fallback_key: str
-    ) -> Optional[List[str]]:
+    def _extract_taxonomy(self, metadata: Dict[str, Any], primary_key: str, fallback_key: str) -> Optional[List[str]]:
         """Extract taxonomy terms from metadata.
 
         Parameters
@@ -296,12 +294,12 @@ class FrontmatterGenerator:
 
         """
         if isinstance(value, bool):
-            return f'{key} = {str(value).lower()}'
+            return f"{key} = {str(value).lower()}"
         elif isinstance(value, (int, float)):
-            return f'{key} = {value}'
+            return f"{key} = {value}"
         elif isinstance(value, list):
             items = ", ".join(f'"{item}"' for item in value)
-            return f'{key} = [{items}]'
+            return f"{key} = [{items}]"
         elif value is None:
             return ""
         else:
@@ -345,23 +343,23 @@ class FrontmatterGenerator:
 
         """
         if isinstance(value, bool):
-            return f'{key}: {str(value).lower()}'
+            return f"{key}: {str(value).lower()}"
         elif isinstance(value, (int, float)):
-            return f'{key}: {value}'
+            return f"{key}: {value}"
         elif isinstance(value, list):
             if not value:
-                return f'{key}: []'
-            items = "\n".join(f'  - {item}' for item in value)
-            return f'{key}:\n{items}'
+                return f"{key}: []"
+            items = "\n".join(f"  - {item}" for item in value)
+            return f"{key}:\n{items}"
         elif value is None:
-            return f'{key}: null'
+            return f"{key}: null"
         else:
             # Quote strings that need quoting
             str_value = str(value)
             if self._needs_yaml_quoting(str_value):
                 escaped = str_value.replace('"', '\\"')
                 return f'{key}: "{escaped}"'
-            return f'{key}: {str_value}'
+            return f"{key}: {str_value}"
 
     @staticmethod
     def _needs_yaml_quoting(value: str) -> bool:
@@ -379,7 +377,7 @@ class FrontmatterGenerator:
 
         """
         # Quote if contains special characters
-        special_chars = [':', '#', '[', ']', '{', '}', ',', '&', '*', '!', '|', '>', '%', '@']
+        special_chars = [":", "#", "[", "]", "{", "}", ",", "&", "*", "!", "|", ">", "%", "@"]
         return any(char in value for char in special_chars)
 
 
@@ -766,9 +764,7 @@ def copy_document_assets(
 
         try:
             # Sanitize filename for safe storage
-            safe_filename = sanitize_attachment_filename(
-                image_path.name, preserve_case=True, allow_unicode=False
-            )
+            safe_filename = sanitize_attachment_filename(image_path.name, preserve_case=True, allow_unicode=False)
 
             # Determine destination path
             dest_path = static_dir / safe_filename

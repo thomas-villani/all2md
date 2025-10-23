@@ -76,9 +76,7 @@ def create_msg_with_attachments_data() -> dict:
             "Please review and let us know if you have questions.\n\n"
             "Finance Team"
         ),
-        "attachments": [
-            {"filename": "q2-report.png", "data": MINIMAL_PNG_BYTES, "content_type": "image/png"}
-        ],
+        "attachments": [{"filename": "q2-report.png", "data": MINIMAL_PNG_BYTES, "content_type": "image/png"}],
     }
 
 

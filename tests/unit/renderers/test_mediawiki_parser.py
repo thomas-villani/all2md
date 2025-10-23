@@ -507,7 +507,11 @@ class TestMediaWikiRenderer:
         doc = Document(
             children=[
                 Paragraph(
-                    content=[Text(content="Some text "), CommentInline(content="inline comment"), Text(content=" more text")]
+                    content=[
+                        Text(content="Some text "),
+                        CommentInline(content="inline comment"),
+                        Text(content=" more text"),
+                    ]
                 )
             ]
         )

@@ -521,7 +521,8 @@ Content-Type: text/html; charset=utf-8
         from all2md.options.common import LocalFileAccessOptions
 
         local_files_options = LocalFileAccessOptions(
-            allow_local_files=False, allow_cwd_files=True  # Should be ignored due to master switch
+            allow_local_files=False,
+            allow_cwd_files=True,  # Should be ignored due to master switch
         )
         options = MhtmlOptions(local_files=local_files_options)
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
@@ -620,9 +621,7 @@ Content-Type: text/html; charset=utf-8
 </html>
 
 --test-boundary--
-""".encode(
-            "utf-8"
-        )
+""".encode("utf-8")
 
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
@@ -637,7 +636,8 @@ Content-Type: text/html; charset=utf-8
             from all2md.options.common import LocalFileAccessOptions
 
             local_files_options = LocalFileAccessOptions(
-                allow_local_files=True, allow_cwd_files=True  # Master switch must be True
+                allow_local_files=True,
+                allow_cwd_files=True,  # Master switch must be True
             )
             options = MhtmlOptions(local_files=local_files_options)
             result = mhtml_to_markdown(mhtml_file, parser_options=options)

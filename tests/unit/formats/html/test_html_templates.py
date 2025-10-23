@@ -331,7 +331,9 @@ class TestTemplateValidation:
         doc = Document(children=[Paragraph(content=[Text(content="Content")])])
 
         options = HtmlRendererOptions(
-            standalone=True, template_mode="replace", template_file=str(template)  # Should be ignored
+            standalone=True,
+            template_mode="replace",
+            template_file=str(template),  # Should be ignored
         )
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)

@@ -2,113 +2,113 @@
 # name: TestDOCXGolden.test_basic_docx_conversion
   '''
   # Formatting Test Document
-  
+
   This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
-  
+
   This paragraph has ***bold and italic text*** together.
-  
+
   ## Level 2 Heading
-  
+
   Content under level 2 heading.
-  
+
   ### Level 3 Heading
-  
+
   Content under level 3 heading.
-  
+
   Large text normal text small text
-  
+
   This text has red color and this is normal.
   '''
 # ---
 # name: TestDOCXGolden.test_docx_with_attachment_mode_alt_text
   '''
   # Formatting Test Document
-  
+
   This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
-  
+
   This paragraph has ***bold and italic text*** together.
-  
+
   ## Level 2 Heading
-  
+
   Content under level 2 heading.
-  
+
   ### Level 3 Heading
-  
+
   Content under level 3 heading.
-  
+
   Large text normal text small text
-  
+
   This text has red color and this is normal.
   '''
 # ---
 # name: TestDOCXGolden.test_docx_with_attachment_mode_skip
   '''
   # Formatting Test Document
-  
+
   This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
-  
+
   This paragraph has ***bold and italic text*** together.
-  
+
   ## Level 2 Heading
-  
+
   Content under level 2 heading.
-  
+
   ### Level 3 Heading
-  
+
   Content under level 3 heading.
-  
+
   Large text normal text small text
-  
+
   This text has red color and this is normal.
   '''
 # ---
 # name: TestDOCXGolden.test_docx_with_formatting
   '''
   # Formatting Test Document
-  
+
   This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
-  
+
   This paragraph has ***bold and italic text*** together.
-  
+
   ## Level 2 Heading
-  
+
   Content under level 2 heading.
-  
+
   ### Level 3 Heading
-  
+
   Content under level 3 heading.
-  
+
   Large text normal text small text
-  
+
   This text has red color and this is normal.
   '''
 # ---
 # name: TestDOCXGolden.test_docx_with_lists
   '''
   # List Test Document
-  
+
   Simple bullet list:
-  
+
   * First bullet item
   * Second bullet item
   * Third bullet item
-  
+
   Numbered list:
-  
+
   1. First numbered item
   2. Second numbered item
   3. Third numbered item
-  
+
   Nested list example:
-  
+
   * Main item 1
     - Sub-item 1.1
     - Sub-item 1.2
   * Main item 2
     - Sub-item 2.1
-  
+
   List with formatted text:
-  
+
   * Item with **bold text** in it
   * Item with *italic text* in it
   '''
@@ -116,17 +116,17 @@
 # name: TestDOCXGolden.test_docx_with_table
   '''
   # Table Test Document
-  
+
   Here is a simple table:
-  
+
   | **Name** | **Age** | **City** |
   |---|---|---|
   | Alice Johnson | 25 | New York |
   | Bob Smith | 30 | San Francisco |
   | Carol Davis | 28 | Los Angeles |
-  
+
   Here is a more complex table with merged cells:
-  
+
   | **Product** | **Q1** | **Q2** | **Total** |
   |---|---|---|---|
   | Product A | 100 | 150 | 250 |
@@ -137,37 +137,37 @@
 # name: TestDOCXGoldenFromFiles.test_basic_docx_file
   '''
   # Document Heading 1
-  
+
   This is a simple test document.
-  
+
   Second paragraph with **bold** text and *italic* text and ***both***
-  
+
   Here’s some <u>underlined text</u>.
-  
+
   Here we want a longer paragraph that can span a few lines in a document. It should be like 3 or 4 sentences, which is the normal length of a paragraph. We can even include some **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done.
-  
+
   ## First Section Heading
-  
+
   Right before this was the equivalent of an “h2” heading. Now we have some more stuff in this section. I think a [hyperlink](https://example.com/) would be cool.
-  
+
   Now for an unordered list:
-  
+
   * First item on unordered list
   * Second item
   * Third
-  
+
   Let’s add some more stuff
-  
+
   ## Second Section Heading
-  
+
   And here’s an ordered list:
-  
+
   1. First item on ordered list
   2. Second item on ordered list
   3. Third item on ordered list
-  
+
   And now a multilevel list:
-  
+
   * First level
   * First level 2
     - Second level 1
@@ -177,41 +177,41 @@
     - Second level 3
     - Second level 4
   * First level 5
-  
+
   And a simple table with a header:
-  
+
   | Header A | Header B | Header C | Header D |
   |---|---|---|---|
   | Row 1, Col 1 | Row 1, Col 2 | Row 1, Col 3 | Rol 1, Col 4 |
   | Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 | Row 2, Col 4 |
-  
+
   We’ll put an inline image:
-  
+
   ![Some really cool alt text]()
-  
+
   And the end.
   '''
 # ---
 # name: TestDOCXGoldenFromFiles.test_footnotes_endnotes_docx_file
   '''
   Advanced Document
-  
+
   This document contains more advanced Microsoft word features. In this document, we will use some footnotes, endnotes, and leave comments.
-  
+
   Here we go!
-  
+
   The first footnote will come in this sentence<sup>1</sup>. And now this sentence can have an endnote<sup>end1</sup>. It’s just that easy. I’m telling you, it’s quite simple. Although, it’s strange to use *both* endnotes<sup>end2</sup> **and** footnotes<sup>2</sup>. Usually someone would choose one or the other, not usually both.
-  
+
   Now we can have another paragraph here. This one won’t have any endnotes or footnotes. However, it will have a comment. Something hilarious I’m sure.
-  
+
   This should probably be all we need for the test document. So buh bye!
-  
+
   <div id="fn-1"> The first footnote</div>
-  
+
   <div id="fn-2"> Footnotes are this.</div>
-  
+
   <div id="fn-end1"> Here’s an endnote.</div>
-  
+
   <div id="fn-end2"> Endnotes are this.</div>
   '''
 # ---

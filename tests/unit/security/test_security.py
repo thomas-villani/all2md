@@ -39,7 +39,9 @@ class TestValidateLocalFileAccess:
         for url in test_urls:
             assert (
                 validate_local_file_access(
-                    url, allow_local_files=False, allow_cwd_files=True  # Should be ignored when master switch is False
+                    url,
+                    allow_local_files=False,
+                    allow_cwd_files=True,  # Should be ignored when master switch is False
                 )
                 is False
             )
@@ -877,7 +879,8 @@ class TestRemoveBoilerplateTransformSecurity:
 
         # Test with skip_if_truncated=False: matches against truncated text
         transform_unsafe = RemoveBoilerplateTextTransform(
-            patterns=[r"^LONG"], skip_if_truncated=False  # No end anchor, so safe to match truncated text
+            patterns=[r"^LONG"],
+            skip_if_truncated=False,  # No end anchor, so safe to match truncated text
         )
         result_unsafe = transform_unsafe.transform(doc)
 

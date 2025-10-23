@@ -148,9 +148,9 @@ def normalize_anchor(text: str) -> str:
 
     """
     anchor = text.lower()
-    anchor = re.sub(r'[^\w\s-]', '', anchor)
-    anchor = re.sub(r'[\s_]+', '-', anchor)
-    anchor = anchor.strip('-')
+    anchor = re.sub(r"[^\w\s-]", "", anchor)
+    anchor = re.sub(r"[\s_]+", "-", anchor)
+    anchor = anchor.strip("-")
     return anchor
 
 
@@ -295,9 +295,7 @@ def suggest_fix(link_info: LinkInfo) -> str:
     return ""
 
 
-def check_links(
-    input_path: str, check_external: bool = True, timeout: int = 10
-) -> LinkCheckResult:
+def check_links(input_path: str, check_external: bool = True, timeout: int = 10) -> LinkCheckResult:
     """Check all links in a document.
 
     Parameters
@@ -323,9 +321,7 @@ def check_links(
 
     print("Building heading index...")
     heading_nodes = extract_nodes(ast_doc, Heading)
-    heading_anchors = [
-        normalize_anchor(extract_text(h.content, joiner="")) for h in heading_nodes
-    ]
+    heading_anchors = [normalize_anchor(extract_text(h.content, joiner="")) for h in heading_nodes]
 
     result = LinkCheckResult(total_links=len(links))
 
@@ -462,30 +458,20 @@ def main():
     """Run the link checker."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Check and validate all links in a document"
-    )
+    parser = argparse.ArgumentParser(description="Check and validate all links in a document")
     parser.add_argument("input", help="Input document path")
     parser.add_argument(
         "--no-external",
         action="store_true",
         help="Skip checking external links (faster)",
     )
-    parser.add_argument(
-        "--timeout", type=int, default=10, help="Timeout for external checks (seconds)"
-    )
-    parser.add_argument(
-        "--show-all", action="store_true", help="Show all links, not just broken ones"
-    )
-    parser.add_argument(
-        "--link-map", type=str, help="Generate link map file at specified path"
-    )
+    parser.add_argument("--timeout", type=int, default=10, help="Timeout for external checks (seconds)")
+    parser.add_argument("--show-all", action="store_true", help="Show all links, not just broken ones")
+    parser.add_argument("--link-map", type=str, help="Generate link map file at specified path")
 
     args = parser.parse_args()
 
-    result = check_links(
-        args.input, check_external=not args.no_external, timeout=args.timeout
-    )
+    result = check_links(args.input, check_external=not args.no_external, timeout=args.timeout)
 
     print_report(result, show_all=args.show_all)
 

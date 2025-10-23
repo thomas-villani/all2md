@@ -8,6 +8,7 @@ default values, and a clean API for configuring conversion behavior.
 Each converter module has its own Options dataclass with module-specific
 parameters.
 """
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -35,11 +36,11 @@ from all2md.options.ods import OdsSpreadsheetOptions
 from all2md.options.odt import OdtOptions, OdtRendererOptions
 from all2md.options.org import OrgParserOptions, OrgRendererOptions
 from all2md.options.pdf import PdfOptions, PdfRendererOptions
+from all2md.options.plaintext import PlainTextOptions
 from all2md.options.pptx import PptxOptions, PptxRendererOptions
 from all2md.options.rst import RstParserOptions, RstRendererOptions
 from all2md.options.rtf import RtfOptions, RtfRendererOptions
 from all2md.options.sourcecode import SourceCodeOptions
-from all2md.options.plaintext import PlainTextOptions
 from all2md.options.xlsx import XlsxOptions
 from all2md.options.zip import ZipOptions
 

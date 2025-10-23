@@ -12,7 +12,6 @@ class TextFrame:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def paragraphs(self) -> list[Any]:
         """List of Paragraph objects in this text frame."""
@@ -33,7 +32,6 @@ class TextFrame:
         """
         ...
 
-
 class _Paragraph:
     """Represents a paragraph in a text frame."""
 
@@ -44,7 +42,6 @@ class _Paragraph:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def runs(self) -> list[Any]:
         """List of Run objects in this paragraph."""
@@ -57,7 +54,6 @@ class _Paragraph:
 
     @level.setter
     def level(self, value: int) -> None: ...
-
     @property
     def font(self) -> Any:
         """Font object for paragraph-level formatting."""
@@ -84,7 +80,6 @@ class _Paragraph:
         """Internal XML element."""
         ...
 
-
 class _Run:
     """Represents a run of text with specific formatting."""
 
@@ -95,12 +90,10 @@ class _Run:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def font(self) -> Any:
         """Font object for run-level formatting."""
         ...
-
 
 class Font:
     """Provides access to font formatting properties."""
@@ -112,7 +105,6 @@ class Font:
 
     @bold.setter
     def bold(self, value: bool) -> None: ...
-
     @property
     def italic(self) -> bool | None:
         """Italic formatting."""
@@ -120,7 +112,6 @@ class Font:
 
     @italic.setter
     def italic(self, value: bool) -> None: ...
-
     @property
     def underline(self) -> bool | Any:
         """Underline formatting."""
@@ -128,7 +119,6 @@ class Font:
 
     @underline.setter
     def underline(self, value: bool | Any) -> None: ...
-
     @property
     def name(self) -> str | None:
         """Font name (typeface)."""
@@ -136,7 +126,6 @@ class Font:
 
     @name.setter
     def name(self, value: str) -> None: ...
-
     @property
     def size(self) -> Any:
         """Font size in points."""
@@ -144,7 +133,6 @@ class Font:
 
     @size.setter
     def size(self, value: Any) -> None: ...
-
     @property
     def color(self) -> Any:
         """ColorFormat object for this font."""

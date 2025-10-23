@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
 
 from all2md.ast import (
-    BlockQuote,
     CodeBlock,
     Comment,
     CommentInline,
@@ -41,8 +40,6 @@ from all2md.ast import (
     Emphasis,
     FootnoteReference,
     Heading,
-    HTMLBlock,
-    HTMLInline,
     Image,
     LineBreak,
     Link,
@@ -306,10 +303,10 @@ class DocxToAstConverter(BaseParser):
             self._comments_map = self._load_comments(doc)
 
         for block in _iter_block_items(
-                doc,
-                options=self.options,
-                base_filename=base_filename,
-                attachment_sequencer=create_attachment_sequencer(),
+            doc,
+            options=self.options,
+            base_filename=base_filename,
+            attachment_sequencer=create_attachment_sequencer(),
         ):
             if isinstance(block, ImageData):
                 # Collect footnote info if present
@@ -393,7 +390,7 @@ class DocxToAstConverter(BaseParser):
         return document
 
     def _process_paragraph_to_ast(
-            self, paragraph: "Paragraph", doc: "docx.document.Document"
+        self, paragraph: "Paragraph", doc: "docx.document.Document"
     ) -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
 
@@ -654,8 +651,8 @@ class DocxToAstConverter(BaseParser):
                 hyperlink_text = "".join(r.text for r in run_to_parse.runs)
                 if hyperlink_text:
                     # Handle line breaks within hyperlink text
-                    if '\n' in hyperlink_text:
-                        parts = hyperlink_text.split('\n')
+                    if "\n" in hyperlink_text:
+                        parts = hyperlink_text.split("\n")
                         for i, part in enumerate(parts):
                             if part:
                                 current_text.append(part)
@@ -669,8 +666,8 @@ class DocxToAstConverter(BaseParser):
                 run_text = run_to_parse.text
                 if run_text:
                     # Handle line breaks (Shift+Enter in Word) within run text
-                    if '\n' in run_text:
-                        parts = run_text.split('\n')
+                    if "\n" in run_text:
+                        parts = run_text.split("\n")
                         for i, part in enumerate(parts):
                             if part:
                                 current_text.append(part)
@@ -716,10 +713,10 @@ class DocxToAstConverter(BaseParser):
         return nodes
 
     def _build_formatted_inline_node(
-            self,
-            text: str,
-            format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
-            url: str | None,
+        self,
+        text: str,
+        format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
+        url: str | None,
     ) -> Node:
         inline_node: Node = Text(content=text)
 
@@ -827,11 +824,11 @@ class DocxToAstConverter(BaseParser):
         ]
 
     def _format_comment_header(
-            self,
-            comment: CommentData,
-            *,
-            include_id: bool,
-            include_prefix: bool,
+        self,
+        comment: CommentData,
+        *,
+        include_id: bool,
+        include_prefix: bool,
     ) -> str:
         segments: list[str] = []
 
@@ -934,7 +931,7 @@ class DocxToAstConverter(BaseParser):
         """
         try:
             # Access paragraph formatting element
-            if not hasattr(paragraph, '_element'):
+            if not hasattr(paragraph, "_element"):
                 return False
 
             # Check for paragraph border bottom
@@ -943,16 +940,16 @@ class DocxToAstConverter(BaseParser):
                 return False
 
             # Check pBdr (paragraph borders)
-            pBdr = pPr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}pBdr')
+            pBdr = pPr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}pBdr")
             if pBdr is None:
                 return False
 
             # Check for bottom border
-            bottom = pBdr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bottom')
+            bottom = pBdr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bottom")
             if bottom is not None:
                 # Check if border is substantial (not just a thin line)
-                val = bottom.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
-                if val and val != 'none':
+                val = bottom.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+                if val and val != "none":
                     return True
 
             return False
@@ -1067,10 +1064,10 @@ class DocxToAstConverter(BaseParser):
             logger.debug(f"Could not process endnotes: {exc}")
 
     def _get_note_part(
-            self,
-            doc: "docx.document.Document",
-            relationship_type: str,
-            attr_name: str | None,
+        self,
+        doc: "docx.document.Document",
+        relationship_type: str,
+        attr_name: str | None,
     ) -> Any | None:
         """Return a related note part if available."""
         if attr_name:
@@ -1262,11 +1259,11 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
                                             if fmt_val in ("bullet", "none"):
                                                 levels[level_id] = "bullet"
                                             elif fmt_val in (
-                                                    "decimal",
-                                                    "lowerLetter",
-                                                    "upperLetter",
-                                                    "lowerRoman",
-                                                    "upperRoman",
+                                                "decimal",
+                                                "lowerLetter",
+                                                "upperLetter",
+                                                "lowerRoman",
+                                                "upperRoman",
                                             ):
                                                 levels[level_id] = "number"
                                             break
@@ -1292,7 +1289,7 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
 
 
 def _detect_list_level(
-        paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None
+    paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None
 ) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
@@ -1499,7 +1496,7 @@ def _omml_to_latex(element: Any) -> str:
 
 
 def _iter_block_items(
-        parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer: Any = None
+    parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer: Any = None
 ) -> Any:
     """Generate a sequence of Paragraph and Table elements in order, handling images."""
     import docx.document
@@ -1520,8 +1517,8 @@ def _iter_block_items(
 
             for run in paragraph.runs:
                 for pic in run._element.findall(
-                        ".//pic:pic",
-                        {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
+                    ".//pic:pic",
+                    {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
                 ):
                     has_image = True
 
@@ -1530,7 +1527,7 @@ def _iter_block_items(
 
                     if options.include_image_captions:
                         if (t := run._element.xpath(".//wp:docPr/@descr")) or (
-                                t := run._element.xpath(".//wp:docPr/@title")
+                            t := run._element.xpath(".//wp:docPr/@title")
                         ):
                             title = t[0]
 

@@ -641,16 +641,16 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         return "".join(text_parts)
 
     def _render_inlines(
-            self,
-            paragraph: Paragraph,
-            nodes: list[Node],
-            bold: bool = False,
-            italic: bool = False,
-            underline: bool = False,
-            strike: bool = False,
-            superscript: bool = False,
-            subscript: bool = False,
-            code_font: bool = False,
+        self,
+        paragraph: Paragraph,
+        nodes: list[Node],
+        bold: bool = False,
+        italic: bool = False,
+        underline: bool = False,
+        strike: bool = False,
+        superscript: bool = False,
+        subscript: bool = False,
+        code_font: bool = False,
     ) -> None:
         """Render inline nodes directly into a paragraph with formatting.
 
@@ -1462,7 +1462,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             # For inline comments, we need to create a temporary run to attach the comment to
             # Add a placeholder character that will be commented
-            placeholder_run = self._current_paragraph.add_run("\u200B")  # Zero-width space
+            placeholder_run = self._current_paragraph.add_run("\u200b")  # Zero-width space
 
             # Add native DOCX comment using python-docx 1.2.0+ API
             if hasattr(self.document, "add_comment"):
@@ -1484,9 +1484,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 run.font.italic = True
                 run.font.color.rgb = self._RGBColor(128, 128, 128)
 
-    def _render_comment_fallback(
-        self, paragraph: Paragraph, node: Comment | CommentInline, is_inline: bool
-    ) -> None:
+    def _render_comment_fallback(self, paragraph: Paragraph, node: Comment | CommentInline, is_inline: bool) -> None:
         """Render comment as styled text when native comments are not supported.
 
         This fallback method renders comments as highlighted text with metadata,

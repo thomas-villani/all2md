@@ -31,11 +31,11 @@ And here?s an ordered list:
 And now a multilevel list:
 
 * First level
-* First level 2 
+* First level 2
   - Second level 1
   - Second level 2
 * First level 3
-* First level 4 
+* First level 4
   - Second level 3
   - Second level 4
 * First level 5

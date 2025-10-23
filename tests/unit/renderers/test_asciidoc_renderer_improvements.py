@@ -156,7 +156,9 @@ class TestAsciiDocFootnoteWarnings:
             output = renderer.render_to_string(doc)
 
         # Should not log warnings
-        footnote_warnings = [r for r in caplog.records if "footnote" in r.message.lower() and "no definition" in r.message.lower()]
+        footnote_warnings = [
+            r for r in caplog.records if "footnote" in r.message.lower() and "no definition" in r.message.lower()
+        ]
         assert len(footnote_warnings) == 0
 
     def test_missing_footnote_still_renders(self) -> None:

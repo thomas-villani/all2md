@@ -4,11 +4,11 @@ This module configures the Sphinx documentation builder for the all2md
 project, including extensions, themes, and HTML output options.
 
 """
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-
 
 import sys
 from pathlib import Path
@@ -43,7 +43,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.doctest",
-    "sphinx_copybutton"
+    "sphinx_copybutton",
 ]
 
 autosummary_generate = True
@@ -54,7 +54,7 @@ exclude_patterns = []
 # Suppress warnings for ambiguous cross-references caused by re-exports in __init__.py
 # Objects like Document, Node, etc. are available at multiple import paths
 # (e.g., all2md.ast.Document and all2md.ast.nodes.Document)
-suppress_warnings = ['ref.python']
+suppress_warnings = ["ref.python"]
 
 autodoc_default_options = {
     "members": True,

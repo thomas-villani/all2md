@@ -40,7 +40,6 @@ class Chart:
         """Value axis object (Y-axis)."""
         ...
 
-
 class ChartTitle:
     """Represents a chart title."""
 
@@ -53,7 +52,6 @@ class ChartTitle:
     def text_frame(self) -> Any:
         """TextFrame object for the chart title."""
         ...
-
 
 class Series:
     """Represents a data series in a chart."""
@@ -73,7 +71,6 @@ class Series:
         """Internal XML element."""
         ...
 
-
 class Plot:
     """Represents a plot area in a chart."""
 
@@ -82,7 +79,6 @@ class Plot:
         """Category labels for the plot."""
         ...
 
-
 class Category:
     """Represents a category in a chart."""
 
@@ -90,7 +86,6 @@ class Category:
     def label(self) -> str:
         """Label text for this category."""
         ...
-
 
 class Axis:
     """Represents an axis in a chart."""
@@ -104,7 +99,6 @@ class Axis:
     def axis_title(self) -> Any:
         """AxisTitle object for this axis."""
         ...
-
 
 class AxisTitle:
     """Represents an axis title."""

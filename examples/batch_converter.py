@@ -331,10 +331,7 @@ class BatchConverter:
         print("-" * 70)
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            futures = {
-                executor.submit(self._convert_single_file, job): job
-                for job in self.jobs
-            }
+            futures = {executor.submit(self._convert_single_file, job): job for job in self.jobs}
 
             for future in as_completed(futures):
                 job = future.result()
@@ -389,13 +386,9 @@ def main():
     """Run the batch converter."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Batch convert documents with progress tracking"
-    )
+    parser = argparse.ArgumentParser(description="Batch convert documents with progress tracking")
     parser.add_argument("input_dir", type=Path, help="Input directory")
-    parser.add_argument(
-        "output_dir", type=Path, help="Output directory"
-    )
+    parser.add_argument("output_dir", type=Path, help="Output directory")
     parser.add_argument(
         "--format",
         "-f",

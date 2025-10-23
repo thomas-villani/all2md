@@ -289,7 +289,7 @@ class OrgParser(BaseParser):
         heading_text = node.heading
         if manually_extracted_todo and todo_state:
             # Remove the TODO keyword from heading text
-            heading_text = heading_text[len(todo_state):].lstrip()
+            heading_text = heading_text[len(todo_state) :].lstrip()
         content = self._parse_inline(heading_text)
 
         # Build metadata
@@ -478,7 +478,7 @@ class OrgParser(BaseParser):
         for match in pattern.finditer(text):
             # Add any text before this match
             if match.start() > pos:
-                result.append(Text(content=text[pos: match.start()]))
+                result.append(Text(content=text[pos : match.start()]))
 
             # Process the match based on which group matched
             matched_groups = match.groups()
@@ -518,7 +518,7 @@ class OrgParser(BaseParser):
 
                 # Check if it's an image link
                 if url.startswith("file:") or any(
-                        url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".svg"]
+                    url.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".svg"]
                 ):
                     # Remove 'file:' prefix if present
                     image_url = url[5:] if url.startswith("file:") else url

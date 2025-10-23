@@ -5,6 +5,7 @@
 
 This module defines options for LaTeX document conversion.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -152,8 +153,8 @@ class LatexRendererOptions(BaseRendererOptions):
         default=DEFAULT_LATEX_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "percent (%% comments), todonotes (\\todo{}), marginnote (\\marginpar{}), "
-                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "percent (%% comments), todonotes (\\todo{}), marginnote (\\marginpar{}), "
+            "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
             "choices": ["percent", "todonotes", "marginnote", "ignore"],
             "importance": "core",
         },

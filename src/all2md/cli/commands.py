@@ -7,6 +7,7 @@ This module provides command-line interface implementation for the all2md
 document conversion library, including command handlers, version info,
 and system diagnostics.
 """
+
 import argparse
 import fnmatch
 import json
@@ -464,10 +465,10 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
 
 
 def collect_input_files(
-        input_paths: List[str],
-        recursive: bool = False,
-        extensions: Optional[List[str]] = None,
-        exclude_patterns: Optional[List[str]] = None,
+    input_paths: List[str],
+    recursive: bool = False,
+    extensions: Optional[List[str]] = None,
+    exclude_patterns: Optional[List[str]] = None,
 ) -> List[CLIInputItem]:
     """Collect CLI input items from provided arguments.
 
@@ -1509,47 +1510,24 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
         prog="all2md generate-site",
         description="Generate Hugo or Jekyll static site from documents.",
     )
+    parser.add_argument("input", nargs="+", help="Input files or directories to convert")
+    parser.add_argument("--output-dir", required=True, help="Output directory for the static site")
     parser.add_argument(
-        "input",
-        nargs="+",
-        help="Input files or directories to convert"
+        "--generator", choices=["hugo", "jekyll"], required=True, help="Static site generator (hugo or jekyll)"
     )
     parser.add_argument(
-        "--output-dir",
-        required=True,
-        help="Output directory for the static site"
-    )
-    parser.add_argument(
-        "--generator",
-        choices=["hugo", "jekyll"],
-        required=True,
-        help="Static site generator (hugo or jekyll)"
-    )
-    parser.add_argument(
-        "--scaffold",
-        action="store_true",
-        help="Create full site structure with config files and layouts"
+        "--scaffold", action="store_true", help="Create full site structure with config files and layouts"
     )
     parser.add_argument(
         "--frontmatter-format",
         choices=["yaml", "toml"],
-        help="Frontmatter format (default: toml for Hugo, yaml for Jekyll)"
+        help="Frontmatter format (default: toml for Hugo, yaml for Jekyll)",
     )
     parser.add_argument(
-        "--content-subdir",
-        default="",
-        help="Subdirectory within content/ or _posts/ (e.g., 'posts', 'docs')"
+        "--content-subdir", default="", help="Subdirectory within content/ or _posts/ (e.g., 'posts', 'docs')"
     )
-    parser.add_argument(
-        "--recursive",
-        action="store_true",
-        help="Process directories recursively"
-    )
-    parser.add_argument(
-        "--exclude",
-        action="append",
-        help="Glob patterns to exclude (can be used multiple times)"
-    )
+    parser.add_argument("--recursive", action="store_true", help="Process directories recursively")
+    parser.add_argument("--exclude", action="append", help="Glob patterns to exclude (can be used multiple times)")
 
     try:
         parsed = parser.parse_args(args or [])
@@ -1634,6 +1612,7 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
 
             # Ensure unique filename
             from all2md.utils.attachments import ensure_unique_attachment_path
+
             output_path = ensure_unique_attachment_path(output_path)
 
             # Write output file

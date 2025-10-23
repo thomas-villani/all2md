@@ -142,9 +142,7 @@ class MhtmlToAstConverter(BaseParser):
                     if charset:
                         # Try the declared charset first, then fallback to detection
                         fallback_encodings = [charset, "utf-8", "utf-8-sig", "latin-1"]
-                        html_content = read_text_with_encoding_detection(
-                            payload, fallback_encodings=fallback_encodings
-                        )
+                        html_content = read_text_with_encoding_detection(payload, fallback_encodings=fallback_encodings)
                     else:
                         # No charset declared, use full detection
                         html_content = read_text_with_encoding_detection(payload)

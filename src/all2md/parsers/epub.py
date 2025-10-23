@@ -101,7 +101,6 @@ class EpubToAstConverter(BaseParser):
             epub_path = str(input_data)
 
         try:
-
             book = epub.read_epub(epub_path)
         except (ParsingError, ZipFileSecurityError, ValidationError):
             raise

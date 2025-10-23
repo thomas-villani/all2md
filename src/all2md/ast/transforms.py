@@ -400,7 +400,9 @@ class NodeTransformer(NodeVisitor):
                 continue
             transformed_items.append((t_term, t_descs))
         return DefinitionList(
-            items=transformed_items, metadata=node.metadata.copy(), source_location=node.source_location  # type: ignore
+            items=transformed_items,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,  # type: ignore
         )
 
     def visit_definition_term(self, node: "DefinitionTerm") -> "DefinitionTerm":
@@ -857,7 +859,7 @@ def merge_lists_merger(existing: dict[str, Any], new: dict[str, Any]) -> dict[st
 
 
 def merge_documents(
-        docs: list[Document], metadata_merger: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
+    docs: list[Document], metadata_merger: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
 ) -> Document:
     """Merge multiple documents into a single document.
 

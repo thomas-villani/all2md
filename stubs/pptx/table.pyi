@@ -15,7 +15,6 @@ class Table:
         """List of table columns."""
         ...
 
-
 class _Row:
     """Represents a row in a PowerPoint table."""
 
@@ -29,7 +28,6 @@ class _Row:
         """Height of row in EMUs."""
         ...
 
-
 class _Cell:
     """Represents a cell in a PowerPoint table."""
 
@@ -40,7 +38,6 @@ class _Cell:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def text_frame(self) -> Any:
         """TextFrame object for this cell."""

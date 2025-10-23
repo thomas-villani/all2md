@@ -5,6 +5,7 @@
 
 This module defines options for parsing Microsoft Outlook format files.
 """
+
 from __future__ import annotations
 
 import datetime

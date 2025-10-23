@@ -100,7 +100,8 @@ class TestHtmlConverterSecurity:
         html_content = '<img src="https://example.com/image.png" alt="test">'
 
         options = HtmlOptions(
-            network=NetworkFetchOptions(allow_remote_fetch=True), attachment_mode="base64"  # Even with this enabled
+            network=NetworkFetchOptions(allow_remote_fetch=True),
+            attachment_mode="base64",  # Even with this enabled
         )
 
         # Should fall back to alt_text when network is globally disabled

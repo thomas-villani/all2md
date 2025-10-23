@@ -26,6 +26,7 @@ from all2md.options.odp import OdpOptions
 if ODFPY_AVAILABLE:
     from all2md.parsers.odp import OdpToAstConverter
 
+
 @pytest.mark.unit
 @pytest.mark.skipif(not ODFPY_AVAILABLE, reason="odfpy not installed")
 class TestOdpParser:

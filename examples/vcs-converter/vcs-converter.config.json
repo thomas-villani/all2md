@@ -1,0 +1,15 @@
+{
+  "markdown_dir": ".vcs-docs",
+  "track_metadata": true,
+  "preserve_images": true,
+  "line_width": 80,
+  "store_ast": false,
+  "exclude_patterns": [
+    "*.tmp.docx",
+    "~$*.docx",
+    "**/build/**",
+    "**/dist/**"
+  ],
+  "auto_commit_markdown": false,
+  "diff_friendly": true
+}

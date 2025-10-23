@@ -1761,7 +1761,7 @@ class TestAsciiDocHTMLPassthrough:
     def test_inline_passthrough_double_plus(self) -> None:
         """Test parsing inline passthrough with ++ syntax."""
         parser = AsciiDocParser()
-        doc = parser.parse("Text with ++<span class=\"custom\">HTML</span>++ inline")
+        doc = parser.parse('Text with ++<span class="custom">HTML</span>++ inline')
 
         # Check for HTMLInline in paragraph
         para = doc.children[0]

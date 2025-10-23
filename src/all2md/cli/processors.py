@@ -82,14 +82,14 @@ def _relative_parent(item: CLIInputItem, base_input_dir: Optional[Path]) -> Path
 
 
 def _generate_output_path_for_item(
-        item: CLIInputItem,
-        output_dir: Optional[Path],
-        preserve_structure: bool,
-        base_input_dir: Optional[Path],
-        target_format: str,
-        index: int,
-        *,
-        dry_run: bool = False,
+    item: CLIInputItem,
+    output_dir: Optional[Path],
+    preserve_structure: bool,
+    base_input_dir: Optional[Path],
+    target_format: str,
+    index: int,
+    *,
+    dry_run: bool = False,
 ) -> Optional[Path]:
     """Generate an output path for a CLI input item, handling remote sources."""
     if output_dir is None:
@@ -118,9 +118,9 @@ def _final_option_segment(remainder: str) -> str:
 
 
 def _filter_options_for_formats(
-        options: Dict[str, Any],
-        parser_format: str | None,
-        renderer_format: str | None,
+    options: Dict[str, Any],
+    parser_format: str | None,
+    renderer_format: str | None,
 ) -> Dict[str, Any]:
     """Project a namespaced options dict onto parser/renderer kwargs.
 
@@ -198,7 +198,7 @@ def _extract_remote_input_options(options: Dict[str, Any]) -> tuple[RemoteInputO
 
     for key, value in options.items():
         if key.startswith(remote_prefix):
-            field_name = key[len(remote_prefix):]
+            field_name = key[len(remote_prefix) :]
             if field_name == "allowed_hosts" and isinstance(value, str):
                 remote_kwargs[field_name] = [host.strip() for host in value.split(",") if host.strip()]
             else:
@@ -225,10 +225,10 @@ def _detect_format_for_path(input_path: Path | None) -> str | None:
 
 
 def prepare_options_for_execution(
-        options: Dict[str, Any],
-        input_path: Path | None,
-        parser_hint: str,
-        renderer_hint: str | None = None,
+    options: Dict[str, Any],
+    input_path: Path | None,
+    parser_hint: str,
+    renderer_hint: str | None = None,
 ) -> Dict[str, Any]:
     """Prepare CLI options for API consumption based on detected formats."""
     parser_format: str | None
@@ -673,7 +673,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
 
 
 def setup_and_validate_options(
-        parsed_args: argparse.Namespace,
+    parsed_args: argparse.Namespace,
 ) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
     """Set up conversion options and build transforms.
 
@@ -735,11 +735,11 @@ def setup_and_validate_options(
 
 
 def process_multi_file(
-        items: List[CLIInputItem],
-        parsed_args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    items: List[CLIInputItem],
+    parsed_args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process multiple files with appropriate output handling.
 
@@ -789,11 +789,11 @@ def process_multi_file(
 
 
 def _create_output_package(
-        parsed_args: argparse.Namespace,
-        input_items: List[CLIInputItem],
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    parsed_args: argparse.Namespace,
+    input_items: List[CLIInputItem],
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Create output package (zip) after successful conversion.
 
@@ -1047,7 +1047,7 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
 
 def process_merge_from_list(
-        args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
+    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
 ) -> int:
     """Process files from a list file and merge them into a single document.
 
@@ -1602,10 +1602,10 @@ def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_
 
 
 def _convert_item_to_ast_for_collation(
-        item: CLIInputItem,
-        options: Dict[str, Any],
-        format_arg: str,
-        progress_callback: Optional[Any] = None,
+    item: CLIInputItem,
+    options: Dict[str, Any],
+    format_arg: str,
+    progress_callback: Optional[Any] = None,
 ) -> Tuple[int, Optional[ASTDocument], Optional[str]]:
     """Load an input item into an AST for collation.
 
@@ -1655,11 +1655,11 @@ def _convert_item_to_ast_for_collation(
 
 
 def process_files_collated(
-        items: List[CLIInputItem],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Collate multiple inputs into a single output using an AST pipeline."""
     from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
@@ -1781,12 +1781,12 @@ def process_files_collated(
 
 
 def generate_output_path(
-        input_file: Path,
-        output_dir: Optional[Path] = None,
-        preserve_structure: bool = False,
-        base_input_dir: Optional[Path] = None,
-        dry_run: bool = False,
-        target_format: str = "markdown",
+    input_file: Path,
+    output_dir: Optional[Path] = None,
+    preserve_structure: bool = False,
+    base_input_dir: Optional[Path] = None,
+    dry_run: bool = False,
+    target_format: str = "markdown",
 ) -> Path:
     """Generate output path for a converted file.
 
@@ -1839,15 +1839,15 @@ def generate_output_path(
 
 
 def convert_single_file(
-        input_item: CLIInputItem,
-        output_path: Optional[Path],
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
-        show_progress: bool = False,
-        target_format: str = "markdown",
-        transform_specs: Optional[list[TransformSpec]] = None,
-        progress_callback: Optional[Any] = None,
+    input_item: CLIInputItem,
+    output_path: Optional[Path],
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
+    show_progress: bool = False,
+    target_format: str = "markdown",
+    transform_specs: Optional[list[TransformSpec]] = None,
+    progress_callback: Optional[Any] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -1950,11 +1950,11 @@ def convert_single_file(
 
 
 def process_files_unified(
-        items: List[CLIInputItem],
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list] = None,
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
 ) -> int:
     """Process CLI inputs with unified progress handling."""
     from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
@@ -2024,9 +2024,8 @@ def process_files_unified(
     max_exit_code = EXIT_SUCCESS
 
     use_parallel = (
-                           hasattr(args,
-                                   "_provided_args") and "parallel" in args._provided_args and args.parallel is None
-                   ) or (isinstance(args.parallel, int) and args.parallel != 1)
+        hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
+    ) or (isinstance(args.parallel, int) and args.parallel != 1)
 
     if use_parallel:
         max_workers = args.parallel if args.parallel else os.cpu_count()
@@ -2116,13 +2115,13 @@ def process_files_unified(
 
 
 def _render_single_item_to_stdout(
-        item: CLIInputItem,
-        args: argparse.Namespace,
-        options: Dict[str, Any],
-        format_arg: str,
-        transforms: Optional[list],
-        should_use_rich: bool,
-        target_format: str,
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    should_use_rich: bool,
+    target_format: str,
 ) -> int:
     """Render a single item to stdout, respecting pager and rich flags."""
     try:

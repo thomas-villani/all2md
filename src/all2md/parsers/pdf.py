@@ -39,14 +39,10 @@ from all2md.ast import (
     ListItem,
     Node,
     SourceLocation,
-    Strikethrough,
     Strong,
-    Subscript,
-    Superscript,
     TableCell,
     TableRow,
     Text,
-    Underline,
 )
 from all2md.ast import (
     Paragraph as AstParagraph,
@@ -488,7 +484,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
 
 
 def resolve_links(
-        links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None
+    links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None
 ) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
@@ -607,11 +603,11 @@ def resolve_links(
 
 
 def extract_page_images(
-        page: "fitz.Page",
-        page_num: int,
-        options: PdfOptions | None = None,
-        base_filename: str = "document",
-        attachment_sequencer: Callable | None = None,
+    page: "fitz.Page",
+    page_num: int,
+    options: PdfOptions | None = None,
+    base_filename: str = "document",
+    attachment_sequencer: Callable | None = None,
 ) -> tuple[list[dict], dict[str, str]]:
     """Extract images from a PDF page with their positions.
 
@@ -802,7 +798,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
 
 
 def detect_tables_by_ruling_lines(
-        page: "fitz.Page", threshold: float = 0.5
+    page: "fitz.Page", threshold: float = 0.5
 ) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
@@ -937,11 +933,11 @@ class IdentifyHeaders:
     """
 
     def __init__(
-            self,
-            doc: Any,  # PyMuPDF Document object
-            pages: list[int] | range | None = None,
-            body_limit: float | None = None,
-            options: PdfOptions | None = None,
+        self,
+        doc: Any,  # PyMuPDF Document object
+        pages: list[int] | range | None = None,
+        body_limit: float | None = None,
+        options: PdfOptions | None = None,
     ) -> None:
         """Initialize header identification by analyzing font sizes.
 
@@ -1233,11 +1229,7 @@ def _calculate_image_coverage(page: "fitz.Page") -> float:
     return coverage_ratio
 
 
-def _should_use_ocr(
-        page: "fitz.Page",
-        extracted_text: str,
-        options: "PdfOptions"
-) -> bool:
+def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: "PdfOptions") -> bool:
     """Determine whether OCR should be applied to a PDF page.
 
     Analyzes the page content based on the OCR mode and detection thresholds
@@ -1283,10 +1275,7 @@ def _should_use_ocr(
         # Check text threshold
         text_length = len(extracted_text.strip())
         if text_length < ocr_opts.text_threshold:
-            logger.debug(
-                f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), "
-                f"triggering OCR"
-            )
+            logger.debug(f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), " f"triggering OCR")
             return True
 
         # Check image coverage threshold
@@ -1395,7 +1384,7 @@ class PdfToAstConverter(BaseParser):
                 # Handle different file-like object types
             elif input_type == "object":
                 if isinstance(doc_input, fitz.Document) or (
-                        hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
+                    hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
                 ):
                     doc = doc_input
                 else:
@@ -1871,6 +1860,7 @@ class PdfToAstConverter(BaseParser):
         # DPI is specified via the matrix parameter (DPI/72 = zoom factor)
         zoom = dpi / 72.0
         import fitz
+
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
 
@@ -1884,15 +1874,9 @@ class PdfToAstConverter(BaseParser):
             config = ocr_opts.tesseract_config if ocr_opts.tesseract_config else ""
 
             # Extract text using pytesseract
-            ocr_text = pytesseract.image_to_string(
-                img,
-                lang=lang,
-                config=config
-            )
+            ocr_text = pytesseract.image_to_string(img, lang=lang, config=config)
 
-            logger.debug(
-                f"OCR extracted {len(ocr_text)} characters using language '{lang}' at {dpi} DPI"
-            )
+            logger.debug(f"OCR extracted {len(ocr_text)} characters using language '{lang}' at {dpi} DPI")
 
             return ocr_text
 
@@ -1910,12 +1894,12 @@ class PdfToAstConverter(BaseParser):
             pix = None
 
     def _process_page_to_ast(
-            self,
-            page: "fitz.Page",
-            page_num: int,
-            base_filename: str,
-            attachment_sequencer: Callable[[str, str], tuple[str, int]],
-            total_pages: int = 0,
+        self,
+        page: "fitz.Page",
+        page_num: int,
+        base_filename: str,
+        attachment_sequencer: Callable[[str, str], tuple[str, int]],
+        total_pages: int = 0,
     ) -> list[Node]:
         """Process a PDF page to AST nodes.
 
@@ -2062,8 +2046,7 @@ class PdfToAstConverter(BaseParser):
                     else:
                         # Replace existing blocks with OCR text
                         logger.debug(
-                            f"Replacing PyMuPDF text ({len(extracted_text)} chars) "
-                            f"with OCR ({len(ocr_text)} chars)"
+                            f"Replacing PyMuPDF text ({len(extracted_text)} chars) " f"with OCR ({len(ocr_text)} chars)"
                         )
                         # Create a single block for all OCR text
                         all_blocks = [
@@ -2701,7 +2684,7 @@ class PdfToAstConverter(BaseParser):
             # Relax the threshold to compensate for the increased bbox area
             # Scale down threshold proportionally to the height ratio
             height_ratio = span_height / average_line_height
-            adjusted_threshold = threshold_percent / (height_ratio ** 0.5)  # Square root dampening
+            adjusted_threshold = threshold_percent / (height_ratio**0.5)  # Square root dampening
             adjusted_threshold = max(adjusted_threshold, 30.0)  # Don't go below 30%
             threshold_percent = adjusted_threshold
             logger.debug(
@@ -2839,7 +2822,7 @@ class PdfToAstConverter(BaseParser):
             return None
 
     def _extract_table_from_ruling_rect(
-            self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
+        self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
     ) -> AstTable | None:
         """Extract table content from a bounding box using ruling lines.
 

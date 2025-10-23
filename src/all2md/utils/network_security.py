@@ -55,32 +55,32 @@ def _is_private_or_reserved_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address
     if isinstance(ip, ipaddress.IPv4Address):
         # IPv4 restricted ranges
         return (
-                ip.is_private  # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-                or ip.is_loopback  # 127.0.0.0/8
-                or ip.is_link_local  # 169.254.0.0/16
-                or ip.is_reserved  # Various reserved ranges
-                or ip.is_multicast  # 224.0.0.0/4
-                or ip in ipaddress.IPv4Network("0.0.0.0/8")  # "This" network
-                or ip in ipaddress.IPv4Network("100.64.0.0/10")  # RFC6598 Carrier NAT
-                or ip in ipaddress.IPv4Network("192.0.0.0/24")  # RFC6890 Special use
-                or ip in ipaddress.IPv4Network("192.0.2.0/24")  # RFC5737 Test-Net-1
-                or ip in ipaddress.IPv4Network("198.18.0.0/15")  # RFC2544 Benchmarking
-                or ip in ipaddress.IPv4Network("198.51.100.0/24")  # RFC5737 Test-Net-2
-                or ip in ipaddress.IPv4Network("203.0.113.0/24")  # RFC5737 Test-Net-3
-                or ip in ipaddress.IPv4Network("240.0.0.0/4")  # RFC1112 Reserved
+            ip.is_private  # 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+            or ip.is_loopback  # 127.0.0.0/8
+            or ip.is_link_local  # 169.254.0.0/16
+            or ip.is_reserved  # Various reserved ranges
+            or ip.is_multicast  # 224.0.0.0/4
+            or ip in ipaddress.IPv4Network("0.0.0.0/8")  # "This" network
+            or ip in ipaddress.IPv4Network("100.64.0.0/10")  # RFC6598 Carrier NAT
+            or ip in ipaddress.IPv4Network("192.0.0.0/24")  # RFC6890 Special use
+            or ip in ipaddress.IPv4Network("192.0.2.0/24")  # RFC5737 Test-Net-1
+            or ip in ipaddress.IPv4Network("198.18.0.0/15")  # RFC2544 Benchmarking
+            or ip in ipaddress.IPv4Network("198.51.100.0/24")  # RFC5737 Test-Net-2
+            or ip in ipaddress.IPv4Network("203.0.113.0/24")  # RFC5737 Test-Net-3
+            or ip in ipaddress.IPv4Network("240.0.0.0/4")  # RFC1112 Reserved
         )
     else:  # IPv6
         # IPv6 restricted ranges
         return (
-                ip.is_private  # fc00::/7 (ULA)
-                or ip.is_loopback  # ::1/128
-                or ip.is_link_local  # fe80::/10
-                or ip.is_reserved  # Various reserved ranges
-                or ip.is_multicast  # ff00::/8
-                or ip in ipaddress.IPv6Network("::ffff:0:0/96")  # IPv4-mapped IPv6
-                or ip in ipaddress.IPv6Network("2001:db8::/32")  # RFC3849 Documentation
-                or ip in ipaddress.IPv6Network("2001::/32")  # RFC4380 Teredo
-                or ip in ipaddress.IPv6Network("2002::/16")  # RFC3056 6to4
+            ip.is_private  # fc00::/7 (ULA)
+            or ip.is_loopback  # ::1/128
+            or ip.is_link_local  # fe80::/10
+            or ip.is_reserved  # Various reserved ranges
+            or ip.is_multicast  # ff00::/8
+            or ip in ipaddress.IPv6Network("::ffff:0:0/96")  # IPv4-mapped IPv6
+            or ip in ipaddress.IPv6Network("2001:db8::/32")  # RFC3849 Documentation
+            or ip in ipaddress.IPv6Network("2001::/32")  # RFC4380 Teredo
+            or ip in ipaddress.IPv6Network("2002::/16")  # RFC3056 6to4
         )
 
 
@@ -371,11 +371,11 @@ def validate_url_security(url: str, allowed_hosts: list[str] | None = None, requ
 
 @requires_dependencies("network", [("httpx", "httpx", ">=0.28.1")])
 def create_secure_http_client(
-        timeout: float = 10.0,
-        max_redirects: int = 5,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True,
-        user_agent: str | None = None,
+    timeout: float = 10.0,
+    max_redirects: int = 5,
+    allowed_hosts: list[str] | None = None,
+    require_https: bool = True,
+    user_agent: str | None = None,
 ) -> Any:
     """Create httpx client with security constraints.
 
@@ -448,15 +448,15 @@ def create_secure_http_client(
 
 
 def fetch_content_securely(
-        url: str,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True,
-        max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
-        timeout: float = 10.0,
-        expected_content_types: list[str] | None = None,
-        require_head_success: bool = True,
-        rate_limiter: RateLimiter | None = None,
-        user_agent: str | None = None,
+    url: str,
+    allowed_hosts: list[str] | None = None,
+    require_https: bool = True,
+    max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
+    timeout: float = 10.0,
+    expected_content_types: list[str] | None = None,
+    require_head_success: bool = True,
+    rate_limiter: RateLimiter | None = None,
+    user_agent: str | None = None,
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -508,7 +508,7 @@ def fetch_content_securely(
 
     try:
         with create_secure_http_client(
-                timeout=timeout, allowed_hosts=allowed_hosts, require_https=require_https
+            timeout=timeout, allowed_hosts=allowed_hosts, require_https=require_https
         ) as client:
             # Use HEAD request first to check content-length header
             try:
@@ -588,13 +588,13 @@ def fetch_content_securely(
 
 
 def fetch_image_securely(
-        url: str,
-        allowed_hosts: list[str] | None = None,
-        require_https: bool = True,
-        max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
-        timeout: float = 30.0,
-        require_head_success: bool = True,
-        rate_limiter: RateLimiter | None = None,
+    url: str,
+    allowed_hosts: list[str] | None = None,
+    require_https: bool = True,
+    max_size_bytes: int = 20 * 1024 * 1024,  # 20MB
+    timeout: float = 30.0,
+    require_head_success: bool = True,
+    rate_limiter: RateLimiter | None = None,
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 

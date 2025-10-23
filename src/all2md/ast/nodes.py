@@ -43,9 +43,9 @@ Alignment = Literal["left", "center", "right"]
 
 
 def _normalize_math_representations(
-        content: str,
-        notation: MathNotation,
-        representations: dict[MathNotation, str],
+    content: str,
+    notation: MathNotation,
+    representations: dict[MathNotation, str],
 ) -> None:
     if notation not in {"latex", "mathml", "html"}:
         raise ValueError(f"Unsupported math notation: {notation}")
@@ -54,10 +54,10 @@ def _normalize_math_representations(
 
 
 def _select_math_representation(
-        content: str,
-        notation: MathNotation,
-        representations: dict[MathNotation, str],
-        preferred: MathNotation,
+    content: str,
+    notation: MathNotation,
+    representations: dict[MathNotation, str],
+    preferred: MathNotation,
 ) -> tuple[str, MathNotation]:
     if preferred in representations:
         return representations[preferred], preferred
@@ -1669,21 +1669,21 @@ def get_node_children(node: Node) -> list[Node]:
 
     # Inline nodes with 'content' attribute (containing inline nodes)
     if isinstance(
-            node,
-            (
-                    Heading,
-                    Paragraph,
-                    Emphasis,
-                    Strong,
-                    Strikethrough,
-                    Underline,
-                    Superscript,
-                    Subscript,
-                    Link,
-                    TableCell,
-                    DefinitionTerm,
-                    DefinitionDescription,
-            ),
+        node,
+        (
+            Heading,
+            Paragraph,
+            Emphasis,
+            Strong,
+            Strikethrough,
+            Underline,
+            Superscript,
+            Subscript,
+            Link,
+            TableCell,
+            DefinitionTerm,
+            DefinitionDescription,
+        ),
     ):
         return list(node.content)
 
@@ -1779,21 +1779,21 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
 
     # Inline nodes with 'content' attribute
     if isinstance(
-            node,
-            (
-                    Heading,
-                    Paragraph,
-                    Emphasis,
-                    Strong,
-                    Strikethrough,
-                    Underline,
-                    Superscript,
-                    Subscript,
-                    Link,
-                    TableCell,
-                    DefinitionTerm,
-                    DefinitionDescription,
-            ),
+        node,
+        (
+            Heading,
+            Paragraph,
+            Emphasis,
+            Strong,
+            Strikethrough,
+            Underline,
+            Superscript,
+            Subscript,
+            Link,
+            TableCell,
+            DefinitionTerm,
+            DefinitionDescription,
+        ),
     ):
         return replace(node, content=new_children)
 

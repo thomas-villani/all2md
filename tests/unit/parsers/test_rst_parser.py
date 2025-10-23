@@ -28,7 +28,6 @@ from all2md.ast import (
     FootnoteReference,
     Heading,
     HTMLBlock,
-    HTMLInline,
     Link,
     List,
     MathBlock,
@@ -463,10 +462,10 @@ class TestFootnotes:
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
-            if hasattr(node, 'children') and isinstance(node.children, list):
+            if hasattr(node, "children") and isinstance(node.children, list):
                 for child in node.children:
                     collect_nodes(child)
 
@@ -509,10 +508,10 @@ This has a footnote [1]_.
 
         def collect_nodes(node):
             all_nodes.append(node)
-            if hasattr(node, 'content') and isinstance(node.content, list):
+            if hasattr(node, "content") and isinstance(node.content, list):
                 for child in node.content:
                     collect_nodes(child)
-            if hasattr(node, 'children') and isinstance(node.children, list):
+            if hasattr(node, "children") and isinstance(node.children, list):
                 for child in node.children:
                     collect_nodes(child)
 
@@ -585,7 +584,7 @@ class TestHTMLContent:
 
     def test_html_inline(self) -> None:
         """Test parsing raw HTML inline."""
-        rst = "Text with :raw-html:`<span class=\"custom\">inline HTML</span>`."
+        rst = 'Text with :raw-html:`<span class="custom">inline HTML</span>`.'
         parser = RestructuredTextParser()
         doc = parser.parse(rst)
 

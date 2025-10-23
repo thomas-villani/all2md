@@ -6,6 +6,7 @@
 This module defines options classes for Textile format conversion,
 supporting both AST parsing and rendering operations.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

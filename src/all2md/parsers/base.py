@@ -266,7 +266,7 @@ class BaseParser(ABC):
 
     @staticmethod
     def _append_attachment_footnotes(
-            children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
+        children: list[Node], attachment_footnotes: dict[str, str], section_title: str = "Attachments"
     ) -> None:
         """Append attachment footnote definitions to document children.
 

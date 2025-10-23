@@ -1399,9 +1399,11 @@ class TestSpeakerNotesCommentMode:
 
         # Should have H3 heading with "Speaker Notes"
         headings = list(extract_nodes(ast_doc, Heading))
-        speaker_notes_headings = [h for h in headings if h.level == 3 and any(
-            isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content
-        )]
+        speaker_notes_headings = [
+            h
+            for h in headings
+            if h.level == 3 and any(isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content)
+        ]
 
         assert len(speaker_notes_headings) == 1, "Should have H3 'Speaker Notes' heading in content mode"
 
@@ -1427,9 +1429,11 @@ class TestSpeakerNotesCommentMode:
 
         # Should NOT have H3 "Speaker Notes" heading
         headings = list(extract_nodes(ast_doc, Heading))
-        speaker_notes_headings = [h for h in headings if h.level == 3 and any(
-            isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content
-        )]
+        speaker_notes_headings = [
+            h
+            for h in headings
+            if h.level == 3 and any(isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content)
+        ]
         assert len(speaker_notes_headings) == 0, "Should not have H3 'Speaker Notes' heading in comment mode"
 
     def test_comment_mode_ignore(self) -> None:
@@ -1445,9 +1449,11 @@ class TestSpeakerNotesCommentMode:
 
         # Should NOT have H3 "Speaker Notes" heading
         headings = list(extract_nodes(ast_doc, Heading))
-        speaker_notes_headings = [h for h in headings if h.level == 3 and any(
-            isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content
-        )]
+        speaker_notes_headings = [
+            h
+            for h in headings
+            if h.level == 3 and any(isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content)
+        ]
         assert len(speaker_notes_headings) == 0, "Should not have H3 'Speaker Notes' heading in ignore mode"
 
     def test_comment_mode_with_include_notes_false(self) -> None:
@@ -1564,10 +1570,7 @@ class TestSuperscriptSubscriptFormatting:
         sups = list(extract_nodes(ast_doc, Superscript))
         # If found, verify content
         if sups:
-            sup_content = "".join(
-                node.content if isinstance(node, Text) else ""
-                for node in sups[0].content
-            )
+            sup_content = "".join(node.content if isinstance(node, Text) else "" for node in sups[0].content)
             assert "2" in sup_content
 
     def test_subscript_text(self) -> None:
@@ -1609,10 +1612,7 @@ class TestSuperscriptSubscriptFormatting:
         subs = list(extract_nodes(ast_doc, Subscript))
         # If found, verify content
         if subs:
-            sub_content = "".join(
-                node.content if isinstance(node, Text) else ""
-                for node in subs[0].content
-            )
+            sub_content = "".join(node.content if isinstance(node, Text) else "" for node in subs[0].content)
             assert "2" in sub_content
 
 

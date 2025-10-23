@@ -37,7 +37,11 @@ def test_fb2_parse_basic_structure(sample_fb2_path: Path) -> None:
     assert intro_heading.level == 2
 
     image_paragraph = next(
-        (node for node in document.children if isinstance(node, Paragraph) and any(isinstance(child, Image) for child in node.content)),
+        (
+            node
+            for node in document.children
+            if isinstance(node, Paragraph) and any(isinstance(child, Image) for child in node.content)
+        ),
         None,
     )
     assert image_paragraph is not None
@@ -70,7 +74,11 @@ def test_fb2_notes_section_included_by_default(sample_fb2_path: Path) -> None:
     document = parser.parse(sample_fb2_path)
 
     notes_heading = next(
-        (node for node in document.children if isinstance(node, Heading) and extract_text(node, joiner=" ").strip() == "Notes"),
+        (
+            node
+            for node in document.children
+            if isinstance(node, Heading) and extract_text(node, joiner=" ").strip() == "Notes"
+        ),
         None,
     )
     assert notes_heading is not None
@@ -88,7 +96,9 @@ def test_fb2_can_exclude_notes(sample_fb2_path: Path) -> None:
     document = parser.parse(sample_fb2_path)
 
     notes_heading = [
-        node for node in document.children if isinstance(node, Heading) and extract_text(node, joiner=" ").strip() == "Notes"
+        node
+        for node in document.children
+        if isinstance(node, Heading) and extract_text(node, joiner=" ").strip() == "Notes"
     ]
     assert not notes_heading
     assert not any(isinstance(node, ThematicBreak) for node in document.children)

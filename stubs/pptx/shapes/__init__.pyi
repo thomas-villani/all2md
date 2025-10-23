@@ -47,15 +47,7 @@ class ShapeCollection:
         """
         ...
 
-    def add_table(
-        self,
-        rows: int,
-        cols: int,
-        left: Length,
-        top: Length,
-        width: Length,
-        height: Length
-    ) -> Any:
+    def add_table(self, rows: int, cols: int, left: Length, top: Length, width: Length, height: Length) -> Any:
         """Add a table to the slide.
 
         Parameters
@@ -82,12 +74,7 @@ class ShapeCollection:
         ...
 
     def add_picture(
-        self,
-        image_file: str,
-        left: Length,
-        top: Length,
-        width: Length | None = None,
-        height: Length | None = None
+        self, image_file: str, left: Length, top: Length, width: Length | None = None, height: Length | None = None
     ) -> BaseShape:
         """Add a picture to the slide.
 

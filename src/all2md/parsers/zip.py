@@ -345,10 +345,7 @@ class ZipToAstConverter(BaseParser):
             True if parallel processing should be used
 
         """
-        return (
-            self.options.enable_parallel_processing
-            and file_count >= self.options.parallel_threshold
-        )
+        return self.options.enable_parallel_processing and file_count >= self.options.parallel_threshold
 
     def _convert_to_ast_parallel(self, zf: zipfile.ZipFile, file_list: list[str]) -> Document:
         """Convert ZIP archive to AST using parallel processing.
@@ -632,7 +629,9 @@ class ZipToAstConverter(BaseParser):
 
             # Convert using the detected format
             doc = to_ast(
-                file_obj, source_format=detected_format, progress=self.progress_callback  # type: ignore[arg-type]
+                file_obj,
+                source_format=detected_format,
+                progress=self.progress_callback,  # type: ignore[arg-type]
             )
 
             return doc

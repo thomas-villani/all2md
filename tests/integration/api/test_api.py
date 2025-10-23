@@ -1236,7 +1236,9 @@ class TestNewAPI:
         text_io = BytesIO(simple_text)
 
         result = to_markdown(
-            text_io, parser_options=pdf_options, source_format="plaintext"  # Force as text since we don't have real PDF
+            text_io,
+            parser_options=pdf_options,
+            source_format="plaintext",  # Force as text since we don't have real PDF
         )
 
         assert result.strip() == "Simple text content"
@@ -1284,7 +1286,10 @@ class TestNewAPI:
         html_io = BytesIO(html_content)
 
         result = to_markdown(
-            html_io, source_format="html", emphasis_symbol="_", bullet_symbols="*-+"  # Should affect italic rendering
+            html_io,
+            source_format="html",
+            emphasis_symbol="_",
+            bullet_symbols="*-+",  # Should affect italic rendering
         )
 
         assert_markdown_valid(result)

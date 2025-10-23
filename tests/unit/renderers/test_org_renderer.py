@@ -416,9 +416,7 @@ class TestComments:
 
     def test_simple_comment(self) -> None:
         """Test rendering a simple comment."""
-        doc = Document(
-            children=[Comment(content="This is a comment")]
-        )
+        doc = Document(children=[Comment(content="This is a comment")])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -426,9 +424,7 @@ class TestComments:
 
     def test_multiline_comment(self) -> None:
         """Test rendering a multi-line comment."""
-        doc = Document(
-            children=[Comment(content="Line 1\nLine 2\nLine 3")]
-        )
+        doc = Document(children=[Comment(content="Line 1\nLine 2\nLine 3")])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -440,14 +436,7 @@ class TestComments:
         """Test rendering a comment with author and date metadata."""
         doc = Document(
             children=[
-                Comment(
-                    content="Important note",
-                    metadata={
-                        "author": "John Doe",
-                        "date": "2025-01-15",
-                        "label": "1"
-                    }
-                )
+                Comment(content="Important note", metadata={"author": "John Doe", "date": "2025-01-15", "label": "1"})
             ]
         )
         renderer = OrgRenderer()
@@ -458,14 +447,7 @@ class TestComments:
 
     def test_comment_with_author_only(self) -> None:
         """Test rendering a comment with author but no date."""
-        doc = Document(
-            children=[
-                Comment(
-                    content="Review this",
-                    metadata={"author": "Jane Smith"}
-                )
-            ]
-        )
+        doc = Document(children=[Comment(content="Review this", metadata={"author": "Jane Smith"})])
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
@@ -480,7 +462,7 @@ class TestComments:
                     content=[
                         Text(content="Some text "),
                         CommentInline(content="inline note"),
-                        Text(content=" more text")
+                        Text(content=" more text"),
                     ]
                 )
             ]
@@ -497,14 +479,7 @@ class TestComments:
                 Paragraph(
                     content=[
                         Text(content="Text "),
-                        CommentInline(
-                            content="note",
-                            metadata={
-                                "author": "Bob",
-                                "date": "2025-01-15",
-                                "label": "2"
-                            }
-                        )
+                        CommentInline(content="note", metadata={"author": "Bob", "date": "2025-01-15", "label": "2"}),
                     ]
                 )
             ]

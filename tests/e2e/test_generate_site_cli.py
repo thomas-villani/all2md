@@ -590,7 +590,9 @@ This document has no frontmatter metadata.
 
         # Verify file was created (filename from source file: "no-metadata.md")
         content_files = list((output_dir / "content").glob("*.md"))
-        assert len(content_files) == 1, f"Expected 1 file, found {len(content_files)}: {[f.name for f in content_files]}"
+        assert (
+            len(content_files) == 1
+        ), f"Expected 1 file, found {len(content_files)}: {[f.name for f in content_files]}"
 
         content = content_files[0].read_text()
         assert content.startswith("+++")

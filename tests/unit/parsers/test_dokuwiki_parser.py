@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for DokuWiki parser."""
 
-
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -554,7 +553,9 @@ Another paragraph with ((second footnote)) here.
                 for item in child.items:
                     for item_child in item.children:
                         if isinstance(item_child, Paragraph):
-                            all_refs.extend([node for node in item_child.content if isinstance(node, FootnoteReference)])
+                            all_refs.extend(
+                                [node for node in item_child.content if isinstance(node, FootnoteReference)]
+                            )
             elif isinstance(child, Table):
                 for row in child.rows:
                     for cell in row.cells:

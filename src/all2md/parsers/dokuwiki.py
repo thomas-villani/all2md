@@ -519,10 +519,12 @@ class DokuWikiParser(BaseParser):
 
         # Add comment patterns if not stripping comments
         if not self.options.strip_comments:
-            patterns.extend([
-                ("c_comment", C_COMMENT_PATTERN),
-                ("html_comment", HTML_COMMENT_PATTERN),
-            ])
+            patterns.extend(
+                [
+                    ("c_comment", C_COMMENT_PATTERN),
+                    ("html_comment", HTML_COMMENT_PATTERN),
+                ]
+            )
 
         # Find earliest match
         earliest_match = None
@@ -541,7 +543,7 @@ class DokuWikiParser(BaseParser):
             return [Text(content=text)] if text else []
 
         # Split into before, match, and after
-        before = text[:earliest_match.start()]
+        before = text[: earliest_match.start()]
         after = text[earliest_match.end() :]
 
         result: list[Node] = []

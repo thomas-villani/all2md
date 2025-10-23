@@ -325,9 +325,7 @@ class TestDokuWikiRenderer:
 
     def test_render_link_with_text(self) -> None:
         """Test rendering link with custom text."""
-        doc = Document(
-            children=[Paragraph(content=[Link(url="page:name", content=[Text(content="Link Text")])])]
-        )
+        doc = Document(children=[Paragraph(content=[Link(url="page:name", content=[Text(content="Link Text")])])])
         renderer = DokuWikiRenderer()
         output = renderer.render_to_string(doc)
 

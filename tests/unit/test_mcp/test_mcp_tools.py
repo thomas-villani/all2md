@@ -194,7 +194,8 @@ class TestToolsErrorHandling:
 
         # Intentionally malformed input to trigger error
         input_data = ReadDocumentAsMarkdownInput(
-            source="not-a-valid-document", format_hint="pdf"  # Can't parse random text as PDF
+            source="not-a-valid-document",
+            format_hint="pdf",  # Can't parse random text as PDF
         )
 
         with pytest.raises(All2MdError):
@@ -210,7 +211,9 @@ class TestToolsErrorHandling:
 
         # Invalid format for rendering
         input_data = SaveDocumentFromMarkdownInput(
-            format="invalid_format", source="# Test", filename=str(output_file)  # type: ignore[arg-type]
+            format="invalid_format",
+            source="# Test",
+            filename=str(output_file),  # type: ignore[arg-type]
         )
 
         with pytest.raises(All2MdError):

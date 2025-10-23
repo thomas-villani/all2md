@@ -23,7 +23,6 @@ from all2md.ast import (
     Code,
     CodeBlock,
     Comment,
-    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,

@@ -150,10 +150,7 @@ class TestSubresourceExtraction:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Even with output dir set, should not extract when disabled
-            options = WebArchiveOptions(
-                extract_subresources=False,
-                attachment_output_dir=temp_dir
-            )
+            options = WebArchiveOptions(extract_subresources=False, attachment_output_dir=temp_dir)
             converter = WebArchiveToAstConverter(options)
             doc = converter.parse(webarchive_bytes)
 
@@ -166,10 +163,7 @@ class TestSubresourceExtraction:
         webarchive_bytes = create_webarchive_with_image()
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            options = WebArchiveOptions(
-                extract_subresources=True,
-                attachment_output_dir=temp_dir
-            )
+            options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=temp_dir)
             converter = WebArchiveToAstConverter(options)
             doc = converter.parse(webarchive_bytes)
 
@@ -183,10 +177,7 @@ class TestSubresourceExtraction:
         webarchive_bytes = create_webarchive_with_multiple_assets()
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            options = WebArchiveOptions(
-                extract_subresources=True,
-                attachment_output_dir=temp_dir
-            )
+            options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=temp_dir)
             converter = WebArchiveToAstConverter(options)
             doc = converter.parse(webarchive_bytes)
 

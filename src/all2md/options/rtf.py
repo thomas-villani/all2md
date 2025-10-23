@@ -6,6 +6,7 @@
 This module defines options for parsing RTF documents and rendering AST
 back into RTF using the pyth3 library.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

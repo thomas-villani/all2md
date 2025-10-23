@@ -214,9 +214,7 @@ class CsvRenderer(BaseRenderer):
 
         return results
 
-    def _select_tables(
-        self, tables_with_context: list[tuple[str | None, Table]]
-    ) -> list[tuple[str | None, Table]]:
+    def _select_tables(self, tables_with_context: list[tuple[str | None, Table]]) -> list[tuple[str | None, Table]]:
         """Select table(s) based on options.
 
         Parameters

@@ -674,9 +674,8 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # Hard line break rendering depends on configured mode and context
             # Check if we should fallback to raw mode in containers
             in_container = self._in_list or self._in_blockquote > 0
-            use_raw_mode = (
-                self.options.hard_line_break_mode == "raw"
-                or (self.options.hard_line_break_fallback_in_containers and in_container)
+            use_raw_mode = self.options.hard_line_break_mode == "raw" or (
+                self.options.hard_line_break_fallback_in_containers and in_container
             )
 
             if use_raw_mode:

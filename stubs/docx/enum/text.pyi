@@ -15,7 +15,6 @@ class WD_ALIGN_PARAGRAPH(IntEnum):
     JUSTIFY_LOW = 8
     THAI_JUSTIFY = 9
 
-
 class WD_LINE_SPACING(IntEnum):
     """Line spacing options."""
 
@@ -25,7 +24,6 @@ class WD_LINE_SPACING(IntEnum):
     AT_LEAST = 3
     EXACTLY = 4
     MULTIPLE = 5
-
 
 class WD_TAB_ALIGNMENT(IntEnum):
     """Tab stop alignment options."""
@@ -37,7 +35,6 @@ class WD_TAB_ALIGNMENT(IntEnum):
     BAR = 4
     LIST = 6
     CLEAR = 7
-
 
 class WD_TAB_LEADER(IntEnum):
     """Tab leader character options."""

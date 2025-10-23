@@ -6,6 +6,7 @@
 This module defines options classes for AsciiDoc format conversion,
 supporting both AST parsing and rendering operations.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -194,8 +195,8 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         default=DEFAULT_ASCIIDOC_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "comment (// comments), note (NOTE admonitions), "
-                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "comment (// comments), note (NOTE admonitions), "
+            "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
             "choices": ["comment", "note", "ignore"],
             "importance": "core",
         },

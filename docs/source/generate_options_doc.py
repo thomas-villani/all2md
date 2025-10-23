@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate reStructuredText documentation for all2md options."""
+
 from __future__ import annotations
 
 import argparse
@@ -306,8 +307,7 @@ class OptionsRenderer:
                 lines.append(f"**{field.name}**")
                 lines.append("")
                 lines.append(
-                    "   Embed additional Markdown formatting controls. "
-                    "See the ``Markdown Options`` section below."
+                    "   Embed additional Markdown formatting controls. " "See the ``Markdown Options`` section below."
                 )
                 lines.append("")
                 continue

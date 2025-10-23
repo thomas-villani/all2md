@@ -59,11 +59,11 @@ class ListBuilder:
     """
 
     def __init__(
-            self,
-            root: Document | None = None,
-            allow_placeholders: bool = False,
-            default_start: int = 1,
-            default_tight: bool = True
+        self,
+        root: Document | None = None,
+        allow_placeholders: bool = False,
+        default_start: int = 1,
+        default_tight: bool = True,
     ):
         """Initialize the list builder with an optional root document."""
         self.root = root or Document()
@@ -73,13 +73,13 @@ class ListBuilder:
         self.default_tight = default_tight
 
     def add_item(
-            self,
-            level: int,
-            ordered: bool,
-            content: list[Node],
-            task_status: Literal['checked', 'unchecked'] | None = None,
-            start: int | None = None,
-            tight: bool | None = None
+        self,
+        level: int,
+        ordered: bool,
+        content: list[Node],
+        task_status: Literal["checked", "unchecked"] | None = None,
+        start: int | None = None,
+        tight: bool | None = None,
     ) -> None:
         """Add a list item at the specified nesting level.
 
@@ -131,7 +131,7 @@ class ListBuilder:
                     ordered=ordered,
                     items=[],
                     start=start if start is not None else self.default_start,
-                    tight=tight if tight is not None else self.default_tight
+                    tight=tight if tight is not None else self.default_tight,
                 )
                 if level == 1:
                     # Top-level: attach to root
@@ -154,7 +154,7 @@ class ListBuilder:
                 ordered=ordered,
                 items=[],
                 start=start if start is not None else self.default_start,
-                tight=tight if tight is not None else self.default_tight
+                tight=tight if tight is not None else self.default_tight,
             )
 
             if current_level == 0:
@@ -227,10 +227,10 @@ class TableBuilder:
         self.caption: str | None = None
 
     def add_row(
-            self,
-            cells: Sequence[str | Node | Sequence[Node]],
-            is_header: bool = False,
-            alignments: list[Alignment | None] | None = None
+        self,
+        cells: Sequence[str | Node | Sequence[Node]],
+        is_header: bool = False,
+        alignments: list[Alignment | None] | None = None,
     ) -> None:
         """Add a row to the table.
 
@@ -295,16 +295,13 @@ class TableBuilder:
             # Prevent overwriting existing header (Issue 10)
             if self.header is not None:
                 raise ValueError(
-                    "Table already has a header row. Cannot add another header. "
-                    "Use is_header=False for body rows."
+                    "Table already has a header row. Cannot add another header. " "Use is_header=False for body rows."
                 )
             self.header = row
             if alignments:
                 # Validate alignment length matches cell count (Issue 9)
                 if len(alignments) != len(table_cells):
-                    raise ValueError(
-                        f"Alignment count ({len(alignments)}) must match cell count ({len(table_cells)})"
-                    )
+                    raise ValueError(f"Alignment count ({len(alignments)}) must match cell count ({len(table_cells)})")
                 self.alignments = alignments
             elif not self.alignments:
                 # Initialize alignments to match number of columns
@@ -326,11 +323,7 @@ class TableBuilder:
         """
         self.caption = caption
 
-    def set_column_alignment(
-            self,
-            column_index: int,
-            alignment: Alignment | None
-    ) -> None:
+    def set_column_alignment(self, column_index: int, alignment: Alignment | None) -> None:
         """Set alignment for a specific column.
 
         Parameters
@@ -354,12 +347,7 @@ class TableBuilder:
             Completed table node
 
         """
-        return Table(
-            header=self.header,
-            rows=self.rows,
-            alignments=self.alignments,
-            caption=self.caption
-        )
+        return Table(header=self.header, rows=self.rows, alignments=self.alignments, caption=self.caption)
 
 
 class DocumentBuilder:
@@ -449,6 +437,7 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import Heading
+
         self.children.append(Heading(level=level, content=content))
         return self
 
@@ -467,14 +456,11 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import Paragraph
+
         self.children.append(Paragraph(content=content))
         return self
 
-    def add_code_block(
-            self,
-            content: str,
-            language: str | None = None
-    ) -> DocumentBuilder:
+    def add_code_block(self, content: str, language: str | None = None) -> DocumentBuilder:
         """Add a code block to the document.
 
         Parameters
@@ -491,6 +477,7 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import CodeBlock
+
         self.children.append(CodeBlock(content=content, language=language))
         return self
 
@@ -504,6 +491,7 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import ThematicBreak
+
         self.children.append(ThematicBreak())
         return self
 
@@ -522,15 +510,12 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import BlockQuote
+
         self.children.append(BlockQuote(children=children))
         return self
 
     def add_list(
-            self,
-            items: list[ListItem],
-            ordered: bool = False,
-            start: int = 1,
-            tight: bool = True
+        self, items: list[ListItem], ordered: bool = False, start: int = 1, tight: bool = True
     ) -> DocumentBuilder:
         """Add a list to the document.
 
@@ -552,15 +537,16 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import List
+
         self.children.append(List(ordered=ordered, items=items, start=start, tight=tight))
         return self
 
     def add_table(
-            self,
-            rows: list[TableRow],
-            header: TableRow | None = None,
-            alignments: list[Alignment | None] | None = None,
-            caption: str | None = None
+        self,
+        rows: list[TableRow],
+        header: TableRow | None = None,
+        alignments: list[Alignment | None] | None = None,
+        caption: str | None = None,
     ) -> DocumentBuilder:
         """Add a table to the document.
 
@@ -582,12 +568,8 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import Table
-        self.children.append(Table(
-            rows=rows,
-            header=header,
-            alignments=alignments or [],
-            caption=caption
-        ))
+
+        self.children.append(Table(rows=rows, header=header, alignments=alignments or [], caption=caption))
         return self
 
     def add_html_block(self, content: str) -> DocumentBuilder:
@@ -605,14 +587,11 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import HTMLBlock
+
         self.children.append(HTMLBlock(content=content))
         return self
 
-    def add_footnote_definition(
-            self,
-            identifier: str,
-            content: list[Node]
-    ) -> DocumentBuilder:
+    def add_footnote_definition(self, identifier: str, content: list[Node]) -> DocumentBuilder:
         """Add a footnote definition to the document.
 
         Parameters
@@ -629,13 +608,11 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import FootnoteDefinition
+
         self.children.append(FootnoteDefinition(identifier=identifier, content=content))
         return self
 
-    def add_definition_list(
-            self,
-            items: list[tuple[DefinitionTerm, list[DefinitionDescription]]]
-    ) -> DocumentBuilder:
+    def add_definition_list(self, items: list[tuple[DefinitionTerm, list[DefinitionDescription]]]) -> DocumentBuilder:
         """Add a definition list to the document.
 
         Parameters
@@ -650,14 +627,11 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import DefinitionList
+
         self.children.append(DefinitionList(items=items))
         return self
 
-    def add_math_block(
-            self,
-            content: str,
-            notation: MathNotation = "latex"
-    ) -> DocumentBuilder:
+    def add_math_block(self, content: str, notation: MathNotation = "latex") -> DocumentBuilder:
         """Add a math block to the document.
 
         Parameters
@@ -674,6 +648,7 @@ class DocumentBuilder:
 
         """
         from all2md.ast.nodes import MathBlock
+
         self.children.append(MathBlock(content=content, notation=notation))
         return self
 

@@ -8,6 +8,7 @@ maintainability and discoverability of configurable parameters.
 Constants are organized by category: formatting, conversion behavior,
 file handling, and Markdown flavor specifications.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -548,39 +549,43 @@ RESOURCE_FILE_EXTENSIONS = [
     ".class",
 ]
 
-# TODO: Consider auto-generating this from registry.list_formats() in future
-# For now, manually keep in sync with registered formats in parsers/
+# Auto-generated from converter registry.
+# To update: python scripts/update_document_formats.py --update
 # Used for type hints, CLI autocomplete, and API documentation
 DocumentFormat = Literal[
-    "auto",             # Auto-detect from filename/content
-    "archive",          # tar/7z archive
-    "asciidoc",         # asciidoc format
-    "ast",              # JSON-serialized AST format
-    "bbcode",           # BBCode bulletin board markup
-    "chm",              # Compiled help format (Microsoft)
-    "csv",              # CSV/TSV
-    "docx",             # Word documents
-    "eml",              # Email messages
-    "epub",             # Ebook format
-    "latex",            # LaTex notation files
-    "mhtml",            # Bundled HTML document
-    "pdf",              # PDF documents
-    "pptx",             # PowerPoint presentations
-    "html",             # HTML documents
-    "ipynb",            # Jupyter Notebooks
-    "org",              # org-mode
-    "odp",              # Open Document Presentation format
-    "odt",              # Open Document Text format
-    "ods",              # Open Document Spreadsheet format
-    "plaintext",        # Unformatted plain text
-    "markdown",         # Markdown documents
-    "mediawiki",        # MediaWiki format
-    "mhtml",            # MHTML single-file web archives
-    "rtf",              # Rich Text Format
-    "rst",              # ReStructuredText
-    "spreadsheet",      # CSV, TSV, XLSX
-    "sourcecode",       # Source code files with syntax highlighting
-    "webarchive",       # Safari WebArchive format
-    "xlsx",             # Excel
-    "zip",              # zip archive
+    "auto",
+    "archive",
+    "asciidoc",
+    "ast",
+    "bbcode",
+    "chm",
+    "csv",
+    "docx",
+    "dokuwiki",
+    "eml",
+    "epub",
+    "fb2",
+    "html",
+    "ipynb",
+    "latex",
+    "markdown",
+    "mbox",
+    "mediawiki",
+    "mhtml",
+    "odp",
+    "ods",
+    "odt",
+    "openapi",
+    "org",
+    "outlook",
+    "pdf",
+    "plaintext",
+    "pptx",
+    "rst",
+    "rtf",
+    "sourcecode",
+    "textile",
+    "webarchive",
+    "xlsx",
+    "zip",
 ]

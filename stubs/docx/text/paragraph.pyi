@@ -12,7 +12,6 @@ class Paragraph:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def style(self) -> Any:
         """Paragraph style."""
@@ -20,7 +19,6 @@ class Paragraph:
 
     @style.setter
     def style(self, value: str | Any) -> None: ...
-
     @property
     def runs(self) -> list[Any]:
         """List of Run objects in this paragraph."""
@@ -59,7 +57,6 @@ class Paragraph:
 
     @alignment.setter
     def alignment(self, value: Any) -> None: ...
-
     @property
     def paragraph_format(self) -> Any:
         """ParagraphFormat object for this paragraph."""
@@ -79,7 +76,6 @@ class Paragraph:
         """Iterate over inner content (runs, hyperlinks, etc.)."""
         ...
 
-
 class Run:
     """Represents a run of text with specific formatting."""
 
@@ -90,7 +86,6 @@ class Run:
 
     @text.setter
     def text(self, value: str) -> None: ...
-
     @property
     def bold(self) -> bool | None:
         """Bold formatting."""
@@ -98,7 +93,6 @@ class Run:
 
     @bold.setter
     def bold(self, value: bool) -> None: ...
-
     @property
     def italic(self) -> bool | None:
         """Italic formatting."""
@@ -106,7 +100,6 @@ class Run:
 
     @italic.setter
     def italic(self, value: bool) -> None: ...
-
     @property
     def underline(self) -> bool | Any:
         """Underline formatting."""
@@ -114,7 +107,6 @@ class Run:
 
     @underline.setter
     def underline(self, value: bool | Any) -> None: ...
-
     @property
     def font(self) -> Any:
         """Font object for detailed formatting."""
@@ -127,7 +119,6 @@ class Run:
 
     @style.setter
     def style(self, value: str | Any) -> None: ...
-
     @property
     def _element(self) -> Any:
         """Internal XML element."""

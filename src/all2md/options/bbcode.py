@@ -6,6 +6,7 @@
 This module defines options classes for BBCode (Bulletin Board Code) format conversion,
 supporting parsing from legacy bulletin board systems and forums.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

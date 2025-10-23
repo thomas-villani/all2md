@@ -71,38 +71,41 @@ class TestDynamicCLIBuilder:
         parsed_args.config = None
 
         # Set explicitly provided arguments (simulating the tracking actions)
-        parsed_args._provided_args = {'pdf.pages', 'pdf.password', 'pdf.detect_columns', 'markdown.emphasis_symbol'}
+        parsed_args._provided_args = {"pdf.pages", "pdf.password", "pdf.detect_columns", "markdown.emphasis_symbol"}
 
         # Mock vars to simulate the argument namespace with dot notation
-        with patch('builtins.vars', return_value={
-            'input': 'test.pdf',
-            'out': None,
-            'format': 'auto',
-            'log_level': 'WARNING',
-            'about': False,
-            'version': False,
-            'config': None,
-            '_provided_args': parsed_args._provided_args,
-            'pdf.pages': '1,2,3',
-            'pdf.password': 'secret',
-            'pdf.detect_columns': False,
-            'markdown.emphasis_symbol': '_',
-        }):
+        with patch(
+            "builtins.vars",
+            return_value={
+                "input": "test.pdf",
+                "out": None,
+                "format": "auto",
+                "log_level": "WARNING",
+                "about": False,
+                "version": False,
+                "config": None,
+                "_provided_args": parsed_args._provided_args,
+                "pdf.pages": "1,2,3",
+                "pdf.password": "secret",
+                "pdf.detect_columns": False,
+                "markdown.emphasis_symbol": "_",
+            },
+        ):
             options = builder.map_args_to_options(parsed_args)
 
         # Check PDF options mapping
-        assert 'pdf.pages' in options
-        assert options['pdf.pages'] == "1,2,3"
-        assert options['pdf.password'] == 'secret'
-        assert options['pdf.detect_columns'] is False
+        assert "pdf.pages" in options
+        assert options["pdf.pages"] == "1,2,3"
+        assert options["pdf.password"] == "secret"
+        assert options["pdf.detect_columns"] is False
 
         # Check Markdown options mapping
-        assert options['markdown.emphasis_symbol'] == '_'
+        assert options["markdown.emphasis_symbol"] == "_"
 
         # Legacy keys should no longer be present
-        assert 'pages' not in options
-        assert 'password' not in options
-        assert 'detect_columns' not in options
+        assert "pages" not in options
+        assert "password" not in options
+        assert "detect_columns" not in options
 
     def test_list_int_processing(self):
         """Test processing of list_int type arguments."""
@@ -143,21 +146,21 @@ class TestDynamicCLIBuilder:
         class SampleOptions:
             tags: list[str] = field(
                 default_factory=list,
-                metadata={'help': 'Comma separated tags to include'},
+                metadata={"help": "Comma separated tags to include"},
             )
 
         builder = DynamicCLIBuilder()
         options_class = SampleOptions
-        sample_field = options_class.__dataclass_fields__['tags']
+        sample_field = options_class.__dataclass_fields__["tags"]
 
         kwargs = builder.get_argument_kwargs(
             sample_field,
             dict(sample_field.metadata),
-            '--tags',
+            "--tags",
             options_class,
         )
 
-        assert kwargs['help'] == 'Comma separated tags to include (comma-separated values)'
+        assert kwargs["help"] == "Comma separated tags to include (comma-separated values)"
 
     def test_json_dot_notation_preserves_full_paths(self):
         """Test that JSON options with dot notation preserve full key paths (Issue #8)."""
@@ -170,17 +173,20 @@ class TestDynamicCLIBuilder:
         parsed_args._provided_args = set()
 
         # Mock the vars() return to simulate namespace
-        with patch('builtins.vars', return_value={
-            'input': 'test.html',
-            'format': 'auto',
-            '_provided_args': set(),
-        }):
+        with patch(
+            "builtins.vars",
+            return_value={
+                "input": "test.html",
+                "format": "auto",
+                "_provided_args": set(),
+            },
+        ):
             # Test with deeply nested JSON options (3 levels)
             json_options = {
                 "html.network.allowed_hosts": ["example.com"],
                 "html.network.require_https": True,
                 "pdf.pages": [1, 2, 3],
-                "attachment_mode": "download"  # Top-level option
+                "attachment_mode": "download",  # Top-level option
             }
 
             options = builder.map_args_to_options(parsed_args, json_options)
@@ -211,7 +217,7 @@ class TestDynamicCLIBuilder:
             "pdf.pages": "--pdf-pages",
             "pdf.password": "--pdf-password",
             "html.network.allowed_hosts": "--html-network-allowed-hosts",
-            "markdown.emphasis_symbol": "--markdown-emphasis-symbol"
+            "markdown.emphasis_symbol": "--markdown-emphasis-symbol",
         }
 
         # Test suggestion for a typo in "pdf.pages" dest name
@@ -237,14 +243,14 @@ class TestDynamicCLIBuilder:
         class TestWithDefault:
             field_with_default: str = "default_value"
 
-        assert builder._has_default(TestWithDefault.__dataclass_fields__['field_with_default']) is True
+        assert builder._has_default(TestWithDefault.__dataclass_fields__["field_with_default"]) is True
 
         # Test field with default_factory
         @dataclass
         class TestWithFactory:
             field_with_factory: list = field(default_factory=list)
 
-        assert builder._has_default(TestWithFactory.__dataclass_fields__['field_with_factory']) is True
+        assert builder._has_default(TestWithFactory.__dataclass_fields__["field_with_factory"]) is True
 
         # Test boolean fields with and without defaults
         @dataclass
@@ -252,8 +258,8 @@ class TestDynamicCLIBuilder:
             bool_with_default: bool = True
             bool_with_false_default: bool = False
 
-        assert builder._has_default(TestBoolOptions.__dataclass_fields__['bool_with_default']) is True
-        assert builder._has_default(TestBoolOptions.__dataclass_fields__['bool_with_false_default']) is True
+        assert builder._has_default(TestBoolOptions.__dataclass_fields__["bool_with_default"]) is True
+        assert builder._has_default(TestBoolOptions.__dataclass_fields__["bool_with_false_default"]) is True
 
     def test_boolean_field_without_default_gets_store_true(self):
         """Test that boolean field without default gets store_true action (Issue #11)."""
@@ -265,17 +271,15 @@ class TestDynamicCLIBuilder:
         class TestOptions:
             bool_no_default: bool = field(default=MISSING)
 
-        test_field = TestOptions.__dataclass_fields__['bool_no_default']
+        test_field = TestOptions.__dataclass_fields__["bool_no_default"]
         metadata = {}
         cli_name = "--bool-no-default"
 
         # Get argument kwargs
-        kwargs, help_suffix = builder._infer_argument_type_and_action(
-            test_field, bool, False, metadata, cli_name
-        )
+        kwargs, help_suffix = builder._infer_argument_type_and_action(test_field, bool, False, metadata, cli_name)
 
         # Should get store_true action (not crash trying to compare MISSING to True/False)
-        assert kwargs['action'] == 'store_true'
+        assert kwargs["action"] == "store_true"
         assert help_suffix is None
 
     def test_boolean_cli_negates_default_with_custom_flag(self):
@@ -287,23 +291,20 @@ class TestDynamicCLIBuilder:
             disable_feature: bool = field(
                 default=True,
                 metadata={
-                    'help': 'Disable expensive feature checks',
-                    'cli_negates_default': True,
-                    'cli_negated_name': 'disable-feature',
-                }
+                    "help": "Disable expensive feature checks",
+                    "cli_negates_default": True,
+                    "cli_negated_name": "disable-feature",
+                },
             )
 
         builder = DynamicCLIBuilder()
         parser = argparse.ArgumentParser()
         builder._add_options_arguments_internal(parser, SampleOptions)
 
-        action = next(
-            a for a in parser._actions
-            if '--disable-feature' in getattr(a, 'option_strings', [])
-        )
+        action = next(a for a in parser._actions if "--disable-feature" in getattr(a, "option_strings", []))
 
         assert isinstance(action, TrackingStoreFalseAction)
-        assert action.dest == 'disable_feature'
+        assert action.dest == "disable_feature"
         assert action.default is True
 
     def test_boolean_default_factory_is_treated_as_missing(self):
@@ -314,17 +315,14 @@ class TestDynamicCLIBuilder:
         class FactoryOptions:
             feature_enabled: bool = field(
                 default_factory=lambda: True,
-                metadata={'help': 'Factory default should be ignored by CLI'},
+                metadata={"help": "Factory default should be ignored by CLI"},
             )
 
         builder = DynamicCLIBuilder()
         parser = argparse.ArgumentParser()
         builder._add_options_arguments_internal(parser, FactoryOptions)
 
-        action = next(
-            a for a in parser._actions
-            if '--feature-enabled' in getattr(a, 'option_strings', [])
-        )
+        action = next(a for a in parser._actions if "--feature-enabled" in getattr(a, "option_strings", []))
 
         assert isinstance(action, TrackingStoreTrueAction)
         # store_true defaults to False until the user passes the flag
@@ -336,23 +334,23 @@ class TestDynamicCLIBuilder:
 
         @dataclass
         class NestedOptions:
-            allow_remote: bool = field(default=False, metadata={'help': 'Nested toggle'})
+            allow_remote: bool = field(default=False, metadata={"help": "Nested toggle"})
 
         @dataclass
         class ContainerOptions:
             nested: NestedOptions = field(
                 default_factory=NestedOptions,
-                metadata={'cli_flatten': True, 'help': 'Flatten nested'},
+                metadata={"cli_flatten": True, "help": "Flatten nested"},
             )
-            regular: bool = field(default=False, metadata={'help': 'Regular toggle'})
+            regular: bool = field(default=False, metadata={"help": "Regular toggle"})
 
         builder = DynamicCLIBuilder()
         parser = argparse.ArgumentParser()
         builder._add_options_arguments_internal(parser, ContainerOptions)
 
-        option_strings = {opt for action in parser._actions for opt in getattr(action, 'option_strings', [])}
-        assert '--nested-allow-remote' in option_strings
-        assert '--regular' in option_strings
+        option_strings = {opt for action in parser._actions for opt in getattr(action, "option_strings", [])}
+        assert "--nested-allow-remote" in option_strings
+        assert "--regular" in option_strings
 
     def test_exclude_from_cli_removes_field(self):
         """Fields with exclude_from_cli metadata are omitted from the CLI entirely."""
@@ -360,19 +358,19 @@ class TestDynamicCLIBuilder:
 
         @dataclass
         class SampleOptions:
-            visible: bool = field(default=False, metadata={'help': 'Visible flag'})
+            visible: bool = field(default=False, metadata={"help": "Visible flag"})
             hidden: bool = field(
                 default=False,
-                metadata={'help': 'Hidden flag', 'exclude_from_cli': True},
+                metadata={"help": "Hidden flag", "exclude_from_cli": True},
             )
 
         builder = DynamicCLIBuilder()
         parser = argparse.ArgumentParser()
         builder._add_options_arguments_internal(parser, SampleOptions)
 
-        option_strings = {opt for action in parser._actions for opt in getattr(action, 'option_strings', [])}
-        assert '--visible' in option_strings
-        assert all('--hidden' not in opt for opt in option_strings)
+        option_strings = {opt for action in parser._actions for opt in getattr(action, "option_strings", [])}
+        assert "--visible" in option_strings
+        assert all("--hidden" not in opt for opt in option_strings)
 
     def test_logger_used_instead_of_print(self):
         """Test that logger is used instead of print for warnings (Issue #13)."""
@@ -382,7 +380,7 @@ class TestDynamicCLIBuilder:
         builder = DynamicCLIBuilder()
 
         # Test that logger.warning is called instead of print
-        with patch.object(logging.getLogger('all2md.cli.builder'), 'warning') as _mock_warning:
+        with patch.object(logging.getLogger("all2md.cli.builder"), "warning") as _mock_warning:
             # Create a parser with an invalid argument to trigger warning
             parser = argparse.ArgumentParser()
             try:
@@ -391,7 +389,7 @@ class TestDynamicCLIBuilder:
                     parser,
                     type("InvalidOptions", (), {}),  # Not a dataclass - will skip
                     format_prefix=None,
-                    group_name=None
+                    group_name=None,
                 )
                 # No warning expected since it's not a dataclass
             except Exception:
@@ -407,17 +405,15 @@ class TestDynamicCLIBuilder:
         # Parse args with nested HTML network options
         # Note: require_https defaults to False, so we don't use --no- prefix
         # allow_remote_fetch defaults to False, so use regular flag to set it to True
-        args = parser.parse_args([
-            "test.html",
-            "--html-network-allow-remote-fetch",
-            "--html-network-network-timeout", "30"
-        ])
+        args = parser.parse_args(
+            ["test.html", "--html-network-allow-remote-fetch", "--html-network-network-timeout", "30"]
+        )
 
         # Check that args have proper dest format (dot-separated, not hyphenated)
-        assert hasattr(args, 'html.network.allow_remote_fetch')
-        assert hasattr(args, 'html.network.network_timeout')
-        assert getattr(args, 'html.network.allow_remote_fetch') is True
-        assert getattr(args, 'html.network.network_timeout') == 30.0
+        assert hasattr(args, "html.network.allow_remote_fetch")
+        assert hasattr(args, "html.network.network_timeout")
+        assert getattr(args, "html.network.allow_remote_fetch") is True
+        assert getattr(args, "html.network.network_timeout") == 30.0
 
     def test_nested_dataclass_cli_args_mapping(self):
         """Test that nested dataclass CLI args map correctly to options (Issue: nested mapping broken)."""
@@ -431,31 +427,34 @@ class TestDynamicCLIBuilder:
         parsed_args.format = "auto"
         parsed_args.strict_args = False
         parsed_args._provided_args = {
-            'html.network.allow_remote_fetch',
-            'html.network.require_https',
-            'html.network.allowed_hosts'
+            "html.network.allow_remote_fetch",
+            "html.network.require_https",
+            "html.network.allowed_hosts",
         }
 
         # Mock vars to simulate the argument namespace with dot notation
-        with patch('builtins.vars', return_value={
-            'input': 'test.html',
-            'format': 'auto',
-            '_provided_args': parsed_args._provided_args,
-            'html.network.allow_remote_fetch': True,
-            'html.network.require_https': True,
-            'html.network.allowed_hosts': ['example.com', 'cdn.example.com'],
-        }):
+        with patch(
+            "builtins.vars",
+            return_value={
+                "input": "test.html",
+                "format": "auto",
+                "_provided_args": parsed_args._provided_args,
+                "html.network.allow_remote_fetch": True,
+                "html.network.require_https": True,
+                "html.network.allowed_hosts": ["example.com", "cdn.example.com"],
+            },
+        ):
             options = builder.map_args_to_options(parsed_args)
 
         # Verify options are mapped correctly with fully qualified keys
-        assert options['html.network.allow_remote_fetch'] is True
-        assert options['html.network.require_https'] is True
-        assert options['html.network.allowed_hosts'] == ['example.com', 'cdn.example.com']
+        assert options["html.network.allow_remote_fetch"] is True
+        assert options["html.network.require_https"] is True
+        assert options["html.network.allowed_hosts"] == ["example.com", "cdn.example.com"]
 
         # Legacy keys should not be present
-        assert 'allow_remote_fetch' not in options
-        assert 'require_https' not in options
-        assert 'allowed_hosts' not in options
+        assert "allow_remote_fetch" not in options
+        assert "require_https" not in options
+        assert "allowed_hosts" not in options
 
     def test_nested_field_resolution(self):
         """Test the _resolve_nested_field helper for multi-level nesting."""
@@ -464,27 +463,27 @@ class TestDynamicCLIBuilder:
         builder = DynamicCLIBuilder()
 
         # Test resolving a two-level nested field path
-        result = builder._resolve_nested_field(HtmlOptions, ['network', 'allow_remote_fetch'])
+        result = builder._resolve_nested_field(HtmlOptions, ["network", "allow_remote_fetch"])
         assert result is not None
         field, field_type = result
-        assert field.name == 'allow_remote_fetch'
+        assert field.name == "allow_remote_fetch"
         assert field_type is bool
 
         # Test resolving another nested field
-        result = builder._resolve_nested_field(HtmlOptions, ['network', 'allowed_hosts'])
+        result = builder._resolve_nested_field(HtmlOptions, ["network", "allowed_hosts"])
         assert result is not None
         field, field_type = result
-        assert field.name == 'allowed_hosts'
+        assert field.name == "allowed_hosts"
 
         # Test invalid path returns None
-        result = builder._resolve_nested_field(HtmlOptions, ['nonexistent', 'field'])
+        result = builder._resolve_nested_field(HtmlOptions, ["nonexistent", "field"])
         assert result is None
 
         # Test single-level path
-        result = builder._resolve_nested_field(HtmlOptions, ['extract_title'])
+        result = builder._resolve_nested_field(HtmlOptions, ["extract_title"])
         assert result is not None
         field, field_type = result
-        assert field.name == 'extract_title'
+        assert field.name == "extract_title"
 
     def test_dest_to_cli_flag_mapping_with_nested(self):
         """Test that dest_to_cli_flag mapping works correctly for nested options."""
@@ -492,12 +491,12 @@ class TestDynamicCLIBuilder:
         builder.build_parser()  # Populates dest_to_cli_flag mapping
 
         # After building parser, dest_to_cli_flag should have nested mappings with dot notation
-        assert 'html.network.allow_remote_fetch' in builder.dest_to_cli_flag
-        assert builder.dest_to_cli_flag['html.network.allow_remote_fetch'] == '--html-network-allow-remote-fetch'
+        assert "html.network.allow_remote_fetch" in builder.dest_to_cli_flag
+        assert builder.dest_to_cli_flag["html.network.allow_remote_fetch"] == "--html-network-allow-remote-fetch"
 
         # Test suggestion system with nested options
-        suggestion = builder._suggest_similar_argument('html.network.allow_remote')
-        assert suggestion == '--html-network-allow-remote-fetch'
+        suggestion = builder._suggest_similar_argument("html.network.allow_remote")
+        assert suggestion == "--html-network-allow-remote-fetch"
 
 
 @pytest.mark.unit
@@ -562,19 +561,19 @@ class TestCLIParser:
 
         # Test that PDF options exist
         args = parser.parse_args(["test.pdf", "--pdf-pages", "1,2,3"])
-        assert hasattr(args, 'pdf.pages')
+        assert hasattr(args, "pdf.pages")
         # Pages are now correctly parsed as a list of integers
-        assert getattr(args, 'pdf.pages') == [1, 2, 3]
+        assert getattr(args, "pdf.pages") == [1, 2, 3]
 
         # Test that HTML options exist
         args = parser.parse_args(["test.html", "--html-extract-title"])
-        assert hasattr(args, 'html.extract_title')
-        assert getattr(args, 'html.extract_title') is True
+        assert hasattr(args, "html.extract_title")
+        assert getattr(args, "html.extract_title") is True
 
         # Test that Markdown options exist
         args = parser.parse_args(["test.pdf", "--markdown-emphasis-symbol", "_"])
-        assert hasattr(args, 'markdown.emphasis_symbol')
-        assert getattr(args, 'markdown.emphasis_symbol') == "_"
+        assert hasattr(args, "markdown.emphasis_symbol")
+        assert getattr(args, "markdown.emphasis_symbol") == "_"
 
     def test_parser_boolean_no_flags(self):
         """Test --no-* flags for boolean options with True defaults."""
@@ -582,18 +581,18 @@ class TestCLIParser:
 
         # Test --pdf-no-detect-columns flag
         args = parser.parse_args(["test.pdf", "--pdf-no-detect-columns"])
-        assert hasattr(args, 'pdf.detect_columns')
-        assert getattr(args, 'pdf.detect_columns') is False
+        assert hasattr(args, "pdf.detect_columns")
+        assert getattr(args, "pdf.detect_columns") is False
 
         # Test --markdown-no-use-hash-headings flag
         args = parser.parse_args(["test.html", "--markdown-no-use-hash-headings"])
-        assert hasattr(args, 'markdown.use_hash_headings')
-        assert getattr(args, 'markdown.use_hash_headings') is False
+        assert hasattr(args, "markdown.use_hash_headings")
+        assert getattr(args, "markdown.use_hash_headings") is False
 
         # Test --markdown-no-escape-special flag
         args = parser.parse_args(["test.pdf", "--markdown-no-escape-special"])
-        assert hasattr(args, 'markdown.escape_special')
-        assert getattr(args, 'markdown.escape_special') is False
+        assert hasattr(args, "markdown.escape_special")
+        assert getattr(args, "markdown.escape_special") is False
 
     def test_parser_boolean_flags(self):
         """Test boolean flag arguments."""
@@ -601,17 +600,17 @@ class TestCLIParser:
 
         # Test HTML flags
         args = parser.parse_args(["test.html", "--html-extract-title", "--html-strip-dangerous-elements"])
-        assert getattr(args, 'html.extract_title') is True
-        assert getattr(args, 'html.strip_dangerous_elements') is True
+        assert getattr(args, "html.extract_title") is True
+        assert getattr(args, "html.strip_dangerous_elements") is True
 
         # Test PowerPoint flags
         args = parser.parse_args(["test.pptx", "--pptx-include-slide-numbers"])
-        assert getattr(args, 'pptx.include_slide_numbers') is True
+        assert getattr(args, "pptx.include_slide_numbers") is True
 
         # Test negative flags
         args = parser.parse_args(["test.eml", "--eml-no-include-headers", "--eml-no-preserve-thread-structure"])
-        assert getattr(args, 'eml.include_headers') is False
-        assert getattr(args, 'eml.preserve_thread_structure') is False
+        assert getattr(args, "eml.include_headers") is False
+        assert getattr(args, "eml.preserve_thread_structure") is False
 
 
 @pytest.mark.unit
@@ -759,17 +758,22 @@ class TestNewCLIFeatures:
         """Test complex combination of multi-file options."""
         parser = create_parser()
 
-        args = parser.parse_args([
-            "file1.pdf", "file2.docx",
-            "--output-dir", "./converted",
-            "--recursive",
-            "--parallel", "4",
-            "--skip-errors",
-            "--preserve-structure",
-            "--collate",
-            "--rich",
-            "--no-summary"
-        ])
+        args = parser.parse_args(
+            [
+                "file1.pdf",
+                "file2.docx",
+                "--output-dir",
+                "./converted",
+                "--recursive",
+                "--parallel",
+                "4",
+                "--skip-errors",
+                "--preserve-structure",
+                "--collate",
+                "--rich",
+                "--no-summary",
+            ]
+        )
 
         assert args.input == ["file1.pdf", "file2.docx"]
         assert args.output_dir == "./converted"
@@ -786,29 +790,29 @@ class TestNewCLIFeatures:
         import os
 
         # Test environment variable integration through the parser
-        os.environ['ALL2MD_RICH'] = 'true'
-        os.environ['ALL2MD_OUTPUT_DIR'] = '/tmp/test'
+        os.environ["ALL2MD_RICH"] = "true"
+        os.environ["ALL2MD_OUTPUT_DIR"] = "/tmp/test"
 
         try:
             parser = create_parser()
-            args = parser.parse_args(['test.pdf'])
+            args = parser.parse_args(["test.pdf"])
 
             # Environment variables should be applied as defaults
             assert args.rich is True
-            assert args.output_dir == '/tmp/test'
+            assert args.output_dir == "/tmp/test"
         finally:
             # Clean up
-            os.environ.pop('ALL2MD_RICH', None)
-            os.environ.pop('ALL2MD_OUTPUT_DIR', None)
+            os.environ.pop("ALL2MD_RICH", None)
+            os.environ.pop("ALL2MD_OUTPUT_DIR", None)
 
     def test_environment_variable_type_conversion(self):
         """Test environment variable type conversion for different argument types."""
         import os
 
         # Set environment variables with different types
-        os.environ['ALL2MD_RICH'] = 'true'
-        os.environ['ALL2MD_NO_SUMMARY'] = 'false'
-        os.environ['ALL2MD_OUTPUT_DIR'] = '/tmp/test'
+        os.environ["ALL2MD_RICH"] = "true"
+        os.environ["ALL2MD_NO_SUMMARY"] = "false"
+        os.environ["ALL2MD_OUTPUT_DIR"] = "/tmp/test"
 
         try:
             parser = create_parser()
@@ -817,20 +821,20 @@ class TestNewCLIFeatures:
             # Test that different types were converted correctly
             assert args.rich is True  # Boolean conversion
             assert args.no_summary is False  # Boolean false conversion
-            assert args.output_dir == '/tmp/test'  # String value
+            assert args.output_dir == "/tmp/test"  # String value
 
         finally:
             # Clean up
-            os.environ.pop('ALL2MD_RICH', None)
-            os.environ.pop('ALL2MD_NO_SUMMARY', None)
-            os.environ.pop('ALL2MD_OUTPUT_DIR', None)
+            os.environ.pop("ALL2MD_RICH", None)
+            os.environ.pop("ALL2MD_NO_SUMMARY", None)
+            os.environ.pop("ALL2MD_OUTPUT_DIR", None)
 
     def test_environment_variable_precedence(self):
         """Test that CLI arguments take precedence over environment variables."""
         import os
 
         # Set environment variable
-        os.environ['ALL2MD_RICH'] = 'false'
+        os.environ["ALL2MD_RICH"] = "false"
 
         try:
             parser = create_parser()
@@ -844,7 +848,7 @@ class TestNewCLIFeatures:
             assert args_override.rich is True  # CLI arg overrides env var
 
         finally:
-            os.environ.pop('ALL2MD_RICH', None)
+            os.environ.pop("ALL2MD_RICH", None)
 
     def test_invalid_parallel_worker_count(self):
         """Test error handling for invalid parallel worker counts."""
@@ -868,11 +872,14 @@ class TestNewCLIFeatures:
 
         # These should parse successfully but might conflict logically
         # The CLI should handle conflicts gracefully in main()
-        args = parser.parse_args([
-            "test.pdf",
-            "--collate",
-            "--output-dir", "./individual"  # Conflict: collate typically goes to single output
-        ])
+        args = parser.parse_args(
+            [
+                "test.pdf",
+                "--collate",
+                "--output-dir",
+                "./individual",  # Conflict: collate typically goes to single output
+            ]
+        )
 
         assert args.collate is True
         assert args.output_dir == "./individual"
@@ -908,21 +915,21 @@ class TestNewCLIFeatures:
             assert len(files) >= 4  # Including nested file
 
             # Test specific extensions
-            files = collect_input_files([str(temp_path)], extensions=['.pdf'])
+            files = collect_input_files([str(temp_path)], extensions=[".pdf"])
             assert files
-            assert all(item.suffix.lower() == '.pdf' for item in files)
+            assert all(item.suffix.lower() == ".pdf" for item in files)
 
             # Glob patterns should exclude directories even when matched
-            with patch('pathlib.Path.cwd', return_value=temp_path):
-                globbed = collect_input_files(['*'], extensions=['.pdf'])
+            with patch("pathlib.Path.cwd", return_value=temp_path):
+                globbed = collect_input_files(["*"], extensions=[".pdf"])
                 assert all(
                     entry.best_path() is not None and entry.best_path().is_file()
                     for entry in globbed
                     if entry.is_local_file()
                 )
                 names = {entry.name for entry in globbed}
-                assert 'subdir' not in names
-                assert {entry.suffix.lower() for entry in globbed} == {'.pdf'}
+                assert "subdir" not in names
+                assert {entry.suffix.lower() for entry in globbed} == {".pdf"}
 
     def test_output_path_generation(self):
         """Test output path generation logic."""
@@ -979,21 +986,21 @@ class TestNewCLIFeatures:
     def test_run_convert_command_collate_delegates(self):
         """Ensure the convert subcommand delegates to the collate processor."""
         mock_item = CLIInputItem(
-            raw_input=Path('dummy.pdf'),
-            kind='local_file',
-            display_name='dummy.pdf',
-            path_hint=Path('dummy.pdf'),
+            raw_input=Path("dummy.pdf"),
+            kind="local_file",
+            display_name="dummy.pdf",
+            path_hint=Path("dummy.pdf"),
         )
 
         with (
-            patch('all2md.cli.processors.process_files_collated', return_value=0) as mock_collate,
-            patch('all2md.cli.commands.collect_input_files', return_value=[mock_item]),
-            patch('all2md.cli.commands.setup_and_validate_options', return_value=({}, 'pdf', None)),
-            patch('all2md.cli.commands.validate_arguments', return_value=True),
+            patch("all2md.cli.processors.process_files_collated", return_value=0) as mock_collate,
+            patch("all2md.cli.commands.collect_input_files", return_value=[mock_item]),
+            patch("all2md.cli.commands.setup_and_validate_options", return_value=({}, "pdf", None)),
+            patch("all2md.cli.commands.validate_arguments", return_value=True),
         ):
             parsed_args = argparse.Namespace(
-                input=['dummy.pdf'],
-                output_type='markdown',
+                input=["dummy.pdf"],
+                output_type="markdown",
                 collate=True,
                 out=None,
                 output_dir=None,
@@ -1001,14 +1008,14 @@ class TestNewCLIFeatures:
                 progress=False,
                 rich=False,
                 skip_errors=False,
-                format='auto',
+                format="auto",
                 recursive=False,
                 exclude=None,
                 detect_only=False,
                 dry_run=False,
                 pager=False,
                 no_summary=False,
-                log_level='WARNING',
+                log_level="WARNING",
                 log_file=None,
                 trace=False,
                 verbose=False,
@@ -1043,15 +1050,15 @@ class TestNewEnhancedCLIFeatures:
     def test_dependency_commands_parsing(self):
         """Test parsing of dependency management commands."""
         # Test check-deps command
-        result = handle_dependency_commands(['check-deps'])
+        result = handle_dependency_commands(["check-deps"])
         assert result is not None  # Should return exit code
 
         # Test check-deps with format
-        result = handle_dependency_commands(['check-deps', 'pdf'])
+        result = handle_dependency_commands(["check-deps", "pdf"])
         assert result is not None
 
         # Test non-dependency command
-        result = handle_dependency_commands(['test.pdf'])
+        result = handle_dependency_commands(["test.pdf"])
         assert result is None
 
     def test_save_config_flag_parsing(self):
@@ -1091,12 +1098,7 @@ class TestNewEnhancedCLIFeatures:
         assert args.exclude == ["*.tmp"]
 
         # Test multiple exclude patterns
-        args = parser.parse_args([
-            "test.pdf",
-            "--exclude", "*.tmp",
-            "--exclude", "**/.git/*",
-            "--exclude", "backup_*"
-        ])
+        args = parser.parse_args(["test.pdf", "--exclude", "*.tmp", "--exclude", "**/.git/*", "--exclude", "backup_*"])
         assert args.exclude == ["*.tmp", "**/.git/*", "backup_*"]
 
     def test_save_config_functionality(self):
@@ -1122,48 +1124,51 @@ class TestNewEnhancedCLIFeatures:
             args.rich = True
             args.exclude = ["*.tmp", "backup_*"]
             # Set _provided_args to track explicitly provided arguments
-            args._provided_args = {'pdf_pages', 'markdown_emphasis_symbol', 'rich', 'exclude'}
+            args._provided_args = {"pdf_pages", "markdown_emphasis_symbol", "rich", "exclude"}
 
             # Mock vars() to return args dict
-            with patch('builtins.vars', return_value={
-                'input': ['test.pdf'],
-                'out': 'output.md',
-                'save_config': str(config_path),
-                'dry_run': True,
-                'about': False,
-                'version': False,
-                'pdf_pages': '1,2,3',
-                'markdown_emphasis_symbol': '_',
-                'rich': True,
-                'exclude': ['*.tmp', 'backup_*'],
-                '_provided_args': {'pdf_pages', 'markdown_emphasis_symbol', 'rich', 'exclude'}
-            }):
+            with patch(
+                "builtins.vars",
+                return_value={
+                    "input": ["test.pdf"],
+                    "out": "output.md",
+                    "save_config": str(config_path),
+                    "dry_run": True,
+                    "about": False,
+                    "version": False,
+                    "pdf_pages": "1,2,3",
+                    "markdown_emphasis_symbol": "_",
+                    "rich": True,
+                    "exclude": ["*.tmp", "backup_*"],
+                    "_provided_args": {"pdf_pages", "markdown_emphasis_symbol", "rich", "exclude"},
+                },
+            ):
                 save_config_to_file(args, str(config_path))
 
             # Verify config file was created
             assert config_path.exists()
 
             # Load and verify content
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config = json.load(f)
 
             # Should include relevant options but exclude special ones
-            assert 'pdf_pages' in config
-            assert config['pdf_pages'] == '1,2,3'
-            assert 'markdown_emphasis_symbol' in config
-            assert config['markdown_emphasis_symbol'] == '_'
-            assert 'rich' in config
-            assert config['rich'] is True
-            assert 'exclude' in config
-            assert config['exclude'] == ['*.tmp', 'backup_*']
+            assert "pdf_pages" in config
+            assert config["pdf_pages"] == "1,2,3"
+            assert "markdown_emphasis_symbol" in config
+            assert config["markdown_emphasis_symbol"] == "_"
+            assert "rich" in config
+            assert config["rich"] is True
+            assert "exclude" in config
+            assert config["exclude"] == ["*.tmp", "backup_*"]
 
             # Should exclude special arguments
-            assert 'input' not in config
-            assert 'out' not in config
-            assert 'save_config' not in config
-            assert 'dry_run' not in config
-            assert 'about' not in config
-            assert 'version' not in config
+            assert "input" not in config
+            assert "out" not in config
+            assert "save_config" not in config
+            assert "dry_run" not in config
+            assert "about" not in config
+            assert "version" not in config
 
     def test_collect_input_files_with_exclusions(self):
         """Test file collection with exclusion patterns."""
@@ -1190,11 +1195,7 @@ class TestNewEnhancedCLIFeatures:
             assert original_count >= 5  # At least the files we created (may be fewer due to extension filtering)
 
             # Test with exclusion patterns
-            files = collect_input_files(
-                [str(temp_path)],
-                recursive=True,
-                exclude_patterns=["*.tmp", "backup_*"]
-            )
+            files = collect_input_files([str(temp_path)], recursive=True, exclude_patterns=["*.tmp", "backup_*"])
             filtered_count = len(files)
 
             # Should have fewer files after exclusion
@@ -1229,13 +1230,13 @@ class TestNewEnhancedCLIFeatures:
             items = [
                 CLIInputItem(
                     raw_input=temp_path / "file1.pdf",
-                    kind='local_file',
+                    kind="local_file",
                     display_name=str(temp_path / "file1.pdf"),
                     path_hint=temp_path / "file1.pdf",
                 ),
                 CLIInputItem(
                     raw_input=temp_path / "file2.docx",
-                    kind='local_file',
+                    kind="local_file",
                     display_name=str(temp_path / "file2.docx"),
                     path_hint=temp_path / "file2.docx",
                 ),
@@ -1252,7 +1253,7 @@ class TestNewEnhancedCLIFeatures:
             args.recursive = False
             args.parallel = 1
             args.exclude = None
-            args.output_type = 'markdown'
+            args.output_type = "markdown"
             # Add _provided_args to avoid TypeError when checking 'in' operator
             args._provided_args = set()
 
@@ -1288,7 +1289,8 @@ class TestNewEnhancedCLIFeatures:
         from unittest.mock import Mock, patch
 
         from all2md.cli import process_dry_run
-        pytest.importorskip('rich.console')
+
+        pytest.importorskip("rich.console")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1296,7 +1298,7 @@ class TestNewEnhancedCLIFeatures:
             items = [
                 CLIInputItem(
                     raw_input=temp_path / "test.pdf",
-                    kind='local_file',
+                    kind="local_file",
                     display_name=str(temp_path / "test.pdf"),
                     path_hint=temp_path / "test.pdf",
                 )
@@ -1312,13 +1314,13 @@ class TestNewEnhancedCLIFeatures:
             args.recursive = False
             args.parallel = 1
             args.exclude = None
-            args.output_type = 'markdown'
+            args.output_type = "markdown"
             # Add _provided_args to avoid TypeError when checking 'in' operator
             args._provided_args = set()
 
             # Test with rich available
-            with patch('rich.console.Console'):
-                with patch('rich.table.Table'):
+            with patch("rich.console.Console"):
+                with patch("rich.table.Table"):
                     result = process_dry_run(items, args, "auto")
                     assert result == 0
 
@@ -1346,15 +1348,22 @@ class TestNewEnhancedCLIFeatures:
         """Test complex combination of new enhanced features."""
         parser = create_parser()
 
-        args = parser.parse_args([
-            "file1.pdf", "file2.docx",
-            "--dry-run",
-            "--exclude", "*.tmp",
-            "--exclude", "backup_*",
-            "--save-config", "my_config.json",
-            "--rich",
-            "--output-dir", "./output"
-        ])
+        args = parser.parse_args(
+            [
+                "file1.pdf",
+                "file2.docx",
+                "--dry-run",
+                "--exclude",
+                "*.tmp",
+                "--exclude",
+                "backup_*",
+                "--save-config",
+                "my_config.json",
+                "--rich",
+                "--output-dir",
+                "./output",
+            ]
+        )
 
         assert args.input == ["file1.pdf", "file2.docx"]
         assert args.dry_run is True
@@ -1381,7 +1390,7 @@ class TestNewEnhancedCLIFeatures:
                 "file-with-dashes.pdf",
                 "file_with_underscores.pdf",
                 "123numbers.pdf",
-                "special@chars.pdf"
+                "special@chars.pdf",
             ]
 
             for filename in test_files:
@@ -1411,25 +1420,24 @@ class TestNewEnhancedCLIFeatures:
         test_cases = [
             # Basic usage should still work
             (["document.pdf"], {"dry_run": False, "exclude": None, "save_config": None}),
-
             # Format-specific options should still work
             (["document.pdf", "--pdf-pages", "1,2"], {"dry_run": False}),
-
             # Output options should still work
             (["document.pdf", "--out", "output.md"], {"save_config": None}),
-
             # Multiple format options should still work
-            (["document.html", "--html-extract-title", "--markdown-emphasis-symbol", "_"],
-             {"dry_run": False, "exclude": None}),
+            (
+                ["document.html", "--html-extract-title", "--markdown-emphasis-symbol", "_"],
+                {"dry_run": False, "exclude": None},
+            ),
         ]
 
         for args_list, expected_attrs in test_cases:
             args = parser.parse_args(args_list)
 
             # Check that new attributes exist with defaults
-            assert hasattr(args, 'dry_run')
-            assert hasattr(args, 'exclude')
-            assert hasattr(args, 'save_config')
+            assert hasattr(args, "dry_run")
+            assert hasattr(args, "exclude")
+            assert hasattr(args, "save_config")
 
             # Check expected values
             for attr, expected_value in expected_attrs.items():
@@ -1476,13 +1484,19 @@ class TestMergeFromListFeature:
         assert args.toc_position == "top"
 
         # Test custom values
-        args = parser.parse_args([
-            "--merge-from-list", "docs.txt",
-            "--generate-toc",
-            "--toc-title", "Contents",
-            "--toc-depth", "2",
-            "--toc-position", "bottom"
-        ])
+        args = parser.parse_args(
+            [
+                "--merge-from-list",
+                "docs.txt",
+                "--generate-toc",
+                "--toc-title",
+                "Contents",
+                "--toc-depth",
+                "2",
+                "--toc-position",
+                "bottom",
+            ]
+        )
         assert args.toc_title == "Contents"
         assert args.toc_depth == 2
         assert args.toc_position == "bottom"

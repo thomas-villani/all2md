@@ -4,6 +4,7 @@
 This module defines options for Microsoft Word document conversion,
 supporting both AST parsing and rendering operations.
 """
+
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -17,7 +18,7 @@ from all2md.constants import (
     DocxCommentMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import NetworkFetchOptions, AttachmentOptionsMixin
+from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 
 
 # src/all2md/options/docx.py
@@ -124,9 +125,9 @@ class DocxRendererOptions(BaseRendererOptions):
         default=DEFAULT_DOCX_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "native (Word comments API), visible (text paragraphs with attribution), "
-                    "ignore (skip comment nodes entirely). Controls presentation of comments "
-                    "from DOCX source files and other format annotations.",
+            "native (Word comments API), visible (text paragraphs with attribution), "
+            "ignore (skip comment nodes entirely). Controls presentation of comments "
+            "from DOCX source files and other format annotations.",
             "choices": ["native", "visible", "ignore"],
             "importance": "core",
         },

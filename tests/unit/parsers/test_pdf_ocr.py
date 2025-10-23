@@ -162,9 +162,7 @@ class TestShouldUseOCR:
         mock_page.rect.height = 792
         mock_page.get_images.return_value = []
 
-        options = PdfOptions(
-            ocr=OCROptions(enabled=True, mode="auto", text_threshold=50)
-        )
+        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=50))
 
         # Text below threshold should trigger OCR
         result = _should_use_ocr(mock_page, "Short", options)
@@ -174,20 +172,13 @@ class TestShouldUseOCR:
         result = _should_use_ocr(mock_page, "A" * 100, options)
         assert result is False
 
-    @patch('all2md.parsers.pdf._calculate_image_coverage')
+    @patch("all2md.parsers.pdf._calculate_image_coverage")
     def test_should_use_ocr_auto_high_image_coverage(self, mock_coverage: Mock) -> None:
         """Test OCR triggering in auto mode with high image coverage."""
         mock_page = Mock()
         mock_coverage.return_value = 0.8  # 80% image coverage
 
-        options = PdfOptions(
-            ocr=OCROptions(
-                enabled=True,
-                mode="auto",
-                text_threshold=50,
-                image_area_threshold=0.5
-            )
-        )
+        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=50, image_area_threshold=0.5))
 
         # High image coverage should trigger OCR even with some text
         result = _should_use_ocr(mock_page, "A" * 100, options)
@@ -217,15 +208,10 @@ class TestDetectPageLanguage:
 class TestOCRPageToText:
     """Test OCR text extraction method."""
 
-    @patch('fitz.Matrix')
-    @patch('pytesseract.image_to_string')
-    @patch('PIL.Image')
-    def test_ocr_page_to_text_success(
-        self,
-        mock_image: Mock,
-        mock_pytesseract: Mock,
-        mock_matrix_class: Mock
-    ) -> None:
+    @patch("fitz.Matrix")
+    @patch("pytesseract.image_to_string")
+    @patch("PIL.Image")
+    def test_ocr_page_to_text_success(self, mock_image: Mock, mock_pytesseract: Mock, mock_matrix_class: Mock) -> None:
         """Test successful OCR extraction."""
         # Mock page and pixmap
         mock_page = Mock()
@@ -252,17 +238,14 @@ class TestOCRPageToText:
 
         assert result == "Extracted text from OCR"
         mock_pytesseract.assert_called_once()
-        mock_matrix_class.assert_called_once_with(300/72.0, 300/72.0)
+        mock_matrix_class.assert_called_once_with(300 / 72.0, 300 / 72.0)
 
-    @patch('fitz.Matrix')
-    @patch('pytesseract.image_to_string')
-    @patch('pytesseract.TesseractNotFoundError', new=Exception)
-    @patch('PIL.Image')
+    @patch("fitz.Matrix")
+    @patch("pytesseract.image_to_string")
+    @patch("pytesseract.TesseractNotFoundError", new=Exception)
+    @patch("PIL.Image")
     def test_ocr_page_to_text_tesseract_not_found(
-        self,
-        mock_image: Mock,
-        mock_pytesseract: Mock,
-        mock_matrix_class: Mock
+        self, mock_image: Mock, mock_pytesseract: Mock, mock_matrix_class: Mock
     ) -> None:
         """Test OCR when Tesseract is not installed."""
         # Mock page and pixmap
@@ -289,14 +272,11 @@ class TestOCRPageToText:
         with pytest.raises(RuntimeError, match="Tesseract OCR is not installed"):
             PdfToAstConverter._ocr_page_to_text(mock_page, options)
 
-    @patch('fitz.Matrix')
-    @patch('pytesseract.image_to_string')
-    @patch('PIL.Image')
+    @patch("fitz.Matrix")
+    @patch("pytesseract.image_to_string")
+    @patch("PIL.Image")
     def test_ocr_page_to_text_with_config(
-        self,
-        mock_image: Mock,
-        mock_pytesseract: Mock,
-        mock_matrix_class: Mock
+        self, mock_image: Mock, mock_pytesseract: Mock, mock_matrix_class: Mock
     ) -> None:
         """Test OCR with custom Tesseract config."""
         # Mock page and pixmap
@@ -318,20 +298,14 @@ class TestOCRPageToText:
         mock_matrix = Mock()
         mock_matrix_class.return_value = mock_matrix
 
-        options = PdfOptions(
-            ocr=OCROptions(
-                enabled=True,
-                languages="eng",
-                tesseract_config="--psm 6"
-            )
-        )
+        options = PdfOptions(ocr=OCROptions(enabled=True, languages="eng", tesseract_config="--psm 6"))
 
         result = PdfToAstConverter._ocr_page_to_text(mock_page, options)
 
         assert result == "OCR text"
         # Verify custom config was passed
         call_args = mock_pytesseract.call_args
-        assert call_args[1]['config'] == "--psm 6"
+        assert call_args[1]["config"] == "--psm 6"
 
 
 class TestPdfOptionsWithOCR:

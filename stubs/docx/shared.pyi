@@ -1,11 +1,9 @@
 """Type stubs for docx.shared module."""
 
-
 class Length:
     """Base class for length measurements."""
 
     def __init__(self, emu: int) -> None: ...
-
     @property
     def inches(self) -> float:
         """Length in inches."""
@@ -26,7 +24,6 @@ class Length:
         """Length in English Metric Units."""
         ...
 
-
 def Inches(inches: float) -> Length:
     """Create a Length object from inches.
 
@@ -42,7 +39,6 @@ def Inches(inches: float) -> Length:
 
     """
     ...
-
 
 def Cm(cm: float) -> Length:
     """Create a Length object from centimeters.
@@ -60,7 +56,6 @@ def Cm(cm: float) -> Length:
     """
     ...
 
-
 def Pt(points: float) -> Length:
     """Create a Length object from points.
 
@@ -77,7 +72,6 @@ def Pt(points: float) -> Length:
     """
     ...
 
-
 def Emu(emu: int) -> Length:
     """Create a Length object from EMUs.
 
@@ -93,7 +87,6 @@ def Emu(emu: int) -> Length:
 
     """
     ...
-
 
 class RGBColor:
     """Represents an RGB color."""
@@ -117,7 +110,6 @@ class RGBColor:
     def from_string(cls, rgb_hex_str: str) -> RGBColor:
         """Create RGBColor from hex string like 'FF0000'."""
         ...
-
 
 class Twips:
     """Represents a measurement in twips (1/20th of a point)."""

@@ -5,7 +5,6 @@ import pytest
 
 from all2md.ast import (
     BlockQuote,
-    Code,
     CodeBlock,
     Document,
     Emphasis,
@@ -14,15 +13,12 @@ from all2md.ast import (
     LineBreak,
     Link,
     List,
-    ListItem,
     Paragraph,
     Strikethrough,
     Strong,
     Subscript,
     Superscript,
     Table,
-    TableCell,
-    TableRow,
     Text,
     ThematicBreak,
     Underline,
@@ -235,8 +231,8 @@ class TestBBCodeParser:
                     if isinstance(node, Image):
                         image_found = True
                         assert node.metadata is not None
-                        assert 'width' in node.metadata
-                        assert 'height' in node.metadata
+                        assert "width" in node.metadata
+                        assert "height" in node.metadata
         assert image_found
 
     def test_quote_simple(self) -> None:
@@ -262,7 +258,7 @@ class TestBBCodeParser:
             if isinstance(child, BlockQuote):
                 quote_found = True
                 assert child.metadata is not None
-                assert child.metadata.get('author') == 'John'
+                assert child.metadata.get("author") == "John"
         assert quote_found
 
     def test_code_block(self) -> None:
@@ -322,7 +318,9 @@ class TestBBCodeParser:
     def test_table(self) -> None:
         """Test parsing table."""
         parser = BBCodeParser()
-        doc = parser.parse("[table][tr][th]Header1[/th][th]Header2[/th][/tr][tr][td]Cell1[/td][td]Cell2[/td][/tr][/table]")
+        doc = parser.parse(
+            "[table][tr][th]Header1[/th][th]Header2[/th][/tr][tr][td]Cell1[/td][td]Cell2[/td][/tr][/table]"
+        )
 
         # Find the Table node
         table_found = False

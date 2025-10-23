@@ -2,84 +2,84 @@
 # name: TestEmlGolden.test_email_with_html_and_attachment
   '''
   # Release Notes
-  
+
   From: releases@example.com
   To: team@example.com
   Date: 03/01/25 09:00
-  
+
   Team,
-  
+
   Release 2.3.0 is live. See the HTML body for highlights.
-  
+
   Thanks,
   Release Engineering
-  
+
   \## Attachments
-  
+
   !\[chart.png\]
-  
+
   ---
   '''
 # ---
 # name: TestEmlGolden.test_email_with_thread_headers
   '''
   # Re: Meeting Follow-up
-  
+
   From: carol@example.com
   To: alice@example.com, bob@example.com
   cc: project@example.com
   Date: 03/02/25 16:45
-  
+
   Hi team,
-  
+
   Following up on the action items:
   - Alice will draft the proposal.
   - Bob will confirm timelines.
   - Carol will update stakeholders.
-  
+
   Thanks!
-  
+
   ---
   '''
 # ---
 # name: TestEmlGolden.test_simple_email
   '''
   # Project Update
-  
+
   From: alice@example.com
   To: bob@example.com
   Date: 02/28/25 12:30
-  
+
   Hello Bob,
-  
+
   Here is the latest update on the project.
   We completed the integration tests and deployed to staging.
-  
+
   Regards,
   Alice
-  
+
   ---
   '''
 # ---
 # name: TestMhtmlGolden.test_mhtml_with_image
   '''
   # Test MHTML with Image
-  
+
   This document contains an embedded image:
-  
+
   ![Test image](cid:test_image.png)
-  
+
   Text after the image.
   '''
 # ---
 # name: TestMhtmlGolden.test_simple_mhtml
   '''
   # Test MHTML Document
-  
+
   This is a simple MHTML document with **bold** and *italic* text.
-  
+
   It also contains a [link](https://example.com).
-  
+
   * First item
   * Second item
   * Third item
@@ -88,25 +88,25 @@
 # name: TestZipGolden.test_simple_zip
   '''
   ## README.txt
-  
+
   Sample ZIP archive for testing
-  
+
   ## docs/notes.txt
-  
+
   Nested directory entry
   '''
 # ---
 # name: TestZipGolden.test_zip_with_binary_assets
   '''
   ## data/report.csv
-  
+
   | id | value |
   |:---:|:---:|
   | 1 | 42 |
   | 2 | 99 |
-  
+
   ## scripts/run.sh
-  
+
   ```bash
   #!/bin/sh
    echo 'ZIP fixture'
@@ -116,15 +116,15 @@
 # name: TestZipGolden.test_zip_with_nested_archive
   '''
   ## archives/inner.zip
-  
+
   ## inner.txt
-  
+
   Nested archive content
-  
+
   ## README.md
-  
+
   # Zip Fixture
-  
+
   Contains a nested archive.
   '''
 # ---

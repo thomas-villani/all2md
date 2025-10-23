@@ -4,6 +4,7 @@
 This module provides a system for automatically generating CLI arguments
 from dataclass options using field metadata.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,7 +24,6 @@ from all2md.cli.custom_actions import (
     TrackingStoreTrueAction,
 )
 from all2md.cli.presets import get_preset_names
-from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import FileError, PasswordProtectedError, RenderingError, SecurityError, ValidationError
 from all2md.options.markdown import MarkdownOptions
@@ -33,9 +33,9 @@ logger = logging.getLogger(__name__)
 
 # Well-known metadata keys used across option definitions. Centralizing the
 # string constants here keeps option modules and the CLI builder aligned.
-CLI_METADATA_NEGATES_DEFAULT = 'cli_negates_default'
-CLI_METADATA_FLATTEN = 'cli_flatten'
-CLI_METADATA_NEGATED_NAME = 'cli_negated_name'
+CLI_METADATA_NEGATES_DEFAULT = "cli_negates_default"
+CLI_METADATA_FLATTEN = "cli_flatten"
+CLI_METADATA_NEGATED_NAME = "cli_negated_name"
 
 
 class TieredHelpAction(argparse.Action):
@@ -54,14 +54,17 @@ class TieredHelpAction(argparse.Action):
             Additional argparse action keyword arguments
 
         """
-        kwargs.setdefault('nargs', '?')
-        kwargs.setdefault('default', argparse.SUPPRESS)
-        kwargs.setdefault('metavar', 'SECTION')
+        kwargs.setdefault("nargs", "?")
+        kwargs.setdefault("default", argparse.SUPPRESS)
+        kwargs.setdefault("metavar", "SECTION")
         super().__init__(option_strings, dest, **kwargs)
 
     def __call__(
-            self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: Any,
-            option_string: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: Optional[str] = None,
     ) -> None:
         """Execute the help action.
 
@@ -77,7 +80,7 @@ class TieredHelpAction(argparse.Action):
             The option string used, if any
 
         """
-        selector = values or 'quick'
+        selector = values or "quick"
         try:
             from all2md.cli.help_formatter import display_help
         except ImportError:  # pragma: no cover - defensive
@@ -236,15 +239,15 @@ class DynamicCLIBuilder:
         from all2md.options.base import BaseParserOptions, BaseRendererOptions
         from all2md.utils.input_sources import RemoteInputOptions
 
-        options_classes['base'] = BaseParserOptions
-        options_classes['renderer_base'] = BaseRendererOptions
-        options_classes['markdown'] = MarkdownOptions
-        options_classes['remote_input'] = RemoteInputOptions
+        options_classes["base"] = BaseParserOptions
+        options_classes["renderer_base"] = BaseRendererOptions
+        options_classes["markdown"] = MarkdownOptions
+        options_classes["remote_input"] = RemoteInputOptions
 
         registry.auto_discover()
 
         for format_name in registry.list_formats():
-            if format_name == 'markdown':
+            if format_name == "markdown":
                 continue
 
             try:
@@ -261,7 +264,7 @@ class DynamicCLIBuilder:
                 renderer_class = None
 
             if renderer_class and is_dataclass(renderer_class):
-                options_classes.setdefault(f'renderer_{format_name}', renderer_class)
+                options_classes.setdefault(f"renderer_{format_name}", renderer_class)
 
         self._options_class_cache = options_classes
         return self._options_class_cache
@@ -311,14 +314,14 @@ class DynamicCLIBuilder:
             )
 
         if negate_via_metadata or default_value is True:
-            kwargs['action'] = 'store_false'
+            kwargs["action"] = "store_false"
         elif default_value is False:
-            kwargs['action'] = 'store_true'
+            kwargs["action"] = "store_true"
         elif default_value is MISSING:
-            kwargs['action'] = 'store_true'
+            kwargs["action"] = "store_true"
         else:
             # For Optional[bool] defaulting to None, accept explicit true/false strings
-            kwargs['type'] = lambda x: x.lower() in ('true', '1', 'yes')
+            kwargs["type"] = lambda x: x.lower() in ("true", "1", "yes")
 
         return kwargs
 
@@ -357,10 +360,11 @@ class DynamicCLIBuilder:
 
             # Create flexible parser for matching scalar and list types
             if scalar_type and list_type and scalar_type == list_type and scalar_type is int:
+
                 def parse_int_or_list(value: str) -> int | list[int]:
-                    if ',' in value:
+                    if "," in value:
                         try:
-                            return [int(x.strip()) for x in value.split(',')]
+                            return [int(x.strip()) for x in value.split(",")]
                         except ValueError as e:
                             raise argparse.ArgumentTypeError(
                                 f"Expected integer or comma-separated integers, got: {value}"
@@ -373,8 +377,8 @@ class DynamicCLIBuilder:
                                 f"Expected integer or comma-separated integers, got: {value}"
                             ) from e
 
-                kwargs['type'] = parse_int_or_list
-                help_suffix = '(single value or comma-separated)'
+                kwargs["type"] = parse_int_or_list
+                help_suffix = "(single value or comma-separated)"
 
         return kwargs, help_suffix
 
@@ -398,40 +402,39 @@ class DynamicCLIBuilder:
         if args:
             item_type = args[0]
             if item_type is int:
+
                 def parse_int_list(value: str) -> list[int]:
                     try:
-                        return [int(x.strip()) for x in value.split(',')]
+                        return [int(x.strip()) for x in value.split(",")]
                     except ValueError as e:
-                        raise argparse.ArgumentTypeError(
-                            f"Expected comma-separated integers, got: {value}"
-                        ) from e
+                        raise argparse.ArgumentTypeError(f"Expected comma-separated integers, got: {value}") from e
 
-                kwargs['type'] = parse_int_list
-                return kwargs, '(comma-separated integers)'
+                kwargs["type"] = parse_int_list
+                return kwargs, "(comma-separated integers)"
             elif item_type is float:
+
                 def parse_float_list(value: str) -> list[float]:
                     try:
-                        return [float(x.strip()) for x in value.split(',')]
+                        return [float(x.strip()) for x in value.split(",")]
                     except ValueError as e:
-                        raise argparse.ArgumentTypeError(
-                            f"Expected comma-separated floats, got: {value}"
-                        ) from e
+                        raise argparse.ArgumentTypeError(f"Expected comma-separated floats, got: {value}") from e
 
-                kwargs['type'] = parse_float_list
-                return kwargs, '(comma-separated floats)'
+                kwargs["type"] = parse_float_list
+                return kwargs, "(comma-separated floats)"
             else:
-                def parse_str_list(value: str) -> list[str]:
-                    return [x.strip() for x in value.split(',') if x.strip()]
 
-                kwargs['type'] = parse_str_list
-                return kwargs, '(comma-separated values)'
+                def parse_str_list(value: str) -> list[str]:
+                    return [x.strip() for x in value.split(",") if x.strip()]
+
+                kwargs["type"] = parse_str_list
+                return kwargs, "(comma-separated values)"
         else:
             # Fallback for untyped lists
             def parse_str_list_fallback(value: str) -> list[str]:
-                return [x.strip() for x in value.split(',') if x.strip()]
+                return [x.strip() for x in value.split(",") if x.strip()]
 
-            kwargs['type'] = parse_str_list_fallback
-            return kwargs, '(comma-separated values)'
+            kwargs["type"] = parse_str_list_fallback
+            return kwargs, "(comma-separated values)"
 
     def _handle_dict_type(self) -> tuple[Dict[str, Any], str]:
         """Handle dict type inference.
@@ -451,16 +454,12 @@ class DynamicCLIBuilder:
                     raise ValueError("Expected JSON object")
                 return result
             except (json.JSONDecodeError, ValueError) as e:
-                raise argparse.ArgumentTypeError(
-                    f"Expected JSON object, got: {value}. Error: {e}"
-                ) from e
+                raise argparse.ArgumentTypeError(f"Expected JSON object, got: {value}. Error: {e}") from e
 
-        return {'type': parse_json_dict}, '(JSON format)'
+        return {"type": parse_json_dict}, "(JSON format)"
 
     def _infer_argument_type_and_action(
-            self, field: Any, resolved_type: Type,
-            is_optional: bool, metadata: Dict[str, Any],
-            cli_name: str
+        self, field: Any, resolved_type: Type, is_optional: bool, metadata: Dict[str, Any], cli_name: str
     ) -> tuple[Dict[str, Any], str | None]:
         """Infer argparse type/action metadata from resolved field type.
 
@@ -488,8 +487,8 @@ class DynamicCLIBuilder:
             return self._handle_boolean_type(field, metadata), None
 
         # Handle choices from metadata
-        if 'choices' in metadata:
-            return {'choices': metadata['choices']}, None
+        if "choices" in metadata:
+            return {"choices": metadata["choices"]}, None
 
         # Handle Union types
         if get_origin(resolved_type) in (Union, types.UnionType):
@@ -504,20 +503,19 @@ class DynamicCLIBuilder:
             return self._handle_dict_type()
 
         # Handle legacy metadata types
-        if metadata.get('type') == 'list_int':
+        if metadata.get("type") == "list_int":
+
             def parse_legacy_int_list(value: str) -> list[int]:
                 try:
-                    return [int(x.strip()) for x in value.split(',')]
+                    return [int(x.strip()) for x in value.split(",")]
                 except ValueError as e:
-                    raise argparse.ArgumentTypeError(
-                        f"Expected comma-separated integers, got: {value}"
-                    ) from e
+                    raise argparse.ArgumentTypeError(f"Expected comma-separated integers, got: {value}") from e
 
-            return {'type': parse_legacy_int_list}, '(comma-separated integers)'
+            return {"type": parse_legacy_int_list}, "(comma-separated integers)"
 
         # Handle basic types
         if resolved_type in (int, float):
-            return {'type': resolved_type}, None
+            return {"type": resolved_type}, None
 
         # str is default, don't specify
         return {}, None
@@ -536,11 +534,10 @@ class DynamicCLIBuilder:
             Kebab case CLI name
 
         """
-        return name.replace('_', '-')
+        return name.replace("_", "-")
 
     def infer_cli_name(
-            self, field_name: str, format_prefix: Optional[str] = None,
-            is_boolean_with_true_default: bool = False
+        self, field_name: str, format_prefix: Optional[str] = None, is_boolean_with_true_default: bool = False
     ) -> str:
         """Infer CLI argument name from field name.
 
@@ -564,7 +561,7 @@ class DynamicCLIBuilder:
 
         # Handle boolean flags with True defaults (use --no-* form)
         if is_boolean_with_true_default:
-            if not kebab_name.startswith('no-'):
+            if not kebab_name.startswith("no-"):
                 kebab_name = f"no-{kebab_name}"
 
         # Add format prefix if provided (after no- prefix if applicable)
@@ -581,8 +578,7 @@ class DynamicCLIBuilder:
         return f"--{kebab_name}"
 
     def get_argument_kwargs(
-            self, field: Any, metadata: Dict[str, Any], cli_name: str,
-            options_class: Type
+        self, field: Any, metadata: Dict[str, Any], cli_name: str, options_class: Type
     ) -> Dict[str, Any]:
         """Build argparse kwargs from field metadata using robust type resolution.
 
@@ -609,7 +605,7 @@ class DynamicCLIBuilder:
         kwargs = {}
 
         # Help text is required
-        kwargs['help'] = metadata.get('help', f'Configure {field.name}')
+        kwargs["help"] = metadata.get("help", f"Configure {field.name}")
 
         # Resolve field type using robust type resolution
         resolved_type = self._resolve_field_type(field, options_class)
@@ -622,32 +618,34 @@ class DynamicCLIBuilder:
         kwargs.update(type_kwargs)
 
         if help_suffix:
-            kwargs['help'] = f"{kwargs['help']} {help_suffix}"
+            kwargs["help"] = f"{kwargs['help']} {help_suffix}"
 
         # Handle metadata-specified types that override type inference
-        if metadata.get('type') in (int, float):
-            kwargs['type'] = metadata['type']
+        if metadata.get("type") in (int, float):
+            kwargs["type"] = metadata["type"]
 
         # Honor metadata-specified action (e.g., append) if present
         # This allows fields to explicitly request append behavior
-        if 'action' in metadata and not kwargs.get('action'):
-            kwargs['action'] = metadata['action']
+        if "action" in metadata and not kwargs.get("action"):
+            kwargs["action"] = metadata["action"]
 
         # Set default if field has one (checking for MISSING)
-        if self._has_default(field) and not kwargs.get('action'):
+        if self._has_default(field) and not kwargs.get("action"):
             default_val = self._get_default(field)
             # Only set if not MISSING and not a factory
             if default_val is not MISSING and not callable(default_val):
-                kwargs['default'] = default_val
+                kwargs["default"] = default_val
 
         return kwargs
 
     def _add_options_arguments_internal(
-            self, parser: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
-            options_class: Type, format_prefix: Optional[str] = None,
-            group_name: Optional[str] = None,
-            exclude_base_fields: bool = False,
-            dest_prefix: Optional[str] = None
+        self,
+        parser: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
+        options_class: Type,
+        format_prefix: Optional[str] = None,
+        group_name: Optional[str] = None,
+        exclude_base_fields: bool = False,
+        dest_prefix: Optional[str] = None,
     ) -> None:
         """Add arguments for an options dataclass.
 
@@ -685,6 +683,7 @@ class DynamicCLIBuilder:
         base_field_names = set()
         if exclude_base_fields:
             from all2md.options.base import BaseParserOptions
+
             base_field_names = {f.name for f in fields(BaseParserOptions)}
 
         # Create argument group if requested
@@ -702,7 +701,7 @@ class DynamicCLIBuilder:
             metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
             should_flatten = bool(metadata.get(CLI_METADATA_FLATTEN, False))
-            exclude_from_cli = bool(metadata.get('exclude_from_cli', False))
+            exclude_from_cli = bool(metadata.get("exclude_from_cli", False))
 
             if should_flatten:
                 field_type = self._resolve_field_type(field, options_class)
@@ -722,7 +721,7 @@ class DynamicCLIBuilder:
                         format_prefix=nested_cli_prefix,
                         group_name=None,  # Don't create separate groups for nested classes
                         exclude_base_fields=exclude_base_fields,
-                        dest_prefix=nested_dest_prefix
+                        dest_prefix=nested_dest_prefix,
                     )
                 else:
                     logger.debug(
@@ -736,7 +735,7 @@ class DynamicCLIBuilder:
                 continue
 
             # Skip markdown_options field - handled separately
-            if field.name == 'markdown_options':
+            if field.name == "markdown_options":
                 continue
 
             # Determine if this is a boolean with True default for --no-* handling
@@ -753,15 +752,13 @@ class DynamicCLIBuilder:
                     bool_default_value = MISSING
 
             negate_via_metadata = (
-                bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False))
-                if underlying_field_type is bool
-                else False
+                bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False)) if underlying_field_type is bool else False
             )
             use_negated_flag = bool_default_value is True or negate_via_metadata
 
             # Get CLI name (explicit or inferred)
-            if 'cli_name' in metadata:
-                cli_meta_name = metadata['cli_name']
+            if "cli_name" in metadata:
+                cli_meta_name = metadata["cli_name"]
                 cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
             elif use_negated_flag and CLI_METADATA_NEGATED_NAME in metadata:
                 negated_name_hint = metadata[CLI_METADATA_NEGATED_NAME]
@@ -776,46 +773,48 @@ class DynamicCLIBuilder:
             # Set dest using dot notation for better structure mapping
             # Use dest_prefix (dot-separated) instead of format_prefix (may be hyphenated for nested)
             # and use tracking actions for booleans and append
-            if 'action' in kwargs:
-                if kwargs['action'] == 'store_true':
-                    kwargs['action'] = TrackingStoreTrueAction
+            if "action" in kwargs:
+                if kwargs["action"] == "store_true":
+                    kwargs["action"] = TrackingStoreTrueAction
                     if dest_prefix:
-                        kwargs['dest'] = f"{dest_prefix}.{field.name}"
+                        kwargs["dest"] = f"{dest_prefix}.{field.name}"
                     else:
-                        kwargs['dest'] = field.name
-                elif kwargs['action'] == 'store_false':
-                    kwargs['action'] = TrackingStoreFalseAction
+                        kwargs["dest"] = field.name
+                elif kwargs["action"] == "store_false":
+                    kwargs["action"] = TrackingStoreFalseAction
                     if dest_prefix:
-                        kwargs['dest'] = f"{dest_prefix}.{field.name}"
+                        kwargs["dest"] = f"{dest_prefix}.{field.name}"
                     else:
-                        kwargs['dest'] = field.name
-                elif kwargs['action'] == 'append':
-                    kwargs['action'] = TrackingAppendAction
+                        kwargs["dest"] = field.name
+                elif kwargs["action"] == "append":
+                    kwargs["action"] = TrackingAppendAction
                     if dest_prefix:
-                        kwargs['dest'] = f"{dest_prefix}.{field.name}"
+                        kwargs["dest"] = f"{dest_prefix}.{field.name}"
                     else:
-                        kwargs['dest'] = field.name
+                        kwargs["dest"] = field.name
             else:
                 # For non-boolean arguments, use TrackingStoreAction
-                kwargs['action'] = TrackingStoreAction
+                kwargs["action"] = TrackingStoreAction
                 if dest_prefix:
-                    kwargs['dest'] = f"{dest_prefix}.{field.name}"
+                    kwargs["dest"] = f"{dest_prefix}.{field.name}"
                 else:
-                    kwargs['dest'] = field.name
+                    kwargs["dest"] = field.name
 
             # Add the argument
             try:
                 group.add_argument(cli_name, **kwargs)
                 # Track mapping from dest name to actual CLI flag for better suggestions
-                if 'dest' in kwargs:
-                    self.dest_to_cli_flag[kwargs['dest']] = cli_name
+                if "dest" in kwargs:
+                    self.dest_to_cli_flag[kwargs["dest"]] = cli_name
             except Exception as e:
                 logger.warning(f"Could not add argument {cli_name}: {e}")
 
     def add_options_class_arguments(
-            self, parser: argparse.ArgumentParser,
-            options_class: Type, format_prefix: Optional[str] = None,
-            group_name: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        options_class: Type,
+        format_prefix: Optional[str] = None,
+        group_name: Optional[str] = None,
     ) -> None:
         """Add arguments for an options dataclass.
 
@@ -836,9 +835,11 @@ class DynamicCLIBuilder:
         )
 
     def add_format_specific_options(
-            self, parser: argparse.ArgumentParser,
-            options_class: Type, format_prefix: Optional[str] = None,
-            group_name: Optional[str] = None
+        self,
+        parser: argparse.ArgumentParser,
+        options_class: Type,
+        format_prefix: Optional[str] = None,
+        group_name: Optional[str] = None,
     ) -> None:
         """Add arguments for format-specific options, excluding BaseOptions fields.
 
@@ -854,15 +855,13 @@ class DynamicCLIBuilder:
             Name for argument group
 
         """
-        self._add_options_arguments_internal(
-            parser, options_class, format_prefix, group_name, exclude_base_fields=True
-        )
+        self._add_options_arguments_internal(parser, options_class, format_prefix, group_name, exclude_base_fields=True)
 
     def add_renderer_options(
-            self,
-            parser: argparse.ArgumentParser,
-            options_class: Type,
-            format_name: str,
+        self,
+        parser: argparse.ArgumentParser,
+        options_class: Type,
+        format_name: str,
     ) -> None:
         """Add renderer options for a given format with dedicated prefixes."""
         cli_prefix = f"{format_name}-renderer"
@@ -898,12 +897,13 @@ class DynamicCLIBuilder:
 
         # Add --transform flag (repeatable, ordered) with tracking
         parser.add_argument(
-            '--transform', '-t',
+            "--transform",
+            "-t",
             action=TrackingAppendAction,
-            dest='transforms',
-            metavar='NAME',
-            help='Apply transform to AST before rendering (repeatable, order matters). '
-                 'Use "all2md list-transforms" to see available transforms.'
+            dest="transforms",
+            metavar="NAME",
+            help="Apply transform to AST before rendering (repeatable, order matters). "
+            'Use "all2md list-transforms" to see available transforms.',
         )
 
         # Create transform options group if we have transforms
@@ -911,7 +911,7 @@ class DynamicCLIBuilder:
         if not transform_names:
             return
 
-        transform_group = parser.add_argument_group('Transform options')
+        transform_group = parser.add_argument_group("Transform options")
 
         # For each transform, add parameter arguments based on ParameterSpec
         for transform_name in transform_names:
@@ -930,7 +930,7 @@ class DynamicCLIBuilder:
 
                     # Add the argument to the transform options group
                     transform_group.add_argument(cli_flag, **kwargs)
-                    dest_name = kwargs.get('dest')
+                    dest_name = kwargs.get("dest")
                     if dest_name:
                         self.dest_to_cli_flag[dest_name] = cli_flag
 
@@ -954,9 +954,9 @@ class DynamicCLIBuilder:
 
         # Create argument group for global attachment options
         attachment_group = parser.add_argument_group(
-            'Global attachment options',
-            'Apply to all formats unless format-specific overrides are provided. '
-            'These options work consistently across PDF, DOCX, HTML, and all other formats.'
+            "Global attachment options",
+            "Apply to all formats unless format-specific overrides are provided. "
+            "These options work consistently across PDF, DOCX, HTML, and all other formats.",
         )
 
         # Iterate over AttachmentOptionsMixin fields
@@ -972,20 +972,20 @@ class DynamicCLIBuilder:
 
             # Set dest (no dot notation - just field name for global)
             # and use tracking actions
-            if 'action' in kwargs:
-                if kwargs['action'] == 'store_true':
-                    kwargs['action'] = TrackingStoreTrueAction
-                    kwargs['dest'] = field.name
-                elif kwargs['action'] == 'store_false':
-                    kwargs['action'] = TrackingStoreFalseAction
-                    kwargs['dest'] = field.name
-                elif kwargs['action'] == 'append':
-                    kwargs['action'] = TrackingAppendAction
-                    kwargs['dest'] = field.name
+            if "action" in kwargs:
+                if kwargs["action"] == "store_true":
+                    kwargs["action"] = TrackingStoreTrueAction
+                    kwargs["dest"] = field.name
+                elif kwargs["action"] == "store_false":
+                    kwargs["action"] = TrackingStoreFalseAction
+                    kwargs["dest"] = field.name
+                elif kwargs["action"] == "append":
+                    kwargs["action"] = TrackingAppendAction
+                    kwargs["dest"] = field.name
             else:
                 # For non-boolean arguments, use TrackingStoreAction
-                kwargs['action'] = TrackingStoreAction
-                kwargs['dest'] = field.name
+                kwargs["action"] = TrackingStoreAction
+                kwargs["dest"] = field.name
 
             # Add the argument
             try:
@@ -1039,42 +1039,44 @@ Examples:
         )
 
         parser.add_argument(
-            '-h', '--help',
+            "-h",
+            "--help",
             action=TieredHelpAction,
-            help='Show CLI help. Omit SECTION for a quick overview, or provide full/pdf/etc. '
-                 '(e.g., --help full, --help pdf).'
+            help="Show CLI help. Omit SECTION for a quick overview, or provide full/pdf/etc. "
+            "(e.g., --help full, --help pdf).",
         )
 
         # Core arguments (keep these manual)
-        parser.add_argument(
-            "input",
-            nargs="*",
-            help="Input file(s) or directory(ies) to convert (use '-' for stdin)"
-        )
+        parser.add_argument("input", nargs="*", help="Input file(s) or directory(ies) to convert (use '-' for stdin)")
         parser.add_argument("--out", "-o", help="Output file path (default: print to stdout)")
 
         # Format override option
+        # Use registry.list_formats() directly for most up-to-date format list
+        # Including "auto" as the first choice for format detection
+        format_choices = ["auto"] + sorted(registry.list_formats())
+
         parser.add_argument(
-            "--format", "--input-type",
+            "--format",
+            "--input-type",
             dest="format",
-            choices=list(get_args(DocumentFormat)),
+            choices=format_choices,
             default="auto",
-            help="Force specific input format instead of auto-detection (default: auto)"
+            help="Force specific input format instead of auto-detection (default: auto)",
         )
 
         parser.add_argument(
             "--output-type",
-            choices=list(get_args(DocumentFormat)),
+            choices=format_choices,
             default="markdown",
-            help="Target format for conversion (default: markdown)"
+            help="Target format for conversion (default: markdown)",
         )
 
         # Configuration file
         parser.add_argument(
             "--config",
             help="Path to configuration file (JSON or TOML format). "
-                 "If not specified, searches for .all2md.toml or .all2md.json in current directory, "
-                 "then in home directory."
+            "If not specified, searches for .all2md.toml or .all2md.json in current directory, "
+            "then in home directory.",
         )
 
         # Preset configurations
@@ -1082,34 +1084,35 @@ Examples:
             "--preset",
             choices=get_preset_names(),
             help="Apply a preset configuration. Presets provide pre-configured settings for common use cases. "
-                 "CLI arguments override preset values. "
-                 "Available: fast (speed-optimized), quality (maximum fidelity), minimal (text-only), "
-                 "complete (full preservation), archival (self-contained with base64), "
-                 "documentation (optimized for technical docs)."
+            "CLI arguments override preset values. "
+            "Available: fast (speed-optimized), quality (maximum fidelity), minimal (text-only), "
+            "complete (full preservation), archival (self-contained with base64), "
+            "documentation (optimized for technical docs).",
         )
 
         # Logging and verbosity options
         parser.add_argument(
-            "--verbose", "-v",
+            "--verbose",
+            "-v",
             action="store_true",
-            help="Enable verbose output with detailed logging (equivalent to --log-level DEBUG)"
+            help="Enable verbose output with detailed logging (equivalent to --log-level DEBUG)",
         )
         parser.add_argument(
             "--log-level",
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
             default="WARNING",
-            help="Set logging level for debugging (default: WARNING). Overrides --verbose if both are specified."
+            help="Set logging level for debugging (default: WARNING). Overrides --verbose if both are specified.",
         )
         parser.add_argument(
             "--log-file",
             type=str,
             metavar="PATH",
-            help="Write log messages to specified file in addition to console output"
+            help="Write log messages to specified file in addition to console output",
         )
         parser.add_argument(
             "--trace",
             action="store_true",
-            help="Enable trace mode with very verbose logging and per-stage timing information"
+            help="Enable trace mode with very verbose logging and per-stage timing information",
         )
 
         # Argument validation options
@@ -1117,38 +1120,36 @@ Examples:
             "--strict-args",
             action="store_true",
             dest="strict_args",
-            help="Fail on unknown command-line arguments instead of warning (helps catch typos)"
+            help="Fail on unknown command-line arguments instead of warning (helps catch typos)",
         )
 
         def get_version() -> str:
             """Get the version of all2md package."""
             try:
                 from importlib.metadata import version
+
                 return version("all2md")
             except Exception:
                 return "unknown"
 
-        parser.add_argument("--version", "-V", action=DynamicVersionAction,
-                            version_callback=lambda: f"all2md {get_version()}")
-        parser.add_argument("--about", "-A", action="store_true",
-                            help="Show detailed information about all2md and exit")
+        parser.add_argument(
+            "--version", "-V", action=DynamicVersionAction, version_callback=lambda: f"all2md {get_version()}"
+        )
+        parser.add_argument(
+            "--about", "-A", action="store_true", help="Show detailed information about all2md and exit"
+        )
 
         # Add BaseOptions as universal options (no prefix)
         from all2md.options.base import BaseParserOptions
         from all2md.utils.input_sources import RemoteInputOptions
+
         self.add_options_class_arguments(
-            parser,
-            BaseParserOptions,
-            format_prefix=None,
-            group_name="Universal attachment options"
+            parser, BaseParserOptions, format_prefix=None, group_name="Universal attachment options"
         )
 
         # Add MarkdownOptions as common options
         self.add_options_class_arguments(
-            parser,
-            MarkdownOptions,
-            format_prefix="markdown",
-            group_name="Common Markdown formatting options"
+            parser, MarkdownOptions, format_prefix="markdown", group_name="Common Markdown formatting options"
         )
 
         # Add remote input options (top-level, apply to all formats)
@@ -1178,19 +1179,12 @@ Examples:
 
                     # Add format-specific options (excluding BaseOptions fields)
                     self.add_format_specific_options(
-                        parser,
-                        options_class,
-                        format_prefix=format_name,
-                        group_name=group_name
+                        parser, options_class, format_prefix=format_name, group_name=group_name
                     )
 
                 renderer_options_class = registry.get_renderer_options_class(format_name)
                 if renderer_options_class and is_dataclass(renderer_options_class):
-                    self.add_renderer_options(
-                        parser,
-                        renderer_options_class,
-                        format_name=format_name
-                    )
+                    self.add_renderer_options(parser, renderer_options_class, format_name=format_name)
             except Exception as e:
                 logger.warning(f"Could not process converter {format_name}: {e}")
 
@@ -1200,9 +1194,7 @@ Examples:
         self.parser = parser
         return parser
 
-    def _resolve_nested_field(
-            self, options_class: Type, field_path: list[str]
-    ) -> tuple[Any, Type] | None:
+    def _resolve_nested_field(self, options_class: Type, field_path: list[str]) -> tuple[Any, Type] | None:
         """Resolve a nested field path in a dataclass hierarchy.
 
         Parameters
@@ -1267,14 +1259,14 @@ Examples:
         """Return the dataclass field and metadata for a CLI destination."""
         options_classes = self._get_options_classes()
 
-        if '.' in dest:
-            prefix, remainder = dest.split('.', 1)
+        if "." in dest:
+            prefix, remainder = dest.split(".", 1)
             options_class = options_classes.get(prefix)
             if not options_class:
                 return None
 
-            if '.' in remainder:
-                field_path = remainder.split('.')
+            if "." in remainder:
+                field_path = remainder.split(".")
                 result = self._resolve_nested_field(options_class, field_path)
                 if result:
                     field, _ = result
@@ -1288,7 +1280,7 @@ Examples:
                     return field, metadata
             return None
 
-        base_class = options_classes.get('base')
+        base_class = options_classes.get("base")
         if not base_class:
             return None
 
@@ -1317,11 +1309,11 @@ Examples:
 
         """
         # Normalize the unknown argument for comparison (replace dots and hyphens with underscores)
-        arg_clean = unknown_arg.replace('.', '_').replace('-', '_')
+        arg_clean = unknown_arg.replace(".", "_").replace("-", "_")
 
         # Build list of known dest names for matching
         known_dests = list(self.dest_to_cli_flag.keys())
-        known_clean = [dest.replace('.', '_').replace('-', '_') for dest in known_dests]
+        known_clean = [dest.replace(".", "_").replace("-", "_") for dest in known_dests]
 
         # Find close matches (similarity threshold 0.6)
         matches = difflib.get_close_matches(arg_clean, known_clean, n=1, cutoff=0.6)
@@ -1375,7 +1367,7 @@ Examples:
             options.update(flattened)
 
         # Get the set of explicitly provided arguments first
-        provided_args: set[str] = getattr(parsed_args, '_provided_args', set())
+        provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
 
         # Create a copy of the args dict to avoid "dictionary changed size during iteration" errors
         args_dict = dict(vars(parsed_args))
@@ -1387,8 +1379,9 @@ Examples:
         unknown_args = []
 
         # Build set of global attachment field names
-        from all2md.options.common import AttachmentOptionsMixin
         from dataclasses import fields as get_fields
+
+        from all2md.options.common import AttachmentOptionsMixin
 
         global_attachment_fields = {field.name for field in get_fields(AttachmentOptionsMixin)}
 
@@ -1396,27 +1389,62 @@ Examples:
         # These are arguments handled directly by the CLI layer
         cli_only_args = {
             # Core arguments from builder.build_parser
-            'input', 'out', 'format', 'output_type', 'config', 'preset',
-            'verbose', 'log_level', 'log_file', 'trace',
-            'strict_args', 'about', '_provided_args',
+            "input",
+            "out",
+            "format",
+            "output_type",
+            "config",
+            "preset",
+            "verbose",
+            "log_level",
+            "log_file",
+            "trace",
+            "strict_args",
+            "about",
+            "_provided_args",
             # Note: 'version' uses argparse.SUPPRESS and doesn't appear in namespace
             # Multi-file processing arguments from cli.create_parser
-            'rich', 'pager', 'progress', 'output_dir', 'recursive',
-            'parallel', 'skip_errors', 'preserve_structure', 'zip',
-            'assets_layout', 'watch', 'watch_debounce', 'collate',
-            'no_summary', 'save_config', 'dry_run', 'detect_only', 'exclude',
+            "rich",
+            "pager",
+            "progress",
+            "output_dir",
+            "recursive",
+            "parallel",
+            "skip_errors",
+            "preserve_structure",
+            "zip",
+            "assets_layout",
+            "watch",
+            "watch_debounce",
+            "collate",
+            "no_summary",
+            "save_config",
+            "dry_run",
+            "detect_only",
+            "exclude",
             # Rich output customization arguments
-            'rich_code_theme', 'rich_inline_code_theme', 'rich_no_word_wrap',
-            'rich_hyperlinks', 'rich_justify', 'force_rich',
+            "rich_code_theme",
+            "rich_inline_code_theme",
+            "rich_no_word_wrap",
+            "rich_hyperlinks",
+            "rich_justify",
+            "force_rich",
             # Security presets from cli.create_parser
-            'strict_html_sanitize', 'safe_mode', 'paranoid_mode',
+            "strict_html_sanitize",
+            "safe_mode",
+            "paranoid_mode",
             # Transform arguments
-            'transforms',
+            "transforms",
             # Merge-from-list arguments
-            'merge_from_list', 'generate_toc', 'toc_title', 'toc_depth',
-            'toc_position', 'list_separator', 'no_section_titles',
+            "merge_from_list",
+            "generate_toc",
+            "toc_title",
+            "toc_depth",
+            "toc_position",
+            "list_separator",
+            "no_section_titles",
             # Batch-from-list arguments
-            'batch_from_list'
+            "batch_from_list",
         } | global_attachment_fields  # Union with global attachment fields
 
         # Process each argument
@@ -1430,8 +1458,8 @@ Examples:
                 continue
 
             # Handle dot notation arguments (e.g., "pdf.pages" or "html.network.allowed_hosts")
-            if '.' in arg_name:
-                parts = arg_name.split('.', 1)
+            if "." in arg_name:
+                parts = arg_name.split(".", 1)
                 format_prefix = parts[0]
                 remainder = parts[1]
 
@@ -1440,9 +1468,9 @@ Examples:
                     options_class = options_classes[format_prefix]
 
                     # Check if this is multi-level nesting (e.g., "network.allowed_hosts")
-                    if '.' in remainder:
+                    if "." in remainder:
                         # Split remainder into path components
-                        field_path = remainder.split('.')
+                        field_path = remainder.split(".")
 
                         # Use helper to resolve nested field
                         result = self._resolve_nested_field(options_class, field_path)
@@ -1450,8 +1478,11 @@ Examples:
                         if result:
                             field, field_type = result
                             processed_value = self._process_argument_value(
-                                field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
-                                was_provided=True
+                                field,
+                                dict(field.metadata) if field.metadata else {},
+                                arg_value,
+                                arg_name,
+                                was_provided=True,
                             )
                             if processed_value is not None:
                                 options[arg_name] = processed_value
@@ -1466,8 +1497,11 @@ Examples:
                         for field in fields(options_class):
                             if field.name == field_name:
                                 processed_value = self._process_argument_value(
-                                    field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
-                                    was_provided=True
+                                    field,
+                                    dict(field.metadata) if field.metadata else {},
+                                    arg_value,
+                                    arg_name,
+                                    was_provided=True,
                                 )
                                 if processed_value is not None:
                                     options[arg_name] = processed_value
@@ -1479,15 +1513,18 @@ Examples:
                             unknown_args.append(arg_name)
             else:
                 # Handle non-dot notation arguments (BaseOptions fields)
-                if 'base' in options_classes:
-                    base_options = options_classes['base']
+                if "base" in options_classes:
+                    base_options = options_classes["base"]
                     field_found = False
 
                     for field in fields(base_options):
                         if field.name == arg_name:
                             processed_value = self._process_argument_value(
-                                field, dict(field.metadata) if field.metadata else {}, arg_value, arg_name,
-                                was_provided=True
+                                field,
+                                dict(field.metadata) if field.metadata else {},
+                                arg_value,
+                                arg_name,
+                                was_provided=True,
                             )
                             if processed_value is not None:
                                 options[field.name] = processed_value
@@ -1499,8 +1536,9 @@ Examples:
                         unknown_args.append(arg_name)
 
         # Handle global attachment flags - propagate to all formats
-        from all2md.options.common import AttachmentOptionsMixin
         from dataclasses import fields as get_fields
+
+        from all2md.options.common import AttachmentOptionsMixin
 
         attachment_field_names = {field.name for field in get_fields(AttachmentOptionsMixin)}
 
@@ -1511,7 +1549,7 @@ Examples:
 
                 # Apply to each format that supports attachments
                 for format_name, options_class in options_classes.items():
-                    if format_name in ['base', 'renderer_base', 'markdown', 'remote_input']:
+                    if format_name in ["base", "renderer_base", "markdown", "remote_input"]:
                         continue
 
                     # Check if this options class has this attachment field
@@ -1520,7 +1558,7 @@ Examples:
                         continue
 
                     # Build format-specific key
-                    format_field_key = f'{format_name}.{field_name}'
+                    format_field_key = f"{format_name}.{field_name}"
 
                     # Only apply global if format-specific wasn't explicitly provided
                     if format_field_key not in provided_args:
@@ -1529,7 +1567,7 @@ Examples:
         # Validate unknown arguments
         if unknown_args:
             # Check if strict mode is enabled (can be controlled via env var or arg)
-            strict_mode = getattr(parsed_args, 'strict_args', False)
+            strict_mode = getattr(parsed_args, "strict_args", False)
 
             help_hint = "See 'all2md help full' or 'all2md help <format>'."
 
@@ -1544,10 +1582,7 @@ Examples:
                         f"Did you mean {suggestion}? {help_hint}"
                     )
                 else:
-                    msg = (
-                        f"Unknown argument: --{unknown_arg.replace('_', '-')}. "
-                        f"{help_hint}"
-                    )
+                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. " f"{help_hint}"
 
                 error_messages.append(msg)
 
@@ -1566,8 +1601,7 @@ Examples:
         return options
 
     def _process_argument_value(
-            self, field: Any, metadata: Dict[str, Any], arg_value: Any,
-            arg_name: str, was_provided: bool = False
+        self, field: Any, metadata: Dict[str, Any], arg_value: Any, arg_name: str, was_provided: bool = False
     ) -> Any:
         """Process and convert argument values based on field type.
 
@@ -1603,25 +1637,24 @@ Examples:
             return None
 
         # Validate choices if specified
-        if 'choices' in metadata and arg_value is not None:
-            choices = metadata['choices']
+        if "choices" in metadata and arg_value is not None:
+            choices = metadata["choices"]
             if arg_value not in choices:
                 raise argparse.ArgumentTypeError(
                     f"Argument --{arg_name.replace('_', '-')} must be one of {choices}, got: {arg_value}"
                 )
 
         # Handle list_int type (comma-separated integers)
-        if metadata.get('type') == 'list_int' and isinstance(arg_value, str):
+        if metadata.get("type") == "list_int" and isinstance(arg_value, str):
             try:
-                return [int(x.strip()) for x in arg_value.split(',')]
+                return [int(x.strip()) for x in arg_value.split(",")]
             except ValueError as e:
                 raise argparse.ArgumentTypeError(
-                    f"Argument --{arg_name.replace('_', '-')} expects comma-separated integers, "
-                    f"got: {arg_value}"
+                    f"Argument --{arg_name.replace('_', '-')} expects comma-separated integers, " f"got: {arg_value}"
                 ) from e
 
         # Validate integer type if specified in metadata
-        if metadata.get('type') is int and arg_value is not None:
+        if metadata.get("type") is int and arg_value is not None:
             if not isinstance(arg_value, int):
                 raise argparse.ArgumentTypeError(
                     f"Argument --{arg_name.replace('_', '-')} expects an integer, "
@@ -1629,7 +1662,7 @@ Examples:
                 )
 
         # Validate float type if specified in metadata
-        if metadata.get('type') is float and arg_value is not None:
+        if metadata.get("type") is float and arg_value is not None:
             if not isinstance(arg_value, (int, float)):
                 raise argparse.ArgumentTypeError(
                     f"Argument --{arg_name.replace('_', '-')} expects a number, "
@@ -1667,12 +1700,55 @@ def validate_pygments_theme(theme_name: str) -> str:
         def get_all_styles() -> list[str]:
             """Return list of available Pygments styles as fallback."""
             return [
-                'abap', 'algol', 'algol_nu', 'arduino', 'autumn', 'bw', 'borland', 'coffee', 'colorful', 'default',
-                'dracula', 'emacs', 'friendly_grayscale', 'friendly', 'fruity', 'github-dark', 'gruvbox-dark',
-                'gruvbox-light', 'igor', 'inkpot', 'lightbulb', 'lilypond', 'lovelace', 'manni', 'material',
-                'monokai', 'murphy', 'native', 'nord-darker', 'nord', 'one-dark', 'paraiso-dark', 'paraiso-light',
-                'pastie', 'perldoc', 'rainbow_dash', 'rrt', 'sas', 'solarized-dark', 'solarized-light',
-                'staroffice', 'stata-dark', 'stata-light', 'tango', 'trac', 'vim', 'vs', 'xcode', 'zenburn'
+                "abap",
+                "algol",
+                "algol_nu",
+                "arduino",
+                "autumn",
+                "bw",
+                "borland",
+                "coffee",
+                "colorful",
+                "default",
+                "dracula",
+                "emacs",
+                "friendly_grayscale",
+                "friendly",
+                "fruity",
+                "github-dark",
+                "gruvbox-dark",
+                "gruvbox-light",
+                "igor",
+                "inkpot",
+                "lightbulb",
+                "lilypond",
+                "lovelace",
+                "manni",
+                "material",
+                "monokai",
+                "murphy",
+                "native",
+                "nord-darker",
+                "nord",
+                "one-dark",
+                "paraiso-dark",
+                "paraiso-light",
+                "pastie",
+                "perldoc",
+                "rainbow_dash",
+                "rrt",
+                "sas",
+                "solarized-dark",
+                "solarized-light",
+                "staroffice",
+                "stata-dark",
+                "stata-light",
+                "tango",
+                "trac",
+                "vim",
+                "vs",
+                "xcode",
+                "zenburn",
             ]
 
     available_themes = list(get_all_styles())
@@ -1697,258 +1773,241 @@ def create_parser() -> argparse.ArgumentParser:
 
     # Add new CLI options for enhanced features
     parser.add_argument(
-        '--rich',
+        "--rich",
         action=TrackingStoreTrueAction,
-        help='Enable rich terminal output with formatting (automatically disabled when output is piped)'
+        help="Enable rich terminal output with formatting (automatically disabled when output is piped)",
     )
 
     # Create Rich output options group
     rich_group = parser.add_argument_group(
-        'Rich output customization',
-        'Customize rich terminal output with syntax highlighting and formatting. '
-        'Requires: `pip install all2md[rich]`'
+        "Rich output customization",
+        "Customize rich terminal output with syntax highlighting and formatting. "
+        "Requires: `pip install all2md[rich]`",
     )
     rich_group.add_argument(
-        '--rich-code-theme',
+        "--rich-code-theme",
         action=TrackingStoreAction,
         type=validate_pygments_theme,
-        metavar='THEME',
-        default='monokai',
-        help='Pygments theme for code blocks. Popular themes: monokai (default), dracula, '
-             'github-dark, vim, material, one-dark, nord, solarized-dark, solarized-light. '
-             'Full list: https://pygments.org/styles/'
+        metavar="THEME",
+        default="monokai",
+        help="Pygments theme for code blocks. Popular themes: monokai (default), dracula, "
+        "github-dark, vim, material, one-dark, nord, solarized-dark, solarized-light. "
+        "Full list: https://pygments.org/styles/",
     )
     rich_group.add_argument(
-        '--rich-inline-code-theme',
+        "--rich-inline-code-theme",
         action=TrackingStoreAction,
         type=validate_pygments_theme,
-        metavar='THEME',
-        help='Pygments theme for inline code. If not specified, uses same theme as code blocks. '
-             'See --rich-code-theme for available themes.'
+        metavar="THEME",
+        help="Pygments theme for inline code. If not specified, uses same theme as code blocks. "
+        "See --rich-code-theme for available themes.",
     )
     rich_group.add_argument(
-        '--rich-no-word-wrap',
+        "--rich-no-word-wrap",
         action=TrackingStoreTrueAction,
-        help='Disable word wrapping in rich output (defaults to wrapping long lines)'
+        help="Disable word wrapping in rich output (defaults to wrapping long lines)",
     )
     rich_group.add_argument(
-        '--no-rich-hyperlinks',
+        "--no-rich-hyperlinks",
         action=TrackingStoreFalseAction,
-        dest='rich_hyperlinks',
+        dest="rich_hyperlinks",
         default=True,
-        help='Disable clickable hyperlink rendering in terminal output'
+        help="Disable clickable hyperlink rendering in terminal output",
     )
     rich_group.add_argument(
-        '--rich-justify',
+        "--rich-justify",
         action=TrackingStoreAction,
         type=str,
-        choices=['left', 'center', 'right', 'full'],
-        default='left',
-        help='Text justification for markdown rendering. Options: left (default), center, right, full'
+        choices=["left", "center", "right", "full"],
+        default="left",
+        help="Text justification for markdown rendering. Options: left (default), center, right, full",
     )
     rich_group.add_argument(
-        '--force-rich',
+        "--force-rich",
         action=TrackingStoreTrueAction,
-        help='Force rich output even when stdout is piped or redirected. By default, rich formatting '
-             'is automatically disabled when output is piped to preserve clean parseable content.'
+        help="Force rich output even when stdout is piped or redirected. By default, rich formatting "
+        "is automatically disabled when output is piped to preserve clean parseable content.",
     )
 
     parser.add_argument(
-        '--pager',
+        "--pager",
         action=TrackingStoreTrueAction,
-        help='Display output using system pager for long documents (stdout only)'
+        help="Display output using system pager for long documents (stdout only)",
     )
 
     parser.add_argument(
-        '--progress',
+        "--progress",
         action=TrackingStoreTrueAction,
-        help='Show progress bar for file conversions (automatically enabled for multiple files)'
+        help="Show progress bar for file conversions (automatically enabled for multiple files)",
     )
 
     parser.add_argument(
-        '--output-dir',
+        "--output-dir",
         action=TrackingStoreAction,
         type=str,
-        help='Directory to save converted files (for multi-file processing)'
+        help="Directory to save converted files (for multi-file processing)",
     )
 
-    parser.add_argument(
-        '--recursive', '-r',
-        action=TrackingStoreTrueAction,
-        help='Process directories recursively'
-    )
+    parser.add_argument("--recursive", "-r", action=TrackingStoreTrueAction, help="Process directories recursively")
 
     parser.add_argument(
-        '--parallel', '-p',
+        "--parallel",
+        "-p",
         action=TrackingPositiveIntAction,
-        nargs='?',
+        nargs="?",
         const=None,
         default=1,
-        help='Process files in parallel (optionally specify number of workers, must be positive)'
+        help="Process files in parallel (optionally specify number of workers, must be positive)",
     )
 
     parser.add_argument(
-        '--skip-errors',
-        action=TrackingStoreTrueAction,
-        help='Continue processing remaining files if one fails'
+        "--skip-errors", action=TrackingStoreTrueAction, help="Continue processing remaining files if one fails"
     )
 
     parser.add_argument(
-        '--preserve-structure',
-        action=TrackingStoreTrueAction,
-        help='Preserve directory structure in output directory'
+        "--preserve-structure", action=TrackingStoreTrueAction, help="Preserve directory structure in output directory"
     )
 
     parser.add_argument(
-        '--zip',
+        "--zip",
         action=TrackingStoreAction,
-        nargs='?',
-        const='auto',
-        metavar='PATH',
-        help='Create zip archive of output (optionally specify custom path, default: output_dir.zip)'
+        nargs="?",
+        const="auto",
+        metavar="PATH",
+        help="Create zip archive of output (optionally specify custom path, default: output_dir.zip)",
     )
 
     parser.add_argument(
-        '--assets-layout',
+        "--assets-layout",
         action=TrackingStoreAction,
-        choices=['flat', 'by-stem', 'structured'],
-        default='flat',
-        help='Asset organization: flat (single assets/ dir), by-stem (assets/{doc}/), structured (preserve structure)'
+        choices=["flat", "by-stem", "structured"],
+        default="flat",
+        help="Asset organization: flat (single assets/ dir), by-stem (assets/{doc}/), structured (preserve structure)",
     )
 
     parser.add_argument(
-        '--watch',
+        "--watch",
         action=TrackingStoreTrueAction,
-        help='Watch mode: monitor files/directories and convert on change (requires --output-dir)'
+        help="Watch mode: monitor files/directories and convert on change (requires --output-dir)",
     )
 
     parser.add_argument(
-        '--watch-debounce',
+        "--watch-debounce",
         action=TrackingStoreAction,
         type=float,
         default=1.0,
-        metavar='SECONDS',
-        help='Debounce delay for watch mode in seconds (default: 1.0)'
+        metavar="SECONDS",
+        help="Debounce delay for watch mode in seconds (default: 1.0)",
     )
 
     parser.add_argument(
-        '--collate',
-        action=TrackingStoreTrueAction,
-        help='Combine multiple files into a single output (stdout or file)'
+        "--collate", action=TrackingStoreTrueAction, help="Combine multiple files into a single output (stdout or file)"
     )
 
     parser.add_argument(
-        '--merge-from-list',
+        "--merge-from-list",
         action=TrackingStoreAction,
         type=str,
-        metavar='PATH',
-        help='Merge files from a list file (TSV format: path[<tab>section_title])'
+        metavar="PATH",
+        help="Merge files from a list file (TSV format: path[<tab>section_title])",
     )
 
     parser.add_argument(
-        '--batch-from-list',
+        "--batch-from-list",
         action=TrackingStoreAction,
         type=str,
-        metavar='PATH',
-        help='Process files from a list file (one path per line, # for comments). '
-             'Use "-" to read from stdin. Paths are processed individually unlike --merge-from-list.'
+        metavar="PATH",
+        help="Process files from a list file (one path per line, # for comments). "
+        'Use "-" to read from stdin. Paths are processed individually unlike --merge-from-list.',
     )
 
     parser.add_argument(
-        '--generate-toc',
-        action=TrackingStoreTrueAction,
-        help='Generate table of contents when using --merge-from-list'
+        "--generate-toc", action=TrackingStoreTrueAction, help="Generate table of contents when using --merge-from-list"
     )
 
     parser.add_argument(
-        '--toc-title',
+        "--toc-title",
         action=TrackingStoreAction,
         type=str,
-        default='Table of Contents',
-        metavar='TITLE',
-        help='Title for the table of contents (default: "Table of Contents")'
+        default="Table of Contents",
+        metavar="TITLE",
+        help='Title for the table of contents (default: "Table of Contents")',
     )
 
     parser.add_argument(
-        '--toc-depth',
+        "--toc-depth",
         action=TrackingStoreAction,
         type=int,
         default=3,
-        metavar='DEPTH',
-        help='Maximum heading level to include in TOC (1-6, default: 3)'
+        metavar="DEPTH",
+        help="Maximum heading level to include in TOC (1-6, default: 3)",
     )
 
     parser.add_argument(
-        '--toc-position',
+        "--toc-position",
         action=TrackingStoreAction,
         type=str,
-        choices=['top', 'bottom'],
-        default='top',
-        help='Position of the table of contents (default: top)'
+        choices=["top", "bottom"],
+        default="top",
+        help="Position of the table of contents (default: top)",
     )
 
     parser.add_argument(
-        '--list-separator',
+        "--list-separator",
         action=TrackingStoreAction,
         type=str,
-        default='\t',
-        metavar='SEP',
-        help='Separator character for list file (default: tab)'
+        default="\t",
+        metavar="SEP",
+        help="Separator character for list file (default: tab)",
     )
 
     parser.add_argument(
-        '--no-section-titles',
+        "--no-section-titles",
         action=TrackingStoreTrueAction,
-        help='Disable section title headers when merging from list'
+        help="Disable section title headers when merging from list",
     )
 
     parser.add_argument(
-        '--no-summary',
+        "--no-summary", action=TrackingStoreTrueAction, help="Disable summary output after processing multiple files"
+    )
+
+    parser.add_argument("--save-config", type=str, help="Save current CLI arguments to a JSON configuration file")
+
+    parser.add_argument(
+        "--dry-run",
         action=TrackingStoreTrueAction,
-        help='Disable summary output after processing multiple files'
+        help="Show what would be converted without actually processing files",
     )
 
     parser.add_argument(
-        '--save-config',
-        type=str,
-        help='Save current CLI arguments to a JSON configuration file'
-    )
-
-    parser.add_argument(
-        '--dry-run',
+        "--detect-only",
         action=TrackingStoreTrueAction,
-        help='Show what would be converted without actually processing files'
+        help="Show format detection results without conversion (useful for debugging batch inputs)",
     )
 
     parser.add_argument(
-        '--detect-only',
-        action=TrackingStoreTrueAction,
-        help='Show format detection results without conversion (useful for debugging batch inputs)'
-    )
-
-    parser.add_argument(
-        '--exclude',
+        "--exclude",
         action=TrackingAppendAction,
-        metavar='PATTERN',
-        help='Exclude files matching this glob pattern (can be specified multiple times)'
+        metavar="PATTERN",
+        help="Exclude files matching this glob pattern (can be specified multiple times)",
     )
 
     # Security preset flags
-    security_group = parser.add_argument_group('Security preset options')
+    security_group = parser.add_argument_group("Security preset options")
     security_group.add_argument(
-        '--strict-html-sanitize',
+        "--strict-html-sanitize",
         action=TrackingStoreTrueAction,
-        help='Enable strict HTML sanitization (disables remote fetch, local files, strips dangerous elements)'
+        help="Enable strict HTML sanitization (disables remote fetch, local files, strips dangerous elements)",
     )
     security_group.add_argument(
-        '--safe-mode',
+        "--safe-mode",
         action=TrackingStoreTrueAction,
-        help='Balanced security for untrusted input (allows HTTPS remote fetch, strips dangerous elements)'
+        help="Balanced security for untrusted input (allows HTTPS remote fetch, strips dangerous elements)",
     )
     security_group.add_argument(
-        '--paranoid-mode',
+        "--paranoid-mode",
         action=TrackingStoreTrueAction,
-        help='Maximum security settings (strict restrictions, reduced size limits)'
+        help="Maximum security settings (strict restrictions, reduced size limits)",
     )
 
     return parser

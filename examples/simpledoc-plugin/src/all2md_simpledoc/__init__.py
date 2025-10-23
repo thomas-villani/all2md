@@ -47,15 +47,12 @@ CONVERTER_METADATA = ConverterMetadata(
     # Format identifier: Unique name for your format (lowercase, no spaces)
     # Used in CLI (--format simpledoc) and API (get_parser("simpledoc"))
     format_name="simpledoc",
-
     # File extensions: List of extensions for auto-detection
     # When a file ends with .sdoc, all2md automatically uses this plugin
     extensions=[".sdoc", ".simpledoc"],
-
     # MIME types: For web/HTTP-based format detection
     # Use standard MIME types if they exist, or invent x- prefixed ones
     mime_types=["text/x-simpledoc", "application/x-simpledoc"],
-
     # Magic bytes: Binary signatures for format detection from file content
     # Format: list of (byte_pattern, offset) tuples
     # This allows detection even when file extension is missing/wrong
@@ -63,42 +60,33 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"---\n", 0),  # Frontmatter at start of file (Unix line endings)
         (b"---\r\n", 0),  # Frontmatter with Windows line endings
     ],
-
     # Parser class: Can be direct class reference (shown here) or string path
     # Direct reference is preferred for plugins (avoids import issues)
     parser_class=SimpleDocParser,
-
     # Renderer class: Enables bidirectional conversion (AST -> SimpleDoc)
     # If you only need parsing, you can omit this or use a standard renderer
     renderer_class=SimpleDocRenderer,
-
     # Output type: True if renderer produces string, False for binary (bytes)
     # SimpleDoc is text, so True. PDF/DOCX would be False.
     renders_as_string=True,
-
     # Dependencies: List required packages as (pip_name, import_name, version_spec)
     # Example: [("python-docx", "docx", ">=0.8.11")]
     # Empty list means no dependencies
     parser_required_packages=[],
     renderer_required_packages=[],
-
     # Optional packages: Nice-to-have but not required
     # Example: [("pillow", "PIL", ">=9.0")] for optional image processing
     optional_packages=[],
-
     # Error message: Shown when required dependencies are missing
     # Provide helpful installation instructions
     import_error_message="SimpleDoc conversion requires no external dependencies.",
-
     # Options classes: Configuration for parser and renderer
     # These enable CLI flags and programmatic options
     parser_options_class=SimpleDocOptions,
     renderer_options_class=SimpleDocRendererOptions,
-
     # Description: Human-readable description for --list-formats
     description="Convert SimpleDoc lightweight markup format to and from AST. "
     "SimpleDoc is an educational format demonstrating plugin development.",
-
     # Priority: Controls detection order when multiple formats match
     # Higher numbers checked first. Range: 0-10
     # 10 = very specific formats (PDF, DOCX)

@@ -5,6 +5,7 @@
 
 This module defines options for parsing Safari WebArchive (.webarchive) files.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -153,9 +153,7 @@ class HtmlToAstConverter(BaseParser):
             try:
                 html_content = read_text_with_encoding_detection(input_data)
             except Exception as e:
-                raise MalformedFileError(
-                    f"Failed to decode HTML bytes: {e!r}", file_path=None, original_error=e
-                ) from e
+                raise MalformedFileError(f"Failed to decode HTML bytes: {e!r}", file_path=None, original_error=e) from e
         else:
             # Use validate_and_convert_input for other types (file-like objects)
             # Note: str and bytes are already handled above, so only path-like/file-like reach here
@@ -1691,11 +1689,11 @@ class HtmlToAstConverter(BaseParser):
                     return sanitize_language_identifier(aliases.get(lang, lang))
                 # Use the class as-is if it's a simple language name (only if we haven't found one yet)
                 elif (
-                        not language
-                        and cls
-                        and not cls.startswith("hljs")
-                        and not cls.startswith("highlight")
-                        and cls != "brush:"
+                    not language
+                    and cls
+                    and not cls.startswith("hljs")
+                    and not cls.startswith("highlight")
+                    and cls != "brush:"
                 ):
                     language = aliases.get(cls, cls)
 

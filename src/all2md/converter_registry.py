@@ -427,9 +427,9 @@ class ConverterRegistry:
         )
 
     def detect_format(
-            self,
-            input_data: Union[str, Path, IO[bytes], bytes],
-            hint: Optional[str] = None,
+        self,
+        input_data: Union[str, Path, IO[bytes], bytes],
+        hint: Optional[str] = None,
     ) -> str:
         """Detect format from input data.
 
@@ -478,10 +478,10 @@ class ConverterRegistry:
             except Exception:
                 pass
         elif isinstance(input_data, io.IOBase) or (
-                hasattr(input_data, "read")
-                and hasattr(input_data, "tell")
-                and hasattr(input_data, "read")
-                and hasattr(input_data, "seek")
+            hasattr(input_data, "read")
+            and hasattr(input_data, "tell")
+            and hasattr(input_data, "read")
+            and hasattr(input_data, "seek")
         ):
             # Save position and read sample
             try:
@@ -535,6 +535,7 @@ class ConverterRegistry:
         If content is provided and a converter has a content_detector, the content
         will be validated before returning that format. This prevents false positives
         for ambiguous extensions like .json (which could be OpenAPI, generic JSON data, etc.)
+
         """
         # Flatten all converters and sort by priority
         all_converters = [
@@ -550,14 +551,10 @@ class ConverterRegistry:
                 # If content is available and converter has a content_detector, validate
                 if content and metadata.content_detector:
                     if metadata.content_detector(content):
-                        logger.debug(
-                            f"Format '{format_name}' matched extension and validated by content_detector"
-                        )
+                        logger.debug(f"Format '{format_name}' matched extension and validated by content_detector")
                         return format_name
                     else:
-                        logger.debug(
-                            f"Format '{format_name}' matched extension but failed content_detector validation"
-                        )
+                        logger.debug(f"Format '{format_name}' matched extension but failed content_detector validation")
                         continue  # Try next converter
                 else:
                     # No content detector or no content available - trust extension match
@@ -709,10 +706,10 @@ class ConverterRegistry:
         return all_extensions
 
     def check_dependencies(
-            self,
-            format_name: Optional[str] = None,
-            input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
-            operation: str = "both",
+        self,
+        format_name: Optional[str] = None,
+        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        operation: str = "both",
     ) -> Dict[str, List[str]]:
         """Check which dependencies are missing.
 

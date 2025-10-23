@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new AsciiDoc parser improvements."""
 
-
 from all2md.ast import (
     BlockQuote,
     DefinitionDescription,

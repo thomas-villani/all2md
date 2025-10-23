@@ -231,8 +231,8 @@ class PIIRedactorTransform(NodeTransformer):
 
     """
 
-    EMAIL_PATTERN = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-    PHONE_PATTERN = r'\b(?:\+?1[-.]?)?\(?([0-9]{3})\)?[-.]?([0-9]{3})[-.]?([0-9]{4})\b'
+    EMAIL_PATTERN = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+    PHONE_PATTERN = r"\b(?:\+?1[-.]?)?\(?([0-9]{3})\)?[-.]?([0-9]{3})[-.]?([0-9]{4})\b"
     URL_PATTERN = r'https?://[^\s<>"{}|\\^`\[\]]+|www\.[^\s<>"{}|\\^`\[\]]+'
 
     def __init__(self, config: SanitizationConfig, report: SanitizationReport):
@@ -277,6 +277,7 @@ class PIIRedactorTransform(NodeTransformer):
             Text with emails redacted
 
         """
+
         def replace_email(match):
             email = match.group(0)
             if self._is_whitelisted_domain(email):
@@ -300,6 +301,7 @@ class PIIRedactorTransform(NodeTransformer):
             Text with phone numbers redacted
 
         """
+
         def replace_phone(match):
             self.report.phones_redacted += 1
             return "[PHONE REDACTED]"
@@ -320,6 +322,7 @@ class PIIRedactorTransform(NodeTransformer):
             Text with URLs redacted
 
         """
+
         def replace_url(match):
             url = match.group(0)
             if self._is_whitelisted_domain(url):
@@ -487,29 +490,15 @@ def main():
     """Run the document sanitizer."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Sanitize documents for safe sharing"
-    )
+    parser = argparse.ArgumentParser(description="Sanitize documents for safe sharing")
     parser.add_argument("input", help="Input document path")
     parser.add_argument("output", help="Output document path")
-    parser.add_argument(
-        "--keep-metadata", action="store_true", help="Keep document metadata"
-    )
-    parser.add_argument(
-        "--no-redact-emails", action="store_true", help="Don't redact email addresses"
-    )
-    parser.add_argument(
-        "--no-redact-phones", action="store_true", help="Don't redact phone numbers"
-    )
-    parser.add_argument(
-        "--redact-urls", action="store_true", help="Redact URLs"
-    )
-    parser.add_argument(
-        "--keep-comments", action="store_true", help="Keep comment nodes"
-    )
-    parser.add_argument(
-        "--no-anonymize", action="store_true", help="Don't anonymize authors"
-    )
+    parser.add_argument("--keep-metadata", action="store_true", help="Keep document metadata")
+    parser.add_argument("--no-redact-emails", action="store_true", help="Don't redact email addresses")
+    parser.add_argument("--no-redact-phones", action="store_true", help="Don't redact phone numbers")
+    parser.add_argument("--redact-urls", action="store_true", help="Redact URLs")
+    parser.add_argument("--keep-comments", action="store_true", help="Keep comment nodes")
+    parser.add_argument("--no-anonymize", action="store_true", help="Don't anonymize authors")
     parser.add_argument(
         "--whitelist-domains",
         nargs="+",

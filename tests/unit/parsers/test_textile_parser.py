@@ -249,7 +249,11 @@ class TestTextileRenderer:
     def test_render_bold(self) -> None:
         """Test rendering bold text."""
         doc = Document(
-            children=[Paragraph(content=[Text(content="This is "), Strong(content=[Text(content="bold")]), Text(content=" text")])]
+            children=[
+                Paragraph(
+                    content=[Text(content="This is "), Strong(content=[Text(content="bold")]), Text(content=" text")]
+                )
+            ]
         )
         renderer = TextileRenderer()
         result = renderer.render_to_string(doc)
@@ -259,7 +263,15 @@ class TestTextileRenderer:
     def test_render_italic(self) -> None:
         """Test rendering italic text."""
         doc = Document(
-            children=[Paragraph(content=[Text(content="This is "), Emphasis(content=[Text(content="italic")]), Text(content=" text")])]
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="This is "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" text"),
+                    ]
+                )
+            ]
         )
         renderer = TextileRenderer()
         result = renderer.render_to_string(doc)
@@ -268,7 +280,9 @@ class TestTextileRenderer:
 
     def test_render_code_inline(self) -> None:
         """Test rendering inline code."""
-        doc = Document(children=[Paragraph(content=[Text(content="Use "), Code(content="code"), Text(content=" here")])])
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Use "), Code(content="code"), Text(content=" here")])]
+        )
         renderer = TextileRenderer()
         result = renderer.render_to_string(doc)
 
@@ -323,9 +337,7 @@ class TestTextileRenderer:
     def test_render_link(self) -> None:
         """Test rendering link."""
         doc = Document(
-            children=[
-                Paragraph(content=[Link(url="http://example.com", content=[Text(content="Link text")])])
-            ]
+            children=[Paragraph(content=[Link(url="http://example.com", content=[Text(content="Link text")])])]
         )
         renderer = TextileRenderer()
         result = renderer.render_to_string(doc)

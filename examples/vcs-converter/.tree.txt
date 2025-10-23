@@ -1,0 +1,83 @@
+VCS Document Converter - File Structure
+========================================
+
+vcs-converter/
+├── vcs_converter.py           # Main conversion script (CLI tool)
+├── demo.py                     # Demo script showcasing all features
+├── install_hook.py             # Pre-commit hook installer
+├── pre-commit-hook.sh          # Bash pre-commit hook script
+├── vcs-converter.config.json   # Example configuration file
+├── .gitignore.template         # Template for .gitignore additions
+├── README.md                   # Comprehensive documentation
+├── QUICKSTART.md               # 5-minute quick start guide
+├── CONTRIBUTING.md             # Development and contribution guide
+├── CHANGELOG.md                # Version history and changes
+└── LICENSE                     # MIT license
+
+File Purposes:
+--------------
+
+vcs_converter.py:
+  - Main CLI tool for document conversion
+  - Commands: batch, to-md, to-binary, clean, scan
+  - Handles metadata preservation and bidirectional conversion
+  - Configuration file support
+
+demo.py:
+  - Interactive demonstration of all features
+  - Creates sample documents for testing
+  - Shows conversion workflows
+  - Demonstrates git workflow simulation
+
+install_hook.py:
+  - Installs pre-commit hook into .git/hooks/
+  - Handles backup of existing hooks
+  - Makes hook executable
+  - Cross-platform Python script
+
+pre-commit-hook.sh:
+  - Bash script for git pre-commit hook
+  - Automatically converts staged binary documents
+  - Stages generated markdown files
+  - Prevents commit on conversion failure
+
+vcs-converter.config.json:
+  - Example configuration file
+  - Settings for markdown directory, metadata, etc.
+  - Can be customized per project
+
+.gitignore.template:
+  - Recommended .gitignore additions
+  - Options for tracking both or markdown-only
+  - Excludes temporary files
+
+Documentation Files:
+-------------------
+
+README.md:
+  - Complete feature documentation
+  - Multiple workflow examples
+  - Installation and setup instructions
+  - Troubleshooting guide
+  - Advanced usage patterns
+
+QUICKSTART.md:
+  - Get started in 5 minutes
+  - Essential commands only
+  - Common workflows
+  - Quick troubleshooting
+
+CONTRIBUTING.md:
+  - Development setup
+  - Code style guidelines
+  - Ideas for improvements
+  - Testing procedures
+
+CHANGELOG.md:
+  - Version history
+  - Features and limitations
+  - Future enhancements
+
+LICENSE:
+  - MIT License
+  - Copyright and permissions

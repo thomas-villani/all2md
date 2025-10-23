@@ -6,8 +6,6 @@
 from datetime import datetime
 from pathlib import Path
 
-import pytest
-
 from all2md.ast.nodes import Document, Heading, Image, Paragraph, Text
 from all2md.utils.static_site import (
     FrontmatterFormat,
@@ -39,9 +37,9 @@ class TestFrontmatterGenerator:
         assert result.endswith("+++\n\n")
         assert 'title = "Test Post"' in result
         assert 'author = "John Doe"' in result
-        assert 'date = ' in result and "2025-01-22" in result
+        assert "date = " in result and "2025-01-22" in result
         assert 'tags = ["python", "coding"]' in result
-        assert 'draft = false' in result
+        assert "draft = false" in result
 
     def test_jekyll_yaml_format(self):
         """Test generating Jekyll frontmatter in YAML format."""
@@ -384,19 +382,11 @@ class TestCopyDocumentAssets:
         image_file.write_bytes(b"fake image data")
 
         # Create document with image reference
-        doc = Document(
-            children=[
-                Paragraph(
-                    content=[Image(url=str(image_file), alt_text="Test")]
-                )
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
 
         # Copy assets
         output_dir = tmp_path / "site"
-        modified_doc, assets = copy_document_assets(
-            doc, output_dir, StaticSiteGenerator.HUGO, source_file=image_file
-        )
+        modified_doc, assets = copy_document_assets(doc, output_dir, StaticSiteGenerator.HUGO, source_file=image_file)
 
         # Check static directory was created
         static_dir = output_dir / "static" / "images"
@@ -417,35 +407,21 @@ class TestCopyDocumentAssets:
     def test_skip_data_uri_images(self, tmp_path):
         """Test that data URI images are not copied."""
         doc = Document(
-            children=[
-                Paragraph(
-                    content=[Image(url="data:image/png;base64,iVBORw0K...", alt_text="Embedded")]
-                )
-            ]
+            children=[Paragraph(content=[Image(url="data:image/png;base64,iVBORw0K...", alt_text="Embedded")])]
         )
 
         output_dir = tmp_path / "site"
-        modified_doc, assets = copy_document_assets(
-            doc, output_dir, StaticSiteGenerator.HUGO
-        )
+        modified_doc, assets = copy_document_assets(doc, output_dir, StaticSiteGenerator.HUGO)
 
         # Should not copy data URIs
         assert len(assets) == 0
 
     def test_skip_remote_url_images(self, tmp_path):
         """Test that remote HTTP URLs are not copied."""
-        doc = Document(
-            children=[
-                Paragraph(
-                    content=[Image(url="https://example.com/image.png", alt_text="Remote")]
-                )
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Image(url="https://example.com/image.png", alt_text="Remote")])])
 
         output_dir = tmp_path / "site"
-        modified_doc, assets = copy_document_assets(
-            doc, output_dir, StaticSiteGenerator.HUGO
-        )
+        modified_doc, assets = copy_document_assets(doc, output_dir, StaticSiteGenerator.HUGO)
 
         # Should not copy remote URLs
         assert len(assets) == 0
@@ -459,17 +435,11 @@ class TestCopyDocumentAssets:
         image_file.write_bytes(b"test")
 
         # Create document
-        doc = Document(
-            children=[
-                Paragraph(content=[Image(url=str(image_file), alt_text="Test")])
-            ]
-        )
+        doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
 
         # Copy with Jekyll generator
         output_dir = tmp_path / "site"
-        modified_doc, assets = copy_document_assets(
-            doc, output_dir, StaticSiteGenerator.JEKYLL, source_file=image_file
-        )
+        modified_doc, assets = copy_document_assets(doc, output_dir, StaticSiteGenerator.JEKYLL, source_file=image_file)
 
         # Check Jekyll path
         collector = ImageCollector()

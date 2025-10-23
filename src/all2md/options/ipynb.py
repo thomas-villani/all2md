@@ -5,14 +5,15 @@
 
 This module defines options for parsing .ipynb files with cell handling.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Literal
 
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_LINES, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
-from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.markdown import MarkdownOptions
 
 

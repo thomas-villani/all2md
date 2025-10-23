@@ -121,10 +121,7 @@ class TestWebArchiveIntegrationImages:
         webarchive_file = create_webarchive_file(webarchive_content, temp_dir)
 
         image_dir = temp_dir / "images"
-        options = WebArchiveOptions(
-            extract_subresources=True,
-            attachment_output_dir=str(image_dir)
-        )
+        options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(image_dir))
         result = webarchive_to_markdown(webarchive_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -141,10 +138,7 @@ class TestWebArchiveIntegrationImages:
         webarchive_file = create_webarchive_file(webarchive_content, temp_dir)
 
         resource_dir = temp_dir / "resources"
-        options = WebArchiveOptions(
-            extract_subresources=True,
-            attachment_output_dir=str(resource_dir)
-        )
+        options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(resource_dir))
         result = webarchive_to_markdown(webarchive_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -309,11 +303,7 @@ class TestWebArchiveIntegrationOptions:
         webarchive_content = create_simple_webarchive()
         webarchive_file = create_webarchive_file(webarchive_content, temp_dir)
 
-        options = WebArchiveOptions(
-            extract_title=True,
-            strip_dangerous_elements=True,
-            extract_subresources=False
-        )
+        options = WebArchiveOptions(extract_title=True, strip_dangerous_elements=True, extract_subresources=False)
         result = webarchive_to_markdown(webarchive_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -329,11 +319,16 @@ class TestWebArchiveIntegrationOptions:
             (WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(temp_dir / "res1")), None),
             (WebArchiveOptions(handle_subframes=False), None),
             (WebArchiveOptions(extract_title=True), None),
-            (WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(temp_dir / "res2")), MarkdownOptions(emphasis_symbol="_")),
+            (
+                WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(temp_dir / "res2")),
+                MarkdownOptions(emphasis_symbol="_"),
+            ),
         ]
 
         for parser_options, renderer_options in option_combinations:
-            result = webarchive_to_markdown(webarchive_file, parser_options=parser_options, renderer_options=renderer_options)
+            result = webarchive_to_markdown(
+                webarchive_file, parser_options=parser_options, renderer_options=renderer_options
+            )
 
             assert isinstance(result, str)
             assert len(result) > 0
@@ -410,10 +405,7 @@ class TestWebArchiveIntegrationPerformance:
         for _i in range(3):
             webarchive_file = create_webarchive_file(webarchive_content, temp_dir)
             resource_dir = temp_dir / f"resources_{_i}"
-            options = WebArchiveOptions(
-                extract_subresources=True,
-                attachment_output_dir=str(resource_dir)
-            )
+            options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(resource_dir))
             result = webarchive_to_markdown(webarchive_file, parser_options=options)
 
             assert isinstance(result, str)

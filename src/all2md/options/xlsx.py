@@ -5,6 +5,7 @@
 
 This module defines options for parsing Excel spreadsheet files.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

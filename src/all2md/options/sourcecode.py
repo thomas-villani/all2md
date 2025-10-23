@@ -5,6 +5,7 @@
 
 This module defines options for parsing source code files with syntax highlighting.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

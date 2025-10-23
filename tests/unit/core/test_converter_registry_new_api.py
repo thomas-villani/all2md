@@ -391,3 +391,89 @@ class TestMultiConverterSupport:
         # Should have two converters for this format
         metadata_list = registry.get_format_info("test_mixed")
         assert len(metadata_list) == 2
+
+
+class TestFormatSynchronization:
+    """Test that DocumentFormat Literal stays in sync with registry."""
+
+    def setup_method(self):
+        """Ensure registry is initialized."""
+        registry.auto_discover()
+
+    def test_document_format_literal_matches_registry(self):
+        """Test that DocumentFormat Literal contains all registry formats (plus 'auto').
+
+        This test ensures the static DocumentFormat Literal type hint in constants.py
+        stays synchronized with the dynamically discovered formats in the registry.
+
+        If this test fails, run: python scripts/update_document_formats.py --update
+        """
+        from typing import get_args
+
+        from all2md.constants import DocumentFormat
+
+        # Get formats from Literal type hint
+        literal_formats = set(get_args(DocumentFormat))
+
+        # Get formats from registry, excluding test formats registered by other tests
+        all_registry_formats = set(registry.list_formats())
+        registry_formats = {fmt for fmt in all_registry_formats if not fmt.startswith("test_")}
+
+        # "auto" should be in Literal but not in registry (it's a special detection value)
+        assert "auto" in literal_formats, "DocumentFormat Literal should include 'auto'"
+
+        # Remove "auto" for comparison with registry
+        literal_formats_no_auto = literal_formats - {"auto"}
+
+        # Check for missing formats (excluding test formats)
+        missing_in_literal = registry_formats - literal_formats_no_auto
+        if missing_in_literal:
+            pytest.fail(
+                f"DocumentFormat Literal is missing formats from registry: {sorted(missing_in_literal)}\n"
+                f"Run: python scripts/update_document_formats.py --update"
+            )
+
+        # Check for extra formats (phantom formats that don't exist in registry)
+        extra_in_literal = literal_formats_no_auto - registry_formats
+        if extra_in_literal:
+            pytest.fail(
+                f"DocumentFormat Literal contains non-existent formats: {sorted(extra_in_literal)}\n"
+                f"Run: python scripts/update_document_formats.py --update"
+            )
+
+        # If we get here, formats are in sync
+        assert literal_formats_no_auto == registry_formats
+
+    def test_no_duplicate_formats_in_literal(self):
+        """Test that DocumentFormat Literal has no duplicate entries."""
+        from typing import get_args
+
+        from all2md.constants import DocumentFormat
+
+        literal_formats = list(get_args(DocumentFormat))
+        unique_formats = set(literal_formats)
+
+        if len(literal_formats) != len(unique_formats):
+            duplicates = [fmt for fmt in unique_formats if literal_formats.count(fmt) > 1]
+            pytest.fail(
+                f"DocumentFormat Literal contains duplicate entries: {sorted(duplicates)}\n"
+                f"Run: python scripts/update_document_formats.py --update"
+            )
+
+    def test_formats_are_sorted(self):
+        """Test that DocumentFormat Literal entries are sorted (except 'auto' first)."""
+        from typing import get_args
+
+        from all2md.constants import DocumentFormat
+
+        literal_formats = list(get_args(DocumentFormat))
+
+        # "auto" should be first
+        assert literal_formats[0] == "auto", "DocumentFormat Literal should start with 'auto'"
+
+        # Rest should be sorted
+        rest = literal_formats[1:]
+        assert rest == sorted(rest), (
+            "DocumentFormat Literal entries should be sorted alphabetically\n"
+            "Run: python scripts/update_document_formats.py --update"
+        )

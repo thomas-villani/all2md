@@ -81,10 +81,10 @@ def _validate_csv_delimiter(
 
 
 def _make_csv_dialect(
-        delimiter: str | None = None,
-        quotechar: str | None = None,
-        escapechar: str | None = None,
-        doublequote: bool | None = None,
+    delimiter: str | None = None,
+    quotechar: str | None = None,
+    escapechar: str | None = None,
+    doublequote: bool | None = None,
 ) -> type[csv.Dialect]:
     r"""Create a CSV dialect class with custom parameters.
 
@@ -197,9 +197,9 @@ class CsvToAstConverter(BaseParser):
         return ","
 
     def csv_to_ast(
-            self,
-            input_data: Union[str, Path, IO[bytes], IO[str], bytes],
-            delimiter: str | None = None,
+        self,
+        input_data: Union[str, Path, IO[bytes], IO[str], bytes],
+        delimiter: str | None = None,
     ) -> Document:
         r"""Convert CSV/TSV to AST Document.
 
@@ -238,10 +238,10 @@ class CsvToAstConverter(BaseParser):
 
         # If any custom dialect options are set, create custom dialect
         if (
-                self.options.delimiter
-                or self.options.quote_char
-                or self.options.escape_char
-                or self.options.double_quote is not None
+            self.options.delimiter
+            or self.options.quote_char
+            or self.options.escape_char
+            or self.options.double_quote is not None
         ):
             dialect_obj = _make_csv_dialect(
                 delimiter=self.options.delimiter or delimiter,
@@ -400,9 +400,7 @@ class CsvToAstConverter(BaseParser):
             raw = input_data.read()
             if isinstance(raw, bytes):
                 # Use encoding detection with utf-8-sig as first fallback (handles BOM)
-                content = read_text_with_encoding_detection(
-                    raw, fallback_encodings=["utf-8-sig", "utf-8", "latin-1"]
-                )
+                content = read_text_with_encoding_detection(raw, fallback_encodings=["utf-8-sig", "utf-8", "latin-1"])
             else:
                 content = str(raw)
 

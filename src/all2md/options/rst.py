@@ -5,6 +5,7 @@
 
 This module defines options for rST document conversion.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -191,8 +192,8 @@ class RstRendererOptions(BaseRendererOptions):
         default=DEFAULT_RST_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "comment (.. comments), note (.. note:: directive), "
-                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "comment (.. comments), note (.. note:: directive), "
+            "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
             "choices": ["comment", "note", "ignore"],
             "importance": "core",
         },

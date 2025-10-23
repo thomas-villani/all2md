@@ -162,8 +162,9 @@ class TestHTMLConversionFuzzing:
         # Result should contain markdown link syntax (link present but URL sanitized)
         # Note: We don't check for exact link_text match due to Unicode normalization
         # that may occur during HTML parsing (e.g., some chars may be transformed)
-        assert "[" in result and "]" in result and "()" in result, \
-            f"Expected markdown link with empty URL, got: {result}"
+        assert (
+            "[" in result and "]" in result and "()" in result
+        ), f"Expected markdown link with empty URL, got: {result}"
 
         # XSS URL should not appear in output
         assert "javascript:" not in result.lower()

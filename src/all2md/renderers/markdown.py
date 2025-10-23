@@ -169,9 +169,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Append link references if using reference style with end_of_document placement
         if (
-                self.options.link_style == "reference"
-                and self.options.reference_link_placement == "end_of_document"
-                and self._link_references
+            self.options.link_style == "reference"
+            and self.options.reference_link_placement == "end_of_document"
+            and self._link_references
         ):
             self._output.append("\n\n")
             for url, ref_id in sorted(self._link_references.items(), key=lambda x: x[1]):
@@ -542,7 +542,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # If it starts with a special character or looks like a number/boolean, quote it
         if value_str and (
-                value_str[0] in ["-", "?", ":"] or value_str.lower() in ["true", "false", "yes", "no", "null"]
+            value_str[0] in ["-", "?", ":"] or value_str.lower() in ["true", "false", "yes", "no", "null"]
         ):
             return f'"{value_str}"'
 

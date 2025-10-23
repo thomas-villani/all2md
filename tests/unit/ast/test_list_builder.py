@@ -1,5 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Tests for ListBuilder and TableBuilder classes."""
+
 import pytest
 
 from all2md.ast import List, ListItem, Paragraph, Text
@@ -360,10 +361,7 @@ class TestTableBuilderMixedCellTypes:
         from all2md.ast import Text
 
         builder = TableBuilder()
-        builder.add_row([
-            [Text(content="Name")],
-            [Text(content="Age")]
-        ])
+        builder.add_row([[Text(content="Name")], [Text(content="Age")]])
 
         table = builder.get_table()
 
@@ -377,10 +375,7 @@ class TestTableBuilderMixedCellTypes:
         from all2md.ast import Strong, Text
 
         builder = TableBuilder()
-        builder.add_row([
-            "Name",
-            [Text(content="Age: "), Strong(content=[Text(content="30")])]
-        ])
+        builder.add_row(["Name", [Text(content="Age: "), Strong(content=[Text(content="30")])]])
 
         table = builder.get_table()
 
@@ -411,10 +406,7 @@ class TestTableBuilderMixedCellTypes:
         from all2md.ast import Text
 
         builder = TableBuilder(has_header=True)
-        builder.add_row([
-            "Name",
-            [Text(content="Age")]
-        ])
+        builder.add_row(["Name", [Text(content="Age")]])
 
         table = builder.get_table()
 
@@ -447,10 +439,12 @@ class TestTableBuilderSingleNodeCells:
         from all2md.ast import Strong, Text
 
         builder = TableBuilder()
-        builder.add_row([
-            Text(content="Name"),  # Single node
-            [Text(content="Age: "), Strong(content=[Text(content="30")])]  # Sequence
-        ])
+        builder.add_row(
+            [
+                Text(content="Name"),  # Single node
+                [Text(content="Age: "), Strong(content=[Text(content="30")])],  # Sequence
+            ]
+        )
 
         table = builder.get_table()
 
@@ -466,11 +460,13 @@ class TestTableBuilderSingleNodeCells:
         from all2md.ast import Emphasis, Text
 
         builder = TableBuilder()
-        builder.add_row([
-            "Name",  # String
-            Text(content="Age"),  # Single node
-            [Text(content="City: "), Emphasis(content=[Text(content="NYC")])]  # Sequence
-        ])
+        builder.add_row(
+            [
+                "Name",  # String
+                Text(content="Age"),  # Single node
+                [Text(content="City: "), Emphasis(content=[Text(content="NYC")])],  # Sequence
+            ]
+        )
 
         table = builder.get_table()
 
@@ -486,10 +482,7 @@ class TestTableBuilderSingleNodeCells:
         from all2md.ast import Strong, Text
 
         builder = TableBuilder(has_header=True)
-        builder.add_row([
-            Strong(content=[Text(content="Name")]),
-            Strong(content=[Text(content="Age")])
-        ])
+        builder.add_row([Strong(content=[Text(content="Name")]), Strong(content=[Text(content="Age")])])
         builder.add_row([Text(content="Alice"), Text(content="30")])
 
         table = builder.get_table()

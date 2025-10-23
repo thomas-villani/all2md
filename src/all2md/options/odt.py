@@ -5,14 +5,14 @@
 
 This module defines options for parsing and rendering ODT document files.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 from all2md.constants import DEFAULT_ODT_COMMENT_MODE, OdtCommentMode
-from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import NetworkFetchOptions
+from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 
 
 @dataclass(frozen=True)
@@ -146,9 +146,9 @@ class OdtRendererOptions(BaseRendererOptions):
         default=DEFAULT_ODT_COMMENT_MODE,
         metadata={
             "help": "How to render Comment and CommentInline nodes: "
-                    "native (ODT annotations), visible (text paragraphs with attribution), "
-                    "ignore (skip comment nodes entirely). Controls presentation of comments "
-                    "from ODT source files and other format annotations.",
+            "native (ODT annotations), visible (text paragraphs with attribution), "
+            "ignore (skip comment nodes entirely). Controls presentation of comments "
+            "from ODT source files and other format annotations.",
             "choices": ["native", "visible", "ignore"],
             "importance": "core",
         },

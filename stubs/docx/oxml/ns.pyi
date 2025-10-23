@@ -16,7 +16,6 @@ def qn(tag: str) -> str:
     """
     ...
 
-
 def nsdecls(*prefixes: str) -> str:
     """Return namespace declarations for use in XML strings.
 

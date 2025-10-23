@@ -83,7 +83,7 @@ def _detect_outlook_format(input_data: Union[str, Path, IO[bytes], bytes]) -> st
 
     # Check magic bytes
     # MSG files are OLE/CFBF format
-    if magic.startswith(b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"):
+    if magic.startswith(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"):
         return "msg"
     # PST/OST files have "!BDN" signature
     elif magic.startswith(b"!BDN"):
@@ -439,7 +439,9 @@ class OutlookToAstConverter(BaseParser):
             doc = self._format_messages_as_ast(messages)
             doc.metadata = metadata.to_dict()
 
-            self._emit_progress("finished", f"Processed {len(messages)} messages", current=len(messages), total=len(messages))
+            self._emit_progress(
+                "finished", f"Processed {len(messages)} messages", current=len(messages), total=len(messages)
+            )
 
             # Close PST file
             pst_file.close()
@@ -573,6 +575,7 @@ class OutlookToAstConverter(BaseParser):
                         # Convert HTML to markdown if option enabled
                         if self.options.convert_html_to_markdown:
                             from all2md.parsers.eml import _convert_html_to_markdown
+
                             msg_data["content"] = _convert_html_to_markdown(html_body, self.options)
                         else:
                             msg_data["content"] = html_body
@@ -676,6 +679,7 @@ class OutlookToAstConverter(BaseParser):
 
             if "date" in msg and msg["date"] is not None:
                 from all2md.parsers.eml import _format_date
+
                 formatted_date = _format_date(msg["date"], self.options)
                 if formatted_date:
                     header_lines.append(f"Date: {formatted_date}")
@@ -693,6 +697,7 @@ class OutlookToAstConverter(BaseParser):
         if content.strip():
             # Split content into paragraphs
             import re
+
             paragraphs = re.split(r"\n\n+", content.strip())
             for para_text in paragraphs:
                 para_text = para_text.strip()
@@ -734,7 +739,7 @@ CONVERTER_METADATA = ConverterMetadata(
     extensions=[".msg", ".pst", ".ost"],
     mime_types=["application/vnd.ms-outlook"],
     magic_bytes=[
-        (b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 0),  # MSG (OLE/CFBF)
+        (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", 0),  # MSG (OLE/CFBF)
         (b"!BDN", 0),  # PST/OST
     ],
     parser_class=OutlookToAstConverter,

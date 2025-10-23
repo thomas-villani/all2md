@@ -209,7 +209,9 @@ class Fb2ToAstConverter(BaseParser):
     def _extract_fb2_from_zip(self, zip_source: Union[str, Path, IO[bytes]]) -> bytes:
         try:
             with zipfile.ZipFile(zip_source) as archive:
-                fb2_names = [info for info in archive.infolist() if not info.is_dir() and info.filename.lower().endswith(".fb2")]
+                fb2_names = [
+                    info for info in archive.infolist() if not info.is_dir() and info.filename.lower().endswith(".fb2")
+                ]
                 if not fb2_names:
                     raise ParsingError(
                         "FB2 archive does not contain an .fb2 file",

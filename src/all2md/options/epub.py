@@ -3,6 +3,7 @@
 
 This module defines options for EPUB e-book format conversion.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

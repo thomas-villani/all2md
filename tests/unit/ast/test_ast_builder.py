@@ -1,5 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Tests for AST builder utilities."""
+
 import pytest
 
 from all2md.ast import (
@@ -139,11 +140,7 @@ class TestDocumentBuilder:
         """Test adding a table with caption and alignments."""
         builder = DocumentBuilder()
         row = TableRow(cells=[TableCell(content=[Text(content="Cell")])])
-        builder.add_table(
-            rows=[row],
-            caption="Table caption",
-            alignments=["left"]
-        )
+        builder.add_table(rows=[row], caption="Table caption", alignments=["left"])
 
         doc = builder.get_document()
         table = doc.children[0]
@@ -220,7 +217,7 @@ class TestDocumentBuilder:
         nodes = [
             Heading(level=1, content=[Text(content="Title")]),
             Paragraph(content=[Text(content="Paragraph 1")]),
-            Paragraph(content=[Text(content="Paragraph 2")])
+            Paragraph(content=[Text(content="Paragraph 2")]),
         ]
         builder.add_nodes(nodes)
 
@@ -232,13 +229,15 @@ class TestDocumentBuilder:
 
     def test_method_chaining(self) -> None:
         """Test that all methods support chaining."""
-        doc = (DocumentBuilder()
-               .add_heading(1, [Text(content="Title")])
-               .add_paragraph([Text(content="Intro")])
-               .add_code_block("code", language="python")
-               .add_thematic_break()
-               .add_paragraph([Text(content="Conclusion")])
-               .get_document())
+        doc = (
+            DocumentBuilder()
+            .add_heading(1, [Text(content="Title")])
+            .add_paragraph([Text(content="Intro")])
+            .add_code_block("code", language="python")
+            .add_thematic_break()
+            .add_paragraph([Text(content="Conclusion")])
+            .get_document()
+        )
 
         assert isinstance(doc, Document)
         assert len(doc.children) == 5
@@ -301,7 +300,7 @@ class TestDocumentBuilder:
         nodes = [
             Heading(level=1, content=[Text(content="H1")]),
             Heading(level=2, content=[Text(content="H2")]),
-            Heading(level=3, content=[Text(content="H3")])
+            Heading(level=3, content=[Text(content="H3")]),
         ]
         builder.add_nodes(nodes)
 
