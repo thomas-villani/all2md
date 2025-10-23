@@ -17,7 +17,9 @@ Submodules
    all2md.renderers.asciidoc
    all2md.renderers.ast_json
    all2md.renderers.base
+   all2md.renderers.csv
    all2md.renderers.docx
+   all2md.renderers.dokuwiki
    all2md.renderers.epub
    all2md.renderers.html
    all2md.renderers.ipynb
@@ -32,3 +34,4 @@ Submodules
    all2md.renderers.pptx
    all2md.renderers.restructuredtext
    all2md.renderers.rtf
+   all2md.renderers.textile

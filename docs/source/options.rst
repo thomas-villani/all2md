@@ -216,6 +216,8 @@ Configuration options for archive (TAR/7Z/RAR) to Markdown conversion.
 
 This dataclass contains settings specific to archive processing,
 including file filtering, directory structure handling, and attachment extraction.
+Inherits attachment handling from AttachmentOptionsMixin for extracting embedded
+resources.
 
 **attachment_mode**
 
@@ -254,15 +256,6 @@ including file filtering, directory structure handling, and attachment extractio
    :CLI flag: ``--archive-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--archive-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -309,6 +302,15 @@ including file filtering, directory structure handling, and attachment extractio
    :CLI flag: ``--archive-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **include_patterns**
 
@@ -373,6 +375,15 @@ including file filtering, directory structure handling, and attachment extractio
    :Default: ``True``
    :Importance: core
 
+**resource_file_extensions**
+
+   File extensions to treat as resources (None=use defaults, []=parse all)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--archive-resource-extensions``
+   :Default: ``None``
+   :Importance: advanced
+
 **skip_empty_files**
 
    Skip files with no content or parse failures
@@ -391,6 +402,33 @@ including file filtering, directory structure handling, and attachment extractio
    :Default: ``True``
    :Importance: advanced
 
+**enable_parallel_processing**
+
+   Enable parallel processing for large archives (opt-in)
+
+   :Type: ``bool``
+   :CLI flag: ``--archive-parallel``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_workers**
+
+   Maximum worker processes for parallel processing (None=auto-detect CPU cores)
+
+   :Type: ``int | None``
+   :CLI flag: ``--archive-max-workers``
+   :Default: ``None``
+   :Importance: advanced
+
+**parallel_threshold**
+
+   Minimum number of files to enable parallel processing
+
+   :Type: ``int``
+   :CLI flag: ``--archive-parallel-threshold``
+   :Default: ``10``
+   :Importance: advanced
+
 ASCIIDOC Options
 ~~~~~~~~~~~~~~~~
 
@@ -403,44 +441,6 @@ Configuration options for AsciiDoc-to-AST parsing.
 This dataclass contains settings specific to parsing AsciiDoc documents
 into AST representation using a custom parser.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--asciidoc-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--asciidoc-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--asciidoc-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--asciidoc-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -449,52 +449,6 @@ into AST representation using a custom parser.
    :CLI flag: ``--asciidoc-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--asciidoc-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--asciidoc-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--asciidoc-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--asciidoc-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--asciidoc-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **parse_attributes**
 
@@ -579,6 +533,24 @@ into AST representation using a custom parser.
    :Default: ``True``
    :Importance: advanced
 
+**parse_table_spans**
+
+   Parse table colspan/rowspan syntax (e.g., 2+|cell)
+
+   :Type: ``bool``
+   :CLI flag: ``--asciidoc-no-parse-table-spans``
+   :Default: ``True``
+   :Importance: advanced
+
+**strip_comments**
+
+   Strip comments (// syntax) instead of preserving as Comment nodes
+
+   :Type: ``bool``
+   :CLI flag: ``--asciidoc-strip-comments``
+   :Default: ``False``
+   :Importance: core
+
 ASCIIDOC Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -659,6 +631,16 @@ AsciiDoc output.
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: comment (// comments), note (NOTE admonitions), ignore (skip comment nodes entirely). Controls presentation of source document comments.
+
+   :Type: ``AsciiDocCommentMode``
+   :CLI flag: ``--asciidoc-renderer-comment-mode``
+   :Default: ``'comment'``
+   :Choices: ``comment``, ``note``, ``ignore``
+   :Importance: core
+
 AST Options
 ~~~~~~~~~~~
 
@@ -667,44 +649,6 @@ AST Parser Options
 ^^^^^^^^^^^^^^^^^^
 
 Options for parsing JSON AST documents.
-
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--ast-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--ast-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--ast-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--ast-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
 
 **extract_metadata**
 
@@ -715,63 +659,23 @@ Options for parsing JSON AST documents.
    :Default: ``False``
    :Importance: core
 
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--ast-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--ast-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--ast-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--ast-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--ast-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
-
 **validate_schema**
 
+   Validate schema version during parsing
+
    :Type: ``bool``
-   :CLI flag: ``--ast-validate-schema``
+   :CLI flag: ``--ast-no-validate-schema``
    :Default: ``True``
+   :Importance: core
 
 **strict_mode**
+
+   Fail on unknown node types or attributes
 
    :Type: ``bool``
    :CLI flag: ``--ast-strict-mode``
    :Default: ``False``
+   :Importance: advanced
 
 AST Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
@@ -807,21 +711,98 @@ Options for rendering documents to JSON AST format.
 
 **indent**
 
+   JSON indentation spaces (None for compact)
+
    :Type: ``int | None``
    :CLI flag: ``--ast-renderer-indent``
    :Default: ``2``
+   :Importance: core
 
 **ensure_ascii**
+
+   Escape non-ASCII characters in JSON
 
    :Type: ``bool``
    :CLI flag: ``--ast-renderer-ensure-ascii``
    :Default: ``False``
+   :Importance: advanced
 
 **sort_keys**
+
+   Sort JSON object keys alphabetically
 
    :Type: ``bool``
    :CLI flag: ``--ast-renderer-sort-keys``
    :Default: ``False``
+   :Importance: advanced
+
+BBCODE Options
+~~~~~~~~~~~~~~
+
+
+BBCODE Parser Options
+^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for BBCode-to-AST parsing.
+
+This dataclass contains settings specific to parsing BBCode documents
+from bulletin boards and forums into AST representation.
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--bbcode-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**strict_mode**
+
+   Raise errors on malformed BBCode syntax
+
+   :Type: ``bool``
+   :CLI flag: ``--bbcode-strict-mode``
+   :Default: ``False``
+   :Importance: advanced
+
+**unknown_tag_mode**
+
+   How to handle unknown BBCode tags: preserve, strip, or escape
+
+   :Type: ``Literal['preserve', 'strip', 'escape']``
+   :CLI flag: ``--bbcode-unknown-tag-mode``
+   :Default: ``'strip'``
+   :Choices: ``preserve``, ``strip``, ``escape``
+   :Importance: core
+
+**parse_color_size**
+
+   Preserve color and size attributes in metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--bbcode-no-parse-color-size``
+   :Default: ``True``
+   :Importance: advanced
+
+**parse_alignment**
+
+   Preserve text alignment (center, left, right)
+
+   :Type: ``bool``
+   :CLI flag: ``--bbcode-no-parse-alignment``
+   :Default: ``True``
+   :Importance: advanced
+
+**html_passthrough_mode**
+
+   How to handle embedded HTML: pass-through, escape, drop, or sanitize
+
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :CLI flag: ``--bbcode-html-passthrough-mode``
+   :Default: ``'escape'``
+   :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
+   :Importance: security
 
 CHM Options
 ~~~~~~~~~~~
@@ -834,7 +815,8 @@ Configuration options for CHM-to-Markdown conversion.
 
 This dataclass contains settings specific to Microsoft Compiled HTML Help (CHM)
 document processing, including page handling, table of contents generation, and
-HTML parsing configuration.
+HTML parsing configuration. Inherits attachment handling from AttachmentOptionsMixin
+for embedded images and resources.
 
 **attachment_mode**
 
@@ -873,15 +855,6 @@ HTML parsing configuration.
    :CLI flag: ``--chm-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--chm-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -929,6 +902,15 @@ HTML parsing configuration.
    :Default: ``'Attachments'``
    :Importance: advanced
 
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
 **include_toc**
 
    Generate and prepend a Markdown Table of Contents from CHM TOC
@@ -965,44 +947,6 @@ Configuration options for CSV/TSV conversion.
 This dataclass contains settings specific to delimiter-separated value
 file processing, including dialect detection and data limits.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--csv-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--csv-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--csv-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--csv-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -1011,52 +955,6 @@ file processing, including dialect detection and data limits.
    :CLI flag: ``--csv-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--csv-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--csv-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--csv-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--csv-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--csv-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **detect_csv_dialect**
 
@@ -1080,7 +978,7 @@ file processing, including dialect detection and data limits.
 
    Override CSV/TSV delimiter (e.g., ',', '\t', ';', '|')
 
-   :Type: ``str | None``
+   :Type: ``UnionType[str, NoneType]``
    :CLI flag: ``--csv-delimiter``
    :Default: ``None``
    :Importance: core
@@ -1089,7 +987,7 @@ file processing, including dialect detection and data limits.
 
    Override quote character (e.g., '"', "'")
 
-   :Type: ``str | None``
+   :Type: ``UnionType[str, NoneType]``
    :CLI flag: ``--csv-quote-char``
    :Default: ``None``
    :Importance: advanced
@@ -1098,7 +996,7 @@ file processing, including dialect detection and data limits.
 
    Override escape character (e.g., '\\')
 
-   :Type: ``str | None``
+   :Type: ``UnionType[str, NoneType]``
    :CLI flag: ``--csv-escape-char``
    :Default: ``None``
    :Importance: advanced
@@ -1107,7 +1005,7 @@ file processing, including dialect detection and data limits.
 
    Enable/disable double quoting (two quote chars = one literal quote)
 
-   :Type: ``bool | None``
+   :Type: ``UnionType[bool, NoneType]``
    :CLI flag: ``--csv-double-quote``
    :Default: ``None``
    :Importance: advanced
@@ -1125,7 +1023,7 @@ file processing, including dialect detection and data limits.
 
    Maximum rows per table (None = unlimited)
 
-   :Type: ``int | None``
+   :Type: ``UnionType[int, NoneType]``
    :CLI flag: ``--csv-max-rows``
    :Default: ``None``
    :Importance: advanced
@@ -1134,7 +1032,7 @@ file processing, including dialect detection and data limits.
 
    Maximum columns per table (None = unlimited)
 
-   :Type: ``int | None``
+   :Type: ``UnionType[int, NoneType]``
    :CLI flag: ``--csv-max-cols``
    :Default: ``None``
    :Importance: advanced
@@ -1152,7 +1050,7 @@ file processing, including dialect detection and data limits.
 
    Transform header case: preserve, title, upper, or lower
 
-   :Type: ``HeaderCaseOption``
+   :Type: ``Literal['preserve', 'title', 'upper', 'lower']``
    :CLI flag: ``--csv-header-case``
    :Default: ``'preserve'``
    :Choices: ``preserve``, ``title``, ``upper``, ``lower``
@@ -1176,6 +1074,152 @@ file processing, including dialect detection and data limits.
    :Default: ``False``
    :Importance: core
 
+CSV Renderer Options
+^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for CSV rendering from AST.
+
+This dataclass contains settings for rendering AST table nodes to CSV format,
+including table selection, multi-table handling, and CSV dialect options.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--csv-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--csv-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--csv-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**table_index**
+
+   Which table to export (0-indexed, None = all tables)
+
+   :Type: ``int | None``
+   :CLI flag: ``--csv-renderer-table-index``
+   :Default: ``0``
+   :Importance: core
+
+**table_heading**
+
+   Select table after heading matching this text (case-insensitive)
+
+   :Type: ``str | None``
+   :CLI flag: ``--csv-renderer-table-heading``
+   :Default: ``None``
+   :Importance: core
+
+**multi_table_mode**
+
+   How to handle multiple tables: first, all, or error
+
+   :Type: ``Literal['first', 'all', 'error']``
+   :CLI flag: ``--csv-renderer-multi-table-mode``
+   :Default: ``'first'``
+   :Choices: ``first``, ``all``, ``error``
+   :Importance: core
+
+**table_separator**
+
+   Separator between tables when multi_table_mode='all'
+
+   :Type: ``str``
+   :CLI flag: ``--csv-renderer-table-separator``
+   :Default: ``'\n\n'``
+   :Importance: advanced
+
+**delimiter**
+
+   CSV field delimiter (e.g., ',', '\t', ';')
+
+   :Type: ``str``
+   :CLI flag: ``--csv-renderer-delimiter``
+   :Default: ``','``
+   :Importance: core
+
+**quoting**
+
+   CSV quoting style
+
+   :Type: ``Literal['minimal', 'all', 'nonnumeric', 'none']``
+   :CLI flag: ``--csv-renderer-quoting``
+   :Default: ``'minimal'``
+   :Choices: ``minimal``, ``all``, ``nonnumeric``, ``none``
+   :Importance: core
+
+**include_table_headings**
+
+   Include heading comments before tables in multi-table mode
+
+   :Type: ``bool``
+   :CLI flag: ``--csv-renderer-include-table-headings``
+   :Default: ``False``
+   :Importance: advanced
+
+**line_terminator**
+
+   Line ending style ('\n' or '\r\n')
+
+   :Type: ``str``
+   :CLI flag: ``--csv-renderer-line-terminator``
+   :Default: ``'\n'``
+   :Importance: advanced
+
+**handle_merged_cells**
+
+   How to handle merged cells
+
+   :Type: ``Literal['repeat', 'blank', 'placeholder']``
+   :CLI flag: ``--csv-renderer-handle-merged-cells``
+   :Default: ``'repeat'``
+   :Choices: ``repeat``, ``blank``, ``placeholder``
+   :Importance: advanced
+
+**quote_char**
+
+   Character used for quoting fields
+
+   :Type: ``str``
+   :CLI flag: ``--csv-renderer-quote-char``
+   :Default: ``'"'``
+   :Importance: advanced
+
+**escape_char**
+
+   Character used for escaping (None uses doubling)
+
+   :Type: ``str | None``
+   :CLI flag: ``--csv-renderer-escape-char``
+   :Default: ``None``
+   :Importance: advanced
+
+**include_bom**
+
+   Include UTF-8 BOM for Excel compatibility
+
+   :Type: ``bool``
+   :CLI flag: ``--csv-renderer-include-bom``
+   :Default: ``False``
+   :Importance: advanced
+
 DOCX Options
 ~~~~~~~~~~~~
 
@@ -1186,7 +1230,8 @@ DOCX Parser Options
 Configuration options for DOCX-to-Markdown conversion.
 
 This dataclass contains settings specific to Word document processing,
-including image handling and formatting preferences.
+including image handling and formatting preferences. Inherits attachment
+handling from AttachmentOptionsMixin for embedded images and media.
 
 **attachment_mode**
 
@@ -1225,15 +1270,6 @@ including image handling and formatting preferences.
    :CLI flag: ``--docx-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--docx-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -1281,6 +1317,15 @@ including image handling and formatting preferences.
    :Default: ``'Attachments'``
    :Importance: advanced
 
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--docx-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
 **preserve_tables**
 
    Preserve table formatting in Markdown
@@ -1319,22 +1364,12 @@ including image handling and formatting preferences.
 
 **comments_position**
 
-   Render comments inline or at document end
+   Where to place Comment nodes in the AST: inline (CommentInline nodes at reference points) or footnotes (Comment block nodes appended at end)
 
    :Type: ``Literal['inline', 'footnotes']``
    :CLI flag: ``--docx-comments-position``
    :Default: ``'footnotes'``
    :Choices: ``inline``, ``footnotes``
-   :Importance: advanced
-
-**comment_mode**
-
-   How to render comments: html (HTML comments), blockquote (quoted blocks), ignore (skip)
-
-   :Type: ``Literal['html', 'blockquote', 'ignore']``
-   :CLI flag: ``--docx-comment-mode``
-   :Default: ``'blockquote'``
-   :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: advanced
 
 **include_image_captions**
@@ -1354,6 +1389,15 @@ including image handling and formatting preferences.
    :CLI flag: ``--docx-list-numbering-style``
    :Default: ``'detect'``
    :Choices: ``detect``, ``decimal``, ``lowerroman``, ``upperroman``, ``loweralpha``, ``upperalpha``
+   :Importance: advanced
+
+**code_style_names**
+
+   List of paragraph style names to treat as code blocks (supports partial matching)
+
+   :Type: ``list[str]``
+   :CLI flag: ``--docx-code-style-names``
+   :Default factory: ``DocxOptions.<lambda>``
    :Importance: advanced
 
 DOCX Renderer Options
@@ -1563,6 +1607,147 @@ to prevent SSRF attacks.
    :Default: ``5``
    :Importance: security
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: native (Word comments API), visible (text paragraphs with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX source files and other format annotations.
+
+   :Type: ``Literal['native', 'visible', 'ignore']``
+   :CLI flag: ``--docx-renderer-comment-mode``
+   :Default: ``'native'``
+   :Choices: ``native``, ``visible``, ``ignore``
+   :Importance: core
+
+DOKUWIKI Options
+~~~~~~~~~~~~~~~~
+
+
+DOKUWIKI Parser Options
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for DokuWiki-to-AST parsing.
+
+This dataclass contains settings specific to parsing DokuWiki markup documents
+into AST representation using custom regex-based parsing.
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**parse_plugins**
+
+   Parse plugin syntax (e.g., <WRAP>) or strip them
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-parse-plugins``
+   :Default: ``False``
+   :Importance: core
+
+**strip_comments**
+
+   Strip comments from output
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-no-strip-comments``
+   :Default: ``True``
+   :Importance: core
+
+**parse_interwiki**
+
+   Parse interwiki links (e.g., [[wp>Article]])
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-no-parse-interwiki``
+   :Default: ``True``
+   :Importance: core
+
+**html_passthrough_mode**
+
+   How to handle inline HTML: pass-through, escape, drop, or sanitize
+
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :CLI flag: ``--dokuwiki-html-passthrough-mode``
+   :Default: ``'escape'``
+   :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
+   :Importance: security
+
+DOKUWIKI Renderer Options
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for DokuWiki rendering.
+
+This dataclass contains settings for rendering AST documents as
+DokuWiki markup, suitable for DokuWiki-based wikis.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--dokuwiki-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--dokuwiki-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**use_html_for_unsupported**
+
+   Use HTML tags for unsupported elements
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-renderer-no-use-html-for-unsupported``
+   :Default: ``True``
+   :Importance: core
+
+**monospace_fence**
+
+   Use <code> tags instead of '' for inline code
+
+   :Type: ``bool``
+   :CLI flag: ``--dokuwiki-renderer-monospace-fence``
+   :Default: ``False``
+   :Importance: core
+
+**html_passthrough_mode**
+
+   How to handle raw HTML content: pass-through, escape, drop, or sanitize
+
+   :Type: ``HtmlPassthroughMode``
+   :CLI flag: ``--dokuwiki-renderer-html-passthrough-mode``
+   :Default: ``'pass-through'``
+   :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
+   :Importance: security
+
+**comment_mode**
+
+   Comment rendering mode: html, visible, or ignore
+
+   :Type: ``DokuWikiCommentMode``
+   :CLI flag: ``--dokuwiki-renderer-comment-mode``
+   :Default: ``'html'``
+   :Choices: ``html``, ``visible``, ``ignore``
+   :Importance: core
+
 EML Options
 ~~~~~~~~~~~
 
@@ -1574,6 +1759,7 @@ Configuration options for EML-to-Markdown conversion.
 
 This dataclass contains settings specific to email message processing,
 including robust parsing, date handling, quote processing, and URL cleaning.
+Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
 **attachment_mode**
 
@@ -1612,15 +1798,6 @@ including robust parsing, date handling, quote processing, and URL cleaning.
    :CLI flag: ``--eml-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--eml-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -1667,6 +1844,15 @@ including robust parsing, date handling, quote processing, and URL cleaning.
    :CLI flag: ``--eml-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--eml-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **include_headers**
 
@@ -1838,6 +2024,7 @@ Configuration options for EPUB-to-Markdown conversion.
 
 This dataclass contains settings specific to EPUB document processing,
 including chapter handling, table of contents generation, and image handling.
+Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
 **attachment_mode**
 
@@ -1876,15 +2063,6 @@ including chapter handling, table of contents generation, and image handling.
    :CLI flag: ``--epub-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--epub-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -1931,6 +2109,15 @@ including chapter handling, table of contents generation, and image handling.
    :CLI flag: ``--epub-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **merge_chapters**
 
@@ -2091,6 +2278,147 @@ including chapter splitting strategies, metadata, and EPUB structure.
    :Default: ``None``
    :Importance: advanced
 
+**network**
+
+   Network security options for fetching remote images
+
+   :Type: ``NetworkFetchOptions``
+   :CLI flag: ``--epub-renderer-network``
+   :Default factory: ``NetworkFetchOptions``
+   :Importance: security
+
+FB2 Options
+~~~~~~~~~~~
+
+
+FB2 Parser Options
+^^^^^^^^^^^^^^^^^^
+
+Configuration options for FB2-to-AST conversion.
+
+Inherits attachment handling from AttachmentOptionsMixin for embedded images
+in FictionBook 2.0 ebooks.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--fb2-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--fb2-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: core
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--fb2-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--fb2-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--fb2-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--fb2-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--fb2-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--fb2-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--fb2-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--fb2-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**include_notes**
+
+   Include bodies/sections marked as notes in the output
+
+   :Type: ``bool``
+   :CLI flag: ``--fb2-no-include-notes``
+   :Default: ``True``
+   :Importance: core
+
+**notes_section_title**
+
+   Heading text used when appending collected notes
+
+   :Type: ``str``
+   :CLI flag: ``--fb2-notes-section-title``
+   :Default: ``'Notes'``
+   :Importance: advanced
+
+**fallback_encodings**
+
+   Additional encodings to try if XML parsing fails
+
+   :Type: ``tuple[str, ...]``
+   :CLI flag: ``--fb2-fallback-encodings``
+   :Default: ``('utf-8', 'windows-1251', 'koi8-r')``
+   :Importance: advanced
+
 HTML Options
 ~~~~~~~~~~~~
 
@@ -2102,7 +2430,8 @@ Configuration options for HTML-to-Markdown conversion.
 
 This dataclass contains settings specific to HTML document processing,
 including heading styles, title extraction, image handling, content
-sanitization, and advanced formatting options.
+sanitization, and advanced formatting options. Inherits attachment
+handling from AttachmentOptionsMixin for images and embedded media.
 
 **attachment_mode**
 
@@ -2141,15 +2470,6 @@ sanitization, and advanced formatting options.
    :CLI flag: ``--html-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--html-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -2196,6 +2516,15 @@ sanitization, and advanced formatting options.
    :CLI flag: ``--html-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--html-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **extract_title**
 
@@ -2315,24 +2644,24 @@ sanitization, and advanced formatting options.
    :CLI action: ``append``
    :Importance: security
 
-**figure_rendering**
+**figures_parsing**
 
-   How to render <figure> elements: blockquote, image_with_caption, html
+   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'image_with_caption', 'html']``
-   :CLI flag: ``--html-figure-rendering``
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :CLI flag: ``--html-figures-parsing``
    :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``image_with_caption``, ``html``
+   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
-**details_rendering**
+**details_parsing**
 
-   How to render <details>/<summary> elements: blockquote, html, ignore
+   How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``Literal['blockquote', 'html', 'ignore']``
-   :CLI flag: ``--html-details-rendering``
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :CLI flag: ``--html-details-parsing``
    :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``html``, ``ignore``
+   :Choices: ``blockquote``, ``html``, ``skip``
    :Importance: advanced
 
 **extract_microdata**
@@ -2555,6 +2884,16 @@ including document structure, styling, templating, and feature toggles.
    :Default: ``"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"``
    :Importance: security
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: native (HTML comments <!-- -->), visible (visible <div>/<span> elements), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML parsers, and other formats with annotations.
+
+   :Type: ``HtmlCommentMode``
+   :CLI flag: ``--html-renderer-comment-mode``
+   :Default: ``'native'``
+   :Choices: ``native``, ``visible``, ``ignore``
+   :Importance: core
+
 IPYNB Options
 ~~~~~~~~~~~~~
 
@@ -2565,7 +2904,8 @@ IPYNB Parser Options
 Configuration options for IPYNB-to-Markdown conversion.
 
 This dataclass contains settings specific to Jupyter Notebook processing,
-including output handling and image conversion preferences.
+including output handling and image conversion preferences. Inherits
+attachment handling from AttachmentOptionsMixin for notebook output images.
 
 **attachment_mode**
 
@@ -2604,15 +2944,6 @@ including output handling and image conversion preferences.
    :CLI flag: ``--ipynb-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--ipynb-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -2659,6 +2990,15 @@ including output handling and image conversion preferences.
    :CLI flag: ``--ipynb-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **include_inputs**
 
@@ -2893,44 +3233,6 @@ Configuration options for LaTeX-to-AST parsing.
 This dataclass contains settings specific to parsing LaTeX documents
 into AST representation using pylatexenc library.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--latex-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--latex-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--latex-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--latex-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -2939,52 +3241,6 @@ into AST representation using pylatexenc library.
    :CLI flag: ``--latex-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--latex-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--latex-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--latex-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--latex-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--latex-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **parse_preamble**
 
@@ -3139,6 +3395,16 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
    :Default: ``True``
    :Importance: advanced
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: percent (%% comments), todonotes (\todo{}), marginnote (\marginpar{}), ignore (skip comment nodes entirely). Controls presentation of source document comments.
+
+   :Type: ``LatexCommentMode``
+   :CLI flag: ``--latex-renderer-comment-mode``
+   :Default: ``'percent'``
+   :Choices: ``percent``, ``todonotes``, ``marginnote``, ``ignore``
+   :Importance: core
+
 MARKDOWN Options
 ~~~~~~~~~~~~~~~~
 
@@ -3151,44 +3417,6 @@ Configuration options for Markdown-to-AST parsing.
 This dataclass contains settings specific to parsing Markdown documents
 into AST representation, supporting various Markdown flavors and extensions.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--markdown-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--markdown-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--markdown-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--markdown-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -3198,57 +3426,11 @@ into AST representation, supporting various Markdown flavors and extensions.
    :Default: ``False``
    :Importance: core
 
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--markdown-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--markdown-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--markdown-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--markdown-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
-
 **flavor**
 
    Markdown flavor to parse (determines enabled extensions)
 
-   :Type: ``FlavorType``
+   :Type: ``Literal['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus']``
    :CLI flag: ``--markdown-flavor``
    :Default: ``'gfm'``
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
@@ -3325,6 +3507,25 @@ into AST representation, supporting various Markdown flavors and extensions.
    :CLI flag: ``--markdown-no-preserve-html``
    :Default: ``True``
    :Importance: security
+
+**html_handling**
+
+   How to handle HTML when preserve_html=False: drop (remove entirely), sanitize (clean dangerous content)
+
+   :Type: ``str``
+   :CLI flag: ``--markdown-html-handling``
+   :Default: ``'drop'``
+   :Choices: ``drop``, ``sanitize``
+   :Importance: security
+
+**parse_frontmatter**
+
+   Parse YAML/TOML/JSON frontmatter at document start
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown-no-parse-frontmatter``
+   :Default: ``True``
+   :Importance: core
 
 MARKDOWN Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3468,7 +3669,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000020F1FC509C0>``
+   :Default: ``<object object at 0x0000020594C30A00>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3478,7 +3679,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000020F1FC509C0>``
+   :Default: ``<object object at 0x0000020594C30A00>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -3633,6 +3834,345 @@ modules to ensure consistent Markdown generation.
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML, and other formats that support annotations.
+
+   :Type: ``CommentMode``
+   :CLI flag: ``--markdown-renderer-comment-mode``
+   :Default: ``'blockquote'``
+   :Choices: ``html``, ``blockquote``, ``ignore``
+   :Importance: core
+
+MBOX Options
+~~~~~~~~~~~~
+
+
+MBOX Parser Options
+^^^^^^^^^^^^^^^^^^^
+
+Configuration options for MBOX-to-Markdown conversion.
+
+This dataclass contains settings specific to mailbox archive processing,
+extending EmlOptions with mailbox-specific features like format detection,
+message filtering, and folder handling.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--mbox-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--mbox-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: core
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--mbox-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--mbox-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--mbox-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--mbox-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--mbox-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--mbox-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**include_headers**
+
+   Include email headers (From, To, Subject, Date) in output
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-include-headers``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_thread_structure**
+
+   Maintain email thread/reply chain structure
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-preserve-thread-structure``
+   :Default: ``True``
+   :Importance: core
+
+**date_format_mode**
+
+   Date formatting mode: iso8601, locale, or strftime
+
+   :Type: ``DateFormatMode``
+   :CLI flag: ``--mbox-date-format-mode``
+   :Default: ``'strftime'``
+   :Importance: core
+
+**date_strftime_pattern**
+
+   Custom strftime pattern for date formatting
+
+   :Type: ``str``
+   :CLI flag: ``--mbox-date-strftime-pattern``
+   :Default: ``'%m/%d/%y %H:%M'``
+   :Importance: advanced
+
+**convert_html_to_markdown**
+
+   Convert HTML content to Markdown
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-convert-html-to-markdown``
+   :Default: ``False``
+   :Importance: core
+
+**clean_quotes**
+
+   Clean and normalize quoted content
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-clean-quotes``
+   :Default: ``True``
+   :Importance: core
+
+**detect_reply_separators**
+
+   Detect common reply separators
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-detect-reply-separators``
+   :Default: ``True``
+   :Importance: core
+
+**normalize_headers**
+
+   Normalize header casing and whitespace
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-normalize-headers``
+   :Default: ``True``
+   :Importance: advanced
+
+**preserve_raw_headers**
+
+   Preserve both raw and decoded header values
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-preserve-raw-headers``
+   :Default: ``False``
+   :Importance: advanced
+
+**clean_wrapped_urls**
+
+   Clean URL defense/safety wrappers from links
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-clean-wrapped-urls``
+   :Default: ``True``
+   :Importance: security
+
+**url_wrappers**
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--mbox-url-wrappers``
+   :Default factory: ``EmlOptions.<lambda>``
+
+**html_network**
+
+   Network security settings for HTML part conversion
+
+   :Type: ``NetworkFetchOptions``
+   :CLI flag: ``--mbox-html-network``
+   :Default factory: ``NetworkFetchOptions``
+
+**sort_order**
+
+   Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
+
+   :Type: ``Literal['asc', 'desc']``
+   :CLI flag: ``--mbox-sort-order``
+   :Default: ``'asc'``
+   :Choices: ``asc``, ``desc``
+   :Importance: advanced
+
+**subject_as_h1**
+
+   Include subject line as H1 heading
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-subject-as-h1``
+   :Default: ``True``
+   :Importance: core
+
+**include_attach_section_heading**
+
+   Include heading before attachments section
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-include-attach-section-heading``
+   :Default: ``True``
+   :Importance: advanced
+
+**attach_section_title**
+
+   Title for attachments section heading
+
+   :Type: ``str``
+   :CLI flag: ``--mbox-attach-section-title``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**include_html_parts**
+
+   Include HTML content parts from emails
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-include-html-parts``
+   :Default: ``True``
+   :Importance: core
+
+**include_plain_parts**
+
+   Include plain text content parts from emails
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-include-plain-parts``
+   :Default: ``True``
+   :Importance: core
+
+**mailbox_format**
+
+   Mailbox format type (auto, mbox, maildir, mh, babyl, mmdf)
+
+   :Type: ``MailboxFormatType``
+   :CLI flag: ``--mbox-mailbox-format``
+   :Default: ``'auto'``
+   :Importance: core
+
+**output_structure**
+
+   Output structure: 'flat' (sequential) or 'hierarchical' (preserve folders)
+
+   :Type: ``OutputStructureMode``
+   :CLI flag: ``--mbox-output-structure``
+   :Default: ``'flat'``
+   :Choices: ``flat``, ``hierarchical``
+   :Importance: core
+
+**max_messages**
+
+   Maximum number of messages to process (None for unlimited)
+
+   :Type: ``int | None``
+   :CLI flag: ``--mbox-max-messages``
+   :Default: ``None``
+   :Importance: advanced
+
+**date_range_start**
+
+   Only process messages on or after this date
+
+   :Type: ``datetime.datetime | None``
+   :CLI flag: ``--mbox-date-range-start``
+   :Default: ``None``
+   :Importance: advanced
+
+**date_range_end**
+
+   Only process messages on or before this date
+
+   :Type: ``datetime.datetime | None``
+   :CLI flag: ``--mbox-date-range-end``
+   :Default: ``None``
+   :Importance: advanced
+
+**folder_filter**
+
+   For maildir, only process these folders (None for all)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--mbox-folder-filter``
+   :Default: ``None``
+   :Importance: advanced
+
+**preserve_folder_metadata**
+
+   Include folder name in message metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-preserve-folder-metadata``
+   :Default: ``True``
+   :Importance: advanced
+
 MEDIAWIKI Options
 ~~~~~~~~~~~~~~~~~
 
@@ -3645,44 +4185,6 @@ Configuration options for MediaWiki-to-AST parsing.
 This dataclass contains settings specific to parsing MediaWiki/WikiText documents
 into AST representation using mwparserfromhell.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--mediawiki-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--mediawiki-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--mediawiki-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--mediawiki-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -3691,52 +4193,6 @@ into AST representation using mwparserfromhell.
    :CLI flag: ``--mediawiki-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--mediawiki-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--mediawiki-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--mediawiki-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--mediawiki-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--mediawiki-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **parse_templates**
 
@@ -3769,7 +4225,7 @@ into AST representation using mwparserfromhell.
 
    How to handle inline HTML: pass-through, escape, drop, or sanitize
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--mediawiki-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -3828,6 +4284,16 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
    :Default: ``True``
    :Importance: core
 
+**image_caption_mode**
+
+   How to render image captions: auto (use alt_text as caption), alt_only, caption_only
+
+   :Type: ``MediaWikiImageCaptionMode``
+   :CLI flag: ``--mediawiki-renderer-image-caption-mode``
+   :Default: ``'alt_only'``
+   :Choices: ``auto``, ``alt_only``, ``caption_only``
+   :Importance: core
+
 **html_passthrough_mode**
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
@@ -3837,6 +4303,16 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
    :Default: ``'pass-through'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
+
+**comment_mode**
+
+   Comment rendering mode: html, visible, or ignore
+
+   :Type: ``MediaWikiCommentMode``
+   :CLI flag: ``--mediawiki-renderer-comment-mode``
+   :Default: ``'html'``
+   :Choices: ``html``, ``visible``, ``ignore``
+   :Importance: core
 
 MHTML Options
 ~~~~~~~~~~~~~
@@ -3888,15 +4364,6 @@ primarily for handling embedded assets like images and local file security.
    :Default: ``None``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--mhtml-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **max_asset_size_bytes**
 
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
@@ -3942,6 +4409,15 @@ primarily for handling embedded assets like images and local file security.
    :CLI flag: ``--mhtml-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **extract_title**
 
@@ -4061,24 +4537,24 @@ primarily for handling embedded assets like images and local file security.
    :CLI action: ``append``
    :Importance: security
 
-**figure_rendering**
+**figures_parsing**
 
-   How to render <figure> elements: blockquote, image_with_caption, html
+   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'image_with_caption', 'html']``
-   :CLI flag: ``--mhtml-figure-rendering``
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :CLI flag: ``--mhtml-figures-parsing``
    :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``image_with_caption``, ``html``
+   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
-**details_rendering**
+**details_parsing**
 
-   How to render <details>/<summary> elements: blockquote, html, ignore
+   How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``Literal['blockquote', 'html', 'ignore']``
-   :CLI flag: ``--mhtml-details-rendering``
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :CLI flag: ``--mhtml-details-parsing``
    :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``html``, ``ignore``
+   :Choices: ``blockquote``, ``html``, ``skip``
    :Importance: advanced
 
 **extract_microdata**
@@ -4149,15 +4625,6 @@ processing, including slide selection, numbering, and notes.
    :Default: ``None``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--odp-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **max_asset_size_bytes**
 
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
@@ -4203,6 +4670,15 @@ processing, including slide selection, numbering, and notes.
    :CLI flag: ``--odp-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--odp-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **page_separator_template**
 
@@ -4374,6 +4850,25 @@ generation from AST, including slide splitting strategies and layout.
    :CLI flag: ``--odp-renderer-network``
    :Default factory: ``NetworkFetchOptions``
 
+**include_notes**
+
+   Include speaker notes in rendered slides
+
+   :Type: ``bool``
+   :CLI flag: ``--odp-renderer-no-include-notes``
+   :Default: ``True``
+   :Importance: core
+
+**comment_mode**
+
+   Comment rendering mode: native, visible, or ignore
+
+   :Type: ``OdpCommentMode``
+   :CLI flag: ``--odp-renderer-comment-mode``
+   :Default: ``'native'``
+   :Choices: ``native``, ``visible``, ``ignore``
+   :Importance: core
+
 ODS Options
 ~~~~~~~~~~~
 
@@ -4424,15 +4919,6 @@ and adds ODS-specific options.
    :Default: ``None``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--ods-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **max_asset_size_bytes**
 
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
@@ -4478,6 +4964,15 @@ and adds ODS-specific options.
    :CLI flag: ``--ods-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--ods-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **sheets**
 
@@ -4601,6 +5096,7 @@ Configuration options for ODT-to-Markdown conversion.
 
 This dataclass contains settings specific to OpenDocument Text (ODT)
 processing, including table preservation, footnotes, and comments.
+Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
 **attachment_mode**
 
@@ -4639,15 +5135,6 @@ processing, including table preservation, footnotes, and comments.
    :CLI flag: ``--odt-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--odt-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -4694,6 +5181,15 @@ processing, including table preservation, footnotes, and comments.
    :CLI flag: ``--odt-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **preserve_tables**
 
@@ -4846,6 +5342,119 @@ including fonts, styles, and formatting preferences.
    :CLI flag: ``--odt-renderer-network``
    :Default factory: ``NetworkFetchOptions``
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: native (ODT annotations), visible (text paragraphs with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from ODT source files and other format annotations.
+
+   :Type: ``OdtCommentMode``
+   :CLI flag: ``--odt-renderer-comment-mode``
+   :Default: ``'native'``
+   :Choices: ``native``, ``visible``, ``ignore``
+   :Importance: core
+
+OPENAPI Options
+~~~~~~~~~~~~~~~
+
+
+OPENAPI Parser Options
+^^^^^^^^^^^^^^^^^^^^^^
+
+Options for parsing OpenAPI/Swagger specification documents.
+
+This dataclass contains settings specific to parsing OpenAPI specifications
+into AST representation, supporting both OpenAPI 3.x and Swagger 2.0 formats.
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**include_servers**
+
+   Include server information section
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-no-include-servers``
+   :Default: ``True``
+   :Importance: core
+
+**include_schemas**
+
+   Include schema/model definitions section
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-no-include-schemas``
+   :Default: ``True``
+   :Importance: core
+
+**include_examples**
+
+   Include request/response examples as code blocks
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-no-include-examples``
+   :Default: ``True``
+   :Importance: core
+
+**group_by_tag**
+
+   Group API paths by tags
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-no-group-by-tag``
+   :Default: ``True``
+   :Importance: core
+
+**max_schema_depth**
+
+   Maximum nesting depth for schema properties (prevents circular refs)
+
+   :Type: ``int``
+   :CLI flag: ``--openapi-max-schema-depth``
+   :Default: ``3``
+   :Importance: advanced
+
+**code_block_language**
+
+   Language identifier for code block examples
+
+   :Type: ``str``
+   :CLI flag: ``--openapi-code-block-language``
+   :Default: ``'json'``
+   :Choices: ``json``, ``yaml``, ``text``
+   :Importance: advanced
+
+**validate_spec**
+
+   Validate OpenAPI spec using jsonschema (requires jsonschema package)
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-validate-spec``
+   :Default: ``False``
+   :Importance: advanced
+
+**include_deprecated**
+
+   Include deprecated operations and parameters
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-no-include-deprecated``
+   :Default: ``True``
+   :Importance: core
+
+**expand_refs**
+
+   Expand $ref references inline or keep as links
+
+   :Type: ``bool``
+   :CLI flag: ``--openapi-no-expand-refs``
+   :Default: ``True``
+   :Importance: advanced
+
 ORG Options
 ~~~~~~~~~~~
 
@@ -4858,44 +5467,6 @@ Configuration options for Org-Mode-to-AST parsing.
 This dataclass contains settings specific to parsing Org-Mode documents
 into AST representation using orgparse.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--org-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--org-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--org-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--org-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -4904,52 +5475,6 @@ into AST representation using orgparse.
    :CLI flag: ``--org-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--org-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--org-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--org-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--org-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--org-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **parse_drawers**
 
@@ -4975,6 +5500,15 @@ into AST representation using orgparse.
 
    :Type: ``bool``
    :CLI flag: ``--org-no-parse-tags``
+   :Default: ``True``
+   :Importance: core
+
+**parse_scheduling**
+
+   Parse SCHEDULED and DEADLINE timestamps
+
+   :Type: ``bool``
+   :CLI flag: ``--org-no-parse-scheduling``
    :Default: ``True``
    :Importance: core
 
@@ -5068,6 +5602,354 @@ Org-Mode output.
    :Default factory: ``OrgRendererOptions.<lambda>``
    :Importance: core
 
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: comment (# comments), drawer (:COMMENT: drawer), ignore (skip comment nodes entirely). Controls presentation of source document comments.
+
+   :Type: ``OrgCommentMode``
+   :CLI flag: ``--org-renderer-comment-mode``
+   :Default: ``'comment'``
+   :Choices: ``comment``, ``drawer``, ``ignore``
+   :Importance: core
+
+OUTLOOK Options
+~~~~~~~~~~~~~~~
+
+
+OUTLOOK Parser Options
+^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for Outlook-to-Markdown conversion.
+
+This dataclass contains settings specific to Outlook format processing (MSG, PST, OST),
+extending EmlOptions with Outlook-specific features like folder filtering,
+PST/OST archive handling, and advanced message selection.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--outlook-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--outlook-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: core
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--outlook-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--outlook-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--outlook-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--outlook-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--outlook-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--outlook-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**include_headers**
+
+   Include email headers (From, To, Subject, Date) in output
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-include-headers``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_thread_structure**
+
+   Maintain email thread/reply chain structure
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-preserve-thread-structure``
+   :Default: ``True``
+   :Importance: core
+
+**date_format_mode**
+
+   Date formatting mode: iso8601, locale, or strftime
+
+   :Type: ``DateFormatMode``
+   :CLI flag: ``--outlook-date-format-mode``
+   :Default: ``'strftime'``
+   :Importance: core
+
+**date_strftime_pattern**
+
+   Custom strftime pattern for date formatting
+
+   :Type: ``str``
+   :CLI flag: ``--outlook-date-strftime-pattern``
+   :Default: ``'%m/%d/%y %H:%M'``
+   :Importance: advanced
+
+**convert_html_to_markdown**
+
+   Convert HTML content to Markdown
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-convert-html-to-markdown``
+   :Default: ``False``
+   :Importance: core
+
+**clean_quotes**
+
+   Clean and normalize quoted content
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-clean-quotes``
+   :Default: ``True``
+   :Importance: core
+
+**detect_reply_separators**
+
+   Detect common reply separators
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-detect-reply-separators``
+   :Default: ``True``
+   :Importance: core
+
+**normalize_headers**
+
+   Normalize header casing and whitespace
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-normalize-headers``
+   :Default: ``True``
+   :Importance: advanced
+
+**preserve_raw_headers**
+
+   Preserve both raw and decoded header values
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-preserve-raw-headers``
+   :Default: ``False``
+   :Importance: advanced
+
+**clean_wrapped_urls**
+
+   Clean URL defense/safety wrappers from links
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-clean-wrapped-urls``
+   :Default: ``True``
+   :Importance: security
+
+**url_wrappers**
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--outlook-url-wrappers``
+   :Default factory: ``EmlOptions.<lambda>``
+
+**html_network**
+
+   Network security settings for HTML part conversion
+
+   :Type: ``NetworkFetchOptions``
+   :CLI flag: ``--outlook-html-network``
+   :Default factory: ``NetworkFetchOptions``
+
+**sort_order**
+
+   Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
+
+   :Type: ``Literal['asc', 'desc']``
+   :CLI flag: ``--outlook-sort-order``
+   :Default: ``'asc'``
+   :Choices: ``asc``, ``desc``
+   :Importance: advanced
+
+**subject_as_h1**
+
+   Include subject line as H1 heading
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-subject-as-h1``
+   :Default: ``True``
+   :Importance: core
+
+**include_attach_section_heading**
+
+   Include heading before attachments section
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-include-attach-section-heading``
+   :Default: ``True``
+   :Importance: advanced
+
+**attach_section_title**
+
+   Title for attachments section heading
+
+   :Type: ``str``
+   :CLI flag: ``--outlook-attach-section-title``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**include_html_parts**
+
+   Include HTML content parts from emails
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-include-html-parts``
+   :Default: ``True``
+   :Importance: core
+
+**include_plain_parts**
+
+   Include plain text content parts from emails
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-include-plain-parts``
+   :Default: ``True``
+   :Importance: core
+
+**output_structure**
+
+   Output structure: 'flat' (sequential) or 'hierarchical' (preserve folders)
+
+   :Type: ``OutputStructureMode``
+   :CLI flag: ``--outlook-output-structure``
+   :Default: ``'flat'``
+   :Choices: ``flat``, ``hierarchical``
+   :Importance: core
+
+**max_messages**
+
+   Maximum number of messages to process (None for unlimited)
+
+   :Type: ``int | None``
+   :CLI flag: ``--outlook-max-messages``
+   :Default: ``None``
+   :Importance: advanced
+
+**date_range_start**
+
+   Only process messages on or after this date
+
+   :Type: ``datetime.datetime | None``
+   :CLI flag: ``--outlook-date-range-start``
+   :Default: ``None``
+   :Importance: advanced
+
+**date_range_end**
+
+   Only process messages on or before this date
+
+   :Type: ``datetime.datetime | None``
+   :CLI flag: ``--outlook-date-range-end``
+   :Default: ``None``
+   :Importance: advanced
+
+**folder_filter**
+
+   For PST/OST, only process these folders (None for all)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--outlook-folder-filter``
+   :Default: ``None``
+   :Importance: advanced
+
+**skip_folders**
+
+   For PST/OST, skip these folders (empty list to process all)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--outlook-skip-folders``
+   :Default factory: ``OutlookOptions.<lambda>``
+   :Importance: advanced
+
+**include_subfolders**
+
+   Include messages from subfolders when processing a folder (PST/OST)
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-include-subfolders``
+   :Default: ``True``
+   :Importance: advanced
+
+**preserve_folder_metadata**
+
+   Include folder name in message metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-preserve-folder-metadata``
+   :Default: ``True``
+   :Importance: advanced
+
 PDF Options
 ~~~~~~~~~~~
 
@@ -5118,15 +6000,6 @@ including page selection, image handling, and formatting preferences.
    :Default: ``None``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--pdf-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **max_asset_size_bytes**
 
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
@@ -5172,6 +6045,15 @@ including page selection, image handling, and formatting preferences.
    :CLI flag: ``--pdf-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **page_separator_template**
 
@@ -5827,6 +6709,16 @@ to prevent SSRF attacks.
    :Default: ``5``
    :Importance: security
 
+**comment_mode**
+
+   Comment rendering mode: visible or ignore
+
+   :Type: ``Literal['visible', 'ignore']``
+   :CLI flag: ``--pdf-renderer-comment-mode``
+   :Default: ``'ignore'``
+   :Choices: ``visible``, ``ignore``
+   :Importance: core
+
 PLAINTEXT Options
 ~~~~~~~~~~~~~~~~~
 
@@ -5839,43 +6731,8 @@ Base class for all parser options.
 This class serves as the foundation for format-specific parser options.
 Parsers convert source documents into AST representation.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``Literal['skip', 'alt_text', 'download', 'base64']``
-   :CLI flag: ``--plaintext-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
-   :CLI flag: ``--plaintext-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--plaintext-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--plaintext-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
+For parsers that handle attachments (images, downloads, etc.), also inherit
+from AttachmentOptionsMixin to get attachment-related configuration fields.
 
 **extract_metadata**
 
@@ -5885,52 +6742,6 @@ Parsers convert source documents into AST representation.
    :CLI flag: ``--plaintext-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--plaintext-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--plaintext-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--plaintext-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--plaintext-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--plaintext-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 PLAINTEXT Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -6022,6 +6833,25 @@ is stripped, leaving only the text content.
    :Default: ``True``
    :Importance: core
 
+**preserve_blank_lines**
+
+   Preserve consecutive blank lines in output
+
+   :Type: ``bool``
+   :CLI flag: ``--plaintext-renderer-no-preserve-blank-lines``
+   :Default: ``True``
+   :Importance: core
+
+**comment_mode**
+
+   Comment rendering mode: visible or ignore
+
+   :Type: ``Literal['visible', 'ignore']``
+   :CLI flag: ``--plaintext-renderer-comment-mode``
+   :Default: ``'ignore'``
+   :Choices: ``visible``, ``ignore``
+   :Importance: core
+
 PPTX Options
 ~~~~~~~~~~~~
 
@@ -6072,15 +6902,6 @@ processing, including slide numbering and image handling.
    :Default: ``None``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--pptx-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **max_asset_size_bytes**
 
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
@@ -6127,6 +6948,15 @@ processing, including slide numbering and image handling.
    :Default: ``'Attachments'``
    :Importance: advanced
 
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--pptx-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
 **page_separator_template**
 
    Template for page/slide separators. Supports placeholders: {page_num}, {total_pages}. This string is inserted between pages/slides
@@ -6152,6 +6982,16 @@ processing, including slide numbering and image handling.
    :Type: ``bool``
    :CLI flag: ``--pptx-no-include-notes``
    :Default: ``True``
+   :Importance: core
+
+**comment_mode**
+
+   How to parse speaker notes: content (regular nodes with H3 heading), comment (Comment AST nodes with metadata), or ignore (skip entirely)
+
+   :Type: ``PptxParserCommentMode``
+   :CLI flag: ``--pptx-comment-mode``
+   :Default: ``'content'``
+   :Choices: ``content``, ``comment``, ``ignore``
    :Importance: core
 
 **slides**
@@ -6397,6 +7237,34 @@ generation from AST, including slide splitting strategies and layout.
    :CLI flag: ``--pptx-renderer-network``
    :Default factory: ``NetworkFetchOptions``
 
+**include_notes**
+
+   Include speaker notes in rendered slides
+
+   :Type: ``bool``
+   :CLI flag: ``--pptx-renderer-no-include-notes``
+   :Default: ``True``
+   :Importance: core
+
+**comment_mode**
+
+   Comment rendering mode: speaker_notes, visible, or ignore
+
+   :Type: ``PptxCommentMode``
+   :CLI flag: ``--pptx-renderer-comment-mode``
+   :Default: ``'speaker_notes'``
+   :Choices: ``speaker_notes``, ``visible``, ``ignore``
+   :Importance: core
+
+**force_textbox_bullets**
+
+   Enable bullets via OOXML for text boxes (disable for strict templates)
+
+   :Type: ``bool``
+   :CLI flag: ``--pptx-renderer-no-force-textbox-bullets``
+   :Default: ``True``
+   :Importance: advanced
+
 RST Options
 ~~~~~~~~~~~
 
@@ -6409,44 +7277,6 @@ Configuration options for reStructuredText-to-AST parsing.
 This dataclass contains settings specific to parsing reStructuredText documents
 into AST representation using docutils.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--rst-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--rst-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--rst-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--rst-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -6455,52 +7285,6 @@ into AST representation using docutils.
    :CLI flag: ``--rst-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--rst-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--rst-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--rst-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--rst-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--rst-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **parse_directives**
 
@@ -6528,6 +7312,15 @@ into AST representation using docutils.
    :CLI flag: ``--rst-preserve-raw-directives``
    :Default: ``False``
    :Importance: advanced
+
+**strip_comments**
+
+   Strip comments from output
+
+   :Type: ``bool``
+   :CLI flag: ``--rst-no-strip-comments``
+   :Default: ``False``
+   :Importance: core
 
 RST Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
@@ -6612,6 +7405,25 @@ reStructuredText output.
    :Choices: ``line_block``, ``raw``
    :Importance: advanced
 
+**hard_line_break_fallback_in_containers**
+
+   Automatically fallback to raw mode for line breaks inside lists/blockquotes
+
+   :Type: ``bool``
+   :CLI flag: ``--rst-renderer-no-hard-line-break-fallback-in-containers``
+   :Default: ``True``
+   :Importance: advanced
+
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: comment (.. comments), note (.. note:: directive), ignore (skip comment nodes entirely). Controls presentation of source document comments.
+
+   :Type: ``RstCommentMode``
+   :CLI flag: ``--rst-renderer-comment-mode``
+   :Default: ``'comment'``
+   :Choices: ``comment``, ``note``, ``ignore``
+   :Importance: core
+
 RTF Options
 ~~~~~~~~~~~
 
@@ -6622,7 +7434,8 @@ RTF Parser Options
 Configuration options for RTF-to-Markdown conversion.
 
 This dataclass contains settings specific to Rich Text Format processing,
-primarily for handling embedded images and other attachments.
+including handling of embedded images and other attachments. Inherits
+attachment handling from AttachmentOptionsMixin.
 
 **attachment_mode**
 
@@ -6661,15 +7474,6 @@ primarily for handling embedded images and other attachments.
    :CLI flag: ``--rtf-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--rtf-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -6716,6 +7520,15 @@ primarily for handling embedded images and other attachments.
    :CLI flag: ``--rtf-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--rtf-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 RTF Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
@@ -6768,6 +7581,16 @@ Configuration options for rendering AST documents to RTF.
    :Default: ``True``
    :Importance: core
 
+**comment_mode**
+
+   Comment rendering mode: bracketed or ignore
+
+   :Type: ``RtfCommentMode``
+   :CLI flag: ``--rtf-renderer-comment-mode``
+   :Default: ``'bracketed'``
+   :Choices: ``bracketed``, ``ignore``
+   :Importance: core
+
 SOURCECODE Options
 ~~~~~~~~~~~~~~~~~~
 
@@ -6780,44 +7603,6 @@ Configuration options for source code to Markdown conversion.
 This dataclass contains settings specific to source code file processing,
 including language detection, formatting options, and output customization.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``AttachmentMode``
-   :CLI flag: ``--sourcecode-attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``AltTextMode``
-   :CLI flag: ``--sourcecode-alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``str | None``
-   :CLI flag: ``--sourcecode-attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``str | None``
-   :CLI flag: ``--sourcecode-attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
-
 **extract_metadata**
 
    Extract document metadata as YAML front matter
@@ -6826,52 +7611,6 @@ including language detection, formatting options, and output customization.
    :CLI flag: ``--sourcecode-extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--sourcecode-max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--sourcecode-attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--sourcecode-attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--sourcecode-attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``str | None``
-   :CLI flag: ``--sourcecode-attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 **detect_language**
 
@@ -6886,7 +7625,7 @@ including language detection, formatting options, and output customization.
 
    Override language identifier for syntax highlighting
 
-   :Type: ``str | None``
+   :Type: ``UnionType[str, NoneType]``
    :CLI flag: ``--sourcecode-language``
    :Default: ``None``
    :Importance: core
@@ -6899,6 +7638,398 @@ including language detection, formatting options, and output customization.
    :CLI flag: ``--sourcecode-include-filename``
    :Default: ``False``
    :Importance: advanced
+
+TEXTILE Options
+~~~~~~~~~~~~~~~
+
+
+TEXTILE Parser Options
+^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for Textile-to-AST parsing.
+
+This dataclass contains settings specific to parsing Textile documents
+into AST representation using the textile library.
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--textile-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**strict_mode**
+
+   Raise errors on invalid Textile syntax
+
+   :Type: ``bool``
+   :CLI flag: ``--textile-strict-mode``
+   :Default: ``False``
+   :Importance: advanced
+
+**html_passthrough_mode**
+
+   How to handle inline HTML: pass-through, escape, drop, or sanitize
+
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
+   :CLI flag: ``--textile-html-passthrough-mode``
+   :Default: ``'escape'``
+   :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
+   :Importance: security
+
+TEXTILE Renderer Options
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST-to-Textile rendering.
+
+This dataclass contains settings for rendering AST documents as
+Textile markup output.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--textile-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--textile-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--textile-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**use_extended_blocks**
+
+   Use extended block notation (bc., bq., etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--textile-renderer-no-extended-blocks``
+   :Default: ``True``
+   :Importance: core
+
+**line_length**
+
+   Target line length for wrapping (0 = no wrapping)
+
+   :Type: ``int``
+   :CLI flag: ``--textile-renderer-line-length``
+   :Default: ``0``
+   :Importance: core
+
+**html_passthrough_mode**
+
+   How to handle raw HTML content: pass-through, escape, drop, or sanitize
+
+   :Type: ``HtmlPassthroughMode``
+   :CLI flag: ``--textile-renderer-html-passthrough-mode``
+   :Default: ``'escape'``
+   :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
+   :Importance: security
+
+**comment_mode**
+
+   Comment rendering mode: html, blockquote, or ignore
+
+   :Type: ``TextileCommentMode``
+   :CLI flag: ``--textile-renderer-comment-mode``
+   :Default: ``'html'``
+   :Choices: ``html``, ``blockquote``, ``ignore``
+   :Importance: core
+
+WEBARCHIVE Options
+~~~~~~~~~~~~~~~~~~
+
+
+WEBARCHIVE Parser Options
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for WebArchive-to-Markdown conversion.
+
+This dataclass contains settings specific to Safari WebArchive file processing,
+including options for handling embedded resources and nested frames.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--webarchive-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--webarchive-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: core
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--webarchive-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--webarchive-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--webarchive-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--webarchive-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--webarchive-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--webarchive-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**extract_title**
+
+   Extract and use HTML <title> element as main heading
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-extract-title``
+   :Default: ``False``
+   :Importance: core
+
+**convert_nbsp**
+
+   Convert non-breaking spaces (&nbsp;) to regular spaces
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-convert-nbsp``
+   :Default: ``False``
+   :Importance: core
+
+**strip_dangerous_elements**
+
+   Remove potentially dangerous HTML elements (script, style, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-strip-dangerous-elements``
+   :Default: ``False``
+   :Importance: security
+
+**detect_table_alignment**
+
+   Automatically detect table column alignment from CSS/attributes
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-no-detect-table-alignment``
+   :Default: ``True``
+   :Importance: core
+
+**network**
+
+   Network security settings for remote resource fetching
+
+   :Type: ``NetworkFetchOptions``
+   :CLI flag: ``--webarchive-network``
+   :Default factory: ``NetworkFetchOptions``
+
+**local_files**
+
+   Local file access security settings
+
+   :Type: ``LocalFileAccessOptions``
+   :CLI flag: ``--webarchive-local-files``
+   :Default factory: ``LocalFileAccessOptions``
+
+**preserve_nested_structure**
+
+   Maintain proper nesting for blockquotes and other elements
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-no-preserve-nested-structure``
+   :Default: ``True``
+   :Importance: core
+
+**strip_comments**
+
+   Remove HTML comments from output
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-no-strip-comments``
+   :Default: ``True``
+   :Importance: core
+
+**collapse_whitespace**
+
+   Collapse multiple spaces/newlines into single spaces
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-no-collapse-whitespace``
+   :Default: ``True``
+   :Importance: core
+
+**extract_readable**
+
+   Extract main article content by stripping navigation and other non-readable content using readability-lxml
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-extract-readable``
+   :Default: ``False``
+   :Importance: advanced
+
+**br_handling**
+
+   How to handle <br> tags: 'newline' or 'space'
+
+   :Type: ``Literal['newline', 'space']``
+   :CLI flag: ``--webarchive-br-handling``
+   :Default: ``'newline'``
+   :Choices: ``newline``, ``space``
+   :Importance: advanced
+
+**allowed_elements**
+
+   Whitelist of allowed HTML elements (if set, only these are processed)
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--webarchive-allowed-elements``
+   :Default: ``None``
+   :CLI action: ``append``
+   :Importance: security
+
+**allowed_attributes**
+
+   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. CLI note: For complex dict structures, pass as JSON string: --allowed-attributes '{"img": ["src", "alt"], "a": ["href"]}'
+
+   :Type: ``tuple[str, ...] | dict[str, tuple[str, ...]] | None``
+   :CLI flag: ``--webarchive-allowed-attributes``
+   :Default: ``None``
+   :CLI action: ``append``
+   :Importance: security
+
+**figures_parsing**
+
+   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :CLI flag: ``--webarchive-figures-parsing``
+   :Default: ``'blockquote'``
+   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Importance: advanced
+
+**details_parsing**
+
+   How to render <details>/<summary> elements: blockquote, html, skip
+
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :CLI flag: ``--webarchive-details-parsing``
+   :Default: ``'blockquote'``
+   :Choices: ``blockquote``, ``html``, ``skip``
+   :Importance: advanced
+
+**extract_microdata**
+
+   Extract microdata and structured data to metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-no-extract-microdata``
+   :Default: ``True``
+   :Importance: advanced
+
+**base_url**
+
+   Base URL for resolving relative hrefs in <a> tags (separate from attachment_base_url for images)
+
+   :Type: ``str | None``
+   :CLI flag: ``--webarchive-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**extract_subresources**
+
+   Extract embedded resources (images, CSS, JS) from WebSubresources
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-extract-subresources``
+   :Default: ``False``
+   :Importance: core
+
+**handle_subframes**
+
+   Process nested iframe content from WebSubframeArchives
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-no-handle-subframes``
+   :Default: ``True``
+   :Importance: core
 
 XLSX Options
 ~~~~~~~~~~~~
@@ -6952,15 +8083,6 @@ See SpreadsheetParserOptions for complete documentation of available options.
    :Default: ``None``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--xlsx-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **max_asset_size_bytes**
 
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
@@ -7006,6 +8128,15 @@ See SpreadsheetParserOptions for complete documentation of available options.
    :CLI flag: ``--xlsx-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--xlsx-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **sheets**
 
@@ -7120,6 +8251,8 @@ Configuration options for ZIP archive to Markdown conversion.
 
 This dataclass contains settings specific to ZIP/archive processing,
 including file filtering, directory structure handling, and attachment extraction.
+Inherits attachment handling from AttachmentOptionsMixin for extracting embedded
+resources.
 
 **attachment_mode**
 
@@ -7158,15 +8291,6 @@ including file filtering, directory structure handling, and attachment extractio
    :CLI flag: ``--zip-attachment-base-url``
    :Default: ``None``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--zip-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **max_asset_size_bytes**
 
@@ -7213,6 +8337,15 @@ including file filtering, directory structure handling, and attachment extractio
    :CLI flag: ``--zip-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--zip-extract-metadata``
+   :Default: ``False``
+   :Importance: core
 
 **include_patterns**
 
@@ -7277,6 +8410,15 @@ including file filtering, directory structure handling, and attachment extractio
    :Default: ``True``
    :Importance: core
 
+**resource_file_extensions**
+
+   File extensions to treat as resources (None=use defaults, []=parse all)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--zip-resource-extensions``
+   :Default: ``None``
+   :Importance: advanced
+
 **skip_empty_files**
 
    Skip files with no content or parse failures
@@ -7295,6 +8437,33 @@ including file filtering, directory structure handling, and attachment extractio
    :Default: ``True``
    :Importance: advanced
 
+**enable_parallel_processing**
+
+   Enable parallel processing for large archives (opt-in)
+
+   :Type: ``bool``
+   :CLI flag: ``--zip-parallel``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_workers**
+
+   Maximum worker processes for parallel processing (None=auto-detect CPU cores)
+
+   :Type: ``int | None``
+   :CLI flag: ``--zip-max-workers``
+   :Default: ``None``
+   :Importance: advanced
+
+**parallel_threshold**
+
+   Minimum number of files to enable parallel processing
+
+   :Type: ``int``
+   :CLI flag: ``--zip-parallel-threshold``
+   :Default: ``10``
+   :Importance: advanced
+
 Shared Options
 ~~~~~~~~~~~~~~
 
@@ -7307,43 +8476,8 @@ Base class for all parser options.
 This class serves as the foundation for format-specific parser options.
 Parsers convert source documents into AST representation.
 
-**attachment_mode**
-
-   How to handle attachments/images
-
-   :Type: ``Literal['skip', 'alt_text', 'download', 'base64']``
-   :CLI flag: ``--attachment-mode``
-   :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
-   :Importance: core
-
-**alt_text_mode**
-
-   How to render alt-text content when using alt_text attachment mode
-
-   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
-   :CLI flag: ``--alt-text-mode``
-   :Default: ``'default'``
-   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
-
-**attachment_output_dir**
-
-   Directory to save attachments when using download mode
-
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--attachment-output-dir``
-   :Default: ``None``
-   :Importance: advanced
-
-**attachment_base_url**
-
-   Base URL for resolving attachment references
-
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--attachment-base-url``
-   :Default: ``None``
-   :Importance: advanced
+For parsers that handle attachments (images, downloads, etc.), also inherit
+from AttachmentOptionsMixin to get attachment-related configuration fields.
 
 **extract_metadata**
 
@@ -7353,52 +8487,6 @@ Parsers convert source documents into AST representation.
    :CLI flag: ``--extract-metadata``
    :Default: ``False``
    :Importance: core
-
-**max_asset_size_bytes**
-
-   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
-
-   :Type: ``int``
-   :CLI flag: ``--max-asset-size-bytes``
-   :Default: ``52428800``
-   :Importance: security
-
-**attachment_filename_template**
-
-   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
-
-   :Type: ``str``
-   :CLI flag: ``--attachment-filename-template``
-   :Default: ``'{stem}_{type}{seq}.{ext}'``
-   :Importance: advanced
-
-**attachment_overwrite**
-
-   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
-
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
-   :CLI flag: ``--attachment-overwrite``
-   :Default: ``'unique'``
-   :Choices: ``unique``, ``overwrite``, ``skip``
-   :Importance: advanced
-
-**attachment_deduplicate_by_hash**
-
-   Avoid saving duplicate attachments by content hash
-
-   :Type: ``bool``
-   :CLI flag: ``--attachment-deduplicate-by-hash``
-   :Default: ``False``
-   :Importance: advanced
-
-**attachments_footnotes_section**
-
-   Section title for footnote-style attachment references (None to disable)
-
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--attachments-footnotes-section``
-   :Default: ``'Attachments'``
-   :Importance: advanced
 
 Base Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^
@@ -7577,7 +8665,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000020F1FC509C0>``
+   :Default: ``<object object at 0x0000020594C30A00>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -7587,7 +8675,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000020F1FC509C0>``
+   :Default: ``<object object at 0x0000020594C30A00>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -7741,6 +8829,16 @@ modules to ensure consistent Markdown generation.
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
+
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML, and other formats that support annotations.
+
+   :Type: ``CommentMode``
+   :CLI flag: ``--markdown-comment-mode``
+   :Default: ``'blockquote'``
+   :Choices: ``html``, ``blockquote``, ``ignore``
+   :Importance: core
 
 Network Fetch Options
 ^^^^^^^^^^^^^^^^^^^^^

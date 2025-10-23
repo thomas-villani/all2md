@@ -158,7 +158,7 @@ CONVERTER_METADATA = ConverterMetadata(
     optional_packages=[],
     import_error_message="",
     parser_options_class=BaseParserOptions,
-    renderer_options_class="all2md.options.PlainTextOptions",
+    renderer_options_class="all2md.options.plaintext.PlainTextOptions",
     description="Parse and render plain text files.",
     priority=1,
 )

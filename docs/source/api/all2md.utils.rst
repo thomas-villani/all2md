@@ -17,6 +17,7 @@ Submodules
    all2md.utils.attachments
    all2md.utils.chart_helpers
    all2md.utils.decorators
+   all2md.utils.encoding
    all2md.utils.escape
    all2md.utils.flavors
    all2md.utils.footnotes
@@ -31,4 +32,5 @@ Submodules
    all2md.utils.parser_helpers
    all2md.utils.security
    all2md.utils.spreadsheet
+   all2md.utils.static_site
    all2md.utils.text

@@ -1,7 +1,7 @@
-all2md.mcp.schemas
+all2md.parsers.fb2
 ==================
 
-.. automodule:: all2md.mcp.schemas
+.. automodule:: all2md.parsers.fb2
    :members:
    :show-inheritance:
    :undoc-members:

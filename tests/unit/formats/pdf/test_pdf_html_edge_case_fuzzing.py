@@ -14,7 +14,7 @@ Test Coverage:
 from io import BytesIO
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from all2md import to_markdown
@@ -28,7 +28,7 @@ class TestHTMLEdgeCaseFuzzing:
     """Fuzz test HTML parser with edge cases."""
 
     @given(st.binary(min_size=0, max_size=1000))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=None)
+    @settings(max_examples=50, deadline=None)
     def test_random_binary_as_html(self, binary_data):
         """Property: Random binary data should not crash HTML parser."""
         try:
@@ -82,7 +82,7 @@ class TestHTMLEdgeCaseFuzzing:
         assert "content" in result.lower()
 
     @given(st.text(alphabet="<>/", min_size=10, max_size=200))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=20)
+    @settings(max_examples=20)
     def test_html_random_tag_structure(self, tag_chars):
         """Test HTML with random tag-like characters."""
         try:
@@ -119,7 +119,7 @@ class TestPDFEdgeCaseFuzzing:
     """Fuzz test PDF parser with edge cases."""
 
     @given(st.binary(min_size=0, max_size=1000))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=30)
+    @settings(max_examples=30)
     def test_random_binary_as_pdf(self, binary_data):
         """Property: Random binary data should not crash PDF parser."""
         try:
@@ -193,7 +193,7 @@ class TestFormatDetectionFuzzing:
     """Fuzz test format detection with ambiguous inputs."""
 
     @given(st.binary(min_size=4, max_size=100))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=50, deadline=1000)
+    @settings(max_examples=50, deadline=1000)
     def test_format_detection_with_random_headers(self, header_bytes):
         """Test format detection doesn't crash on random file headers."""
         from all2md.exceptions import DependencyError, FormatError, ParsingError
@@ -233,7 +233,6 @@ class TestEncodingEdgeCases:
     """Test encoding edge cases."""
 
     @given(st.sampled_from(["utf-8", "utf-16", "utf-32", "latin-1", "ascii"]), st.text(min_size=1, max_size=100))
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], max_examples=30, deadline=None)
     def test_various_encodings(self, encoding, text):
         """Test HTML parsing with various text encodings.
 
