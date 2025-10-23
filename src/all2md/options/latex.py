@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from all2md.constants import DEFAULT_LATEX_COMMENT_MODE, LatexCommentMode
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -105,6 +106,13 @@ class LatexRendererOptions(BaseRendererOptions):
     use_unicode : bool, default True
         Whether to allow Unicode characters in output.
         When False, uses LaTeX escapes for special characters.
+    comment_mode : {"percent", "todonotes", "marginnote", "ignore"}, default "percent"
+        How to render Comment and CommentInline AST nodes:
+        - "percent": Render as LaTeX comments (% Comment text)
+        - "todonotes": Use \\todo{} command from todonotes package (colored margin notes)
+        - "marginnote": Use \\marginpar{} for margin notes (simple side notes)
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from source documents.
 
     """
 
@@ -139,6 +147,16 @@ class LatexRendererOptions(BaseRendererOptions):
     use_unicode: bool = field(
         default=True,
         metadata={"help": "Allow Unicode characters in output", "cli_name": "no-use-unicode", "importance": "advanced"},
+    )
+    comment_mode: LatexCommentMode = field(
+        default=DEFAULT_LATEX_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "percent (% comments), todonotes (\\todo{}), marginnote (\\marginpar{}), "
+                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "choices": ["percent", "todonotes", "marginnote", "ignore"],
+            "importance": "core",
+        },
     )
 
     def __post_init__(self) -> None:

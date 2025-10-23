@@ -77,6 +77,12 @@ EmphasisSymbol = Literal["*", "_"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 CommentMode = Literal["html", "blockquote", "ignore"]
+
+
+HtmlCommentMode = Literal["native", "visible", "ignore"]
+DocxCommentMode = Literal["native", "visible", "ignore"]
+LatexCommentMode = Literal["percent", "todonotes", "marginnote", "ignore"]
+OdtCommentMode = Literal["native", "visible", "ignore"]
 CommentType = Literal["html", "docx_review", "latex", "code", "wiki", "generic"]
 CommentRenderMode = Literal["preserve", "convert", "strip"]
 
@@ -109,6 +115,10 @@ OCRMode = Literal["auto", "force", "off"]
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 DEFAULT_COMMENT_MODE: CommentMode = "blockquote"
+DEFAULT_HTML_COMMENT_MODE: HtmlCommentMode = "native"
+DEFAULT_DOCX_COMMENT_MODE: DocxCommentMode = "native"
+DEFAULT_LATEX_COMMENT_MODE: LatexCommentMode = "percent"
+DEFAULT_ODT_COMMENT_MODE: OdtCommentMode = "native"
 DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 
 # Flavor and unsupported element defaults

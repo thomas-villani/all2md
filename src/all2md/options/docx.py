@@ -8,13 +8,13 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from all2md.constants import (
-    DEFAULT_COMMENT_MODE,
     DEFAULT_DOCX_CODE_FONT,
     DEFAULT_DOCX_CODE_FONT_SIZE,
+    DEFAULT_DOCX_COMMENT_MODE,
     DEFAULT_DOCX_FONT,
     DEFAULT_DOCX_FONT_SIZE,
     DEFAULT_DOCX_TABLE_STYLE,
-    CommentMode,
+    DocxCommentMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, AttachmentOptionsMixin
@@ -56,6 +56,12 @@ class DocxRendererOptions(BaseRendererOptions):
         remote image fetching is disabled (allow_remote_fetch=False).
         Set network.allow_remote_fetch=True to enable secure remote image fetching
         with the same security guardrails as PPTX renderer.
+    comment_mode : {"native", "visible", "ignore"}, default "native"
+        How to render Comment and CommentInline AST nodes:
+        - "native": Use python-docx native comment API (preserves Word comments when possible)
+        - "visible": Render as regular text paragraphs with attribution
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from DOCX source files and other formats.
 
     """
 
@@ -112,6 +118,17 @@ class DocxRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Network security settings for remote image fetching",
             "cli_flatten": True,  # Nested, handled separately
+        },
+    )
+    comment_mode: DocxCommentMode = field(
+        default=DEFAULT_DOCX_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "native (Word comments API), visible (text paragraphs with attribution), "
+                    "ignore (skip comment nodes entirely). Controls presentation of comments "
+                    "from DOCX source files and other format annotations.",
+            "choices": ["native", "visible", "ignore"],
+            "importance": "core",
         },
     )
 
@@ -188,16 +205,8 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
     comments_position: Literal["inline", "footnotes"] = field(
         default="footnotes",
         metadata={
-            "help": "Render comments inline or at document end",
+            "help": "Where to place Comment nodes in the AST: inline (CommentInline nodes at reference points) or footnotes (Comment block nodes appended at end)",
             "choices": ["inline", "footnotes"],
-            "importance": "advanced",
-        },
-    )
-    comment_mode: CommentMode = field(
-        default=DEFAULT_COMMENT_MODE,
-        metadata={
-            "help": "How to render comments: html (HTML comments), blockquote (quoted blocks), ignore (skip)",
-            "choices": ["html", "blockquote", "ignore"],
             "importance": "advanced",
         },
     )

@@ -48,15 +48,26 @@ FIXTURE_FOOTNOTES_DOC = FIXTURES_PATH / "documents" / "footnotes-endnotes-commen
 FIXTURE_MATH_DOC = FIXTURES_PATH / "documents" / "math-basic.docx"
 
 
-def _inline_text(nodes: list) -> str:
+def _inline_text(nodes: list, comment_mode: str = "blockquote") -> str:
+    """Extract text from AST nodes, simulating markdown rendering.
+
+    Parameters
+    ----------
+    nodes : list
+        List of AST nodes
+    comment_mode : str, default "blockquote"
+        How to render comment nodes (matches renderer option)
+
+    """
     parts: list[str] = []
     for node in nodes:
         if isinstance(node, Text):
             parts.append(node.content)
         elif isinstance(node, CommentInline):
             # Handle inline comments similar to markdown renderer
-            render_mode = node.metadata.get("render_mode", "html")
-            if render_mode == "blockquote":
+            if comment_mode == "ignore":
+                continue
+            elif comment_mode == "blockquote":
                 comment_text = node.content
                 if node.metadata.get("author"):
                     author = node.metadata.get("author")
@@ -66,13 +77,13 @@ def _inline_text(nodes: list) -> str:
                 else:
                     comment_text = f"[{comment_text}]"
                 parts.append(comment_text)
-            else:
-                # For html mode, include content but not in HTML comment syntax
+            else:  # html
+                # For html mode, just include the content
                 parts.append(node.content)
         elif hasattr(node, "content"):
             child = node.content
             if isinstance(child, list):
-                parts.append(_inline_text(child))
+                parts.append(_inline_text(child, comment_mode=comment_mode))
     return "".join(parts)
 
 
@@ -712,17 +723,21 @@ class TestComments:
         options = DocxOptions(
             include_comments=True,
             comments_position="footnotes",
-            comment_mode="blockquote",
         )
         converter = DocxToAstConverter(options=options)
         ast_doc = converter.convert_to_ast(doc)
 
-        blockquotes = [node for node in ast_doc.children if isinstance(node, BlockQuote)]
-        assert blockquotes, "Expected comments to be appended as blockquotes"
+        # Parser creates Comment nodes (not BlockQuote) - renderer decides presentation
+        from all2md.ast import Comment
+        comments = [node for node in ast_doc.children if isinstance(node, Comment)]
+        assert comments, "Expected comments to be appended as Comment nodes"
 
-        quoted_text = _inline_text(blockquotes[0].children[0].content)
-        assert "I decided not to think of something funny." in quoted_text
+        # Check comment content and metadata
+        assert "I decided not to think of something funny." in comments[0].content
+        assert comments[0].metadata["comment_type"] == "docx_review"
+        assert comments[0].metadata.get("author") is not None
 
+        # Verify inline comment is NOT in paragraph (since position is "footnotes")
         paragraph = next(
             child
             for child in ast_doc.children
@@ -736,7 +751,6 @@ class TestComments:
         options = DocxOptions(
             include_comments=True,
             comments_position="inline",
-            comment_mode="blockquote",
         )
         converter = DocxToAstConverter(options=options)
         ast_doc = converter.convert_to_ast(doc)

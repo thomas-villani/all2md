@@ -1031,10 +1031,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Comment block to render
 
         """
-        # Check if render_mode is specified in metadata
-        render_mode = node.metadata.get("render_mode", "html")
+        # Use renderer's comment_mode option
+        comment_mode = self.options.comment_mode
 
-        if render_mode == "blockquote":
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        if comment_mode == "blockquote":
             # Render as blockquote for readability
             self._output.append("> ")
             # Add author/date info if available
@@ -1048,8 +1052,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(f"> *{header}*\n> \n> {node.content}")
             else:
                 self._output.append(f"> {node.content}")
-        else:
-            # Default to HTML comment for maximum compatibility
+        else:  # "html"
+            # Render as HTML comment for maximum compatibility
             # Build comment text with metadata if available
             comment_text = node.content
             if node.metadata.get("author"):
@@ -1290,10 +1294,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Inline comment to render
 
         """
-        # Check if render_mode is specified in metadata
-        render_mode = node.metadata.get("render_mode", "html")
+        # Use renderer's comment_mode option
+        comment_mode = self.options.comment_mode
 
-        if render_mode == "blockquote":
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        if comment_mode == "blockquote":
             # For inline comments in blockquote mode, render as text with attribution
             comment_text = node.content
             if node.metadata.get("author"):
@@ -1304,8 +1312,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             else:
                 comment_text = f"[{comment_text}]"
             self._output.append(comment_text)
-        else:
-            # Default to HTML comment for inline comments
+        else:  # "html"
+            # Render as HTML comment for inline comments
             # Build comment text with metadata if available
             comment_text = node.content
             if node.metadata.get("author"):

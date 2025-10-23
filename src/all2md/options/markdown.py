@@ -14,6 +14,7 @@ from all2md.constants import (
     DEFAULT_CODE_FENCE_CHAR,
     DEFAULT_CODE_FENCE_MIN,
     DEFAULT_COLLAPSE_BLANK_LINES,
+    DEFAULT_COMMENT_MODE,
     DEFAULT_EMPHASIS_SYMBOL,
     DEFAULT_ESCAPE_SPECIAL,
     DEFAULT_FLAVOR,
@@ -28,6 +29,7 @@ from all2md.constants import (
     DEFAULT_TABLE_PIPE_ESCAPE,
     DEFAULT_USE_HASH_HEADINGS,
     CodeFenceChar,
+    CommentMode,
     EmphasisSymbol,
     FlavorType,
     HtmlPassthroughMode,
@@ -140,6 +142,13 @@ class MarkdownOptions(BaseRendererOptions):
         - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
         Note: This does not affect fenced code blocks with language="html", which are
         always rendered as code and are already safe.
+    comment_mode : {"html", "blockquote", "ignore"}, default "blockquote"
+        How to render Comment and CommentInline AST nodes:
+        - "html": Render as HTML comments (<!-- Comment text -->)
+        - "blockquote": Render as blockquotes with attribution ([Comment by Author: text])
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from DOCX reviewer comments, HTML comments,
+        and other format-specific annotations.
 
     """
 
@@ -340,6 +349,17 @@ class MarkdownOptions(BaseRendererOptions):
                     "Default is 'escape' for security. Does not affect code blocks.",
             "choices": ["pass-through", "escape", "drop", "sanitize"],
             "importance": "security",
+        },
+    )
+    comment_mode: CommentMode = field(
+        default=DEFAULT_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), "
+                    "ignore (skip comment nodes entirely). Controls presentation of comments "
+                    "from DOCX, HTML, and other formats that support annotations.",
+            "choices": ["html", "blockquote", "ignore"],
+            "importance": "core",
         },
     )
 

@@ -1232,25 +1232,69 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         """
         from odf.dc import Creator, Date
         from odf.office import Annotation
-        from odf.text import P
+        from odf.text import P, Span
 
         if not self.document:
             return
 
-        # Create annotation using odfpy's native annotation support
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        if comment_mode == "visible":
+            # Render as visible text paragraph with attribution
+            para = P()
+
+            # Build attribution prefix
+            prefix_parts = []
+            if comment_type:
+                prefix_parts.append(comment_type.upper())
+            if label:
+                prefix_parts.append(f"#{label}")
+            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+            # Add attribution as bold span
+            if author:
+                if date:
+                    attribution_text = f"{prefix} by {author} ({date}): "
+                else:
+                    attribution_text = f"{prefix} by {author}: "
+
+                attribution_span = Span(stylename="Bold")
+                attribution_span.addText(attribution_text)
+                para.addElement(attribution_span)
+
+            # Add comment content as italic span
+            content_span = Span(stylename="Italic")
+            content_span.addText(node.content)
+            para.addElement(content_span)
+
+            self.document.text.addElement(para)
+            return
+
+        # Mode is "native" - create annotation using odfpy's native annotation support
         annotation = Annotation()
 
         # Add author if available
-        if node.metadata.get("author"):
+        if author:
             creator = Creator()
-            creator.addText(str(node.metadata["author"]))
+            creator.addText(author)
             annotation.addElement(creator)
 
         # Add date if available
-        if node.metadata.get("date"):
-            date = Date()
-            date.addText(str(node.metadata["date"]))
-            annotation.addElement(date)
+        if date:
+            date_elem = Date()
+            date_elem.addText(date)
+            annotation.addElement(date_elem)
 
         # Add comment content as paragraph(s)
         comment_para = P()
@@ -1274,25 +1318,63 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         """
         from odf.dc import Creator, Date
         from odf.office import Annotation
-        from odf.text import P
+        from odf.text import P, Span
 
         if not self._current_paragraph:
             return
 
-        # Create inline annotation using odfpy's native annotation support
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        if comment_mode == "visible":
+            # Render as visible inline text with attribution
+            # Build attribution prefix
+            prefix_parts = []
+            if comment_type:
+                prefix_parts.append(comment_type.upper())
+            if label:
+                prefix_parts.append(f"#{label}")
+            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+            # Build full text
+            if author:
+                if date:
+                    full_text = f"[{prefix} by {author} ({date}): {node.content}]"
+                else:
+                    full_text = f"[{prefix} by {author}: {node.content}]"
+            else:
+                full_text = f"[{node.content}]"
+
+            # Add as italic span
+            span = Span(stylename="Italic")
+            span.addText(full_text)
+            self._current_paragraph.addElement(span)
+            return
+
+        # Mode is "native" - create inline annotation using odfpy's native annotation support
         annotation = Annotation()
 
         # Add author if available
-        if node.metadata.get("author"):
+        if author:
             creator = Creator()
-            creator.addText(str(node.metadata["author"]))
+            creator.addText(author)
             annotation.addElement(creator)
 
         # Add date if available
-        if node.metadata.get("date"):
-            date = Date()
-            date.addText(str(node.metadata["date"]))
-            annotation.addElement(date)
+        if date:
+            date_elem = Date()
+            date_elem.addText(date)
+            annotation.addElement(date_elem)
 
         # Add comment content as paragraph
         comment_para = P()

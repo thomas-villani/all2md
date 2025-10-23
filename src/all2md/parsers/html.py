@@ -917,10 +917,10 @@ class HtmlToAstConverter(BaseParser):
         Returns
         -------
         BlockQuote, Paragraph, HTMLBlock, or None
-            Converted node based on figure_rendering option
+            Converted node based on figures_parsing option
 
         """
-        if self.options.figure_rendering == "html":
+        if self.options.figures_parsing == "html":
             # Preserve as HTML
             return HTMLBlock(content=str(node))
 
@@ -931,7 +931,7 @@ class HtmlToAstConverter(BaseParser):
         # Find image in figure
         img_node = node.find("img")
 
-        if self.options.figure_rendering == "image_with_caption":
+        if self.options.figures_parsing == "image_with_caption":
             # Render as image with caption in alt text or below
             if img_node:
                 img_ast = self._process_image_to_ast(img_node)
@@ -974,13 +974,13 @@ class HtmlToAstConverter(BaseParser):
         Returns
         -------
         BlockQuote, HTMLBlock, or None
-            Converted node based on details_rendering option
+            Converted node based on details_parsing option
 
         """
-        if self.options.details_rendering == "ignore":
+        if self.options.details_parsing == "ignore":
             return None
 
-        if self.options.details_rendering == "html":
+        if self.options.details_parsing == "html":
             # Preserve as HTML
             return HTMLBlock(content=str(node))
 

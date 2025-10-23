@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.constants import DEFAULT_ODT_COMMENT_MODE, OdtCommentMode
 from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions
@@ -84,6 +85,12 @@ class OdtRendererOptions(BaseRendererOptions):
         styles instead of creating a blank document.
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security settings for fetching remote images.
+    comment_mode : {"native", "visible", "ignore"}, default "native"
+        How to render Comment and CommentInline AST nodes:
+        - "native": Use odfpy native comment/annotation support (preserves ODT comments when possible)
+        - "visible": Render as regular text paragraphs with attribution
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from ODT source files and other formats.
 
     """
 
@@ -133,6 +140,17 @@ class OdtRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Network security settings for remote image fetching",
             "cli_flatten": True,
+        },
+    )
+    comment_mode: OdtCommentMode = field(
+        default=DEFAULT_ODT_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "native (ODT annotations), visible (text paragraphs with attribution), "
+                    "ignore (skip comment nodes entirely). Controls presentation of comments "
+                    "from ODT source files and other format annotations.",
+            "choices": ["native", "visible", "ignore"],
+            "importance": "core",
         },
     )
 

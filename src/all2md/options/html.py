@@ -15,11 +15,13 @@ from all2md.constants import (
     DEFAULT_CSP_ENABLED,
     DEFAULT_CSP_POLICY,
     DEFAULT_EXTRACT_TITLE,
+    DEFAULT_HTML_COMMENT_MODE,
     DEFAULT_HTML_PASSTHROUGH_MODE,
     DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
     HTML_PASSTHROUGH_MODES,
+    HtmlCommentMode,
     HtmlPassthroughMode,
 )
 from all2md.options.common import AttachmentOptionsMixin
@@ -100,6 +102,13 @@ class HtmlRendererOptions(BaseRendererOptions):
     csp_policy : str or None, default (secure policy)
         Custom Content-Security-Policy header value.
         If None, uses default: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+    comment_mode : {"native", "visible", "ignore"}, default "native"
+        How to render Comment and CommentInline AST nodes:
+        - "native": Render as HTML comments (<!-- Comment by Author: text -->)
+        - "visible": Render as visible <div>/<span> elements with class="comment" and metadata in data attributes
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from DOCX reviewer comments, source HTML comments,
+        and other format-specific annotations.
 
     Examples
     --------
@@ -246,6 +255,17 @@ class HtmlRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Custom Content-Security-Policy header value. " "If None, uses default secure policy.",
             "importance": "security",
+        },
+    )
+    comment_mode: HtmlCommentMode = field(
+        default=DEFAULT_HTML_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "native (HTML comments <!-- -->), visible (visible <div>/<span> elements), "
+                    "ignore (skip comment nodes entirely). Controls presentation of comments "
+                    "from DOCX, HTML parsers, and other formats with annotations.",
+            "choices": ["native", "visible", "ignore"],
+            "importance": "core",
         },
     )
 
@@ -419,19 +439,19 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "security",
         },
     )
-    figure_rendering: Literal["blockquote", "image_with_caption", "html"] = field(
+    figures_parsing: Literal["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"] = field(
         default="blockquote",
         metadata={
-            "help": "How to render <figure> elements: blockquote, image_with_caption, html",
-            "choices": ["blockquote", "image_with_caption", "html"],
+            "help": "How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip",
+            "choices": ["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"],
             "importance": "advanced",
         },
     )
-    details_rendering: Literal["blockquote", "html", "ignore"] = field(
+    details_parsing: Literal["blockquote", "paragraph", "html", "skip"] = field(
         default="blockquote",
         metadata={
-            "help": "How to render <details>/<summary> elements: blockquote, html, ignore",
-            "choices": ["blockquote", "html", "ignore"],
+            "help": "How to render <details>/<summary> elements: blockquote, html, skip",
+            "choices": ["blockquote", "html", "skip"],
             "importance": "advanced",
         },
     )

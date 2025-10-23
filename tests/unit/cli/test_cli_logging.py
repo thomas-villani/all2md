@@ -216,8 +216,8 @@ class TestEnhancedAbout:
         assert result == 0
 
 
-@pytest.mark.timing
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
+@pytest.mark.timing
 class TestTimingInstrumentation:
     """Test timing instrumentation in conversion pipeline."""
 

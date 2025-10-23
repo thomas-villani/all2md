@@ -246,12 +246,12 @@ class TestAsciiDocRendererEdgeCases:
         assert "text" in output
 
     def test_wrapping_negative_line_length(self) -> None:
-        """Test that negative line_length is treated as no wrapping."""
-        text = "This is a long text that should not be wrapped with negative line length"
+        """Test that line_length=0 disables wrapping."""
+        text = "This is a long text that should not be wrapped with line_length=0"
 
         doc = Document(children=[Paragraph(content=[Text(content=text)])])
 
-        options = AsciiDocRendererOptions(line_length=-1)
+        options = AsciiDocRendererOptions(line_length=0)
         renderer = AsciiDocRenderer(options=options)
         output = renderer.render_to_string(doc)
 

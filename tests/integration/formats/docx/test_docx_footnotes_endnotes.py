@@ -50,7 +50,6 @@ def test_docx_inline_comments_render_inline() -> None:
     options = DocxOptions(
         include_comments=True,
         comments_position="inline",
-        comment_mode="blockquote",
     )
     converter = DocxToAstConverter(options=options)
     document = converter.parse(DOCX_FIXTURE_PATH)

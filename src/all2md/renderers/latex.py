@@ -591,30 +591,76 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Comment block to render
 
         """
-        # Build comment text with metadata if available
-        comment_lines = []
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
 
-        # Add metadata header if present
-        if node.metadata.get("author") or node.metadata.get("date"):
-            author = node.metadata.get("author", "Unknown")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
 
-            header_parts = ["Comment"]
-            if label:
-                header_parts.append(label)
-            header_parts.append(f"by {author}")
-            if date:
-                header_parts.append(f"({date})")
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
 
-            comment_lines.append("% " + " ".join(header_parts))
+        # Build attribution prefix
+        prefix_parts = []
+        if comment_type:
+            prefix_parts.append(comment_type.upper())
+        if label:
+            prefix_parts.append(f"#{label}")
+        prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
 
-        # Add content - split multiline content and prefix each line
-        content_lines = node.content.split("\n")
-        for line in content_lines:
-            comment_lines.append(f"% {line}")
+        if comment_mode == "todonotes":
+            # Render using \todo{} from todonotes package
+            # Format: \todo[author=Name]{Comment text}
+            todo_text = node.content.replace("}", "\\}")  # Escape closing braces
 
-        self._output.append("\n".join(comment_lines))
+            if author:
+                # Add author as option
+                escaped_author = author.replace("]", "\\]")  # Escape closing brackets
+                if date:
+                    self._output.append(f"\\todo[author={escaped_author}]{{{prefix} ({date}): {todo_text}}}")
+                else:
+                    self._output.append(f"\\todo[author={escaped_author}]{{{prefix}: {todo_text}}}")
+            else:
+                self._output.append(f"\\todo{{{todo_text}}}")
+
+        elif comment_mode == "marginnote":
+            # Render using \marginpar{} for margin notes
+            margin_text = node.content.replace("}", "\\}")  # Escape closing braces
+
+            # Build full text with attribution
+            if author:
+                if date:
+                    full_text = f"\\textbf{{{prefix} by {author} ({date}):}} {margin_text}"
+                else:
+                    full_text = f"\\textbf{{{prefix} by {author}:}} {margin_text}"
+            else:
+                full_text = margin_text
+
+            self._output.append(f"\\marginpar{{{full_text}}}")
+
+        else:  # "percent" mode
+            # Build comment text with metadata if available
+            comment_lines = []
+
+            # Add metadata header if present
+            if author or date:
+                header_parts = [prefix]
+                header_parts.append(f"by {author}" if author else "")
+                if date:
+                    header_parts.append(f"({date})")
+
+                comment_lines.append("% " + " ".join(p for p in header_parts if p))
+
+            # Add content - split multiline content and prefix each line
+            content_lines = node.content.split("\n")
+            for line in content_lines:
+                comment_lines.append(f"% {line}")
+
+            self._output.append("\n".join(comment_lines))
 
     def visit_comment_inline(self, node: CommentInline) -> None:
         """Render a CommentInline node (inline).
@@ -625,25 +671,68 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Inline comment to render
 
         """
-        # Build comment text with metadata if available
-        comment_text = node.content
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
 
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
 
-            prefix_parts = ["Comment"]
-            if label:
-                prefix_parts.append(label)
-            prefix_parts.append(f"by {author}")
-            if date:
-                prefix_parts.append(f"({date})")
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
 
-            comment_text = " ".join(prefix_parts) + f": {comment_text}"
+        # Build attribution prefix
+        prefix_parts = []
+        if comment_type:
+            prefix_parts.append(comment_type.upper())
+        if label:
+            prefix_parts.append(f"#{label}")
+        prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
 
-        # Render as inline LaTeX comment
-        self._output.append(f"% {comment_text}")
+        if comment_mode == "todonotes":
+            # Render using \todo{} inline
+            todo_text = node.content.replace("}", "\\}")
+
+            if author:
+                escaped_author = author.replace("]", "\\]")
+                if date:
+                    self._output.append(f"\\todo[inline,author={escaped_author}]{{{prefix} ({date}): {todo_text}}}")
+                else:
+                    self._output.append(f"\\todo[inline,author={escaped_author}]{{{prefix}: {todo_text}}}")
+            else:
+                self._output.append(f"\\todo[inline]{{{todo_text}}}")
+
+        elif comment_mode == "marginnote":
+            # Render using \marginpar{} for inline margin notes
+            margin_text = node.content.replace("}", "\\}")
+
+            if author:
+                if date:
+                    full_text = f"\\textbf{{{prefix} by {author} ({date}):}} {margin_text}"
+                else:
+                    full_text = f"\\textbf{{{prefix} by {author}:}} {margin_text}"
+            else:
+                full_text = margin_text
+
+            self._output.append(f"\\marginpar{{{full_text}}}")
+
+        else:  # "percent" mode
+            # Build comment text with metadata if available
+            comment_text = node.content
+
+            if author:
+                prefix_text_parts = [prefix]
+                prefix_text_parts.append(f"by {author}")
+                if date:
+                    prefix_text_parts.append(f"({date})")
+
+                comment_text = " ".join(prefix_text_parts) + f": {comment_text}"
+
+            # Render as inline LaTeX comment
+            self._output.append(f"% {comment_text}")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

@@ -1320,7 +1320,50 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if not self.document:
             return
 
-        # Try to use native DOCX comments if supported
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract comment metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        if comment_mode == "visible":
+            # Render as visible text paragraph with attribution
+            para = self.document.add_paragraph()
+
+            # Build attribution prefix
+            prefix_parts = []
+            if comment_type:
+                prefix_parts.append(comment_type.upper())
+            if label:
+                prefix_parts.append(f"#{label}")
+
+            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+            # Add attribution
+            if author:
+                if date:
+                    attribution = f"{prefix} by {author} ({date}):"
+                else:
+                    attribution = f"{prefix} by {author}:"
+
+                # Add attribution as bold
+                run = para.add_run(attribution + " ")
+                run.font.bold = True
+
+            # Add comment content
+            run = para.add_run(node.content)
+            run.font.italic = True
+
+            return
+
+        # Mode is "native" - try to use native DOCX comments if supported
         try:
             # Create a paragraph to attach the comment to
             para = self.document.add_paragraph(node.content)
@@ -1368,7 +1411,46 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if not self.document or self._current_paragraph is None:
             return
 
-        # Try to use native DOCX comments if supported
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract comment metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        if comment_mode == "visible":
+            # Render as visible inline text with attribution
+            # Build attribution prefix
+            prefix_parts = []
+            if comment_type:
+                prefix_parts.append(comment_type.upper())
+            if label:
+                prefix_parts.append(f"#{label}")
+
+            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+            # Build full text
+            if author:
+                if date:
+                    full_text = f"[{prefix} by {author} ({date}): {node.content}]"
+                else:
+                    full_text = f"[{prefix} by {author}: {node.content}]"
+            else:
+                full_text = f"[{node.content}]"
+
+            # Add as italic run
+            run = self._current_paragraph.add_run(full_text)
+            run.font.italic = True
+
+            return
+
+        # Mode is "native" - try to use native DOCX comments if supported
         try:
             # Extract comment metadata
             author = node.metadata.get("author", "")

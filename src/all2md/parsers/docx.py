@@ -729,11 +729,7 @@ class DocxToAstConverter(BaseParser):
     def _extract_comment_reference_nodes(self, run: Any) -> list[Node]:
         from docx.text.hyperlink import Hyperlink
 
-        if (
-                not self.options.include_comments
-                or self.options.comments_position != "inline"
-                or self.options.comment_mode == "ignore"
-        ):
+        if not self.options.include_comments or self.options.comments_position != "inline":
             return []
 
         if isinstance(run, Hyperlink) or not hasattr(run, "_element"):
@@ -771,14 +767,11 @@ class DocxToAstConverter(BaseParser):
         if comment is None:
             return []
 
-        mode = self.options.comment_mode
-        if mode == "ignore":
-            return []
-
         if not comment.text:
             return []
 
         # Create CommentInline node with rich metadata
+        # Renderer will decide how to present it based on its own options
         return [
             CommentInline(
                 content=comment.text,
@@ -788,7 +781,6 @@ class DocxToAstConverter(BaseParser):
                     "label": comment.label,
                     "author": comment.author,
                     "date": comment.date,
-                    "render_mode": mode,  # Track how it should be rendered
                 },
             )
         ]
@@ -1113,51 +1105,34 @@ class DocxToAstConverter(BaseParser):
         return comments
 
     def _process_comments(self) -> list[Node]:
-        """Render collected comments as block-level nodes.
+        """Process collected comments as block-level Comment nodes.
 
-        Generates different node types based on comment_mode:
-        - 'html': HTMLBlock with HTML comment syntax
-        - 'blockquote': BlockQuote with comment text and attribution
-        - other: Comment node with metadata (for future renderer support)
+        Creates Comment nodes with metadata. The renderer will decide how to
+        present them (as HTML comments, blockquotes, etc.) based on its own options.
         """
         nodes: list[Node] = []
-        mode = self.options.comment_mode
 
-        if mode == "ignore" or not self._comments_map:
+        if not self._comments_map:
             return nodes
 
         for comment in self._comments_map.values():
             if not comment.text:
                 continue
 
-            if mode == "html":
-                # Generate HTML comment block
-                header = self._format_comment_header(comment, include_id=True, include_prefix=True)
-                html_comment = f"<!-- {header}: {comment.text} -->"
-                nodes.append(HTMLBlock(content=html_comment))
-            elif mode == "blockquote":
-                # Generate blockquote with comment text and attribution
-                header = self._format_comment_header(comment, include_id=True, include_prefix=False)
-                blockquote_content = [
-                    AstParagraph(content=[Text(content=comment.text)]),
-                    AstParagraph(content=[Emphasis(content=[Text(content=f"— {header}")])]),
-                ]
-                nodes.append(BlockQuote(children=blockquote_content))
-            else:
-                # Create Comment node with rich metadata (for future renderer support)
-                nodes.append(
-                    Comment(
-                        content=comment.text,
-                        metadata={
-                            "comment_type": "docx_review",
-                            "identifier": comment.identifier,
-                            "label": comment.label,
-                            "author": comment.author,
-                            "date": comment.date,
-                            "render_mode": mode,
-                        },
-                    )
+            # Create Comment node with rich metadata
+            # Renderer will decide presentation based on its comment_mode option
+            nodes.append(
+                Comment(
+                    content=comment.text,
+                    metadata={
+                        "comment_type": "docx_review",
+                        "identifier": comment.identifier,
+                        "label": comment.label,
+                        "author": comment.author,
+                        "date": comment.date,
+                    },
                 )
+            )
 
         return nodes
 

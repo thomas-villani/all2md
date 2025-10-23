@@ -1593,10 +1593,11 @@ class AsciiDocParser(BaseParser):
         if header_mode == "attribute-based":
             options_str = attrs.get("options", "")
             # Support both explicit "header" and "noheader" options
-            if "header" in options_str:
-                has_header = True
-            elif "noheader" in options_str or options_str == "noheader":
+            # Check noheader first to avoid substring match issues
+            if "noheader" in options_str:
                 has_header = False
+            elif "header" in options_str:
+                has_header = True
             # If neither is specified, use default (has_header = True)
         elif header_mode == "first-row":
             has_header = True

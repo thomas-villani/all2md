@@ -14,7 +14,7 @@ def test_figure_blockquote_rendering():
     </figure>
     """
 
-    options = HtmlOptions(figure_rendering="blockquote")
+    options = HtmlOptions(figures_parsing="blockquote")
     converter = HtmlToAstConverter(options)
     doc = converter.parse(html)
 
@@ -46,7 +46,7 @@ def test_figure_image_with_caption_rendering():
     </figure>
     """
 
-    options = HtmlOptions(figure_rendering="image_with_caption")
+    options = HtmlOptions(figures_parsing="image_with_caption")
     converter = HtmlToAstConverter(options)
     doc = converter.parse(html)
 
@@ -70,7 +70,7 @@ def test_details_blockquote_rendering():
     </details>
     """
 
-    options = HtmlOptions(details_rendering="blockquote")
+    options = HtmlOptions(details_parsing="blockquote")
     converter = HtmlToAstConverter(options)
     doc = converter.parse(html)
 
@@ -95,7 +95,7 @@ def test_details_ignore_rendering():
     <p>But this should</p>
     """
 
-    options = HtmlOptions(details_rendering="ignore")
+    options = HtmlOptions(details_parsing="ignore")
     converter = HtmlToAstConverter(options)
     doc = converter.parse(html)
 

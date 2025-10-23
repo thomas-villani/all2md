@@ -7,9 +7,9 @@ import time
 import pytest
 
 
+@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 @pytest.mark.timing
 @pytest.mark.unit
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 class TestTimingContext:
     """Test TimingContext context manager."""
 

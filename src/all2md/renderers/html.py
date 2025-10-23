@@ -1032,35 +1032,56 @@ hr {
             Inline comment to render
 
         """
+        # Check renderer's comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
         # Build comment text with metadata if available
         comment_text = node.content
 
         # Add metadata information if available
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
-            comment_type = node.metadata.get("comment_type", "")
+        author = node.metadata.get("author")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
 
-            # Build metadata prefix
-            prefix_parts = []
-            if comment_type:
-                prefix_parts.append(comment_type.upper())
-            if label:
-                prefix_parts.append(f"#{label}")
+        if comment_mode == "native":
+            # Render as HTML comment
+            if author:
+                # Build metadata prefix
+                prefix_parts = []
+                if comment_type:
+                    prefix_parts.append(comment_type.upper())
+                if label:
+                    prefix_parts.append(f"#{label}")
 
-            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+                prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
 
-            # Build full comment text
+                # Build full comment text
+                if date:
+                    comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+                else:
+                    comment_text = f"{prefix} by {author}: {comment_text}"
+
+            # Escape any -- sequences in comment to avoid breaking HTML comment syntax
+            safe_text = comment_text.replace("--", "- -")
+            self._output.append(f"<!-- {safe_text} -->")
+
+        elif comment_mode == "visible":
+            # Render as visible <span> element with data attributes (inline)
+            self._output.append('<span class="comment"')
+            if author:
+                self._output.append(f' data-author="{escape_html(author)}"')
             if date:
-                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
-            else:
-                comment_text = f"{prefix} by {author}: {comment_text}"
-
-        # Render as HTML comment
-        # Escape any -- sequences in comment to avoid breaking HTML comment syntax
-        safe_text = comment_text.replace("--", "- -")
-        self._output.append(f"<!-- {safe_text} -->")
+                self._output.append(f' data-date="{escape_html(date)}"')
+            if label:
+                self._output.append(f' data-label="{escape_html(label)}"')
+            if comment_type:
+                self._output.append(f' data-type="{escape_html(comment_type)}"')
+            self._output.append(f">{escape_html(comment_text)}</span>")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
@@ -1184,32 +1205,53 @@ hr {
             Comment block to render
 
         """
+        # Check renderer's comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
         # Build comment text with metadata if available
         comment_text = node.content
 
         # Add metadata information if available
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
-            comment_type = node.metadata.get("comment_type", "")
+        author = node.metadata.get("author")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
 
-            # Build metadata prefix
-            prefix_parts = []
-            if comment_type:
-                prefix_parts.append(comment_type.upper())
-            if label:
-                prefix_parts.append(f"#{label}")
+        if comment_mode == "native":
+            # Render as HTML comment
+            if author:
+                # Build metadata prefix
+                prefix_parts = []
+                if comment_type:
+                    prefix_parts.append(comment_type.upper())
+                if label:
+                    prefix_parts.append(f"#{label}")
 
-            prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+                prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
 
-            # Build full comment text
+                # Build full comment text
+                if date:
+                    comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+                else:
+                    comment_text = f"{prefix} by {author}: {comment_text}"
+
+            # Escape any -- sequences in comment to avoid breaking HTML comment syntax
+            safe_text = comment_text.replace("--", "- -")
+            self._output.append(f"<!-- {safe_text} -->\n")
+
+        elif comment_mode == "visible":
+            # Render as visible <div> element with data attributes
+            self._output.append('<div class="comment"')
+            if author:
+                self._output.append(f' data-author="{escape_html(author)}"')
             if date:
-                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
-            else:
-                comment_text = f"{prefix} by {author}: {comment_text}"
-
-        # Render as HTML comment
-        # Escape any -- sequences in comment to avoid breaking HTML comment syntax
-        safe_text = comment_text.replace("--", "- -")
-        self._output.append(f"<!-- {safe_text} -->\n")
+                self._output.append(f' data-date="{escape_html(date)}"')
+            if label:
+                self._output.append(f' data-label="{escape_html(label)}"')
+            if comment_type:
+                self._output.append(f' data-type="{escape_html(comment_type)}"')
+            self._output.append(f">{escape_html(comment_text)}</div>\n")
