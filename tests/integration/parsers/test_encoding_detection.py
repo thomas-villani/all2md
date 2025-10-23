@@ -21,7 +21,7 @@ from all2md.parsers.org import OrgParser
 from all2md.parsers.rst import RestructuredTextParser
 from all2md.parsers.sourcecode import SourceCodeToAstConverter
 from all2md.parsers.textile import TextileParser
-from all2md.parsers.txt import PlainTextToAstConverter
+from all2md.parsers.plaintext import PlainTextToAstConverter
 
 
 class TestCSVEncodingDetection:

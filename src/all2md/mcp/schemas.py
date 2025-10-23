@@ -43,7 +43,7 @@ SourceFormat = Literal[
     "csv",
     "rst",
     "markdown",
-    "txt",
+    "plaintext",
 ]
 
 TargetFormat = Literal["html", "pdf", "docx", "pptx", "rst", "epub", "markdown"]
