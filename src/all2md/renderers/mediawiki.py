@@ -338,16 +338,27 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append(sanitized)
 
     def visit_comment(self, node: Comment) -> None:
-        """Render a Comment node (block-level).
-
-        MediaWiki supports HTML comments which are not visible in the rendered output.
+        """Render a Comment node according to comment_mode option.
 
         Parameters
         ----------
         node : Comment
             Comment block to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "html": Use HTML comment syntax <!-- --> (default)
+        - "visible": Render as visible text
+        - "ignore": Skip comment entirely
+
         """
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
+        # Format comment with metadata
         comment_text = node.content
         if node.metadata.get("author"):
             author = node.metadata.get("author")
@@ -359,7 +370,11 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             else:
                 comment_text = f"{prefix} by {author}: {comment_text}"
 
-        self._output.append(f"<!-- {comment_text} -->")
+        if comment_mode == "html":
+            self._output.append(f"<!-- {comment_text} -->")
+        elif comment_mode == "visible":
+            # Render as visible text (no special formatting in MediaWiki)
+            self._output.append(comment_text)
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -578,16 +593,27 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append(sanitized)
 
     def visit_comment_inline(self, node: CommentInline) -> None:
-        """Render a CommentInline node (inline).
-
-        MediaWiki supports HTML comments which are not visible in the rendered output.
+        """Render a CommentInline node according to comment_mode option.
 
         Parameters
         ----------
         node : CommentInline
             Inline comment to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "html": Use HTML comment syntax <!-- --> (default)
+        - "visible": Render as visible text
+        - "ignore": Skip comment entirely
+
         """
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
+        # Format comment with metadata
         comment_text = node.content
         if node.metadata.get("author"):
             author = node.metadata.get("author")
@@ -595,11 +621,21 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             label = node.metadata.get("label", "")
             prefix = f"Comment {label}" if label else "Comment"
             if date:
-                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+                comment_text = f"[{prefix} by {author} ({date}): {comment_text}]"
             else:
-                comment_text = f"{prefix} by {author}: {comment_text}"
+                comment_text = f"[{prefix} by {author}: {comment_text}]"
+        elif node.metadata.get("label"):
+            label = node.metadata.get("label")
+            comment_text = f"[Comment {label}: {comment_text}]"
+        else:
+            # Add brackets for inline visible comments without metadata
+            if comment_mode == "visible":
+                comment_text = f"[{comment_text}]"
 
-        self._output.append(f"<!-- {comment_text} -->")
+        if comment_mode == "html":
+            self._output.append(f"<!-- {comment_text} -->")
+        elif comment_mode == "visible":
+            self._output.append(comment_text)
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

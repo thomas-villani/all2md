@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 
 from all2md.constants import (
     DEFAULT_HTML_PASSTHROUGH_MODE,
+    DEFAULT_MEDIAWIKI_COMMENT_MODE,
     DEFAULT_MEDIAWIKI_IMAGE_CAPTION_MODE,
     DEFAULT_MEDIAWIKI_IMAGE_THUMB,
     DEFAULT_MEDIAWIKI_PARSE_TAGS,
@@ -17,6 +18,7 @@ from all2md.constants import (
     DEFAULT_MEDIAWIKI_STRIP_COMMENTS,
     DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
     HtmlPassthroughMode,
+    MediaWikiCommentMode,
     MediaWikiImageCaptionMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -50,6 +52,11 @@ class MediaWikiOptions(BaseRendererOptions):
         - "escape": HTML-escape the content
         - "drop": Remove HTML content entirely
         - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
+    comment_mode : {"html", "visible", "ignore"}, default "html"
+        How to render Comment and CommentInline AST nodes:
+        - "html": Use HTML comment syntax <!-- --> (default)
+        - "visible": Render as visible text
+        - "ignore": Skip comments entirely
 
     Examples
     --------
@@ -92,6 +99,14 @@ class MediaWikiOptions(BaseRendererOptions):
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": ["pass-through", "escape", "drop", "sanitize"],
             "importance": "security",
+        },
+    )
+    comment_mode: MediaWikiCommentMode = field(
+        default=DEFAULT_MEDIAWIKI_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: html, visible, or ignore",
+            "choices": ["html", "visible", "ignore"],
+            "importance": "core",
         },
     )
 

@@ -84,11 +84,17 @@ DocxCommentMode = Literal["native", "visible", "ignore"]
 LatexCommentMode = Literal["percent", "todonotes", "marginnote", "ignore"]
 OdtCommentMode = Literal["native", "visible", "ignore"]
 PptxCommentMode = Literal["speaker_notes", "visible", "ignore"]
+PptxParserCommentMode = Literal["content", "comment", "ignore"]
 OdpCommentMode = Literal["native", "visible", "ignore"]
 RtfCommentMode = Literal["bracketed", "ignore"]
 AsciiDocCommentMode = Literal["comment", "note", "ignore"]
 RstCommentMode = Literal["comment", "note", "ignore"]
 OrgCommentMode = Literal["comment", "drawer", "ignore"]
+MediaWikiCommentMode = Literal["html", "visible", "ignore"]
+TextileCommentMode = Literal["html", "blockquote", "ignore"]
+DokuWikiCommentMode = Literal["html", "visible", "ignore"]
+PlainTextCommentMode = Literal["visible", "ignore"]
+PdfCommentMode = Literal["visible", "ignore"]
 CommentType = Literal["html", "docx_review", "latex", "code", "wiki", "generic"]
 CommentRenderMode = Literal["preserve", "convert", "strip"]
 
@@ -126,11 +132,17 @@ DEFAULT_DOCX_COMMENT_MODE: DocxCommentMode = "native"
 DEFAULT_LATEX_COMMENT_MODE: LatexCommentMode = "percent"
 DEFAULT_ODT_COMMENT_MODE: OdtCommentMode = "native"
 DEFAULT_PPTX_COMMENT_MODE: PptxCommentMode = "speaker_notes"
+DEFAULT_PPTX_PARSER_COMMENT_MODE: PptxParserCommentMode = "content"
 DEFAULT_ODP_COMMENT_MODE: OdpCommentMode = "native"
 DEFAULT_RTF_COMMENT_MODE: RtfCommentMode = "bracketed"
 DEFAULT_ASCIIDOC_COMMENT_MODE: AsciiDocCommentMode = "comment"
 DEFAULT_RST_COMMENT_MODE: RstCommentMode = "comment"
 DEFAULT_ORG_COMMENT_MODE: OrgCommentMode = "comment"
+DEFAULT_MEDIAWIKI_COMMENT_MODE: MediaWikiCommentMode = "html"
+DEFAULT_TEXTILE_COMMENT_MODE: TextileCommentMode = "html"
+DEFAULT_DOKUWIKI_COMMENT_MODE: DokuWikiCommentMode = "html"
+DEFAULT_PLAINTEXT_COMMENT_MODE: PlainTextCommentMode = "ignore"
+DEFAULT_PDF_COMMENT_MODE: PdfCommentMode = "ignore"
 DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 
 # Flavor and unsupported element defaults

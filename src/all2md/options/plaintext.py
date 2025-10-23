@@ -7,7 +7,8 @@ This module defines options for rendering AST to plain text format.
 
 from dataclasses import dataclass, field
 
-from all2md.options.base import BaseRendererOptions, BaseParserOptions
+from all2md.constants import DEFAULT_PLAINTEXT_COMMENT_MODE, PlainTextCommentMode
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 @dataclass(frozen=True)
 class PlainTextParserOptions(BaseParserOptions):
@@ -52,6 +53,10 @@ class PlainTextOptions(BaseRendererOptions):
         When False, consecutive blank lines are collapsed according to
         paragraph_separator. When True, provides literal pass-through of
         blank lines for consumers that need exact whitespace preservation.
+    comment_mode : {"visible", "ignore"}, default "ignore"
+        How to render Comment and CommentInline AST nodes:
+        - "visible": Render as bracketed text
+        - "ignore": Skip comments entirely (default)
 
     Examples
     --------
@@ -102,6 +107,14 @@ class PlainTextOptions(BaseRendererOptions):
         metadata={
             "help": "Preserve consecutive blank lines in output",
             "cli_name": "no-preserve-blank-lines",
+            "importance": "core",
+        },
+    )
+    comment_mode: PlainTextCommentMode = field(
+        default=DEFAULT_PLAINTEXT_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: visible or ignore",
+            "choices": ["visible", "ignore"],
             "importance": "core",
         },
     )

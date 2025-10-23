@@ -22,6 +22,7 @@ from pptx.util import Inches
 
 from all2md.ast import (
     CodeBlock,
+    Comment,
     Document,
     Emphasis,
     Heading,
@@ -1364,3 +1365,127 @@ class TestChartFallbacks:
 
         # Should produce some output (either table or nothing if no fallback)
         assert len(tables) + len(code_blocks) >= 0  # At minimum doesn't crash
+
+
+@pytest.mark.unit
+class TestSpeakerNotesCommentMode:
+    """Tests for speaker notes comment_mode option."""
+
+    @staticmethod
+    def _create_presentation_with_notes(notes_text: str = "These are speaker notes") -> Presentation:
+        """Helper to create a presentation with speaker notes."""
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[0])
+        slide.shapes.title.text = "Test Slide"
+
+        # Add speaker notes
+        notes_slide = slide.notes_slide
+        notes_text_frame = notes_slide.notes_text_frame
+        notes_text_frame.text = notes_text
+
+        return prs
+
+    def test_comment_mode_content_default(self) -> None:
+        """Test default comment_mode='content' behavior (backward compatible)."""
+        prs = self._create_presentation_with_notes("These are speaker notes")
+
+        # Default should be 'content' mode
+        converter = PptxToAstConverter(PptxOptions())
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have H3 heading with "Speaker Notes"
+        headings = list(extract_nodes(ast_doc, Heading))
+        speaker_notes_headings = [h for h in headings if h.level == 3 and any(
+            isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content
+        )]
+
+        assert len(speaker_notes_headings) == 1, "Should have H3 'Speaker Notes' heading in content mode"
+
+        # Should NOT have Comment nodes
+        comments = list(extract_nodes(ast_doc, Comment))
+        assert len(comments) == 0, "Should not have Comment nodes in content mode"
+
+    def test_comment_mode_comment(self) -> None:
+        """Test comment_mode='comment' creates Comment nodes."""
+        prs = self._create_presentation_with_notes("These are speaker notes")
+
+        converter = PptxToAstConverter(PptxOptions(comment_mode="comment"))
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have Comment node
+        comments = list(extract_nodes(ast_doc, Comment))
+        assert len(comments) == 1, "Should have exactly one Comment node"
+
+        comment = comments[0]
+        assert "These are speaker notes" in comment.content
+        assert comment.metadata.get("comment_type") == "pptx_speaker_notes"
+        assert comment.metadata.get("slide_number") == 1
+
+        # Should NOT have H3 "Speaker Notes" heading
+        headings = list(extract_nodes(ast_doc, Heading))
+        speaker_notes_headings = [h for h in headings if h.level == 3 and any(
+            isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content
+        )]
+        assert len(speaker_notes_headings) == 0, "Should not have H3 'Speaker Notes' heading in comment mode"
+
+    def test_comment_mode_ignore(self) -> None:
+        """Test comment_mode='ignore' skips speaker notes."""
+        prs = self._create_presentation_with_notes("These are speaker notes")
+
+        converter = PptxToAstConverter(PptxOptions(comment_mode="ignore"))
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should NOT have Comment nodes
+        comments = list(extract_nodes(ast_doc, Comment))
+        assert len(comments) == 0, "Should not have Comment nodes in ignore mode"
+
+        # Should NOT have H3 "Speaker Notes" heading
+        headings = list(extract_nodes(ast_doc, Heading))
+        speaker_notes_headings = [h for h in headings if h.level == 3 and any(
+            isinstance(c, Text) and "Speaker Notes" in c.content for c in h.content
+        )]
+        assert len(speaker_notes_headings) == 0, "Should not have H3 'Speaker Notes' heading in ignore mode"
+
+    def test_comment_mode_with_include_notes_false(self) -> None:
+        """Test that include_notes=False overrides comment_mode."""
+        prs = self._create_presentation_with_notes("These are speaker notes")
+
+        # Even with comment_mode='comment', include_notes=False should skip notes
+        converter = PptxToAstConverter(PptxOptions(include_notes=False, comment_mode="comment"))
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should NOT have any speaker notes content
+        comments = list(extract_nodes(ast_doc, Comment))
+        assert len(comments) == 0, "Should not extract notes when include_notes=False"
+
+    def test_multiple_slides_with_comment_mode(self) -> None:
+        """Test comment_mode with multiple slides having notes."""
+        prs = Presentation()
+
+        # Slide 1 with notes
+        slide1 = prs.slides.add_slide(prs.slide_layouts[0])
+        slide1.shapes.title.text = "Slide 1"
+        slide1.notes_slide.notes_text_frame.text = "Notes for slide 1"
+
+        # Slide 2 with notes
+        slide2 = prs.slides.add_slide(prs.slide_layouts[0])
+        slide2.shapes.title.text = "Slide 2"
+        slide2.notes_slide.notes_text_frame.text = "Notes for slide 2"
+
+        # Slide 3 without notes
+        slide3 = prs.slides.add_slide(prs.slide_layouts[0])
+        slide3.shapes.title.text = "Slide 3"
+
+        converter = PptxToAstConverter(PptxOptions(comment_mode="comment"))
+        ast_doc = converter.convert_to_ast(prs)
+
+        # Should have 2 Comment nodes (slides 1 and 2)
+        comments = list(extract_nodes(ast_doc, Comment))
+        assert len(comments) == 2, "Should have Comment nodes for slides with notes"
+
+        # Verify metadata
+        assert comments[0].metadata.get("slide_number") == 1
+        assert "Notes for slide 1" in comments[0].content
+
+        assert comments[1].metadata.get("slide_number") == 2
+        assert "Notes for slide 2" in comments[1].content

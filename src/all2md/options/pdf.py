@@ -45,7 +45,9 @@ from all2md.constants import (
     ColumnDetectionMode,
     ImageFormat,
     PageSize,
+    PdfCommentMode,
     TableDetectionMode,
+    DEFAULT_PDF_COMMENT_MODE,
 )
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, OCROptions, PaginatedParserOptions
@@ -583,6 +585,10 @@ class PdfRendererOptions(BaseRendererOptions):
         remote image fetching is disabled (allow_remote_fetch=False).
         Set network.allow_remote_fetch=True to enable secure remote image fetching
         with the same security guardrails as PPTX renderer.
+    comment_mode : {"visible", "ignore"}, default "ignore"
+        How to render Comment and CommentInline AST nodes:
+        - "visible": Render as visible text/box
+        - "ignore": Skip comments entirely (default)
 
     """
 
@@ -641,6 +647,14 @@ class PdfRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Network security settings for remote image fetching",
             "cli_flatten": True,  # Handled via flattened fields
+        },
+    )
+    comment_mode: PdfCommentMode = field(
+        default=DEFAULT_PDF_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: visible or ignore",
+            "choices": ["visible", "ignore"],
+            "importance": "core",
         },
     )
 

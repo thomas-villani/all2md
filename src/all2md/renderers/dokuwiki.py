@@ -725,30 +725,88 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("</code>")
 
     def visit_comment(self, node: Comment) -> None:
-        """Render a Comment node as a DokuWiki comment.
-
-        Comments are rendered as HTML-style comments by default.
+        """Render a Comment node according to comment_mode option.
 
         Parameters
         ----------
         node : Comment
             Comment block to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "html": Use HTML comment syntax <!-- --> (default)
+        - "visible": Render as visible text
+        - "ignore": Skip comment entirely
+
         """
-        self._output.append(f"<!-- {node.content} -->")
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
+        # Format comment with metadata
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        if comment_mode == "html":
+            self._output.append(f"<!-- {comment_text} -->")
+        elif comment_mode == "visible":
+            self._output.append(comment_text)
 
     def visit_comment_inline(self, node: CommentInline) -> None:
-        """Render a CommentInline node as an inline DokuWiki comment.
-
-        Inline comments are rendered as C-style comments by default.
+        """Render a CommentInline node according to comment_mode option.
 
         Parameters
         ----------
         node : CommentInline
             Inline comment to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "html": Use C-style comment syntax /* */ (default)
+        - "visible": Render as visible bracketed text
+        - "ignore": Skip comment entirely
+
         """
-        self._output.append(f"/* {node.content} */")
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
+        # Format comment with metadata
+        comment_text = node.content
+        if node.metadata.get("author") or node.metadata.get("label"):
+            prefix_parts = []
+            if node.metadata.get("label"):
+                prefix_parts.append(f"Comment {node.metadata['label']}")
+            else:
+                prefix_parts.append("Comment")
+
+            if node.metadata.get("author"):
+                prefix_parts.append(f"by {node.metadata['author']}")
+
+            if node.metadata.get("date"):
+                prefix_parts.append(f"({node.metadata['date']})")
+
+            prefix = " ".join(prefix_parts)
+            comment_text = f"[{prefix}: {comment_text}]"
+        elif comment_mode == "visible":
+            comment_text = f"[{comment_text}]"
+
+        if comment_mode == "html":
+            self._output.append(f"/* {node.content} */")
+        elif comment_mode == "visible":
+            self._output.append(comment_text)
 
     def render(self, document: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render a document to an output destination.

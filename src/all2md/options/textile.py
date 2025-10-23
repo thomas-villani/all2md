@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.constants import DEFAULT_HTML_PASSTHROUGH_MODE, HTML_PASSTHROUGH_MODES, HtmlPassthroughMode
+from all2md.constants import (
+    DEFAULT_HTML_PASSTHROUGH_MODE,
+    DEFAULT_TEXTILE_COMMENT_MODE,
+    HTML_PASSTHROUGH_MODES,
+    HtmlPassthroughMode,
+    TextileCommentMode,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -79,6 +85,11 @@ class TextileRendererOptions(BaseRendererOptions):
         - "escape": HTML-escape the content
         - "drop": Remove HTML content entirely
         - "sanitize": Remove dangerous elements/attributes
+    comment_mode : {"html", "blockquote", "ignore"}, default "html"
+        How to render Comment and CommentInline AST nodes:
+        - "html": Use HTML comment syntax <!-- --> (default)
+        - "blockquote": Render as Textile blockquote (bq.)
+        - "ignore": Skip comments entirely
 
     Examples
     --------
@@ -113,5 +124,13 @@ class TextileRendererOptions(BaseRendererOptions):
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": HTML_PASSTHROUGH_MODES,
             "importance": "security",
+        },
+    )
+    comment_mode: TextileCommentMode = field(
+        default=DEFAULT_TEXTILE_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: html, blockquote, or ignore",
+            "choices": ["html", "blockquote", "ignore"],
+            "importance": "core",
         },
     )

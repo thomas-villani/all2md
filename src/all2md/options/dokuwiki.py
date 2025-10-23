@@ -10,12 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from all2md.constants import (
+    DEFAULT_DOKUWIKI_COMMENT_MODE,
     DEFAULT_DOKUWIKI_MONOSPACE_FENCE,
     DEFAULT_DOKUWIKI_PARSE_INTERWIKI,
     DEFAULT_DOKUWIKI_PARSE_PLUGINS,
     DEFAULT_DOKUWIKI_STRIP_COMMENTS,
     DEFAULT_DOKUWIKI_USE_HTML_FOR_UNSUPPORTED,
     DEFAULT_HTML_PASSTHROUGH_MODE,
+    DokuWikiCommentMode,
     HtmlPassthroughMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -44,6 +46,11 @@ class DokuWikiOptions(BaseRendererOptions):
         - "escape": HTML-escape the content
         - "drop": Remove HTML content entirely
         - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
+    comment_mode : {"html", "visible", "ignore"}, default "html"
+        How to render Comment and CommentInline AST nodes:
+        - "html": Use HTML/C-style comments (default)
+        - "visible": Render as visible text
+        - "ignore": Skip comments entirely
 
     Examples
     --------
@@ -82,6 +89,14 @@ class DokuWikiOptions(BaseRendererOptions):
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": ["pass-through", "escape", "drop", "sanitize"],
             "importance": "security",
+        },
+    )
+    comment_mode: DokuWikiCommentMode = field(
+        default=DEFAULT_DOKUWIKI_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: html, visible, or ignore",
+            "choices": ["html", "visible", "ignore"],
+            "importance": "core",
         },
     )
 

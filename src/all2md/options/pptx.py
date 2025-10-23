@@ -6,7 +6,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_PPTX_COMMENT_MODE, DEFAULT_SLIDE_NUMBERS, PptxCommentMode
+from all2md.constants import (
+    DEFAULT_PPTX_COMMENT_MODE,
+    DEFAULT_PPTX_PARSER_COMMENT_MODE,
+    DEFAULT_SLIDE_NUMBERS,
+    PptxCommentMode,
+    PptxParserCommentMode,
+)
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
@@ -276,6 +282,12 @@ class PptxOptions(PaginatedParserOptions):
         Whether to include slide numbers in the output.
     include_notes : bool, default True
         Whether to include speaker notes in the conversion.
+    comment_mode : {"content", "comment", "ignore"}, default "content"
+        How to parse speaker notes in the AST:
+        - "content": Parse as regular content nodes with H3 heading (default, current behavior)
+        - "comment": Parse as Comment AST nodes with metadata
+        - "ignore": Skip speaker notes entirely
+        Note: This controls parsing of speaker notes. For rendering, see PptxRendererOptions.comment_mode.
 
     Examples
     --------
@@ -285,6 +297,9 @@ class PptxOptions(PaginatedParserOptions):
     Convert slides only (no notes):
         >>> options = PptxOptions(include_notes=False)
 
+    Parse speaker notes as Comment nodes:
+        >>> options = PptxOptions(comment_mode="comment")
+
     """
 
     include_slide_numbers: bool = field(
@@ -293,6 +308,15 @@ class PptxOptions(PaginatedParserOptions):
     include_notes: bool = field(
         default=True,
         metadata={"help": "Include speaker notes from slides", "cli_name": "no-include-notes", "importance": "core"},
+    )
+    comment_mode: PptxParserCommentMode = field(
+        default=DEFAULT_PPTX_PARSER_COMMENT_MODE,
+        metadata={
+            "help": "How to parse speaker notes: content (regular nodes with H3 heading), "
+            "comment (Comment AST nodes with metadata), or ignore (skip entirely)",
+            "choices": ["content", "comment", "ignore"],
+            "importance": "core",
+        },
     )
 
     # Advanced PPTX options

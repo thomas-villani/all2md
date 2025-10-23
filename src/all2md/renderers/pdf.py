@@ -1142,25 +1142,85 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
     def visit_comment(self, node: Comment) -> None:
-        """Render a Comment node (strip in PDF).
+        """Render a Comment node according to comment_mode option.
 
         Parameters
         ----------
         node : Comment
             Comment to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "visible": Render as visible text
+        - "ignore": Skip comment entirely (default)
+
         """
-        # Skip comments in PDF output (PDF is read-only output)
-        pass
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
+        # Format comment with metadata
+        comment_text = node.content
+        if node.metadata.get("author"):
+            author = node.metadata.get("author")
+            date = node.metadata.get("date", "")
+            label = node.metadata.get("label", "")
+            prefix = f"Comment {label}" if label else "Comment"
+            if date:
+                comment_text = f"{prefix} by {author} ({date}): {comment_text}"
+            else:
+                comment_text = f"{prefix} by {author}: {comment_text}"
+
+        if comment_mode == "visible":
+            # Render as visible paragraph
+            p = Paragraph(f"[{comment_text}]", self._get_style("BodyText"))
+            self._story.append(p)
+            self._story.append(Spacer(1, 6))
 
     def visit_comment_inline(self, node: CommentInline) -> None:
-        """Render a CommentInline node (strip in PDF).
+        """Render a CommentInline node according to comment_mode option.
 
         Parameters
         ----------
         node : CommentInline
             Inline comment to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "visible": Render as visible bracketed text
+        - "ignore": Skip comment entirely (default)
+
         """
-        # Skip inline comments in PDF output (PDF is read-only output)
-        pass
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
+        # Format comment with metadata
+        comment_text = node.content
+        if node.metadata.get("author") or node.metadata.get("label"):
+            prefix_parts = []
+            if node.metadata.get("label"):
+                prefix_parts.append(f"Comment {node.metadata['label']}")
+            else:
+                prefix_parts.append("Comment")
+
+            if node.metadata.get("author"):
+                prefix_parts.append(f"by {node.metadata['author']}")
+
+            if node.metadata.get("date"):
+                prefix_parts.append(f"({node.metadata['date']})")
+
+            prefix = " ".join(prefix_parts)
+            comment_text = f"[{prefix}: {comment_text}]"
+        else:
+            comment_text = f"[{comment_text}]"
+
+        if comment_mode == "visible":
+            # Add to current paragraph buffer
+            if self._paragraph_buffer is None:
+                self._paragraph_buffer = []
+            self._paragraph_buffer.append(comment_text)
