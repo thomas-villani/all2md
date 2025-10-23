@@ -534,4 +534,4 @@ class TestMediaWikiRenderer:
         renderer = MediaWikiRenderer()
         output = renderer.render_to_string(doc)
 
-        assert "<!-- Comment by Jane Smith: needs review -->" in output
+        assert "<!-- [Comment by Jane Smith: needs review] -->" in output

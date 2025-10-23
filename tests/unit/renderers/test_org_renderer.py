@@ -453,7 +453,7 @@ class TestComments:
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
-        assert "# Comment 1 by John Doe (2025-01-15)" in org
+        assert "# #1 by John Doe (2025-01-15)" in org
         assert "# Important note" in org
 
     def test_comment_with_author_only(self) -> None:
@@ -512,7 +512,7 @@ class TestComments:
         renderer = OrgRenderer()
         org = renderer.render_to_string(doc)
 
-        assert "<!-- Comment 2 by Bob (2025-01-15): note -->" in org
+        assert "<!-- #2 by Bob (2025-01-15): note -->" in org
 
 
 @pytest.mark.unit

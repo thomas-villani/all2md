@@ -28,9 +28,9 @@
   '''
   # Complex Formatting
   
-  Text with **bold**, *italic*, `code`, strikethrough, and highlighted text.
+  Text with **bold**, *italic*, `code`, ~~strikethrough~~, and highlighted text.
   
-  Text with subscript and superscript.
+  Text with <sub>subscript</sub> and <sup>superscript</sup>.
   
   A paragraph with  
   line  

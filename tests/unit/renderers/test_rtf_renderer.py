@@ -79,15 +79,15 @@ class TestRtfRendererBasic:
         assert "2025-01-15" in rtf_output
 
     def test_render_block_comment_drop_mode(self) -> None:
-        """Render a block-level comment with drop render mode."""
+        """Render a block-level comment with ignore mode (drops comment)."""
         doc = Document(
             children=[
                 Paragraph(content=[Text(content="Before comment")]),
-                Comment(content="This should be dropped", metadata={"render_mode": "drop"}),
+                Comment(content="This should be dropped"),
                 Paragraph(content=[Text(content="After comment")])
             ]
         )
-        renderer = RtfRenderer()
+        renderer = RtfRenderer(options=RtfRendererOptions(comment_mode="ignore"))
         rtf_output = renderer.render_to_string(doc)
         assert "Before comment" in rtf_output
         assert "After comment" in rtf_output
@@ -137,19 +137,19 @@ class TestRtfRendererBasic:
         assert "Jane Smith" in rtf_output
 
     def test_render_inline_comment_drop_mode(self) -> None:
-        """Render an inline comment with drop render mode."""
+        """Render an inline comment with ignore mode (drops comment)."""
         doc = Document(
             children=[
                 Paragraph(
                     content=[
                         Text(content="Start "),
-                        CommentInline(content="dropped", metadata={"render_mode": "drop"}),
+                        CommentInline(content="dropped"),
                         Text(content="end")
                     ]
                 )
             ]
         )
-        renderer = RtfRenderer()
+        renderer = RtfRenderer(options=RtfRendererOptions(comment_mode="ignore"))
         rtf_output = renderer.render_to_string(doc)
         assert "Start" in rtf_output
         assert "end" in rtf_output

@@ -24,6 +24,9 @@ from all2md.ast import (
     Code,
     CodeBlock,
     CommentInline,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
     Heading,
@@ -35,7 +38,10 @@ from all2md.ast import (
     ListItem,
     Node,
     Paragraph,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
@@ -725,10 +731,18 @@ class HtmlToAstConverter(BaseParser):
             return self._process_details_to_ast(node)
         elif node.name == "table":
             return self._process_table_to_ast(node)
+        elif node.name == "dl":
+            return self._process_definition_list_to_ast(node)
         elif node.name in ["strong", "b"]:
             return self._process_strong_to_ast(node)
         elif node.name in ["em", "i"]:
             return self._process_emphasis_to_ast(node)
+        elif node.name in ["del", "s", "strike"]:
+            return self._process_strikethrough_to_ast(node)
+        elif node.name == "sup":
+            return self._process_superscript_to_ast(node)
+        elif node.name == "sub":
+            return self._process_subscript_to_ast(node)
         elif node.name == "code":
             if self._in_code_block:
                 # Inside pre tag - just return text
@@ -1101,6 +1115,58 @@ class HtmlToAstConverter(BaseParser):
 
         return Table(header=header, rows=rows, alignments=alignments, caption=caption)  # type: ignore[arg-type]
 
+    def _process_definition_list_to_ast(self, node: Any) -> DefinitionList:
+        """Process dl element to DefinitionList node.
+
+        Parameters
+        ----------
+        node : Any
+            DL element
+
+        Returns
+        -------
+        DefinitionList
+            Definition list node
+
+        """
+        items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
+        current_term: DefinitionTerm | None = None
+        current_descriptions: list[DefinitionDescription] = []
+
+        for child in node.children:
+            if not hasattr(child, "name"):
+                continue
+
+            if child.name == "dt":
+                # Save previous term/descriptions if any
+                if current_term is not None:
+                    items.append((current_term, current_descriptions))
+
+                # Start new term
+                term_content = self._process_children_to_inline(child)
+                current_term = DefinitionTerm(content=term_content)
+                current_descriptions = []
+
+            elif child.name == "dd":
+                # Add description - process block-level content
+                desc_children: list[Node] = []
+                for desc_child in child.children:
+                    ast_nodes = self._process_node_to_ast(desc_child)
+                    if ast_nodes:
+                        if isinstance(ast_nodes, list):
+                            desc_children.extend(ast_nodes)
+                        else:
+                            desc_children.append(ast_nodes)
+
+                if desc_children:
+                    current_descriptions.append(DefinitionDescription(content=desc_children))
+
+        # Add last term/descriptions
+        if current_term is not None:
+            items.append((current_term, current_descriptions))
+
+        return DefinitionList(items=items)
+
     def _process_strong_to_ast(self, node: Any) -> Strong:
         """Process strong/b element to Strong node.
 
@@ -1151,6 +1217,57 @@ class HtmlToAstConverter(BaseParser):
         """
         content = self._process_children_to_inline(node)
         return Underline(content=content)
+
+    def _process_strikethrough_to_ast(self, node: Any) -> Strikethrough:
+        """Process del/s/strike element to Strikethrough node.
+
+        Parameters
+        ----------
+        node : Any
+            Del, s, or strike element
+
+        Returns
+        -------
+        Strikethrough
+            Strikethrough node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Strikethrough(content=content)
+
+    def _process_superscript_to_ast(self, node: Any) -> Superscript:
+        """Process sup element to Superscript node.
+
+        Parameters
+        ----------
+        node : Any
+            Sup element
+
+        Returns
+        -------
+        Superscript
+            Superscript node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Superscript(content=content)
+
+    def _process_subscript_to_ast(self, node: Any) -> Subscript:
+        """Process sub element to Subscript node.
+
+        Parameters
+        ----------
+        node : Any
+            Sub element
+
+        Returns
+        -------
+        Subscript
+            Subscript node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Subscript(content=content)
 
     def _process_link_to_ast(self, node: Any) -> Link:
         """Process a element to Link node.

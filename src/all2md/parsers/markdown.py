@@ -18,6 +18,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -666,7 +668,7 @@ class MarkdownToAstConverter(BaseParser):
 
         return cells
 
-    def _process_html_block(self, token: dict[str, Any]) -> HTMLBlock | None:
+    def _process_html_block(self, token: dict[str, Any]) -> HTMLBlock | Comment | None:
         """Process HTML block token.
 
         Parameters
@@ -676,11 +678,16 @@ class MarkdownToAstConverter(BaseParser):
 
         Returns
         -------
-        HTMLBlock or None
-            HTML block node based on preserve_html and html_handling options
+        HTMLBlock, Comment, or None
+            HTML block node, Comment node, or None based on content and options
 
         """
         content = token.get("raw", "")
+
+        # Check if this is an HTML comment
+        if self._is_html_comment(content):
+            comment_text = self._extract_comment_text(content)
+            return Comment(content=comment_text, author=None)
 
         if not self.options.preserve_html:
             # When preserve_html is False, use html_handling option
@@ -886,6 +893,11 @@ class MarkdownToAstConverter(BaseParser):
         elif token_type == "inline_html":
             content = token.get("raw", "")
 
+            # Check if this is an HTML comment
+            if self._is_html_comment(content):
+                comment_text = self._extract_comment_text(content)
+                return CommentInline(content=comment_text, author=None)
+
             if not self.options.preserve_html:
                 # When preserve_html is False, use html_handling option
                 if self.options.html_handling == "sanitize":
@@ -912,6 +924,43 @@ class MarkdownToAstConverter(BaseParser):
             return FootnoteReference(identifier=identifier)
 
         return None
+
+    def _is_html_comment(self, content: str) -> bool:
+        """Check if HTML content is a comment.
+
+        Parameters
+        ----------
+        content : str
+            HTML content to check
+
+        Returns
+        -------
+        bool
+            True if content is an HTML comment
+
+        """
+        stripped = content.strip()
+        return stripped.startswith("<!--") and stripped.endswith("-->")
+
+    def _extract_comment_text(self, content: str) -> str:
+        """Extract text from HTML comment.
+
+        Parameters
+        ----------
+        content : str
+            HTML comment content (including <!-- and -->)
+
+        Returns
+        -------
+        str
+            Comment text without HTML comment markers
+
+        """
+        stripped = content.strip()
+        if stripped.startswith("<!--") and stripped.endswith("-->"):
+            # Remove comment markers and strip whitespace
+            return stripped[4:-3].strip()
+        return content
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from Markdown document.

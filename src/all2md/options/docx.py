@@ -226,3 +226,10 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
+    code_style_names: list[str] = field(
+        default_factory=lambda: ["Code", "HTML Code", "Source Code", "Macro Text"],
+        metadata={
+            "help": "List of paragraph style names to treat as code blocks (supports partial matching)",
+            "importance": "advanced",
+        },
+    )

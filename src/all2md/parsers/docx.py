@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
 from all2md.ast import (
     BlockQuote,
+    CodeBlock,
     Comment,
     CommentInline,
     Document,
@@ -43,6 +44,7 @@ from all2md.ast import (
     HTMLBlock,
     HTMLInline,
     Image,
+    LineBreak,
     Link,
     List,
     ListItem,
@@ -56,6 +58,7 @@ from all2md.ast import (
     TableCell,
     TableRow,
     Text,
+    ThematicBreak,
     Underline,
 )
 from all2md.ast import (
@@ -415,6 +418,22 @@ class DocxToAstConverter(BaseParser):
             content = self._process_paragraph_runs_to_inline(paragraph)
             return Heading(level=level, content=content)
 
+        # Handle code block styles
+        if style_name and self.options.code_style_names:
+            for code_style in self.options.code_style_names:
+                # Support both exact match and partial match (case-insensitive)
+                if code_style.lower() in style_name.lower():
+                    code_text = paragraph.text
+                    return CodeBlock(content=code_text)
+
+        # Handle horizontal rules (thematic breaks)
+        # Detect paragraphs that look like horizontal rules:
+        # 1. Empty or contain only special characters like --- or ___
+        # 2. Have a bottom border that spans the paragraph
+        text = paragraph.text.strip()
+        if text in ("---", "___", "***", "—" * 3, "–" * 3) or (not text and self._has_bottom_border(paragraph)):
+            return ThematicBreak()
+
         # Handle lists
 
         list_type, level = _detect_list_level(paragraph, doc)
@@ -634,11 +653,33 @@ class DocxToAstConverter(BaseParser):
             if isinstance(run_to_parse, Hyperlink):
                 hyperlink_text = "".join(r.text for r in run_to_parse.runs)
                 if hyperlink_text:
-                    current_text.append(hyperlink_text)
+                    # Handle line breaks within hyperlink text
+                    if '\n' in hyperlink_text:
+                        parts = hyperlink_text.split('\n')
+                        for i, part in enumerate(parts):
+                            if part:
+                                current_text.append(part)
+                            if i < len(parts) - 1:
+                                # Add line break between parts
+                                flush_group()
+                                result.append(LineBreak(soft=False))
+                    else:
+                        current_text.append(hyperlink_text)
             else:
                 run_text = run_to_parse.text
                 if run_text:
-                    current_text.append(run_text)
+                    # Handle line breaks (Shift+Enter in Word) within run text
+                    if '\n' in run_text:
+                        parts = run_text.split('\n')
+                        for i, part in enumerate(parts):
+                            if part:
+                                current_text.append(part)
+                            if i < len(parts) - 1:
+                                # Add line break between parts
+                                flush_group()
+                                result.append(LineBreak(soft=False))
+                    else:
+                        current_text.append(run_text)
 
         flush_group()
         return result
@@ -876,6 +917,48 @@ class DocxToAstConverter(BaseParser):
             run.font.superscript or False,
             is_hyperlink,
         )
+
+    def _has_bottom_border(self, paragraph: "Paragraph") -> bool:
+        """Check if paragraph has a bottom border that could represent a horizontal rule.
+
+        Parameters
+        ----------
+        paragraph : Paragraph
+            Paragraph to check for bottom border
+
+        Returns
+        -------
+        bool
+            True if paragraph has a significant bottom border
+
+        """
+        try:
+            # Access paragraph formatting element
+            if not hasattr(paragraph, '_element'):
+                return False
+
+            # Check for paragraph border bottom
+            pPr = paragraph._element.pPr
+            if pPr is None:
+                return False
+
+            # Check pBdr (paragraph borders)
+            pBdr = pPr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}pBdr')
+            if pBdr is None:
+                return False
+
+            # Check for bottom border
+            bottom = pBdr.find('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bottom')
+            if bottom is not None:
+                # Check if border is substantial (not just a thin line)
+                val = bottom.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
+                if val and val != 'none':
+                    return True
+
+            return False
+        except Exception:
+            # If we can't determine, assume no border
+            return False
 
     def _process_table_to_ast(self, table: "Table") -> AstTable | None:
         """Process a DOCX table to AST Table node.

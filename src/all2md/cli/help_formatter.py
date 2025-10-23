@@ -34,6 +34,46 @@ def _ensure_text(text: Optional[str]) -> str:
     return text or ""
 
 
+def _expand_help_text(action: argparse.Action) -> str:
+    """Expand help text for an action, handling percent-formatting like argparse does.
+
+    Parameters
+    ----------
+    action : argparse.Action
+        The action whose help text to expand
+
+    Returns
+    -------
+    str
+        Expanded help text with percent-formatting applied
+
+    """
+    help_text = action.help
+    if not help_text:
+        return ""
+
+    # Build params dict like argparse does in HelpFormatter._expand_help
+    params = dict(vars(action))
+    # Remove SUPPRESS values
+    for name in list(params):
+        if params[name] is argparse.SUPPRESS:
+            del params[name]
+    # Convert callable names to strings
+    for name in list(params):
+        if hasattr(params[name], '__name__'):
+            params[name] = params[name].__name__
+    # Format choices as comma-separated string
+    if params.get('choices') is not None:
+        params['choices'] = ', '.join(map(str, params['choices']))
+
+    # Apply percent-formatting
+    try:
+        return help_text % params
+    except (KeyError, ValueError, TypeError):
+        # If formatting fails, return the raw help text
+        return help_text
+
+
 @dataclass(slots=True)
 class OptionEntry:
     """Resolved CLI option metadata for rendering."""
@@ -199,7 +239,7 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
             entry = OptionEntry(
                 option_strings=option_strings,
                 dest=dest,
-                help_text=_ensure_text(action.help),
+                help_text=_expand_help_text(action),
                 default=getattr(action, "default", None),
                 metavar=getattr(action, "metavar", None),
                 choices=getattr(action, "choices", None),
@@ -543,11 +583,11 @@ class HelpRenderer:
             text.append(stripped, style="bold violet")
             return text
 
-        if stripped.endswith(":") and not stripped.startswith("--"):
+        if (stripped.endswith("options:") or stripped.endswith("customization:")) and not stripped.startswith("--"):
             text.append(stripped, style="bold bright_white")
             return text
 
-        if stripped.startswith("("):
+        if stripped.startswith("(") and stripped.endswith(")"):
             text.append(stripped, style="italic dim")
             return text
 

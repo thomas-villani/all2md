@@ -35,12 +35,18 @@ from all2md.ast import (
     Heading,
     HTMLBlock,
     Link,
+    List,
+    ListItem,
     Node,
     SourceLocation,
+    Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     TableCell,
     TableRow,
     Text,
+    Underline,
 )
 from all2md.ast import (
     Paragraph as AstParagraph,
@@ -2202,6 +2208,9 @@ class PdfToAstConverter(BaseParser):
         # Merge consecutive paragraphs that don't have significant gaps
         nodes = self._merge_adjacent_paragraphs(nodes)
 
+        # Convert paragraphs with list markers into List/ListItem structures
+        nodes = self._convert_paragraphs_to_lists(nodes)
+
         # Add images if placement markers enabled
         if page_images and self.options.image_placement_markers:
             for img in page_images:
@@ -3231,6 +3240,124 @@ class PdfToAstConverter(BaseParser):
             merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
 
         return merged
+
+    def _convert_paragraphs_to_lists(self, nodes: list[Node]) -> list[Node]:
+        """Convert paragraphs with list markers into List/ListItem structures.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            AST nodes that may contain list marker paragraphs
+
+        Returns
+        -------
+        list of Node
+            Nodes with list paragraphs converted to List structures
+
+        """
+        result: list[Node] = []
+        current_list_items: list[AstParagraph] = []
+        current_list_type: str | None = None  # 'ordered' or 'unordered'
+
+        def flush_list() -> None:
+            """Convert accumulated list items into a List node."""
+            if not current_list_items:
+                return
+
+            items: list[ListItem] = []
+            for para in current_list_items:
+                # Extract text to find and remove the list marker
+                full_text = ""
+                for node in para.content:
+                    if isinstance(node, Text):
+                        full_text = node.content
+                        break
+
+                # Determine marker and strip it
+                stripped = full_text.lstrip()
+                marker_end = 0
+
+                if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
+                    # Bullet marker - find where it ends (marker + space)
+                    marker_end = full_text.index(stripped[0]) + 1
+                    if marker_end < len(full_text) and full_text[marker_end] == " ":
+                        marker_end += 1
+                elif match := re.match(r"^(\s*)(\d+[\.\)])\s", full_text):
+                    # Numbered marker
+                    marker_end = match.end()
+
+                # Create new content without the marker
+                new_content: list[Node] = []
+                if marker_end > 0:
+                    # Remove marker from first text node
+                    for i, node in enumerate(para.content):
+                        if i == 0 and isinstance(node, Text):
+                            remaining_text = node.content[marker_end:]
+                            if remaining_text:
+                                new_content.append(Text(content=remaining_text))
+                        else:
+                            new_content.append(node)
+                else:
+                    new_content = list(para.content)
+
+                # Wrap in paragraph for list item content
+                items.append(ListItem(children=[AstParagraph(content=new_content)]))
+
+            # Create the list
+            ordered = current_list_type == "ordered"
+            result.append(List(ordered=ordered, items=items))
+
+        for node in nodes:
+            if isinstance(node, AstParagraph):
+                # Check if this is a list item
+                full_text = ""
+                for n in node.content:
+                    if isinstance(n, Text):
+                        full_text = n.content
+                        break
+
+                stripped = full_text.lstrip()
+                is_ordered = False
+                is_unordered = False
+
+                if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
+                    is_unordered = True
+                elif re.match(r"^\s*\d+[\.\)]\s", full_text):
+                    is_ordered = True
+
+                if is_ordered or is_unordered:
+                    # This is a list item
+                    new_type = "ordered" if is_ordered else "unordered"
+
+                    # Check if we need to start a new list
+                    if current_list_type is not None and current_list_type != new_type:
+                        # Different list type - flush current list
+                        flush_list()
+                        current_list_items = []
+                        current_list_type = new_type
+
+                    if current_list_type is None:
+                        current_list_type = new_type
+
+                    # Add to current list
+                    current_list_items.append(node)
+                else:
+                    # Not a list item - flush any pending list
+                    flush_list()
+                    current_list_items = []
+                    current_list_type = None
+                    result.append(node)
+            else:
+                # Non-paragraph - flush any pending list
+                flush_list()
+                current_list_items = []
+                current_list_type = None
+                result.append(node)
+
+        # Flush any remaining list
+        flush_list()
+
+        return result
 
 
 # Converter metadata for registration
