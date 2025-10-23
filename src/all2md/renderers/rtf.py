@@ -452,11 +452,11 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         return [self._create_text_run(f"[^{node.identifier}]")]
 
     def visit_comment(self, node: Comment) -> Any:
-        r"""Render a block-level comment node.
+        r"""Render a block-level comment node according to comment_mode option.
 
         RTF supports native annotations via the \annotation control word, but the pyth3
-        library does not expose direct support for annotations. We use a fallback approach
-        with bracketed text that includes comment metadata when available.
+        library does not expose direct support for annotations. We use bracketed text
+        as a fallback.
 
         Parameters
         ----------
@@ -466,18 +466,22 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         Returns
         -------
         Any
-            Pyth paragraph object with comment content
+            Pyth paragraph object with comment content, or None if ignoring
+
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "bracketed": Render as [bracketed text] (default)
+        - "ignore": Skip comment entirely
 
         """
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return None
+
         # Build comment text with metadata
         comment_text = node.content
-
-        # Check render_mode in metadata
-        render_mode = node.metadata.get("render_mode", "bracketed")
-
-        if render_mode == "drop":
-            # Drop comments entirely
-            return None
 
         # Add author/date info if available
         author = node.metadata.get("author")
@@ -505,11 +509,11 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         return Paragraph_cls(content=[self._create_text_run(f"[{comment_text}]")])
 
     def visit_comment_inline(self, node: CommentInline) -> Any:
-        r"""Render an inline comment node.
+        r"""Render an inline comment node according to comment_mode option.
 
         RTF supports native annotations via the \annotation control word, but the pyth3
-        library does not expose direct support for annotations. We use a fallback approach
-        with bracketed inline text that includes comment metadata when available.
+        library does not expose direct support for annotations. We use bracketed inline
+        text as a fallback.
 
         Parameters
         ----------
@@ -519,18 +523,22 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         Returns
         -------
         Any
-            List containing pyth text run with comment content
+            List containing pyth text run with comment content, or empty list if ignoring
+
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "bracketed": Render as [bracketed text] (default)
+        - "ignore": Skip comment entirely
 
         """
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return []
+
         # Build comment text with metadata
         comment_text = node.content
-
-        # Check render_mode in metadata
-        render_mode = node.metadata.get("render_mode", "bracketed")
-
-        if render_mode == "drop":
-            # Drop comments entirely
-            return []
 
         # Add author/date info if available
         author = node.metadata.get("author")

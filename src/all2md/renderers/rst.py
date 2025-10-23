@@ -872,16 +872,54 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Each line of the comment content is indented with 3 spaces.
 
         """
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        # Build attribution prefix
+        prefix_parts = []
+        if comment_type:
+            prefix_parts.append(comment_type.upper())
+        if label:
+            prefix_parts.append(f"#{label}")
+        prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+        if comment_mode == "note":
+            # Render as .. note:: directive
+            self._output.append(".. note::\n")
+            self._output.append("\n")
+
+            # Add attribution if present
+            if author:
+                if date:
+                    self._output.append(f"   **{prefix} by {author} ({date}):**\n")
+                else:
+                    self._output.append(f"   **{prefix} by {author}:**\n")
+                self._output.append("\n")
+
+            # Add content (indented)
+            lines = node.content.split("\n")
+            for line in lines:
+                self._output.append(f"   {line}\n")
+            self._output.append("\n")
+            return
+
+        # Mode is "comment" - render as RST comments
         # RST comments use .. followed by indented content
         self._output.append("..\n")
 
         # Build comment text with metadata if available
         comment_text = node.content
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
-            prefix = f"Comment {label}" if label else "Comment"
+        if author:
             if date:
                 comment_text = f"{prefix} by {author} ({date}): {comment_text}"
             else:
@@ -907,14 +945,45 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         RST processors.
 
         """
-        # RST doesn't have inline comments, fall back to HTML comment
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        # Build attribution prefix
+        prefix_parts = []
+        if comment_type:
+            prefix_parts.append(comment_type.upper())
+        if label:
+            prefix_parts.append(f"#{label}")
+        prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+        if comment_mode == "note":
+            # Render as inline visible text in emphasis
+            # Build full text
+            if author:
+                if date:
+                    full_text = f"*[{prefix} by {author} ({date}): {node.content}]*"
+                else:
+                    full_text = f"*[{prefix} by {author}: {node.content}]*"
+            else:
+                full_text = f"*[{node.content}]*"
+
+            self._output.append(full_text)
+            return
+
+        # Mode is "comment" - render as HTML comment (RST supports passthrough HTML)
         # Build comment text with metadata if available
         comment_text = node.content
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
-            prefix = f"Comment {label}" if label else "Comment"
+        if author:
             if date:
                 comment_text = f"{prefix} by {author} ({date}): {comment_text}"
             else:

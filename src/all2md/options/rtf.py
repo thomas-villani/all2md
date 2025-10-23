@@ -11,8 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.options.common import AttachmentOptionsMixin
+from all2md.constants import DEFAULT_RTF_COMMENT_MODE, RtfCommentMode
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.common import AttachmentOptionsMixin
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,10 @@ class RtfRendererOptions(BaseRendererOptions):
     bold_headings : bool, default True
         When True, heading text is rendered with the RTF bold style to
         distinguish it from body paragraphs.
+    comment_mode : {"bracketed", "ignore"}, default "bracketed"
+        How to render Comment and CommentInline AST nodes:
+        - "bracketed": Render as [bracketed text] (default)
+        - "ignore": Skip comments entirely
 
     """
 
@@ -41,6 +46,14 @@ class RtfRendererOptions(BaseRendererOptions):
     bold_headings: bool = field(
         default=True,
         metadata={"help": "Render heading content in bold", "cli_name": "no-bold-headings", "importance": "core"},
+    )
+    comment_mode: RtfCommentMode = field(
+        default=DEFAULT_RTF_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: bracketed or ignore",
+            "choices": ["bracketed", "ignore"],
+            "importance": "core",
+        },
     )
 
 

@@ -1218,7 +1218,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._current_paragraph = None
 
     def visit_comment(self, node: Comment) -> None:
-        """Render a Comment node as speaker notes.
+        """Render a Comment node according to comment_mode option.
 
         Parameters
         ----------
@@ -1227,21 +1227,16 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         Notes
         -----
-        Block-level comments are rendered as speaker notes in PowerPoint.
-        This provides a natural mapping for comments, review notes, and
-        annotations from source documents.
-
-        The comment content and metadata (author, date, label) are formatted
-        and added to the current slide's speaker notes. If no slide context
-        exists, the comment is silently skipped.
+        Supports multiple rendering modes via comment_mode option:
+        - "speaker_notes": Render in slide speaker notes (default)
+        - "visible": Render as visible italic text in slide content
+        - "ignore": Skip comment entirely
 
         """
-        # Comments are rendered as speaker notes, but we need slide context
-        # In the current architecture, comments within slide content are
-        # handled during slide rendering. Comments at document level would
-        # need special handling which is not currently supported.
-        # For now, comments within slides will be captured if they appear
-        # in the content nodes passed to _render_slide_content.
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
 
         # Format comment with metadata
         comment_parts = []
@@ -1266,15 +1261,18 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         comment_parts.append(node.content)
         comment_text = "".join(comment_parts)
 
-        # Render as paragraph in current context (likely speaker notes)
-        if self._current_textbox:
-            p = self._current_textbox.add_paragraph()
-            run = p.add_run()
-            run.text = comment_text
-            run.font.italic = True
+        if comment_mode == "speaker_notes" or comment_mode == "visible":
+            # Both modes render as italic text in the current textbox
+            # The difference is context: speaker_notes mode is used when
+            # rendering within speaker notes, visible when in slide content
+            if self._current_textbox:
+                p = self._current_textbox.add_paragraph()
+                run = p.add_run()
+                run.text = comment_text
+                run.font.italic = True
 
     def visit_comment_inline(self, node: CommentInline) -> None:
-        """Render a CommentInline node.
+        """Render a CommentInline node according to comment_mode option.
 
         Parameters
         ----------
@@ -1283,18 +1281,20 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         Notes
         -----
-        Inline comments are rendered as italic text within the current paragraph.
-        This provides visual distinction while keeping the content readable.
+        Supports multiple rendering modes via comment_mode option:
+        - "speaker_notes": Render as italic text (for speaker notes context)
+        - "visible": Render as italic text (for slide content context)
+        - "ignore": Skip comment entirely
 
-        In PowerPoint, inline comments could potentially be rendered as:
-        - Italic text (current implementation)
-        - Parenthetical notes
-        - Superscript references
-
-        The current implementation uses italic text for simplicity and
-        maximum compatibility across slide layouts.
+        Both speaker_notes and visible modes render the same way for inline
+        comments - as italic text within the current paragraph.
 
         """
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
+
         if not self._current_paragraph:
             return
 

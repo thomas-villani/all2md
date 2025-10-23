@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from all2md.constants import DEFAULT_ODP_COMMENT_MODE, OdpCommentMode
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
@@ -95,6 +96,11 @@ class OdpRendererOptions(BaseRendererOptions):
         When True, H3 headings with "Speaker Notes" text are detected, and content
         after them is rendered to slide speaker notes. When False, speaker notes
         sections are ignored and rendered as regular slide content.
+    comment_mode : {"native", "visible", "ignore"}, default "native"
+        How to render Comment and CommentInline AST nodes:
+        - "native": Use ODF annotation elements (default)
+        - "visible": Render as visible text in slide content
+        - "ignore": Skip comments entirely
 
     """
 
@@ -144,6 +150,14 @@ class OdpRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Include speaker notes in rendered slides",
             "cli_name": "no-include-notes",
+            "importance": "core",
+        },
+    )
+    comment_mode: OdpCommentMode = field(
+        default=DEFAULT_ODP_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: native, visible, or ignore",
+            "choices": ["native", "visible", "ignore"],
             "importance": "core",
         },
     )

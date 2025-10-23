@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from all2md.constants import (
     DEFAULT_RST_CODE_STYLE,
+    DEFAULT_RST_COMMENT_MODE,
     DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS,
     DEFAULT_RST_HARD_LINE_BREAK_MODE,
     DEFAULT_RST_HEADING_CHARS,
@@ -21,6 +22,7 @@ from all2md.constants import (
     DEFAULT_RST_STRIP_COMMENTS,
     DEFAULT_RST_TABLE_STYLE,
     RstCodeStyle,
+    RstCommentMode,
     RstLineBreakMode,
     RstTableStyle,
 )
@@ -114,6 +116,12 @@ class RstRendererOptions(BaseRendererOptions):
         Automatically fallback to raw mode for line breaks inside lists or blockquotes.
         When True, prevents semantic changes from line block syntax in containers.
         When False, always uses the configured hard_line_break_mode.
+    comment_mode : {"comment", "note", "ignore"}, default "comment"
+        How to render Comment and CommentInline AST nodes:
+        - "comment": Render as rST comments (.. Comment text)
+        - "note": Render as .. note:: directive blocks (visible annotations)
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from source documents.
 
     Notes
     -----
@@ -177,6 +185,16 @@ class RstRendererOptions(BaseRendererOptions):
             "help": "Automatically fallback to raw mode for line breaks inside lists/blockquotes",
             "cli_name": "no-hard-line-break-fallback-in-containers",
             "importance": "advanced",
+        },
+    )
+    comment_mode: RstCommentMode = field(
+        default=DEFAULT_RST_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "comment (.. comments), note (.. note:: directive), "
+                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "choices": ["comment", "note", "ignore"],
+            "importance": "core",
         },
     )
 

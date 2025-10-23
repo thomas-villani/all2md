@@ -599,13 +599,48 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Comment block to render
 
         """
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        # Build attribution prefix
+        prefix_parts = []
+        if comment_type:
+            prefix_parts.append(comment_type.upper())
+        if label:
+            prefix_parts.append(f"#{label}")
+        prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+        if comment_mode == "note":
+            # Render as NOTE admonition block
+            self._output.append("[NOTE]")
+            self._output.append("====")
+
+            # Add attribution if present
+            if author:
+                if date:
+                    self._output.append(f"*{prefix} by {author} ({date}):*\n")
+                else:
+                    self._output.append(f"*{prefix} by {author}:*\n")
+
+            # Add content
+            self._output.append(node.content)
+            self._output.append("====\n")
+            return
+
+        # Mode is "comment" - render as AsciiDoc comments
         # Build comment text with metadata if available
         comment_text = node.content
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
-            prefix = f"Comment {label}" if label else "Comment"
+        if author:
             if date:
                 comment_text = f"{prefix} by {author} ({date}): {comment_text}"
             else:
@@ -795,13 +830,45 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Inline comment to render
 
         """
+        # Check comment_mode option
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            # Skip rendering comment entirely
+            return
+
+        # Extract metadata
+        author = node.metadata.get("author", "")
+        date = node.metadata.get("date", "")
+        label = node.metadata.get("label", "")
+        comment_type = node.metadata.get("comment_type", "")
+
+        # Build attribution prefix
+        prefix_parts = []
+        if comment_type:
+            prefix_parts.append(comment_type.upper())
+        if label:
+            prefix_parts.append(f"#{label}")
+        prefix = " ".join(prefix_parts) if prefix_parts else "Comment"
+
+        if comment_mode == "note":
+            # Render as inline NOTE (visible text in italics)
+            # Build full text
+            if author:
+                if date:
+                    full_text = f"_[{prefix} by {author} ({date}): {node.content}]_"
+                else:
+                    full_text = f"_[{prefix} by {author}: {node.content}]_"
+            else:
+                full_text = f"_[{node.content}]_"
+
+            self._output.append(full_text)
+            return
+
+        # Mode is "comment" - render as HTML comment (AsciiDoc supports passthrough HTML)
         # Build comment text with metadata if available
         comment_text = node.content
-        if node.metadata.get("author"):
-            author = node.metadata.get("author")
-            date = node.metadata.get("date", "")
-            label = node.metadata.get("label", "")
-            prefix = f"Comment {label}" if label else "Comment"
+        if author:
             if date:
                 comment_text = f"{prefix} by {author} ({date}): {comment_text}"
             else:

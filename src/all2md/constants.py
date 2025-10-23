@@ -83,6 +83,12 @@ HtmlCommentMode = Literal["native", "visible", "ignore"]
 DocxCommentMode = Literal["native", "visible", "ignore"]
 LatexCommentMode = Literal["percent", "todonotes", "marginnote", "ignore"]
 OdtCommentMode = Literal["native", "visible", "ignore"]
+PptxCommentMode = Literal["speaker_notes", "visible", "ignore"]
+OdpCommentMode = Literal["native", "visible", "ignore"]
+RtfCommentMode = Literal["bracketed", "ignore"]
+AsciiDocCommentMode = Literal["comment", "note", "ignore"]
+RstCommentMode = Literal["comment", "note", "ignore"]
+OrgCommentMode = Literal["comment", "drawer", "ignore"]
 CommentType = Literal["html", "docx_review", "latex", "code", "wiki", "generic"]
 CommentRenderMode = Literal["preserve", "convert", "strip"]
 
@@ -119,6 +125,12 @@ DEFAULT_HTML_COMMENT_MODE: HtmlCommentMode = "native"
 DEFAULT_DOCX_COMMENT_MODE: DocxCommentMode = "native"
 DEFAULT_LATEX_COMMENT_MODE: LatexCommentMode = "percent"
 DEFAULT_ODT_COMMENT_MODE: OdtCommentMode = "native"
+DEFAULT_PPTX_COMMENT_MODE: PptxCommentMode = "speaker_notes"
+DEFAULT_ODP_COMMENT_MODE: OdpCommentMode = "native"
+DEFAULT_RTF_COMMENT_MODE: RtfCommentMode = "bracketed"
+DEFAULT_ASCIIDOC_COMMENT_MODE: AsciiDocCommentMode = "comment"
+DEFAULT_RST_COMMENT_MODE: RstCommentMode = "comment"
+DEFAULT_ORG_COMMENT_MODE: OrgCommentMode = "comment"
 DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 
 # Flavor and unsupported element defaults

@@ -1060,83 +1060,178 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         self._current_paragraph = None
 
     def visit_comment(self, node: Comment) -> None:
-        """Render a Comment node (block-level).
+        """Render a Comment node according to comment_mode option.
 
         Parameters
         ----------
         node : Comment
             Comment block to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "native": Use ODF annotation elements (default)
+        - "visible": Render as visible text in slide content
+        - "ignore": Skip comment entirely
+
         """
-        from odf.dc import Creator, Date
-        from odf.office import Annotation
-        from odf.text import P
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
 
         if not self._current_frame:
             return
 
-        # Create annotation using odfpy's native annotation support
-        annotation = Annotation()
+        if comment_mode == "native":
+            from odf.dc import Creator, Date
+            from odf.office import Annotation
+            from odf.text import P
 
-        # Add author if available
-        if node.metadata.get("author"):
-            creator = Creator()
-            creator.addText(str(node.metadata["author"]))
-            annotation.addElement(creator)
+            # Create annotation using odfpy's native annotation support
+            annotation = Annotation()
 
-        # Add date if available
-        if node.metadata.get("date"):
-            date = Date()
-            date.addText(str(node.metadata["date"]))
-            annotation.addElement(date)
+            # Add author if available
+            if node.metadata.get("author"):
+                creator = Creator()
+                creator.addText(str(node.metadata["author"]))
+                annotation.addElement(creator)
 
-        # Add comment content as paragraph
-        comment_para = P()
-        comment_para.addText(node.content)
-        annotation.addElement(comment_para)
+            # Add date if available
+            if node.metadata.get("date"):
+                date = Date()
+                date.addText(str(node.metadata["date"]))
+                annotation.addElement(date)
 
-        # In ODP, annotations must be anchored within paragraphs
-        # For block-level comments, we create a paragraph to contain the annotation
-        anchor_para = P()
-        anchor_para.addElement(annotation)
-        self._current_frame.addElement(anchor_para)
+            # Add comment content as paragraph
+            comment_para = P()
+            comment_para.addText(node.content)
+            annotation.addElement(comment_para)
+
+            # In ODP, annotations must be anchored within paragraphs
+            # For block-level comments, we create a paragraph to contain the annotation
+            anchor_para = P()
+            anchor_para.addElement(annotation)
+            self._current_frame.addElement(anchor_para)
+
+        elif comment_mode == "visible":
+            from odf.text import P, Span
+
+            # Format comment with metadata
+            comment_parts = []
+
+            if node.metadata.get("author") or node.metadata.get("date") or node.metadata.get("label"):
+                header_parts = []
+                if node.metadata.get("label"):
+                    header_parts.append(f"Comment {node.metadata['label']}")
+                else:
+                    header_parts.append("Comment")
+
+                if node.metadata.get("author"):
+                    header_parts.append(f"by {node.metadata['author']}")
+
+                if node.metadata.get("date"):
+                    header_parts.append(f"({node.metadata['date']})")
+
+                comment_parts.append(" ".join(header_parts))
+                comment_parts.append(": ")
+
+            comment_parts.append(node.content)
+            comment_text = "".join(comment_parts)
+
+            # Render as visible italic text paragraph
+            para = P()
+            span = Span()
+            span.setAttribute("stylename", self._get_or_create_italic_style())
+            span.addText(comment_text)
+            para.addElement(span)
+            self._current_frame.addElement(para)
 
     def visit_comment_inline(self, node: CommentInline) -> None:
-        """Render a CommentInline node (inline).
+        """Render a CommentInline node according to comment_mode option.
 
         Parameters
         ----------
         node : CommentInline
             Inline comment to render
 
+        Notes
+        -----
+        Supports multiple rendering modes via comment_mode option:
+        - "native": Use ODF annotation elements (default)
+        - "visible": Render as visible italic text
+        - "ignore": Skip comment entirely
+
         """
-        from odf.dc import Creator, Date
-        from odf.office import Annotation
-        from odf.text import P
+        comment_mode = self.options.comment_mode
+
+        if comment_mode == "ignore":
+            return
 
         if not self._current_paragraph:
             return
 
-        # Create inline annotation using odfpy's native annotation support
-        annotation = Annotation()
+        if comment_mode == "native":
+            from odf.dc import Creator, Date
+            from odf.office import Annotation
+            from odf.text import P
 
-        # Add author if available
-        if node.metadata.get("author"):
-            creator = Creator()
-            creator.addText(str(node.metadata["author"]))
-            annotation.addElement(creator)
+            # Create inline annotation using odfpy's native annotation support
+            annotation = Annotation()
 
-        # Add date if available
-        if node.metadata.get("date"):
-            date = Date()
-            date.addText(str(node.metadata["date"]))
-            annotation.addElement(date)
+            # Add author if available
+            if node.metadata.get("author"):
+                creator = Creator()
+                creator.addText(str(node.metadata["author"]))
+                annotation.addElement(creator)
 
-        # Add comment content as paragraph
-        comment_para = P()
-        comment_para.addText(node.content)
-        annotation.addElement(comment_para)
+            # Add date if available
+            if node.metadata.get("date"):
+                date = Date()
+                date.addText(str(node.metadata["date"]))
+                annotation.addElement(date)
 
-        # Add annotation to current paragraph
-        # In ODP, inline annotations are embedded within paragraphs
-        self._current_paragraph.addElement(annotation)
+            # Add comment content as paragraph
+            comment_para = P()
+            comment_para.addText(node.content)
+            annotation.addElement(comment_para)
+
+            # Add annotation to current paragraph
+            # In ODP, inline annotations are embedded within paragraphs
+            self._current_paragraph.addElement(annotation)
+
+        elif comment_mode == "visible":
+            from odf.text import Span
+
+            # Format comment with metadata
+            comment_parts = []
+
+            if node.metadata.get("author"):
+                prefix_parts = []
+                if node.metadata.get("label"):
+                    prefix_parts.append(f"[Comment {node.metadata['label']}")
+                else:
+                    prefix_parts.append("[Comment")
+
+                prefix_parts.append(f"by {node.metadata['author']}")
+
+                if node.metadata.get("date"):
+                    prefix_parts.append(f"({node.metadata['date']})")
+
+                comment_parts.append(" ".join(prefix_parts))
+                comment_parts.append(": ")
+            elif node.metadata.get("label"):
+                comment_parts.append(f"[Comment {node.metadata['label']}: ")
+
+            comment_parts.append(node.content)
+
+            if node.metadata.get("author") or node.metadata.get("label"):
+                comment_parts.append("]")
+
+            comment_text = "".join(comment_parts)
+
+            # Render as visible italic text
+            span = Span()
+            span.setAttribute("stylename", self._get_or_create_italic_style())
+            span.addText(comment_text)
+            self._current_paragraph.addElement(span)

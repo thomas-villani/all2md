@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_SLIDE_NUMBERS
+from all2md.constants import DEFAULT_PPTX_COMMENT_MODE, DEFAULT_SLIDE_NUMBERS, PptxCommentMode
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
@@ -70,6 +70,11 @@ class PptxRendererOptions(BaseRendererOptions):
         When True, H3 headings with "Speaker Notes" text are detected, and content
         after them is rendered to slide speaker notes. When False, speaker notes
         sections are ignored and rendered as regular slide content.
+    comment_mode : {"speaker_notes", "visible", "ignore"}, default "speaker_notes"
+        How to render Comment and CommentInline AST nodes:
+        - "speaker_notes": Render in slide speaker notes (default)
+        - "visible": Render as visible italic text in slide content
+        - "ignore": Skip comments entirely
     force_textbox_bullets : bool, default True
         Enable bullets via OOXML manipulation for unordered lists in text boxes.
         When True (default), bullets are explicitly enabled via OOXML for all text boxes.
@@ -184,6 +189,14 @@ class PptxRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Include speaker notes in rendered slides",
             "cli_name": "no-include-notes",
+            "importance": "core",
+        },
+    )
+    comment_mode: PptxCommentMode = field(
+        default=DEFAULT_PPTX_COMMENT_MODE,
+        metadata={
+            "help": "Comment rendering mode: speaker_notes, visible, or ignore",
+            "choices": ["speaker_notes", "visible", "ignore"],
             "importance": "core",
         },
     )

@@ -11,7 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_HTML_PASSTHROUGH_MODE, HTML_PASSTHROUGH_MODES, HtmlPassthroughMode
+from all2md.constants import (
+    DEFAULT_ASCIIDOC_COMMENT_MODE,
+    DEFAULT_HTML_PASSTHROUGH_MODE,
+    HTML_PASSTHROUGH_MODES,
+    AsciiDocCommentMode,
+    HtmlPassthroughMode,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -150,6 +156,12 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         - "escape": HTML-escape the content
         - "drop": Remove HTML content entirely
         - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
+    comment_mode : {"comment", "note", "ignore"}, default "comment"
+        How to render Comment and CommentInline AST nodes:
+        - "comment": Render as AsciiDoc comments (// Comment text)
+        - "note": Render as NOTE admonition blocks (visible annotations)
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from source documents.
 
     """
 
@@ -176,6 +188,16 @@ class AsciiDocRendererOptions(BaseRendererOptions):
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
             "choices": HTML_PASSTHROUGH_MODES,
             "importance": "security",
+        },
+    )
+    comment_mode: AsciiDocCommentMode = field(
+        default=DEFAULT_ASCIIDOC_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "comment (// comments), note (NOTE admonitions), "
+                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "choices": ["comment", "note", "ignore"],
+            "importance": "core",
         },
     )
 

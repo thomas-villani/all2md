@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from all2md.constants import (
+    DEFAULT_ORG_COMMENT_MODE,
     DEFAULT_ORG_HEADING_STYLE,
     DEFAULT_ORG_PARSE_DRAWERS,
     DEFAULT_ORG_PARSE_PROPERTIES,
@@ -19,6 +20,7 @@ from all2md.constants import (
     DEFAULT_ORG_PRESERVE_PROPERTIES,
     DEFAULT_ORG_PRESERVE_TAGS,
     DEFAULT_ORG_TODO_KEYWORDS,
+    OrgCommentMode,
     OrgHeadingStyle,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -126,6 +128,12 @@ class OrgRendererOptions(BaseRendererOptions):
     todo_keywords : list[str], default ["TODO", "DONE"]
         List of TODO keywords that may appear in headings.
         Used for validation and rendering.
+    comment_mode : {"comment", "drawer", "ignore"}, default "comment"
+        How to render Comment and CommentInline AST nodes:
+        - "comment": Render as Org-mode comments (# Comment text)
+        - "drawer": Render as :COMMENT: drawer blocks (visible annotations)
+        - "ignore": Skip comment nodes entirely
+        This controls presentation of comments from source documents.
 
     Notes
     -----
@@ -178,4 +186,14 @@ class OrgRendererOptions(BaseRendererOptions):
     todo_keywords: list[str] = field(
         default_factory=lambda: list(DEFAULT_ORG_TODO_KEYWORDS),
         metadata={"help": "List of TODO keywords", "cli_name": "todo-keywords", "importance": "core"},
+    )
+    comment_mode: OrgCommentMode = field(
+        default=DEFAULT_ORG_COMMENT_MODE,
+        metadata={
+            "help": "How to render Comment and CommentInline nodes: "
+                    "comment (# comments), drawer (:COMMENT: drawer), "
+                    "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
+            "choices": ["comment", "drawer", "ignore"],
+            "importance": "core",
+        },
     )
