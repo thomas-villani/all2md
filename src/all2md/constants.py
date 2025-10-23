@@ -77,6 +77,8 @@ EmphasisSymbol = Literal["*", "_"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 CommentMode = Literal["html", "blockquote", "ignore"]
+CommentType = Literal["html", "docx_review", "latex", "code", "wiki", "generic"]
+CommentRenderMode = Literal["preserve", "convert", "strip"]
 
 # Markdown flavor and unsupported element handling
 FlavorType = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
@@ -107,6 +109,7 @@ OCRMode = Literal["auto", "force", "off"]
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 DEFAULT_COMMENT_MODE: CommentMode = "blockquote"
+DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 
 # Flavor and unsupported element defaults
 DEFAULT_FLAVOR: FlavorType = "gfm"
@@ -388,6 +391,7 @@ DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS = True
 DEFAULT_RST_PARSE_DIRECTIVES = True
 DEFAULT_RST_STRICT_MODE = False
 DEFAULT_RST_PRESERVE_RAW_DIRECTIVES = False
+DEFAULT_RST_STRIP_COMMENTS = False
 
 # =============================================================================
 # MediaWiki Constants

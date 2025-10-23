@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 
 from all2md.ast import (
     BlockQuote,
+    Comment,
+    CommentInline,
     Document,
     Emphasis,
     FootnoteReference,
@@ -776,14 +778,20 @@ class DocxToAstConverter(BaseParser):
         if not comment.text:
             return []
 
-        if mode == "html":
-            header = self._format_comment_header(comment, include_id=False, include_prefix=True)
-            html = f"<!-- {header}: {comment.text} -->"
-            return [HTMLInline(content=html)]
-
-        header = self._format_comment_header(comment, include_id=True, include_prefix=False)
-        inline_text = f" ({header}: {comment.text})"
-        return [Text(content=inline_text)]
+        # Create CommentInline node with rich metadata
+        return [
+            CommentInline(
+                content=comment.text,
+                metadata={
+                    "comment_type": "docx_review",
+                    "identifier": comment.identifier,
+                    "label": comment.label,
+                    "author": comment.author,
+                    "date": comment.date,
+                    "render_mode": mode,  # Track how it should be rendered
+                },
+            )
+        ]
 
     def _format_comment_header(
             self,
@@ -1105,7 +1113,7 @@ class DocxToAstConverter(BaseParser):
         return comments
 
     def _process_comments(self) -> list[Node]:
-        """Render collected comments as block-level nodes."""
+        """Render collected comments as block-level Comment nodes."""
         nodes: list[Node] = []
         mode = self.options.comment_mode
 
@@ -1116,17 +1124,20 @@ class DocxToAstConverter(BaseParser):
             if not comment.text:
                 continue
 
-            if mode == "html":
-                header = self._format_comment_header(comment, include_id=True, include_prefix=True)
-                html_comment = f"<!-- {header}: {comment.text} -->"
-                nodes.append(HTMLBlock(content=html_comment))
-            else:
-                header = self._format_comment_header(comment, include_id=True, include_prefix=False)
-                blockquote_content = [
-                    AstParagraph(content=[Text(content=comment.text)]),
-                    AstParagraph(content=[Emphasis(content=[Text(content=f"— {header}")])]),
-                ]
-                nodes.append(BlockQuote(children=cast(list[Node], blockquote_content)))
+            # Create Comment node with rich metadata
+            nodes.append(
+                Comment(
+                    content=comment.text,
+                    metadata={
+                        "comment_type": "docx_review",
+                        "identifier": comment.identifier,
+                        "label": comment.label,
+                        "author": comment.author,
+                        "date": comment.date,
+                        "render_mode": mode,  # Track how it should be rendered
+                    },
+                )
+            )
 
         return nodes
 

@@ -22,6 +22,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -360,6 +362,7 @@ class AsciiDocParser(BaseParser):
     - Passthrough: ++text++, +text+, pass:[text]
     - Document attributes (:name: value, :name!: to unset, multi-line with +)
     - Admonitions: [NOTE], [TIP], [IMPORTANT], [WARNING], [CAUTION]
+    - Comments: // single-line comments (preserved as Comment nodes unless strip_comments=True)
 
     Limitations
     -----------
@@ -622,9 +625,19 @@ class AsciiDocParser(BaseParser):
         return token
 
     def _skip_blank_lines(self) -> None:
-        """Skip over blank lines and comments."""
-        while self._current_token().type in (TokenType.BLANK_LINE, TokenType.COMMENT):
-            self._advance()
+        """Skip over blank lines and optionally comments.
+
+        Comments are only skipped if strip_comments option is True.
+        Otherwise, comments are preserved for conversion to Comment nodes.
+        """
+        while True:
+            token_type = self._current_token().type
+            if token_type == TokenType.BLANK_LINE:
+                self._advance()
+            elif token_type == TokenType.COMMENT and self.options.strip_comments:
+                self._advance()
+            else:
+                break
 
     def _parse_block_attribute(self, attr_content: str) -> None:
         """Parse a block attribute and store in pending attributes.
@@ -774,6 +787,10 @@ class AsciiDocParser(BaseParser):
             self._advance()
             return None
 
+        # Comment (block-level)
+        if token.type == TokenType.COMMENT:
+            return self._parse_comment()
+
         # Heading
         if token.type == TokenType.HEADING:
             return self._parse_heading()
@@ -855,6 +872,20 @@ class AsciiDocParser(BaseParser):
             return Heading(level=level, content=content, metadata=metadata)
         else:
             return Heading(level=level, content=content)
+
+    def _parse_comment(self) -> Comment:
+        """Parse a comment block.
+
+        Returns
+        -------
+        Comment
+            Comment node with comment_type='asciidoc'
+
+        """
+        token = self._advance()
+        content = token.content
+        metadata = {"comment_type": "asciidoc"}
+        return Comment(content=content, metadata=metadata)
 
     def _parse_paragraph(self) -> Paragraph | BlockQuote:
         """Parse a paragraph (consecutive text lines).

@@ -13,18 +13,127 @@ import tomllib
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-CONFIG_FILENAMES = [".all2md.toml", ".all2md.json"]
+CONFIG_FILENAMES = [".all2md.toml", ".all2md.json", "pyproject.toml"]
+
+
+def _load_pyproject_all2md_section(pyproject_path: Path) -> Dict[str, Any]:
+    """Load [tool.all2md] section from pyproject.toml file.
+
+    Parameters
+    ----------
+    pyproject_path : Path
+        Path to pyproject.toml file
+
+    Returns
+    -------
+    dict
+        Configuration dictionary from [tool.all2md] section, or empty dict if not found
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If pyproject.toml cannot be parsed
+
+    """
+    try:
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+
+        # Extract [tool.all2md] section if it exists
+        if "tool" in data and "all2md" in data["tool"]:
+            config = data["tool"]["all2md"]
+            if not isinstance(config, dict):
+                raise argparse.ArgumentTypeError(
+                    f"[tool.all2md] section in {pyproject_path} must be a table, got {type(config).__name__}"
+                )
+            return config
+
+        # No [tool.all2md] section found
+        return {}
+
+    except tomllib.TOMLDecodeError as e:
+        raise argparse.ArgumentTypeError(f"Invalid TOML in pyproject.toml {pyproject_path}: {e}") from e
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Error reading pyproject.toml {pyproject_path}: {e}") from e
+
+
+def find_config_in_parents(start_dir: Optional[Path] = None) -> Optional[Path]:
+    """Find configuration file by searching parent directories.
+
+    Walks up the directory tree from start_dir to the filesystem root,
+    checking each directory for configuration files in priority order:
+    1. .all2md.toml
+    2. .all2md.json
+    3. pyproject.toml (with [tool.all2md] section)
+
+    Returns the first configuration file found.
+
+    Parameters
+    ----------
+    start_dir : Path, optional
+        Starting directory for search, defaults to current working directory
+
+    Returns
+    -------
+    Path or None
+        Path to first config file found, or None if not found
+
+    Examples
+    --------
+    >>> config_path = find_config_in_parents()
+    >>> if config_path:
+    ...     print(f"Found config at: {config_path}")
+
+    """
+    if start_dir is None:
+        start_dir = Path.cwd()
+
+    current = start_dir.resolve()
+
+    # Walk up directory tree to root
+    while True:
+        # Check for dedicated config files first (.all2md.toml, .all2md.json)
+        for filename in [".all2md.toml", ".all2md.json"]:
+            config_path = current / filename
+            if config_path.exists() and config_path.is_file():
+                return config_path
+
+        # Check for pyproject.toml with [tool.all2md] section
+        pyproject_path = current / "pyproject.toml"
+        if pyproject_path.exists() and pyproject_path.is_file():
+            try:
+                # Only return pyproject.toml if it has [tool.all2md] section
+                config = _load_pyproject_all2md_section(pyproject_path)
+                if config:
+                    return pyproject_path
+            except argparse.ArgumentTypeError:
+                # Invalid pyproject.toml, skip it and continue searching
+                pass
+
+        # Check if we've reached the filesystem root
+        parent = current.parent
+        if parent == current:
+            # Reached root, stop searching
+            break
+
+        current = parent
+
+    return None
 
 
 def discover_config_file() -> Optional[Path]:
     """Discover configuration file in standard locations.
 
     Searches for configuration files in the following order:
-    1. Current working directory
-    2. User home directory
+    1. Parent directory search (from cwd up to filesystem root):
+       - .all2md.toml (highest priority)
+       - .all2md.json
+       - pyproject.toml with [tool.all2md] section
+    2. User home directory:
+       - .all2md.toml
+       - .all2md.json
 
-    For each directory, checks for .all2md.toml first, then .all2md.json.
-    TOML files take precedence over JSON files.
+    Returns the first configuration file found.
 
     Returns
     -------
@@ -38,16 +147,14 @@ def discover_config_file() -> Optional[Path]:
     ...     print(f"Found config at: {config_path}")
 
     """
-    # Search in current working directory first
-    cwd = Path.cwd()
-    for filename in CONFIG_FILENAMES:
-        config_path = cwd / filename
-        if config_path.exists() and config_path.is_file():
-            return config_path
+    # First, search parent directories from cwd to root
+    config_in_parents = find_config_in_parents()
+    if config_in_parents:
+        return config_in_parents
 
-    # Search in user home directory
+    # Fall back to user home directory
     home = Path.home()
-    for filename in CONFIG_FILENAMES:
+    for filename in [".all2md.toml", ".all2md.json"]:
         config_path = home / filename
         if config_path.exists() and config_path.is_file():
             return config_path
@@ -56,9 +163,12 @@ def discover_config_file() -> Optional[Path]:
 
 
 def load_config_file(config_path: Path | str) -> Dict[str, Any]:
-    """Load configuration from JSON or TOML file.
+    """Load configuration from JSON, TOML, or pyproject.toml file.
 
-    Auto-detects format based on file extension (.json or .toml).
+    Auto-detects format based on file extension and name:
+    - .json files: Loaded as JSON
+    - .toml files: Loaded as TOML
+    - pyproject.toml: Extracts [tool.all2md] section
 
     Parameters
     ----------
@@ -81,6 +191,10 @@ def load_config_file(config_path: Path | str) -> Dict[str, Any]:
     >>> print(config.get("attachment_mode"))
     download
 
+    >>> config = load_config_file("pyproject.toml")
+    >>> print(config.get("attachment_mode"))
+    skip
+
     """
     config_path = Path(config_path)
 
@@ -90,11 +204,15 @@ def load_config_file(config_path: Path | str) -> Dict[str, Any]:
     if not config_path.is_file():
         raise argparse.ArgumentTypeError(f"Configuration path is not a file: {config_path}")
 
-    # Determine format from extension
+    # Determine format from filename and extension
+    filename = config_path.name.lower()
     ext = config_path.suffix.lower()
 
     try:
-        if ext == ".toml":
+        # Handle pyproject.toml specially - extract [tool.all2md] section
+        if filename == "pyproject.toml":
+            return _load_pyproject_all2md_section(config_path)
+        elif ext == ".toml":
             return _load_toml_config(config_path)
         elif ext == ".json":
             return _load_json_config(config_path)
@@ -270,37 +388,41 @@ def load_config_with_priority(
 
 
 def get_config_search_paths() -> list[Path]:
-    """Get list of paths searched for configuration files.
+    """Get list of representative paths for configuration file search.
 
-    Returns list of all paths that are checked during config discovery,
-    in priority order. Useful for debugging and showing config locations.
+    Returns a list showing the search pattern used during config discovery.
+    Note that the actual search walks up from cwd to filesystem root,
+    checking each directory for config files.
 
     Returns
     -------
     list[Path]
-        List of paths checked for config files
+        List of representative config file paths in search order
 
     Examples
     --------
     >>> paths = get_config_search_paths()
     >>> for path in paths:
     ...     print(path)
-    .all2md.toml
-    .all2md.json
+    /current/working/dir/.all2md.toml
+    /current/working/dir/.all2md.json
+    /current/working/dir/pyproject.toml
+    (... continues up parent directories to root ...)
     ~/.all2md.toml
     ~/.all2md.json
 
     """
     paths = []
 
-    # Current working directory
+    # Show current working directory as example
+    # (actual search walks up to root checking each parent)
     cwd = Path.cwd()
-    for filename in CONFIG_FILENAMES:
+    for filename in [".all2md.toml", ".all2md.json", "pyproject.toml"]:
         paths.append(cwd / filename)
 
-    # Home directory
+    # Home directory (fallback after parent search)
     home = Path.home()
-    for filename in CONFIG_FILENAMES:
+    for filename in [".all2md.toml", ".all2md.json"]:
         paths.append(home / filename)
 
     return paths

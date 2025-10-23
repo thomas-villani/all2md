@@ -39,6 +39,9 @@ class AsciiDocOptions(BaseParserOptions):
     resolve_attribute_refs : bool, default True
         Whether to resolve attribute references ({name}) in text.
         When True, {name} is replaced with attribute value.
+    strip_comments : bool, default False
+        Whether to strip comments (// syntax) instead of preserving as Comment nodes.
+        When False, comments are preserved as Comment AST nodes with comment_type='asciidoc'.
 
     """
 
@@ -111,6 +114,14 @@ class AsciiDocOptions(BaseParserOptions):
             "help": "Parse table colspan/rowspan syntax (e.g., 2+|cell)",
             "cli_name": "no-parse-table-spans",
             "importance": "advanced",
+        },
+    )
+    strip_comments: bool = field(
+        default=False,
+        metadata={
+            "help": "Strip comments (// syntax) instead of preserving as Comment nodes",
+            "cli_name": "strip-comments",
+            "importance": "core",
         },
     )
 

@@ -18,6 +18,7 @@ from all2md.constants import (
     DEFAULT_RST_PARSE_DIRECTIVES,
     DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
     DEFAULT_RST_STRICT_MODE,
+    DEFAULT_RST_STRIP_COMMENTS,
     DEFAULT_RST_TABLE_STYLE,
     RstCodeStyle,
     RstLineBreakMode,
@@ -46,6 +47,10 @@ class RstParserOptions(BaseParserOptions):
         Whether to preserve unknown directives as code blocks.
         When True, unknown directives become CodeBlock nodes.
         When False, they are processed through docutils default handling.
+    strip_comments : bool, default False
+        Whether to strip comments from the output.
+        When True, RST comments are removed completely.
+        When False, comments are preserved as Comment AST nodes with metadata.
 
     """
 
@@ -67,6 +72,14 @@ class RstParserOptions(BaseParserOptions):
             "help": "Preserve unknown directives as code blocks",
             "cli_name": "preserve-raw-directives",
             "importance": "advanced",
+        },
+    )
+    strip_comments: bool = field(
+        default=DEFAULT_RST_STRIP_COMMENTS,
+        metadata={
+            "help": "Strip comments from output",
+            "cli_name": "no-strip-comments",
+            "importance": "core",
         },
     )
 

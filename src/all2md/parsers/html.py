@@ -23,6 +23,7 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    CommentInline,
     Document,
     Emphasis,
     Heading,
@@ -214,14 +215,11 @@ class HtmlToAstConverter(BaseParser):
             html_content, readability_title = self._extract_readable_html(html_content)
 
         from bs4 import BeautifulSoup
-        from bs4.element import Comment, Tag
+        from bs4.element import Tag
 
         soup = BeautifulSoup(html_content, "html.parser")
 
-        # Strip comments if requested
-        if self.options.strip_comments:
-            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-                comment.extract()
+        # Note: Comments are now handled in _process_node_to_ast based on strip_comments option
 
         # Sanitize HTML: Use single-pass bleach when possible, fall back to multi-pass BeautifulSoup
         # This reduces duplication and aligns with HtmlRenderer's sanitization approach
@@ -663,7 +661,21 @@ class HtmlToAstConverter(BaseParser):
             Resulting AST node(s)
 
         """
-        from bs4.element import NavigableString
+        from bs4.element import Comment, NavigableString
+
+        # Handle HTML comments
+        if isinstance(node, Comment):
+            # If strip_comments is enabled, skip the comment
+            if self.options.strip_comments:
+                return None
+            # Otherwise create a CommentInline node
+            comment_text = str(node).strip()
+            if comment_text:
+                return CommentInline(
+                    content=comment_text,
+                    metadata={"comment_type": "html"},
+                )
+            return None
 
         # Handle text nodes
         if isinstance(node, NavigableString):

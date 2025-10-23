@@ -20,6 +20,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     Document,
     Emphasis,
     FootnoteReference,
@@ -179,11 +181,7 @@ class DokuWikiParser(BaseParser):
         # Load DokuWiki content from various input types
         dokuwiki_content = self._load_dokuwiki_content(input_data)
 
-        # Strip comments if requested
-        if self.options.strip_comments:
-            dokuwiki_content = self._strip_comments(dokuwiki_content)
-
-        # Extract metadata before processing
+        # Extract metadata before processing (do this before stripping comments)
         metadata = self.extract_metadata(dokuwiki_content)
 
         # Convert DokuWiki to AST
@@ -234,25 +232,40 @@ class DokuWikiParser(BaseParser):
 
         raise ValueError(f"Unsupported input type: {type(input_data)}")
 
-    def _strip_comments(self, content: str) -> str:
-        """Strip C-style and HTML comments from content.
+    def _extract_comments_from_text(self, text: str) -> list[tuple[str, int, int, str]]:
+        """Extract comments from text, returning comment info with positions.
 
         Parameters
         ----------
-        content : str
-            DokuWiki markup content
+        text : str
+            Text content to extract comments from
 
         Returns
         -------
-        str
-            Content with comments removed
+        list[tuple[str, int, int, str]]
+            List of tuples: (comment_content, start_pos, end_pos, comment_style)
+            where comment_style is 'c-style' or 'html'
 
         """
-        # Remove C-style comments /* ... */
-        content = C_COMMENT_PATTERN.sub("", content)
-        # Remove HTML comments <!-- ... -->
-        content = HTML_COMMENT_PATTERN.sub("", content)
-        return content
+        comments: list[tuple[str, int, int, str]] = []
+
+        # Find C-style comments /* ... */
+        for match in C_COMMENT_PATTERN.finditer(text):
+            # Extract content without delimiters
+            full_match = match.group(0)
+            content = full_match[2:-2].strip()  # Remove /* and */
+            comments.append((content, match.start(), match.end(), "c-style"))
+
+        # Find HTML comments <!-- ... -->
+        for match in HTML_COMMENT_PATTERN.finditer(text):
+            # Extract content without delimiters
+            full_match = match.group(0)
+            content = full_match[4:-3].strip()  # Remove <!-- and -->
+            comments.append((content, match.start(), match.end(), "html"))
+
+        # Sort by position
+        comments.sort(key=lambda x: x[1])
+        return comments
 
     def _process_content(self, content: str) -> list[Node]:
         """Process DokuWiki content into AST nodes.
@@ -289,6 +302,44 @@ class DokuWikiParser(BaseParser):
                 continue
 
             # Try to match block-level elements
+
+            # Block-level comments (C-style or HTML comments on their own line)
+            # Check if the line contains ONLY a comment (possibly with surrounding whitespace)
+            # Check for C-style block comment
+            c_comment_match = C_COMMENT_PATTERN.match(line.strip())
+            if c_comment_match and c_comment_match.group(0) == line.strip():
+                # Entire line is a comment
+                if self.options.strip_comments:
+                    # Skip the line entirely
+                    i += 1
+                    continue
+                else:
+                    # Treat as block comment node
+                    if inline_buffer:
+                        result.append(Paragraph(content=inline_buffer))
+                        inline_buffer = []
+                    comment_text = line.strip()[2:-2].strip()  # Remove /* and */
+                    result.append(Comment(content=comment_text, metadata={"comment_type": "wiki"}))
+                    i += 1
+                    continue
+
+            # Check for HTML block comment
+            html_comment_match = HTML_COMMENT_PATTERN.match(line.strip())
+            if html_comment_match and html_comment_match.group(0) == line.strip():
+                # Entire line is a comment
+                if self.options.strip_comments:
+                    # Skip the line entirely
+                    i += 1
+                    continue
+                else:
+                    # Treat as block comment node
+                    if inline_buffer:
+                        result.append(Paragraph(content=inline_buffer))
+                        inline_buffer = []
+                    comment_text = line.strip()[4:-3].strip()  # Remove <!-- and -->
+                    result.append(Comment(content=comment_text, metadata={"comment_type": "wiki"}))
+                    i += 1
+                    continue
 
             # Heading
             heading_match = HEADING_PATTERN.match(line)
@@ -406,6 +457,13 @@ class DokuWikiParser(BaseParser):
         if not text:
             return []
 
+        # Strip comments from text if option is enabled
+        if self.options.strip_comments:
+            text = C_COMMENT_PATTERN.sub("", text)
+            text = HTML_COMMENT_PATTERN.sub("", text)
+            if not text:
+                return []
+
         # Process inline elements by finding the earliest match of any pattern
         # This handles overlapping and nested patterns correctly
 
@@ -423,6 +481,13 @@ class DokuWikiParser(BaseParser):
             ("superscript", SUPERSCRIPT_PATTERN),
             ("linebreak", LINE_BREAK_PATTERN),
         ]
+
+        # Add comment patterns if not stripping comments
+        if not self.options.strip_comments:
+            patterns.extend([
+                ("c_comment", C_COMMENT_PATTERN),
+                ("html_comment", HTML_COMMENT_PATTERN),
+            ])
 
         # Find earliest match
         earliest_match = None
@@ -528,6 +593,16 @@ class DokuWikiParser(BaseParser):
         elif earliest_type == "linebreak":
             # Hard line break
             result.append(LineBreak(soft=False))
+
+        elif earliest_type == "c_comment":
+            # C-style comment /* ... */
+            comment_text = earliest_match.group(0)[2:-2].strip()  # Remove /* and */
+            result.append(CommentInline(content=comment_text, metadata={"comment_type": "wiki"}))
+
+        elif earliest_type == "html_comment":
+            # HTML comment <!-- ... -->
+            comment_text = earliest_match.group(0)[4:-3].strip()  # Remove <!-- and -->
+            result.append(CommentInline(content=comment_text, metadata={"comment_type": "wiki"}))
 
         # Recursively process the text after the match
         if after:

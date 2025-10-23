@@ -24,6 +24,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -297,6 +299,23 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
+    def visit_comment(self, node: Comment) -> Any:
+        """Visit a Comment node (block-level).
+
+        Parameters
+        ----------
+        node : Comment
+            The comment block node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
     def visit_text(self, node: Text) -> Any:
         """Visit a Text node.
 
@@ -491,6 +510,23 @@ class NodeVisitor(ABC):
         ----------
         node : HTMLInline
             The inline HTML node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        pass
+
+    @abstractmethod
+    def visit_comment_inline(self, node: CommentInline) -> Any:
+        """Visit a CommentInline node (inline).
+
+        Parameters
+        ----------
+        node : CommentInline
+            The inline comment node to visit
 
         Returns
         -------
@@ -963,6 +999,15 @@ class ValidationVisitor(NodeVisitor):
                 "Consider sanitizing or removing HTML content for security."
             )
 
+    def visit_comment(self, node: Comment) -> None:
+        """Validate a Comment node (block-level).
+
+        Comments are informational and generally safe, but we validate
+        that they have content.
+        """
+        if not node.content:
+            self._add_error("Comment node should have content")
+
     def visit_text(self, node: Text) -> None:
         """Validate a Text node."""
         pass
@@ -1052,6 +1097,15 @@ class ValidationVisitor(NodeVisitor):
                 "Raw HTML content (HTMLInline) not allowed in strict mode. "
                 "Consider sanitizing or removing HTML content for security."
             )
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Validate a CommentInline node (inline).
+
+        Comments are informational and generally safe, but we validate
+        that they have content.
+        """
+        if not node.content:
+            self._add_error("CommentInline node should have content")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Validate a FootnoteReference node."""

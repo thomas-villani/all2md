@@ -20,13 +20,15 @@ All nodes inherit from the base Node class and support the visitor pattern.
 Block-level nodes represent structural document elements:
     - Document, Heading, Paragraph, CodeBlock, BlockQuote
     - List, ListItem, Table, TableRow, TableCell
-    - ThematicBreak, HTMLBlock
+    - ThematicBreak, HTMLBlock, Comment
+    - FootnoteDefinition, DefinitionList, MathBlock
 
 Inline nodes represent text formatting:
     - Text, Emphasis, Strong, Code
     - Link, Image, LineBreak
     - Strikethrough, Underline, Superscript, Subscript
-    - HTMLInline
+    - HTMLInline, CommentInline
+    - FootnoteReference, MathInline
 
 """
 
@@ -1270,6 +1272,75 @@ class MathInline(Node):
         )
 
 
+@dataclass
+class CommentInline(Node):
+    """Inline comment node.
+
+    Represents an inline comment that appears within the text flow.
+    Comments can originate from HTML comments, DOCX reviewer comments,
+    or other format-specific comment mechanisms.
+
+    The node uses metadata to store variant information such as comment type,
+    author, date, identifier, and other format-specific attributes.
+
+    Parameters
+    ----------
+    content : str
+        Comment text content
+    metadata : dict, default = empty dict
+        Comment metadata. Common metadata keys:
+        - 'comment_type': str - Type of comment ('html', 'docx_review', 'latex', 'code', 'generic')
+        - 'author': str - Comment author name
+        - 'date': str - Comment timestamp
+        - 'identifier': str - Comment ID for linking/referencing
+        - 'label': str - Comment label/number
+        - 'range_start': str - Start of commented text range
+        - 'range_end': str - End of commented text range
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    Examples
+    --------
+    HTML comment:
+        >>> CommentInline(
+        ...     content="TODO: Fix this logic",
+        ...     metadata={'comment_type': 'html'}
+        ... )
+
+    DOCX reviewer comment:
+        >>> CommentInline(
+        ...     content="This needs clarification",
+        ...     metadata={
+        ...         'comment_type': 'docx_review',
+        ...         'author': 'John Doe',
+        ...         'date': '2025-01-20',
+        ...         'identifier': 'comment1'
+        ...     }
+        ... )
+
+    """
+
+    content: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this inline comment.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_comment_inline method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_comment_inline(self)
+
+        """
+        return visitor.visit_comment_inline(self)
+
+
 # ============================================================================
 # Extended Block Nodes (Markdown Extensions)
 # ============================================================================
@@ -1489,6 +1560,82 @@ class MathBlock(Node):
             self.representations,
             preferred,
         )
+
+
+@dataclass
+class Comment(Node):
+    """Block-level comment node.
+
+    Represents a standalone comment block that appears at the block level.
+    Comments can originate from HTML comments, LaTeX comments, code comments,
+    or other format-specific comment mechanisms.
+
+    The node uses metadata to store variant information such as comment type,
+    author, date, identifier, and other format-specific attributes.
+
+    Parameters
+    ----------
+    content : str
+        Comment text content
+    metadata : dict, default = empty dict
+        Comment metadata. Common metadata keys:
+        - 'comment_type': str - Type of comment ('html', 'docx_review', 'latex', 'code', 'generic')
+        - 'author': str - Comment author name
+        - 'date': str - Comment timestamp
+        - 'identifier': str - Comment ID for linking/referencing
+        - 'label': str - Comment label/number
+        - 'range_start': str - Start of commented text range
+        - 'range_end': str - End of commented text range
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    Examples
+    --------
+    HTML block comment:
+        >>> Comment(
+        ...     content="This section needs review",
+        ...     metadata={'comment_type': 'html'}
+        ... )
+
+    DOCX reviewer comment at document end:
+        >>> Comment(
+        ...     content="Please verify these numbers",
+        ...     metadata={
+        ...         'comment_type': 'docx_review',
+        ...         'author': 'Jane Smith',
+        ...         'date': '2025-01-20',
+        ...         'identifier': 'comment2',
+        ...         'label': '2'
+        ...     }
+        ... )
+
+    LaTeX comment:
+        >>> Comment(
+        ...     content="TODO: Add more examples here",
+        ...     metadata={'comment_type': 'latex'}
+        ... )
+
+    """
+
+    content: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this comment block.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_comment method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_comment(self)
+
+        """
+        return visitor.visit_comment(self)
 
 
 def get_node_children(node: Node) -> list[Node]:

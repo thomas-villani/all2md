@@ -19,6 +19,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     Document,
     Emphasis,
     Heading,
@@ -317,8 +319,9 @@ class LatexParser(BaseParser):
             return self._convert_math_node(node)
         elif isinstance(node, LatexCommentNode):
             if self.options.preserve_comments:
-                # Store comment in metadata (could extend AST to support comments)
-                return None
+                # Create CommentInline node with LaTeX comment content
+                comment_text = node.comment if hasattr(node, "comment") else ""
+                return CommentInline(content=comment_text, metadata={"comment_type": "latex"})
             return None
         else:
             # Unknown node type - try to extract text
@@ -1006,7 +1009,19 @@ class LatexParser(BaseParser):
         grouped: list[Node] = []
         current_inline: list[Node] = []
 
-        inline_types = (Text, Strong, Emphasis, Code, Link, Image, Underline, Superscript, Subscript, MathInline)
+        inline_types = (
+            Text,
+            Strong,
+            Emphasis,
+            Code,
+            Link,
+            Image,
+            Underline,
+            Superscript,
+            Subscript,
+            MathInline,
+            CommentInline,
+        )
 
         for node in nodes:
             if isinstance(node, inline_types):

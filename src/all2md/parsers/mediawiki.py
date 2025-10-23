@@ -20,6 +20,7 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    CommentInline,
     Document,
     Emphasis,
     Heading,
@@ -81,7 +82,7 @@ class MediaWikiParser(BaseParser):
     """
 
     def __init__(
-            self, options: MediaWikiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+        self, options: MediaWikiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the MediaWiki parser with options and progress callback."""
         options = options or MediaWikiParserOptions()
@@ -301,7 +302,7 @@ class MediaWikiParser(BaseParser):
 
             elif node_type == "Comment":
                 if not self.options.strip_comments:
-                    inline_buffer.append(HTMLInline(content=str(node)))
+                    inline_buffer.append(CommentInline(content=str(node), metadata={"comment_type": "wiki"}))
                 i += 1
 
             elif node_type == "Text":

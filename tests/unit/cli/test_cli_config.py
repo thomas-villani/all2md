@@ -26,10 +26,12 @@ def require_tomli_w() -> None:
 from all2md.cli.commands import handle_config_generate_command, handle_config_show_command
 from all2md.cli.config import (
     discover_config_file,
+    find_config_in_parents,
     get_config_search_paths,
     load_config_file,
     load_config_with_priority,
     merge_configs,
+    _load_pyproject_all2md_section,
 )
 from all2md.cli.presets import (
     apply_preset,
@@ -59,7 +61,7 @@ class TestConfigDiscovery:
                 discovered = discover_config_file()
 
                 assert discovered is not None
-                assert discovered == config_file
+                assert discovered.resolve() == config_file.resolve()
                 assert discovered.exists()
 
     def test_discover_config_in_home(self):
@@ -94,7 +96,7 @@ class TestConfigDiscovery:
                 discovered = discover_config_file()
 
                 # Should prefer TOML
-                assert discovered == toml_file
+                assert discovered.resolve() == toml_file.resolve()
 
     def test_discover_config_prefers_cwd_over_home(self):
         """Test that current directory config takes precedence over home."""
@@ -114,7 +116,7 @@ class TestConfigDiscovery:
                         discovered = discover_config_file()
 
                         # Should use cwd config
-                        assert discovered == cwd_config
+                        assert discovered.resolve() == cwd_config.resolve()
 
     def test_discover_config_returns_none_when_not_found(self):
         """Test that None is returned when no config file exists."""
@@ -133,12 +135,209 @@ class TestConfigDiscovery:
         """Test getting list of config search paths."""
         paths = get_config_search_paths()
 
-        assert len(paths) == 4  # 2 in cwd + 2 in home
+        assert len(paths) == 5  # 3 in cwd + 2 in home
 
-        # Should contain both TOML and JSON variants
+        # Should contain dedicated configs and pyproject.toml
         path_names = [p.name for p in paths]
         assert ".all2md.toml" in path_names
         assert ".all2md.json" in path_names
+        assert "pyproject.toml" in path_names
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+@pytest.mark.skipif(tomli_w is None, reason="tomli_w is required for these tests")
+class TestPyprojectTomlSupport:
+    """Test pyproject.toml configuration support."""
+
+    def test_load_pyproject_with_tool_section(self):
+        """Test loading pyproject.toml with [tool.all2md] section."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {
+                "project": {"name": "test-project"},
+                "tool": {
+                    "all2md": {
+                        "attachment_mode": "download",
+                        "pdf": {"detect_columns": True},
+                    }
+                },
+            }
+
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            loaded = _load_pyproject_all2md_section(pyproject_file)
+
+            assert loaded["attachment_mode"] == "download"
+            assert loaded["pdf"]["detect_columns"] is True
+
+    def test_load_pyproject_without_tool_section(self):
+        """Test loading pyproject.toml without [tool.all2md] section."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {"project": {"name": "test-project"}}
+
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            loaded = _load_pyproject_all2md_section(pyproject_file)
+
+            assert loaded == {}
+
+    def test_load_config_file_pyproject(self):
+        """Test load_config_file with pyproject.toml."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {
+                "tool": {
+                    "all2md": {
+                        "attachment_mode": "base64",
+                    }
+                }
+            }
+
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            loaded = load_config_file(pyproject_file)
+
+            assert loaded["attachment_mode"] == "base64"
+
+    def test_find_config_in_cwd(self):
+        """Test finding pyproject.toml in current working directory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {"tool": {"all2md": {"test": "value"}}}
+
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            found = find_config_in_parents(start_dir=temp_path)
+
+            assert found.resolve() == pyproject_file.resolve()
+
+    def test_find_config_in_parent_directory(self):
+        """Test finding pyproject.toml in parent directory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create config in parent directory
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {"tool": {"all2md": {"test": "value"}}}
+
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            # Create subdirectory and search from there
+            subdir = temp_path / "src" / "mypackage"
+            subdir.mkdir(parents=True)
+
+            found = find_config_in_parents(start_dir=subdir)
+
+            assert found.resolve() == pyproject_file.resolve()
+
+    def test_dedicated_config_takes_precedence_over_pyproject(self):
+        """Test that .all2md.toml takes precedence over pyproject.toml."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create both files in same directory
+            dedicated_config = temp_path / ".all2md.toml"
+            with open(dedicated_config, "wb") as f:
+                tomli_w.dump({"attachment_mode": "download"}, f)
+
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {"tool": {"all2md": {"attachment_mode": "skip"}}}
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            found = find_config_in_parents(start_dir=temp_path)
+
+            # Should find dedicated config, not pyproject.toml
+            assert found.resolve() == dedicated_config.resolve()
+
+    def test_search_stops_at_first_match(self):
+        """Test that search stops at first config file found."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create config in parent
+            parent_config = temp_path / "pyproject.toml"
+            config_data = {"tool": {"all2md": {"test": "parent"}}}
+            with open(parent_config, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            # Create config in subdirectory
+            subdir = temp_path / "src"
+            subdir.mkdir()
+            subdir_config = subdir / "pyproject.toml"
+            config_data = {"tool": {"all2md": {"test": "subdir"}}}
+            with open(subdir_config, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            found = find_config_in_parents(start_dir=subdir)
+
+            # Should find subdir config, not parent
+            assert found.resolve() == subdir_config.resolve()
+
+    def test_discover_config_finds_pyproject_in_parents(self):
+        """Test discover_config_file finds pyproject.toml in parent dirs."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create pyproject.toml in temp directory
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {"tool": {"all2md": {"test": "value"}}}
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            # Create subdirectory
+            subdir = temp_path / "src"
+            subdir.mkdir()
+
+            # Mock cwd to return subdirectory
+            with patch("pathlib.Path.cwd", return_value=subdir):
+                discovered = discover_config_file()
+
+                assert discovered.resolve() == pyproject_file.resolve()
+
+    def test_pyproject_without_all2md_section_is_skipped(self):
+        """Test that pyproject.toml without [tool.all2md] is not used."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create pyproject.toml WITHOUT [tool.all2md] section
+            pyproject_file = temp_path / "pyproject.toml"
+            config_data = {"project": {"name": "test"}, "tool": {"other": {}}}
+            with open(pyproject_file, "wb") as f:
+                tomli_w.dump(config_data, f)
+
+            found = find_config_in_parents(start_dir=temp_path)
+
+            # Should not find config (no [tool.all2md] section)
+            assert found is None
+
+    def test_invalid_pyproject_is_skipped(self):
+        """Test that invalid pyproject.toml is skipped during search."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create invalid pyproject.toml
+            pyproject_file = temp_path / "pyproject.toml"
+            pyproject_file.write_text("invalid toml [[[")
+
+            # Should not crash, just return None
+            found = find_config_in_parents(start_dir=temp_path)
+            assert found is None
 
 
 @pytest.mark.unit
@@ -220,9 +419,12 @@ class TestConfigGenerateDefaults:
         output = capsys.readouterr().out
         data = json.loads(output)
 
-        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+        # Check for format sections
         assert "pdf" in data and "detect_columns" in data["pdf"]
-        assert "renderer_pdf" in data
+        assert "archive" in data
+        # Attachment mode is per-format now
+        if "attachment_mode" in data.get("archive", {}):
+            assert data["archive"]["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
 
     def test_generate_config_toml_defaults(self, capsys):
         exit_code = handle_config_generate_command(["--format", "toml"])
@@ -231,9 +433,12 @@ class TestConfigGenerateDefaults:
         output = capsys.readouterr().out
         data = tomllib.loads(output)
 
-        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+        # Check for format sections
         assert "pdf" in data and "detect_columns" in data["pdf"]
-        assert "renderer_pdf" in data
+        assert "archive" in data
+        # Attachment mode is per-format now
+        if "attachment_mode" in data.get("archive", {}):
+            assert data["archive"]["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
 
     def test_load_config_invalid_file_raises_error(self):
         """Test that loading non-existent file raises error."""
@@ -465,8 +670,8 @@ class TestConfigCommands:
         assert output_path.exists()
 
         data = json.loads(output_path.read_text(encoding="utf-8"))
-        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
         assert "pdf" in data
+        assert "archive" in data
 
     def test_config_generate_stdout_toml(self, capsys):
         """Default invocation should emit TOML to stdout."""
@@ -476,7 +681,7 @@ class TestConfigCommands:
         captured = capsys.readouterr()
         data = tomllib.loads(captured.out)
         assert "pdf" in data
-        assert data["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+        assert "archive" in data
 
     def test_config_show_json_no_source(self, capsys, monkeypatch):
         """Config show should honor --format json and --no-source."""

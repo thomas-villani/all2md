@@ -18,6 +18,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -721,6 +723,32 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             if not node.content.endswith("\n"):
                 self._output.append("\n")
             self._output.append("</code>")
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a Comment node as a DokuWiki comment.
+
+        Comments are rendered as HTML-style comments by default.
+
+        Parameters
+        ----------
+        node : Comment
+            Comment block to render
+
+        """
+        self._output.append(f"<!-- {node.content} -->")
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render a CommentInline node as an inline DokuWiki comment.
+
+        Inline comments are rendered as C-style comments by default.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
+
+        """
+        self._output.append(f"/* {node.content} */")
 
     def render(self, document: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render a document to an output destination.

@@ -19,6 +19,7 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -176,7 +177,7 @@ class RestructuredTextParser(BaseParser):
             content_bytes = input_data.read()
             return read_text_with_encoding_detection(content_bytes)
 
-    def _process_node(self, node: Any) -> Node | list[Node] | None:
+    def _process_node(self, node: Any) -> Node | list[Node] | None:  # noqa: C901
         """Process a docutils node into an AST node.
 
         Parameters
@@ -225,8 +226,12 @@ class RestructuredTextParser(BaseParser):
             # Skip system messages (warnings/errors)
             return None
         elif isinstance(node, docutils_nodes.comment):
-            # Skip comments
-            return None
+            # Handle RST comments - either skip or preserve as Comment nodes
+            if self.options.strip_comments:
+                return None
+            # Extract comment content and create Comment node
+            comment_content = node.astext()
+            return Comment(content=comment_content, metadata={"comment_type": "rst"})
         elif isinstance(node, docutils_nodes.docinfo):
             # Docinfo is handled by metadata extraction
             return None
