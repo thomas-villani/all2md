@@ -99,6 +99,7 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
 | **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `mediawiki`        |
 | **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
+| **OpenAPI/Swagger**           | `.yaml`, `.yml`, `.json`                      |       ✅       |       (N/A)    | `openapi`          |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
 | **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |

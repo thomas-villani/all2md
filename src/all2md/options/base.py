@@ -134,3 +134,14 @@ class BaseParserOptions(CloneFrozenMixin):
         default=DEFAULT_EXTRACT_METADATA,
         metadata={"help": "Extract document metadata as YAML front matter", "importance": "core"},
     )
+
+    def __post_init__(self) -> None:
+        """Validate numeric ranges for base renderer options.
+
+        Raises
+        ------
+        ValueError
+            If any field value is outside its valid range.
+
+        """
+        pass

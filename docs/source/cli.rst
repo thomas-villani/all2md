@@ -333,6 +333,225 @@ Configuration sources are applied in this order (highest to lowest priority):
    # 5. Use it (auto-discovered)
    all2md document.pdf
 
+Static Site Generation
+-----------------------
+
+The ``all2md generate-site`` subcommand converts document collections into Hugo or Jekyll static sites with proper frontmatter, asset organization, and directory structures.
+
+.. code-block:: bash
+
+   all2md generate-site INPUT... --output-dir DIR --generator GENERATOR [OPTIONS]
+
+Basic Usage
+~~~~~~~~~~~
+
+Convert a directory of documents to a Hugo site:
+
+.. code-block:: bash
+
+   all2md generate-site docs/ \
+       --output-dir my-hugo-site \
+       --generator hugo \
+       --scaffold \
+       --recursive
+
+Convert blog posts to a Jekyll site:
+
+.. code-block:: bash
+
+   all2md generate-site posts/*.md \
+       --output-dir my-blog \
+       --generator jekyll \
+       --scaffold
+
+Arguments
+~~~~~~~~~
+
+**Required Arguments:**
+
+``INPUT...``
+   One or more input files or directories to convert
+
+``--output-dir DIR``
+   Output directory for the generated site
+
+``--generator {hugo,jekyll}``
+   Static site generator to target (hugo or jekyll)
+
+**Optional Arguments:**
+
+``--scaffold``
+   Create complete site structure with config files and layouts
+
+``--frontmatter-format {yaml,toml}``
+   Override default frontmatter format
+   (Hugo defaults to TOML, Jekyll to YAML)
+
+``--content-subdir PATH``
+   Subdirectory within content dir for output
+   (e.g., "posts" creates content/posts/ for Hugo)
+
+``--recursive``
+   Recursively process directories
+
+``--exclude PATTERN``
+   Exclude files matching pattern (can be used multiple times)
+
+Examples
+~~~~~~~~
+
+**Hugo Site with Scaffolding:**
+
+.. code-block:: bash
+
+   # Create complete Hugo site structure
+   all2md generate-site documentation/ \
+       --output-dir my-docs-site \
+       --generator hugo \
+       --scaffold \
+       --recursive
+
+   # Result:
+   # my-docs-site/
+   # ├── config.toml
+   # ├── content/
+   # │   ├── _index.md
+   # │   ├── page1.md
+   # │   └── page2.md
+   # ├── static/images/
+   # │   └── (copied images)
+   # ├── themes/
+   # ├── layouts/
+   # └── data/
+
+**Jekyll Blog with Date Prefixes:**
+
+.. code-block:: bash
+
+   # Convert blog posts with metadata
+   all2md generate-site posts/ \
+       --output-dir my-blog \
+       --generator jekyll \
+       --scaffold \
+       --recursive
+
+   # Result:
+   # my-blog/
+   # ├── _config.yml
+   # ├── _posts/
+   # │   ├── 2025-01-22-my-post.md
+   # │   └── 2025-01-20-another-post.md
+   # ├── assets/images/
+   # │   └── (copied images)
+   # ├── _layouts/
+   # │   ├── default.html
+   # │   └── post.html
+   # └── _includes/
+
+**Without Scaffolding (Content Only):**
+
+.. code-block:: bash
+
+   # Just convert files, don't create config/layouts
+   all2md generate-site reports/ \
+       --output-dir hugo-reports \
+       --generator hugo \
+       --content-subdir reports
+
+**With Exclusions:**
+
+.. code-block:: bash
+
+   # Exclude drafts and private files
+   all2md generate-site content/ \
+       --output-dir site \
+       --generator hugo \
+       --recursive \
+       --exclude "draft-*" \
+       --exclude "private/*"
+
+**Custom Frontmatter Format:**
+
+.. code-block:: bash
+
+   # Use YAML frontmatter with Hugo (instead of default TOML)
+   all2md generate-site docs/ \
+       --output-dir hugo-site \
+       --generator hugo \
+       --frontmatter-format yaml
+
+Frontmatter Generation
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The command automatically generates frontmatter from document metadata:
+
+**Metadata Mapping:**
+
+- ``title`` → Extracted from document title or filename
+- ``date`` → From creation_date, date, or modified metadata
+- ``author`` → From author field
+- ``description`` → From description or subject field
+- ``tags`` → From tags or keywords field (comma-separated)
+- ``categories`` → From categories or category field (comma-separated)
+
+**Generator-Specific Fields:**
+
+*Hugo:*
+- ``draft: false`` (always set)
+- ``weight`` (if present in metadata)
+
+*Jekyll:*
+- ``layout: post`` (default)
+- ``permalink`` (if present in metadata)
+
+**Example frontmatter output (Hugo/TOML):**
+
+.. code-block:: toml
+
+   +++
+   title = "Getting Started Guide"
+   date = 2025-01-22T10:00:00
+   author = "Jane Doe"
+   description = "A comprehensive guide to getting started"
+   tags = ["tutorial", "beginner"]
+   draft = false
+   +++
+
+**Example frontmatter output (Jekyll/YAML):**
+
+.. code-block:: yaml
+
+   ---
+   title: Getting Started Guide
+   date: 2025-01-22 10:00:00
+   author: Jane Doe
+   description: A comprehensive guide to getting started
+   categories:
+     - tutorial
+     - beginner
+   layout: post
+   ---
+
+Asset Management
+~~~~~~~~~~~~~~~~
+
+Images and other assets are automatically:
+
+1. **Collected** from the document AST
+2. **Copied** to the appropriate static directory
+3. **Referenced** with updated paths in the markdown
+
+**Hugo:** Assets → ``static/images/``, referenced as ``/images/filename``
+
+**Jekyll:** Assets → ``assets/images/``, referenced as ``/assets/images/filename``
+
+See Also
+~~~~~~~~
+
+- :doc:`static_sites` - Complete static site generation guide
+- :doc:`cli` - Complete CLI reference
+- ``all2md --help`` - Built-in help
+
 Global Options
 --------------
 

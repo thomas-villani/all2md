@@ -90,7 +90,7 @@ Supported Formats
   Excel (XLSX), CSV/TSV, Jupyter Notebooks (IPYNB), Archives (TAR/7Z/RAR/ZIP), Images (PNG/JPEG/GIF), 200+ text formats
 
 **Markup**
-  Markdown, reStructuredText, AsciiDoc, Org-Mode, MediaWiki, LaTeX
+  Markdown, reStructuredText, AsciiDoc, Org-Mode, MediaWiki, LaTeX, OpenAPI/Swagger, Textile
 
 Getting Started
 ---------------

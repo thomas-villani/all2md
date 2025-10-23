@@ -91,7 +91,8 @@ HTML & Web Archives
 - Sanitisation-aware HTML conversion with configurable handling of inline tags and raw HTML blocks
 - Optional readability extraction (``--html-use-readability``) removes navigation chrome using readability-lxml
 - Secure remote fetching through ``NetworkFetchOptions`` (rate limiting, host allowlists, HTTPS enforcement)
-- Template modes (inject/replace/jinja) in the renderer power static-site pipelines (:doc:`static_sites`)
+- Template modes (inject/replace/jinja) in the renderer support custom HTML generation
+- Native Hugo/Jekyll site generation via ``generate-site`` command (:doc:`static_sites`)
 
 Email Messages (EML/MSG)
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -192,6 +193,34 @@ LaTeX / TeX
 
 - Parses structural LaTeX (sections, environments, equations) into the AST
 - Renderer can generate snippets suitable for inclusion in larger LaTeX projects
+
+OpenAPI/Swagger Specifications
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Parser:* ``OpenApiParser``
+
+- Supports both OpenAPI 3.x and Swagger 2.0 formats in YAML or JSON
+- Parses API metadata (title, version, servers, contact, license)
+- Converts paths and operations into structured headings with parameter and response tables
+- Optional tag-based grouping for organized API documentation
+- Includes component schema definitions with property tables
+- Handles deprecated operations with filtering options
+
+Essentials:
+
+- Options class: ``OpenApiParserOptions`` (see :doc:`options`)
+- CLI prefix: ``--openapi-*``
+
+.. code-block:: bash
+
+   # Convert OpenAPI spec to Markdown documentation
+   all2md api-spec.yaml
+
+   # Exclude deprecated endpoints
+   all2md api-spec.yaml --no-openapi-include-deprecated
+
+   # Disable tag grouping for sequential listing
+   all2md swagger.json --no-openapi-group-by-tag
 
 Data, Code, and Archives
 ------------------------

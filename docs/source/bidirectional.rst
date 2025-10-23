@@ -249,9 +249,13 @@ Standalone HTML Documents
       )
 
 .. note::
-   For comprehensive coverage of HTML templating for static site generation,
-   including Jinja2 templates, CSS class mapping, and advanced workflows, see
-   :doc:`static_sites`.
+   all2md supports two approaches for static sites:
+
+   1. **Hugo/Jekyll Generation**: Use the ``generate-site`` command for turnkey
+      static site creation with scaffolding and frontmatter. See :doc:`static_sites`.
+
+   2. **Custom HTML Templates**: Use HTML renderer template modes (inject/replace/jinja)
+      for full control over HTML output. See :doc:`api/all2md.renderers.html`.
 
 Markdown to PDF
 ---------------

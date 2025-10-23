@@ -40,6 +40,7 @@ all = [
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "pyyaml" },
     { name = "rarfile" },
     { name = "readability-lxml" },
     { name = "reportlab" },
@@ -83,6 +84,7 @@ dev = [
     { name = "pyth3" },
     { name = "python-docx" },
     { name = "python-pptx" },
+    { name = "pyyaml" },
     { name = "rarfile" },
     { name = "readability-lxml" },
     { name = "reportlab" },
@@ -122,6 +124,7 @@ latex = [
     { name = "pylatexenc" },
 ]
 markdown = [
+    { name = "chardet" },
     { name = "mistune" },
 ]
 mcp = [
@@ -134,7 +137,11 @@ ocr = [
 odf = [
     { name = "odfpy" },
 ]
+openapi = [
+    { name = "pyyaml" },
+]
 org = [
+    { name = "chardet" },
     { name = "orgparse" },
 ]
 outlook = [
@@ -150,6 +157,7 @@ pptx = [
     { name = "python-pptx" },
 ]
 rst = [
+    { name = "chardet" },
     { name = "docutils" },
 ]
 rtf = [
@@ -159,17 +167,20 @@ rtf = [
 sanitizer = [
     { name = "bleach" },
 ]
-spreadsheet = [
-    { name = "openpyxl" },
-]
 templates = [
     { name = "jinja2" },
 ]
 textile = [
+    { name = "chardet" },
     { name = "textile" },
 ]
 wiki = [
+    { name = "chardet" },
     { name = "mwparserfromhell" },
+]
+xlsx = [
+    { name = "chardet" },
+    { name = "openpyxl" },
 ]
 
 [package.metadata]
@@ -181,6 +192,12 @@ requires-dist = [
     { name = "bleach", marker = "extra == 'sanitizer'", specifier = ">=6.2.0" },
     { name = "chardet", marker = "extra == 'all'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'html'", specifier = ">=5.2.0" },
+    { name = "chardet", marker = "extra == 'markdown'", specifier = ">=5.2.0" },
+    { name = "chardet", marker = "extra == 'org'", specifier = ">=5.2.0" },
+    { name = "chardet", marker = "extra == 'rst'", specifier = ">=5.2.0" },
+    { name = "chardet", marker = "extra == 'textile'", specifier = ">=5.2.0" },
+    { name = "chardet", marker = "extra == 'wiki'", specifier = ">=5.2.0" },
+    { name = "chardet", marker = "extra == 'xlsx'", specifier = ">=5.2.0" },
     { name = "docutils", marker = "extra == 'all'", specifier = ">=0.20" },
     { name = "docutils", marker = "extra == 'rst'", specifier = ">=0.20" },
     { name = "ebooklib", marker = "extra == 'all'", specifier = ">=0.19" },
@@ -201,7 +218,7 @@ requires-dist = [
     { name = "odfpy", marker = "extra == 'all'", specifier = ">=1.4.1" },
     { name = "odfpy", marker = "extra == 'odf'", specifier = ">=1.4.1" },
     { name = "openpyxl", marker = "extra == 'all'", specifier = ">=3.1.5" },
-    { name = "openpyxl", marker = "extra == 'spreadsheet'", specifier = ">=3.1.5" },
+    { name = "openpyxl", marker = "extra == 'xlsx'", specifier = ">=3.1.5" },
     { name = "orgparse", marker = "extra == 'all'", specifier = ">=0.4.20250520" },
     { name = "orgparse", marker = "extra == 'org'", specifier = ">=0.4.20250520" },
     { name = "pillow", marker = "extra == 'all'", specifier = ">=11.3.0" },
@@ -223,6 +240,8 @@ requires-dist = [
     { name = "python-docx", marker = "extra == 'docx-render'", specifier = ">=1.2.0" },
     { name = "python-pptx", marker = "extra == 'all'", specifier = ">=1.0.2" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2" },
+    { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0" },
+    { name = "pyyaml", marker = "extra == 'openapi'", specifier = ">=6.0" },
     { name = "rarfile", marker = "extra == 'all'", specifier = ">=4.2" },
     { name = "rarfile", marker = "extra == 'archive'", specifier = ">=4.2" },
     { name = "readability-lxml", marker = "extra == 'all'", specifier = ">=0.8.1" },

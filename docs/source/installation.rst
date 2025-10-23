@@ -340,6 +340,17 @@ Org-Mode
 
 **Formats:** Org-Mode (.org) files with full bidirectional support for Emacs Org-Mode documents including TODO states, priorities, and tags
 
+OpenAPI/Swagger
+~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   pip install all2md[openapi]
+
+**Dependencies:** PyYAML
+
+**Formats:** OpenAPI 3.x and Swagger 2.0 specifications in YAML or JSON format for API documentation
+
 OpenDocument Formats
 ~~~~~~~~~~~~~~~~~~~~~
 
