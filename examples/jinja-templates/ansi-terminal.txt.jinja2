@@ -1,0 +1,152 @@
+{# ANSI Color Codes #}
+{%- set RESET = "\033[0m" -%}
+{%- set BOLD = "\033[1m" -%}
+{%- set DIM = "\033[2m" -%}
+{%- set ITALIC = "\033[3m" -%}
+{%- set UNDERLINE = "\033[4m" -%}
+{%- set BLINK = "\033[5m" -%}
+{%- set REVERSE = "\033[7m" -%}
+
+{# Foreground Colors #}
+{%- set BLACK = "\033[30m" -%}
+{%- set RED = "\033[31m" -%}
+{%- set GREEN = "\033[32m" -%}
+{%- set YELLOW = "\033[33m" -%}
+{%- set BLUE = "\033[34m" -%}
+{%- set MAGENTA = "\033[35m" -%}
+{%- set CYAN = "\033[36m" -%}
+{%- set WHITE = "\033[37m" -%}
+
+{# Bright Foreground Colors #}
+{%- set BRIGHT_BLACK = "\033[90m" -%}
+{%- set BRIGHT_RED = "\033[91m" -%}
+{%- set BRIGHT_GREEN = "\033[92m" -%}
+{%- set BRIGHT_YELLOW = "\033[93m" -%}
+{%- set BRIGHT_BLUE = "\033[94m" -%}
+{%- set BRIGHT_MAGENTA = "\033[95m" -%}
+{%- set BRIGHT_CYAN = "\033[96m" -%}
+{%- set BRIGHT_WHITE = "\033[97m" -%}
+
+{# Background Colors #}
+{%- set BG_BLACK = "\033[40m" -%}
+{%- set BG_RED = "\033[41m" -%}
+{%- set BG_GREEN = "\033[42m" -%}
+{%- set BG_YELLOW = "\033[43m" -%}
+{%- set BG_BLUE = "\033[44m" -%}
+{%- set BG_MAGENTA = "\033[45m" -%}
+{%- set BG_CYAN = "\033[46m" -%}
+{%- set BG_WHITE = "\033[47m" -%}
+
+{# Box Drawing Characters #}
+{%- set BOX_H = "─" -%}
+{%- set BOX_V = "│" -%}
+{%- set BOX_TL = "┌" -%}
+{%- set BOX_TR = "┐" -%}
+{%- set BOX_BL = "└" -%}
+{%- set BOX_BR = "┘" -%}
+{%- set BOX_T = "┬" -%}
+{%- set BOX_B = "┴" -%}
+{%- set BOX_L = "├" -%}
+{%- set BOX_R = "┤" -%}
+{%- set BOX_CROSS = "┼" -%}
+
+{# Double Box Drawing Characters #}
+{%- set DBOX_H = "═" -%}
+{%- set DBOX_V = "║" -%}
+{%- set DBOX_TL = "╔" -%}
+{%- set DBOX_TR = "╗" -%}
+{%- set DBOX_BL = "╚" -%}
+{%- set DBOX_BR = "╝" -%}
+
+{# Title Box #}
+{{ BOLD }}{{ CYAN }}{{ DBOX_TL }}{{ DBOX_H * 78 }}{{ DBOX_TR }}{{ RESET }}
+{% if metadata.title -%}
+{{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }} {{ BOLD }}{{ BRIGHT_WHITE }}{{ metadata.title.center(76) }}{{ RESET }} {{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }}
+{% else -%}
+{{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }} {{ BOLD }}{{ BRIGHT_WHITE }}{{ "DOCUMENT".center(76) }}{{ RESET }} {{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }}
+{% endif -%}
+{{ BOLD }}{{ CYAN }}{{ DBOX_BL }}{{ DBOX_H * 78 }}{{ DBOX_BR }}{{ RESET }}
+
+{# Metadata Section #}
+{% if metadata.author or metadata.date -%}
+{{ BRIGHT_BLACK }}{{ BOX_TL }}{{ BOX_H * 78 }}{{ BOX_TR }}{{ RESET }}
+{% if metadata.author -%}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Author:{{ RESET }} {{ metadata.author }}{{ " " * (69 - metadata.author|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{% endif -%}
+{% if metadata.date -%}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Date:{{ RESET }}   {{ metadata.date }}{{ " " * (69 - metadata.date|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{% endif -%}
+{{ BRIGHT_BLACK }}{{ BOX_BL }}{{ BOX_H * 78 }}{{ BOX_BR }}{{ RESET }}
+
+{% endif -%}
+
+{# Table of Contents #}
+{% if headings and headings|length > 0 -%}
+{{ YELLOW }}{{ BOX_TL }}{{ BOX_H * 78 }}{{ BOX_TR }}{{ RESET }}
+{{ YELLOW }}{{ BOX_V }}{{ RESET }} {{ BOLD }}{{ YELLOW }}TABLE OF CONTENTS{{ RESET }}{{ " " * 60 }}{{ YELLOW }}{{ BOX_V }}{{ RESET }}
+{{ YELLOW }}{{ BOX_L }}{{ BOX_H * 78 }}{{ BOX_R }}{{ RESET }}
+{% for h in headings -%}
+{%- set indent = "  " * (h.level - 1) -%}
+{%- set number = loop.index|string -%}
+{%- set line = indent ~ number ~ ". " ~ h.text -%}
+{%- if line|length > 76 -%}
+{%- set line = line[:73] ~ "..." -%}
+{%- endif -%}
+{{ YELLOW }}{{ BOX_V }}{{ RESET }} {{ GREEN }}{{ line }}{{ RESET }}{{ " " * (77 - line|length) }}{{ YELLOW }}{{ BOX_V }}{{ RESET }}
+{% endfor -%}
+{{ YELLOW }}{{ BOX_BL }}{{ BOX_H * 78 }}{{ BOX_BR }}{{ RESET }}
+
+{% endif -%}
+
+{# Content Rendering #}
+{% for node in document.children -%}
+{%- if node|node_type == "Heading" -%}
+{%- if node.level == 1 -%}
+
+{{ BOLD }}{{ BRIGHT_CYAN }}{{ "█" * 80 }}{{ RESET }}
+{{ BOLD }}{{ BRIGHT_CYAN }}█ {{ BRIGHT_WHITE }}{{ node.content|map('render')|join('')|upper }} {{ BRIGHT_CYAN }}{{ "█" * (77 - node.content|map('render')|join('')|length) }}{{ RESET }}
+{{ BOLD }}{{ BRIGHT_CYAN }}{{ "█" * 80 }}{{ RESET }}
+{%- elif node.level == 2 -%}
+
+{{ BRIGHT_BLUE }}{{ "▓" * 80 }}{{ RESET }}
+{{ BRIGHT_BLUE }}▓{{ RESET }} {{ BOLD }}{{ BRIGHT_WHITE }}{{ node.content|map('render')|join('') }}{{ RESET }}
+{{ BRIGHT_BLUE }}{{ "▓" * 80 }}{{ RESET }}
+{%- elif node.level == 3 -%}
+
+{{ BLUE }}{{ "▒" * 80 }}{{ RESET }}
+{{ BLUE }}▒{{ RESET }} {{ BOLD }}{{ WHITE }}{{ node.content|map('render')|join('') }}{{ RESET }}
+{%- else -%}
+{{ DIM }}{{ "─" * 80 }}{{ RESET }}
+{{ BOLD }}{{ node.content|map('render')|join('') }}{{ RESET }}
+{% endif %}
+
+{% elif node|node_type == "Paragraph" %}
+{{ node.content|map('render')|join('') }}
+{% elif node|node_type == "CodeBlock" %}
+
+{{ BRIGHT_BLACK }}{{ BOX_TL }}{{ BOX_H * 78 }}{{ BOX_TR }}{{ RESET }}
+{% if node.language -%}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ MAGENTA }}{{ node.language }}{{ RESET }}{{ " " * (77 - node.language|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_L }}{{ BOX_H * 78 }}{{ BOX_R }}{{ RESET }}
+{% endif -%}
+{%- for line in node.content.split('\n') -%}
+{%- if line|length > 76 -%}
+{%- set line = line[:76] -%}
+{%- endif -%}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ GREEN }}{{ line }}{{ RESET }}{{ " " * (77 - line|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{% endfor -%}
+{{ BRIGHT_BLACK }}{{ BOX_BL }}{{ BOX_H * 78 }}{{ BOX_BR }}{{ RESET }}
+{% elif node|node_type == "BlockQuote" %}
+{{ ITALIC }}{{ CYAN }}{{ BOX_V }}{{ RESET }} {{ ITALIC }}{{ BRIGHT_WHITE }}{% for child in node.children %}{{ child|render }}{% endfor %}{{ RESET }}
+{% elif node|node_type == "ThematicBreak" %}
+{{ DIM }}{{ "━" * 80 }}{{ RESET }}
+{% endif %}
+{% endfor %}
+{# Footer with Statistics #}
+{{ BRIGHT_BLACK }}{{ BOX_TL }}{{ BOX_H * 78 }}{{ BOX_TR }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Document Statistics{{ RESET }}{{ " " * 58 }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_L }}{{ BOX_H * 78 }}{{ BOX_R }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ GREEN }}Sections:{{ RESET }} {{ headings|length }}{{ " " * 66 }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ GREEN }}Links:{{ RESET }}    {{ links|length }}{{ " " * 66 }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ GREEN }}Images:{{ RESET }}   {{ images|length }}{{ " " * 66 }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{{ BRIGHT_BLACK }}{{ BOX_BL }}{{ BOX_H * 78 }}{{ BOX_BR }}{{ RESET }}

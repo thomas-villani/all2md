@@ -1130,6 +1130,265 @@ Complete round-trip conversion example:
    # Save output
    Path('documentation_modified.rst').write_text(modified_rst)
 
+
+Custom Formats with Jinja2 Templates
+-------------------------------------
+
+The Jinja2 template renderer allows you to create **any text-based output format** using templates, without writing Python code. This is perfect for custom formats like DocBook XML, YAML metadata extraction, ANSI terminal output, or proprietary markup languages.
+
+Quick Start
+~~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import from_markdown
+   from all2md.options.jinja import JinjaRendererOptions
+
+   # Convert Markdown to custom format using a template
+   options = JinjaRendererOptions(
+       template_file='templates/docbook.xml.jinja2',
+       escape_strategy='xml',
+       enable_escape_filters=True,
+       enable_traversal_helpers=True
+   )
+
+   from_markdown('document.md', target_format='jinja', output='document.xml', renderer_options=options)
+
+Template Context
+~~~~~~~~~~~~~~~~
+
+Every Jinja2 template receives a rich context with access to:
+
+**Core Variables:**
+
+- ``document`` - The Document AST node (Python object)
+- ``ast`` - The document as a dictionary (template-friendly)
+- ``metadata`` - Document metadata dictionary
+- ``title`` - Document title (shorthand for metadata.title)
+
+**Pre-computed Collections** (when ``enable_traversal_helpers=True``):
+
+- ``headings`` - List of all heading nodes with level, text, and node
+- ``links`` - List of all links with url, title, text, and node
+- ``images`` - List of all images with url, alt_text, width, height, and node
+- ``footnotes`` - List of all footnote definitions
+
+**Custom Context:**
+
+Add your own variables via ``extra_context`` option.
+
+Built-in Filters
+~~~~~~~~~~~~~~~~
+
+Templates have access to powerful filters:
+
+**Rendering Filters:**
+
+- ``render`` - Render a node with default logic (markdown/html/plain)
+- ``render_inline`` - Render inline content as text
+- ``to_dict`` - Convert AST Node to dictionary
+
+**Escaping Filters:**
+
+- ``escape_xml`` / ``escape_html`` - XML/HTML entity escaping
+- ``escape_latex`` - LaTeX special character escaping
+- ``escape_yaml`` - YAML string escaping
+- ``escape_markdown`` - Markdown special character escaping
+
+**Utility Filters:**
+
+- ``node_type`` - Get node type name as string
+
+Helper Functions
+~~~~~~~~~~~~~~~~
+
+When ``enable_traversal_helpers=True``, templates can use:
+
+- ``get_headings(doc)`` - Extract all heading nodes
+- ``get_links(doc)`` - Extract all link nodes
+- ``get_images(doc)`` - Extract all image nodes
+- ``get_footnotes(doc)`` - Extract footnote definitions
+- ``find_nodes(doc, node_type)`` - Find all nodes of specified type
+
+Example: DocBook XML Template
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Create custom DocBook XML output:
+
+.. code-block:: jinja
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <article>
+     <title>{{ metadata.title|escape_xml }}</title>
+
+     {% if metadata.author %}
+     <articleinfo>
+       <author>
+         <firstname>{{ metadata.author|escape_xml }}</firstname>
+       </author>
+     </articleinfo>
+     {% endif %}
+
+     {% for node in document.children %}
+       {% if node|node_type == "Heading" %}
+         {% if node.level == 1 %}
+     <sect1>
+       <title>{{ node.content|map('render')|join('')|escape_xml }}</title>
+         {% elif node.level == 2 %}
+     <sect2>
+       <title>{{ node.content|map('render')|join('')|escape_xml }}</title>
+         {% endif %}
+       {% elif node|node_type == "Paragraph" %}
+       <para>{{ node.content|map('render')|join('')|escape_xml }}</para>
+       {% elif node|node_type == "CodeBlock" %}
+       <programlisting language="{{ node.language or 'text' }}">
+         {{- node.content|escape_xml -}}
+       </programlisting>
+       {% endif %}
+     {% endfor %}
+   </article>
+
+Example: YAML Metadata Extraction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Extract document structure as YAML:
+
+.. code-block:: jinja
+
+   ---
+   title: {{ metadata.title|escape_yaml }}
+   {% if metadata.author -%}
+   author: {{ metadata.author|escape_yaml }}
+   {% endif -%}
+
+   structure:
+     sections: {{ headings|length }}
+     links: {{ links|length }}
+     images: {{ images|length }}
+
+   headings:
+   {%- for h in headings %}
+     - level: {{ h.level }}
+       text: {{ h.text|escape_yaml }}
+   {%- endfor %}
+
+   {% if links -%}
+   links:
+   {%- for link in links %}
+     - url: {{ link.url|escape_yaml }}
+       text: {{ link.text|escape_yaml }}
+   {%- endfor %}
+   {% endif %}
+
+Example: ANSI Terminal Output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Create colorful terminal output with box drawing:
+
+.. code-block:: jinja
+
+   {# Define ANSI color codes #}
+   {%- set BOLD = "\033[1m" -%}
+   {%- set CYAN = "\033[36m" -%}
+   {%- set RESET = "\033[0m" -%}
+
+   {{ BOLD }}{{ CYAN }}╔══════════════════════════════╗{{ RESET }}
+   {{ BOLD }}{{ CYAN }}║{{ RESET }} {{ metadata.title.center(28) }} {{ BOLD }}{{ CYAN }}║{{ RESET }}
+   {{ BOLD }}{{ CYAN }}╚══════════════════════════════╝{{ RESET }}
+
+   {% for node in document.children %}
+     {% if node|node_type == "Heading" %}
+   {{ BOLD }}{{ node.content|map('render')|join('') }}{{ RESET }}
+   {{ "=" * 30 }}
+     {% elif node|node_type == "Paragraph" %}
+   {{ node.content|map('render')|join('') }}
+     {% endif %}
+   {% endfor %}
+
+Inline Template Strings
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+For simple templates, use inline template strings:
+
+.. code-block:: python
+
+   from all2md.options.jinja import JinjaRendererOptions
+   from all2md.renderers.jinja import JinjaRenderer
+
+   template = """
+   # {{ title }}
+
+   ## Table of Contents
+   {%- for h in headings %}
+   {{ "  " * (h.level - 1) }}- {{ h.text }}
+   {%- endfor %}
+
+   Statistics: {{ headings|length }} sections, {{ links|length }} links
+   """
+
+   options = JinjaRendererOptions(
+       template_string=template,
+       enable_traversal_helpers=True
+   )
+
+   renderer = JinjaRenderer(options)
+   output = renderer.render_to_string(document)
+
+Custom Escape Functions
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Provide your own escape logic:
+
+.. code-block:: python
+
+   def my_custom_escape(text: str) -> str:
+       # Your custom escaping logic
+       return text.replace('&', '&amp;').replace('<', '&lt;')
+
+   options = JinjaRendererOptions(
+       template_file='template.jinja2',
+       escape_strategy='custom',
+       custom_escape_function=my_custom_escape
+   )
+
+Extra Context Variables
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Add custom variables to templates:
+
+.. code-block:: python
+
+   options = JinjaRendererOptions(
+       template_file='report.jinja2',
+       extra_context={
+           'version': '1.0.0',
+           'generated_by': 'all2md',
+           'timestamp': datetime.now().isoformat()
+       }
+   )
+
+Then use in template:
+
+.. code-block:: jinja
+
+   Generated by {{ generated_by }} v{{ version }}
+   Timestamp: {{ timestamp }}
+
+Example Templates Gallery
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``examples/jinja-templates/`` directory contains production-ready templates:
+
+- ``docbook.xml.jinja2`` - DocBook XML for technical documentation
+- ``metadata.yaml.jinja2`` - YAML metadata and structure extraction
+- ``custom-outline.txt.jinja2`` - Human-readable document outline
+- ``ansi-terminal.txt.jinja2`` - Colorful terminal output with Unicode box drawing
+
+Full Documentation
+~~~~~~~~~~~~~~~~~~
+
+For complete template reference, see :doc:`templates`.
+
 See Also
 --------
 

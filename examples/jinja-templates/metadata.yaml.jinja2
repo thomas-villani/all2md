@@ -1,0 +1,49 @@
+---
+title: {{ metadata.title|escape_yaml }}
+{% if metadata.author -%}
+author: {{ metadata.author|escape_yaml }}
+{% endif -%}
+{% if metadata.date -%}
+date: {{ metadata.date|escape_yaml }}
+{% endif -%}
+
+document_structure:
+  total_headings: {{ headings|length }}
+  total_links: {{ links|length }}
+  total_images: {{ images|length }}
+
+headings:
+{%- for h in headings %}
+  - level: {{ h.level }}
+    text: {{ h.text|escape_yaml }}
+{%- endfor %}
+
+{% if links -%}
+links:
+{%- for link in links %}
+  - url: {{ link.url|escape_yaml }}
+    text: {{ link.text|escape_yaml }}
+    {%- if link.title %}
+    title: {{ link.title|escape_yaml }}
+    {%- endif %}
+{%- endfor %}
+{% endif -%}
+
+{% if images -%}
+images:
+{%- for img in images %}
+  - url: {{ img.url|escape_yaml }}
+    alt: {{ img.alt_text|escape_yaml }}
+    {%- if img.width %}
+    width: {{ img.width }}
+    {%- endif %}
+    {%- if img.height %}
+    height: {{ img.height }}
+    {%- endif %}
+{%- endfor %}
+{% endif -%}
+
+content: |
+{%- for node in document.children %}
+  {{ node|render|indent(2) }}
+{%- endfor %}

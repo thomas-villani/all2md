@@ -19,6 +19,7 @@ Available renderers include:
 - AsciiDocRenderer: Render to AsciiDoc (always available)
 - LatexRenderer: Render to LaTeX (always available)
 - RestructuredTextRenderer: Render to reStructuredText (always available)
+- JinjaRenderer: Render using custom Jinja2 templates (requires jinja2)
 
 Renderers with optional dependencies are loaded on-demand via the registry.
 Use `all2md.converter_registry.registry.get_renderer(format_name)` to
@@ -55,6 +56,7 @@ Convert AST to DOCX (with dynamic loading):
 
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.renderers.ipynb import IpynbRenderer
+from all2md.renderers.jinja import JinjaRenderer
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.renderers.mediawiki import MediaWikiRenderer
 from all2md.renderers.plaintext import PlainTextRenderer
@@ -62,8 +64,9 @@ from all2md.renderers.plaintext import PlainTextRenderer
 __all__ = [
     "BaseRenderer",
     "InlineContentMixin",
-    "MarkdownRenderer",
     "IpynbRenderer",
+    "JinjaRenderer",
+    "MarkdownRenderer",
     "MediaWikiRenderer",
     "PlainTextRenderer",
 ]

@@ -1,0 +1,42 @@
+========================================
+{{ metadata.title|upper if metadata.title else "DOCUMENT OUTLINE" }}
+========================================
+
+{% if metadata.author -%}
+Author: {{ metadata.author }}
+{% endif -%}
+{% if metadata.date -%}
+Date: {{ metadata.date }}
+{% endif -%}
+
+TABLE OF CONTENTS
+-----------------
+{%- for h in headings %}
+{{ "  " * (h.level - 1) }}{{ loop.index }}. {{ h.text }}
+{%- endfor %}
+
+{% if links -%}
+EXTERNAL REFERENCES
+-------------------
+{%- for link in links %}
+[{{ loop.index }}] {{ link.text }} - {{ link.url }}
+{%- endfor %}
+
+{% endif -%}
+{% if images -%}
+FIGURES
+-------
+{%- for img in images %}
+Figure {{ loop.index }}: {{ img.alt_text }} ({{ img.url }})
+{%- endfor %}
+
+{% endif -%}
+CONTENT SUMMARY
+---------------
+Total sections: {{ headings|length }}
+Total links: {{ links|length }}
+Total images: {{ images|length }}
+
+========================================
+END OF OUTLINE
+========================================

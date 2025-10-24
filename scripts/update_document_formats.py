@@ -12,8 +12,11 @@ Usage:
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
+
+constants_path = Path(__file__).parent.parent / "src" / "all2md" / "constants.py"
 
 
 def get_registered_formats() -> list[str]:
@@ -76,7 +79,6 @@ def read_constants_file() -> str:
         File contents
 
     """
-    constants_path = Path(__file__).parent.parent / "src" / "all2md" / "constants.py"
     return constants_path.read_text(encoding="utf-8")
 
 
@@ -131,8 +133,7 @@ def update_constants_file(new_literal: str) -> tuple[str, bool]:
         # Add new comment
         new_definition = (
             "# Auto-generated from converter registry.\n"
-            "# To update: python scripts/update_document_formats.py --update\n"
-            + new_literal
+            "# To update: python scripts/update_document_formats.py --update\n" + new_literal
         )
 
     # Replace the old definition
@@ -201,25 +202,14 @@ def main() -> int:
         Exit code (0 for success, 1 for failure)
 
     """
-    parser = argparse.ArgumentParser(
-        description="Update DocumentFormat Literal in constants.py from registry"
-    )
+    parser = argparse.ArgumentParser(description="Update DocumentFormat Literal in constants.py from registry")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate that Literal matches registry (exit 1 if drift detected)"
+        "--validate", action="store_true", help="Validate that Literal matches registry (exit 1 if drift detected)"
     )
-    group.add_argument(
-        "--update",
-        action="store_true",
-        help="Update constants.py with current registry formats"
-    )
-    group.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would change without modifying files"
-    )
+    group.add_argument("--update", action="store_true", help="Update constants.py with current registry formats")
+    group.add_argument("--dry-run", action="store_true", help="Show what would change without modifying files")
+    group.add_argument("--stage", action="store_true", help="Stage the changes in git")
 
     args = parser.parse_args()
 
@@ -265,6 +255,9 @@ def main() -> int:
                 print("Updated formats:")
                 for fmt in formats:
                     print(f"  - {fmt}")
+
+                if args.stage:
+                    subprocess.run(["git", "add", str(constants_path)], check=True)
             else:
                 print("No changes needed - constants.py is already up to date")
 

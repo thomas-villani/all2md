@@ -18,6 +18,9 @@ import logging
 from pathlib import Path
 from typing import IO, Union
 
+from all2md.ast import ast_to_json
+from all2md.utils.decorators import requires_dependencies
+
 logger = logging.getLogger(__name__)
 
 from all2md.ast.nodes import (  # noqa: E402
@@ -429,8 +432,6 @@ hr {
             raise ValueError("template_file must be specified when template_mode is set")
 
         # Validate template file exists
-        from pathlib import Path
-
         template_path = Path(self.options.template_file)
         if not template_path.exists():
             raise FileNotFoundError(f"Template file not found: {self.options.template_file}")
@@ -460,8 +461,6 @@ hr {
             HTML with placeholders replaced
 
         """
-        from pathlib import Path
-
         # Read template file (already validated in _apply_template)
         assert self.options.template_file is not None  # for type checker
         template_path = Path(self.options.template_file)
@@ -486,6 +485,7 @@ hr {
 
         return result
 
+    @requires_dependencies("html", [("beautifulsoup4", "bs4", ">=4.14.2")])
     def _apply_inject_template(self, document: Document, content: str) -> str:
         """Apply inject template mode - inject content into HTML at selector.
 
@@ -503,20 +503,13 @@ hr {
 
         Raises
         ------
-        ImportError
+        DependencyError
             If BeautifulSoup is not available
         ValueError
             If selector not found in template
 
         """
-        try:
-            from bs4 import BeautifulSoup
-        except ImportError as e:
-            raise ImportError(
-                "BeautifulSoup4 is required for inject template mode. Install with: pip install beautifulsoup4"
-            ) from e
-
-        from pathlib import Path
+        from bs4 import BeautifulSoup
 
         # Read template file (already validated in _apply_template)
         assert self.options.template_file is not None  # for type checker
@@ -550,6 +543,7 @@ hr {
 
         return str(soup)
 
+    @requires_dependencies("html", [("jinja2", "jinja2", ">=3.1.0")])
     def _apply_jinja_template(self, document: Document, content: str) -> str:
         """Apply jinja template mode - render with Jinja2 template engine.
 
@@ -567,18 +561,11 @@ hr {
 
         Raises
         ------
-        ImportError
+        DependencyError
             If Jinja2 is not available
 
         """
-        try:
-            from jinja2 import Environment, FileSystemLoader, select_autoescape
-        except ImportError as e:
-            raise ImportError("Jinja2 is required for jinja template mode. Install with: pip install jinja2") from e
-
-        from pathlib import Path
-
-        from all2md.ast.serialization import ast_to_json
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
 
         # Set up Jinja environment (already validated in _apply_template)
         assert self.options.template_file is not None  # for type checker
@@ -597,6 +584,7 @@ hr {
         except ImportError:
             from jinja2 import Markup  # type: ignore[attr-defined,no-redef]  # Jinja2 2.x fallback
 
+        # TODO: it's probably more useful to have the ast as a dict than a json str.
         context = {
             "content": Markup(content),  # Already rendered HTML from our renderer
             "title": document.metadata.get("title", "Document"),

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+"http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<article>
+  {% if metadata.title %}
+  <title>{{ metadata.title|escape_xml }}</title>
+  {% endif %}
+
+  {% if metadata.author %}
+  <articleinfo>
+    <author>
+      <firstname>{{ metadata.author|escape_xml }}</firstname>
+    </author>
+  </articleinfo>
+  {% endif %}
+
+  {%- for node in document.children %}
+    {%- if node|node_type == "Heading" %}
+      {%- if node.level == 1 %}
+  <sect1>
+    <title>{{ node.content|map('render')|join('')|escape_xml }}</title>
+      {%- elif node.level == 2 %}
+  <sect2>
+    <title>{{ node.content|map('render')|join('')|escape_xml }}</title>
+      {%- elif node.level == 3 %}
+  <sect3>
+    <title>{{ node.content|map('render')|join('')|escape_xml }}</title>
+      {%- endif %}
+    {%- elif node|node_type == "Paragraph" %}
+    <para>{{ node.content|map('render')|join('')|escape_xml }}</para>
+    {%- elif node|node_type == "CodeBlock" %}
+    <programlisting{% if node.language %} language="{{ node.language|escape_xml }}"{% endif %}>{{ node.content|escape_xml }}</programlisting>
+    {%- elif node|node_type == "BlockQuote" %}
+    <blockquote>
+      {%- for child in node.children %}
+      <para>{{ child|render|escape_xml }}</para>
+      {%- endfor %}
+    </blockquote>
+    {%- endif %}
+  {%- endfor %}
+
+  {%- if images %}
+  <!-- Images referenced in document -->
+  {% for img in images %}
+  <!-- {{ img.url|escape_xml }} - {{ img.alt_text|escape_xml }} -->
+  {%- endfor %}
+  {%- endif %}
+
+</article>

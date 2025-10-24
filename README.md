@@ -27,6 +27,7 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 
 -   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages.
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
+-   **Custom Template Rendering**: Use Jinja2 templates to create any text-based output format (DocBook XML, YAML, ANSI terminal, custom markup) without writing Python code.
 -   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
 -   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, and robust text extraction powered by PyMuPDF.
@@ -104,6 +105,9 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
+| **Jinja2 Templates (Custom)** | User-defined (`.jinja2`, `.j2`)               |       ❌       |        ✅      | `jinja2`           |
+
+> **💡 New!** Create custom output formats using Jinja2 templates without writing Python code. See [Template Guide](docs/source/templates.rst) and [examples/jinja-templates/](examples/jinja-templates/) for DocBook XML, YAML, ANSI terminal, and more.
 
 ## Installation
 

@@ -949,8 +949,9 @@ class TestRateLimiter:
             # Second acquire should have taken 1, then refunded it (back to 99)
             # Allow small variance due to token refill during execution
             expected_tokens = initial_tokens - 1.0
-            assert abs(limiter.tokens - expected_tokens) < 0.5, \
-                f"Expected ~{expected_tokens} tokens, got {limiter.tokens}"
+            assert (
+                abs(limiter.tokens - expected_tokens) < 0.5
+            ), f"Expected ~{expected_tokens} tokens, got {limiter.tokens}"
 
         # Release first slot
         limiter.release()

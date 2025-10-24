@@ -10,14 +10,14 @@ repos:
     hooks:
       - id: format-sync-update
         name: Update DocumentFormat Literal
-        entry: python scripts/update_document_formats.py --update
+        entry: .venv/Scripts/python.exe scripts/update_document_formats.py --update
         language: system
         files: 'src/all2md/(constants\.py|parsers/.*\.py|renderers/.*\.py)'
         pass_filenames: false
         description: Auto-updates DocumentFormat Literal in constants.py from registry
       - id: format-sync-validate
         name: Validate DocumentFormat synchronization
-        entry: python scripts/update_document_formats.py --validate
+        entry: .venv/Scripts/python.exe scripts/update_document_formats.py --validate
         language: system
         files: 'src/all2md/(constants\.py|parsers/.*\.py|renderers/.*\.py)'
         pass_filenames: false
@@ -25,24 +25,22 @@ repos:
 
   # Black - Python code formatter
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 25.9.0
     hooks:
       - id: black
         language_version: python3.12
 
   # Ruff - Python linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+    rev: v0.14.2
     hooks:
       # Run the linter
       - id: ruff
         args: [ --fix ]
-      # Run the formatter
-      - id: ruff-format
 
   # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer

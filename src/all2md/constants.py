@@ -567,6 +567,7 @@ DocumentFormat = Literal[
     "fb2",
     "html",
     "ipynb",
+    "jinja",
     "latex",
     "markdown",
     "mbox",

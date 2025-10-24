@@ -621,7 +621,9 @@ Content-Type: text/html; charset=utf-8
 </html>
 
 --test-boundary--
-""".encode("utf-8")
+""".encode(
+            "utf-8"
+        )
 
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 

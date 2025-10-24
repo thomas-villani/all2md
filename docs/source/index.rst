@@ -30,6 +30,8 @@ Key Features
 
 🧠 **AST Transforms** – Hookable transformation pipeline with built-in TOC generation, boilerplate removal, and plugins
 
+🎨 **Custom Templates** – Jinja2-based rendering for custom output formats (DocBook, YAML, ANSI terminal, etc.) without writing Python
+
 🧭 **Rich CLI Toolkit** – Batch processing, watch mode, parallel workers, collated output, and themed Rich terminals
 
 🤖 **Integrations Ready** – MCP server, plugin entry points, static-site templating, and bidirectional conversion APIs
@@ -128,6 +130,7 @@ Guides & References
    :caption: Advanced Topics
 
    bidirectional
+   templates
    architecture
    static_sites
    performance
