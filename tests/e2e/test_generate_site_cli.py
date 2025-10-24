@@ -9,8 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-
-from tests.utils import MINIMAL_PNG_BYTES, cleanup_test_dir, create_test_temp_dir
+from utils import MINIMAL_PNG_BYTES, cleanup_test_dir, create_test_temp_dir
 
 
 @pytest.mark.e2e

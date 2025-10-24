@@ -1117,7 +1117,6 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         if comment_mode == "blockquote":
             # Render as blockquote for readability
-            self._output.append("> ")
             # Add author/date info if available
             if node.metadata.get("author") or node.metadata.get("date"):
                 author = node.metadata.get("author", "Unknown")

@@ -150,7 +150,7 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
 
     try:
         instance = options_class()
-    except TypeError:
+    except (TypeError, ValueError):
         logger.debug("Skipping %s: could not instantiate without arguments", options_class)
         return {}
 

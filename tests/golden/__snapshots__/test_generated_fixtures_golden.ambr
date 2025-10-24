@@ -213,9 +213,9 @@
   y = np.sin(x)
   plt.figure(figsize=(8, 6))
   plt.plot(x, y)
-  plt.title('Sine Wave')
-  plt.xlabel('x')
-  plt.ylabel('sin(x)')
+  plt.title("Sine Wave")
+  plt.xlabel("x")
+  plt.ylabel("sin(x)")
   plt.show()
   ```
 
@@ -223,9 +223,10 @@
 
   ```python
   # Multiple output formats
+
   from PIL import Image
-  import io
-  img = Image.new('RGB', (50, 50), 'red')
+
+  img = Image.new("RGB", (50, 50), "red")
   img
   ```
 
@@ -239,7 +240,7 @@
   This is a basic test notebook.
 
   ```python
-  print('Hello, World!')
+  print("Hello, World!")
   ```
 
   ```
@@ -300,9 +301,10 @@
   '''
   # Setup Guide
 
-  1.     -
-      -
-  2.
+  1. Install dependencies
+     - Use `uv pip install -r requirements.txt`
+     - Verify versions
+  2. Run the application
 
   ```python
   def main():

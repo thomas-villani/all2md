@@ -81,11 +81,9 @@
 
   Now for an unordered list:
 
-  - First item on unordered list
-
-  - Second item
-
-  - Third
+  *  First item on unordered list
+  *  Second item
+  *  Third
 
   Let’s add some more stuff
 
@@ -101,25 +99,18 @@
 
   And now a multilevel list:
 
-  -  First level
+  *   First level
+  *   First level 2
+    -  Second level 1
+    -  Second level 2
+  *   First level 3
+  *   First level 4
+    -  Second level 3
+    -  Second level 4
 
-  -  First level 2
+  > PAGE_SEP:1/2
 
-        o Second level 1
-
-        o Second level 2
-
-  -  First level 3
-
-  -  First level 4
-
-        o Second level 3
-
-        o Second level 4
-
-  &lt;!-- PAGE_SEP:1/2 --&gt;
-
-  -  First level 5
+  *   First level 5
 
 
 

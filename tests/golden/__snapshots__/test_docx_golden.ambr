@@ -99,6 +99,7 @@
   2. Second numbered item
   3. Third numbered item
 
+
   Nested list example:
 
   * Main item 1
@@ -106,6 +107,7 @@
     - Sub-item 1.2
   * Main item 2
     - Sub-item 2.1
+
 
   List with formatted text:
 
@@ -124,6 +126,7 @@
   | Alice Johnson | 25 | New York |
   | Bob Smith | 30 | San Francisco |
   | Carol Davis | 28 | Los Angeles |
+
 
   Here is a more complex table with merged cells:
 

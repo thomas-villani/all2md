@@ -611,7 +611,7 @@ class OCROptions(CloneFrozenMixin):
     auto_detect_language: bool = field(
         default=DEFAULT_OCR_AUTO_DETECT_LANGUAGE,
         metadata={
-            "help": "Attempt to auto-detect document language (experimental)",
+            "help": "Attempt to auto-detect document language (requires `langdetect`)",
             "importance": "advanced",
         },
     )

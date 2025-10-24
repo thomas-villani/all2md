@@ -30,10 +30,10 @@ if TYPE_CHECKING:
 from all2md.ast import (
     Code,
     CodeBlock,
+    Comment,
     Document,
     Emphasis,
     Heading,
-    HTMLBlock,
     Link,
     List,
     ListItem,
@@ -1356,6 +1356,86 @@ def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: "PdfOptions
     return False
 
 
+def _get_tesseract_lang(detected_lang_code):
+    """Map ISO 639-1 language codes (and some variants) to Tesseract language codes."""
+    lang_map = {
+        # English and variants
+        "en": "eng",
+        # European languages
+        "fr": "fra",  # French
+        "es": "spa",  # Spanish
+        "de": "deu",  # German
+        "it": "ita",  # Italian
+        "pt": "por",  # Portuguese
+        "ru": "rus",  # Russian
+        "nl": "nld",  # Dutch
+        "sv": "swe",  # Swedish
+        "no": "nor",  # Norwegian
+        "da": "dan",  # Danish
+        "fi": "fin",  # Finnish
+        "pl": "pol",  # Polish
+        "cs": "ces",  # Czech
+        "sk": "slk",  # Slovak
+        "hu": "hun",  # Hungarian
+        "ro": "ron",  # Romanian
+        "bg": "bul",  # Bulgarian
+        "el": "ell",  # Greek
+        "tr": "tur",  # Turkish
+        "uk": "ukr",  # Ukrainian
+        "hr": "hrv",  # Croatian
+        "sr": "srp",  # Serbian
+        "sl": "slv",  # Slovenian
+        "lv": "lav",  # Latvian
+        "lt": "lit",  # Lithuanian
+        "et": "est",  # Estonian
+        # Asian languages
+        "zh-cn": "chi_sim",  # Chinese Simplified
+        "zh-tw": "chi_tra",  # Chinese Traditional
+        "zh": "chi_sim",  # Default to Simplified
+        "ja": "jpn",  # Japanese
+        "ko": "kor",  # Korean
+        "hi": "hin",  # Hindi
+        "th": "tha",  # Thai
+        "vi": "vie",  # Vietnamese
+        "my": "mya",  # Burmese
+        "km": "khm",  # Khmer
+        "bn": "ben",  # Bengali
+        # Middle Eastern languages
+        "ar": "ara",  # Arabic
+        "fa": "fas",  # Persian (Farsi)
+        "he": "heb",  # Hebrew
+        "ur": "urd",  # Urdu
+        # Others
+        "id": "ind",  # Indonesian
+        "ms": "msa",  # Malay
+        "ta": "tam",  # Tamil
+        "te": "tel",  # Telugu
+        "kn": "kan",  # Kannada
+        "ml": "mal",  # Malayalam
+        "gu": "guj",  # Gujarati
+        "mr": "mar",  # Marathi
+        "pa": "pan",  # Punjabi
+        "si": "sin",  # Sinhala
+    }
+
+    # Normalize input to lowercase
+    code = detected_lang_code.lower()
+
+    # Handle cases like 'zh-cn', 'zh-tw'
+    if code in lang_map:
+        return lang_map[code]
+
+    # Sometimes language codes come with region subtags, e.g. 'en-US', 'pt-BR'
+    if "-" in code:
+        base_code = code.split("-")[0]
+        if base_code in lang_map:
+            return lang_map[base_code]
+
+    # Fallback to English if unknown
+    return "eng"
+
+
+@requires_dependencies("pdf", [("langdetect", "langdetect", ">=1.0.9")])
 def _detect_page_language(page: "fitz.Page", options: "PdfOptions") -> str:
     """Attempt to auto-detect the language of a PDF page for OCR.
 
@@ -1375,23 +1455,15 @@ def _detect_page_language(page: "fitz.Page", options: "PdfOptions") -> str:
         Tesseract language code (e.g., "eng", "fra", "deu")
         Falls back to options.ocr.languages if detection fails
 
-    Notes
-    -----
-    This function is currently a placeholder. Full implementation would require
-    additional dependencies like langdetect or language detection via Tesseract itself.
-    For now, it simply returns the configured language from options.
-
     """
-    # TODO: Implement actual language detection
-    # This could use:
-    # 1. langdetect library on existing text
-    # 2. Tesseract's orientation and script detection (OSD)
-    # 3. Statistical analysis of character frequencies
+    from langdetect import detect
+    from langdetect.detector import Detector
 
-    # For now, return the configured language
-    if isinstance(options.ocr.languages, list):
-        return "+".join(options.ocr.languages)
-    return options.ocr.languages
+    detected_lang_code = detect(page.get_text())
+    if detected_lang_code == Detector.UNKNOWN_LANG:
+        return options.ocr.languages
+
+    return _get_tesseract_lang(detected_lang_code)
 
 
 class PdfToAstConverter(BaseParser):
@@ -1817,10 +1889,10 @@ class PdfToAstConverter(BaseParser):
 
                 # Add page separator between pages (but not after the last page)
                 if idx < len(pages_list) - 1:
-                    # Add special marker for page separator
-                    # Format: <!-- PAGE_SEP:{page_num}/{total_pages} -->
-                    sep_marker = f"<!-- PAGE_SEP:{pno + 1}/{total_pages} -->"
-                    children.append(HTMLBlock(content=sep_marker))
+                    # Add page separator comment
+                    # Format: PAGE_SEP:{page_num}/{total_pages}
+                    sep_content = f"PAGE_SEP:{pno + 1}/{total_pages}"
+                    children.append(Comment(content=sep_content, metadata={"comment_type": "page_separator"}))
 
                 # Emit page done event
                 self._emit_progress(
@@ -3232,35 +3304,60 @@ class PdfToAstConverter(BaseParser):
 
         return False
 
+    def _determine_list_level_from_x(self, x_coord: float, x_levels: dict[int, float]) -> int:
+        """Determine the nesting level of a list item based on its x-coordinate.
+
+        Parameters
+        ----------
+        x_coord : float
+            The x-coordinate of the list item
+        x_levels : dict
+            Dictionary mapping level numbers to representative x-coordinates
+
+        Returns
+        -------
+        int
+            The nesting level (0-based)
+
+        Notes
+        -----
+        X-coordinates within 5 points of each other are considered the same level.
+
+        """
+        LEVEL_THRESHOLD = 5.0
+
+        # Check if x_coord matches an existing level
+        for level, level_x in x_levels.items():
+            if abs(x_coord - level_x) < LEVEL_THRESHOLD:
+                return level
+
+        # New level - assign it the next available level number
+        new_level = len(x_levels)
+        x_levels[new_level] = x_coord
+        return new_level
+
     def _apply_list_indentation(
         self, paragraph: AstParagraph, current_bbox: tuple[float, float, float, float], first_list_item_x: float
     ) -> None:
-        """Apply indentation to list item based on x-offset.
+        """Store bbox information for later use in nested list detection.
 
         Parameters
         ----------
         paragraph : AstParagraph
-            Paragraph to indent
+            Paragraph to process
         current_bbox : tuple
             Current bounding box
         first_list_item_x : float
-            X-coordinate of first list item
+            X-coordinate of first list item (unused, kept for API compatibility)
+
+        Notes
+        -----
+        This method no longer adds manual spacing. List nesting is now handled
+        structurally in _convert_paragraphs_to_lists using x-coordinate data.
 
         """
-        current_x = current_bbox[0]
-        x_offset = current_x - first_list_item_x
-
-        if x_offset > 5:  # Threshold to detect nesting
-            indent_spaces = int(x_offset / 10) * 2  # 2 spaces per ~10 points
-            if indent_spaces > 0 and paragraph.content:
-                for i, item in enumerate(paragraph.content):
-                    if isinstance(item, Text):
-                        paragraph.content[i] = Text(
-                            content=" " * indent_spaces + item.content,
-                            metadata=item.metadata,
-                            source_location=item.source_location,
-                        )
-                        break
+        # No-op: nesting is now handled structurally, not via spacing
+        pass
 
     def _should_merge_with_accumulated(
         self,
@@ -3415,8 +3512,256 @@ class PdfToAstConverter(BaseParser):
 
         return merged
 
+    def _detect_list_marker(self, para: AstParagraph) -> tuple[bool, str | None]:
+        """Detect if a paragraph is a list item and return its type.
+
+        Parameters
+        ----------
+        para : AstParagraph
+            The paragraph to check
+
+        Returns
+        -------
+        tuple[bool, str | None]
+            A tuple of (is_list_item, list_type) where list_type is
+            "ordered", "unordered", or None
+
+        """
+        full_text = ""
+        for node in para.content:
+            if isinstance(node, Text):
+                full_text = node.content
+                break
+
+        stripped = full_text.lstrip()
+
+        if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
+            return True, "unordered"
+        elif re.match(r"^\s*\d+[\.\)]\s", full_text):
+            return True, "ordered"
+        else:
+            return False, None
+
+    def _extract_list_item_x_coord(self, node: AstParagraph) -> float | None:
+        """Extract x-coordinate from a paragraph's bbox metadata.
+
+        Parameters
+        ----------
+        node : AstParagraph
+            The paragraph node
+
+        Returns
+        -------
+        float | None
+            The x-coordinate if available, None otherwise
+
+        """
+        if node.source_location and node.source_location.metadata:
+            bbox = node.source_location.metadata.get("bbox")
+            if bbox and len(bbox) >= 1:
+                return bbox[0]
+        return None
+
+    def _strip_list_marker(self, para: AstParagraph) -> list[Node]:
+        """Remove list marker from paragraph content and return cleaned content.
+
+        Parameters
+        ----------
+        para : AstParagraph
+            The paragraph containing a list marker
+
+        Returns
+        -------
+        list[Node]
+            Content nodes with the list marker removed
+
+        """
+        full_text = ""
+        for node in para.content:
+            if isinstance(node, Text):
+                full_text = node.content
+                break
+
+        # Determine marker and strip it
+        stripped = full_text.lstrip()
+        marker_end = 0
+
+        if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
+            # Bullet marker - find where it ends (marker + space)
+            marker_end = full_text.index(stripped[0]) + 1
+            if marker_end < len(full_text) and full_text[marker_end] == " ":
+                marker_end += 1
+        elif match := re.match(r"^(\s*)(\d+[\.\)])\s", full_text):
+            # Numbered marker
+            marker_end = match.end()
+
+        # Create new content without the marker
+        new_content: list[Node] = []
+        if marker_end > 0:
+            # Remove marker from first text node
+            for i, node in enumerate(para.content):
+                if i == 0 and isinstance(node, Text):
+                    remaining_text = node.content[marker_end:]
+                    if remaining_text:
+                        new_content.append(Text(content=remaining_text))
+                else:
+                    new_content.append(node)
+        else:
+            new_content = list(para.content)
+
+        return new_content
+
+    def _finalize_pending_lists(self, list_stack: list[tuple[str, int, list[ListItem]]], result: list[Node]) -> None:
+        """Finalize all lists in the stack, nesting them properly.
+
+        Parameters
+        ----------
+        list_stack : list[tuple[str, int, list[ListItem]]]
+            Stack of (list_type, level, items) tuples
+        result : list[Node]
+            Result list to append finalized top-level list to
+
+        """
+        while len(list_stack) > 1:
+            # Pop deeper list
+            deeper_type, deeper_level, deeper_items = list_stack.pop()
+            nested_list = List(ordered=(deeper_type == "ordered"), items=deeper_items, tight=True)
+
+            # Add to parent's last item
+            parent_items = list_stack[-1][2]
+            if parent_items:
+                parent_items[-1].children.append(nested_list)
+
+        # Add the top-level list to results
+        if list_stack:
+            list_type, level, items = list_stack.pop()
+            result.append(List(ordered=(list_type == "ordered"), items=items, tight=True))
+
+    def _handle_empty_stack(
+        self, list_stack: list[tuple[str, int, list[ListItem]]], list_type: str, level: int, item_node: ListItem
+    ) -> None:
+        """Handle adding a list item when stack is empty.
+
+        Parameters
+        ----------
+        list_stack : list[tuple[str, int, list[ListItem]]]
+            Stack of list tuples (will be empty when called)
+        list_type : str
+            Type of list ("ordered" or "unordered")
+        level : int
+            Nesting level
+        item_node : ListItem
+            The list item to add
+
+        """
+        list_stack.append((list_type, level, [item_node]))
+
+    def _handle_deeper_nesting(
+        self, list_stack: list[tuple[str, int, list[ListItem]]], list_type: str, level: int, item_node: ListItem
+    ) -> None:
+        """Handle adding a list item at a deeper nesting level.
+
+        Parameters
+        ----------
+        list_stack : list[tuple[str, int, list[ListItem]]]
+            Stack of list tuples
+        list_type : str
+            Type of list ("ordered" or "unordered")
+        level : int
+            Nesting level (greater than current stack top level)
+        item_node : ListItem
+            The list item to add
+
+        """
+        list_stack.append((list_type, level, [item_node]))
+
+    def _handle_shallower_level(
+        self,
+        list_stack: list[tuple[str, int, list[ListItem]]],
+        list_type: str,
+        level: int,
+        item_node: ListItem,
+        result: list[Node],
+    ) -> None:
+        """Handle adding a list item at a shallower nesting level.
+
+        Parameters
+        ----------
+        list_stack : list[tuple[str, int, list[ListItem]]]
+            Stack of list tuples
+        list_type : str
+            Type of list ("ordered" or "unordered")
+        level : int
+            Nesting level (less than current stack top level)
+        item_node : ListItem
+            The list item to add
+        result : list[Node]
+            Result list for finalized lists
+
+        """
+        # Going back to shallower level - finalize deeper lists
+        while list_stack and list_stack[-1][1] > level:
+            popped_type, popped_level, popped_items = list_stack.pop()
+            nested_list = List(ordered=(popped_type == "ordered"), items=popped_items, tight=True)
+
+            # Add nested list to parent's last item
+            if list_stack:
+                parent_items = list_stack[-1][2]
+                if parent_items:
+                    parent_items[-1].children.append(nested_list)
+
+        # Check if we're at the same level and type
+        if list_stack and list_stack[-1][1] == level:
+            if list_stack[-1][0] == list_type:
+                # Same level and type - add item
+                list_stack[-1][2].append(item_node)
+            else:
+                # Different type at same level - finalize old, start new
+                old_type, old_level, old_items = list_stack.pop()
+                result.append(List(ordered=(old_type == "ordered"), items=old_items, tight=True))
+                list_stack.append((list_type, level, [item_node]))
+        else:
+            # Start new list at this level
+            list_stack.append((list_type, level, [item_node]))
+
+    def _handle_same_level(
+        self,
+        list_stack: list[tuple[str, int, list[ListItem]]],
+        list_type: str,
+        item_node: ListItem,
+        result: list[Node],
+        current_type: str,
+        current_level: int,
+    ) -> None:
+        """Handle adding a list item at the same nesting level.
+
+        Parameters
+        ----------
+        list_stack : list[tuple[str, int, list[ListItem]]]
+            Stack of list tuples
+        list_type : str
+            Type of list ("ordered" or "unordered")
+        item_node : ListItem
+            The list item to add
+        result : list[Node]
+            Result list for finalized lists
+        current_type : str
+            Current list type from stack top
+        current_level : int
+            Current nesting level from stack top
+
+        """
+        if current_type == list_type:
+            # Same type - add to current list
+            list_stack[-1][2].append(item_node)
+        else:
+            # Different type at same level - finalize old, start new
+            old_type, old_level, old_items = list_stack.pop()
+            result.append(List(ordered=(old_type == "ordered"), items=old_items, tight=True))
+            list_stack.append((list_type, current_level, [item_node]))
+
     def _convert_paragraphs_to_lists(self, nodes: list[Node]) -> list[Node]:
-        """Convert paragraphs with list markers into List/ListItem structures.
+        """Convert paragraphs with list markers into List/ListItem structures with proper nesting.
 
         Parameters
         ----------
@@ -3426,110 +3771,61 @@ class PdfToAstConverter(BaseParser):
         Returns
         -------
         list of Node
-            Nodes with list paragraphs converted to List structures
+            Nodes with list paragraphs converted to nested List structures
+
+        Notes
+        -----
+        Uses x-coordinate information from bbox metadata to determine nesting levels.
+        Implements a stack-based algorithm to build properly nested list structures.
 
         """
         result: list[Node] = []
-        current_list_items: list[AstParagraph] = []
-        current_list_type: str | None = None  # 'ordered' or 'unordered'
-
-        def flush_list() -> None:
-            """Convert accumulated list items into a List node."""
-            if not current_list_items:
-                return
-
-            items: list[ListItem] = []
-            for para in current_list_items:
-                # Extract text to find and remove the list marker
-                full_text = ""
-                for node in para.content:
-                    if isinstance(node, Text):
-                        full_text = node.content
-                        break
-
-                # Determine marker and strip it
-                stripped = full_text.lstrip()
-                marker_end = 0
-
-                if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
-                    # Bullet marker - find where it ends (marker + space)
-                    marker_end = full_text.index(stripped[0]) + 1
-                    if marker_end < len(full_text) and full_text[marker_end] == " ":
-                        marker_end += 1
-                elif match := re.match(r"^(\s*)(\d+[\.\)])\s", full_text):
-                    # Numbered marker
-                    marker_end = match.end()
-
-                # Create new content without the marker
-                new_content: list[Node] = []
-                if marker_end > 0:
-                    # Remove marker from first text node
-                    for i, node in enumerate(para.content):
-                        if i == 0 and isinstance(node, Text):
-                            remaining_text = node.content[marker_end:]
-                            if remaining_text:
-                                new_content.append(Text(content=remaining_text))
-                        else:
-                            new_content.append(node)
-                else:
-                    new_content = list(para.content)
-
-                # Wrap in paragraph for list item content
-                items.append(ListItem(children=[AstParagraph(content=new_content)]))
-
-            # Create the list
-            ordered = current_list_type == "ordered"
-            result.append(List(ordered=ordered, items=items))
+        list_stack: list[tuple[str, int, list[ListItem]]] = []
+        x_levels: dict[int, float] = {}
 
         for node in nodes:
             if isinstance(node, AstParagraph):
                 # Check if this is a list item
-                full_text = ""
-                for n in node.content:
-                    if isinstance(n, Text):
-                        full_text = n.content
-                        break
+                is_list_item, list_type = self._detect_list_marker(node)
 
-                stripped = full_text.lstrip()
-                is_ordered = False
-                is_unordered = False
+                if is_list_item and list_type:
+                    # Extract x-coordinate and determine nesting level
+                    x_coord = self._extract_list_item_x_coord(node)
+                    level = 0
+                    if x_coord is not None:
+                        level = self._determine_list_level_from_x(x_coord, x_levels)
 
-                if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
-                    is_unordered = True
-                elif re.match(r"^\s*\d+[\.\)]\s", full_text):
-                    is_ordered = True
+                    # Create list item with cleaned content
+                    cleaned_content = self._strip_list_marker(node)
+                    item_node = ListItem(children=[AstParagraph(content=cleaned_content)])
 
-                if is_ordered or is_unordered:
-                    # This is a list item
-                    new_type = "ordered" if is_ordered else "unordered"
+                    # Handle list stack based on level
+                    if not list_stack:
+                        self._handle_empty_stack(list_stack, list_type, level, item_node)
+                    else:
+                        current_type, current_level, current_items = list_stack[-1]
 
-                    # Check if we need to start a new list
-                    if current_list_type is not None and current_list_type != new_type:
-                        # Different list type - flush current list
-                        flush_list()
-                        current_list_items = []
-                        current_list_type = new_type
-
-                    if current_list_type is None:
-                        current_list_type = new_type
-
-                    # Add to current list
-                    current_list_items.append(node)
+                        if level > current_level:
+                            self._handle_deeper_nesting(list_stack, list_type, level, item_node)
+                        elif level < current_level:
+                            self._handle_shallower_level(list_stack, list_type, level, item_node, result)
+                        else:
+                            self._handle_same_level(
+                                list_stack, list_type, item_node, result, current_type, current_level
+                            )
                 else:
-                    # Not a list item - flush any pending list
-                    flush_list()
-                    current_list_items = []
-                    current_list_type = None
+                    # Not a list item - finalize any pending lists
+                    self._finalize_pending_lists(list_stack, result)
+                    x_levels.clear()
                     result.append(node)
             else:
-                # Non-paragraph - flush any pending list
-                flush_list()
-                current_list_items = []
-                current_list_type = None
+                # Non-paragraph - finalize any pending lists
+                self._finalize_pending_lists(list_stack, result)
+                x_levels.clear()
                 result.append(node)
 
-        # Flush any remaining list
-        flush_list()
+        # Finalize any remaining lists
+        self._finalize_pending_lists(list_stack, result)
 
         return result
 

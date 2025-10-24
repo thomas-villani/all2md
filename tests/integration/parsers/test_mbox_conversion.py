@@ -24,7 +24,7 @@ from all2md.parsers.mbox import MboxToAstConverter
 @pytest.fixture
 def simple_mbox_file(tmp_path):
     """Create a simple MBOX file for testing."""
-    from tests.fixtures.generators.mbox_fixtures import create_simple_mbox, write_mbox_to_file
+    from fixtures.generators.mbox_fixtures import create_simple_mbox, write_mbox_to_file
 
     mbox = create_simple_mbox()
     mbox_path = tmp_path / "test.mbox"
@@ -35,7 +35,7 @@ def simple_mbox_file(tmp_path):
 @pytest.fixture
 def thread_mbox_file(tmp_path):
     """Create a threaded MBOX file for testing."""
-    from tests.fixtures.generators.mbox_fixtures import create_mbox_with_thread, write_mbox_to_file
+    from fixtures.generators.mbox_fixtures import create_mbox_with_thread, write_mbox_to_file
 
     mbox = create_mbox_with_thread()
     mbox_path = tmp_path / "thread.mbox"

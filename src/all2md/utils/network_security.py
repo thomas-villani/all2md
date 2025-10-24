@@ -444,7 +444,7 @@ def create_secure_http_client(
         timeout=timeout,
         follow_redirects=True,
         event_hooks={"request": [validate_request_url], "response": [validate_response_redirects]},
-        headers={"User-Agent": os.getenv("ALL2MD_USER_AGENT", DEFAULT_USER_AGENT)},
+        headers={"User-Agent": user_agent or os.getenv("ALL2MD_USER_AGENT", DEFAULT_USER_AGENT)},
     )
 
     return client
@@ -495,6 +495,8 @@ def fetch_content_securely(
         If URL fails security validation or fetch constraints
 
     """
+    from httpx import HTTPError
+
     # Check global network disable first
     if is_network_disabled():
         raise NetworkSecurityError(
@@ -511,7 +513,7 @@ def fetch_content_securely(
 
     try:
         with create_secure_http_client(
-            timeout=timeout, allowed_hosts=allowed_hosts, require_https=require_https
+            timeout=timeout, allowed_hosts=allowed_hosts, require_https=require_https, user_agent=user_agent
         ) as client:
             # Use HEAD request first to check content-length header
             try:
@@ -538,7 +540,7 @@ def fetch_content_securely(
                         f"Invalid content type: {content_type}. Expected one of: {expected_content_types}"
                     )
             except Exception as head_error:
-                # HEAD request failed, continue with GET but be more cautious
+                # HEAD request failed, continue with GET but be more cautious unless required head success
                 if require_head_success:
                     raise NetworkSecurityError(
                         f"HEAD request required but failed: {head_error!r}", original_error=head_error
@@ -576,13 +578,11 @@ def fetch_content_securely(
                 logger.debug(f"Successfully fetched {total_size} bytes from {url}")
                 return content
 
-    # TODO: improve this.
+    except NetworkSecurityError:
+        raise
+    except HTTPError as e:
+        raise NetworkSecurityError(f"HTTP request failed for {url}: {e}", original_error=e) from e
     except Exception as e:
-        if isinstance(e, NetworkSecurityError):
-            raise
-        # Check if it's an httpx error
-        if hasattr(e, "__module__") and e.__module__ and "httpx" in e.__module__:
-            raise NetworkSecurityError(f"HTTP request failed for {url}: {e}") from e
         raise NetworkSecurityError(f"Unexpected error fetching {url}: {e}") from e
     finally:
         # Release rate limiter if acquired
@@ -598,6 +598,7 @@ def fetch_image_securely(
     timeout: float = 30.0,
     require_head_success: bool = True,
     rate_limiter: RateLimiter | None = None,
+    user_agent: str | None = None,
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 
@@ -619,6 +620,8 @@ def fetch_image_securely(
         Require a successful HEAD request prior to GET
     rate_limiter : RateLimiter | None, default None
         Optional rate limiter to control request rate and concurrency
+    user_agent : str | None, default None
+        Optionally set the user agent for http requests.
 
     Returns
     -------
@@ -640,6 +643,7 @@ def fetch_image_securely(
         require_head_success=require_head_success,
         expected_content_types=["image/"],
         rate_limiter=rate_limiter,
+        user_agent=user_agent,
     )
 
 

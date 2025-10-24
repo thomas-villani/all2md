@@ -97,7 +97,6 @@ class TestPdfLayoutAdvanced:
         assert len(columns) == 1
         assert len(columns[0]) == len(blocks)
 
-    # TODO: remove or refactor
     @patch("all2md.parsers.pdf.fitz.open")
     def test_rotated_text_handling(self, mock_fitz_open):
         """Test handling of rotated text blocks."""

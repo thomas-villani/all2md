@@ -901,7 +901,6 @@ def load_options_from_json(json_file_path: str) -> dict:
         raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
 
 
-# TODO: what is this for? Is it needed?
 def merge_exclusion_patterns_from_json(parsed_args: argparse.Namespace, json_options: dict) -> Optional[List[str]]:
     """Merge exclusion patterns from JSON options if not specified via CLI.
 

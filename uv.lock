@@ -121,6 +121,12 @@ html = [
 html-readability = [
     { name = "readability-lxml" },
 ]
+http = [
+    { name = "httpx" },
+]
+langdetect = [
+    { name = "langdetect" },
+]
 latex = [
     { name = "pylatexenc" },
 ]
@@ -209,9 +215,11 @@ requires-dist = [
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'html'", specifier = ">=0.28.1" },
+    { name = "httpx", marker = "extra == 'http'", specifier = ">=0.28.1" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100.0" },
     { name = "jinja2", marker = "extra == 'all'", specifier = ">=3.1.0" },
     { name = "jinja2", marker = "extra == 'templates'", specifier = ">=3.1.0" },
+    { name = "langdetect", marker = "extra == 'langdetect'", specifier = ">=1.0.9" },
     { name = "mistune", marker = "extra == 'all'", specifier = ">=3.0.0" },
     { name = "mistune", marker = "extra == 'markdown'", specifier = ">=3.0.0" },
     { name = "mwparserfromhell", marker = "extra == 'wiki'", specifier = ">=0.7.2" },
@@ -1102,6 +1110,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/19/74/a633ee74eb36c44aa
 wheels = [
     { url = "https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl", hash = "sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe", size = 18437 },
 ]
+
+[[package]]
+name = "langdetect"
+version = "1.0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0e/72/a3add0e4eec4eb9e2569554f7c70f4a3c27712f40e3284d483e88094cc0e/langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0", size = 981474 }
 
 [[package]]
 name = "lark"

@@ -45,6 +45,9 @@ html = [
     "chardet>=5.2.0",
     "httpx>=0.28.1",
 ]
+http = [
+    "httpx>=0.28.1"
+]
 html_readability = [
     "readability-lxml>=0.8.1",
 ]
@@ -167,6 +170,9 @@ all = [
 wiki = [
     "mwparserfromhell>=0.7.2",
     "chardet>=5.2.0",
+]
+langdetect = [
+    "langdetect>=1.0.9",
 ]
 
 [project.scripts]

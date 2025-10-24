@@ -16,12 +16,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
-from all2md.ast import Document, Heading, Paragraph, Text
-from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options.webarchive import WebArchiveOptions
-from all2md.parsers.webarchive import WebArchiveToAstConverter
-from tests.fixtures.generators.webarchive_fixtures import (
+from fixtures.generators.webarchive_fixtures import (
     create_invalid_plist,
     create_malformed_webarchive,
     create_simple_webarchive,
@@ -32,6 +27,11 @@ from tests.fixtures.generators.webarchive_fixtures import (
     create_webarchive_with_multiple_assets,
     create_webarchive_with_subframes,
 )
+
+from all2md.ast import Document, Heading, Paragraph, Text
+from all2md.exceptions import MalformedFileError, ParsingError
+from all2md.options.webarchive import WebArchiveOptions
+from all2md.parsers.webarchive import WebArchiveToAstConverter
 
 
 @pytest.mark.unit

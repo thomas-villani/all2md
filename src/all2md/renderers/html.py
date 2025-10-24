@@ -18,7 +18,7 @@ import logging
 from pathlib import Path
 from typing import IO, Union
 
-from all2md.ast import ast_to_json
+from all2md.ast import ast_to_dict
 from all2md.utils.decorators import requires_dependencies
 
 logger = logging.getLogger(__name__)
@@ -584,7 +584,6 @@ hr {
         except ImportError:
             from jinja2 import Markup  # type: ignore[attr-defined,no-redef]  # Jinja2 2.x fallback
 
-        # TODO: it's probably more useful to have the ast as a dict than a json str.
         context = {
             "content": Markup(content),  # Already rendered HTML from our renderer
             "title": document.metadata.get("title", "Document"),
@@ -592,7 +591,7 @@ hr {
             "headings": [{"level": level, "id": hid, "text": text} for level, hid, text in self._headings],
             "toc_html": Markup(self._generate_toc()) if self._headings else "",  # Also safe HTML
             "footnotes": [{"identifier": fn.identifier} for fn in self._footnote_definitions],
-            "ast_json": ast_to_json(document),
+            "ast_dict": ast_to_dict(document),
         }
 
         # Render template

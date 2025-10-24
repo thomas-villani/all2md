@@ -17,8 +17,9 @@ from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
+from all2md.constants import DEFAULT_USER_AGENT
 from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationError
-from all2md.progress import ProgressCallback
+from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.network_security import fetch_content_securely, is_network_disabled
 
 InputType = Union[str, Path, IO[bytes], IO[str], bytes]
@@ -111,6 +112,10 @@ class RemoteInputOptions:
             "help": "Maximum allowed remote document size in bytes.",
             "importance": "security",
         },
+    )
+    user_agent: str = field(
+        default=DEFAULT_USER_AGENT,
+        metadata={"help": "User-Agent included on header for requests", "importance": "security"},
     )
 
     # Placeholder for future rate limiting / credentials fields
@@ -363,8 +368,6 @@ class HttpRetriever(DocumentSourceRetriever):
 
         # Emit download started event
         if request.progress_callback:
-            from all2md.progress import ProgressEvent
-
             try:
                 request.progress_callback(
                     ProgressEvent(
@@ -385,11 +388,11 @@ class HttpRetriever(DocumentSourceRetriever):
                 require_https=remote_options.require_https,
                 max_size_bytes=remote_options.max_size_bytes,
                 timeout=remote_options.timeout,
+                user_agent=remote_options.user_agent,
             )
 
             # Emit download completed event
             if request.progress_callback:
-                from all2md.progress import ProgressEvent
 
                 try:
                     request.progress_callback(
@@ -407,7 +410,6 @@ class HttpRetriever(DocumentSourceRetriever):
         except NetworkSecurityError:
             # Emit error event
             if request.progress_callback:
-                from all2md.progress import ProgressEvent
 
                 try:
                     request.progress_callback(
@@ -425,14 +427,13 @@ class HttpRetriever(DocumentSourceRetriever):
         except ImportError as exc:
             raise DependencyError(
                 "remote_input",
-                missing_packages=[("httpx", "")],
+                missing_packages=[("httpx", ">=0.28.1")],
                 install_command="pip install all2md[http]",
                 original_import_error=exc,
             ) from exc
         except Exception as exc:  # pragma: no cover - defensive fallback
             # Emit error event
             if request.progress_callback:
-                from all2md.progress import ProgressEvent
 
                 try:
                     request.progress_callback(
