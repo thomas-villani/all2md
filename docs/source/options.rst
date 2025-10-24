@@ -3221,6 +3221,156 @@ between AST and .ipynb formats.
    :Default: ``None``
    :Importance: advanced
 
+JINJA Options
+~~~~~~~~~~~~~
+
+
+JINJA Renderer Options
+^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for Jinja2 template-based rendering.
+
+This dataclass contains settings for rendering AST documents using custom
+Jinja2 templates. Templates have full access to the document AST and can
+produce any text-based output format (XML, YAML, custom markup, etc.).
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--jinja-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--jinja-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--jinja-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**template_file**
+
+   Path to Jinja2 template file
+
+   :Type: ``str | None``
+   :CLI flag: ``--jinja-renderer-template-file``
+   :Default: ``None``
+   :Importance: core
+
+**template_string**
+
+   Inline Jinja2 template string
+
+   :Type: ``str | None``
+   :CLI flag: ``--jinja-renderer-template-string``
+   :Default: ``None``
+   :Importance: core
+
+**template_dir**
+
+   Directory for template includes/extends
+
+   :Type: ``str | None``
+   :CLI flag: ``--jinja-renderer-template-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**escape_strategy**
+
+   Default escaping strategy for output format
+
+   :Type: ``Literal['xml', 'html', 'latex', 'yaml', 'markdown', 'none', 'custom'] | None``
+   :CLI flag: ``--jinja-renderer-escape-strategy``
+   :Default: ``None``
+   :Choices: ``xml``, ``html``, ``latex``, ``yaml``, ``markdown``, ``none``, ``custom``
+   :Importance: core
+
+**custom_escape_function**
+
+   Custom escape function (for escape_strategy='custom')
+
+   :Type: ``Callable[[str], str] | None``
+   :CLI flag: ``--jinja-renderer-custom-escape-function``
+   :Default: ``None``
+   :Importance: advanced
+
+**autoescape**
+
+   Enable Jinja2 autoescape using escape_strategy
+
+   :Type: ``bool``
+   :CLI flag: ``--jinja-renderer-autoescape``
+   :Default: ``False``
+   :Importance: core
+
+**enable_render_filter**
+
+   Enable |render filter for nodes
+
+   :Type: ``bool``
+   :CLI flag: ``--jinja-renderer-no-enable-render-filter``
+   :Default: ``True``
+   :Importance: core
+
+**enable_escape_filters**
+
+   Enable escape filters (escape_xml, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--jinja-renderer-no-enable-escape-filters``
+   :Default: ``True``
+   :Importance: core
+
+**enable_traversal_helpers**
+
+   Enable AST traversal helpers (get_headings, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--jinja-renderer-no-enable-traversal-helpers``
+   :Default: ``True``
+   :Importance: core
+
+**default_render_format**
+
+   Default format for |render filter
+
+   :Type: ``Literal['markdown', 'plain', 'html']``
+   :CLI flag: ``--jinja-renderer-default-render-format``
+   :Default: ``'markdown'``
+   :Choices: ``markdown``, ``plain``, ``html``
+   :Importance: advanced
+
+**extra_context**
+
+   Additional template context variables
+
+   :Type: ``dict[str, Any] | None``
+   :CLI flag: ``--jinja-renderer-extra-context``
+   :Default: ``None``
+   :Importance: advanced
+
+**strict_undefined**
+
+   Raise errors for undefined template variables
+
+   :Type: ``bool``
+   :CLI flag: ``--jinja-renderer-no-strict-undefined``
+   :Default: ``True``
+   :Importance: core
+
 LATEX Options
 ~~~~~~~~~~~~~
 
@@ -3669,7 +3819,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000020594C30A00>``
+   :Default: ``<object object at 0x000001E575560A10>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3679,7 +3829,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000020594C30A00>``
+   :Default: ``<object object at 0x000001E575560A10>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -6422,7 +6572,7 @@ to extract text from images (PDF scanned pages, standalone images, etc.).
 
 **auto_detect_language**
 
-   Attempt to auto-detect document language (experimental)
+   Attempt to auto-detect document language (requires `langdetect`)
 
    :Type: ``bool``
    :CLI flag: ``--pdf-ocr-auto-detect-language``
@@ -8665,7 +8815,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000020594C30A00>``
+   :Default: ``<object object at 0x000001E575560A10>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -8675,7 +8825,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000020594C30A00>``
+   :Default: ``<object object at 0x000001E575560A10>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

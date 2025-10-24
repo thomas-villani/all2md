@@ -40,12 +40,12 @@ Submodules
    all2md.parsers.org
    all2md.parsers.outlook
    all2md.parsers.pdf
+   all2md.parsers.plaintext
    all2md.parsers.pptx
    all2md.parsers.restructuredtext
    all2md.parsers.rtf
    all2md.parsers.sourcecode
    all2md.parsers.textile
-   all2md.parsers.txt
    all2md.parsers.webarchive
    all2md.parsers.xlsx
    all2md.parsers.zip

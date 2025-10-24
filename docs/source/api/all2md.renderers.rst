@@ -23,6 +23,7 @@ Submodules
    all2md.renderers.epub
    all2md.renderers.html
    all2md.renderers.ipynb
+   all2md.renderers.jinja
    all2md.renderers.latex
    all2md.renderers.markdown
    all2md.renderers.mediawiki

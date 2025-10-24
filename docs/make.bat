@@ -47,7 +47,7 @@ if errorlevel 1 (
 )
 echo.
 echo Fixing .rst.rst filename conflicts...
-..\\.venv\\Scripts\\python.exe fix_rst_filenames.py
+..\\.venv\\Scripts\\python.exe ..\\scripts\\fix_rst_filenames.py
 if errorlevel 1 (
     echo.
     echo Error: Failed to fix .rst.rst filenames

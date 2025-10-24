@@ -29,6 +29,7 @@ Submodules
    all2md.options.fb2
    all2md.options.html
    all2md.options.ipynb
+   all2md.options.jinja
    all2md.options.latex
    all2md.options.markdown
    all2md.options.mbox

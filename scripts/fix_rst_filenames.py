@@ -7,6 +7,8 @@ It also updates toctree references in parent package files to point to the
 renamed files.
 """
 
+#  Copyright (c) 2025 Tom Villani, Ph.D.
+
 import re
 from pathlib import Path
 
@@ -84,7 +86,8 @@ def fix_rst_filenames(api_dir: Path) -> None:
 if __name__ == "__main__":
     # Determine API directory relative to this script
     script_dir = Path(__file__).parent
-    api_dir = script_dir / "source" / "api"
+    project_root_dir = script_dir.parent
+    api_dir = project_root_dir / "docs" / "source" / "api"
 
     if not api_dir.exists():
         print(f"Error: API directory not found at {api_dir}")

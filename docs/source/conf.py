@@ -17,6 +17,7 @@ DOCS_SOURCE_DIR = Path(__file__).resolve().parent
 DOCS_ROOT = DOCS_SOURCE_DIR.parent
 PROJECT_ROOT = DOCS_ROOT.parent
 
+SCRIPTS_PATH = PROJECT_ROOT / "scripts"
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
@@ -26,6 +27,9 @@ if str(DOCS_ROOT) not in sys.path:
 
 if str(DOCS_SOURCE_DIR) not in sys.path:
     sys.path.insert(0, str(DOCS_SOURCE_DIR))
+
+if str(SCRIPTS_PATH) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_PATH))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
