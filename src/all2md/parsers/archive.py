@@ -19,9 +19,10 @@ import tempfile
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, cast
 
 from all2md.ast import Alignment, Document, Heading, Node, Paragraph, Table, TableCell, TableRow, Text
+from all2md.constants import DocumentFormat
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.exceptions import (
@@ -355,7 +356,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Open
                 tar = tarfile.open(str(input_data), mode)  # type: ignore[call-overload]
-                cleanup_func = tar.close  # type: ignore[assignment,no-untyped-call]
+                cleanup_func = tar.close
 
             elif hasattr(input_data, "read"):
                 # Read to bytes for validation
@@ -435,7 +436,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Setup cleanup
                 def cleanup() -> None:
-                    sz.close()
+                    sz.close()  # type: ignore[no-untyped-call]
                     try:
                         os.unlink(tmp_path)
                     except OSError:
@@ -449,7 +450,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Open
                 sz = py7zr.SevenZipFile(str(input_data), mode="r")
-                cleanup_func = sz.close  # type: ignore[assignment,no-untyped-call]
+                cleanup_func = sz.close
 
             elif hasattr(input_data, "read"):
                 # Read to bytes
@@ -469,7 +470,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Setup cleanup
                 def cleanup() -> None:
-                    sz.close()
+                    sz.close()  # type: ignore[no-untyped-call]
                     try:
                         os.unlink(tmp_path)
                     except OSError:
@@ -545,7 +546,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Open
                 rar = rarfile.RarFile(str(input_data))
-                cleanup_func = rar.close  # type: ignore[assignment,no-untyped-call]
+                cleanup_func = rar.close
 
             elif hasattr(input_data, "read"):
                 # Read to bytes
@@ -1084,8 +1085,8 @@ class ArchiveToAstConverter(BaseParser):
             # Convert using the detected format
             doc = to_ast(
                 file_obj,
-                source_format=detected_format,
-                progress=self.progress_callback,  # type: ignore[arg-type]
+                source_format=cast(DocumentFormat, detected_format),
+                progress_callback=self.progress_callback,
             )
 
             return doc

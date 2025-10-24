@@ -3160,6 +3160,130 @@ class PdfToAstConverter(BaseParser):
 
         return result
 
+    def _is_list_item_paragraph(self, paragraph: AstParagraph) -> bool:
+        """Check if paragraph starts with a list marker.
+
+        Parameters
+        ----------
+        paragraph : AstParagraph
+            Paragraph to check
+
+        Returns
+        -------
+        bool
+            True if paragraph starts with list marker
+
+        """
+        if not paragraph.content:
+            return False
+
+        def extract_text(nodes: list[Node]) -> str:
+            """Recursively extract text from nodes."""
+            text_parts = []
+            for node in nodes:
+                if isinstance(node, Text):
+                    text_parts.append(node.content)
+                elif hasattr(node, "content") and isinstance(node.content, list):
+                    text_parts.append(extract_text(node.content))
+            return "".join(text_parts)
+
+        full_text = extract_text(paragraph.content)
+        if not full_text:
+            return False
+
+        stripped_text = full_text.lstrip()
+        if not stripped_text:
+            return False
+
+        if stripped_text[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
+            return True
+
+        if re.match(r"^\d+[\.\)]\s", stripped_text):
+            return True
+
+        return False
+
+    def _apply_list_indentation(
+        self, paragraph: AstParagraph, current_bbox: tuple[float, float, float, float], first_list_item_x: float
+    ) -> None:
+        """Apply indentation to list item based on x-offset.
+
+        Parameters
+        ----------
+        paragraph : AstParagraph
+            Paragraph to indent
+        current_bbox : tuple
+            Current bounding box
+        first_list_item_x : float
+            X-coordinate of first list item
+
+        """
+        current_x = current_bbox[0]
+        x_offset = current_x - first_list_item_x
+
+        if x_offset > 5:  # Threshold to detect nesting
+            indent_spaces = int(x_offset / 10) * 2  # 2 spaces per ~10 points
+            if indent_spaces > 0 and paragraph.content:
+                for i, item in enumerate(paragraph.content):
+                    if isinstance(item, Text):
+                        paragraph.content[i] = Text(
+                            content=" " * indent_spaces + item.content,
+                            metadata=item.metadata,
+                            source_location=item.source_location,
+                        )
+                        break
+
+    def _should_merge_with_accumulated(
+        self,
+        current_bbox: tuple[float, float, float, float] | None,
+        last_bbox_bottom: float | None,
+        accumulated_content: list[Node],
+        is_list_item: bool,
+        last_was_list_item: bool,
+        merge_threshold: float,
+    ) -> bool:
+        """Determine if current paragraph should merge with accumulated content.
+
+        Parameters
+        ----------
+        current_bbox : tuple or None
+            Current paragraph bounding box
+        last_bbox_bottom : float or None
+            Bottom y-coordinate of last paragraph
+        accumulated_content : list of Node
+            Accumulated content so far
+        is_list_item : bool
+            Whether current paragraph is a list item
+        last_was_list_item : bool
+            Whether last paragraph was a list item
+        merge_threshold : float
+            Threshold for vertical gap merging
+
+        Returns
+        -------
+        bool
+            True if should merge
+
+        """
+        # Don't merge list items with anything
+        if is_list_item or last_was_list_item:
+            return False
+
+        # If bbox information is missing, don't merge to be safe
+        if not current_bbox or last_bbox_bottom is None:
+            return not accumulated_content
+
+        # Must have accumulated content and valid bbox info
+        if not accumulated_content:
+            return True
+
+        # Calculate vertical gap
+        current_bbox_top = current_bbox[1]
+        vertical_gap = current_bbox_top - last_bbox_bottom
+
+        # Only merge if gap is small
+        return vertical_gap < merge_threshold
+
     def _merge_adjacent_paragraphs(self, nodes: list[Node]) -> list[Node]:
         """Merge consecutive paragraph nodes that should be combined.
 
@@ -3192,9 +3316,6 @@ class PdfToAstConverter(BaseParser):
         if not nodes:
             return nodes
 
-        # Threshold for merging paragraphs (in points)
-        # Lines in the same paragraph typically have gaps < 3-5 points (line spacing)
-        # Separate paragraphs or code lines typically have gaps >= 5 points
         MERGE_THRESHOLD = 5.0
 
         merged: list[Node] = []
@@ -3202,142 +3323,64 @@ class PdfToAstConverter(BaseParser):
         last_source_location: SourceLocation | None = None
         last_bbox_bottom: float | None = None
         last_was_list_item: bool = False
-        first_list_item_x: float | None = None  # Track x-position of first list item for nesting detection
-
-        def starts_with_list_marker(paragraph: AstParagraph) -> bool:
-            """Check if paragraph starts with a list marker.
-
-            Preserves leading spaces for nested list detection.
-            """
-            if not paragraph.content:
-                return False
-
-            # Extract all text content from the paragraph (recursively from inline nodes)
-            def extract_text(nodes: list[Node]) -> str:
-                """Recursively extract text from nodes."""
-                text_parts = []
-                for node in nodes:
-                    if isinstance(node, Text):
-                        text_parts.append(node.content)
-                    elif hasattr(node, "content") and isinstance(node.content, list):
-                        # Inline formatting nodes (Strong, Emphasis, etc.)
-                        text_parts.append(extract_text(node.content))
-                return "".join(text_parts)
-
-            full_text = extract_text(paragraph.content)
-            if not full_text:
-                return False
-
-            # Strip leading spaces only for checking, but we need to know if there are any
-            stripped_text = full_text.lstrip()
-            if not stripped_text:
-                return False
-
-            # Check for common list markers (after optional spaces for nesting)
-            if stripped_text[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
-                return True
-
-            # Check for numbered lists (1., 2., etc.) after optional spaces
-            # Match patterns like "1. ", "2) ", "10. ", etc.
-            if re.match(r"^\d+[\.\)]\s", stripped_text):
-                return True
-
-            return False
+        first_list_item_x: float | None = None
 
         for node in nodes:
             if isinstance(node, AstParagraph):
-                # Check if we should merge this paragraph with accumulated content
-                should_merge = True
-
-                # Get bbox from this paragraph
                 current_bbox = None
                 if node.source_location and node.source_location.metadata:
                     current_bbox = node.source_location.metadata.get("bbox")
 
-                # Don't merge list items with anything
-                # Don't merge anything into list items
-                is_list_item = starts_with_list_marker(node)
-                if is_list_item or last_was_list_item:
-                    should_merge = False
+                is_list_item = self._is_list_item_paragraph(node)
 
-                # Handle list item indentation for nesting
+                # Handle list item indentation
                 if is_list_item and current_bbox:
-                    current_x = current_bbox[0]  # Left x-coordinate
-
-                    # Track the first list item's x position as baseline
                     if first_list_item_x is None:
-                        first_list_item_x = current_x
+                        first_list_item_x = current_bbox[0]
+                    self._apply_list_indentation(node, current_bbox, first_list_item_x)
 
-                    # Calculate indentation level (each ~20 points = 2 spaces)
-                    x_offset = current_x - first_list_item_x
-                    if x_offset > 5:  # Threshold to detect nesting (5 points tolerance)
-                        # Add indentation spaces to the beginning of the content
-                        indent_spaces = int(x_offset / 10) * 2  # 2 spaces per ~10 points of offset
-                        if indent_spaces > 0 and node.content:
-                            # Prepend spaces to the first Text node
-                            for i, item in enumerate(node.content):
-                                if isinstance(item, Text):
-                                    node.content[i] = Text(
-                                        content=" " * indent_spaces + item.content,
-                                        metadata=item.metadata,
-                                        source_location=item.source_location,
-                                    )
-                                    break
-
-                if should_merge and accumulated_content and last_bbox_bottom is not None and current_bbox:
-                    # Calculate vertical gap between previous and current paragraph
-                    # bbox is (x0, y0, x1, y1) where y0 is top and y1 is bottom
-                    current_bbox_top = current_bbox[1]  # y0 coordinate
-                    vertical_gap = current_bbox_top - last_bbox_bottom
-
-                    # Only merge if gap is small (same logical paragraph)
-                    if vertical_gap >= MERGE_THRESHOLD:
-                        should_merge = False
-                elif not current_bbox or last_bbox_bottom is None:
-                    # If bbox information is missing, don't merge to be safe
-                    should_merge = False if accumulated_content else True
+                # Determine if we should merge
+                should_merge = self._should_merge_with_accumulated(
+                    current_bbox,
+                    last_bbox_bottom,
+                    accumulated_content,
+                    is_list_item,
+                    last_was_list_item,
+                    MERGE_THRESHOLD,
+                )
 
                 if should_merge:
-                    # Add space between accumulated content and new content
+                    # Merge: accumulate content
                     if accumulated_content and node.content:
                         accumulated_content.append(Text(content=" "))
-                    # Accumulate this paragraph's content
                     accumulated_content.extend(node.content)
-                    # Track source location from first paragraph in sequence
                     if last_source_location is None:
                         last_source_location = node.source_location
-                    # Update last bbox bottom for next iteration
                     if current_bbox:
-                        last_bbox_bottom = current_bbox[3]  # y1 coordinate
+                        last_bbox_bottom = current_bbox[3]
                     last_was_list_item = is_list_item
                 else:
-                    # Gap is too large or list item boundary - flush accumulated paragraphs
+                    # Don't merge: flush accumulated content
                     if accumulated_content:
                         merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
-                    # Start new accumulation with current paragraph
                     accumulated_content = list(node.content)
                     last_source_location = node.source_location
-                    if current_bbox:
-                        last_bbox_bottom = current_bbox[3]  # y1 coordinate
-                    else:
-                        last_bbox_bottom = None
+                    last_bbox_bottom = current_bbox[3] if current_bbox else None
                     last_was_list_item = is_list_item
-                    # Reset list baseline when we're not in a list
                     if not is_list_item:
                         first_list_item_x = None
             else:
-                # Non-paragraph node: flush accumulated paragraphs
+                # Non-paragraph node: flush and reset
                 if accumulated_content:
                     merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
                     accumulated_content = []
                     last_source_location = None
                     last_bbox_bottom = None
                     last_was_list_item = False
-                    first_list_item_x = None  # Reset list baseline
-                # Add the non-paragraph node
+                    first_list_item_x = None
                 merged.append(node)
 
-        # Flush any remaining accumulated content
+        # Flush remaining content
         if accumulated_content:
             merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any, Optional, Union, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -649,7 +649,7 @@ class MediaWikiParser(BaseParser):
         # Sanitize URL
         url = sanitize_url(title)
         content = [Text(content=text)]
-        return Link(url=url, content=content)
+        return Link(url=url, content=cast(list[Node], content))
 
     def _process_external_link(self, extlink: Any) -> Link | None:
         """Process a MediaWiki external link [http://...].
@@ -671,7 +671,7 @@ class MediaWikiParser(BaseParser):
         # Sanitize URL
         url = sanitize_url(url)
         content = [Text(content=title)]
-        return Link(url=url, content=content)
+        return Link(url=url, content=cast(list[Node], content))
 
     def _process_template(self, template: Any) -> HTMLInline | None:
         """Process a MediaWiki template {{...}}.
@@ -746,7 +746,7 @@ class MediaWikiParser(BaseParser):
 
                     if text_content:
                         item_content = [Text(content=text_content)]
-                        items.append(ListItem(children=[Paragraph(content=item_content)]))
+                        items.append(ListItem(children=[Paragraph(content=cast(list[Node], item_content))]))
 
                     i += 1
                 else:
@@ -814,7 +814,7 @@ class MediaWikiParser(BaseParser):
         quote_text = " ".join(text_parts)
         content = [Text(content=quote_text)]
         consumed = i - start_idx
-        return BlockQuote(children=[Paragraph(content=content)]), consumed
+        return BlockQuote(children=[Paragraph(content=cast(list[Node], content))]), consumed
 
     def _process_table(self, table_tag: Any) -> Table | None:
         """Parse a MediaWiki table.
@@ -867,7 +867,7 @@ class MediaWikiParser(BaseParser):
                     # Remove cell attributes (e.g., style="...")
                     ct = re.sub(r"^\s*[^|]*\|\s*", "", ct).strip()
                     content = [Text(content=ct)]
-                    current_row_cells.append(TableCell(content=content))
+                    current_row_cells.append(TableCell(content=cast(list[Node], content)))
 
             elif line.startswith("|"):
                 # Data cell
@@ -878,7 +878,7 @@ class MediaWikiParser(BaseParser):
                     # Remove cell attributes
                     ct = re.sub(r"^\s*[^|]*\|\s*", "", ct).strip()
                     content = [Text(content=ct)]
-                    current_row_cells.append(TableCell(content=content))
+                    current_row_cells.append(TableCell(content=cast(list[Node], content)))
 
         # Add last row if any
         if current_row_cells:
@@ -934,7 +934,7 @@ class MediaWikiParser(BaseParser):
 
         quote_text = " ".join(clean_lines).strip()
         content = [Text(content=quote_text)]
-        return BlockQuote(children=[Paragraph(content=content)])
+        return BlockQuote(children=[Paragraph(content=cast(list[Node], content))])
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         """Extract metadata from MediaWiki document.

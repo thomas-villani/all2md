@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any, Optional, Union, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -353,7 +353,7 @@ class OrgParser(BaseParser):
                 footnote_content_text = footnote_match.group(2)
                 # Parse footnote content as inline
                 footnote_content = [Paragraph(content=self._parse_inline(footnote_content_text))]
-                footnote_defs.append(FootnoteDefinition(identifier=footnote_id, content=footnote_content))
+                footnote_defs.append(FootnoteDefinition(identifier=footnote_id, content=cast(list[Node], footnote_content)))
                 continue
 
             # Check for math blocks \[...\]

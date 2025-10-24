@@ -1086,6 +1086,300 @@ class AsciiDocParser(BaseParser):
 
         return nodes
 
+    def _try_parse_passthrough(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse passthrough pattern at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        match = self.passthrough_pattern.match(text)
+        if match:
+            passthrough_content = match.group(1) or match.group(2) or match.group(3)
+            passthrough_content = self._postprocess_escapes(passthrough_content, escape_map)
+            return [HTMLInline(content=passthrough_content)], match.end()
+        return None
+
+    def _try_parse_image(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse image pattern at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        match = self.image_block_pattern.match(text)
+        if not match:
+            match = self.image_inline_pattern.match(text)
+        if match:
+            url = match.group(1)
+            alt_text = match.group(2) if len(match.groups()) >= 2 else ""
+            url = self._postprocess_escapes(url, escape_map)
+            alt_text = self._postprocess_escapes(alt_text, escape_map)
+            url = sanitize_url(url)
+            return [Image(url=url, alt_text=alt_text)], match.end()
+        return None
+
+    def _try_parse_links(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse link patterns at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        match = self.link_pattern.match(text)
+        if match:
+            url = match.group(1)
+            link_text = match.group(2)
+            url = self._postprocess_escapes(url, escape_map)
+            url = sanitize_url(url)
+            content = self._parse_inline_recursive(link_text, escape_map) if link_text else [Text(content=url)]
+            return [Link(url=url, content=content)], match.end()
+
+        match = self.auto_link_pattern.match(text)
+        if match:
+            url = match.group(1)
+            url = sanitize_url(url)
+            return [Link(url=url, content=[Text(content=url)])], match.end()
+
+        match = self.xref_pattern.match(text)
+        if match:
+            ref_id = match.group(1)
+            ref_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ref_id
+            url = sanitize_url(f"#{ref_id}")
+            return [Link(url=url, content=[Text(content=ref_text)])], match.end()
+
+        return None
+
+    def _try_parse_attribute_ref(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse attribute reference at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        if not self.options.resolve_attribute_refs:
+            return None
+
+        match = self.attr_ref_pattern.match(text)
+        if match:
+            attr_name = match.group(1)
+            if self._escape_placeholder not in attr_name:
+                if attr_name in self.attributes:
+                    attr_value = self.attributes[attr_name]
+                elif self.options.attribute_missing_policy == "blank":
+                    attr_value = ""
+                elif self.options.attribute_missing_policy == "warn":
+                    logger.warning(f"Undefined attribute reference: {{{attr_name}}}", stacklevel=2)
+                    attr_value = f"{{{attr_name}}}"
+                else:  # keep
+                    attr_value = f"{{{attr_name}}}"
+                return [Text(content=attr_value)], match.end()
+        return None
+
+    def _try_parse_formatting(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse formatting patterns at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        if self.bold_unconstrained_pattern:
+            match = self.bold_unconstrained_pattern.match(text)
+            if match:
+                inner_nodes = self._parse_inline_recursive(match.group(1), escape_map)
+                return [Strong(content=inner_nodes)], match.end()
+
+        match = self.bold_pattern.match(text)
+        if match:
+            inner_nodes = self._parse_inline_recursive(match.group(1), escape_map)
+            return [Strong(content=inner_nodes)], match.end()
+
+        if self.italic_unconstrained_pattern:
+            match = self.italic_unconstrained_pattern.match(text)
+            if match:
+                inner_nodes = self._parse_inline_recursive(match.group(1), escape_map)
+                return [Emphasis(content=inner_nodes)], match.end()
+
+        match = self.italic_pattern.match(text)
+        if match:
+            inner_nodes = self._parse_inline_recursive(match.group(1), escape_map)
+            return [Emphasis(content=inner_nodes)], match.end()
+
+        match = self.mono_pattern.match(text)
+        if match:
+            code_text = self._postprocess_escapes(match.group(1), escape_map)
+            return [Code(content=code_text)], match.end()
+
+        match = self.superscript_pattern.match(text)
+        if match:
+            inner_nodes = self._parse_inline_recursive(match.group(1), escape_map)
+            return [Superscript(content=inner_nodes)], match.end()
+
+        match = self.subscript_pattern.match(text)
+        if match:
+            inner_nodes = self._parse_inline_recursive(match.group(1), escape_map)
+            return [Subscript(content=inner_nodes)], match.end()
+
+        return None
+
+    def _try_parse_footnotes(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse footnote patterns at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        match = self.footnote_pattern.match(text)
+        if match:
+            footnote_text = self._postprocess_escapes(match.group(1), escape_map)
+            self._footnote_counter += 1
+            identifier = str(self._footnote_counter)
+            self._footnote_definitions[identifier] = footnote_text
+            return [FootnoteReference(identifier=identifier)], match.end()
+
+        match = self.footnoteref_pattern.match(text)
+        if match:
+            identifier = match.group(1).strip()
+            footnote_text: str | None = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
+            if footnote_text:
+                processed_text = self._postprocess_escapes(footnote_text, escape_map)
+                if identifier not in self._footnote_definitions:
+                    self._footnote_definitions[identifier] = processed_text
+            return [FootnoteReference(identifier=identifier)], match.end()
+
+        return None
+
+    def _try_parse_math(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse math patterns at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        match = self.latexmath_inline_pattern.match(text)
+        if match:
+            math_content = match.group(1) if match.group(1) else match.group(2)
+            math_content = self._postprocess_escapes(math_content, escape_map)
+            return [MathInline(content=math_content, notation="latex")], match.end()
+
+        match = self.stem_inline_pattern.match(text)
+        if match:
+            math_content = match.group(1) if match.group(1) else match.group(2)
+            math_content = self._postprocess_escapes(math_content, escape_map)
+            return [MathInline(content=math_content, notation="latex")], match.end()
+
+        return None
+
+    def _try_parse_role(
+        self, text: str, escape_map: dict[str, str]
+    ) -> tuple[list[Node], int] | None:
+        """Try to parse role pattern at start of text.
+
+        Parameters
+        ----------
+        text : str
+            Text to parse
+        escape_map : dict[str, str]
+            Escape mapping
+
+        Returns
+        -------
+        tuple[list[Node], int] or None
+            (nodes, pos_advance) if matched, None otherwise
+
+        """
+        match = self.role_pattern.match(text)
+        if match:
+            role = match.group(1).lower().strip()
+            role_text = match.group(2)
+            inner_nodes = self._parse_inline_recursive(role_text, escape_map)
+
+            if role == "line-through":
+                return [Strikethrough(content=inner_nodes)], match.end()
+            elif role == "underline":
+                return [Underline(content=inner_nodes)], match.end()
+            else:
+                return inner_nodes, match.end()
+
+        return None
+
     def _parse_inline_recursive(self, text: str, escape_map: dict[str, str]) -> list[Node]:
         """Recursively parse inline formatting.
 
@@ -1103,286 +1397,41 @@ class AsciiDocParser(BaseParser):
 
         """
         nodes: list[Node] = []
-        remaining = text
         pos = 0
 
-        while pos < len(remaining):
-            # Try to match each pattern at current position
-            matched = False
+        while pos < len(text):
+            remaining = text[pos:]
 
-            # Check for passthrough first (highest priority)
-            # WARNING: Passthrough content is rendered as HTMLInline and should be
-            # sanitized by the renderer to prevent XSS attacks
-            match = self.passthrough_pattern.match(remaining[pos:])
-            if match:
-                # Extract passthrough content (don't process further)
-                passthrough_content = match.group(1) or match.group(2) or match.group(3)
-                # Restore escapes in passthrough content
-                passthrough_content = self._postprocess_escapes(passthrough_content, escape_map)
-                # Create HTMLInline node for passthrough content
-                nodes.append(HTMLInline(content=passthrough_content))
-                pos += match.end()
-                matched = True
-                continue
+            # Try each pattern handler in order
+            result = (
+                self._try_parse_passthrough(remaining, escape_map)
+                or self._try_parse_image(remaining, escape_map)
+                or self._try_parse_links(remaining, escape_map)
+                or self._try_parse_attribute_ref(remaining, escape_map)
+                or self._try_parse_formatting(remaining, escape_map)
+                or self._try_parse_footnotes(remaining, escape_map)
+                or self._try_parse_math(remaining, escape_map)
+                or self._try_parse_role(remaining, escape_map)
+            )
 
-            # Check for images (block and inline)
-            match = self.image_block_pattern.match(remaining[pos:])
-            if not match:
-                match = self.image_inline_pattern.match(remaining[pos:])
+            if result:
+                parsed_nodes, advance = result
+                nodes.extend(parsed_nodes)
+                pos += advance
+            else:
+                # No pattern matched - consume text until next special construct
+                next_match = self.combined_inline_pattern.search(remaining)
+                next_special = next_match.start() if next_match else len(remaining)
 
-            if match:
-                url = match.group(1)
-                alt_text = match.group(2) if len(match.groups()) >= 2 else ""
-                # Restore escapes in URL and alt text
-                url = self._postprocess_escapes(url, escape_map)
-                alt_text = self._postprocess_escapes(alt_text, escape_map)
-                # Sanitize URL to prevent XSS attacks
-                url = sanitize_url(url)
-                nodes.append(Image(url=url, alt_text=alt_text))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for links (explicit)
-            match = self.link_pattern.match(remaining[pos:])
-            if match:
-                url = match.group(1)
-                link_text = match.group(2)
-                url = self._postprocess_escapes(url, escape_map)
-                # Sanitize URL to prevent XSS attacks
-                url = sanitize_url(url)
-                content = self._parse_inline_recursive(link_text, escape_map) if link_text else [Text(content=url)]
-                nodes.append(Link(url=url, content=content))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for auto-links
-            match = self.auto_link_pattern.match(remaining[pos:])
-            if match:
-                url = match.group(1)
-                # Sanitize URL to prevent XSS attacks
-                url = sanitize_url(url)
-                nodes.append(Link(url=url, content=[Text(content=url)]))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for cross-references
-            match = self.xref_pattern.match(remaining[pos:])
-            if match:
-                ref_id = match.group(1)
-                ref_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ref_id
-                # Cross-references are rendered as links with # prefix
-                # Sanitize URL to prevent XSS attacks (though # prefix should make it safe)
-                url = sanitize_url(f"#{ref_id}")
-                nodes.append(Link(url=url, content=[Text(content=ref_text)]))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for attribute references
-            if self.options.resolve_attribute_refs:
-                match = self.attr_ref_pattern.match(remaining[pos:])
-                if match:
-                    attr_name = match.group(1)
-                    # Check if this attribute reference contains escape placeholders
-                    # If so, it was escaped and should be treated as literal
-                    if self._escape_placeholder not in attr_name:
-                        if attr_name in self.attributes:
-                            attr_value = self.attributes[attr_name]
-                        elif self.options.attribute_missing_policy == "blank":
-                            attr_value = ""
-                        elif self.options.attribute_missing_policy == "warn":
-                            logger.warning(f"Undefined attribute reference: {{{attr_name}}}", stacklevel=2)
-                            attr_value = f"{{{attr_name}}}"
-                        else:  # keep
-                            attr_value = f"{{{attr_name}}}"
-                        nodes.append(Text(content=attr_value))
-                        pos += match.end()
-                        matched = True
-                        continue
-
-            # Check for unconstrained bold (** before constrained *)
-            if self.bold_unconstrained_pattern:
-                match = self.bold_unconstrained_pattern.match(remaining[pos:])
-                if match:
-                    inner_text = match.group(1)
-                    inner_nodes = self._parse_inline_recursive(inner_text, escape_map)
-                    nodes.append(Strong(content=inner_nodes))
-                    pos += match.end()
-                    matched = True
-                    continue
-
-            # Check for constrained bold
-            match = self.bold_pattern.match(remaining[pos:])
-            if match:
-                inner_text = match.group(1)
-                inner_nodes = self._parse_inline_recursive(inner_text, escape_map)
-                nodes.append(Strong(content=inner_nodes))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for unconstrained italic (__ before constrained _)
-            if self.italic_unconstrained_pattern:
-                match = self.italic_unconstrained_pattern.match(remaining[pos:])
-                if match:
-                    inner_text = match.group(1)
-                    inner_nodes = self._parse_inline_recursive(inner_text, escape_map)
-                    nodes.append(Emphasis(content=inner_nodes))
-                    pos += match.end()
-                    matched = True
-                    continue
-
-            # Check for constrained italic
-            match = self.italic_pattern.match(remaining[pos:])
-            if match:
-                inner_text = match.group(1)
-                inner_nodes = self._parse_inline_recursive(inner_text, escape_map)
-                nodes.append(Emphasis(content=inner_nodes))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for monospace
-            match = self.mono_pattern.match(remaining[pos:])
-            if match:
-                code_text = match.group(1)
-                # Restore escapes in code content
-                code_text = self._postprocess_escapes(code_text, escape_map)
-                nodes.append(Code(content=code_text))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for superscript
-            match = self.superscript_pattern.match(remaining[pos:])
-            if match:
-                inner_text = match.group(1)
-                inner_nodes = self._parse_inline_recursive(inner_text, escape_map)
-                nodes.append(Superscript(content=inner_nodes))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for subscript
-            match = self.subscript_pattern.match(remaining[pos:])
-            if match:
-                inner_text = match.group(1)
-                inner_nodes = self._parse_inline_recursive(inner_text, escape_map)
-                nodes.append(Subscript(content=inner_nodes))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for footnote with inline content (footnote:[text])
-            match = self.footnote_pattern.match(remaining[pos:])
-            if match:
-                footnote_text = match.group(1)
-                # Generate unique identifier for this footnote
-                self._footnote_counter += 1
-                identifier = str(self._footnote_counter)
-                # Restore escapes in footnote content
-                footnote_text = self._postprocess_escapes(footnote_text, escape_map)
-                # Collect footnote definition
-                self._footnote_definitions[identifier] = footnote_text
-                # Create footnote reference
-                nodes.append(FootnoteReference(identifier=identifier))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for footnoteref (footnoteref:[id,text] or footnoteref:[id])
-            match = self.footnoteref_pattern.match(remaining[pos:])
-            if match:
-                identifier = match.group(1).strip()
-                footnote_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
-
-                # If footnote text is provided, this is the first occurrence (definition)
-                if footnote_text:
-                    # Restore escapes in footnote content
-                    footnote_text = self._postprocess_escapes(footnote_text, escape_map)
-                    # Collect footnote definition only if not already defined
-                    if identifier not in self._footnote_definitions:
-                        self._footnote_definitions[identifier] = footnote_text
-
-                # Create footnote reference
-                nodes.append(FootnoteReference(identifier=identifier))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for LaTeX math inline (latexmath:[...] or latexmath:[$...$])
-            match = self.latexmath_inline_pattern.match(remaining[pos:])
-            if match:
-                # Extract math content from either $...$ or plain [...] format
-                math_content = match.group(1) if match.group(1) else match.group(2)
-                # Restore escapes in math content
-                math_content = self._postprocess_escapes(math_content, escape_map)
-                nodes.append(MathInline(content=math_content, notation="latex"))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for STEM math inline (stem:[...] or stem:[$...$])
-            match = self.stem_inline_pattern.match(remaining[pos:])
-            if match:
-                # Extract math content from either $...$ or plain [...] format
-                math_content = match.group(1) if match.group(1) else match.group(2)
-                # Restore escapes in math content
-                math_content = self._postprocess_escapes(math_content, escape_map)
-                # STEM defaults to LaTeX notation
-                nodes.append(MathInline(content=math_content, notation="latex"))
-                pos += match.end()
-                matched = True
-                continue
-
-            # Check for roles ([role]#text#) - strikethrough, underline, etc.
-            match = self.role_pattern.match(remaining[pos:])
-            if match:
-                role = match.group(1).lower().strip()
-                role_text = match.group(2)
-                # Recursively parse the role content
-                inner_nodes = self._parse_inline_recursive(role_text, escape_map)
-
-                # Apply appropriate formatting based on role
-                if role == "line-through":
-                    nodes.append(Strikethrough(content=inner_nodes))
-                elif role == "underline":
-                    nodes.append(Underline(content=inner_nodes))
-                else:
-                    # Unknown role - just include the text without special formatting
-                    nodes.extend(inner_nodes)
-
-                pos += match.end()
-                matched = True
-                continue
-
-            # No pattern matched - consume text until next special construct
-            if not matched:
-                # Use combined pattern for efficient scanning
-                next_match = self.combined_inline_pattern.search(remaining[pos:])
-
-                if next_match:
-                    # Extract text up to the next match
-                    next_special = pos + next_match.start()
-                else:
-                    # No more special constructs, take rest of text
-                    next_special = len(remaining)
-
-                # Extract text content
-                text_content = remaining[pos:next_special]
+                text_content = remaining[:next_special]
                 if text_content:
-                    # Restore escapes in plain text
                     text_content = self._postprocess_escapes(text_content, escape_map)
-                    # Merge with previous text node if possible
                     if nodes and isinstance(nodes[-1], Text):
                         nodes[-1] = Text(content=nodes[-1].content + text_content)
                     else:
                         nodes.append(Text(content=text_content))
 
-                pos = next_special
+                pos += next_special
 
         return nodes
 
@@ -1411,7 +1460,7 @@ class AsciiDocParser(BaseParser):
             # Wrap in a paragraph
             content_nodes = [Paragraph(content=footnote_content)]
             # Create and append the footnote definition
-            children.append(FootnoteDefinition(identifier=identifier, content=content_nodes))
+            children.append(FootnoteDefinition(identifier=identifier, content=cast(list[Node], content_nodes)))
 
     def _parse_list(self) -> List | list[Node]:
         """Parse an ordered or unordered list with nesting support.
@@ -1930,7 +1979,7 @@ class AsciiDocParser(BaseParser):
 
             # Create cell with colspan/rowspan if present
             # TableCell expects colspan/rowspan as direct attributes, not in metadata
-            cell_kwargs = {"content": content}
+            cell_kwargs: dict[str, Any] = {"content": content}
             if colspan is not None:
                 cell_kwargs["colspan"] = colspan
             if rowspan is not None:

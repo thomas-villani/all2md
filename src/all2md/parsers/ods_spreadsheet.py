@@ -281,6 +281,167 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         return self.ods_to_ast(doc)
 
+    def _select_sheets(
+        self, tables: list[Any], sheet_names: list[str]
+    ) -> tuple[list[Any], list[str]]:
+        """Select sheets based on options.
+
+        Parameters
+        ----------
+        tables : list of Any
+            All ODF table objects
+        sheet_names : list of str
+            Names of all sheets
+
+        Returns
+        -------
+        tuple[list[Any], list[str]]
+            Tuple of (selected tables, selected names)
+
+        """
+        selected_tables = []
+        selected_names = []
+
+        if isinstance(self.options.sheets, list):
+            for i, name in enumerate(sheet_names):
+                if name in self.options.sheets:
+                    selected_tables.append(tables[i])
+                    selected_names.append(name)
+        elif isinstance(self.options.sheets, str):
+            pattern = re.compile(self.options.sheets)
+            for i, name in enumerate(sheet_names):
+                if pattern.search(name):
+                    selected_tables.append(tables[i])
+                    selected_names.append(name)
+        else:
+            selected_tables = tables
+            selected_names = sheet_names
+
+        return selected_tables, selected_names
+
+    def _extract_rows_from_table(self, table: Any) -> list[list[str]]:
+        """Extract raw row data from ODF table.
+
+        Parameters
+        ----------
+        table : Any
+            ODF table object
+
+        Returns
+        -------
+        list[list[str]]
+            Raw rows with cell data
+
+        """
+        from odf.table import TableCell, TableRow
+
+        rows_elem = list(table.getElementsByType(TableRow))
+        raw_rows = []
+
+        for row in rows_elem:
+            cells = list(row.getElementsByType(TableCell))
+            row_data = []
+
+            for cell in cells:
+                cell_text = ""
+                for node in cell.childNodes:
+                    if hasattr(node, "data"):
+                        cell_text += str(node.data)
+                    elif hasattr(node, "childNodes"):
+                        for subnode in node.childNodes:
+                            if hasattr(subnode, "data"):
+                                cell_text += str(subnode.data)
+
+                # Handle cell repetition
+                repeat_count = 1
+                try:
+                    repeat_attr = cell.getAttribute("numbercolumnsrepeated")
+                    if repeat_attr:
+                        repeat_count = int(repeat_attr)
+                except (ValueError, TypeError):
+                    pass
+
+                for _ in range(repeat_count):
+                    row_data.append(cell_text.strip() if cell_text else "")
+
+            raw_rows.append(row_data)
+
+        # Remove empty trailing rows
+        while raw_rows and all(not cell for cell in raw_rows[-1]):
+            raw_rows.pop()
+
+        return raw_rows
+
+    def _process_sheet_data(
+        self, raw_rows: list[list[str]]
+    ) -> tuple[list[str], list[list[str]]]:
+        """Process header and data rows with limits and trimming.
+
+        Parameters
+        ----------
+        raw_rows : list[list[str]]
+            Raw row data from table
+
+        Returns
+        -------
+        tuple[list[str], list[list[str]]]
+            Tuple of (header, data_rows)
+
+        """
+        if not raw_rows:
+            return [], []
+
+        # Apply row limits
+        if self.options.max_rows is not None:
+            total_available = len(raw_rows) - 1
+            if total_available > self.options.max_rows:
+                raw_rows = raw_rows[: self.options.max_rows + 1]
+
+        # Extract header and data
+        if self.options.has_header:
+            header = raw_rows[0]
+            data_rows = raw_rows[1:] if len(raw_rows) > 1 else []
+        else:
+            if raw_rows:
+                max_cols = max(len(row) for row in raw_rows)
+                if self.options.max_cols is not None:
+                    max_cols = min(max_cols, self.options.max_cols)
+                header = [f"Column {i + 1}" for i in range(max_cols)]
+                data_rows = raw_rows
+            else:
+                header = []
+                data_rows = []
+
+        # Apply column limits
+        if self.options.max_cols is not None:
+            header = header[: self.options.max_cols]
+            data_rows = [row[: self.options.max_cols] for row in data_rows]
+
+        # Apply row/column trimming
+        all_rows = [header] + data_rows if header else data_rows
+        all_rows = trim_rows(all_rows, cast(Any, self.options.trim_empty))
+        all_rows = trim_columns(all_rows, cast(Any, self.options.trim_empty))
+
+        if not all_rows:
+            return [], []
+
+        # Sanitize all cell content
+        header = [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
+        data_rows = [
+            [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
+            for row in all_rows[1:]
+        ]
+
+        # Apply header case transformation
+        header = transform_header_case(header, self.options.header_case)
+
+        # Ensure all rows have same number of columns
+        if header:
+            max_cols = len(header)
+            data_rows = [row + [""] * (max_cols - len(row)) for row in data_rows]
+
+        return header, data_rows
+
     def ods_to_ast(self, doc: Any) -> Document:
         """Convert ODS document to AST Document.
 
@@ -296,7 +457,6 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         """
         from odf.table import Table as OdfTable
-        from odf.table import TableCell, TableRow
 
         children: list[Node] = []
 
@@ -328,23 +488,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         # Filter sheets based on options
         sheet_names = [table.getAttribute("name") or f"Sheet{i + 1}" for i, table in enumerate(tables)]
-        selected_tables = []
-        selected_names = []
-
-        if isinstance(self.options.sheets, list):
-            for i, name in enumerate(sheet_names):
-                if name in self.options.sheets:
-                    selected_tables.append(tables[i])
-                    selected_names.append(name)
-        elif isinstance(self.options.sheets, str):
-            pattern = re.compile(self.options.sheets)
-            for i, name in enumerate(sheet_names):
-                if pattern.search(name):
-                    selected_tables.append(tables[i])
-                    selected_names.append(name)
-        else:
-            selected_tables = tables
-            selected_names = sheet_names
+        selected_tables, selected_names = self._select_sheets(tables, sheet_names)
 
         # Process each selected sheet
         for table, name in zip(selected_tables, selected_names, strict=False):
@@ -353,104 +497,22 @@ class OdsSpreadsheetToAstConverter(BaseParser):
                 children.append(Heading(level=2, content=[Text(content=name)]))
 
             # Extract rows
-            rows_elem = list(table.getElementsByType(TableRow))
-            if not rows_elem:
-                continue
-
-            # Convert to cell data
-            raw_rows = []
-            for row in rows_elem:
-                cells = list(row.getElementsByType(TableCell))
-                row_data = []
-
-                for cell in cells:
-                    cell_text = ""
-                    for node in cell.childNodes:
-                        if hasattr(node, "data"):
-                            cell_text += str(node.data)
-                        elif hasattr(node, "childNodes"):
-                            for subnode in node.childNodes:
-                                if hasattr(subnode, "data"):
-                                    cell_text += str(subnode.data)
-
-                    # Handle cell repetition
-                    repeat_count = 1
-                    try:
-                        repeat_attr = cell.getAttribute("numbercolumnsrepeated")
-                        if repeat_attr:
-                            repeat_count = int(repeat_attr)
-                    except (ValueError, TypeError):
-                        pass
-
-                    for _ in range(repeat_count):
-                        row_data.append(cell_text.strip() if cell_text else "")
-
-                raw_rows.append(row_data)
-
-            # Remove empty trailing rows
-            while raw_rows and all(not cell for cell in raw_rows[-1]):
-                raw_rows.pop()
-
+            raw_rows = self._extract_rows_from_table(table)
             if not raw_rows:
                 continue
 
-            # Apply row limits
-            if self.options.max_rows is not None:
-                total_available = len(raw_rows) - 1
-                if total_available > self.options.max_rows:
-                    raw_rows = raw_rows[: self.options.max_rows + 1]
-
-            # Extract header and data
-            if self.options.has_header:
-                header = raw_rows[0]
-                data_rows = raw_rows[1:] if len(raw_rows) > 1 else []
-            else:
-                if raw_rows:
-                    max_cols = max(len(row) for row in raw_rows)
-                    if self.options.max_cols is not None:
-                        max_cols = min(max_cols, self.options.max_cols)
-                    header = [f"Column {i + 1}" for i in range(max_cols)]
-                    data_rows = raw_rows
-                else:
-                    header = []
-                    data_rows = []
-
-            # Apply column limits
-            if self.options.max_cols is not None:
-                header = header[: self.options.max_cols]
-                data_rows = [row[: self.options.max_cols] for row in data_rows]
-
-            # Apply row/column trimming
-            all_rows = [header] + data_rows if header else data_rows
-            all_rows = trim_rows(all_rows, cast(Any, self.options.trim_empty))
-            all_rows = trim_columns(all_rows, cast(Any, self.options.trim_empty))
-
-            if not all_rows:
+            # Process header and data
+            header, data_rows = self._process_sheet_data(raw_rows)
+            if not header:
                 continue
 
-            # Sanitize all cell content
-            header = [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
-            data_rows = [
-                [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
-                for row in all_rows[1:]
-            ]
-
-            # Apply header case transformation
-            header = transform_header_case(header, self.options.header_case)
-
-            # Ensure all rows have same number of columns
-            if header:
-                max_cols = len(header)
-                data_rows = [row + [""] * (max_cols - len(row)) for row in data_rows]
-
             # Build table
-            if header:
-                alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
-                table_node = build_table_ast(header, data_rows, alignments)
-                children.append(table_node)
+            alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
+            table_node = build_table_ast(header, data_rows, alignments)
+            children.append(table_node)
 
             # Add truncation indicator if needed
-            truncated = (self.options.max_rows is not None and len(rows_elem) - 1 > self.options.max_rows) or (
+            truncated = (self.options.max_rows is not None and len(raw_rows) - 1 > self.options.max_rows) or (
                 self.options.max_cols is not None and any(len(row) > self.options.max_cols for row in raw_rows)
             )
             if truncated:

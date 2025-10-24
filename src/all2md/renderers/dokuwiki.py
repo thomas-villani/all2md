@@ -193,7 +193,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         # Render children and prefix each line with >
         for i, child in enumerate(node.children):
-            child_output = []
+            child_output: list[str] = []
             old_output = self._output
             self._output = child_output
             child.accept(self)
@@ -577,10 +577,8 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return escape_html_entities(content)
         elif mode == "drop":
             return ""
-        elif mode == "sanitize":
+        else:  # mode == "sanitize"
             return sanitize_html_content(content, mode="sanitize")
-        else:
-            return content
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
@@ -649,7 +647,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append("<dd>")
                 # Render description content
                 old_output = self._output
-                desc_output = []
+                desc_output: list[str] = []
                 self._output = desc_output
                 for child in desc.content:
                     child.accept(self)
@@ -832,7 +830,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 if hasattr(output, "mode") and "b" in output.mode:
                     output.write(content.encode("utf-8"))
                 else:
-                    output.write(content)
+                    output.write(content)  # type: ignore[call-overload]
 
 
 # =============================================================================

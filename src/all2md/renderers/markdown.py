@@ -762,6 +762,164 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if len(node.children) > 1:
             self._marker_width_stack.pop()
 
+    def _render_cells_to_strings(self, rows: list) -> list[list[str]]:
+        """Convert table cells to rendered strings.
+
+        Parameters
+        ----------
+        rows : list
+            List of table rows
+
+        Returns
+        -------
+        list[list[str]]
+            Rendered cell strings
+
+        """
+        rendered_rows: list[list[str]] = []
+        for row in rows:
+            cells: list[str] = []
+            for cell in row.cells:
+                content = self._render_inline_content(cell.content)
+                if self.options.table_pipe_escape:
+                    content = content.replace("|", "\\|")
+                cells.append(content)
+            rendered_rows.append(cells)
+        return rendered_rows
+
+    def _calculate_column_widths(self, rendered_rows: list[list[str]], num_cols: int) -> list[int]:
+        """Calculate column widths for padded tables.
+
+        Parameters
+        ----------
+        rendered_rows : list[list[str]]
+            Rendered cell strings
+        num_cols : int
+            Number of columns
+
+        Returns
+        -------
+        list[int]
+            Column widths
+
+        """
+        col_widths: list[int] = [0] * num_cols
+        for row_cells in rendered_rows:
+            for i, cell_content in enumerate(row_cells):
+                if i < num_cols:
+                    col_widths[i] = max(col_widths[i], len(cell_content))
+        return col_widths
+
+    def _generate_alignment_row(
+        self, node: Table, num_cols: int, col_widths: list[int] | None = None
+    ) -> str:
+        """Generate alignment separator row.
+
+        Parameters
+        ----------
+        node : Table
+            Table node with alignment info
+        num_cols : int
+            Number of columns
+        col_widths : list[int] or None
+            Column widths (None for minimal mode)
+
+        Returns
+        -------
+        str
+            Alignment row string
+
+        """
+        alignments = []
+        for j, alignment in enumerate(node.alignments if node.alignments else []):
+            if j >= num_cols:
+                break
+            if col_widths:
+                # Padded mode
+                width = max(3, col_widths[j])
+                if alignment == "center":
+                    alignments.append(":" + "-" * width + ":")
+                elif alignment == "right":
+                    alignments.append("-" * width + ":")
+                elif alignment == "left":
+                    alignments.append(":" + "-" * width)
+                else:
+                    alignments.append("-" * width)
+            else:
+                # Minimal mode
+                if alignment == "center":
+                    alignments.append(":---:")
+                elif alignment == "right":
+                    alignments.append("---:")
+                elif alignment == "left":
+                    alignments.append(":---")
+                else:
+                    alignments.append("---")
+
+        # Fill remaining columns
+        while len(alignments) < num_cols:
+            if col_widths:
+                alignments.append("-" * max(3, col_widths[len(alignments)]))
+            else:
+                alignments.append("---")
+
+        return "|" + "|".join(alignments) + "|"
+
+    def _render_padded_table(
+        self, node: Table, rendered_rows: list[list[str]], num_cols: int
+    ) -> None:
+        """Render table with cell padding.
+
+        Parameters
+        ----------
+        node : Table
+            Table node
+        rendered_rows : list[list[str]]
+            Rendered cell strings
+        num_cols : int
+            Number of columns
+
+        """
+        col_widths = self._calculate_column_widths(rendered_rows, num_cols)
+
+        for i, row_cells in enumerate(rendered_rows):
+            if i > 0:
+                self._output.append("\n")
+            padded_cells: list[str] = []
+            for j, cell_content in enumerate(row_cells):
+                if j < num_cols:
+                    padded = cell_content.ljust(col_widths[j])
+                    padded_cells.append(padded)
+            self._output.append("| " + " | ".join(padded_cells) + " |")
+
+            if i == 0 and node.header:
+                self._output.append("\n")
+                self._output.append(self._generate_alignment_row(node, num_cols, col_widths))
+
+    def _render_minimal_table(
+        self, node: Table, rendered_rows: list[list[str]], num_cols: int
+    ) -> None:
+        """Render table without padding.
+
+        Parameters
+        ----------
+        node : Table
+            Table node
+        rendered_rows : list[list[str]]
+            Rendered cell strings
+        num_cols : int
+            Number of columns
+
+        """
+        for i, row_cells in enumerate(rendered_rows):
+            if i > 0:
+                self._output.append("\n")
+            self._output.append("| " + " | ".join(row_cells) + " |")
+
+            if i == 0 and node.header:
+                self._output.append("\n")
+                self._output.append(self._generate_alignment_row(node, num_cols))
+
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
 
@@ -779,17 +937,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not self._flavor.supports_tables():
             mode = self.options.unsupported_table_mode
             if mode == "drop":
-                # Skip table entirely
                 return
             elif mode == "ascii":
-                # Render as ASCII art
                 self._render_table_as_ascii(node)
                 return
             elif mode == "html":
-                # Render as HTML
                 self._render_table_as_html(node)
                 return
-            # else: mode == "force", continue with pipe table rendering
 
         rows_to_render = [node.header] if node.header else []
         rows_to_render.extend(node.rows)
@@ -798,82 +952,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return
 
         num_cols = len(rows_to_render[0].cells) if rows_to_render else 0
-
-        rendered_rows: list[list[str]] = []
-        for row in rows_to_render:
-            cells: list[str] = []
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                if self.options.table_pipe_escape:
-                    content = content.replace("|", "\\|")
-                cells.append(content)
-            rendered_rows.append(cells)
+        rendered_rows = self._render_cells_to_strings(rows_to_render)
 
         if self.options.pad_table_cells:
-            # Calculate column widths and pad cells for alignment
-            col_widths: list[int] = [0] * num_cols
-            for row_cells in rendered_rows:
-                for i, cell_content in enumerate(row_cells):
-                    if i < num_cols:
-                        col_widths[i] = max(col_widths[i], len(cell_content))
-
-            for i, row_cells in enumerate(rendered_rows):
-                if i > 0:
-                    self._output.append("\n")
-                padded_cells: list[str] = []
-                for j, cell_content in enumerate(row_cells):
-                    if j < num_cols:
-                        padded = cell_content.ljust(col_widths[j])
-                        padded_cells.append(padded)
-                self._output.append("| " + " | ".join(padded_cells) + " |")
-
-                if i == 0 and node.header:
-                    self._output.append("\n")
-                    alignments = []
-                    for j, alignment in enumerate(node.alignments if node.alignments else []):
-                        if j >= num_cols:
-                            break
-                        if alignment == "center":
-                            alignments.append(":" + "-" * max(3, col_widths[j]) + ":")
-                        elif alignment == "right":
-                            alignments.append("-" * max(3, col_widths[j]) + ":")
-                        elif alignment == "left":
-                            alignments.append(":" + "-" * max(3, col_widths[j]))
-                        else:
-                            alignments.append("-" * max(3, col_widths[j]))
-                    # Fill remaining columns with default alignment
-                    while len(alignments) < num_cols:
-                        alignments.append("-" * max(3, col_widths[len(alignments)]))
-                    # Alignment row without spaces (for backward compatibility)
-                    self._output.append("|" + "|".join(alignments) + "|")
+            self._render_padded_table(node, rendered_rows, num_cols)
         else:
-            # Minimal spacing - no padding
-            for i, row_cells in enumerate(rendered_rows):
-                if i > 0:
-                    self._output.append("\n")
-                self._output.append("| " + " | ".join(row_cells) + " |")
-
-                if i == 0 and node.header:
-                    self._output.append("\n")
-                    alignments = []
-                    for _j, alignment in enumerate(node.alignments if node.alignments else []):
-                        # Use exactly 3 dashes for alignment (markdown minimum)
-                        if alignment == "center":
-                            alignments.append(":---:")
-                        elif alignment == "right":
-                            alignments.append("---:")
-                        elif alignment == "left":
-                            alignments.append(":---")
-                        else:
-                            # Default to left alignment
-                            alignments.append("---")
-
-                    # Fill remaining columns with default alignment
-                    while len(alignments) < num_cols:
-                        alignments.append("---")
-
-                    # Alignment row without spaces (for backward compatibility)
-                    self._output.append("|" + "|".join(alignments) + "|")
+            self._render_minimal_table(node, rendered_rows, num_cols)
 
         # Emit block references if using after_block placement
         if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":

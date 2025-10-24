@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Optional, Union
+from typing import IO, Optional, Union, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -231,9 +231,8 @@ class DokuWikiParser(BaseParser):
         # File-like object
         if hasattr(input_data, "read"):
             content = input_data.read()
-            if isinstance(content, bytes):
-                return read_text_with_encoding_detection(content)
-            return content
+            # input_data is typed as IO[bytes], so content is always bytes
+            return read_text_with_encoding_detection(content)
 
         raise ValueError(f"Unsupported input type: {type(input_data)}")
 
@@ -470,7 +469,7 @@ class DokuWikiParser(BaseParser):
             # Wrap in a paragraph
             content_nodes = [Paragraph(content=footnote_content)]
             # Create and append the footnote definition
-            result.append(FootnoteDefinition(identifier=identifier, content=content_nodes))
+            result.append(FootnoteDefinition(identifier=identifier, content=cast(list[Node], content_nodes)))
 
     def _process_inline(self, text: str) -> list[Node]:
         """Process inline formatting in text.

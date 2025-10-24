@@ -620,7 +620,7 @@ def to_ast(
             and hasattr(resolved_payload, "mode")
             and "b" in getattr(resolved_payload, "mode", "")
         ):
-            actual_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
+            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[arg-type, assignment]
         else:
             raise ValueError(
                 "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."
@@ -636,7 +636,7 @@ def to_ast(
     if kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**kwargs)
     elif kwargs:
-        opts = _create_parser_options_from_kwargs(actual_format, **kwargs)  # type: ignore[arg-type]
+        opts = _create_parser_options_from_kwargs(actual_format, **kwargs)
         if opts is None:
             raise FormatError(f"Could not create parser options for format: {actual_format}")
         final_parser_options = opts
@@ -970,7 +970,7 @@ def convert(
             and hasattr(resolved_payload, "mode")
             and "b" in getattr(resolved_payload, "mode", "")
         ):
-            actual_source_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
+            actual_source_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[arg-type, assignment]
         else:
             raise ValueError(
                 "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."
@@ -991,8 +991,8 @@ def convert(
     # Split kwargs between parser and renderer
     parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
         actual_source_format,
-        actual_target_format,
-        kwargs,  # type: ignore[arg-type]
+        cast(DocumentFormat, actual_target_format),
+        kwargs,
     )
 
     # Parse to AST
@@ -1007,7 +1007,7 @@ def convert(
         final_parser_options = parser_options
 
     ast_document = to_ast(
-        resolved_payload,
+        cast(Union[str, Path, IO[bytes], bytes], resolved_payload),
         parser_options=final_parser_options,
         source_format=cast(DocumentFormat, actual_source_format),
         progress_callback=progress_callback,

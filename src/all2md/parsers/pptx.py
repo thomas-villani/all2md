@@ -16,7 +16,7 @@ import re
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
 from xml.etree import ElementTree as ET
 
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
@@ -879,7 +879,7 @@ class PptxToAstConverter(BaseParser):
                     if run_text:
                         # Create link with the formatted content
                         link_content = [Text(content=run_text)]
-                        result.append(Link(url=hyperlink_url, content=link_content))
+                        result.append(Link(url=hyperlink_url, content=cast(list[Node], link_content)))
                         continue
 
             # No hyperlink - use the nodes from group_and_format_runs

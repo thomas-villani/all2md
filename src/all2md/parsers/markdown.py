@@ -232,7 +232,7 @@ class MarkdownToAstConverter(BaseParser):
 
                 # Parse YAML
                 try:
-                    import yaml
+                    import yaml  # type: ignore[import-untyped]
 
                     data = yaml.safe_load(yaml_content)
                     if isinstance(data, dict):
@@ -687,7 +687,7 @@ class MarkdownToAstConverter(BaseParser):
         # Check if this is an HTML comment
         if self._is_html_comment(content):
             comment_text = self._extract_comment_text(content)
-            return Comment(content=comment_text, author=None)
+            return Comment(content=comment_text)
 
         if not self.options.preserve_html:
             # When preserve_html is False, use html_handling option
@@ -896,7 +896,7 @@ class MarkdownToAstConverter(BaseParser):
             # Check if this is an HTML comment
             if self._is_html_comment(content):
                 comment_text = self._extract_comment_text(content)
-                return CommentInline(content=comment_text, author=None)
+                return CommentInline(content=comment_text)
 
             if not self.options.preserve_html:
                 # When preserve_html is False, use html_handling option

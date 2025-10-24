@@ -1413,18 +1413,25 @@ def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, for
         return 0
 
 
-def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
-    """Show what would be processed without performing any conversions."""
-    from all2md.converter_registry import registry
-    from all2md.dependencies import check_version_requirement
+def _collect_file_info_for_dry_run(
+    items: List[CLIInputItem], format_arg: str
+) -> List[Dict[str, Any]]:
+    """Collect file information for dry run display.
 
-    base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
+    Parameters
+    ----------
+    items : list of CLIInputItem
+        Input items to analyze
+    format_arg : str
+        Format specification
 
-    registry.auto_discover()
+    Returns
+    -------
+    list of dict
+        List of file info dictionaries
 
-    print("DRY RUN MODE - Showing what would be processed")
-    print(f"Found {len(items)} input(s) to convert")
-    print()
+    """
+    from all2md.dependencies import check_package_installed, check_version_requirement
 
     file_info_list: List[Dict[str, Any]] = []
 
@@ -1468,8 +1475,6 @@ def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_
                             else:
                                 dependency_issues.append(f"{pkg_name} (missing)")
                     else:
-                        from all2md.dependencies import check_package_installed
-
                         if not check_package_installed(pkg_name):
                             converter_available = False
                             dependency_issues.append(f"{pkg_name} (missing)")
@@ -1486,97 +1491,187 @@ def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_
             }
         )
 
+    return file_info_list
+
+
+def _determine_output_destination(
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    file_info_list: List[Dict[str, Any]],
+    base_input_dir: Optional[Path],
+    index: int,
+) -> str:
+    """Determine output destination for an item in dry run.
+
+    Parameters
+    ----------
+    item : CLIInputItem
+        Input item
+    args : argparse.Namespace
+        Command line arguments
+    file_info_list : list of dict
+        All file info
+    base_input_dir : Path or None
+        Base input directory
+    index : int
+        Item index
+
+    Returns
+    -------
+    str
+        Output destination string
+
+    """
+    if args.collate:
+        return str(Path(args.out)) if args.out else "stdout (collated)"
+
+    if len(file_info_list) == 1 and args.out and not args.output_dir:
+        return str(Path(args.out))
+
+    if args.output_dir:
+        target_format = getattr(args, "output_type", "markdown")
+        computed = _generate_output_path_for_item(
+            item,
+            Path(args.output_dir),
+            args.preserve_structure,
+            base_input_dir,
+            target_format,
+            index,
+            dry_run=True,
+        )
+        return str(computed)
+
+    return "stdout"
+
+
+def _render_dry_run_rich(
+    file_info_list: List[Dict[str, Any]],
+    args: argparse.Namespace,
+    base_input_dir: Optional[Path],
+) -> bool:
+    """Render dry run output using rich formatting.
+
+    Parameters
+    ----------
+    file_info_list : list of dict
+        File information list
+    args : argparse.Namespace
+        Command line arguments
+    base_input_dir : Path or None
+        Base input directory
+
+    Returns
+    -------
+    bool
+        True if successfully rendered with rich, False otherwise
+
+    """
+    try:
+        from rich.console import Console
+        from rich.table import Table
+
+        console = Console()
+        table = Table(title="Dry Run - Planned Conversions")
+        table.add_column("Input", style="cyan", no_wrap=False)
+        table.add_column("Output", style="green", no_wrap=False)
+        table.add_column("Format", style="yellow")
+        table.add_column("Detection", style="magenta")
+        table.add_column("Status", style="white")
+
+        for info in file_info_list:
+            item = info["item"]
+            output_str = _determine_output_destination(item, args, file_info_list, base_input_dir, info["index"])
+
+            if info["converter_available"]:
+                status = "[green][OK] Ready[/green]"
+            else:
+                issues = ", ".join(info["dependency_issues"][:2])
+                if len(info["dependency_issues"]) > 2:
+                    issues += "..."
+                status = f"[red][X] {issues}[/red]"
+
+            table.add_row(
+                item.display_name,
+                output_str,
+                info["detected_format"].upper(),
+                info["detection_method"],
+                status,
+            )
+
+        console.print(table)
+        return True
+
+    except ImportError:
+        return False
+
+
+def _render_dry_run_plain(
+    file_info_list: List[Dict[str, Any]],
+    args: argparse.Namespace,
+    base_input_dir: Optional[Path],
+) -> None:
+    """Render dry run output using plain text.
+
+    Parameters
+    ----------
+    file_info_list : list of dict
+        File information list
+    args : argparse.Namespace
+        Command line arguments
+    base_input_dir : Path or None
+        Base input directory
+
+    """
+    for info in file_info_list:
+        item = info["item"]
+        print(f"{item.display_name}")
+        print(f"  Format: {info['detected_format'].upper()} ({info['detection_method']})")
+
+        if info["converter_available"]:
+            print("  Status: ready")
+        else:
+            issues_str = ", ".join(info["dependency_issues"]) or "dependency issues"
+            print(f"  Status: missing requirements ({issues_str})")
+
+        destination = _determine_output_destination(item, args, file_info_list, base_input_dir, info["index"])
+        print(f"  Output: {destination}")
+        print()
+
+
+def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
+    """Show what would be processed without performing any conversions.
+
+    Parameters
+    ----------
+    items : list of CLIInputItem
+        Input items to process
+    args : argparse.Namespace
+        Command line arguments
+    format_arg : str
+        Format specification
+
+    Returns
+    -------
+    int
+        Exit code
+
+    """
+    base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
+
+    registry.auto_discover()
+
+    print("DRY RUN MODE - Showing what would be processed")
+    print(f"Found {len(items)} input(s) to convert")
+    print()
+
+    file_info_list = _collect_file_info_for_dry_run(items, format_arg)
+
     if args.rich:
-        try:
-            from rich.console import Console
-            from rich.table import Table
-
-            console = Console()
-            table = Table(title="Dry Run - Planned Conversions")
-            table.add_column("Input", style="cyan", no_wrap=False)
-            table.add_column("Output", style="green", no_wrap=False)
-            table.add_column("Format", style="yellow")
-            table.add_column("Detection", style="magenta")
-            table.add_column("Status", style="white")
-
-            for info in file_info_list:
-                item = info["item"]
-
-                if args.collate:
-                    output_str = str(Path(args.out)) if args.out else "stdout (collated)"
-                else:
-                    if len(file_info_list) == 1 and args.out and not args.output_dir:
-                        output_str = str(Path(args.out))
-                    elif args.output_dir:
-                        target_format = getattr(args, "output_type", "markdown")
-                        computed = _generate_output_path_for_item(
-                            item,
-                            Path(args.output_dir),
-                            args.preserve_structure,
-                            base_input_dir,
-                            target_format,
-                            info["index"],
-                            dry_run=True,
-                        )
-                        output_str = str(computed)
-                    else:
-                        output_str = "stdout"
-
-                if info["converter_available"]:
-                    status = "[green][OK] Ready[/green]"
-                else:
-                    issues = ", ".join(info["dependency_issues"][:2])
-                    if len(info["dependency_issues"]) > 2:
-                        issues += "..."
-                    status = f"[red][X] {issues}[/red]"
-
-                table.add_row(
-                    item.display_name,
-                    output_str,
-                    info["detected_format"].upper(),
-                    info["detection_method"],
-                    status,
-                )
-
-            console.print(table)
-
-        except ImportError:
+        if not _render_dry_run_rich(file_info_list, args, base_input_dir):
             args.rich = False
 
     if not args.rich:
-        for info in file_info_list:
-            item = info["item"]
-            print(f"{item.display_name}")
-            print(f"  Format: {info['detected_format'].upper()} ({info['detection_method']})")
-
-            if info["converter_available"]:
-                print("  Status: ready")
-            else:
-                issues_str = ", ".join(info["dependency_issues"]) or "dependency issues"
-                print(f"  Status: missing requirements ({issues_str})")
-
-            if args.collate:
-                destination = str(Path(args.out)) if args.out else "stdout (collated)"
-            else:
-                if len(file_info_list) == 1 and args.out and not args.output_dir:
-                    destination = str(Path(args.out))
-                elif args.output_dir:
-                    target_format = getattr(args, "output_type", "markdown")
-                    generated = _generate_output_path_for_item(
-                        item,
-                        Path(args.output_dir),
-                        args.preserve_structure,
-                        base_input_dir,
-                        target_format,
-                        info["index"],
-                        dry_run=True,
-                    )
-                    destination = str(generated)
-                else:
-                    destination = "stdout"
-
-            print(f"  Output: {destination}")
-            print()
+        _render_dry_run_plain(file_info_list, args, base_input_dir)
 
     print("Options that would be used:")
     if args.format != "auto":
