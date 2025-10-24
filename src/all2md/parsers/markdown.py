@@ -193,6 +193,145 @@ class MarkdownToAstConverter(BaseParser):
             content_bytes = input_data.read()
             return read_text_with_encoding_detection(content_bytes)
 
+    def _try_extract_yaml_frontmatter(self, content: str) -> tuple[str, DocumentMetadata] | None:
+        """Try to extract YAML frontmatter (--- ... ---).
+
+        Parameters
+        ----------
+        content : str
+            Markdown content
+
+        Returns
+        -------
+        tuple[str, DocumentMetadata] or None
+            (remaining_content, metadata) if YAML found, None otherwise
+
+        """
+        if not (content.startswith("---\n") or content.startswith("---\r\n")):
+            return None
+
+        lines = content.splitlines(keepends=True)
+        end_index = -1
+
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end_index = i
+                break
+
+        if end_index <= 0:
+            return None
+
+        yaml_content = "".join(lines[1:end_index])
+        remaining_content = "".join(lines[end_index + 1 :])
+
+        try:
+            import yaml  # type: ignore[import-untyped]
+
+            data = yaml.safe_load(yaml_content)
+            if isinstance(data, dict):
+                metadata = self._dict_to_metadata(data)
+                return remaining_content, metadata
+        except ImportError:
+            pass
+        except Exception:
+            pass
+
+        return remaining_content, DocumentMetadata()
+
+    def _try_extract_toml_frontmatter(self, content: str) -> tuple[str, DocumentMetadata] | None:
+        """Try to extract TOML frontmatter (+++ ... +++).
+
+        Parameters
+        ----------
+        content : str
+            Markdown content
+
+        Returns
+        -------
+        tuple[str, DocumentMetadata] or None
+            (remaining_content, metadata) if TOML found, None otherwise
+
+        """
+        if not (content.startswith("+++\n") or content.startswith("+++\r\n")):
+            return None
+
+        lines = content.splitlines(keepends=True)
+        end_index = -1
+
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "+++":
+                end_index = i
+                break
+
+        if end_index <= 0:
+            return None
+
+        toml_content = "".join(lines[1:end_index])
+        remaining_content = "".join(lines[end_index + 1 :])
+
+        try:
+            import tomllib
+        except ImportError:
+            try:
+                import tomli as tomllib  # type: ignore[no-redef]
+            except ImportError:
+                return remaining_content, DocumentMetadata()
+
+        try:
+            data = tomllib.loads(toml_content)
+            if isinstance(data, dict):
+                metadata = self._dict_to_metadata(data)
+                return remaining_content, metadata
+        except Exception:
+            pass
+
+        return remaining_content, DocumentMetadata()
+
+    def _try_extract_json_frontmatter(self, content: str) -> tuple[str, DocumentMetadata] | None:
+        """Try to extract JSON frontmatter ({ ... }).
+
+        Parameters
+        ----------
+        content : str
+            Markdown content
+
+        Returns
+        -------
+        tuple[str, DocumentMetadata] or None
+            (remaining_content, metadata) if JSON found, None otherwise
+
+        """
+        if not content.startswith("{"):
+            return None
+
+        try:
+            import json
+
+            # Find the end of JSON object
+            brace_count = 0
+            end_pos = 0
+            for i, char in enumerate(content):
+                if char == "{":
+                    brace_count += 1
+                elif char == "}":
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i + 1
+                        break
+
+            if end_pos > 0:
+                json_content = content[:end_pos]
+                remaining_content = content[end_pos:].lstrip()
+
+                data = json.loads(json_content)
+                if isinstance(data, dict):
+                    metadata = self._dict_to_metadata(data)
+                    return remaining_content, metadata
+        except Exception:
+            pass
+
+        return None
+
     def _extract_frontmatter(self, content: str) -> tuple[str, DocumentMetadata]:
         """Extract and parse frontmatter from markdown content.
 
@@ -209,107 +348,23 @@ class MarkdownToAstConverter(BaseParser):
             Content with frontmatter removed and parsed metadata
 
         """
-        metadata = DocumentMetadata()
-
         if not self.options.parse_frontmatter:
-            return content, metadata
+            return content, DocumentMetadata()
 
-        # Try YAML frontmatter (--- ... ---)
-        if content.startswith("---\n") or content.startswith("---\r\n"):
-            lines = content.splitlines(keepends=True)
-            end_index = -1
+        # Try each frontmatter format
+        result = self._try_extract_yaml_frontmatter(content)
+        if result:
+            return result
 
-            # Find closing --- (must be on its own line)
-            for i in range(1, len(lines)):
-                if lines[i].strip() == "---":
-                    end_index = i
-                    break
+        result = self._try_extract_toml_frontmatter(content)
+        if result:
+            return result
 
-            if end_index > 0:
-                # Extract YAML content
-                yaml_content = "".join(lines[1:end_index])
-                remaining_content = "".join(lines[end_index + 1 :])
+        result = self._try_extract_json_frontmatter(content)
+        if result:
+            return result
 
-                # Parse YAML
-                try:
-                    import yaml  # type: ignore[import-untyped]
-
-                    data = yaml.safe_load(yaml_content)
-                    if isinstance(data, dict):
-                        metadata = self._dict_to_metadata(data)
-                except ImportError:
-                    pass  # YAML not available, skip parsing
-                except Exception:
-                    pass  # Invalid YAML, skip parsing
-
-                return remaining_content, metadata
-
-        # Try TOML frontmatter (+++ ... +++)
-        if content.startswith("+++\n") or content.startswith("+++\r\n"):
-            lines = content.splitlines(keepends=True)
-            end_index = -1
-
-            # Find closing +++
-            for i in range(1, len(lines)):
-                if lines[i].strip() == "+++":
-                    end_index = i
-                    break
-
-            if end_index > 0:
-                # Extract TOML content
-                toml_content = "".join(lines[1:end_index])
-                remaining_content = "".join(lines[end_index + 1 :])
-
-                # Parse TOML
-                try:
-                    import tomllib
-                except ImportError:
-                    try:
-                        import tomli as tomllib  # type: ignore[no-redef]
-                    except ImportError:
-                        tomllib = None  # type: ignore[assignment]
-
-                if tomllib:
-                    try:
-                        data = tomllib.loads(toml_content)
-                        if isinstance(data, dict):
-                            metadata = self._dict_to_metadata(data)
-                    except Exception:
-                        pass  # Invalid TOML, skip parsing
-
-                return remaining_content, metadata
-
-        # Try JSON frontmatter ({ ... } on first line)
-        if content.startswith("{"):
-            try:
-                import json
-
-                # Find the end of JSON object
-                brace_count = 0
-                end_pos = 0
-                for i, char in enumerate(content):
-                    if char == "{":
-                        brace_count += 1
-                    elif char == "}":
-                        brace_count -= 1
-                        if brace_count == 0:
-                            end_pos = i + 1
-                            break
-
-                if end_pos > 0:
-                    json_content = content[:end_pos]
-                    remaining_content = content[end_pos:].lstrip()
-
-                    # Parse JSON
-                    data = json.loads(json_content)
-                    if isinstance(data, dict):
-                        metadata = self._dict_to_metadata(data)
-
-                    return remaining_content, metadata
-            except Exception:
-                pass  # Invalid JSON, treat as regular content
-
-        return content, metadata
+        return content, DocumentMetadata()
 
     def _dict_to_metadata(self, data: dict) -> DocumentMetadata:
         """Convert frontmatter dictionary to DocumentMetadata.

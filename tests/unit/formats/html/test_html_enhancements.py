@@ -95,7 +95,7 @@ def test_details_ignore_rendering():
     <p>But this should</p>
     """
 
-    options = HtmlOptions(details_parsing="ignore")
+    options = HtmlOptions(details_parsing="skip")
     converter = HtmlToAstConverter(options)
     doc = converter.parse(html)
 

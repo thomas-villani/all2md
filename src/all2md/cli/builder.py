@@ -638,6 +638,207 @@ class DynamicCLIBuilder:
 
         return kwargs
 
+    def _should_process_field(
+        self, field: Any, base_field_names: set[str], exclude_base_fields: bool
+    ) -> tuple[bool, Dict[str, Any]]:
+        """Determine if a field should be processed and return its metadata.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field to check
+        base_field_names : set of str
+            Names of base fields to exclude
+        exclude_base_fields : bool
+            Whether to skip base fields
+
+        Returns
+        -------
+        tuple[bool, dict]
+            (should_process, metadata) where should_process is True if field should be added
+
+        """
+        # Skip BaseOptions fields if exclude_base_fields is True
+        if exclude_base_fields and field.name in base_field_names:
+            return False, {}
+
+        metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
+
+        # Skip if explicitly excluded from CLI
+        if bool(metadata.get("exclude_from_cli", False)):
+            return False, metadata
+
+        # Skip markdown_options field - handled separately
+        if field.name == "markdown_options":
+            return False, metadata
+
+        return True, metadata
+
+    def _handle_flattened_field(
+        self,
+        group: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
+        field: Any,
+        options_class: Type,
+        format_prefix: Optional[str],
+        dest_prefix: Optional[str],
+        exclude_base_fields: bool,
+    ) -> bool:
+        """Handle flattened nested dataclass fields.
+
+        Parameters
+        ----------
+        group : ArgumentParser or _ArgumentGroup
+            Target argument group
+        field : Field
+            Field to check for flattening
+        options_class : Type
+            Parent options class
+        format_prefix : str or None
+            CLI prefix for flags
+        dest_prefix : str or None
+            Dest prefix for destinations
+        exclude_base_fields : bool
+            Whether to exclude base fields in nested dataclass
+
+        Returns
+        -------
+        bool
+            True if field was flattened (caller should continue to next field)
+
+        """
+        field_type = self._resolve_field_type(field, options_class)
+        field_type, _ = self._handle_optional_type(field_type)
+
+        if is_dataclass(field_type):
+            # Handle nested dataclass by flattening its fields
+            # Decouple CLI prefix (hyphenated) from dest prefix (dot-separated)
+            kebab_name = self.snake_to_kebab(field.name)
+            # CLI prefix uses hyphens for --html-network-* style flags
+            nested_cli_prefix = f"{format_prefix}-{kebab_name}" if format_prefix else kebab_name
+            # Dest prefix uses dots for html.network.* style destinations
+            nested_dest_prefix = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
+            self._add_options_arguments_internal(
+                group,
+                field_type,
+                format_prefix=nested_cli_prefix,
+                group_name=None,
+                exclude_base_fields=exclude_base_fields,
+                dest_prefix=nested_dest_prefix,
+            )
+            return True
+        else:
+            logger.debug(
+                "Field %s requested cli_flatten but resolved type %s is not a dataclass",
+                field.name,
+                field_type,
+            )
+            return True
+
+    def _determine_cli_name_and_negation(
+        self,
+        field: Any,
+        metadata: Dict[str, Any],
+        options_class: Type,
+        format_prefix: Optional[str],
+    ) -> tuple[str, bool]:
+        """Determine CLI name and whether negation is needed for boolean fields.
+
+        Parameters
+        ----------
+        field : Field
+            Dataclass field
+        metadata : dict
+            Field metadata
+        options_class : Type
+            Options class
+        format_prefix : str or None
+            Format prefix for CLI name
+
+        Returns
+        -------
+        tuple[str, bool]
+            (cli_name, use_negated_flag)
+
+        """
+        # Determine if this is a boolean with True default for --no-* handling
+        resolved_field_type = self._resolve_field_type(field, options_class)
+        underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
+
+        bool_default_value: Any = MISSING
+        if underlying_field_type is bool and self._has_default(field):
+            candidate_default = self._get_default(field)
+            if isinstance(candidate_default, bool):
+                bool_default_value = candidate_default
+            elif callable(candidate_default):
+                bool_default_value = MISSING
+
+        negate_via_metadata = (
+            bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False)) if underlying_field_type is bool else False
+        )
+        use_negated_flag = bool_default_value is True or negate_via_metadata
+
+        # Get CLI name (explicit or inferred)
+        if "cli_name" in metadata:
+            cli_meta_name = metadata["cli_name"]
+            cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
+        elif use_negated_flag and CLI_METADATA_NEGATED_NAME in metadata:
+            negated_name_hint = metadata[CLI_METADATA_NEGATED_NAME]
+            kebab_hint = self.snake_to_kebab(str(negated_name_hint))
+            cli_name = f"--{format_prefix}-{kebab_hint}" if format_prefix else f"--{kebab_hint}"
+        else:
+            cli_name = self.infer_cli_name(field.name, format_prefix, use_negated_flag)
+
+        return cli_name, use_negated_flag
+
+    def _add_argument_with_tracking(
+        self,
+        group: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
+        cli_name: str,
+        field: Any,
+        kwargs: Dict[str, Any],
+        dest_prefix: Optional[str],
+    ) -> None:
+        """Add argument with appropriate tracking action and dest.
+
+        Parameters
+        ----------
+        group : ArgumentParser or _ArgumentGroup
+            Target argument group
+        cli_name : str
+            CLI flag name
+        field : Field
+            Dataclass field
+        kwargs : dict
+            Argument kwargs to modify
+        dest_prefix : str or None
+            Prefix for dest name
+
+        """
+        # Set dest using dot notation and tracking actions
+        if "action" in kwargs:
+            if kwargs["action"] == "store_true":
+                kwargs["action"] = TrackingStoreTrueAction
+                kwargs["dest"] = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
+            elif kwargs["action"] == "store_false":
+                kwargs["action"] = TrackingStoreFalseAction
+                kwargs["dest"] = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
+            elif kwargs["action"] == "append":
+                kwargs["action"] = TrackingAppendAction
+                kwargs["dest"] = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
+        else:
+            # For non-boolean arguments, use TrackingStoreAction
+            kwargs["action"] = TrackingStoreAction
+            kwargs["dest"] = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
+
+        # Add the argument
+        try:
+            group.add_argument(cli_name, **kwargs)
+            # Track mapping from dest name to actual CLI flag for better suggestions
+            if "dest" in kwargs:
+                self.dest_to_cli_flag[kwargs["dest"]] = cli_name
+        except Exception as e:
+            logger.warning(f"Could not add argument {cli_name}: {e}")
+
     def _add_options_arguments_internal(
         self,
         parser: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
@@ -675,7 +876,6 @@ class DynamicCLIBuilder:
             return
 
         # Initialize dest_prefix to format_prefix if not provided
-        # This allows top-level calls to work as before, while nested calls can specify different prefixes
         if dest_prefix is None:
             dest_prefix = format_prefix
 
@@ -694,120 +894,26 @@ class DynamicCLIBuilder:
             group = parser
 
         for field in fields(options_class):
-            # Skip BaseOptions fields if exclude_base_fields is True
-            if exclude_base_fields and field.name in base_field_names:
+            # Check if field should be processed
+            should_process, metadata = self._should_process_field(field, base_field_names, exclude_base_fields)
+            if not should_process:
                 continue
 
-            metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
+            # Handle flattened nested dataclasses
+            if bool(metadata.get(CLI_METADATA_FLATTEN, False)):
+                if self._handle_flattened_field(
+                    group, field, options_class, format_prefix, dest_prefix, exclude_base_fields
+                ):
+                    continue
 
-            should_flatten = bool(metadata.get(CLI_METADATA_FLATTEN, False))
-            exclude_from_cli = bool(metadata.get("exclude_from_cli", False))
-
-            if should_flatten:
-                field_type = self._resolve_field_type(field, options_class)
-                field_type, _ = self._handle_optional_type(field_type)
-
-                if is_dataclass(field_type):
-                    # Handle nested dataclass by flattening its fields
-                    # Decouple CLI prefix (hyphenated) from dest prefix (dot-separated)
-                    kebab_name = self.snake_to_kebab(field.name)
-                    # CLI prefix uses hyphens for --html-network-* style flags
-                    nested_cli_prefix = f"{format_prefix}-{kebab_name}" if format_prefix else kebab_name
-                    # Dest prefix uses dots for html.network.* style destinations
-                    nested_dest_prefix = f"{dest_prefix}.{field.name}" if dest_prefix else field.name
-                    self._add_options_arguments_internal(
-                        group,  # Use parent group instead of parser
-                        field_type,
-                        format_prefix=nested_cli_prefix,
-                        group_name=None,  # Don't create separate groups for nested classes
-                        exclude_base_fields=exclude_base_fields,
-                        dest_prefix=nested_dest_prefix,
-                    )
-                else:
-                    logger.debug(
-                        "Field %s requested cli_flatten but resolved type %s is not a dataclass",
-                        field.name,
-                        field_type,
-                    )
-                continue
-
-            if exclude_from_cli:
-                continue
-
-            # Skip markdown_options field - handled separately
-            if field.name == "markdown_options":
-                continue
-
-            # Determine if this is a boolean with True default for --no-* handling
-            # Use resolved type instead of raw field.type for robust handling
-            resolved_field_type = self._resolve_field_type(field, options_class)
-            underlying_field_type, _ = self._handle_optional_type(resolved_field_type)
-
-            bool_default_value: Any = MISSING
-            if underlying_field_type is bool and self._has_default(field):
-                candidate_default = self._get_default(field)
-                if isinstance(candidate_default, bool):
-                    bool_default_value = candidate_default
-                elif callable(candidate_default):
-                    bool_default_value = MISSING
-
-            negate_via_metadata = (
-                bool(metadata.get(CLI_METADATA_NEGATES_DEFAULT, False)) if underlying_field_type is bool else False
-            )
-            use_negated_flag = bool_default_value is True or negate_via_metadata
-
-            # Get CLI name (explicit or inferred)
-            if "cli_name" in metadata:
-                cli_meta_name = metadata["cli_name"]
-                cli_name = f"--{format_prefix}-{cli_meta_name}" if format_prefix else f"--{cli_meta_name}"
-            elif use_negated_flag and CLI_METADATA_NEGATED_NAME in metadata:
-                negated_name_hint = metadata[CLI_METADATA_NEGATED_NAME]
-                kebab_hint = self.snake_to_kebab(str(negated_name_hint))
-                cli_name = f"--{format_prefix}-{kebab_hint}" if format_prefix else f"--{kebab_hint}"
-            else:
-                cli_name = self.infer_cli_name(field.name, format_prefix, use_negated_flag)
+            # Determine CLI name and whether to use negation
+            cli_name, _ = self._determine_cli_name_and_negation(field, metadata, options_class, format_prefix)
 
             # Build argument kwargs
             kwargs = self.get_argument_kwargs(field, metadata, cli_name, options_class)
 
-            # Set dest using dot notation for better structure mapping
-            # Use dest_prefix (dot-separated) instead of format_prefix (may be hyphenated for nested)
-            # and use tracking actions for booleans and append
-            if "action" in kwargs:
-                if kwargs["action"] == "store_true":
-                    kwargs["action"] = TrackingStoreTrueAction
-                    if dest_prefix:
-                        kwargs["dest"] = f"{dest_prefix}.{field.name}"
-                    else:
-                        kwargs["dest"] = field.name
-                elif kwargs["action"] == "store_false":
-                    kwargs["action"] = TrackingStoreFalseAction
-                    if dest_prefix:
-                        kwargs["dest"] = f"{dest_prefix}.{field.name}"
-                    else:
-                        kwargs["dest"] = field.name
-                elif kwargs["action"] == "append":
-                    kwargs["action"] = TrackingAppendAction
-                    if dest_prefix:
-                        kwargs["dest"] = f"{dest_prefix}.{field.name}"
-                    else:
-                        kwargs["dest"] = field.name
-            else:
-                # For non-boolean arguments, use TrackingStoreAction
-                kwargs["action"] = TrackingStoreAction
-                if dest_prefix:
-                    kwargs["dest"] = f"{dest_prefix}.{field.name}"
-                else:
-                    kwargs["dest"] = field.name
-
-            # Add the argument
-            try:
-                group.add_argument(cli_name, **kwargs)
-                # Track mapping from dest name to actual CLI flag for better suggestions
-                if "dest" in kwargs:
-                    self.dest_to_cli_flag[kwargs["dest"]] = cli_name
-            except Exception as e:
-                logger.warning(f"Could not add argument {cli_name}: {e}")
+            # Add argument with tracking action
+            self._add_argument_with_tracking(group, cli_name, field, kwargs, dest_prefix)
 
     def add_options_class_arguments(
         self,
@@ -1341,6 +1447,184 @@ Examples:
 
         return flattened
 
+    def _process_dot_notation_arg(
+        self,
+        arg_name: str,
+        arg_value: Any,
+        options_classes: dict[str, Type],
+        options: dict[str, Any],
+        unknown_args: list[str],
+    ) -> None:
+        """Process dot notation arguments (e.g., pdf.pages or html.network.allowed_hosts).
+
+        Parameters
+        ----------
+        arg_name : str
+            Argument name with dot notation
+        arg_value : Any
+            Argument value
+        options_classes : dict[str, Type]
+            Map of format names to options classes
+        options : dict[str, Any]
+            Options dictionary to update
+        unknown_args : list[str]
+            List to append unknown arguments to
+
+        """
+        parts = arg_name.split(".", 1)
+        format_prefix = parts[0]
+        remainder = parts[1]
+
+        # Validate field exists in the corresponding options class
+        if format_prefix not in options_classes:
+            return
+
+        options_class = options_classes[format_prefix]
+
+        # Check if this is multi-level nesting (e.g., "network.allowed_hosts")
+        if "." in remainder:
+            # Split remainder into path components
+            field_path = remainder.split(".")
+
+            # Use helper to resolve nested field
+            result = self._resolve_nested_field(options_class, field_path)
+
+            if result:
+                field, field_type = result
+                processed_value = self._process_argument_value(
+                    field,
+                    dict(field.metadata) if field.metadata else {},
+                    arg_value,
+                    arg_name,
+                    was_provided=True,
+                )
+                if processed_value is not None:
+                    options[arg_name] = processed_value
+            elif arg_value is not None:
+                # Track unknown argument
+                unknown_args.append(arg_name)
+        else:
+            # Single-level nesting (e.g., "pdf.pages")
+            field_name = remainder
+            field_found = False
+
+            for field in fields(options_class):
+                if field.name == field_name:
+                    processed_value = self._process_argument_value(
+                        field,
+                        dict(field.metadata) if field.metadata else {},
+                        arg_value,
+                        arg_name,
+                        was_provided=True,
+                    )
+                    if processed_value is not None:
+                        options[arg_name] = processed_value
+                    field_found = True
+                    break
+
+            if not field_found and arg_value is not None:
+                # Track unknown argument
+                unknown_args.append(arg_name)
+
+    def _process_base_options_arg(
+        self,
+        arg_name: str,
+        arg_value: Any,
+        options_classes: dict[str, Type],
+        options: dict[str, Any],
+        unknown_args: list[str],
+    ) -> None:
+        """Process non-dot notation arguments (BaseOptions fields).
+
+        Parameters
+        ----------
+        arg_name : str
+            Argument name without dot notation
+        arg_value : Any
+            Argument value
+        options_classes : dict[str, Type]
+            Map of format names to options classes
+        options : dict[str, Any]
+            Options dictionary to update
+        unknown_args : list[str]
+            List to append unknown arguments to
+
+        """
+        if "base" not in options_classes:
+            return
+
+        base_options = options_classes["base"]
+        field_found = False
+
+        for field in fields(base_options):
+            if field.name == arg_name:
+                processed_value = self._process_argument_value(
+                    field,
+                    dict(field.metadata) if field.metadata else {},
+                    arg_value,
+                    arg_name,
+                    was_provided=True,
+                )
+                if processed_value is not None:
+                    options[field.name] = processed_value
+                field_found = True
+                break
+
+        if not field_found and arg_value is not None:
+            # Track unknown argument
+            unknown_args.append(arg_name)
+
+    def _propagate_global_attachment_fields(
+        self,
+        provided_args: set[str],
+        args_dict: dict[str, Any],
+        options_classes: dict[str, Type],
+        options: dict[str, Any],
+    ) -> None:
+        """Propagate global attachment flags to all format-specific options.
+
+        Parameters
+        ----------
+        provided_args : set[str]
+            Set of explicitly provided arguments
+        args_dict : dict[str, Any]
+            Dictionary of all arguments
+        options_classes : dict[str, Type]
+            Map of format names to options classes
+        options : dict[str, Any]
+            Options dictionary to update
+
+        """
+        from dataclasses import fields as get_fields
+
+        from all2md.options.common import AttachmentOptionsMixin
+
+        attachment_field_names = {field.name for field in get_fields(AttachmentOptionsMixin)}
+
+        for field_name in attachment_field_names:
+            # Check if global flag was provided
+            if field_name not in provided_args or field_name not in args_dict:
+                continue
+
+            global_value = args_dict[field_name]
+
+            # Apply to each format that supports attachments
+            for format_name, options_class in options_classes.items():
+                if format_name in ["base", "renderer_base", "markdown", "remote_input"]:
+                    continue
+
+                # Check if this options class has this attachment field
+                has_field = any(field.name == field_name for field in get_fields(options_class))
+                if not has_field:
+                    continue
+
+                # Build format-specific key
+                format_field_key = f"{format_name}.{field_name}"
+
+                # Only apply global if format-specific wasn't explicitly provided
+                if format_field_key not in provided_args:
+                    options[format_field_key] = global_value
+
     def map_args_to_options(self, parsed_args: argparse.Namespace, json_options: dict | None = None) -> dict:
         """Map CLI arguments to options using dot notation parsing.
 
@@ -1459,110 +1743,13 @@ Examples:
 
             # Handle dot notation arguments (e.g., "pdf.pages" or "html.network.allowed_hosts")
             if "." in arg_name:
-                parts = arg_name.split(".", 1)
-                format_prefix = parts[0]
-                remainder = parts[1]
-
-                # Validate field exists in the corresponding options class
-                if format_prefix in options_classes:
-                    options_class = options_classes[format_prefix]
-
-                    # Check if this is multi-level nesting (e.g., "network.allowed_hosts")
-                    if "." in remainder:
-                        # Split remainder into path components
-                        field_path = remainder.split(".")
-
-                        # Use helper to resolve nested field
-                        result = self._resolve_nested_field(options_class, field_path)
-
-                        if result:
-                            field, field_type = result
-                            processed_value = self._process_argument_value(
-                                field,
-                                dict(field.metadata) if field.metadata else {},
-                                arg_value,
-                                arg_name,
-                                was_provided=True,
-                            )
-                            if processed_value is not None:
-                                options[arg_name] = processed_value
-                        elif arg_value is not None:
-                            # Track unknown argument
-                            unknown_args.append(arg_name)
-                    else:
-                        # Single-level nesting (e.g., "pdf.pages")
-                        field_name = remainder
-                        field_found = False
-
-                        for field in fields(options_class):
-                            if field.name == field_name:
-                                processed_value = self._process_argument_value(
-                                    field,
-                                    dict(field.metadata) if field.metadata else {},
-                                    arg_value,
-                                    arg_name,
-                                    was_provided=True,
-                                )
-                                if processed_value is not None:
-                                    options[arg_name] = processed_value
-                                field_found = True
-                                break
-
-                        if not field_found and arg_value is not None:
-                            # Track unknown argument
-                            unknown_args.append(arg_name)
+                self._process_dot_notation_arg(arg_name, arg_value, options_classes, options, unknown_args)
             else:
                 # Handle non-dot notation arguments (BaseOptions fields)
-                if "base" in options_classes:
-                    base_options = options_classes["base"]
-                    field_found = False
-
-                    for field in fields(base_options):
-                        if field.name == arg_name:
-                            processed_value = self._process_argument_value(
-                                field,
-                                dict(field.metadata) if field.metadata else {},
-                                arg_value,
-                                arg_name,
-                                was_provided=True,
-                            )
-                            if processed_value is not None:
-                                options[field.name] = processed_value
-                            field_found = True
-                            break
-
-                    if not field_found and arg_value is not None:
-                        # Track unknown argument
-                        unknown_args.append(arg_name)
+                self._process_base_options_arg(arg_name, arg_value, options_classes, options, unknown_args)
 
         # Handle global attachment flags - propagate to all formats
-        from dataclasses import fields as get_fields
-
-        from all2md.options.common import AttachmentOptionsMixin
-
-        attachment_field_names = {field.name for field in get_fields(AttachmentOptionsMixin)}
-
-        for field_name in attachment_field_names:
-            # Check if global flag was provided
-            if field_name in provided_args and field_name in args_dict:
-                global_value = args_dict[field_name]
-
-                # Apply to each format that supports attachments
-                for format_name, options_class in options_classes.items():
-                    if format_name in ["base", "renderer_base", "markdown", "remote_input"]:
-                        continue
-
-                    # Check if this options class has this attachment field
-                    has_field = any(field.name == field_name for field in get_fields(options_class))
-                    if not has_field:
-                        continue
-
-                    # Build format-specific key
-                    format_field_key = f"{format_name}.{field_name}"
-
-                    # Only apply global if format-specific wasn't explicitly provided
-                    if format_field_key not in provided_args:
-                        options[format_field_key] = global_value
+        self._propagate_global_attachment_fields(provided_args, args_dict, options_classes, options)
 
         # Validate unknown arguments
         if unknown_args:

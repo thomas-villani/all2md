@@ -519,29 +519,17 @@ class IpynbToAstConverter(BaseParser):
             fallback_node.metadata[_IPYNB_MARKDOWN_FALLBACK_FLAG] = True
             return [fallback_node]
 
-    def extract_metadata(self, document: Any) -> DocumentMetadata:
-        """Extract metadata from Jupyter notebook.
+    def _extract_kernel_metadata(self, nb_metadata: dict, metadata: DocumentMetadata) -> None:
+        """Extract kernel and language information from notebook metadata.
 
         Parameters
         ----------
-        document : dict
-            Parsed notebook JSON structure
-
-        Returns
-        -------
-        DocumentMetadata
-            Extracted metadata
+        nb_metadata : dict
+            Notebook metadata dictionary
+        metadata : DocumentMetadata
+            Metadata object to update in-place
 
         """
-        metadata = DocumentMetadata()
-
-        # Extract notebook metadata
-        nb_metadata = document.get("metadata", {})
-
-        # Common notebook metadata fields
-        if "title" in nb_metadata:
-            metadata.title = nb_metadata["title"]
-
         # Kernel information
         kernel_info = nb_metadata.get("kernelspec", {})
         if kernel_info:
@@ -561,73 +549,173 @@ class IpynbToAstConverter(BaseParser):
             if version:
                 metadata.custom["language_version"] = version
 
-        # Authors (if present in metadata)
-        authors = nb_metadata.get("authors", [])
-        if authors:
-            if isinstance(authors, list) and authors:
-                # Take first author as primary
-                first_author = authors[0]
-                if isinstance(first_author, dict):
-                    metadata.author = first_author.get("name", "")
-                else:
-                    metadata.author = str(first_author)
-                # Store all authors in custom
-                if len(authors) > 1:
-                    metadata.custom["authors"] = authors
-            elif isinstance(authors, str):
-                metadata.author = authors
+    def _extract_author_metadata(self, nb_metadata: dict, metadata: DocumentMetadata) -> None:
+        """Extract author information from notebook metadata.
 
-        # Creation/modification dates
+        Parameters
+        ----------
+        nb_metadata : dict
+            Notebook metadata dictionary
+        metadata : DocumentMetadata
+            Metadata object to update in-place
+
+        """
+        authors = nb_metadata.get("authors", [])
+        if not authors:
+            return
+
+        if isinstance(authors, list) and authors:
+            # Take first author as primary
+            first_author = authors[0]
+            if isinstance(first_author, dict):
+                metadata.author = first_author.get("name", "")
+            else:
+                metadata.author = str(first_author)
+            # Store all authors in custom
+            if len(authors) > 1:
+                metadata.custom["authors"] = authors
+        elif isinstance(authors, str):
+            metadata.author = authors
+
+    def _extract_date_metadata(self, nb_metadata: dict, metadata: DocumentMetadata) -> None:
+        """Extract creation and modification dates from notebook metadata.
+
+        Parameters
+        ----------
+        nb_metadata : dict
+            Notebook metadata dictionary
+        metadata : DocumentMetadata
+            Metadata object to update in-place
+
+        """
         if "created" in nb_metadata:
             metadata.creation_date = nb_metadata["created"]
         if "modified" in nb_metadata:
             metadata.modification_date = nb_metadata["modified"]
 
-        # Notebook format version
+    def _extract_cell_statistics(self, cells: list, metadata: DocumentMetadata) -> None:
+        """Extract cell count statistics from notebook cells.
+
+        Parameters
+        ----------
+        cells : list
+            List of notebook cells
+        metadata : DocumentMetadata
+            Metadata object to update in-place
+
+        """
+        if not cells:
+            return
+
+        metadata.custom["cell_count"] = len(cells)
+        # Count by cell type
+        code_cells = sum(1 for cell in cells if cell.get("cell_type") == "code")
+        markdown_cells = sum(1 for cell in cells if cell.get("cell_type") == "markdown")
+        if code_cells:
+            metadata.custom["code_cells"] = code_cells
+        if markdown_cells:
+            metadata.custom["markdown_cells"] = markdown_cells
+
+    def _extract_custom_metadata(self, nb_metadata: dict, metadata: DocumentMetadata) -> None:
+        """Extract custom metadata from notebook (extensions, tags, etc.).
+
+        Parameters
+        ----------
+        nb_metadata : dict
+            Notebook metadata dictionary
+        metadata : DocumentMetadata
+            Metadata object to update in-place
+
+        """
+        excluded_keys = ["kernelspec", "language_info", "authors", "title", "created", "modified"]
+
+        for key, value in nb_metadata.items():
+            if key in excluded_keys:
+                continue
+
+            # Only include simple types in custom metadata
+            if isinstance(value, (str, int, float, bool)):
+                metadata.custom[f"notebook_{key}"] = value
+            elif isinstance(value, (list, dict)) and key in ["tags", "keywords"]:
+                # Special handling for tags/keywords
+                if isinstance(value, list):
+                    metadata.keywords = value
+                else:
+                    metadata.custom[key] = value
+
+    def _extract_title_from_cells(self, cells: list, metadata: DocumentMetadata) -> None:
+        """Extract title from first markdown cell if not already set.
+
+        Parameters
+        ----------
+        cells : list
+            List of notebook cells
+        metadata : DocumentMetadata
+            Metadata object to update in-place
+
+        """
+        if metadata.title or not cells:
+            return
+
+        for cell in cells:
+            if cell.get("cell_type") == "markdown":
+                source = self._get_source(cell)
+                lines = source.strip().split("\n")
+                for line in lines:
+                    if line.strip().startswith("#"):
+                        # Found a header, use as title
+                        metadata.title = line.lstrip("#").strip()
+                        break
+                if metadata.title:
+                    break
+
+    def extract_metadata(self, document: Any) -> DocumentMetadata:
+        """Extract metadata from Jupyter notebook.
+
+        Parameters
+        ----------
+        document : dict
+            Parsed notebook JSON structure
+
+        Returns
+        -------
+        DocumentMetadata
+            Extracted metadata
+
+        """
+        metadata = DocumentMetadata()
+
+        # Extract notebook metadata
+        nb_metadata = document.get("metadata", {})
+        cells = document.get("cells", [])
+
+        # Extract title if present
+        if "title" in nb_metadata:
+            metadata.title = nb_metadata["title"]
+
+        # Extract kernel and language information
+        self._extract_kernel_metadata(nb_metadata, metadata)
+
+        # Extract author information
+        self._extract_author_metadata(nb_metadata, metadata)
+
+        # Extract creation and modification dates
+        self._extract_date_metadata(nb_metadata, metadata)
+
+        # Extract notebook format version
         nbformat = document.get("nbformat", "")
         nbformat_minor = document.get("nbformat_minor", "")
         if nbformat:
             metadata.custom["notebook_format"] = f"{nbformat}.{nbformat_minor}" if nbformat_minor else str(nbformat)
 
-        # Cell count
-        cells = document.get("cells", [])
-        if cells:
-            metadata.custom["cell_count"] = len(cells)
-            # Count by cell type
-            code_cells = sum(1 for cell in cells if cell.get("cell_type") == "code")
-            markdown_cells = sum(1 for cell in cells if cell.get("cell_type") == "markdown")
-            if code_cells:
-                metadata.custom["code_cells"] = code_cells
-            if markdown_cells:
-                metadata.custom["markdown_cells"] = markdown_cells
+        # Extract cell statistics
+        self._extract_cell_statistics(cells, metadata)
 
-        # Custom notebook metadata (Jupyter extensions often add metadata)
-        for key, value in nb_metadata.items():
-            if key not in ["kernelspec", "language_info", "authors", "title", "created", "modified"]:
-                # Only include simple types in custom metadata
-                if isinstance(value, (str, int, float, bool)):
-                    metadata.custom[f"notebook_{key}"] = value
-                elif isinstance(value, (list, dict)) and key in ["tags", "keywords"]:
-                    # Special handling for tags/keywords
-                    if key == "tags" or key == "keywords":
-                        if isinstance(value, list):
-                            metadata.keywords = value
-                        else:
-                            metadata.custom[key] = value
+        # Extract custom metadata (extensions, tags, etc.)
+        self._extract_custom_metadata(nb_metadata, metadata)
 
-        # If no title, try to extract from first markdown cell
-        if not metadata.title and cells:
-            for cell in cells:
-                if cell.get("cell_type") == "markdown":
-                    source = self._get_source(cell)
-                    lines = source.strip().split("\n")
-                    for line in lines:
-                        if line.strip().startswith("#"):
-                            # Found a header, use as title
-                            metadata.title = line.lstrip("#").strip()
-                            break
-                    if metadata.title:
-                        break
+        # Extract title from first markdown cell if not already set
+        self._extract_title_from_cells(cells, metadata)
 
         return metadata
 

@@ -268,6 +268,148 @@ class DocxToAstConverter(BaseParser):
 
         return metadata
 
+    def _process_document_blocks(self, doc: "docx.document.Document", base_filename: str, children: list[Node]) -> None:
+        """Process document blocks and append to children list.
+
+        Parameters
+        ----------
+        doc : docx.document.Document
+            DOCX document to process
+        base_filename : str
+            Base filename for attachments
+        children : list[Node]
+            List to append processed nodes to
+
+        """
+        # Import here to avoid circular dependencies
+        from docx.table import Table
+        from docx.text.paragraph import Paragraph
+
+        for block in _iter_block_items(
+            doc,
+            options=self.options,
+            base_filename=base_filename,
+            attachment_sequencer=create_attachment_sequencer(),
+        ):
+            if isinstance(block, ImageData):
+                self._process_image_block(block, children)
+            elif isinstance(block, Paragraph):
+                self._process_paragraph_block(block, doc, children)
+            elif isinstance(block, Table):
+                self._process_table_block(block, children)
+
+    def _process_image_block(self, block: ImageData, children: list[Node]) -> None:
+        """Process an image block.
+
+        Parameters
+        ----------
+        block : ImageData
+            Image data to process
+        children : list[Node]
+            List to append processed nodes to
+
+        """
+        # Collect footnote info if present
+        if block.footnote_label and block.footnote_content:
+            self._attachment_footnotes[block.footnote_label] = block.footnote_content
+        # Handle ImageData objects directly
+        image_node = Image(url=block.url, alt_text=block.alt_text, title=block.title)
+        if block.source_data:
+            image_node.metadata["source_data"] = block.source_data
+        children.append(AstParagraph(content=[image_node]))
+
+    def _process_paragraph_block(self, block: "Paragraph", doc: "docx.document.Document", children: list[Node]) -> None:
+        """Process a paragraph block.
+
+        Parameters
+        ----------
+        block : Paragraph
+            Paragraph to process
+        doc : docx.document.Document
+            Parent document
+        children : list[Node]
+            List to append processed nodes to
+
+        """
+        nodes = self._process_paragraph_to_ast(block, doc)
+        if nodes:
+            if isinstance(nodes, list):
+                children.extend(nodes)
+            else:
+                children.append(nodes)
+
+    def _process_table_block(self, block: "Table", children: list[Node]) -> None:
+        """Process a table block.
+
+        Parameters
+        ----------
+        block : Table
+            Table to process
+        children : list[Node]
+            List to append processed nodes to
+
+        """
+        if self.options.preserve_tables:
+            table_node = self._process_table_to_ast(block)
+            if table_node:
+                children.append(table_node)
+        else:
+            # Flatten table to paragraphs
+            for row in block.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        inline_nodes = self._process_paragraph_runs_to_inline(paragraph)
+                        if inline_nodes:
+                            children.append(AstParagraph(content=inline_nodes))
+
+    def _finalize_lists_and_notes(self, doc: "docx.document.Document", children: list[Node]) -> None:
+        """Finalize lists and add footnotes/endnotes/comments to document.
+
+        Parameters
+        ----------
+        doc : docx.document.Document
+            DOCX document
+        children : list[Node]
+            List to append processed nodes to
+
+        """
+        # Finalize any remaining list at the end of document
+        if self._list_stack:
+            final_list = self._finalize_current_list()
+            if final_list:
+                children.append(final_list)
+            self._list_stack = []
+
+        # Add footnotes and endnotes if requested
+        if self.options.include_footnotes:
+            self._process_footnotes(doc)
+
+        if self.options.include_endnotes:
+            self._process_endnotes(doc)
+
+        # Add footnote/endnote definitions
+        if self._footnote_collector:
+            priority: list[str] = []
+            if self.options.include_footnotes:
+                priority.append("footnote")
+            if self.options.include_endnotes:
+                priority.append("endnote")
+
+            for definition in self._footnote_collector.iter_definitions(note_type_priority=priority):
+                children.append(definition)
+
+        # Add comments if configured as footnotes
+        if self.options.include_comments and self.options.comments_position == "footnotes":
+            comments_nodes = self._process_comments()
+            if comments_nodes:
+                children.extend(comments_nodes)
+
+        # Append attachment footnote definitions if any were collected
+        if self.options.attachments_footnotes_section:
+            append_attachment_footnotes(
+                children, self._attachment_footnotes, self.options.attachments_footnotes_section
+            )
+
     def convert_to_ast(self, doc: "docx.document.Document", base_filename: str = "document") -> Document:
         """Convert DOCX document to AST Document.
 
@@ -284,96 +426,26 @@ class DocxToAstConverter(BaseParser):
             AST document node
 
         """
-        self._numbering_defs = None  # Will be loaded lazily if needed
+        self._numbering_defs = None
         self._list_stack = []
         self._footnote_collector = FootnoteCollector()
         self._comments_map = {}
-        self._attachment_footnotes = {}  # Reset attachment footnote collection
+        self._attachment_footnotes = {}
 
         # Emit started event
         self._emit_progress("started", "Converting DOCX document", current=0, total=0)
 
         children: list[Node] = []
 
-        # Import here to avoid circular dependencies
-        from docx.table import Table
-        from docx.text.paragraph import Paragraph
-
+        # Load comments if requested
         if self.options.include_comments:
             self._comments_map = self._load_comments(doc)
 
-        for block in _iter_block_items(
-            doc,
-            options=self.options,
-            base_filename=base_filename,
-            attachment_sequencer=create_attachment_sequencer(),
-        ):
-            if isinstance(block, ImageData):
-                # Collect footnote info if present
-                if block.footnote_label and block.footnote_content:
-                    self._attachment_footnotes[block.footnote_label] = block.footnote_content
-                # Handle ImageData objects directly
-                image_node = Image(url=block.url, alt_text=block.alt_text, title=block.title)
-                if block.source_data:
-                    image_node.metadata["source_data"] = block.source_data
-                children.append(AstParagraph(content=[image_node]))
-            elif isinstance(block, Paragraph):
-                nodes = self._process_paragraph_to_ast(block, doc)
-                if nodes:
-                    if isinstance(nodes, list):
-                        children.extend(nodes)
-                    else:
-                        children.append(nodes)
-            elif isinstance(block, Table):
-                # Check if tables should be preserved
-                if self.options.preserve_tables:
-                    table_node = self._process_table_to_ast(block)
-                    if table_node:
-                        children.append(table_node)
-                else:
-                    # Flatten table to paragraphs
-                    for row in block.rows:
-                        for cell in row.cells:
-                            for paragraph in cell.paragraphs:
-                                inline_nodes = self._process_paragraph_runs_to_inline(paragraph)
-                                if inline_nodes:
-                                    children.append(AstParagraph(content=inline_nodes))
+        # Process all document blocks
+        self._process_document_blocks(doc, base_filename, children)
 
-        # Finalize any remaining list at the end of document
-        if self._list_stack:
-            final_list = self._finalize_current_list()
-            if final_list:
-                children.append(final_list)
-            self._list_stack = []
-
-        # Add footnotes, endnotes, and comments at the end if requested
-        if self.options.include_footnotes:
-            self._process_footnotes(doc)
-
-        if self.options.include_endnotes:
-            self._process_endnotes(doc)
-
-        if self._footnote_collector:
-            priority: list[str] = []
-            if self.options.include_footnotes:
-                priority.append("footnote")
-            if self.options.include_endnotes:
-                priority.append("endnote")
-
-            for definition in self._footnote_collector.iter_definitions(note_type_priority=priority):
-                children.append(definition)
-
-        # Comments may be inline or appended depending on options
-        if self.options.include_comments and self.options.comments_position == "footnotes":
-            comments_nodes = self._process_comments()
-            if comments_nodes:
-                children.extend(comments_nodes)
-
-        # Append attachment footnote definitions if any were collected
-        if self.options.attachments_footnotes_section:
-            append_attachment_footnotes(
-                children, self._attachment_footnotes, self.options.attachments_footnotes_section
-            )
+        # Finalize lists and add notes/comments
+        self._finalize_lists_and_notes(doc, children)
 
         # Emit finished event
         self._emit_progress("finished", "DOCX conversion completed", current=1, total=1)

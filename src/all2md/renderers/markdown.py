@@ -810,9 +810,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     col_widths[i] = max(col_widths[i], len(cell_content))
         return col_widths
 
-    def _generate_alignment_row(
-        self, node: Table, num_cols: int, col_widths: list[int] | None = None
-    ) -> str:
+    def _generate_alignment_row(self, node: Table, num_cols: int, col_widths: list[int] | None = None) -> str:
         """Generate alignment separator row.
 
         Parameters
@@ -865,9 +863,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return "|" + "|".join(alignments) + "|"
 
-    def _render_padded_table(
-        self, node: Table, rendered_rows: list[list[str]], num_cols: int
-    ) -> None:
+    def _render_padded_table(self, node: Table, rendered_rows: list[list[str]], num_cols: int) -> None:
         """Render table with cell padding.
 
         Parameters
@@ -896,9 +892,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append("\n")
                 self._output.append(self._generate_alignment_row(node, num_cols, col_widths))
 
-    def _render_minimal_table(
-        self, node: Table, rendered_rows: list[list[str]], num_cols: int
-    ) -> None:
+    def _render_minimal_table(self, node: Table, rendered_rows: list[list[str]], num_cols: int) -> None:
         """Render table without padding.
 
         Parameters

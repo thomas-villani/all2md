@@ -281,9 +281,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         return self.ods_to_ast(doc)
 
-    def _select_sheets(
-        self, tables: list[Any], sheet_names: list[str]
-    ) -> tuple[list[Any], list[str]]:
+    def _select_sheets(self, tables: list[Any], sheet_names: list[str]) -> tuple[list[Any], list[str]]:
         """Select sheets based on options.
 
         Parameters
@@ -372,9 +370,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
         return raw_rows
 
-    def _process_sheet_data(
-        self, raw_rows: list[list[str]]
-    ) -> tuple[list[str], list[list[str]]]:
+    def _process_sheet_data(self, raw_rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
         """Process header and data rows with limits and trimming.
 
         Parameters
@@ -428,8 +424,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         # Sanitize all cell content
         header = [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in all_rows[0]]
         data_rows = [
-            [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row]
-            for row in all_rows[1:]
+            [sanitize_cell_text(cell, self.options.preserve_newlines_in_cells) for cell in row] for row in all_rows[1:]
         ]
 
         # Apply header case transformation

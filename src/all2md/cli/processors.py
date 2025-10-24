@@ -1239,10 +1239,187 @@ def process_merge_from_list(
         return get_exit_code_for_exception(e)
 
 
+def _detect_format_for_item(item: CLIInputItem, format_arg: str) -> tuple[str, str]:
+    """Detect format and detection method for a single item.
+
+    Parameters
+    ----------
+    item : CLIInputItem
+        Input item to detect format for
+    format_arg : str
+        Format argument from CLI
+
+    Returns
+    -------
+    tuple[str, str]
+        (detected_format, detection_method)
+
+    """
+    from all2md.converter_registry import registry
+
+    if format_arg != "auto":
+        return format_arg, "explicit (--format)"
+
+    detected_format = registry.detect_format(item.raw_input)
+
+    # Determine detection method
+    metadata_list = registry.get_format_info(detected_format)
+    metadata = metadata_list[0] if metadata_list else None
+    suffix = item.suffix.lower() if item.suffix else ""
+    if metadata and suffix in metadata.extensions:
+        return detected_format, "file extension"
+
+    # Check MIME type
+    import mimetypes
+
+    guess_target = item.display_name
+    if item.path_hint:
+        guess_target = str(item.path_hint)
+    mime_type, _ = mimetypes.guess_type(guess_target)
+    if mime_type and metadata and mime_type in metadata.mime_types:
+        return detected_format, "MIME type"
+
+    return detected_format, "magic bytes/content"
+
+
+def _check_converter_dependencies(
+    converter_metadata: Any,
+) -> tuple[bool, list[tuple[str, str, str | None, str | None]]]:
+    """Check converter dependencies and return availability status.
+
+    Parameters
+    ----------
+    converter_metadata : Any
+        Converter metadata object
+
+    Returns
+    -------
+    tuple[bool, list[tuple[str, str, str | None, str | None]]]
+        (converter_available, dependency_status_list)
+
+    """
+    from all2md.dependencies import check_package_installed, check_version_requirement
+
+    converter_available = True
+    dependency_status: list[tuple[str, str, str | None, str | None]] = []
+
+    if not converter_metadata or not converter_metadata.required_packages:
+        return converter_available, dependency_status
+
+    # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
+    for install_name, import_name, version_spec in converter_metadata.required_packages:
+        if version_spec:
+            # Use install_name for version checking (pip/metadata lookup)
+            meets_req, installed_version = check_version_requirement(install_name, version_spec)
+            if not meets_req:
+                converter_available = False
+                if installed_version:
+                    dependency_status.append((install_name, "version mismatch", installed_version, version_spec))
+                else:
+                    dependency_status.append((install_name, "missing", None, version_spec))
+            else:
+                dependency_status.append((install_name, "ok", installed_version, version_spec))
+        else:
+            # Use import_name for import checking
+            if not check_package_installed(import_name):
+                converter_available = False
+                dependency_status.append((install_name, "missing", None, None))
+            else:
+                dependency_status.append((install_name, "ok", None, None))
+
+    return converter_available, dependency_status
+
+
+def _render_detection_results_rich(detection_results: list[dict[str, Any]], any_issues: bool) -> None:
+    """Render detection results using rich formatting.
+
+    Parameters
+    ----------
+    detection_results : list[dict[str, Any]]
+        List of detection results
+    any_issues : bool
+        Whether there were any dependency issues
+
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+
+    # Main detection table
+    table = Table(title="Format Detection Results")
+    table.add_column("Input", style="cyan", no_wrap=False)
+    table.add_column("Detected Format", style="yellow")
+    table.add_column("Detection Method", style="magenta")
+    table.add_column("Converter Status", style="white")
+
+    for result in detection_results:
+        if result["available"]:
+            status = "[green][OK] Available[/green]"
+        else:
+            status = "[red][X] Unavailable[/red]"
+
+        table.add_row(result["item"].display_name, result["format"].upper(), result["method"], status)
+
+    console.print(table)
+
+    # Show dependency details if there are issues
+    if any_issues:
+        console.print("\n[bold yellow]Dependency Issues:[/bold yellow]")
+        for result in detection_results:
+            if not result["available"]:
+                console.print(f"\n[cyan]{result['item'].display_name}[/cyan] ({result['format'].upper()}):")
+                for pkg_name, status, installed, required in result["deps"]:
+                    if status == "missing":
+                        console.print(f"  [red][X] {pkg_name} - Not installed[/red]")
+                    elif status == "version mismatch":
+                        msg = f"  [yellow][!] {pkg_name} - Version mismatch"
+                        msg += f" (requires {required}, installed: {installed})[/yellow]"
+                        console.print(msg)
+
+                if result["metadata"]:
+                    install_cmd = result["metadata"].get_install_command()
+                    console.print(f"  [dim]Install: {install_cmd}[/dim]")
+
+
+def _render_detection_results_plain(detection_results: list[dict[str, Any]]) -> None:
+    """Render detection results using plain text formatting.
+
+    Parameters
+    ----------
+    detection_results : list[dict[str, Any]]
+        List of detection results
+
+    """
+    for i, result in enumerate(detection_results, 1):
+        status = "[OK]" if result["available"] else "[X]"
+        print(f"{i:3d}. {status} {result['item'].display_name}")
+        print(f"     Format: {result['format'].upper()}")
+        print(f"     Detection: {result['method']}")
+
+        if result["deps"]:
+            print("     Dependencies:")
+            for pkg_name, status_str, installed, required in result["deps"]:
+                if status_str == "ok":
+                    version_info = f" ({installed})" if installed else ""
+                    print(f"       [OK] {pkg_name}{version_info}")
+                elif status_str == "missing":
+                    print(f"       [MISSING] {pkg_name}")
+                elif status_str == "version mismatch":
+                    print(f"       [MISMATCH] {pkg_name} (requires {required}, installed: {installed})")
+
+            if not result["available"] and result["metadata"]:
+                install_cmd = result["metadata"].get_install_command()
+                print(f"     Install: {install_cmd}")
+        else:
+            print("     Dependencies: None required")
+
+        print()
+
+
 def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
     """Process inputs in detect-only mode - show format detection without conversion plan."""
     from all2md.converter_registry import registry
-    from all2md.dependencies import check_version_requirement
 
     # Auto-discover parsers
     registry.auto_discover()
@@ -1256,67 +1433,19 @@ def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, for
     any_issues = False
 
     for item in items:
-        # Detect format
-        if format_arg != "auto":
-            detected_format = format_arg
-            detection_method = "explicit (--format)"
-        else:
-            detected_format = registry.detect_format(item.raw_input)
-
-            # Determine detection method
-            metadata_list = registry.get_format_info(detected_format)
-            metadata = metadata_list[0] if metadata_list else None
-            suffix = item.suffix.lower() if item.suffix else ""
-            if metadata and suffix in metadata.extensions:
-                detection_method = "file extension"
-            else:
-                # Check MIME type
-                import mimetypes
-
-                guess_target = item.display_name
-                if item.path_hint:
-                    guess_target = str(item.path_hint)
-                mime_type, _ = mimetypes.guess_type(guess_target)
-                if mime_type and metadata and mime_type in metadata.mime_types:
-                    detection_method = "MIME type"
-                else:
-                    detection_method = "magic bytes/content"
+        # Detect format and method
+        detected_format, detection_method = _detect_format_for_item(item, format_arg)
 
         # Get converter info
         converter_metadata_list = registry.get_format_info(detected_format)
         converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
 
         # Check dependencies
-        converter_available = True
-        dependency_status: list[tuple[str, str, str | None, str | None]] = []
+        converter_available, dependency_status = _check_converter_dependencies(converter_metadata)
 
-        if converter_metadata and converter_metadata.required_packages:
-            # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
-            for install_name, import_name, version_spec in converter_metadata.required_packages:
-                if version_spec:
-                    # Use install_name for version checking (pip/metadata lookup)
-                    meets_req, installed_version = check_version_requirement(install_name, version_spec)
-                    if not meets_req:
-                        converter_available = False
-                        any_issues = True
-                        if installed_version:
-                            dependency_status.append(
-                                (install_name, "version mismatch", installed_version, version_spec)
-                            )
-                        else:
-                            dependency_status.append((install_name, "missing", None, version_spec))
-                    else:
-                        dependency_status.append((install_name, "ok", installed_version, version_spec))
-                else:
-                    from all2md.dependencies import check_package_installed
-
-                    # Use import_name for import checking
-                    if not check_package_installed(import_name):
-                        converter_available = False
-                        any_issues = True
-                        dependency_status.append((install_name, "missing", None, None))
-                    else:
-                        dependency_status.append((install_name, "ok", None, None))
+        # Track if there are any issues
+        if not converter_available:
+            any_issues = True
 
         detection_results.append(
             {
@@ -1332,77 +1461,15 @@ def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, for
     # Display results
     if args.rich:
         try:
-            from rich.console import Console
-            from rich.table import Table
-
-            console = Console()
-
-            # Main detection table
-            table = Table(title="Format Detection Results")
-            table.add_column("Input", style="cyan", no_wrap=False)
-            table.add_column("Detected Format", style="yellow")
-            table.add_column("Detection Method", style="magenta")
-            table.add_column("Converter Status", style="white")
-
-            for result in detection_results:
-                if result["available"]:
-                    status = "[green][OK] Available[/green]"
-                else:
-                    status = "[red][X] Unavailable[/red]"
-
-                table.add_row(result["item"].display_name, result["format"].upper(), result["method"], status)
-
-            console.print(table)
-
-            # Show dependency details if there are issues
-            if any_issues:
-                console.print("\n[bold yellow]Dependency Issues:[/bold yellow]")
-                for result in detection_results:
-                    if not result["available"]:
-                        console.print(f"\n[cyan]{result['item'].display_name}[/cyan] ({result['format'].upper()}):")
-                        for pkg_name, status, installed, required in result["deps"]:
-                            if status == "missing":
-                                console.print(f"  [red][X] {pkg_name} - Not installed[/red]")
-                            elif status == "version mismatch":
-                                msg = f"  [yellow][!] {pkg_name} - Version mismatch"
-                                msg += f" (requires {required}, installed: {installed})[/yellow]"
-                                console.print(msg)
-
-                        if result["metadata"]:
-                            install_cmd = result["metadata"].get_install_command()
-                            console.print(f"  [dim]Install: {install_cmd}[/dim]")
-
+            _render_detection_results_rich(detection_results, any_issues)
         except ImportError:
             # Fall back to plain text
             args.rich = False
 
     if not args.rich:
-        # Plain text output
-        for i, result in enumerate(detection_results, 1):
-            status = "[OK]" if result["available"] else "[X]"
-            print(f"{i:3d}. {status} {result['item'].display_name}")
-            print(f"     Format: {result['format'].upper()}")
-            print(f"     Detection: {result['method']}")
+        _render_detection_results_plain(detection_results)
 
-            if result["deps"]:
-                print("     Dependencies:")
-                for pkg_name, status_str, installed, required in result["deps"]:
-                    if status_str == "ok":
-                        version_info = f" ({installed})" if installed else ""
-                        print(f"       [OK] {pkg_name}{version_info}")
-                    elif status_str == "missing":
-                        print(f"       [MISSING] {pkg_name}")
-                    elif status_str == "version mismatch":
-                        print(f"       [MISMATCH] {pkg_name} (requires {required}, installed: {installed})")
-
-                if not result["available"] and result["metadata"]:
-                    install_cmd = result["metadata"].get_install_command()
-                    print(f"     Install: {install_cmd}")
-            else:
-                print("     Dependencies: None required")
-
-            print()
-
+    # Print summary
     print(f"\nTotal inputs analyzed: {len(detection_results)}")
     if any_issues:
         unavailable_count = sum(1 for r in detection_results if not r["available"])
@@ -1413,9 +1480,7 @@ def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, for
         return 0
 
 
-def _collect_file_info_for_dry_run(
-    items: List[CLIInputItem], format_arg: str
-) -> List[Dict[str, Any]]:
+def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -> List[Dict[str, Any]]:
     """Collect file information for dry run display.
 
     Parameters

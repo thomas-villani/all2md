@@ -713,6 +713,40 @@ class HtmlToAstConverter(BaseParser):
 
         return soup
 
+    # Dispatch table mapping HTML element names to processing methods
+    _ELEMENT_HANDLERS = {
+        # Block elements
+        "p": "_process_block_to_ast",
+        "div": "_process_block_to_ast",
+        "h1": "_process_heading_to_ast",
+        "h2": "_process_heading_to_ast",
+        "h3": "_process_heading_to_ast",
+        "h4": "_process_heading_to_ast",
+        "h5": "_process_heading_to_ast",
+        "h6": "_process_heading_to_ast",
+        "ul": "_process_list_to_ast",
+        "ol": "_process_list_to_ast",
+        "pre": "_process_code_block_to_ast",
+        "blockquote": "_process_blockquote_to_ast",
+        "figure": "_process_figure_to_ast",
+        "details": "_process_details_to_ast",
+        "table": "_process_table_to_ast",
+        "dl": "_process_definition_list_to_ast",
+        # Inline elements
+        "strong": "_process_strong_to_ast",
+        "b": "_process_strong_to_ast",
+        "em": "_process_emphasis_to_ast",
+        "i": "_process_emphasis_to_ast",
+        "del": "_process_strikethrough_to_ast",
+        "s": "_process_strikethrough_to_ast",
+        "strike": "_process_strikethrough_to_ast",
+        "sup": "_process_superscript_to_ast",
+        "sub": "_process_subscript_to_ast",
+        "a": "_process_link_to_ast",
+        "img": "_process_image_to_ast",
+        "u": "_process_underline_to_ast",
+    }
+
     def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
         """Process a BeautifulSoup node to AST nodes.
 
@@ -731,27 +765,18 @@ class HtmlToAstConverter(BaseParser):
 
         # Handle HTML comments
         if isinstance(node, Comment):
-            # If strip_comments is enabled, skip the comment
             if self.options.strip_comments:
                 return None
-            # Otherwise create a CommentInline node
             comment_text = str(node).strip()
             if comment_text:
-                return CommentInline(
-                    content=comment_text,
-                    metadata={"comment_type": "html"},
-                )
+                return CommentInline(content=comment_text, metadata={"comment_type": "html"})
             return None
 
         # Handle text nodes
         if isinstance(node, NavigableString):
             text = self._decode_entities(str(node))
-
-            # Apply whitespace collapsing if enabled
             if self.options.collapse_whitespace:
-                # Collapse multiple spaces/newlines into single space
                 text = re.sub(r"\s+", " ", text)
-
             if text.strip():
                 return Text(content=text)
             return None
@@ -760,64 +785,36 @@ class HtmlToAstConverter(BaseParser):
         if not hasattr(node, "name"):
             return None
 
-        # Skip script/style nodes regardless of sanitization settings. These tags never
-        # produce meaningful markdown output and can leak inline JavaScript/CSS into the
-        # rendered document if treated as generic blocks.
+        # Skip script/style nodes
         if node.name in ("script", "style"):
             return None
 
-        # Dispatch based on element type
+        # Handle <br> with custom logic based on options
         if node.name == "br":
-            # Handle <br> based on br_handling option
             if self.options.br_handling == "space":
                 return Text(content=" ")
             else:  # "newline"
                 return LineBreak(soft=False)
-        elif node.name == "hr":
+
+        # Handle <hr> as thematic break
+        if node.name == "hr":
             return ThematicBreak()
-        elif node.name in ["p", "div"]:
-            return self._process_block_to_ast(node)
-        elif node.name in ["h1", "h2", "h3", "h4", "h5", "h6"]:
-            return self._process_heading_to_ast(node)
-        elif node.name in ["ul", "ol"]:
-            return self._process_list_to_ast(node)
-        elif node.name == "pre":
-            return self._process_code_block_to_ast(node)
-        elif node.name == "blockquote":
-            return self._process_blockquote_to_ast(node)
-        elif node.name == "figure":
-            return self._process_figure_to_ast(node)
-        elif node.name == "details":
-            return self._process_details_to_ast(node)
-        elif node.name == "table":
-            return self._process_table_to_ast(node)
-        elif node.name == "dl":
-            return self._process_definition_list_to_ast(node)
-        elif node.name in ["strong", "b"]:
-            return self._process_strong_to_ast(node)
-        elif node.name in ["em", "i"]:
-            return self._process_emphasis_to_ast(node)
-        elif node.name in ["del", "s", "strike"]:
-            return self._process_strikethrough_to_ast(node)
-        elif node.name == "sup":
-            return self._process_superscript_to_ast(node)
-        elif node.name == "sub":
-            return self._process_subscript_to_ast(node)
-        elif node.name == "code":
+
+        # Handle <code> with context-dependent logic
+        if node.name == "code":
             if self._in_code_block:
-                # Inside pre tag - just return text
                 return Text(content=node.get_text())
             else:
                 return Code(content=node.get_text())
-        elif node.name == "a":
-            return self._process_link_to_ast(node)
-        elif node.name == "img":
-            return self._process_image_to_ast(node)
-        elif node.name == "u":
-            return self._process_underline_to_ast(node)
-        else:
-            # For unknown elements, process children
-            return self._process_children_to_inline(node)
+
+        # Use dispatch table for other elements
+        handler_name = self._ELEMENT_HANDLERS.get(node.name)
+        if handler_name:
+            handler = getattr(self, handler_name)
+            return handler(node)
+
+        # For unknown elements, process children
+        return self._process_children_to_inline(node)
 
     def _process_block_to_ast(self, node: Any) -> Paragraph | None:
         """Process block element (p, div) to Paragraph node.

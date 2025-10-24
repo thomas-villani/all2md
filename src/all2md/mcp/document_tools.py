@@ -35,6 +35,255 @@ from all2md.mcp.security import MCPSecurityError, validate_read_path
 logger = logging.getLogger(__name__)
 
 
+def _parse_markdown_content(content: str) -> Document:
+    """Parse markdown content string to Document AST.
+
+    Parameters
+    ----------
+    content : str
+        Markdown content to parse
+
+    Returns
+    -------
+    Document
+        Parsed document AST
+
+    Raises
+    ------
+    TypeError
+        If parsing doesn't return a Document
+
+    """
+    doc = to_ast(content, source_format="markdown", flavor="gfm")
+    if not isinstance(doc, Document):
+        raise TypeError(f"Expected Document, got {type(doc)}")
+    return doc
+
+
+def _serialize_to_markdown(doc: Document) -> str:
+    """Serialize Document AST to markdown string.
+
+    Parameters
+    ----------
+    doc : Document
+        Document AST to serialize
+
+    Returns
+    -------
+    str
+        Markdown string
+
+    Raises
+    ------
+    TypeError
+        If serialization doesn't return a string
+
+    """
+    result = from_ast(doc, target_format="markdown", flavor="gfm")
+    if not isinstance(result, str):
+        raise TypeError(f"Expected str from from_ast, got {type(result)}")
+    return result
+
+
+def _format_target_description(target: str | int) -> str:
+    """Format target for user-facing messages.
+
+    Parameters
+    ----------
+    target : str or int
+        Target section (heading text or index)
+
+    Returns
+    -------
+    str
+        Formatted target description
+
+    """
+    return f"section #{target}" if isinstance(target, int) else f"section '{target}'"
+
+
+def _handle_list_sections(doc: Document) -> EditDocumentSimpleOutput:
+    """Handle list-sections action.
+
+    Parameters
+    ----------
+    doc : Document
+        Document to list sections from
+
+    Returns
+    -------
+    EditDocumentSimpleOutput
+        Result with section listing
+
+    """
+    sections = get_all_sections(doc)
+    if sections:
+        lines = ["Document Sections:"]
+        for idx, section in enumerate(sections):
+            indent = "  " * (section.level - 1)
+            lines.append(
+                f"{indent}[#{idx}] "
+                f"{'#' * section.level} {section.get_heading_text()} "
+                f"({len(section.content)} nodes)"
+            )
+        content = "\n".join(lines)
+    else:
+        content = "No sections found in document."
+
+    return EditDocumentSimpleOutput(success=True, message=f"Found {len(sections)} section(s).", content=content)
+
+
+def _handle_extract(doc: Document, target: str | int) -> EditDocumentSimpleOutput:
+    """Handle extract action.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document
+    target : str or int
+        Target section to extract
+
+    Returns
+    -------
+    EditDocumentSimpleOutput
+        Result with extracted section
+
+    """
+    section_doc = extract_section(doc, target, case_sensitive=False)
+    result_md = _serialize_to_markdown(section_doc)
+    target_desc = _format_target_description(target)
+    return EditDocumentSimpleOutput(success=True, message=f"Successfully extracted {target_desc}.", content=result_md)
+
+
+def _handle_add(doc: Document, target: str | int, content: str, action: str) -> EditDocumentSimpleOutput:
+    """Handle add:before and add:after actions.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document
+    target : str or int
+        Target section
+    content : str
+        Content to add
+    action : str
+        Either "add:before" or "add:after"
+
+    Returns
+    -------
+    EditDocumentSimpleOutput
+        Result with modified document
+
+    """
+    new_doc = _parse_markdown_content(content)
+
+    if action == "add:before":
+        modified_doc = add_section_before(doc, target, new_doc, case_sensitive=False)
+        position_desc = "before"
+    else:
+        modified_doc = add_section_after(doc, target, new_doc, case_sensitive=False)
+        position_desc = "after"
+
+    result_md = _serialize_to_markdown(modified_doc)
+    target_desc = _format_target_description(target)
+    return EditDocumentSimpleOutput(
+        success=True, message=f"Successfully added content {position_desc} {target_desc}.", content=result_md
+    )
+
+
+def _handle_remove(doc: Document, target: str | int) -> EditDocumentSimpleOutput:
+    """Handle remove action.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document
+    target : str or int
+        Target section to remove
+
+    Returns
+    -------
+    EditDocumentSimpleOutput
+        Result with modified document
+
+    """
+    modified_doc = remove_section(doc, target, case_sensitive=False)
+    result_md = _serialize_to_markdown(modified_doc)
+    target_desc = _format_target_description(target)
+    return EditDocumentSimpleOutput(success=True, message=f"Successfully removed {target_desc}.", content=result_md)
+
+
+def _handle_replace(doc: Document, target: str | int, content: str) -> EditDocumentSimpleOutput:
+    """Handle replace action.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document
+    target : str or int
+        Target section to replace
+    content : str
+        Replacement content
+
+    Returns
+    -------
+    EditDocumentSimpleOutput
+        Result with modified document
+
+    """
+    new_doc = _parse_markdown_content(content)
+    modified_doc = replace_section(doc, target, new_doc, case_sensitive=False)
+    result_md = _serialize_to_markdown(modified_doc)
+    target_desc = _format_target_description(target)
+    return EditDocumentSimpleOutput(success=True, message=f"Successfully replaced {target_desc}.", content=result_md)
+
+
+def _handle_insert(doc: Document, target: str | int, content: str, action: str) -> EditDocumentSimpleOutput:
+    """Handle insert:start, insert:end, and insert:after_heading actions.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document
+    target : str or int
+        Target section
+    content : str
+        Content to insert
+    action : str
+        One of "insert:start", "insert:end", or "insert:after_heading"
+
+    Returns
+    -------
+    EditDocumentSimpleOutput
+        Result with modified document
+
+    """
+    from typing import Literal
+
+    content_doc = _parse_markdown_content(content)
+
+    position_map: dict[str, Literal["start", "end", "after_heading"]] = {
+        "insert:start": "start",
+        "insert:end": "end",
+        "insert:after_heading": "after_heading",
+    }
+    position = position_map[action]
+
+    modified_doc = insert_into_section(
+        doc,
+        target,
+        content_doc.children,
+        position=position,
+        case_sensitive=False,
+    )
+
+    result_md = _serialize_to_markdown(modified_doc)
+    target_desc = _format_target_description(target)
+    return EditDocumentSimpleOutput(
+        success=True, message=f"Successfully inserted content into {target_desc}.", content=result_md
+    )
+
+
 def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -> EditDocumentSimpleOutput:
     """Implement edit_document tool (simplified LLM-friendly interface).
 
@@ -123,143 +372,27 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
 
         logger.info(f"Executing action: {input_data.action}")
 
-        # Execute action
+        # Execute action using dispatch pattern
         if input_data.action == "list-sections":
-            # List all sections with metadata
-            sections = get_all_sections(doc)
-            if sections:
-                lines = ["Document Sections:"]
-                for idx, section in enumerate(sections):
-                    indent = "  " * (section.level - 1)
-                    lines.append(
-                        f"{indent}[#{idx}] "
-                        f"{'#' * section.level} {section.get_heading_text()} "
-                        f"({len(section.content)} nodes)"
-                    )
-                content = "\n".join(lines)
-            else:
-                content = "No sections found in document."
-
-            return EditDocumentSimpleOutput(success=True, message=f"Found {len(sections)} section(s).", content=content)
-
+            return _handle_list_sections(doc)
         elif input_data.action == "extract":
-            # Extract a specific section
             assert target is not None  # Already validated above
-            section_doc = extract_section(doc, target, case_sensitive=False)
-
-            # Serialize to markdown
-            result_md = from_ast(section_doc, target_format="markdown", flavor="gfm")
-            if not isinstance(result_md, str):
-                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
-
-            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
-            return EditDocumentSimpleOutput(
-                success=True, message=f"Successfully extracted {target_desc}.", content=result_md
-            )
-
+            return _handle_extract(doc, target)
         elif input_data.action in ("add:before", "add:after"):
-            # Add a new section before or after target
             assert target is not None  # Already validated above
             assert input_data.content is not None  # Already validated above
-
-            # Parse content as markdown to create new section
-            new_doc = to_ast(input_data.content, source_format="markdown", flavor="gfm")
-            if not isinstance(new_doc, Document):
-                raise TypeError(f"Expected Document, got {type(new_doc)}")
-
-            # Add section
-            if input_data.action == "add:before":
-                modified_doc = add_section_before(doc, target, new_doc, case_sensitive=False)
-                position_desc = "before"
-            else:
-                modified_doc = add_section_after(doc, target, new_doc, case_sensitive=False)
-                position_desc = "after"
-
-            # Serialize to markdown
-            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
-            if not isinstance(result_md, str):
-                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
-
-            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
-            return EditDocumentSimpleOutput(
-                success=True, message=f"Successfully added content {position_desc} {target_desc}.", content=result_md
-            )
-
+            return _handle_add(doc, target, input_data.content, input_data.action)
         elif input_data.action == "remove":
-            # Remove a section
             assert target is not None  # Already validated above
-            modified_doc = remove_section(doc, target, case_sensitive=False)
-
-            # Serialize to markdown
-            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
-            if not isinstance(result_md, str):
-                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
-
-            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
-            return EditDocumentSimpleOutput(
-                success=True, message=f"Successfully removed {target_desc}.", content=result_md
-            )
-
+            return _handle_remove(doc, target)
         elif input_data.action == "replace":
-            # Replace a section with new content
             assert target is not None  # Already validated above
             assert input_data.content is not None  # Already validated above
-
-            # Parse content as markdown
-            new_doc = to_ast(input_data.content, source_format="markdown", flavor="gfm")
-            if not isinstance(new_doc, Document):
-                raise TypeError(f"Expected Document, got {type(new_doc)}")
-
-            modified_doc = replace_section(doc, target, new_doc, case_sensitive=False)
-
-            # Serialize to markdown
-            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
-            if not isinstance(result_md, str):
-                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
-
-            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
-            return EditDocumentSimpleOutput(
-                success=True, message=f"Successfully replaced {target_desc}.", content=result_md
-            )
-
+            return _handle_replace(doc, target, input_data.content)
         elif input_data.action in ("insert:start", "insert:end", "insert:after_heading"):
-            # Insert content into a section
             assert target is not None  # Already validated above
             assert input_data.content is not None  # Already validated above
-
-            # Parse content as markdown
-            content_doc = to_ast(input_data.content, source_format="markdown", flavor="gfm")
-            if not isinstance(content_doc, Document):
-                raise TypeError(f"Expected Document, got {type(content_doc)}")
-
-            # Map action to position
-            from typing import Literal
-
-            position_map: dict[str, Literal["start", "end", "after_heading"]] = {
-                "insert:start": "start",
-                "insert:end": "end",
-                "insert:after_heading": "after_heading",
-            }
-            position = position_map[input_data.action]
-
-            modified_doc = insert_into_section(
-                doc,
-                target,
-                content_doc.children,
-                position=position,
-                case_sensitive=False,
-            )
-
-            # Serialize to markdown
-            result_md = from_ast(modified_doc, target_format="markdown", flavor="gfm")
-            if not isinstance(result_md, str):
-                raise TypeError(f"Expected str from from_ast, got {type(result_md)}")
-
-            target_desc = f"section #{target}" if isinstance(target, int) else f"section '{target}'"
-            return EditDocumentSimpleOutput(
-                success=True, message=f"Successfully inserted content into {target_desc}.", content=result_md
-            )
-
+            return _handle_insert(doc, target, input_data.content, input_data.action)
         else:
             # Should never reach here due to validation above
             return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Unhandled action: {input_data.action}")

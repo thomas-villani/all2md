@@ -443,8 +443,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         default="blockquote",
         metadata={
             "help": (
-                "How to parse <figure> elements: blockquote, paragraph, image_with_caption, "
-                "caption_only, html, skip"
+                "How to parse <figure> elements: blockquote, paragraph, image_with_caption, " "caption_only, html, skip"
             ),
             "choices": ["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"],
             "importance": "advanced",

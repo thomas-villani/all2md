@@ -1086,9 +1086,7 @@ class AsciiDocParser(BaseParser):
 
         return nodes
 
-    def _try_parse_passthrough(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_passthrough(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse passthrough pattern at start of text.
 
         Parameters
@@ -1111,9 +1109,7 @@ class AsciiDocParser(BaseParser):
             return [HTMLInline(content=passthrough_content)], match.end()
         return None
 
-    def _try_parse_image(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_image(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse image pattern at start of text.
 
         Parameters
@@ -1141,9 +1137,7 @@ class AsciiDocParser(BaseParser):
             return [Image(url=url, alt_text=alt_text)], match.end()
         return None
 
-    def _try_parse_links(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_links(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse link patterns at start of text.
 
         Parameters
@@ -1183,9 +1177,7 @@ class AsciiDocParser(BaseParser):
 
         return None
 
-    def _try_parse_attribute_ref(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_attribute_ref(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse attribute reference at start of text.
 
         Parameters
@@ -1220,9 +1212,7 @@ class AsciiDocParser(BaseParser):
                 return [Text(content=attr_value)], match.end()
         return None
 
-    def _try_parse_formatting(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_formatting(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse formatting patterns at start of text.
 
         Parameters
@@ -1277,9 +1267,7 @@ class AsciiDocParser(BaseParser):
 
         return None
 
-    def _try_parse_footnotes(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_footnotes(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse footnote patterns at start of text.
 
         Parameters
@@ -1315,9 +1303,7 @@ class AsciiDocParser(BaseParser):
 
         return None
 
-    def _try_parse_math(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_math(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse math patterns at start of text.
 
         Parameters
@@ -1347,9 +1333,7 @@ class AsciiDocParser(BaseParser):
 
         return None
 
-    def _try_parse_role(
-        self, text: str, escape_map: dict[str, str]
-    ) -> tuple[list[Node], int] | None:
+    def _try_parse_role(self, text: str, escape_map: dict[str, str]) -> tuple[list[Node], int] | None:
         """Try to parse role pattern at start of text.
 
         Parameters

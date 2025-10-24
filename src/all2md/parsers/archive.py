@@ -728,8 +728,10 @@ class ArchiveToAstConverter(BaseParser):
         """
         return self.options.enable_parallel_processing and file_count >= self.options.parallel_threshold
 
-    def _convert_to_ast_parallel(self, archive: Any, archive_type: str, file_list: list[str]) -> Document:
-        """Convert archive to AST using parallel processing.
+    def _prepare_file_data_cache(
+        self, archive: Any, archive_type: str, file_list: list[str]
+    ) -> dict[str, bytes] | None:
+        """Prepare file data cache for parallel processing.
 
         Parameters
         ----------
@@ -742,24 +744,10 @@ class ArchiveToAstConverter(BaseParser):
 
         Returns
         -------
-        Document
-            AST document node
+        dict[str, bytes] or None
+            Map of file paths to file data, or None if preparation failed
 
         """
-        children: list[Node] = []
-
-        logger.info(f"Using parallel processing for {len(file_list)} files")
-
-        if not file_list:
-            logger.warning("No files to process in archive")
-            children.append(Paragraph(content=[Text(content="(Empty archive or no matching files)")]))
-            return Document(children=children)
-
-        # Prepare options dict for workers
-        options_dict = {
-            "resource_file_extensions": self.options.resource_file_extensions,
-        }
-
         # For 7z archives, extract all files at once since py7zr.read() consumes the archive
         file_data_cache: dict[str, bytes] = {}
         if archive_type == "7z":
@@ -774,8 +762,7 @@ class ArchiveToAstConverter(BaseParser):
                         file_data_cache[fname] = b""
             except Exception as e:
                 logger.warning(f"Failed to extract 7z files: {e}")
-                children.append(Paragraph(content=[Text(content=f"(Error extracting archive: {e!s})")]))
-                return Document(children=children)
+                return None
 
         # Read all files into memory for parallel processing
         file_data_map: dict[str, bytes] = {}
@@ -797,7 +784,26 @@ class ArchiveToAstConverter(BaseParser):
                     }
                 )
 
-        # Process files in parallel
+        return file_data_map
+
+    def _execute_parallel_processing(
+        self, file_data_map: dict[str, bytes], options_dict: dict[str, Any]
+    ) -> dict[str, tuple[Document | None, dict[str, Any] | None]]:
+        """Execute parallel processing of archive files.
+
+        Parameters
+        ----------
+        file_data_map : dict[str, bytes]
+            Map of file paths to file data
+        options_dict : dict[str, Any]
+            Options to pass to worker processes
+
+        Returns
+        -------
+        dict[str, tuple[Document | None, dict[str, Any] | None]]
+            Map of file paths to (document, error_dict) tuples
+
+        """
         max_workers = self.options.max_workers
         results_map: dict[str, tuple[Document | None, dict[str, Any] | None]] = {}
 
@@ -830,6 +836,33 @@ class ArchiveToAstConverter(BaseParser):
                             "error_message": str(e),
                         }
                     )
+
+        return results_map
+
+    def _build_document_from_results(
+        self,
+        file_list: list[str],
+        results_map: dict[str, tuple[Document | None, dict[str, Any] | None]],
+        file_data_map: dict[str, bytes],
+    ) -> list[Node]:
+        """Build document children from processing results.
+
+        Parameters
+        ----------
+        file_list : list[str]
+            Original list of files (for ordering)
+        results_map : dict[str, tuple[Document | None, dict[str, Any] | None]]
+            Map of file paths to (document, error_dict) tuples
+        file_data_map : dict[str, bytes]
+            Map of file paths to file data
+
+        Returns
+        -------
+        list[Node]
+            List of document children nodes
+
+        """
+        children: list[Node] = []
 
         # Reconstruct document in original order
         for file_path in file_list:
@@ -868,6 +901,51 @@ class ArchiveToAstConverter(BaseParser):
                 if self.options.create_section_headings:
                     children.append(Heading(level=2, content=[Text(content=display_path)]))
                 children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
+
+        return children
+
+    def _convert_to_ast_parallel(self, archive: Any, archive_type: str, file_list: list[str]) -> Document:
+        """Convert archive to AST using parallel processing.
+
+        Parameters
+        ----------
+        archive : Any
+            Opened archive object
+        archive_type : str
+            Type of archive
+        file_list : list[str]
+            List of files to process
+
+        Returns
+        -------
+        Document
+            AST document node
+
+        """
+        logger.info(f"Using parallel processing for {len(file_list)} files")
+
+        if not file_list:
+            logger.warning("No files to process in archive")
+            children = [Paragraph(content=[Text(content="(Empty archive or no matching files)")])]
+            return Document(children=children)
+
+        # Prepare options dict for workers
+        options_dict = {
+            "resource_file_extensions": self.options.resource_file_extensions,
+        }
+
+        # Prepare file data cache
+        file_data_map = self._prepare_file_data_cache(archive, archive_type, file_list)
+        if file_data_map is None:
+            # Failed to prepare file data (7z extraction error)
+            children = [Paragraph(content=[Text(content="(Error extracting archive)")])]
+            return Document(children=children)
+
+        # Execute parallel processing
+        results_map = self._execute_parallel_processing(file_data_map, options_dict)
+
+        # Build document from results
+        children = self._build_document_from_results(file_list, results_map, file_data_map)
 
         # Add resource manifest if requested and resources were extracted
         if self.options.include_resource_manifest and self.options.extract_resource_files and self._extracted_resources:

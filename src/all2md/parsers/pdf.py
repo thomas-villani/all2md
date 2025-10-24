@@ -285,11 +285,7 @@ def _detect_columns_by_whitespace(
     for i in range(len(group_ranges) - 1):
         gap_width = group_ranges[i + 1][0] - group_ranges[i][1]
         if gap_width >= column_gap_threshold:
-            whitespace_gaps.append({
-                "start": group_ranges[i][1],
-                "end": group_ranges[i + 1][0],
-                "width": gap_width
-            })
+            whitespace_gaps.append({"start": group_ranges[i][1], "end": group_ranges[i + 1][0], "width": gap_width})
 
     if not whitespace_gaps:
         return None
@@ -366,13 +362,19 @@ def _detect_columns_by_gaps(
         Detected columns (always returns at least single column)
 
     """
-    sorted_x = sorted(set(x_coords))
-    column_boundaries = [sorted_x[0]]
+    # Sort block ranges by starting position to find actual whitespace gaps
+    sorted_ranges = sorted(block_ranges, key=lambda r: r[0])
 
-    for i in range(1, len(sorted_x)):
-        gap = sorted_x[i] - sorted_x[i - 1]
+    # Find column boundaries based on actual whitespace gaps (end of one block to start of next)
+    column_boundaries = [sorted_ranges[0][0]]
+
+    for i in range(1, len(sorted_ranges)):
+        prev_x1 = sorted_ranges[i - 1][1]
+        curr_x0 = sorted_ranges[i][0]
+        gap = curr_x0 - prev_x1
+
         if gap >= column_gap_threshold:
-            column_boundaries.append(sorted_x[i])
+            column_boundaries.append(curr_x0)
 
     if len(column_boundaries) <= 1:
         return [blocks]
@@ -2030,9 +2032,7 @@ class PdfToAstConverter(BaseParser):
 
         return table_info, fallback_table_rects, fallback_table_lines
 
-    def _apply_ocr_if_needed(
-        self, page: "fitz.Page", all_blocks: list[dict], extracted_text: str
-    ) -> list[dict]:
+    def _apply_ocr_if_needed(self, page: "fitz.Page", all_blocks: list[dict], extracted_text: str) -> list[dict]:
         """Apply OCR to page if needed based on options and content.
 
         Parameters
@@ -2100,9 +2100,7 @@ class PdfToAstConverter(BaseParser):
             logger.warning(f"OCR processing failed: {e}. Falling back to standard text extraction.")
             return all_blocks
 
-    def _assign_tables_to_columns(
-        self, table_info: list[dict], columns: list[list[dict]]
-    ) -> None:
+    def _assign_tables_to_columns(self, table_info: list[dict], columns: list[list[dict]]) -> None:
         """Assign each table to a column based on x-coordinate.
 
         Parameters
@@ -2295,10 +2293,7 @@ class PdfToAstConverter(BaseParser):
                 continue
 
             block_rect = fitz.Rect(block["bbox"])
-            is_in_table = any(
-                abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect)
-                for table in table_info
-            )
+            is_in_table = any(abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect) for table in table_info)
             if not is_in_table:
                 text_blocks.append(block)
 
@@ -2322,89 +2317,70 @@ class PdfToAstConverter(BaseParser):
 
         return nodes
 
-    def _process_text_region_to_ast(self, page: "fitz.Page", clip: "fitz.Rect", page_num: int) -> list[Node]:
-        """Process a text region to AST nodes.
+    def _apply_column_detection(self, blocks: list[dict]) -> list[dict]:
+        """Apply column detection to text blocks based on options.
 
         Parameters
         ----------
-        page : fitz.Page
-            PDF page
-        clip : fitz.Rect
-            Clipping rectangle for text extraction
+        blocks : list[dict]
+            List of text blocks from PyMuPDF
+
+        Returns
+        -------
+        list[dict]
+            Processed blocks in reading order
+
+        """
+        if not self.options.detect_columns:
+            return blocks
+
+        # Check column_detection_mode option
+        if self.options.column_detection_mode in ("disabled", "force_single"):
+            # Force single column (no detection)
+            return blocks
+
+        # Apply column detection for force_multi or auto modes
+        if self.options.column_detection_mode == "force_multi":
+            columns: list[list[dict]] = detect_columns(
+                blocks,
+                self.options.column_gap_threshold,
+                use_clustering=self.options.use_column_clustering,
+                force_multi_column=True,
+            )
+        else:  # "auto" mode (default)
+            columns = detect_columns(
+                blocks,
+                self.options.column_gap_threshold,
+                use_clustering=self.options.use_column_clustering,
+                force_multi_column=False,
+            )
+
+        # Process blocks in proper reading order: top-to-bottom, left-to-right
+        return self._merge_columns_for_reading_order(columns)
+
+    def _process_text_blocks_to_nodes(
+        self, blocks_to_process: list[dict], links: list[dict], page_num: int
+    ) -> list[Node]:
+        """Process text blocks into AST nodes.
+
+        Parameters
+        ----------
+        blocks_to_process : list[dict]
+            Text blocks to process
+        links : list[dict]
+            Links on the page
         page_num : int
             Page number for source tracking
 
         Returns
         -------
-        list of Node
-            List of AST nodes (paragraphs, headings, code blocks)
+        list[Node]
+            List of AST nodes
 
         """
-        import fitz
-
         nodes: list[Node] = []
 
-        # Extract URL type links on page
-        try:
-            links = [line for line in page.get_links() if line["kind"] == 2]
-        except (AttributeError, Exception):
-            links = []
-
-        # Extract text blocks
-        try:
-            # Build flags: always include TEXTFLAGS_TEXT, conditionally add TEXT_DEHYPHENATE
-            text_flags = fitz.TEXTFLAGS_TEXT
-            if self.options.merge_hyphenated_words:
-                text_flags |= fitz.TEXT_DEHYPHENATE
-
-            blocks = page.get_text(
-                "dict",
-                clip=clip,
-                flags=text_flags,
-                sort=False,
-            )["blocks"]
-        except (AttributeError, KeyError, Exception):
-            # If extraction fails (e.g., in tests), return empty
-            return []
-
-        # Filter out headers/footers if trim_headers_footers is enabled
-        if self.options.trim_headers_footers:
-            blocks = self._filter_headers_footers(blocks, page)
-
-        # Apply column detection if enabled
-        if self.options.detect_columns:
-            # Check column_detection_mode option
-            if self.options.column_detection_mode == "disabled":
-                # Force single column (no detection)
-                blocks_to_process = blocks
-            elif self.options.column_detection_mode == "force_single":
-                # Force single column layout
-                blocks_to_process = blocks
-            elif self.options.column_detection_mode == "force_multi":
-                # Force multi-column detection with heuristic bypass
-                columns: list[list[dict]] = detect_columns(
-                    blocks,
-                    self.options.column_gap_threshold,
-                    use_clustering=self.options.use_column_clustering,
-                    force_multi_column=True,
-                )
-                # Process blocks in proper reading order: top-to-bottom, left-to-right
-                blocks_to_process = self._merge_columns_for_reading_order(columns)
-            else:  # "auto" mode (default)
-                columns = detect_columns(
-                    blocks,
-                    self.options.column_gap_threshold,
-                    use_clustering=self.options.use_column_clustering,
-                    force_multi_column=False,
-                )
-                # Process blocks in proper reading order: top-to-bottom, left-to-right
-                # Merge columns with position-based sorting instead of column-by-column
-                blocks_to_process = self._merge_columns_for_reading_order(columns)
-        else:
-            blocks_to_process = blocks
-
         # Calculate average line height for auto-calibration of link overlap threshold
-        # This helps handle PDFs with varying font sizes / tall spans
         line_heights = []
         for block in blocks_to_process:
             for line in block.get("lines", []):
@@ -2508,6 +2484,59 @@ class PdfToAstConverter(BaseParser):
             )
 
         return nodes
+
+    def _process_text_region_to_ast(self, page: "fitz.Page", clip: "fitz.Rect", page_num: int) -> list[Node]:
+        """Process a text region to AST nodes.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page
+        clip : fitz.Rect
+            Clipping rectangle for text extraction
+        page_num : int
+            Page number for source tracking
+
+        Returns
+        -------
+        list of Node
+            List of AST nodes (paragraphs, headings, code blocks)
+
+        """
+        import fitz
+
+        # Extract URL type links on page
+        try:
+            links = [line for line in page.get_links() if line["kind"] == 2]
+        except (AttributeError, Exception):
+            links = []
+
+        # Extract text blocks
+        try:
+            # Build flags: always include TEXTFLAGS_TEXT, conditionally add TEXT_DEHYPHENATE
+            text_flags = fitz.TEXTFLAGS_TEXT
+            if self.options.merge_hyphenated_words:
+                text_flags |= fitz.TEXT_DEHYPHENATE
+
+            blocks = page.get_text(
+                "dict",
+                clip=clip,
+                flags=text_flags,
+                sort=False,
+            )["blocks"]
+        except (AttributeError, KeyError, Exception):
+            # If extraction fails (e.g., in tests), return empty
+            return []
+
+        # Filter out headers/footers if trim_headers_footers is enabled
+        if self.options.trim_headers_footers:
+            blocks = self._filter_headers_footers(blocks, page)
+
+        # Apply column detection
+        blocks_to_process = self._apply_column_detection(blocks)
+
+        # Process blocks to create AST nodes
+        return self._process_text_blocks_to_nodes(blocks_to_process, links, page_num)
 
     def _process_text_spans_to_inline(
         self, spans: list[dict], links: list[dict], page_num: int, average_line_height: float | None = None

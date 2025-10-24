@@ -271,6 +271,243 @@ class DokuWikiParser(BaseParser):
         comments.sort(key=lambda x: x[1])
         return comments
 
+    def _flush_inline_buffer(self, inline_buffer: list[Node], result: list[Node]) -> None:
+        """Flush inline buffer to result as paragraph.
+
+        Parameters
+        ----------
+        inline_buffer : list[Node]
+            Buffer of inline nodes to flush
+        result : list[Node]
+            Result list to append paragraph to
+
+        """
+        if inline_buffer:
+            result.append(Paragraph(content=list(inline_buffer)))
+            inline_buffer.clear()
+
+    def _try_parse_comment_block(self, line: str, inline_buffer: list[Node], result: list[Node]) -> tuple[bool, int]:
+        """Try to parse block-level comments.
+
+        Parameters
+        ----------
+        line : str
+            Line to check
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, lines_consumed) - matched is True if comment was found
+
+        """
+        # Check for C-style block comment
+        c_comment_match = C_COMMENT_PATTERN.match(line.strip())
+        if c_comment_match and c_comment_match.group(0) == line.strip():
+            if self.options.strip_comments:
+                return True, 1
+            else:
+                self._flush_inline_buffer(inline_buffer, result)
+                comment_text = line.strip()[2:-2].strip()
+                result.append(Comment(content=comment_text, metadata={"comment_type": "wiki"}))
+                return True, 1
+
+        # Check for HTML block comment
+        html_comment_match = HTML_COMMENT_PATTERN.match(line.strip())
+        if html_comment_match and html_comment_match.group(0) == line.strip():
+            if self.options.strip_comments:
+                return True, 1
+            else:
+                self._flush_inline_buffer(inline_buffer, result)
+                comment_text = line.strip()[4:-3].strip()
+                result.append(Comment(content=comment_text, metadata={"comment_type": "wiki"}))
+                return True, 1
+
+        return False, 0
+
+    def _try_parse_heading(self, line: str, inline_buffer: list[Node], result: list[Node]) -> tuple[bool, int]:
+        """Try to parse heading.
+
+        Parameters
+        ----------
+        line : str
+            Line to check
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, lines_consumed)
+
+        """
+        heading_match = HEADING_PATTERN.match(line)
+        if heading_match:
+            self._flush_inline_buffer(inline_buffer, result)
+            equals_count = len(heading_match.group(1))
+            level = 7 - equals_count
+            heading_text = heading_match.group(2).strip()
+            heading_content = self._process_inline(heading_text)
+            result.append(Heading(level=level, content=heading_content))
+            return True, 1
+        return False, 0
+
+    def _try_parse_horizontal_rule(self, line: str, inline_buffer: list[Node], result: list[Node]) -> tuple[bool, int]:
+        """Try to parse horizontal rule.
+
+        Parameters
+        ----------
+        line : str
+            Line to check
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, lines_consumed)
+
+        """
+        if HORIZONTAL_RULE_PATTERN.match(line):
+            self._flush_inline_buffer(inline_buffer, result)
+            result.append(ThematicBreak())
+            return True, 1
+        return False, 0
+
+    def _try_parse_code_block(
+        self, lines: list[str], i: int, inline_buffer: list[Node], result: list[Node]
+    ) -> tuple[bool, int]:
+        """Try to parse code block.
+
+        Parameters
+        ----------
+        lines : list[str]
+            All lines
+        i : int
+            Current line index
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, new_index)
+
+        """
+        line = lines[i]
+        code_start_match = CODE_BLOCK_START_PATTERN.match(line)
+        if code_start_match:
+            self._flush_inline_buffer(inline_buffer, result)
+            code_block, new_i = self._parse_code_block(lines, i)
+            if code_block:
+                result.append(code_block)
+            return True, new_i
+        return False, i
+
+    def _try_parse_list(
+        self, lines: list[str], i: int, inline_buffer: list[Node], result: list[Node]
+    ) -> tuple[bool, int]:
+        """Try to parse list.
+
+        Parameters
+        ----------
+        lines : list[str]
+            All lines
+        i : int
+            Current line index
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, new_index)
+
+        """
+        line = lines[i]
+        list_match = LIST_ITEM_PATTERN.match(line)
+        if list_match:
+            self._flush_inline_buffer(inline_buffer, result)
+            list_node, new_i = self._parse_list(lines, i)
+            if list_node:
+                result.append(list_node)
+            return True, new_i
+        return False, i
+
+    def _try_parse_table(
+        self, lines: list[str], i: int, inline_buffer: list[Node], result: list[Node]
+    ) -> tuple[bool, int]:
+        """Try to parse table.
+
+        Parameters
+        ----------
+        lines : list[str]
+            All lines
+        i : int
+            Current line index
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, new_index)
+
+        """
+        line = lines[i]
+        if TABLE_ROW_PATTERN.match(line):
+            self._flush_inline_buffer(inline_buffer, result)
+            table_node, new_i = self._parse_table(lines, i)
+            if table_node:
+                result.append(table_node)
+            return True, new_i
+        return False, i
+
+    def _try_parse_blockquote(
+        self, lines: list[str], i: int, inline_buffer: list[Node], result: list[Node]
+    ) -> tuple[bool, int]:
+        """Try to parse blockquote.
+
+        Parameters
+        ----------
+        lines : list[str]
+            All lines
+        i : int
+            Current line index
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, new_index)
+
+        """
+        line = lines[i]
+        blockquote_match = BLOCKQUOTE_PATTERN.match(line)
+        if blockquote_match:
+            self._flush_inline_buffer(inline_buffer, result)
+            blockquote_node, new_i = self._parse_blockquote(lines, i)
+            if blockquote_node:
+                result.append(blockquote_node)
+            return True, new_i
+        return False, i
+
     def _process_content(self, content: str) -> list[Node]:
         """Process DokuWiki content into AST nodes.
 
@@ -298,132 +535,43 @@ class DokuWikiParser(BaseParser):
 
             # Skip empty lines - they separate blocks
             if not line.strip():
-                # Flush inline buffer as paragraph
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
+                self._flush_inline_buffer(inline_buffer, result)
                 i += 1
                 continue
 
-            # Try to match block-level elements
-
-            # Block-level comments (C-style or HTML comments on their own line)
-            # Check if the line contains ONLY a comment (possibly with surrounding whitespace)
-            # Check for C-style block comment
-            c_comment_match = C_COMMENT_PATTERN.match(line.strip())
-            if c_comment_match and c_comment_match.group(0) == line.strip():
-                # Entire line is a comment
-                if self.options.strip_comments:
-                    # Skip the line entirely
-                    i += 1
-                    continue
-                else:
-                    # Treat as block comment node
-                    if inline_buffer:
-                        result.append(Paragraph(content=inline_buffer))
-                        inline_buffer = []
-                    comment_text = line.strip()[2:-2].strip()  # Remove /* and */
-                    result.append(Comment(content=comment_text, metadata={"comment_type": "wiki"}))
-                    i += 1
-                    continue
-
-            # Check for HTML block comment
-            html_comment_match = HTML_COMMENT_PATTERN.match(line.strip())
-            if html_comment_match and html_comment_match.group(0) == line.strip():
-                # Entire line is a comment
-                if self.options.strip_comments:
-                    # Skip the line entirely
-                    i += 1
-                    continue
-                else:
-                    # Treat as block comment node
-                    if inline_buffer:
-                        result.append(Paragraph(content=inline_buffer))
-                        inline_buffer = []
-                    comment_text = line.strip()[4:-3].strip()  # Remove <!-- and -->
-                    result.append(Comment(content=comment_text, metadata={"comment_type": "wiki"}))
-                    i += 1
-                    continue
-
-            # Heading
-            heading_match = HEADING_PATTERN.match(line)
-            if heading_match:
-                # Flush inline buffer first
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
-
-                equals_count = len(heading_match.group(1))
-                level = 7 - equals_count  # DokuWiki: 6 equals = level 1
-                heading_text = heading_match.group(2).strip()
-                heading_content = self._process_inline(heading_text)
-                result.append(Heading(level=level, content=heading_content))
-                i += 1
+            # Try to match block-level elements using pattern matchers
+            matched, consumed = self._try_parse_comment_block(line, inline_buffer, result)
+            if matched:
+                i += consumed
                 continue
 
-            # Horizontal rule
-            if HORIZONTAL_RULE_PATTERN.match(line):
-                # Flush inline buffer first
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
-
-                result.append(ThematicBreak())
-                i += 1
+            matched, consumed = self._try_parse_heading(line, inline_buffer, result)
+            if matched:
+                i += consumed
                 continue
 
-            # Code block
-            code_start_match = CODE_BLOCK_START_PATTERN.match(line)
-            if code_start_match:
-                # Flush inline buffer first
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
+            matched, consumed = self._try_parse_horizontal_rule(line, inline_buffer, result)
+            if matched:
+                i += consumed
+                continue
 
-                code_block, new_i = self._parse_code_block(lines, i)
-                if code_block:
-                    result.append(code_block)
+            matched, new_i = self._try_parse_code_block(lines, i, inline_buffer, result)
+            if matched:
                 i = new_i
                 continue
 
-            # List
-            list_match = LIST_ITEM_PATTERN.match(line)
-            if list_match:
-                # Flush inline buffer first
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
-
-                list_node, new_i = self._parse_list(lines, i)
-                if list_node:
-                    result.append(list_node)
+            matched, new_i = self._try_parse_list(lines, i, inline_buffer, result)
+            if matched:
                 i = new_i
                 continue
 
-            # Table
-            if TABLE_ROW_PATTERN.match(line):
-                # Flush inline buffer first
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
-
-                table_node, new_i = self._parse_table(lines, i)
-                if table_node:
-                    result.append(table_node)
+            matched, new_i = self._try_parse_table(lines, i, inline_buffer, result)
+            if matched:
                 i = new_i
                 continue
 
-            # Block quote
-            blockquote_match = BLOCKQUOTE_PATTERN.match(line)
-            if blockquote_match:
-                # Flush inline buffer first
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
-
-                blockquote_node, new_i = self._parse_blockquote(lines, i)
-                if blockquote_node:
-                    result.append(blockquote_node)
+            matched, new_i = self._try_parse_blockquote(lines, i, inline_buffer, result)
+            if matched:
                 i = new_i
                 continue
 
@@ -436,8 +584,7 @@ class DokuWikiParser(BaseParser):
             i += 1
 
         # Flush remaining inline buffer
-        if inline_buffer:
-            result.append(Paragraph(content=inline_buffer))
+        self._flush_inline_buffer(inline_buffer, result)
 
         # Append footnote definitions at the end of the document
         self._append_footnote_definitions(result)
@@ -471,6 +618,137 @@ class DokuWikiParser(BaseParser):
             # Create and append the footnote definition
             result.append(FootnoteDefinition(identifier=identifier, content=cast(list[Node], content_nodes)))
 
+    def _handle_image_pattern(self, match: re.Match) -> Node:
+        """Handle image pattern match.
+
+        Parameters
+        ----------
+        match : Match
+            Regex match object
+
+        Returns
+        -------
+        Node
+            Image node
+
+        """
+        url = match.group(1).strip()
+        alt_text = match.group(2).strip() if match.group(2) else ""
+        url = sanitize_url(url)
+        return Image(url=url, alt_text=alt_text)
+
+    def _handle_link_pattern(self, match: re.Match) -> Node:
+        """Handle link pattern match.
+
+        Parameters
+        ----------
+        match : Match
+            Regex match object
+
+        Returns
+        -------
+        Node
+            Link node
+
+        """
+        url = match.group(1).strip()
+        link_text = match.group(2)
+
+        # Handle interwiki links if enabled
+        if self.options.parse_interwiki and ">" in url:
+            pass  # Keep as-is in URL
+
+        url = sanitize_url(url)
+
+        if link_text:
+            link_content = self._process_inline(link_text.strip())
+        else:
+            link_content = [Text(content=url)]
+
+        return Link(url=url, content=link_content)
+
+    def _handle_footnote_pattern(self, match: re.Match) -> Node:
+        """Handle footnote pattern match.
+
+        Parameters
+        ----------
+        match : Match
+            Regex match object
+
+        Returns
+        -------
+        Node
+            FootnoteReference node
+
+        """
+        import hashlib
+
+        footnote_text = match.group(1).strip()
+        identifier = hashlib.md5(footnote_text.encode()).hexdigest()[:8]
+
+        if identifier not in self._footnote_definitions:
+            self._footnote_definitions[identifier] = footnote_text
+
+        return FootnoteReference(identifier=identifier)
+
+    def _handle_formatting_pattern(self, match: re.Match, node_type: str) -> Node:
+        """Handle formatting pattern match (bold, italic, underline, etc.).
+
+        Parameters
+        ----------
+        match : Match
+            Regex match object
+        node_type : str
+            Type of formatting node to create
+
+        Returns
+        -------
+        Node
+            Formatted node
+
+        """
+        inner_text = match.group(1)
+        inner_nodes = self._process_inline(inner_text)
+
+        if node_type == "bold":
+            return Strong(content=inner_nodes)
+        elif node_type == "italic":
+            return Emphasis(content=inner_nodes)
+        elif node_type == "underline":
+            return Underline(content=inner_nodes)
+        elif node_type == "monospace":
+            return Code(content=inner_text)  # Don't process nested
+        elif node_type == "strikethrough":
+            return Strikethrough(content=inner_nodes)
+        elif node_type == "subscript":
+            return Subscript(content=inner_nodes)
+        elif node_type == "superscript":
+            return Superscript(content=inner_nodes)
+        else:
+            return Text(content=inner_text)
+
+    def _handle_comment_pattern(self, match: re.Match, comment_style: str) -> Node:
+        """Handle comment pattern match.
+
+        Parameters
+        ----------
+        match : Match
+            Regex match object
+        comment_style : str
+            'c-style' or 'html'
+
+        Returns
+        -------
+        Node
+            CommentInline node
+
+        """
+        if comment_style == "c-style":
+            comment_text = match.group(0)[2:-2].strip()
+        else:  # html
+            comment_text = match.group(0)[4:-3].strip()
+        return CommentInline(content=comment_text, metadata={"comment_type": "wiki"})
+
     def _process_inline(self, text: str) -> list[Node]:
         """Process inline formatting in text.
 
@@ -498,12 +776,9 @@ class DokuWikiParser(BaseParser):
             if not text:
                 return []
 
-        # Process inline elements by finding the earliest match of any pattern
-        # This handles overlapping and nested patterns correctly
-
         # Define patterns in order of precedence
         patterns = [
-            ("image", IMAGE_PATTERN),  # Images before links to avoid confusion
+            ("image", IMAGE_PATTERN),
             ("link", LINK_PATTERN),
             ("footnote", FOOTNOTE_PATTERN),
             ("bold", BOLD_PATTERN),
@@ -516,14 +791,8 @@ class DokuWikiParser(BaseParser):
             ("linebreak", LINE_BREAK_PATTERN),
         ]
 
-        # Add comment patterns if not stripping comments
         if not self.options.strip_comments:
-            patterns.extend(
-                [
-                    ("c_comment", C_COMMENT_PATTERN),
-                    ("html_comment", HTML_COMMENT_PATTERN),
-                ]
-            )
+            patterns.extend([("c_comment", C_COMMENT_PATTERN), ("html_comment", HTML_COMMENT_PATTERN)])
 
         # Find earliest match
         earliest_match = None
@@ -537,113 +806,31 @@ class DokuWikiParser(BaseParser):
                 earliest_pos = match.start()
                 earliest_type = pattern_type
 
-        # If no match found, return plain text
         if not earliest_match:
             return [Text(content=text)] if text else []
 
         # Split into before, match, and after
         before = text[: earliest_match.start()]
         after = text[earliest_match.end() :]
-
         result: list[Node] = []
 
-        # Add text before match
         if before:
             result.append(Text(content=before))
 
-        # Process the matched pattern
+        # Dispatch to appropriate handler
         if earliest_type == "image":
-            url = earliest_match.group(1).strip()
-            alt_text = earliest_match.group(2).strip() if earliest_match.group(2) else ""
-            # Sanitize URL
-            url = sanitize_url(url)
-            result.append(Image(url=url, alt_text=alt_text))
-
+            result.append(self._handle_image_pattern(earliest_match))
         elif earliest_type == "link":
-            url = earliest_match.group(1).strip()
-            link_text = earliest_match.group(2)
-
-            # Handle interwiki links if enabled
-            if self.options.parse_interwiki and ">" in url:
-                # Interwiki link like [[wp>Article]]
-                # Keep as-is in URL
-                pass
-
-            # Sanitize URL
-            url = sanitize_url(url)
-
-            if link_text:
-                # Link with custom text
-                link_content = self._process_inline(link_text.strip())
-            else:
-                # Link without text - use URL as text
-                link_content = [Text(content=url)]
-
-            result.append(Link(url=url, content=link_content))
-
+            result.append(self._handle_link_pattern(earliest_match))
         elif earliest_type == "footnote":
-            # Footnote: ((text)) - create a reference with inline content
-            footnote_text = earliest_match.group(1).strip()
-            # For DokuWiki, footnotes are inline - generate a unique identifier
-            import hashlib
-
-            identifier = hashlib.md5(footnote_text.encode()).hexdigest()[:8]
-
-            # Collect footnote definition for later appending to document
-            if identifier not in self._footnote_definitions:
-                self._footnote_definitions[identifier] = footnote_text
-
-            result.append(FootnoteReference(identifier=identifier))
-
-        elif earliest_type == "bold":
-            inner_text = earliest_match.group(1)
-            # Recursively process inner content for nested formatting
-            inner_nodes = self._process_inline(inner_text)
-            result.append(Strong(content=inner_nodes))
-
-        elif earliest_type == "italic":
-            inner_text = earliest_match.group(1)
-            inner_nodes = self._process_inline(inner_text)
-            result.append(Emphasis(content=inner_nodes))
-
-        elif earliest_type == "underline":
-            inner_text = earliest_match.group(1)
-            inner_nodes = self._process_inline(inner_text)
-            result.append(Underline(content=inner_nodes))
-
-        elif earliest_type == "monospace":
-            inner_text = earliest_match.group(1)
-            # Monospace is typically not nested
-            result.append(Code(content=inner_text))
-
-        elif earliest_type == "strikethrough":
-            inner_text = earliest_match.group(1)
-            inner_nodes = self._process_inline(inner_text)
-            result.append(Strikethrough(content=inner_nodes))
-
-        elif earliest_type == "subscript":
-            inner_text = earliest_match.group(1)
-            inner_nodes = self._process_inline(inner_text)
-            result.append(Subscript(content=inner_nodes))
-
-        elif earliest_type == "superscript":
-            inner_text = earliest_match.group(1)
-            inner_nodes = self._process_inline(inner_text)
-            result.append(Superscript(content=inner_nodes))
-
+            result.append(self._handle_footnote_pattern(earliest_match))
         elif earliest_type == "linebreak":
-            # Hard line break
             result.append(LineBreak(soft=False))
-
-        elif earliest_type == "c_comment":
-            # C-style comment /* ... */
-            comment_text = earliest_match.group(0)[2:-2].strip()  # Remove /* and */
-            result.append(CommentInline(content=comment_text, metadata={"comment_type": "wiki"}))
-
-        elif earliest_type == "html_comment":
-            # HTML comment <!-- ... -->
-            comment_text = earliest_match.group(0)[4:-3].strip()  # Remove <!-- and -->
-            result.append(CommentInline(content=comment_text, metadata={"comment_type": "wiki"}))
+        elif earliest_type in ("c_comment", "html_comment"):
+            result.append(self._handle_comment_pattern(earliest_match, earliest_type.replace("_", "-")))
+        else:
+            # Formatting patterns (bold, italic, underline, etc.)
+            result.append(self._handle_formatting_pattern(earliest_match, earliest_type))
 
         # Recursively process the text after the match
         if after:

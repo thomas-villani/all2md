@@ -184,9 +184,7 @@ class MediaWikiParser(BaseParser):
             result.append(Paragraph(content=inline_buffer.copy()))
             inline_buffer.clear()
 
-    def _handle_heading_node(
-        self, node: Any, inline_buffer: list[Node], result: list[Node]
-    ) -> int:
+    def _handle_heading_node(self, node: Any, inline_buffer: list[Node], result: list[Node]) -> int:
         """Handle a Heading node.
 
         Parameters
@@ -362,9 +360,7 @@ class MediaWikiParser(BaseParser):
             inline_buffer.append(CommentInline(content=str(node), metadata={"comment_type": "wiki"}))
         return 1
 
-    def _handle_text_node(
-        self, node: Any, inline_buffer: list[Node], result: list[Node]
-    ) -> int:
+    def _handle_text_node(self, node: Any, inline_buffer: list[Node], result: list[Node]) -> int:
         """Handle a Text node.
 
         Parameters
