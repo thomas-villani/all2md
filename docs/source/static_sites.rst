@@ -1377,7 +1377,7 @@ HTML Renderer with Templates
 
 .. code-block:: bash
 
-   all2md document.md --output-type html \
+   all2md document.md --output-format html \
        --html-template-mode jinja \
        --html-template-file custom-template.html \
        --out document.html

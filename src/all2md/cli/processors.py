@@ -182,7 +182,7 @@ def _filter_options_for_formats(
                 filtered[legacy_key] = legacy_value
             if legacy_key not in _OPTION_COMPAT_WARNINGS:
                 logger.warning(
-                    "Using legacy renderer option '%s'. Specify --output-type to avoid implicit mapping.",
+                    "Using legacy renderer option '%s'. Specify --output-format to avoid implicit mapping.",
                     legacy_key,
                 )
                 _OPTION_COMPAT_WARNINGS.add(legacy_key)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Union
+from typing import IO, TYPE_CHECKING, Any, Callable, Union, cast
 
 if TYPE_CHECKING:
     from jinja2 import Environment, Template
@@ -210,14 +210,14 @@ def _extract_text_from_nodes(nodes: list[Node]) -> str:
     return "".join(text_parts)
 
 
-def _walk_nodes(node: Node, predicate: callable) -> list[Node]:
+def _walk_nodes(node: Node, predicate: Callable[[Node], bool]) -> list[Node]:
     """Walk AST and collect nodes matching predicate.
 
     Parameters
     ----------
     node : Node
         Root node to start walking from
-    predicate : callable
+    predicate : Callable[[Node], bool]
         Function that takes a node and returns True if it should be collected
 
     Returns
@@ -278,7 +278,10 @@ def get_all_headings(document: Document) -> list[dict[str, Any]]:
 
     """
     headings = _walk_nodes(document, lambda n: isinstance(n, Heading))
-    return [{"level": h.level, "text": _extract_text_from_nodes(h.content), "node": h} for h in headings]
+    return [
+        {"level": cast(Heading, h).level, "text": _extract_text_from_nodes(cast(Heading, h).content), "node": h}
+        for h in headings
+    ]
 
 
 def get_all_links(document: Document) -> list[dict[str, Any]]:
@@ -297,7 +300,12 @@ def get_all_links(document: Document) -> list[dict[str, Any]]:
     """
     links = _walk_nodes(document, lambda n: isinstance(n, Link))
     return [
-        {"url": link.url, "title": link.title, "text": _extract_text_from_nodes(link.content), "node": link}
+        {
+            "url": cast(Link, link).url,
+            "title": cast(Link, link).title,
+            "text": _extract_text_from_nodes(cast(Link, link).content),
+            "node": link,
+        }
         for link in links
     ]
 
@@ -319,11 +327,11 @@ def get_all_images(document: Document) -> list[dict[str, Any]]:
     images = _walk_nodes(document, lambda n: isinstance(n, Image))
     return [
         {
-            "url": img.url,
-            "alt_text": img.alt_text,
-            "title": img.title,
-            "width": img.width,
-            "height": img.height,
+            "url": cast(Image, img).url,
+            "alt_text": cast(Image, img).alt_text,
+            "title": cast(Image, img).title,
+            "width": cast(Image, img).width,
+            "height": cast(Image, img).height,
             "node": img,
         }
         for img in images
@@ -345,7 +353,7 @@ def get_all_footnotes(document: Document) -> list[dict[str, Any]]:
 
     """
     footnotes = _walk_nodes(document, lambda n: isinstance(n, FootnoteDefinition))
-    return [{"identifier": fn.identifier, "node": fn} for fn in footnotes]
+    return [{"identifier": cast(FootnoteDefinition, fn).identifier, "node": fn} for fn in footnotes]
 
 
 def find_nodes_by_type(document: Document, node_type: str) -> list[Node]:
@@ -544,9 +552,7 @@ class JinjaRenderer(BaseRenderer):
                 # Users should access the node directly in template
                 return ""
 
-        # Render actual Node objects
-        if not isinstance(node, Node):
-            return str(node)
+        # At this point, node must be a Node object due to type narrowing
 
         # Use appropriate renderer based on default_render_format
         format_type = self.options.default_render_format
@@ -560,20 +566,15 @@ class JinjaRenderer(BaseRenderer):
             if format_type == "markdown":
                 from all2md.renderers.markdown import MarkdownRenderer
 
-                renderer = MarkdownRenderer()
-                return renderer.render_to_string(temp_doc).strip()
+                return MarkdownRenderer().render_to_string(temp_doc).strip()
             elif format_type == "plain":
                 from all2md.renderers.plaintext import PlainTextRenderer
 
-                renderer = PlainTextRenderer()
-                return renderer.render_to_string(temp_doc).strip()
-            elif format_type == "html":
+                return PlainTextRenderer().render_to_string(temp_doc).strip()
+            else:  # format_type == "html"
                 from all2md.renderers.html import HtmlRenderer
 
-                renderer = HtmlRenderer()
-                return renderer.render_to_string(temp_doc).strip()
-            else:
-                return str(node)
+                return HtmlRenderer().render_to_string(temp_doc).strip()
         except Exception as e:
             logger.warning(f"Failed to render node {type(node).__name__}: {e}")
             return ""

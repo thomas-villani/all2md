@@ -809,6 +809,9 @@ class DokuWikiParser(BaseParser):
         if not earliest_match:
             return [Text(content=text)] if text else []
 
+        # At this point, earliest_match and earliest_type are both set
+        assert earliest_type is not None, "earliest_type must be set when earliest_match is found"
+
         # Split into before, match, and after
         before = text[: earliest_match.start()]
         after = text[earliest_match.end() :]

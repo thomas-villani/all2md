@@ -290,7 +290,7 @@ class AttachmentOptionsMixin(CloneFrozenMixin):
         metadata={
             "help": "How to render alt-text content when using alt_text attachment mode",
             "choices": ["default", "plain_filename", "strict_markdown", "footnote"],
-            "importance": "core",
+            "importance": "advanced",
         },
     )
     attachment_output_dir: str | None = field(

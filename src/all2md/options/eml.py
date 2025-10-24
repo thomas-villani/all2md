@@ -95,7 +95,7 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
     date_format_mode: DateFormatMode = field(
         default=DEFAULT_DATE_FORMAT_MODE,
-        metadata={"help": "Date formatting mode: iso8601, locale, or strftime", "importance": "core"},
+        metadata={"help": "Date formatting mode: iso8601, locale, or strftime", "importance": "advanced"},
     )
     date_strftime_pattern: str = field(
         default=DEFAULT_DATE_STRFTIME_PATTERN,
@@ -106,11 +106,11 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={"help": "Convert HTML content to Markdown", "importance": "core"},
     )
     clean_quotes: bool = field(
-        default=DEFAULT_CLEAN_QUOTES, metadata={"help": "Clean and normalize quoted content", "importance": "core"}
+        default=DEFAULT_CLEAN_QUOTES, metadata={"help": "Clean and normalize quoted content", "importance": "advanced"}
     )
     detect_reply_separators: bool = field(
         default=DEFAULT_DETECT_REPLY_SEPARATORS,
-        metadata={"help": "Detect common reply separators", "importance": "core"},
+        metadata={"help": "Detect common reply separators", "importance": "advanced"},
     )
     normalize_headers: bool = field(
         default=DEFAULT_NORMALIZE_HEADERS,
@@ -124,7 +124,10 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         default=DEFAULT_CLEAN_WRAPPED_URLS,
         metadata={"help": "Clean URL defense/safety wrappers from links", "importance": "security"},
     )
-    url_wrappers: list[str] | None = field(default_factory=lambda: DEFAULT_URL_WRAPPERS.copy())
+    url_wrappers: list[str] | None = field(
+        default_factory=lambda: DEFAULT_URL_WRAPPERS.copy(),
+        metadata={"help": "URL wrappers (e.g. 'urldefense') to strip from links", "importance": "security"},
+    )
 
     # Network security options for HTML conversion (when convert_html_to_markdown=True)
     html_network: NetworkFetchOptions = field(
@@ -146,7 +149,11 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
     subject_as_h1: bool = field(
         default=True,
-        metadata={"help": "Include subject line as H1 heading", "cli_name": "no-subject-as-h1", "importance": "core"},
+        metadata={
+            "help": "Include subject line as H1 heading",
+            "cli_name": "no-subject-as-h1",
+            "importance": "advanced",
+        },
     )
     include_attach_section_heading: bool = field(
         default=True,
@@ -164,15 +171,14 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={
             "help": "Include HTML content parts from emails",
             "cli_name": "no-include-html-parts",
-            "importance": "core",
+            "importance": "advanced",
         },
     )
     include_plain_parts: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": "Include plain text content parts from emails",
-            "cli_name": "no-include-plain-parts",
-            "importance": "core",
+            "importance": "advanced",
         },
     )
 

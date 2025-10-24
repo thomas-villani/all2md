@@ -55,4 +55,4 @@ class ChmOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
 
-    html_options: HtmlOptions | None = field(default=None, metadata={"cli_flatten": True})  # Nested, handled separately
+    html_options: HtmlOptions | None = field(default=None, metadata={"cli_flatten": True, "importance": "advanced"})

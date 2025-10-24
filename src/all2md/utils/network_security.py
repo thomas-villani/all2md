@@ -440,11 +440,12 @@ def create_secure_http_client(
                 raise
 
     # Create client with event hooks for security validation
+    effective_user_agent = user_agent or os.getenv("ALL2MD_USER_AGENT") or DEFAULT_USER_AGENT
     client = httpx.Client(
         timeout=timeout,
         follow_redirects=True,
         event_hooks={"request": [validate_request_url], "response": [validate_response_redirects]},
-        headers={"User-Agent": user_agent or os.getenv("ALL2MD_USER_AGENT", DEFAULT_USER_AGENT)},
+        headers={"User-Agent": effective_user_agent},
     )
 
     return client

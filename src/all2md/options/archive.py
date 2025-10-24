@@ -64,12 +64,12 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
 
     include_patterns: list[str] | None = field(
         default=None,
-        metadata={"help": "Glob patterns for files to include", "cli_name": "include", "importance": "core"},
+        metadata={"help": "Glob patterns for files to include", "cli_name": "include", "importance": "advanced"},
     )
 
     exclude_patterns: list[str] | None = field(
         default=None,
-        metadata={"help": "Glob patterns for files to exclude", "cli_name": "exclude", "importance": "core"},
+        metadata={"help": "Glob patterns for files to exclude", "cli_name": "exclude", "importance": "advanced"},
     )
 
     max_depth: int | None = field(
@@ -90,7 +90,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={
             "help": "Include directory path in section headings",
             "cli_name": "no-preserve-directory",
-            "importance": "core",
+            "importance": "advanced",
         },
     )
 
@@ -104,7 +104,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={
             "help": "Extract non-parseable files to attachment directory",
             "cli_name": "no-extract-resources",
-            "importance": "core",
+            "importance": "advanced",
         },
     )
 

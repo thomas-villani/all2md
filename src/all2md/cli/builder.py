@@ -1112,6 +1112,8 @@ class DynamicCLIBuilder:
         """
         parser = argparse.ArgumentParser(
             prog="all2md",
+            usage="all2md [-h] [-o OUTPUT] [--config CONFIG] [--format FORMAT] [--output-format OUTPUT_TYPE] "
+            "[OPTIONS] input [input ...]",
             description="Convert documents to Markdown (and other formats)",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             add_help=False,
@@ -1171,7 +1173,8 @@ Examples:
         )
 
         parser.add_argument(
-            "--output-type",
+            "--output-format",
+            "--to",
             choices=format_choices,
             default="markdown",
             help="Target format for conversion (default: markdown)",
@@ -1250,7 +1253,7 @@ Examples:
         from all2md.utils.input_sources import RemoteInputOptions
 
         self.add_options_class_arguments(
-            parser, BaseParserOptions, format_prefix=None, group_name="Universal attachment options"
+            parser, BaseParserOptions, format_prefix=None, group_name="Universal parser options"
         )
 
         # Add MarkdownOptions as common options
@@ -1660,7 +1663,7 @@ Examples:
         options_classes = dict(self._get_options_classes())
 
         # Track unknown arguments for validation
-        unknown_args = []
+        unknown_args: list[str] = []
 
         # Build set of global attachment field names
         from dataclasses import fields as get_fields

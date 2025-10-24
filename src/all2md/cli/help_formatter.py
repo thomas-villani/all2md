@@ -86,6 +86,7 @@ class OptionEntry:
     choices: Optional[Sequence[Any]]
     importance: OptionImportance
     is_flag: bool
+    is_negated_flag: bool
     group_title: str
 
     @property
@@ -181,14 +182,69 @@ def _lookup_importance(builder: DynamicCLIBuilder, dest: str) -> OptionImportanc
     return metadata.get("importance", "core")
 
 
-def _format_default(value: Any) -> Optional[str]:
-    """Return human-readable default representation or ``None`` when omitted."""
+def _transform_negated_help_text(help_text: str) -> str:
+    """Transform help text for negated flags by prepending 'Disable ' and lowercasing.
+
+    Parameters
+    ----------
+    help_text : str
+        Original help text
+
+    Returns
+    -------
+    str
+        Transformed help text
+
+    Examples
+    --------
+    >>> _transform_negated_help_text("Parse document attributes")
+    'Disable parse document attributes'
+    >>> _transform_negated_help_text("Enable feature X")
+    'Disable enable feature X'
+
+    """
+    if not help_text:
+        return help_text
+
+    # Skip if already starts with "Disable" to avoid double-negation
+    if help_text.startswith("Disable "):
+        return help_text
+
+    # Lowercase first letter and prepend "Disable "
+    if help_text:
+        transformed = help_text[0].lower() + help_text[1:] if len(help_text) > 1 else help_text.lower()
+        return f"Disable {transformed}"
+
+    return help_text
+
+
+def _format_default(value: Any, *, is_negated_flag: bool = False) -> Optional[str]:
+    """Return human-readable default representation or ``None`` when omitted.
+
+    Parameters
+    ----------
+    value : Any
+        The default value to format
+    is_negated_flag : bool, default False
+        Whether this is a negated boolean flag (e.g., --no-feature)
+
+    Returns
+    -------
+    Optional[str]
+        Formatted default value or None
+
+    """
     if value is argparse.SUPPRESS:
         return None
     if value is None:
         return None
     if value is UNSET:
         return "unset"
+
+    # For negated boolean flags, use "enabled"/"disabled" instead of True/False
+    if is_negated_flag and isinstance(value, bool):
+        return "enabled" if value else "disabled"
+
     if isinstance(value, str):
         return repr(value)
     if isinstance(value, (list, tuple, set)):
@@ -236,15 +292,26 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
                 ),
             )
 
+            # Detect negated flags (e.g., --no-feature or --format-no-feature)
+            # Check if any option string contains '-no-' pattern
+            is_negated_flag = any("-no-" in opt_str for opt_str in option_strings)
+            default_value = getattr(action, "default", None)
+
+            # Transform help text for negated boolean flags with True default
+            help_text = _expand_help_text(action)
+            if is_negated_flag and isinstance(default_value, bool) and default_value is True:
+                help_text = _transform_negated_help_text(help_text)
+
             entry = OptionEntry(
                 option_strings=option_strings,
                 dest=dest,
-                help_text=_expand_help_text(action),
-                default=getattr(action, "default", None),
+                help_text=help_text,
+                default=default_value,
                 metavar=getattr(action, "metavar", None),
                 choices=getattr(action, "choices", None),
                 importance=importance,
                 is_flag=nargs == 0 or is_flag_action,
+                is_negated_flag=is_negated_flag,
                 group_title=title,
             )
             options.append(entry)
@@ -517,7 +584,7 @@ class HelpRenderer:
             choices = ", ".join(str(choice) for choice in option.choices)
             details.append(f"choices: {choices}")
 
-        formatted_default = _format_default(option.default)
+        formatted_default = _format_default(option.default, is_negated_flag=option.is_negated_flag)
         if formatted_default is not None:
             details.append(f"default: {formatted_default}")
 

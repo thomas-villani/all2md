@@ -1356,8 +1356,20 @@ def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: "PdfOptions
     return False
 
 
-def _get_tesseract_lang(detected_lang_code):
-    """Map ISO 639-1 language codes (and some variants) to Tesseract language codes."""
+def _get_tesseract_lang(detected_lang_code: str) -> str:
+    """Map ISO 639-1 language codes (and some variants) to Tesseract language codes.
+
+    Parameters
+    ----------
+    detected_lang_code : str
+        ISO 639-1 language code (e.g., "en", "fr", "zh-cn")
+
+    Returns
+    -------
+    str
+        Tesseract language code (e.g., "eng", "fra", "chi_sim")
+
+    """
     lang_map = {
         # English and variants
         "en": "eng",
@@ -1461,6 +1473,9 @@ def _detect_page_language(page: "fitz.Page", options: "PdfOptions") -> str:
 
     detected_lang_code = detect(page.get_text())
     if detected_lang_code == Detector.UNKNOWN_LANG:
+        # Return the configured languages (handle both string and list formats)
+        if isinstance(options.ocr.languages, list):
+            return "+".join(options.ocr.languages)
         return options.ocr.languages
 
     return _get_tesseract_lang(detected_lang_code)

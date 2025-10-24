@@ -18,7 +18,6 @@ from all2md.constants import (
     DEFAULT_EXTRACT_TITLE,
     DEFAULT_HTML_COMMENT_MODE,
     DEFAULT_HTML_PASSTHROUGH_MODE,
-    DEFAULT_PRESERVE_NESTED_STRUCTURE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
     HTML_PASSTHROUGH_MODES,
@@ -361,7 +360,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={
             "help": "Automatically detect table column alignment from CSS/attributes",
             "cli_name": "no-detect-table-alignment",  # default=True, use --no-*
-            "importance": "core",
+            "importance": "advanced",
         },
     )
 
@@ -380,26 +379,30 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={"help": "Local file access security settings", "cli_flatten": True},  # Nested, handled separately
     )
 
-    preserve_nested_structure: bool = field(
-        default=DEFAULT_PRESERVE_NESTED_STRUCTURE,
-        metadata={
-            "help": "Maintain proper nesting for blockquotes and other elements",
-            "cli_name": "no-preserve-nested-structure",  # default=True, use --no-*
-            "importance": "core",
-        },
-    )
+    # preserve_nested_structure: bool = field(
+    #     default=DEFAULT_PRESERVE_NESTED_STRUCTURE,
+    #     metadata={
+    #         "help": "Maintain proper nesting for blockquotes and other elements",
+    #         "cli_name": "no-preserve-nested-structure",  # default=True, use --no-*
+    #         "importance": "advanced",
+    #     },
+    # )
 
     # Advanced HTML processing options
     strip_comments: bool = field(
         default=True,
-        metadata={"help": "Remove HTML comments from output", "cli_name": "no-strip-comments", "importance": "core"},
+        metadata={
+            "help": "Remove HTML comments from output",
+            "cli_name": "no-strip-comments",
+            "importance": "advanced",
+        },
     )
     collapse_whitespace: bool = field(
         default=True,
         metadata={
             "help": "Collapse multiple spaces/newlines into single spaces",
             "cli_name": "no-collapse-whitespace",
-            "importance": "core",
+            "importance": "advanced",
         },
     )
     extract_readable: bool = field(

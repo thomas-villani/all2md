@@ -926,7 +926,7 @@ class ArchiveToAstConverter(BaseParser):
 
         if not file_list:
             logger.warning("No files to process in archive")
-            children = [Paragraph(content=[Text(content="(Empty archive or no matching files)")])]
+            children: list[Node] = [Paragraph(content=[Text(content="(Empty archive or no matching files)")])]
             return Document(children=children)
 
         # Prepare options dict for workers
