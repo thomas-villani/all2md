@@ -988,7 +988,7 @@ class TestFullConversionPipeline:
             to_markdown(BytesIO(invalid_content), source_format="docx")
 
         with pytest.raises(FormatError):
-            result = to_markdown(BytesIO(b"content"), source_format="unsupported")
+            _ = to_markdown(BytesIO(b"content"), source_format="unsupported")
 
     def test_large_document_pipeline_performance(self, temp_dir):
         """Test pipeline performance with larger documents."""

@@ -206,7 +206,10 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
     comments_position: Literal["inline", "footnotes"] = field(
         default="footnotes",
         metadata={
-            "help": "Where to place Comment nodes in the AST: inline (CommentInline nodes at reference points) or footnotes (Comment block nodes appended at end)",
+            "help": (
+                "Where to place Comment nodes in the AST: inline (CommentInline nodes at reference points) "
+                "or footnotes (Comment block nodes appended at end)"
+            ),
             "choices": ["inline", "footnotes"],
             "importance": "advanced",
         },

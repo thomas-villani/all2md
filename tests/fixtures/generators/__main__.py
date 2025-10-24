@@ -517,7 +517,7 @@ def _resolve_targets(requested: Iterable[str]) -> list[FixtureTarget]:
         names = []
         for name in requested:
             if name == "all":
-                return [spec for spec in FIXTURE_SPECS]
+                return list(FIXTURE_SPECS)
             if name in GROUPS:
                 names.extend(GROUPS[name])
             elif name in FIXTURE_MAP:

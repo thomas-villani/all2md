@@ -9,7 +9,10 @@ across different processing modes.
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from all2md.progress import ProgressCallback
 
 
 class ProgressContext:

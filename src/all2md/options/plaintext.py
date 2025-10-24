@@ -13,6 +13,15 @@ from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 @dataclass(frozen=True)
 class PlainTextParserOptions(BaseParserOptions):
+    """Configuration options for plain text parsing.
+
+    Parameters
+    ----------
+    preserve_single_newlines : bool, default False
+        Preserve single newlines characters in text
+
+    """
+
     preserve_single_newlines: bool = field(
         default=False,
         metadata={

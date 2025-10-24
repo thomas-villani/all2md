@@ -301,7 +301,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         delimiter = "^" if is_header else "|"
 
         self._output.append(delimiter)
-        for i, cell in enumerate(row.cells):
+        for _, cell in enumerate(row.cells):
             # Render cell content
             content = self._render_inline_content(cell.content)
             # Escape content for table context
@@ -448,7 +448,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append(f"{{{{{node.url}}}}}")
 
     def visit_line_break(self, node: LineBreak) -> None:
-        """Render a LineBreak node.
+        r"""Render a LineBreak node.
 
         DokuWiki uses \\ for hard line breaks.
         Soft line breaks are rendered as newlines.

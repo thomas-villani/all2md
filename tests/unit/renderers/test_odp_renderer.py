@@ -12,16 +12,12 @@ Tests cover:
 Note: These tests require odfpy to be installed.
 """
 
+import importlib.util
 from io import BytesIO
 
 import pytest
 
-try:
-    from odf.opendocument import load as odf_load
-
-    ODFPY_AVAILABLE = True
-except ImportError:
-    ODFPY_AVAILABLE = False
+ODFPY_AVAILABLE = importlib.util.find_spec("odf") is not None
 
 from all2md.ast import (
     Code,

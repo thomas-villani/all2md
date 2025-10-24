@@ -351,7 +351,6 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             # Track original URL components for smart handling
             has_query = "?" in url
-            has_fragment = "#" in url.split("?")[0]  # Fragment before query
 
             # Step 1: Remove trailing punctuation that's unlikely to be part of URL
             # Be conservative: only remove if not in query string/fragment context

@@ -414,7 +414,7 @@ class TestTemplates:
                     html_nodes.extend([n for n in node.content if isinstance(n, HTMLInline)])
             return html_nodes
 
-        html_nodes = find_html_inline(doc.children)
+        _ = find_html_inline(doc.children)
         # May have HTML nodes depending on sanitization settings
         assert len(doc.children) >= 1
 

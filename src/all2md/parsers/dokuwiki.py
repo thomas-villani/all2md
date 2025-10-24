@@ -118,7 +118,7 @@ FOOTNOTE_PATTERN = re.compile(r"\(\(([^\)]+)\)\)")
 
 
 class DokuWikiParser(BaseParser):
-    """Convert DokuWiki markup to AST representation.
+    r"""Convert DokuWiki markup to AST representation.
 
     This converter uses custom regex-based parsing to process DokuWiki markup
     and builds an AST that matches the structure used throughout all2md, enabling

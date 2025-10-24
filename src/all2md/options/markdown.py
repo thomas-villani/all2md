@@ -498,7 +498,10 @@ class MarkdownParserOptions(BaseParserOptions):
     html_handling: str = field(
         default="drop",
         metadata={
-            "help": "How to handle HTML when preserve_html=False: drop (remove entirely), sanitize (clean dangerous content)",
+            "help": (
+                "How to handle HTML when preserve_html=False: drop (remove entirely), "
+                "sanitize (clean dangerous content)"
+            ),
             "choices": ["drop", "sanitize"],
             "importance": "security",
         },

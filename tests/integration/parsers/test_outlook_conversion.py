@@ -205,12 +205,12 @@ class TestOutlookPSTHandling:
         pst_file = tmp_path / "test.pst"
         pst_file.write_bytes(b"!BDN" + b"\x00" * 100)
 
-        try:
-            import pypff
+        import importlib.util
 
+        if importlib.util.find_spec("pypff") is not None:
             # pypff is available, skip this test
             pytest.skip("pypff is installed, cannot test missing dependency")
-        except ImportError:
+        else:
             # pypff not available - should get clear error
             from all2md.exceptions import DependencyError
 

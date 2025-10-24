@@ -925,3 +925,104 @@ class TestRateLimiter:
 
         # Release first slot
         limiter.release()
+
+    def test_semaphore_timeout_refunds_token(self):
+        """Test that tokens are refunded when semaphore acquisition times out."""
+        # Create limiter with high rate limit but low concurrent limit
+        limiter = RateLimiter(max_requests_per_second=100.0, max_concurrent=1)
+
+        # Record initial token count
+        with limiter.lock:
+            initial_tokens = limiter.tokens
+
+        # Acquire the only concurrent slot
+        assert limiter.acquire(timeout=1.0) is True
+
+        # Try to acquire second slot - should timeout on semaphore
+        # This should decrement a token, fail on semaphore, then refund the token
+        assert limiter.acquire(timeout=0.05) is False
+
+        # Check that token was refunded
+        with limiter.lock:
+            # Token should be back (minus the one used by first acquire)
+            # Initial was 100, first acquire took 1 (99 remaining)
+            # Second acquire should have taken 1, then refunded it (back to 99)
+            # Allow small variance due to token refill during execution
+            expected_tokens = initial_tokens - 1.0
+            assert abs(limiter.tokens - expected_tokens) < 0.5, \
+                f"Expected ~{expected_tokens} tokens, got {limiter.tokens}"
+
+        # Release first slot
+        limiter.release()
+
+    def test_token_bucket_integrity_after_semaphore_timeout(self):
+        """Test token bucket integrity with multiple threads timing out on semaphore."""
+        import threading
+        import time
+
+        limiter = RateLimiter(max_requests_per_second=50.0, max_concurrent=2)
+
+        # Record initial token count
+        with limiter.lock:
+            initial_tokens = limiter.tokens
+
+        successful_acquires = []
+        failed_acquires = []
+
+        def worker(worker_id):
+            if limiter.acquire(timeout=0.1):
+                successful_acquires.append(worker_id)
+                time.sleep(0.3)  # Hold the slot
+                limiter.release()
+            else:
+                failed_acquires.append(worker_id)
+
+        # Start 10 threads competing for 2 slots
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Some should succeed, others should fail
+        assert len(successful_acquires) > 0
+        assert len(failed_acquires) > 0
+
+        # Wait for token refill
+        time.sleep(0.5)
+
+        # Check token bucket integrity - tokens should be close to max
+        # (allowing for small timing variations)
+        with limiter.lock:
+            # After waiting, tokens should have refilled significantly
+            # At minimum, should have more than initial minus successful acquires
+            assert limiter.tokens >= initial_tokens - len(successful_acquires)
+            # Should not exceed maximum
+            assert limiter.tokens <= limiter.max_requests_per_second
+
+    def test_semaphore_timeout_allows_future_requests(self):
+        """Test that refunded tokens from semaphore timeout can be used by future requests."""
+        import time
+
+        limiter = RateLimiter(max_requests_per_second=10.0, max_concurrent=1)
+
+        # Acquire the concurrent slot
+        assert limiter.acquire(timeout=1.0) is True
+
+        # Attempt to acquire - should fail on semaphore and refund token
+        assert limiter.acquire(timeout=0.05) is False
+
+        # Release the concurrent slot
+        limiter.release()
+
+        # Now a new request should be able to use the refunded token immediately
+        # without waiting for token bucket refill
+        start_time = time.time()
+        assert limiter.acquire(timeout=1.0) is True
+        elapsed = time.time() - start_time
+
+        # Should succeed quickly (not delayed by rate limiting)
+        # since the token was refunded
+        assert elapsed < 0.2, f"Request should succeed immediately with refunded token, took {elapsed}s"
+
+        limiter.release()

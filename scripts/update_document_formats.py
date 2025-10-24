@@ -23,6 +23,7 @@ def get_registered_formats() -> list[str]:
     -------
     list[str]
         Sorted list of format names
+
     """
     # Add project root to path so we can import all2md
     project_root = Path(__file__).parent.parent
@@ -50,6 +51,7 @@ def generate_literal_code(formats: list[str]) -> str:
     -------
     str
         Python code for the Literal definition
+
     """
     # Add "auto" as the first entry
     all_formats = ["auto"] + formats
@@ -72,6 +74,7 @@ def read_constants_file() -> str:
     -------
     str
         File contents
+
     """
     constants_path = Path(__file__).parent.parent / "src" / "all2md" / "constants.py"
     return constants_path.read_text(encoding="utf-8")
@@ -84,6 +87,7 @@ def write_constants_file(content: str) -> None:
     ----------
     content : str
         New file contents
+
     """
     constants_path = Path(__file__).parent.parent / "src" / "all2md" / "constants.py"
     constants_path.write_text(content, encoding="utf-8")
@@ -101,6 +105,7 @@ def update_constants_file(new_literal: str) -> tuple[str, bool]:
     -------
     tuple[str, bool]
         Updated file content and whether changes were made
+
     """
     content = read_constants_file()
 
@@ -146,6 +151,7 @@ def validate_formats() -> bool:
     -------
     bool
         True if in sync, False if drift detected
+
     """
     from typing import get_args
 
@@ -187,12 +193,13 @@ def validate_formats() -> bool:
 
 
 def main() -> int:
-    """Main entry point.
+    """Execute the main entry point.
 
     Returns
     -------
     int
         Exit code (0 for success, 1 for failure)
+
     """
     parser = argparse.ArgumentParser(
         description="Update DocumentFormat Literal in constants.py from registry"

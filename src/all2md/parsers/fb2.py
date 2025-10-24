@@ -52,6 +52,16 @@ class Fb2ToAstConverter(BaseParser):
     """Convert FB2 ebooks to AST representation."""
 
     def __init__(self, options: Optional[Fb2Options] = None, progress_callback: Optional[ProgressCallback] = None):
+        """Initialize the FB2 to AST converter.
+
+        Parameters
+        ----------
+        options : Fb2Options or None, default = None
+            Parser configuration options
+        progress_callback : ProgressCallback or None, default = None
+            Optional callback for progress updates
+
+        """
         options = options or Fb2Options()
         super().__init__(options, progress_callback)
         self.options: Fb2Options = options

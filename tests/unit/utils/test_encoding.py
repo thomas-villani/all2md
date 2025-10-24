@@ -55,7 +55,7 @@ class TestDetectEncoding:
         """Test detection with low confidence threshold."""
         # Mixed encoding data that might have low confidence
         data = b"Hello\x80\x81\x82"
-        encoding = detect_encoding(data, confidence_threshold=0.1)
+        _ = detect_encoding(data, confidence_threshold=0.1)
         # With very low threshold, should get some result
         # (This is testing the threshold mechanism works)
 
@@ -63,7 +63,7 @@ class TestDetectEncoding:
         """Test detection with high confidence threshold."""
         # Ambiguous data
         data = b"test"
-        encoding = detect_encoding(data, confidence_threshold=0.99)
+        _ = detect_encoding(data, confidence_threshold=0.99)
         # With very high threshold, might return None
         # (This is testing the threshold mechanism works)
 
@@ -71,7 +71,7 @@ class TestDetectEncoding:
         """Test detection with binary data."""
         # Pure binary data (not text)
         data = bytes(range(256))
-        encoding = detect_encoding(data)
+        _ = detect_encoding(data)
         # Binary data might not have a detected text encoding
 
 

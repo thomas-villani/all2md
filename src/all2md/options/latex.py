@@ -83,7 +83,7 @@ class LatexOptions(BaseParserOptions):
 
 @dataclass(frozen=True)
 class LatexRendererOptions(BaseRendererOptions):
-    """Configuration options for AST-to-LaTeX rendering.
+    r"""Configuration options for AST-to-LaTeX rendering.
 
     This dataclass contains settings for rendering AST documents as
     LaTeX output suitable for compilation with pdflatex/xelatex.

@@ -197,12 +197,12 @@ class TestOutlookParser:
         parser = OutlookToAstConverter()
 
         # Try to parse PST - should raise DependencyError if pypff not available
-        try:
-            import pypff
+        import importlib.util
 
+        if importlib.util.find_spec("pypff") is not None:
             # pypff is available, skip this test
             pytest.skip("pypff is installed, cannot test missing dependency error")
-        except ImportError:
+        else:
             # pypff not available - should get clear error message
             with pytest.raises(DependencyError) as exc_info:
                 parser.parse(pst_file)

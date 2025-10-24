@@ -406,7 +406,7 @@ Lowercase note."""
 Should not be admonition."""
         options = AsciiDocOptions(parse_admonitions=False)
         parser = AsciiDocParser(options=options)
-        doc = parser.parse(asciidoc)
+        _ = parser.parse(asciidoc)
 
         # Should just be a paragraph, not wrapped in BlockQuote
         # (or the block attribute is ignored)
@@ -456,7 +456,7 @@ Content"""
 
 :other: value"""
         parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
+        _ = parser.parse(asciidoc)
 
         # Blank line should end continuation
         # Only "Line 1" should be in description

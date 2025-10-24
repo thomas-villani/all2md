@@ -382,12 +382,12 @@ class TestTextileDependencies:
         """Test that missing textile library raises appropriate error."""
         # Check if textile is installed - if so, skip this test
         # since we can't test missing dependency behavior when it's present
-        try:
-            import textile
+        import importlib.util
 
+        if importlib.util.find_spec("textile") is not None:
             # textile is available, skip this test
             pytest.skip("textile is installed, cannot test missing dependency error")
-        except ImportError:
+        else:
             # textile not available - should get clear error message
             with pytest.raises(DependencyError) as exc_info:
                 parser = TextileParser()

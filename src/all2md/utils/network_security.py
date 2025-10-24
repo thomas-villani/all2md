@@ -278,6 +278,9 @@ class RateLimiter:
         # Acquire semaphore for concurrent limiting
         remaining_timeout = None if timeout is None else max(0, timeout - (time.time() - start_time))
         if not self.semaphore.acquire(timeout=remaining_timeout):
+            # Refund the token since we won't be making the request
+            with self.lock:
+                self.tokens = min(self.max_requests_per_second, self.tokens + 1.0)
             return False
 
         return True

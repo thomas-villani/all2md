@@ -56,9 +56,9 @@ from all2md.ast.nodes import (  # noqa: E402
     ThematicBreak,
     Underline,
 )
-from all2md.ast.visitors import NodeVisitor
-from all2md.options.html import HtmlRendererOptions
-from all2md.renderers.base import BaseRenderer, InlineContentMixin
+from all2md.ast.visitors import NodeVisitor  # noqa: E402
+from all2md.options.html import HtmlRendererOptions  # noqa: E402
+from all2md.renderers.base import BaseRenderer, InlineContentMixin  # noqa: E402
 from all2md.utils.html_sanitizer import sanitize_html_content, strip_html_tags  # noqa: E402
 from all2md.utils.html_utils import escape_html, render_math_html  # noqa: E402
 

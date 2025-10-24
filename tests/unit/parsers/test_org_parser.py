@@ -727,7 +727,7 @@ class TestLineBreak:
         for child in doc.children:
             collect_nodes(child)
 
-        breaks = [n for n in all_nodes if isinstance(n, LineBreak)]
+        _ = [n for n in all_nodes if isinstance(n, LineBreak)]
         # Note: Line break detection depends on regex matching
         # The \\\\ might be challenging to match correctly
         # This test verifies the parser handles it if detected

@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 
 class MediaWikiParser(BaseParser):
-    """Convert MediaWiki/WikiText to AST representation.
+    r"""Convert MediaWiki/WikiText to AST representation.
 
     This converter uses mwparserfromhell to parse WikiText and builds an AST that
     matches the structure used throughout all2md, enabling bidirectional

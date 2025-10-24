@@ -1175,9 +1175,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         if comment_mode == "visible":
             # Render as visible paragraph
-            p = Paragraph(f"[{comment_text}]", self._get_style("BodyText"))
+            p = self._Paragraph(f"[{comment_text}]", self._get_style("BodyText"))
             self._story.append(p)
-            self._story.append(Spacer(1, 6))
+            self._story.append(self._Spacer(1, 6))
 
     def visit_comment_inline(self, node: CommentInline) -> None:
         """Render a CommentInline node according to comment_mode option.

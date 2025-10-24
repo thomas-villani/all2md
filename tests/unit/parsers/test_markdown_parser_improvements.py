@@ -105,7 +105,7 @@ title: Incomplete
 
 This is content without closing ---."""
         parser = MarkdownToAstConverter()
-        doc = parser.parse(markdown)
+        _ = parser.parse(markdown)
 
         # Should treat as regular content if no closing delimiter
         # Behavior depends on implementation
@@ -194,7 +194,7 @@ Paragraph with <span>inline HTML</span>."""
 
         options = MarkdownParserOptions(preserve_html=False, html_handling="sanitize")
         parser = MarkdownToAstConverter(options=options)
-        doc = parser.parse(markdown)
+        _ = parser.parse(markdown)
 
         # Should have HTMLBlock nodes with sanitized content
         # Script tags should be removed, but p tags might be kept
@@ -238,7 +238,7 @@ Paragraph with <span>inline HTML</span>."""
 
         options = MarkdownParserOptions(preserve_html=False, html_handling="sanitize")
         parser = MarkdownToAstConverter(options=options)
-        doc = parser.parse(markdown)
+        _ = parser.parse(markdown)
 
         # Script should be removed or escaped
         # The paragraph should exist but script should be sanitized

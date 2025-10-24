@@ -1525,7 +1525,7 @@ class TestStrikethroughFormatting:
         ast_doc = converter.convert_to_ast(prs)
 
         # Find strikethrough nodes
-        all_nodes = list(extract_nodes(ast_doc, Strikethrough))
+        _ = list(extract_nodes(ast_doc, Strikethrough))
         # Note: Strikethrough may or may not be set depending on pptx library version
         # This test validates the parser handles it when present
         assert isinstance(ast_doc, Document)

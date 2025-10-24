@@ -108,7 +108,7 @@ class TestAsciiDocLineWrapping:
 
         options = AsciiDocRendererOptions(line_length=50)
         renderer = AsciiDocRenderer(options=options)
-        output = renderer.render_to_string(doc)
+        _ = renderer.render_to_string(doc)
 
         # Should not cause errors
 
@@ -129,7 +129,7 @@ class TestAsciiDocFootnoteWarnings:
         renderer = AsciiDocRenderer()
 
         with caplog.at_level(logging.WARNING):
-            output = renderer.render_to_string(doc)
+            _ = renderer.render_to_string(doc)
 
         # Should log a warning about missing footnote
         assert any("missing" in record.message for record in caplog.records)
@@ -153,7 +153,7 @@ class TestAsciiDocFootnoteWarnings:
         renderer = AsciiDocRenderer()
 
         with caplog.at_level(logging.WARNING):
-            output = renderer.render_to_string(doc)
+            _ = renderer.render_to_string(doc)
 
         # Should not log warnings
         footnote_warnings = [
@@ -195,7 +195,7 @@ class TestAsciiDocFootnoteWarnings:
         renderer = AsciiDocRenderer()
 
         with caplog.at_level(logging.WARNING):
-            output = renderer.render_to_string(doc)
+            _ = renderer.render_to_string(doc)
 
         # Should log warnings for both missing footnotes
         # First occurrence of each footnote logs warning
@@ -220,7 +220,7 @@ class TestAsciiDocFootnoteWarnings:
         renderer = AsciiDocRenderer()
 
         with caplog.at_level(logging.WARNING):
-            output = renderer.render_to_string(doc)
+            _ = renderer.render_to_string(doc)
 
         # Should only log one warning (for first occurrence)
         # The exact behavior depends on implementation

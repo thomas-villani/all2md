@@ -426,7 +426,7 @@ class OrgParser(BaseParser):
         return Paragraph(content=content)
 
     def _parse_inline(self, text: str) -> list[Node]:
-        """Parse inline formatting in text.
+        r"""Parse inline formatting in text.
 
         Handles Org-Mode inline formatting:
         - *bold* -> Strong

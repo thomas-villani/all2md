@@ -442,7 +442,10 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     figures_parsing: Literal["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"] = field(
         default="blockquote",
         metadata={
-            "help": "How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip",
+            "help": (
+                "How to parse <figure> elements: blockquote, paragraph, image_with_caption, "
+                "caption_only, html, skip"
+            ),
             "choices": ["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"],
             "importance": "advanced",
         },
