@@ -466,11 +466,11 @@ class Pipeline:
             if emit_progress:
                 current_stage += 1
                 self._emit_progress(
-                    "page_done",
+                    "item_done",
                     f"Completed transform {i}/{len(transforms)}: {transformer.__class__.__name__}",
                     current=current_stage,
                     total=total_stages,
-                    metadata={"transform": transformer.__class__.__name__},
+                    metadata={"item_type": "transform", "transform": transformer.__class__.__name__},
                 )
 
         context.transform_name = None
@@ -559,7 +559,7 @@ class Pipeline:
         Parameters
         ----------
         event_type : str
-            Type of progress event (started, page_done, finished, error)
+            Type of progress event (started, item_done, detected, finished, error)
         message : str
             Human-readable description of the event
         current : int, default = 0
@@ -575,7 +575,7 @@ class Pipeline:
 
         try:
             event = ProgressEvent(
-                event_type=event_type,  # type: ignore
+                event_type=event_type,  # type: ignore[arg-type]
                 message=message,
                 current=current,
                 total=total,
@@ -779,7 +779,13 @@ class Pipeline:
                 context.document = document
 
                 current_stage += 1
-                self._emit_progress("page_done", "Completed post_ast hooks", current=current_stage, total=stage_count)
+                self._emit_progress(
+                    "item_done",
+                    "Completed post_ast hooks",
+                    current=current_stage,
+                    total=stage_count,
+                    metadata={"item_type": "hook", "hook_stage": "post_ast"},
+                )
 
             # Apply transforms using centralized logic
             if self.transforms:
@@ -800,7 +806,13 @@ class Pipeline:
                 context.document = document
 
                 current_stage += 1
-                self._emit_progress("page_done", "Completed pre_render hooks", current=current_stage, total=stage_count)
+                self._emit_progress(
+                    "item_done",
+                    "Completed pre_render hooks",
+                    current=current_stage,
+                    total=stage_count,
+                    metadata={"item_type": "hook", "hook_stage": "pre_render"},
+                )
 
             # Apply element hooks (after pre_render, before rendering)
             document = self._apply_element_hooks(document, context)
@@ -809,7 +821,11 @@ class Pipeline:
 
             current_stage += 1
             self._emit_progress(
-                "page_done", "Completed element hooks traversal", current=current_stage, total=stage_count
+                "item_done",
+                "Completed element hooks traversal",
+                current=current_stage,
+                total=stage_count,
+                metadata={"item_type": "hook", "hook_stage": "element"},
             )
 
             # Render
@@ -817,11 +833,11 @@ class Pipeline:
 
             current_stage += 1
             self._emit_progress(
-                "page_done",
+                "item_done",
                 f"Completed rendering with {self.renderer.__class__.__name__}",
                 current=current_stage,
                 total=stage_count,
-                metadata={"renderer": self.renderer.__class__.__name__},
+                metadata={"item_type": "render", "renderer": self.renderer.__class__.__name__},
             )
 
             # Post-render hook
@@ -834,7 +850,11 @@ class Pipeline:
 
                 current_stage += 1
                 self._emit_progress(
-                    "page_done", "Completed post_render hooks", current=current_stage, total=stage_count
+                    "item_done",
+                    "Completed post_render hooks",
+                    current=current_stage,
+                    total=stage_count,
+                    metadata={"item_type": "hook", "hook_stage": "post_render"},
                 )
 
             # Emit finished event
@@ -1027,7 +1047,13 @@ def apply(
             context.document = document
 
             current_stage += 1
-            emit_progress("page_done", "Completed post_ast hooks", current=current_stage, total=stage_count)
+            emit_progress(
+                "item_done",
+                "Completed post_ast hooks",
+                current=current_stage,
+                total=stage_count,
+                metadata={"item_type": "hook", "hook_stage": "post_ast"},
+            )
 
         # Apply transforms using centralized logic
         if pipeline.transforms:
@@ -1052,7 +1078,13 @@ def apply(
             context.document = document
 
             current_stage += 1
-            emit_progress("page_done", "Completed pre_render hooks", current=current_stage, total=stage_count)
+            emit_progress(
+                "item_done",
+                "Completed pre_render hooks",
+                current=current_stage,
+                total=stage_count,
+                metadata={"item_type": "hook", "hook_stage": "pre_render"},
+            )
 
         # Apply element hooks (after pre_render, would normally be before rendering)
         document = pipeline._apply_element_hooks(document, context)
@@ -1060,7 +1092,13 @@ def apply(
         context.document = document
 
         current_stage += 1
-        emit_progress("page_done", "Completed element hooks traversal", current=current_stage, total=stage_count)
+        emit_progress(
+            "item_done",
+            "Completed element hooks traversal",
+            current=current_stage,
+            total=stage_count,
+            metadata={"item_type": "hook", "hook_stage": "element"},
+        )
 
         # Emit finished event
         emit_progress("finished", "Apply execution complete", current=stage_count, total=stage_count)

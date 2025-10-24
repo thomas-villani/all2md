@@ -732,11 +732,11 @@ class TestProgressCallback:
         )
 
         # Should have events for each transform
-        page_done_events = [e for e in events if e.event_type == "page_done"]
-        assert len(page_done_events) >= 2  # At least 2 transforms
+        item_done_events = [e for e in events if e.event_type == "item_done"]
+        assert len(item_done_events) >= 2  # At least 2 transforms
 
         # Check that transform names are in metadata
-        transform_events = [e for e in page_done_events if "transform" in e.metadata]
+        transform_events = [e for e in item_done_events if "transform" in e.metadata]
         assert len(transform_events) == 2
 
     def test_progress_callback_error_event_on_failure(self, sample_document):
@@ -804,8 +804,8 @@ class TestProgressCallback:
 
         render(sample_document, transforms=[RemoveImagesTransform()], progress_callback=progress_handler)
 
-        # Filter to page_done and finished events
-        progress_events = [e for e in events if e.event_type in ("page_done", "finished")]
+        # Filter to item_done and finished events
+        progress_events = [e for e in events if e.event_type in ("item_done", "finished")]
 
         # Current should increase or stay same (never decrease)
         for i in range(1, len(progress_events)):

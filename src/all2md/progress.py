@@ -22,7 +22,7 @@ Basic progress tracking:
 Advanced progress handling with metadata:
 
     >>> def detailed_handler(event: ProgressEvent):
-    ...     if event.event_type == "table_detected":
+    ...     if event.event_type == "detected" and event.metadata.get("detected_type") == "table":
     ...         print(f"Found {event.metadata['table_count']} tables on page {event.current}")
     ...     elif event.event_type == "error":
     ...         print(f"Error: {event.metadata.get('error', 'Unknown error')}")

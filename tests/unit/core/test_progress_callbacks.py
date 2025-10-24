@@ -39,8 +39,13 @@ def test_progress_event_creation():
 def test_progress_event_with_metadata():
     """Test ProgressEvent with metadata."""
     event = ProgressEvent(
-        event_type="table_detected", message="Found tables", current=5, total=10, metadata={"table_count": 3, "page": 5}
+        event_type="detected",
+        message="Found tables",
+        current=5,
+        total=10,
+        metadata={"detected_type": "table", "table_count": 3, "page": 5},
     )
+    assert event.metadata["detected_type"] == "table"
     assert event.metadata["table_count"] == 3
     assert event.metadata["page"] == 5
 

@@ -761,8 +761,8 @@ class TestProgressCallbackIntegration:
         assert "Title" in markdown
 
         # Should have received progress events including transform events
-        page_done_events = [e for e in events if e.event_type == "page_done"]
-        assert len(page_done_events) > 0
+        item_done_events = [e for e in events if e.event_type == "item_done"]
+        assert len(item_done_events) > 0
 
     def test_from_ast_with_progress_callback(self):
         """Test that from_ast forwards progress_callback."""

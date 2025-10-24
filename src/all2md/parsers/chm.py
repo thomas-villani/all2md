@@ -173,7 +173,14 @@ class ChmParser(BaseParser):
         for idx, page_path in enumerate(pages, 1):
             try:
                 # Emit progress for each page
-                self._emit_progress("page_done", f"Processing page {idx}/{total_pages}", current=idx, total=total_pages)
+                self._emit_progress(
+                    "item_done",
+                    f"Processing page {idx}/{total_pages}",
+                    current=idx,
+                    total=total_pages,
+                    item_type="page",
+                    page=idx,
+                )
 
                 # Extract HTML content from page
                 html_content = self._get_page_content(chm_file, page_path)

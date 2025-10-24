@@ -169,6 +169,259 @@ class MediaWikiParser(BaseParser):
             content_bytes = input_data.read()
             return read_text_with_encoding_detection(content_bytes)
 
+    def _flush_inline_buffer(self, inline_buffer: list[Node], result: list[Node]) -> None:
+        """Flush inline buffer to result as a paragraph.
+
+        Parameters
+        ----------
+        inline_buffer : list of Node
+            Buffer of inline nodes to flush
+        result : list of Node
+            Result list to append paragraph to
+
+        """
+        if inline_buffer:
+            result.append(Paragraph(content=inline_buffer.copy()))
+            inline_buffer.clear()
+
+    def _handle_heading_node(
+        self, node: Any, inline_buffer: list[Node], result: list[Node]
+    ) -> int:
+        """Handle a Heading node.
+
+        Parameters
+        ----------
+        node : Any
+            The heading node
+        inline_buffer : list of Node
+            Current inline buffer
+        result : list of Node
+            Result list
+
+        Returns
+        -------
+        int
+            Number of nodes consumed (always 1 for headings)
+
+        """
+        self._flush_inline_buffer(inline_buffer, result)
+        heading = self._process_heading(node)
+        if heading:
+            result.append(heading)
+        return 1
+
+    def _handle_tag_node(
+        self, node: Any, inline_buffer: list[Node], result: list[Node], nodes_list: list[Any], i: int
+    ) -> int:
+        """Handle a Tag node (block-level or inline).
+
+        Parameters
+        ----------
+        node : Any
+            The tag node
+        inline_buffer : list of Node
+            Current inline buffer
+        result : list of Node
+            Result list
+        nodes_list : list of Any
+            Full list of nodes being processed
+        i : int
+            Current index
+
+        Returns
+        -------
+        int
+            Number of nodes consumed
+
+        """
+        tag_name = str(node.tag).lower()
+
+        # Block-level code blocks
+        if tag_name in ("pre", "syntaxhighlight", "source"):
+            self._flush_inline_buffer(inline_buffer, result)
+            code_block = self._process_inline_tag(node)
+            if isinstance(code_block, CodeBlock):
+                result.append(code_block)
+            return 1
+
+        # Wiki markup tags
+        if hasattr(node, "wiki_markup") and node.wiki_markup:
+            if node.wiki_markup in ("*", "#"):
+                self._flush_inline_buffer(inline_buffer, result)
+                list_node, consumed = self._parse_list_from_position(nodes_list, i)
+                if list_node:
+                    result.append(list_node)
+                return consumed
+
+            elif node.wiki_markup == "{|":
+                self._flush_inline_buffer(inline_buffer, result)
+                table = self._process_table(node)
+                if table:
+                    result.append(table)
+                return 1
+
+            elif node.wiki_markup == "----":
+                self._flush_inline_buffer(inline_buffer, result)
+                result.append(ThematicBreak())
+                return 1
+
+            elif node.wiki_markup == ":":
+                self._flush_inline_buffer(inline_buffer, result)
+                quote, consumed = self._parse_blockquote_from_position(nodes_list, i)
+                if quote:
+                    result.append(quote)
+                return consumed
+
+        # Inline formatting tag
+        inline_node = self._process_inline_tag(node)
+        if inline_node:
+            inline_buffer.append(inline_node)
+        return 1
+
+    def _handle_wikilink_node(self, node: Any, inline_buffer: list[Node]) -> int:
+        """Handle a Wikilink node.
+
+        Parameters
+        ----------
+        node : Any
+            The wikilink node
+        inline_buffer : list of Node
+            Current inline buffer
+
+        Returns
+        -------
+        int
+            Number of nodes consumed (always 1)
+
+        """
+        inline_node = self._process_wikilink(node)
+        if inline_node:
+            inline_buffer.append(inline_node)
+        return 1
+
+    def _handle_external_link_node(self, node: Any, inline_buffer: list[Node]) -> int:
+        """Handle an ExternalLink node.
+
+        Parameters
+        ----------
+        node : Any
+            The external link node
+        inline_buffer : list of Node
+            Current inline buffer
+
+        Returns
+        -------
+        int
+            Number of nodes consumed (always 1)
+
+        """
+        inline_node = self._process_external_link(node)
+        if inline_node:
+            inline_buffer.append(inline_node)
+        return 1
+
+    def _handle_template_node(self, node: Any, inline_buffer: list[Node]) -> int:
+        """Handle a Template node.
+
+        Parameters
+        ----------
+        node : Any
+            The template node
+        inline_buffer : list of Node
+            Current inline buffer
+
+        Returns
+        -------
+        int
+            Number of nodes consumed (always 1)
+
+        """
+        if self.options.parse_templates:
+            inline_node = self._process_template(node)
+            if inline_node:
+                inline_buffer.append(inline_node)
+        return 1
+
+    def _handle_comment_node(self, node: Any, inline_buffer: list[Node]) -> int:
+        """Handle a Comment node.
+
+        Parameters
+        ----------
+        node : Any
+            The comment node
+        inline_buffer : list of Node
+            Current inline buffer
+
+        Returns
+        -------
+        int
+            Number of nodes consumed (always 1)
+
+        """
+        if not self.options.strip_comments:
+            inline_buffer.append(CommentInline(content=str(node), metadata={"comment_type": "wiki"}))
+        return 1
+
+    def _handle_text_node(
+        self, node: Any, inline_buffer: list[Node], result: list[Node]
+    ) -> int:
+        """Handle a Text node.
+
+        Parameters
+        ----------
+        node : Any
+            The text node
+        inline_buffer : list of Node
+            Current inline buffer
+        result : list of Node
+            Result list
+
+        Returns
+        -------
+        int
+            Number of nodes consumed (always 1)
+
+        """
+        text_content = str(node)
+
+        # Handle text with paragraph breaks
+        if "\n\n" in text_content:
+            parts = text_content.split("\n\n")
+            for idx, part in enumerate(parts):
+                part = part.strip()
+
+                if re.match(r"^-{4,}$", part):
+                    self._flush_inline_buffer(inline_buffer, result)
+                    result.append(ThematicBreak())
+                elif part:
+                    if self._is_block_quote(part):
+                        self._flush_inline_buffer(inline_buffer, result)
+                        quote = self._process_block_quote(part)
+                        if quote:
+                            result.append(quote)
+                    else:
+                        inline_buffer.append(Text(content=part))
+
+                # Flush after each part except the last
+                if idx < len(parts) - 1:
+                    self._flush_inline_buffer(inline_buffer, result)
+        else:
+            # Single line text
+            text_content = text_content.strip()
+            if text_content:
+                if re.match(r"^-{4,}$", text_content):
+                    self._flush_inline_buffer(inline_buffer, result)
+                    result.append(ThematicBreak())
+                elif self._is_block_quote(text_content):
+                    self._flush_inline_buffer(inline_buffer, result)
+                    quote = self._process_block_quote(text_content)
+                    if quote:
+                        result.append(quote)
+                else:
+                    inline_buffer.append(Text(content=text_content))
+
+        return 1
+
     def _process_wikicode(self, wikicode: Any) -> list[Node]:
         """Process mwparserfromhell Wikicode into AST nodes.
 
@@ -184,191 +437,39 @@ class MediaWikiParser(BaseParser):
 
         """
         result: list[Node] = []
-
-        # Process nodes sequentially, grouping text into paragraphs
         inline_buffer: list[Node] = []
 
-        i = 0
         nodes_list = list(wikicode.nodes)
+        i = 0
 
         while i < len(nodes_list):
             node = nodes_list[i]
             node_type = type(node).__name__
 
-            # Block-level elements
+            # Dispatch to appropriate handler based on node type
             if node_type == "Heading":
-                # Flush inline buffer as paragraph
-                if inline_buffer:
-                    result.append(Paragraph(content=inline_buffer))
-                    inline_buffer = []
-
-                heading = self._process_heading(node)
-                if heading:
-                    result.append(heading)
-                i += 1
-
+                consumed = self._handle_heading_node(node, inline_buffer, result)
             elif node_type == "Tag":
-                # Check if it's a block-level HTML tag first
-                tag_name = str(node.tag).lower()
-                if tag_name in ("pre", "syntaxhighlight", "source"):
-                    # Block-level code block
-                    if inline_buffer:
-                        result.append(Paragraph(content=inline_buffer))
-                        inline_buffer = []
-
-                    code_block = self._process_inline_tag(node)
-                    if isinstance(code_block, CodeBlock):
-                        result.append(code_block)
-                    i += 1
-
-                # Check if it has wiki markup (MediaWiki-specific tags)
-                elif hasattr(node, "wiki_markup") and node.wiki_markup:
-                    if node.wiki_markup in ("*", "#"):
-                        # List marker
-                        if inline_buffer:
-                            result.append(Paragraph(content=inline_buffer))
-                            inline_buffer = []
-
-                        # Parse list starting from this position
-                        list_node, consumed = self._parse_list_from_position(nodes_list, i)
-                        if list_node:
-                            result.append(list_node)
-                        i += consumed
-
-                    elif node.wiki_markup == "{|":
-                        # Table
-                        if inline_buffer:
-                            result.append(Paragraph(content=inline_buffer))
-                            inline_buffer = []
-
-                        table = self._process_table(node)
-                        if table:
-                            result.append(table)
-                        i += 1
-
-                    elif node.wiki_markup == "----":
-                        # Thematic break (horizontal rule)
-                        if inline_buffer:
-                            result.append(Paragraph(content=inline_buffer))
-                            inline_buffer = []
-
-                        result.append(ThematicBreak())
-                        i += 1
-
-                    elif node.wiki_markup == ":":
-                        # Block quote marker
-                        if inline_buffer:
-                            result.append(Paragraph(content=inline_buffer))
-                            inline_buffer = []
-
-                        quote, consumed = self._parse_blockquote_from_position(nodes_list, i)
-                        if quote:
-                            result.append(quote)
-                        i += consumed
-
-                    else:
-                        # Other wiki markup tags (bold/italic) - process as inline
-                        inline_node = self._process_inline_tag(node)
-                        if inline_node:
-                            inline_buffer.append(inline_node)
-                        i += 1
-
-                else:
-                    # HTML tag or inline formatting (no wiki markup)
-                    inline_node = self._process_inline_tag(node)
-                    if inline_node:
-                        inline_buffer.append(inline_node)
-                    i += 1
-
+                consumed = self._handle_tag_node(node, inline_buffer, result, nodes_list, i)
             elif node_type == "Wikilink":
-                inline_node = self._process_wikilink(node)
-                if inline_node:
-                    inline_buffer.append(inline_node)
-                i += 1
-
+                consumed = self._handle_wikilink_node(node, inline_buffer)
             elif node_type == "ExternalLink":
-                inline_node = self._process_external_link(node)
-                if inline_node:
-                    inline_buffer.append(inline_node)
-                i += 1
-
+                consumed = self._handle_external_link_node(node, inline_buffer)
             elif node_type == "Template":
-                if self.options.parse_templates:
-                    inline_node = self._process_template(node)
-                    if inline_node:
-                        inline_buffer.append(inline_node)
-                # Otherwise skip templates
-                i += 1
-
+                consumed = self._handle_template_node(node, inline_buffer)
             elif node_type == "Comment":
-                if not self.options.strip_comments:
-                    inline_buffer.append(CommentInline(content=str(node), metadata={"comment_type": "wiki"}))
-                i += 1
-
+                consumed = self._handle_comment_node(node, inline_buffer)
             elif node_type == "Text":
-                # Text content
-                text_content = str(node)
-
-                # Check for block-level separators (blank lines, thematic breaks)
-                if "\n\n" in text_content:
-                    # Split by double newlines
-                    parts = text_content.split("\n\n")
-                    for idx, part in enumerate(parts):
-                        part = part.strip()
-
-                        # Check for thematic break
-                        if re.match(r"^-{4,}$", part):
-                            if inline_buffer:
-                                result.append(Paragraph(content=inline_buffer))
-                                inline_buffer = []
-                            result.append(ThematicBreak())
-                        elif part:
-                            # Check for block quote (lines starting with :)
-                            if self._is_block_quote(part):
-                                if inline_buffer:
-                                    result.append(Paragraph(content=inline_buffer))
-                                    inline_buffer = []
-                                quote = self._process_block_quote(part)
-                                if quote:
-                                    result.append(quote)
-                            else:
-                                # Regular text - add to inline buffer
-                                inline_buffer.append(Text(content=part))
-
-                        # After each part except the last, flush paragraph
-                        if idx < len(parts) - 1:
-                            if inline_buffer:
-                                result.append(Paragraph(content=inline_buffer))
-                                inline_buffer = []
-                else:
-                    # Single line or no blank lines
-                    text_content = text_content.strip()
-                    if text_content:
-                        # Check for thematic break
-                        if re.match(r"^-{4,}$", text_content):
-                            if inline_buffer:
-                                result.append(Paragraph(content=inline_buffer))
-                                inline_buffer = []
-                            result.append(ThematicBreak())
-                        elif self._is_block_quote(text_content):
-                            if inline_buffer:
-                                result.append(Paragraph(content=inline_buffer))
-                                inline_buffer = []
-                            quote = self._process_block_quote(text_content)
-                            if quote:
-                                result.append(quote)
-                        else:
-                            inline_buffer.append(Text(content=text_content))
-                i += 1
-
+                consumed = self._handle_text_node(node, inline_buffer, result)
             else:
                 # Unknown node type - treat as text
                 inline_buffer.append(Text(content=str(node)))
-                i += 1
+                consumed = 1
+
+            i += consumed
 
         # Flush remaining inline buffer
-        if inline_buffer:
-            result.append(Paragraph(content=inline_buffer))
+        self._flush_inline_buffer(inline_buffer, result)
 
         return result
 

@@ -149,7 +149,7 @@ class BaseParser(ABC):
         Parameters
         ----------
         event_type : str
-            Type of progress event (started, page_done, table_detected, finished, error)
+            Type of progress event (started, item_done, detected, finished, error)
         message : str
             Human-readable description of the event
         current : int, default 0
@@ -169,15 +169,16 @@ class BaseParser(ABC):
         Emit a started event:
             >>> self._emit_progress("started", "Converting document", total=10)
 
-        Emit a page done event:
-            >>> self._emit_progress("page_done", f"Page {n}", current=n, total=10)
+        Emit an item done event (page):
+            >>> self._emit_progress("item_done", f"Page {n}", current=n, total=10, item_type="page", page=n)
 
-        Emit a table detected event:
+        Emit a detected event (table):
             >>> self._emit_progress(
-            ...     "table_detected",
+            ...     "detected",
             ...     "Table found",
             ...     current=page_num,
             ...     total=total_pages,
+            ...     detected_type="table",
             ...     table_count=2
             ... )
 

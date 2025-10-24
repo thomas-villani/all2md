@@ -326,6 +326,192 @@ class HtmlToAstConverter(BaseParser):
             readable_title.strip() if isinstance(readable_title, str) and readable_title.strip() else None
         )
 
+    def _process_meta_tag(self, meta_name: str, content: str, metadata: DocumentMetadata) -> None:
+        """Process a single meta tag and update metadata accordingly.
+
+        Parameters
+        ----------
+        meta_name : str
+            The meta tag name (from name or property attribute), lowercased
+        content : str
+            The meta tag content
+        metadata : DocumentMetadata
+            The metadata object to update
+
+        """
+        # Author fields
+        if meta_name in ["author", "dc.creator", "creator"]:
+            metadata.author = content
+        # Description fields
+        elif meta_name in ["description", "dc.description", "og:description", "twitter:description"]:
+            if not metadata.subject:
+                metadata.subject = content
+        # Keywords
+        elif meta_name in ["keywords", "dc.subject"]:
+            metadata.keywords = [k.strip() for k in re.split("[,;]", content) if k.strip()]
+        # Language
+        elif meta_name in ["language", "dc.language", "og:locale"]:
+            metadata.language = content
+        # Creator/Generator
+        elif meta_name in ["generator", "application-name"]:
+            metadata.creator = content
+        # Published date
+        elif meta_name in ["dc.date", "article:published_time", "publish_date"]:
+            metadata.custom["published_date"] = content
+        # Modified date
+        elif meta_name in ["article:modified_time", "last-modified", "dc.modified"]:
+            metadata.custom["modified_date"] = content
+        # Title (from OG/Twitter)
+        elif meta_name in ["og:title", "twitter:title"]:
+            if not metadata.title:
+                metadata.title = content
+        # Author (from article/twitter)
+        elif meta_name in ["article:author", "twitter:creator"]:
+            if not metadata.author:
+                metadata.author = content
+        # Category
+        elif meta_name in ["og:type", "article:section"]:
+            metadata.category = content
+        # Viewport
+        elif meta_name == "viewport":
+            metadata.custom["viewport"] = content
+        # URL
+        elif meta_name in ["og:url", "canonical"]:
+            metadata.custom["url"] = content
+        # Robots
+        elif meta_name in ["robots", "googlebot"]:
+            metadata.custom["robots"] = content
+
+    def _detect_charset(self, head: Any, metadata: DocumentMetadata) -> None:
+        """Detect and extract charset information from head section.
+
+        Parameters
+        ----------
+        head : BeautifulSoup tag
+            The HTML head section
+        metadata : DocumentMetadata
+            The metadata object to update
+
+        """
+        charset_meta = head.find("meta", {"charset": True})
+        if charset_meta:
+            metadata.custom["charset"] = charset_meta.get("charset")
+        else:
+            content_type_meta = head.find("meta", {"http-equiv": "Content-Type"})
+            if content_type_meta:
+                content = content_type_meta.get("content", "")
+                if "charset=" in content:
+                    charset = content.split("charset=")[-1].strip()
+                    metadata.custom["charset"] = charset
+
+    def _process_link_tags(self, head: Any, metadata: DocumentMetadata) -> None:
+        """Process link tags for additional metadata.
+
+        Parameters
+        ----------
+        head : BeautifulSoup tag
+            The HTML head section
+        metadata : DocumentMetadata
+            The metadata object to update
+
+        """
+        link_tags = head.find_all("link")
+        for link in link_tags:
+            rel = link.get("rel", [])
+            if isinstance(rel, list):
+                rel = " ".join(rel)
+
+            if "canonical" in rel:
+                metadata.custom["canonical_url"] = link.get("href")
+            elif "author" in rel:
+                if not metadata.author:
+                    metadata.author = link.get("href", "").replace("mailto:", "")
+
+    def _extract_microdata(self, document: Any) -> dict[str, Any]:
+        """Extract microdata and structured data from document.
+
+        Parameters
+        ----------
+        document : BeautifulSoup
+            Parsed HTML document
+
+        Returns
+        -------
+        dict
+            Dictionary containing extracted microdata (opengraph, twitter_card, items, json_ld)
+
+        """
+        microdata: dict[str, Any] = {}
+
+        # Extract all Open Graph tags
+        og_tags = {}
+        for meta in document.find_all("meta", property=re.compile(r"^og:")):
+            prop = meta.get("property", "")
+            content = meta.get("content", "").strip()
+            if content:
+                og_tags[prop] = content
+
+        if og_tags:
+            microdata["opengraph"] = og_tags
+
+        # Extract all Twitter Card metadata
+        twitter_tags = {}
+        for meta in document.find_all("meta", attrs={"name": re.compile(r"^twitter:")}):
+            name = meta.get("name", "")
+            content = meta.get("content", "").strip()
+            if content:
+                twitter_tags[name] = content
+
+        if twitter_tags:
+            microdata["twitter_card"] = twitter_tags
+
+        # Extract microdata (itemscope/itemprop)
+        itemscopes = document.find_all(attrs={"itemscope": True})
+        if itemscopes:
+            microdata_items = []
+            for scope in itemscopes:
+                item = {"type": scope.get("itemtype", ""), "properties": {}}
+
+                props = scope.find_all(attrs={"itemprop": True})
+                for prop in props:
+                    prop_name = prop.get("itemprop")
+                    # Get content from various sources
+                    if prop.get("content"):
+                        prop_value = prop.get("content")
+                    elif prop.name == "meta":
+                        prop_value = prop.get("content", "")
+                    elif prop.name == "link":
+                        prop_value = prop.get("href", "")
+                    else:
+                        prop_value = prop.get_text(strip=True)
+
+                    if prop_name and prop_value:
+                        item["properties"][prop_name] = prop_value
+
+                if item["properties"]:
+                    microdata_items.append(item)
+
+            if microdata_items:
+                microdata["items"] = microdata_items
+
+        # Extract JSON-LD structured data
+        json_ld_scripts = document.find_all("script", type="application/ld+json")
+        if json_ld_scripts:
+            import json
+
+            json_ld_data = []
+            for script in json_ld_scripts:
+                try:
+                    data = json.loads(script.string)
+                    json_ld_data.append(data)
+                except Exception:
+                    pass
+
+            if json_ld_data:
+                microdata["json_ld"] = json_ld_data
+
+        return microdata
+
     def extract_metadata(self, document: Any) -> DocumentMetadata:
         r"""Extract metadata from HTML document.
 
@@ -382,160 +568,36 @@ class HtmlToAstConverter(BaseParser):
             if title_tag and title_tag.string:
                 metadata.title = title_tag.string.strip()
 
-            # Extract meta tags
+            # Process all meta tags
             meta_tags = head.find_all("meta")
             for meta in meta_tags:
-                # Get meta name/property and content
                 meta_name = meta.get("name", "").lower() or meta.get("property", "").lower()
                 content = meta.get("content", "").strip()
 
-                if not meta_name or not content:
-                    continue
+                if meta_name and content:
+                    self._process_meta_tag(meta_name, content, metadata)
 
-                # Map common meta tags to standard fields
-                if meta_name in ["author", "dc.creator", "creator"]:
-                    metadata.author = content
-                elif meta_name in ["description", "dc.description", "og:description", "twitter:description"]:
-                    if not metadata.subject:  # Only set if not already set
-                        metadata.subject = content
-                elif meta_name in ["keywords", "dc.subject"]:
-                    # Split keywords by comma or semicolon
-                    metadata.keywords = [k.strip() for k in re.split("[,;]", content) if k.strip()]
-                elif meta_name in ["language", "dc.language", "og:locale"]:
-                    metadata.language = content
-                elif meta_name in ["generator", "application-name"]:
-                    metadata.creator = content
-                elif meta_name in ["dc.date", "article:published_time", "publish_date"]:
-                    metadata.custom["published_date"] = content
-                elif meta_name in ["article:modified_time", "last-modified", "dc.modified"]:
-                    metadata.custom["modified_date"] = content
-                elif meta_name in ["og:title", "twitter:title"]:
-                    if not metadata.title:  # Only set if not already set from <title>
-                        metadata.title = content
-                elif meta_name in ["article:author", "twitter:creator"]:
-                    if not metadata.author:  # Only set if not already set
-                        metadata.author = content
-                elif meta_name in ["og:type", "article:section"]:
-                    metadata.category = content
-                elif meta_name == "viewport":
-                    metadata.custom["viewport"] = content
-                elif meta_name in ["og:url", "canonical"]:
-                    metadata.custom["url"] = content
-                elif meta_name in ["robots", "googlebot"]:
-                    metadata.custom["robots"] = content
+            # Detect charset
+            self._detect_charset(head, metadata)
 
-            # Check for charset
-            charset_meta = head.find("meta", {"charset": True})
-            if charset_meta:
-                metadata.custom["charset"] = charset_meta.get("charset")
-            else:
-                # Try http-equiv Content-Type
-                content_type_meta = head.find("meta", {"http-equiv": "Content-Type"})
-                if content_type_meta:
-                    content = content_type_meta.get("content", "")
-                    if "charset=" in content:
-                        charset = content.split("charset=")[-1].strip()
-                        metadata.custom["charset"] = charset
+            # Process link tags
+            self._process_link_tags(head, metadata)
 
-            # Extract link tags for additional metadata
-            link_tags = head.find_all("link")
-            for link in link_tags:
-                rel = link.get("rel", [])
-                if isinstance(rel, list):
-                    rel = " ".join(rel)
-
-                if "canonical" in rel:
-                    metadata.custom["canonical_url"] = link.get("href")
-                elif "author" in rel:
-                    if not metadata.author:
-                        metadata.author = link.get("href", "").replace("mailto:", "")
-
-        # Extract Open Graph data if not already captured
+        # Fallback title extraction from Open Graph
         if not metadata.title:
             og_title = document.find("meta", property="og:title")
             if og_title:
                 metadata.title = og_title.get("content", "").strip()
 
-        # Extract from body if head data is missing
+        # Fallback title extraction from body h1
         if not metadata.title:
-            # Try to find first h1 as title
             h1 = document.find("h1")
             if h1:
                 metadata.title = h1.get_text(strip=True)
 
-        # Extract enhanced microdata and structured data if enabled
+        # Extract enhanced microdata if enabled
         if self.options.extract_microdata:
-            microdata: dict[str, Any] = {}
-
-            # Extract all Open Graph tags
-            og_tags = {}
-            for meta in document.find_all("meta", property=re.compile(r"^og:")):
-                prop = meta.get("property", "")
-                content = meta.get("content", "").strip()
-                if content:
-                    og_tags[prop] = content
-
-            if og_tags:
-                microdata["opengraph"] = og_tags
-
-            # Extract all Twitter Card metadata
-            twitter_tags = {}
-            for meta in document.find_all("meta", attrs={"name": re.compile(r"^twitter:")}):
-                name = meta.get("name", "")
-                content = meta.get("content", "").strip()
-                if content:
-                    twitter_tags[name] = content
-
-            if twitter_tags:
-                microdata["twitter_card"] = twitter_tags
-
-            # Extract microdata (itemscope/itemprop)
-            itemscopes = document.find_all(attrs={"itemscope": True})
-            if itemscopes:
-                microdata_items = []
-                for scope in itemscopes:
-                    item = {"type": scope.get("itemtype", ""), "properties": {}}
-
-                    # Find all itemprop elements within this scope
-                    props = scope.find_all(attrs={"itemprop": True})
-                    for prop in props:
-                        prop_name = prop.get("itemprop")
-                        # Get content from various sources
-                        if prop.get("content"):
-                            prop_value = prop.get("content")
-                        elif prop.name == "meta":
-                            prop_value = prop.get("content", "")
-                        elif prop.name == "link":
-                            prop_value = prop.get("href", "")
-                        else:
-                            prop_value = prop.get_text(strip=True)
-
-                        if prop_name and prop_value:
-                            item["properties"][prop_name] = prop_value
-
-                    if item["properties"]:
-                        microdata_items.append(item)
-
-                if microdata_items:
-                    microdata["items"] = microdata_items
-
-            # Extract JSON-LD structured data
-            json_ld_scripts = document.find_all("script", type="application/ld+json")
-            if json_ld_scripts:
-                import json
-
-                json_ld_data = []
-                for script in json_ld_scripts:
-                    try:
-                        data = json.loads(script.string)
-                        json_ld_data.append(data)
-                    except Exception:
-                        pass  # Skip malformed JSON-LD
-
-                if json_ld_data:
-                    microdata["json_ld"] = json_ld_data
-
-            # Store all microdata in custom fields
+            microdata = self._extract_microdata(document)
             if microdata:
                 metadata.custom["microdata"] = microdata
 

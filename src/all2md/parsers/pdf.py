@@ -162,6 +162,258 @@ def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> 
     return assignments
 
 
+def _detect_columns_by_clustering(
+    blocks: list, block_centers: list[float], x_coords: list[float], column_gap_threshold: float
+) -> list[list[dict]] | None:
+    """Detect columns using k-means clustering.
+
+    Parameters
+    ----------
+    blocks : list
+        Text blocks
+    block_centers : list of float
+        Center x-coordinates of blocks
+    x_coords : list of float
+        Starting x-coordinates
+    column_gap_threshold : float
+        Minimum gap threshold
+
+    Returns
+    -------
+    list of list of dict or None
+        Detected columns or None if single column
+
+    """
+    # Estimate number of columns from gap analysis
+    sorted_x = sorted(set(x_coords))
+    num_columns = 1
+    for i in range(1, len(sorted_x)):
+        gap = sorted_x[i] - sorted_x[i - 1]
+        if gap >= column_gap_threshold:
+            num_columns += 1
+
+    num_columns = max(1, min(num_columns, 4))
+
+    if num_columns <= 1:
+        return None
+
+    # Apply k-means clustering
+    cluster_assignments = _simple_kmeans_1d(block_centers, num_columns)
+
+    # Group blocks by cluster
+    columns_dict: dict[int, list[dict]] = {i: [] for i in range(num_columns)}
+    for block, cluster_id in zip(blocks, cluster_assignments, strict=False):
+        if "bbox" in block:
+            columns_dict[cluster_id].append(block)
+        else:
+            columns_dict[0].append(block)
+
+    # Sort clusters by mean x-coordinate
+    cluster_centers = {}
+    for cluster_id, cluster_blocks in columns_dict.items():
+        if cluster_blocks:
+            centers = [(b["bbox"][0] + b["bbox"][2]) / 2 for b in cluster_blocks if "bbox" in b]
+            cluster_centers[cluster_id] = sum(centers) / len(centers) if centers else 0
+        else:
+            cluster_centers[cluster_id] = 0
+
+    sorted_clusters = sorted(cluster_centers.items(), key=lambda x: x[1])
+    columns = [columns_dict[cluster_id] for cluster_id, _ in sorted_clusters if columns_dict[cluster_id]]
+
+    # Sort blocks within each column by y-coordinate
+    for column in columns:
+        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+
+    return columns
+
+
+def _detect_columns_by_whitespace(
+    blocks: list,
+    block_ranges: list[tuple[float, float]],
+    column_gap_threshold: float,
+    page_width: float,
+    spanning_threshold: float,
+    force_multi_column: bool,
+) -> list[list[dict]] | None:
+    """Detect columns using whitespace gap analysis.
+
+    Parameters
+    ----------
+    blocks : list
+        Text blocks
+    block_ranges : list of tuple
+        (x0, x1) ranges for each block
+    column_gap_threshold : float
+        Minimum gap threshold
+    page_width : float
+        Page width
+    spanning_threshold : float
+        Threshold for spanning blocks
+    force_multi_column : bool
+        Force multi-column detection
+
+    Returns
+    -------
+    list of list of dict or None
+        Detected columns or None if single column
+
+    """
+    x_tolerance = 5.0
+    x0_groups = defaultdict(list)
+
+    # Group blocks by x0 position
+    for i, (x0, x1) in enumerate(block_ranges):
+        width = x1 - x0
+        if not force_multi_column and width > spanning_threshold * page_width:
+            continue
+        x0_key = round(x0 / x_tolerance) * x_tolerance
+        x0_groups[x0_key].append((x0, x1, i))
+
+    if not x0_groups:
+        return None
+
+    # Find group ranges
+    group_ranges = []
+    for x0_key in sorted(x0_groups.keys()):
+        group = x0_groups[x0_key]
+        min_x0 = min(x0 for x0, x1, i in group)
+        max_x1 = max(x1 for x0, x1, i in group)
+        group_ranges.append((min_x0, max_x1))
+
+    # Find whitespace gaps
+    whitespace_gaps = []
+    for i in range(len(group_ranges) - 1):
+        gap_width = group_ranges[i + 1][0] - group_ranges[i][1]
+        if gap_width >= column_gap_threshold:
+            whitespace_gaps.append({
+                "start": group_ranges[i][1],
+                "end": group_ranges[i + 1][0],
+                "width": gap_width
+            })
+
+    if not whitespace_gaps:
+        return None
+
+    # Find consistent gaps
+    gap_frequency: dict[float, int] = {}
+    for gap in whitespace_gaps:
+        gap_pos = round((gap["start"] + gap["end"]) / 2 / 5) * 5
+        gap_frequency[gap_pos] = gap_frequency.get(gap_pos, 0) + 1
+
+    if not gap_frequency:
+        return None
+
+    max_freq = max(gap_frequency.values())
+    threshold_freq = max(2, max_freq * 0.3)
+    column_boundaries = sorted([pos for pos, freq in gap_frequency.items() if freq >= threshold_freq])
+
+    if not column_boundaries:
+        return None
+
+    # Split blocks into columns
+    whitespace_columns: list[list[dict]] = [[] for _ in range(len(column_boundaries) + 1)]
+
+    for block in blocks:
+        if "bbox" not in block:
+            whitespace_columns[0].append(block)
+            continue
+
+        block_center = (block["bbox"][0] + block["bbox"][2]) / 2
+        assigned = False
+        for i, boundary in enumerate(column_boundaries):
+            if block_center < boundary:
+                whitespace_columns[i].append(block)
+                assigned = True
+                break
+
+        if not assigned:
+            whitespace_columns[-1].append(block)
+
+    # Sort and clean up
+    for column in whitespace_columns:
+        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+
+    whitespace_columns = [col for col in whitespace_columns if col]
+
+    return whitespace_columns if len(whitespace_columns) > 1 else None
+
+
+def _detect_columns_by_gaps(
+    blocks: list,
+    block_ranges: list[tuple[float, float]],
+    x_coords: list[float],
+    column_gap_threshold: float,
+    force_multi_column: bool,
+) -> list[list[dict]]:
+    """Detect columns using simple gap detection (fallback method).
+
+    Parameters
+    ----------
+    blocks : list
+        Text blocks
+    block_ranges : list of tuple
+        (x0, x1) ranges for each block
+    x_coords : list of float
+        Starting x-coordinates
+    column_gap_threshold : float
+        Minimum gap threshold
+    force_multi_column : bool
+        Force multi-column detection
+
+    Returns
+    -------
+    list of list of dict
+        Detected columns (always returns at least single column)
+
+    """
+    sorted_x = sorted(set(x_coords))
+    column_boundaries = [sorted_x[0]]
+
+    for i in range(1, len(sorted_x)):
+        gap = sorted_x[i] - sorted_x[i - 1]
+        if gap >= column_gap_threshold:
+            column_boundaries.append(sorted_x[i])
+
+    if len(column_boundaries) <= 1:
+        return [blocks]
+
+    # Check for single column heuristic
+    if not force_multi_column and len(block_ranges) >= 3:
+        widths = [x1 - x0 for x0, x1 in block_ranges]
+        median_width = sorted(widths)[len(widths) // 2]
+        min_x = min(x0 for x0, x1 in block_ranges)
+        max_x = max(x1 for x0, x1 in block_ranges)
+        page_width = max_x - min_x
+
+        if median_width > 0.6 * page_width:
+            return [blocks]
+
+    # Group blocks into columns
+    columns = [[] for _ in range(len(column_boundaries))]
+
+    for block in blocks:
+        if "bbox" not in block:
+            columns[0].append(block)
+            continue
+
+        x0 = block["bbox"][0]
+        assigned = False
+        for i in range(len(column_boundaries) - 1):
+            if column_boundaries[i] <= x0 < column_boundaries[i + 1]:
+                columns[i].append(block)
+                assigned = True
+                break
+
+        if not assigned:
+            columns[-1].append(block)
+
+    # Sort and clean up
+    for column in columns:
+        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
+
+    return [col for col in columns if col]
+
+
 def detect_columns(
     blocks: list, column_gap_threshold: float = 20, use_clustering: bool = False, force_multi_column: bool = False
 ) -> list[list[dict]]:
@@ -204,229 +456,41 @@ def detect_columns(
     if not blocks:
         return [blocks]
 
-    # Extract x-coordinates and build whitespace map
+    # Extract block coordinates
     x_coords = []
     block_ranges = []
     block_centers = []
-    block_widths = []
     for block in blocks:
         if "bbox" in block:
             x0, x1 = block["bbox"][0], block["bbox"][2]
             x_coords.append(x0)
             block_ranges.append((x0, x1))
             block_centers.append((x0 + x1) / 2)
-            block_widths.append(x1 - x0)
 
     if len(x_coords) < 2:
         return [blocks]
 
-    # Calculate page width for detecting spanning blocks
+    # Calculate page dimensions
     min_x = min(x0 for x0, x1 in block_ranges)
     max_x = max(x1 for x0, x1 in block_ranges)
     page_width = max_x - min_x
-    spanning_threshold = 0.65  # Blocks wider than 65% of page width are considered spanning
+    spanning_threshold = 0.65
 
-    # Use k-means clustering if requested
+    # Try clustering-based detection if requested
     if use_clustering and block_centers:
-        # Estimate number of columns from gap analysis
-        sorted_x = sorted(set(x_coords))
-        num_columns = 1
-        for i in range(1, len(sorted_x)):
-            gap = sorted_x[i] - sorted_x[i - 1]
-            if gap >= column_gap_threshold:
-                num_columns += 1
-
-        # Limit to reasonable number of columns (1-4)
-        num_columns = max(1, min(num_columns, 4))
-
-        if num_columns > 1:
-            # Apply k-means clustering on block centers
-            cluster_assignments = _simple_kmeans_1d(block_centers, num_columns)
-
-            # Group blocks by cluster
-            columns_dict: dict[int, list[dict]] = {i: [] for i in range(num_columns)}
-            for _block_idx, (block, cluster_id) in enumerate(zip(blocks, cluster_assignments, strict=False)):
-                if "bbox" in block:
-                    columns_dict[cluster_id].append(block)
-                else:
-                    # Blocks without bbox go to first cluster
-                    columns_dict[0].append(block)
-
-            # Convert dict to sorted list of columns (left to right)
-            # Sort clusters by their mean x-coordinate
-            cluster_centers = {}
-            for cluster_id, cluster_blocks in columns_dict.items():
-                if cluster_blocks:
-                    centers = [(b["bbox"][0] + b["bbox"][2]) / 2 for b in cluster_blocks if "bbox" in b]
-                    if centers:
-                        cluster_centers[cluster_id] = sum(centers) / len(centers)
-                    else:
-                        cluster_centers[cluster_id] = 0
-                else:
-                    cluster_centers[cluster_id] = 0
-
-            sorted_clusters = sorted(cluster_centers.items(), key=lambda x: x[1])
-            columns = [columns_dict[cluster_id] for cluster_id, _ in sorted_clusters if columns_dict[cluster_id]]
-
-            # Sort blocks within each column by y-coordinate (top to bottom)
-            for column in columns:
-                column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-
+        columns = _detect_columns_by_clustering(blocks, block_centers, x_coords, column_gap_threshold)
+        if columns:
             return columns
 
-    # Build whitespace map: find gaps between column groups
-    # Group blocks by starting x-position (with small tolerance for alignment variations)
-    x_tolerance = 5.0  # Points tolerance for grouping blocks with similar x0
-    x0_groups = defaultdict(list)
+    # Try whitespace-based detection
+    columns = _detect_columns_by_whitespace(
+        blocks, block_ranges, column_gap_threshold, page_width, spanning_threshold, force_multi_column
+    )
+    if columns:
+        return columns
 
-    for i, (x0, x1) in enumerate(block_ranges):
-        width = x1 - x0
-        # Skip blocks that span most of the page (headers, footers, etc)
-        # UNLESS force_multi_column is enabled (bypasses this heuristic)
-        if not force_multi_column and width > spanning_threshold * page_width:
-            continue
-        # Group by rounded x0 position
-        x0_key = round(x0 / x_tolerance) * x_tolerance
-        x0_groups[x0_key].append((x0, x1, i))
-
-    if not x0_groups:
-        # All blocks are spanning blocks
-        return [blocks]
-
-    # For each group, find the maximum x1 (rightmost edge)
-    group_ranges = []
-    for x0_key in sorted(x0_groups.keys()):
-        group = x0_groups[x0_key]
-        min_x0 = min(x0 for x0, x1, i in group)
-        max_x1 = max(x1 for x0, x1, i in group)
-        group_ranges.append((min_x0, max_x1))
-
-    # Find whitespace gaps between groups (actual column boundaries)
-    whitespace_gaps = []
-    for i in range(len(group_ranges) - 1):
-        current_right = group_ranges[i][1]
-        next_left = group_ranges[i + 1][0]
-        gap_width = next_left - current_right
-
-        if gap_width >= column_gap_threshold:
-            # Record the gap
-            whitespace_gaps.append({"start": current_right, "end": next_left, "width": gap_width})
-
-    # Find consistent gaps that span multiple blocks (likely column separators)
-    if whitespace_gaps:
-        # Count how many gaps overlap at each position
-        gap_frequency: dict[float, int] = {}
-        for gap in whitespace_gaps:
-            # Round to nearest 5 points to group similar positions
-            gap_pos = round((gap["start"] + gap["end"]) / 2 / 5) * 5
-            gap_frequency[gap_pos] = gap_frequency.get(gap_pos, 0) + 1
-
-        # Find positions with highest frequency (likely column boundaries)
-        if gap_frequency:
-            max_freq = max(gap_frequency.values())
-            # Use gaps that appear in at least 30% of possible positions
-            threshold_freq = max(2, max_freq * 0.3)
-            column_boundaries = sorted([pos for pos, freq in gap_frequency.items() if freq >= threshold_freq])
-
-            if column_boundaries:
-                # Use these boundaries to split columns
-                whitespace_columns: list[list[dict]] = [[] for _ in range(len(column_boundaries) + 1)]
-
-                for block in blocks:
-                    if "bbox" not in block:
-                        whitespace_columns[0].append(block)
-                        continue
-
-                    x0 = block["bbox"][0]
-                    x1 = block["bbox"][2]
-                    block_center = (x0 + x1) / 2
-
-                    # Find which column this block belongs to based on center point
-                    assigned = False
-                    for i, boundary in enumerate(column_boundaries):
-                        if block_center < boundary:
-                            whitespace_columns[i].append(block)
-                            assigned = True
-                            break
-
-                    if not assigned:
-                        whitespace_columns[-1].append(block)
-
-                # Sort blocks within each column by y-coordinate (top to bottom)
-                for column in whitespace_columns:
-                    column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-
-                # Remove empty columns
-                whitespace_columns = [col for col in whitespace_columns if col]
-
-                if len(whitespace_columns) > 1:
-                    return whitespace_columns
-
-    # If enhanced detection found no columns, return single column
-    # Don't fall back to the simple algorithm as it measures wrong gaps
-    if not whitespace_gaps:
-        return [blocks]
-
-    # Fallback to original simple gap detection for edge cases
-    # Sort x-coordinates and find significant gaps
-    sorted_x = sorted(set(x_coords))
-    column_boundaries = [sorted_x[0]]
-
-    for i in range(1, len(sorted_x)):
-        gap = sorted_x[i] - sorted_x[i - 1]
-        if gap >= column_gap_threshold:
-            column_boundaries.append(sorted_x[i])
-
-    # If no significant gaps found, treat as single column
-    if len(column_boundaries) <= 1:
-        return [blocks]
-
-    # Check if we have overlapping blocks that suggest single column
-    # UNLESS force_multi_column is enabled (bypasses this heuristic)
-    if not force_multi_column and len(block_ranges) >= 3:
-        # Find the median width to determine if blocks are mostly full-width
-        widths = [x1 - x0 for x0, x1 in block_ranges]
-        median_width = sorted(widths)[len(widths) // 2]
-
-        # Find overall page bounds
-        min_x = min(x0 for x0, x1 in block_ranges)
-        max_x = max(x1 for x0, x1 in block_ranges)
-        page_width = max_x - min_x
-
-        # If median block width is > 60% of page width, likely single column
-        if median_width > 0.6 * page_width:
-            return [blocks]
-
-    # Group blocks into columns based on boundaries
-    columns = [[] for _ in range(len(column_boundaries))]
-
-    for block in blocks:
-        if "bbox" not in block:
-            columns[0].append(block)  # Default to first column
-            continue
-
-        x0 = block["bbox"][0]
-
-        # Find which column this block belongs to
-        assigned = False
-        for i in range(len(column_boundaries) - 1):
-            if column_boundaries[i] <= x0 < column_boundaries[i + 1]:
-                columns[i].append(block)
-                assigned = True
-                break
-
-        if not assigned:
-            # Assign to last column
-            columns[-1].append(block)
-
-    # Sort blocks within each column by y-coordinate (top to bottom)
-    for column in columns:
-        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-
-    # Remove empty columns
-    columns = [col for col in columns if col]
-
-    return columns
+    # Fallback to simple gap detection
+    return _detect_columns_by_gaps(blocks, block_ranges, x_coords, column_gap_threshold, force_multi_column)
 
 
 def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -> str:
@@ -1893,6 +1957,268 @@ class PdfToAstConverter(BaseParser):
             # Clean up resources
             pix = None
 
+    def _detect_page_tables(
+        self, page: "fitz.Page", page_num: int, total_pages: int
+    ) -> tuple[list[dict], list[Any], list[Any]]:
+        """Detect tables on a PDF page.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page to analyze
+        page_num : int
+            Page number (0-based)
+        total_pages : int
+            Total number of pages
+
+        Returns
+        -------
+        tuple
+            (table_info, fallback_table_rects, fallback_table_lines)
+
+        """
+        import fitz
+
+        mode = self.options.table_detection_mode.lower()
+
+        class EmptyTables:
+            tables: list[Any] = []
+
+            def __getitem__(self, index: int) -> Any:
+                return self.tables[index]
+
+        fallback_table_rects: list[Any] = []
+        fallback_table_lines: list[Any] = []
+        tabs = None
+
+        if mode == "none":
+            tabs = EmptyTables()
+        elif mode == "pymupdf":
+            tabs = page.find_tables()
+        elif mode == "ruling":
+            fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
+                page, self.options.table_ruling_line_threshold
+            )
+            tabs = EmptyTables()
+        else:
+            tabs = page.find_tables()
+            if self.options.enable_table_fallback_detection and not tabs.tables:
+                fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
+                    page, self.options.table_ruling_line_threshold
+                )
+
+        # Build table info list
+        table_info = []
+        for i, t in enumerate(tabs.tables):
+            bbox = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+            table_info.append({"bbox": bbox, "idx": i, "type": "pymupdf", "table_obj": t})
+        for i, rect in enumerate(fallback_table_rects):
+            table_info.append({"bbox": rect, "idx": i, "type": "fallback", "lines": fallback_table_lines[i]})
+
+        # Emit progress event if tables found
+        total_table_count = len(table_info)
+        if total_table_count > 0:
+            self._emit_progress(
+                "detected",
+                f"Found {total_table_count} table{'s' if total_table_count != 1 else ''} on page {page_num + 1}",
+                current=page_num + 1,
+                total=total_pages,
+                detected_type="table",
+                table_count=total_table_count,
+                page=page_num + 1,
+            )
+
+        return table_info, fallback_table_rects, fallback_table_lines
+
+    def _apply_ocr_if_needed(
+        self, page: "fitz.Page", all_blocks: list[dict], extracted_text: str
+    ) -> list[dict]:
+        """Apply OCR to page if needed based on options and content.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page
+        all_blocks : list of dict
+            Extracted text blocks
+        extracted_text : str
+            Extracted plain text from blocks
+
+        Returns
+        -------
+        list of dict
+            Updated blocks (may include OCR-generated blocks)
+
+        """
+        use_ocr = _should_use_ocr(page, extracted_text, self.options)
+
+        if not use_ocr:
+            return all_blocks
+
+        try:
+            ocr_text = self._ocr_page_to_text(page, self.options)
+
+            if not ocr_text.strip():
+                logger.warning("OCR returned empty text, keeping original extraction")
+                return all_blocks
+
+            # Handle preserve_existing_text option
+            if self.options.ocr.preserve_existing_text and extracted_text.strip():
+                logger.debug(
+                    f"Supplementing existing text ({len(extracted_text)} chars) with OCR ({len(ocr_text)} chars)"
+                )
+                # Add OCR as additional block
+                ocr_block = {
+                    "type": 0,
+                    "bbox": page.rect,
+                    "lines": [
+                        {
+                            "spans": [{"text": ocr_text, "font": "OCR", "size": 11, "flags": 0, "color": 0}],
+                            "bbox": page.rect,
+                        }
+                    ],
+                }
+                all_blocks.append(ocr_block)
+                return all_blocks
+            else:
+                logger.debug(f"Replacing PyMuPDF text ({len(extracted_text)} chars) with OCR ({len(ocr_text)} chars)")
+                # Replace with OCR block
+                return [
+                    {
+                        "type": 0,
+                        "bbox": page.rect,
+                        "lines": [
+                            {
+                                "spans": [{"text": ocr_text, "font": "OCR", "size": 11, "flags": 0, "color": 0}],
+                                "bbox": page.rect,
+                            }
+                        ],
+                    }
+                ]
+
+        except Exception as e:
+            logger.warning(f"OCR processing failed: {e}. Falling back to standard text extraction.")
+            return all_blocks
+
+    def _assign_tables_to_columns(
+        self, table_info: list[dict], columns: list[list[dict]]
+    ) -> None:
+        """Assign each table to a column based on x-coordinate.
+
+        Parameters
+        ----------
+        table_info : list of dict
+            Table information with bbox
+        columns : list of list of dict
+            Column blocks
+
+        """
+        for table in table_info:
+            table_center_x = (table["bbox"].x0 + table["bbox"].x1) / 2
+            table["column"] = 0  # Default to first column
+
+            for col_idx, column in enumerate(columns):
+                if column:
+                    col_x_values = [b["bbox"][0] for b in column if "bbox" in b]
+                    if col_x_values:
+                        col_min_x = min(col_x_values)
+                        col_max_x = max(b["bbox"][2] for b in column if "bbox" in b)
+                        if col_min_x <= table_center_x <= col_max_x:
+                            table["column"] = col_idx
+                            break
+
+    def _process_columns_and_tables(
+        self,
+        columns: list[list[dict]],
+        table_info: list[dict],
+        page: "fitz.Page",
+        page_num: int,
+        page_images: list[Any],
+    ) -> list[Node]:
+        """Process columns with tables inserted at correct positions.
+
+        Parameters
+        ----------
+        columns : list of list of dict
+            Text block columns
+        table_info : list of dict
+            Table information
+        page : fitz.Page
+            PDF page
+        page_num : int
+            Page number
+        page_images : list
+            Extracted images for the page
+
+        Returns
+        -------
+        list of Node
+            Processed AST nodes
+
+        """
+        nodes: list[Node] = []
+
+        # Calculate average line height for link overlap threshold
+        line_heights = []
+        for column in columns:
+            for block in column:
+                for line in block.get("lines", []):
+                    if "bbox" in line:
+                        line_height = line["bbox"][3] - line["bbox"][1]
+                        if line_height > 0:
+                            line_heights.append(line_height)
+        average_line_height: float | None = sum(line_heights) / len(line_heights) if line_heights else None
+
+        # Process each column
+        for col_idx, column in enumerate(columns):
+            col_tables = [t for t in table_info if t["column"] == col_idx]
+
+            # Build combined list of blocks and tables, sorted by y-coordinate
+            items = []
+            for block in column:
+                if "bbox" in block:
+                    items.append(("block", block["bbox"][1], block))
+            for table in col_tables:
+                items.append(("table", table["bbox"].y0, table))
+
+            items.sort(key=lambda x: x[1])
+
+            # Process items in order
+            try:
+                links = [line for line in page.get_links() if line["kind"] == 2]
+            except (AttributeError, Exception):
+                links = []
+
+            for item_type, _y, item_data in items:
+                if item_type == "block":
+                    block_nodes = self._process_single_block_to_ast(item_data, links, page_num, average_line_height)
+                    nodes.extend(block_nodes)
+                elif item_type == "table":
+                    if item_data["type"] == "pymupdf":
+                        table_node = self._process_table_to_ast(item_data["table_obj"], page_num)
+                        if table_node:
+                            nodes.append(table_node)
+                    elif item_data["type"] == "fallback":
+                        h_lines, v_lines = item_data["lines"]
+                        table_node = self._extract_table_from_ruling_rect(
+                            page, item_data["bbox"], h_lines, v_lines, page_num
+                        )
+                        if table_node:
+                            nodes.append(table_node)
+
+        # Post-processing
+        nodes = self._merge_adjacent_paragraphs(nodes)
+        nodes = self._convert_paragraphs_to_lists(nodes)
+
+        # Add images if placement markers enabled
+        if page_images and self.options.image_placement_markers:
+            for img in page_images:
+                img_node = self._create_image_node(img, page_num)
+                if img_node:
+                    nodes.append(img_node)
+
+        return nodes
+
     def _process_page_to_ast(
         self,
         page: "fitz.Page",
@@ -1924,201 +2250,59 @@ class PdfToAstConverter(BaseParser):
         """
         import fitz
 
-        nodes: list[Node] = []
-
-        # Extract images for all attachment modes except "skip"
+        # Extract images if needed
         page_images: list[Any] = []
         if self.options.attachment_mode != "skip":
             page_images, page_footnotes = extract_page_images(
                 page, page_num, self.options, base_filename, attachment_sequencer
             )
-            # Merge footnotes from this page into the document-wide collection
             self._attachment_footnotes.update(page_footnotes)
 
-        # 1. Locate all tables on page based on table_detection_mode
-        tabs = None
-        mode = self.options.table_detection_mode.lower()
+        # Detect tables on the page
+        table_info, _, _ = self._detect_page_tables(page, page_num, total_pages)
 
-        # Define EmptyTables class for cases where no tables are found
-        class EmptyTables:
-            tables: list[Any] = []
-
-            def __getitem__(self, index: int) -> Any:
-                return self.tables[index]
-
-        fallback_table_rects: list[Any] = []
-        fallback_table_lines: list[Any] = []
-
-        if mode == "none":
-            # No table detection
-            tabs = EmptyTables()
-        elif mode == "pymupdf":
-            # Only use PyMuPDF table detection
-            tabs = page.find_tables()
-        elif mode == "ruling":
-            # Only use ruling line detection (fallback method)
-            fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
-                page, self.options.table_ruling_line_threshold
-            )
-            # Use EmptyTables for PyMuPDF tables, we'll process fallback tables separately
-            tabs = EmptyTables()
-        else:  # "both" or default
-            # Use PyMuPDF first, fallback to ruling if needed
-            tabs = page.find_tables()
-            if self.options.enable_table_fallback_detection and not tabs.tables:
-                fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
-                    page, self.options.table_ruling_line_threshold
-                )
-
-        # Emit table detected event if tables found
-        total_table_count = len(tabs.tables) + len(fallback_table_rects)
-        if total_table_count > 0:
-            self._emit_progress(
-                "detected",
-                f"Found {total_table_count} table{'s' if total_table_count != 1 else ''} on page {page_num + 1}",
-                current=page_num + 1,
-                total=total_pages,
-                detected_type="table",
-                table_count=total_table_count,
-                page=page_num + 1,
-            )
-
-        # 2. NEW APPROACH: Process entire page with column-aware table placement
-        # Get all text blocks from the entire page (no clipping by table regions)
+        # Extract all text blocks from the page
         try:
             text_flags = fitz.TEXTFLAGS_TEXT
             if self.options.merge_hyphenated_words:
                 text_flags |= fitz.TEXT_DEHYPHENATE
 
-            all_blocks = page.get_text(
-                "dict",
-                flags=text_flags,
-                sort=False,
-            )["blocks"]
+            all_blocks = page.get_text("dict", flags=text_flags, sort=False)["blocks"]
         except (AttributeError, KeyError, Exception):
             return []
 
-        # Check if OCR should be applied to this page
         # Extract plain text for OCR detection
-        extracted_text = ""
-        for block in all_blocks:
-            if block.get("type") == 0:  # Text block
-                for line in block.get("lines", []):
-                    for span in line.get("spans", []):
-                        extracted_text += span.get("text", "")
+        extracted_text = "".join(
+            span.get("text", "")
+            for block in all_blocks
+            if block.get("type") == 0
+            for line in block.get("lines", [])
+            for span in line.get("spans", [])
+        )
 
-        # Determine if OCR is needed
-        use_ocr = _should_use_ocr(page, extracted_text, self.options)
-
-        if use_ocr:
-            try:
-                ocr_text = self._ocr_page_to_text(page, self.options)
-
-                if ocr_text.strip():
-                    # Handle preserve_existing_text option
-                    if self.options.ocr.preserve_existing_text and extracted_text.strip():
-                        # Combine existing text with OCR text
-                        # Add OCR text as a new block at the end
-                        logger.debug(
-                            f"Supplementing existing text ({len(extracted_text)} chars) "
-                            f"with OCR ({len(ocr_text)} chars)"
-                        )
-                        # Create a synthetic block for OCR text
-                        ocr_block = {
-                            "type": 0,
-                            "bbox": page.rect,
-                            "lines": [
-                                {
-                                    "spans": [
-                                        {
-                                            "text": ocr_text,
-                                            "font": "OCR",
-                                            "size": 11,
-                                            "flags": 0,
-                                            "color": 0,
-                                        }
-                                    ],
-                                    "bbox": page.rect,
-                                }
-                            ],
-                        }
-                        all_blocks.append(ocr_block)
-                    else:
-                        # Replace existing blocks with OCR text
-                        logger.debug(
-                            f"Replacing PyMuPDF text ({len(extracted_text)} chars) " f"with OCR ({len(ocr_text)} chars)"
-                        )
-                        # Create a single block for all OCR text
-                        all_blocks = [
-                            {
-                                "type": 0,
-                                "bbox": page.rect,
-                                "lines": [
-                                    {
-                                        "spans": [
-                                            {
-                                                "text": ocr_text,
-                                                "font": "OCR",
-                                                "size": 11,
-                                                "flags": 0,
-                                                "color": 0,
-                                            }
-                                        ],
-                                        "bbox": page.rect,
-                                    }
-                                ],
-                            }
-                        ]
-                else:
-                    logger.warning("OCR returned empty text, keeping original extraction")
-
-            except Exception as e:
-                logger.warning(f"OCR processing failed: {e}. Falling back to standard text extraction.")
-                # Continue with original all_blocks
+        # Apply OCR if needed
+        all_blocks = self._apply_ocr_if_needed(page, all_blocks, extracted_text)
 
         # Filter headers/footers if enabled
         if self.options.trim_headers_footers:
             all_blocks = self._filter_headers_footers(all_blocks, page)
 
-        # Build table list first to exclude table regions from text processing
-        table_info = []
-        for i, t in enumerate(tabs.tables):
-            bbox = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
-            table_info.append({"bbox": bbox, "idx": i, "type": "pymupdf", "table_obj": t})
-        for i, rect in enumerate(fallback_table_rects):
-            table_info.append({"bbox": rect, "idx": i, "type": "fallback", "lines": fallback_table_lines[i]})
-
-        # Filter out blocks that are inside table regions
+        # Filter out blocks inside table regions
         text_blocks = []
         for block in all_blocks:
             if "bbox" not in block:
                 text_blocks.append(block)
                 continue
+
             block_rect = fitz.Rect(block["bbox"])
-            # Check if this block overlaps significantly with any table
-            is_in_table = False
-            for table in table_info:
-                overlap = block_rect & table["bbox"]
-                # If more than 50% of block area overlaps with table, exclude it
-                if abs(overlap) > 0.5 * abs(block_rect):
-                    is_in_table = True
-                    break
+            is_in_table = any(
+                abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect)
+                for table in table_info
+            )
             if not is_in_table:
                 text_blocks.append(block)
 
-        # Calculate average line height for auto-calibration of link overlap threshold
-        line_heights = []
-        for block in text_blocks:
-            for line in block.get("lines", []):
-                if "bbox" in line:
-                    line_height = line["bbox"][3] - line["bbox"][1]
-                    if line_height > 0:
-                        line_heights.append(line_height)
-        average_line_height: float | None = None
-        if line_heights:
-            average_line_height = sum(line_heights) / len(line_heights)
-
-        # Apply column detection to text blocks (excluding table content) if enabled
+        # Apply column detection if enabled
         if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
             force_multi = self.options.column_detection_mode == "force_multi"
             columns = detect_columns(
@@ -2128,78 +2312,13 @@ class PdfToAstConverter(BaseParser):
                 force_multi_column=force_multi,
             )
         else:
-            # No column detection - treat as single column
             columns = [text_blocks]
 
-        # Assign each table to a column based on its x-coordinate
-        for table in table_info:
-            table_center_x = (table["bbox"].x0 + table["bbox"].x1) / 2
-            # Find which column this table belongs to
-            table["column"] = 0  # Default to first column
-            for col_idx, column in enumerate(columns):
-                if column:
-                    # Get x-range of this column
-                    col_x_values = [b["bbox"][0] for b in column if "bbox" in b]
-                    if col_x_values:
-                        col_min_x = min(col_x_values)
-                        col_max_x = max(b["bbox"][2] for b in column if "bbox" in b)
-                        # Check if table center is within this column's x-range
-                        if col_min_x <= table_center_x <= col_max_x:
-                            table["column"] = col_idx
-                            break
+        # Assign tables to columns
+        self._assign_tables_to_columns(table_info, columns)
 
-        # Process each column with its tables inserted at the correct y-position
-        for col_idx, column in enumerate(columns):
-            # Get tables that belong to this column
-            col_tables = [t for t in table_info if t["column"] == col_idx]
-
-            # Build a combined list of text blocks and tables, sorted by y-coordinate
-            items = []
-            for block in column:
-                if "bbox" in block:
-                    items.append(("block", block["bbox"][1], block))
-            for table in col_tables:
-                items.append(("table", table["bbox"].y0, table))
-
-            # Sort by y-coordinate
-            items.sort(key=lambda x: x[1])
-
-            # Process items in order
-            for item_type, _y, item_data in items:
-                if item_type == "block":
-                    # Process text block - get links from page
-                    try:
-                        links = [line for line in page.get_links() if line["kind"] == 2]
-                    except (AttributeError, Exception):
-                        links = []
-                    block_nodes = self._process_single_block_to_ast(item_data, links, page_num, average_line_height)
-                    nodes.extend(block_nodes)
-                elif item_type == "table":
-                    # Process table
-                    if item_data["type"] == "pymupdf":
-                        table_node = self._process_table_to_ast(item_data["table_obj"], page_num)
-                        if table_node:
-                            nodes.append(table_node)
-                    elif item_data["type"] == "fallback":
-                        h_lines, v_lines = item_data["lines"]
-                        table_node = self._extract_table_from_ruling_rect(
-                            page, item_data["bbox"], h_lines, v_lines, page_num
-                        )
-                        if table_node:
-                            nodes.append(table_node)
-
-        # Merge consecutive paragraphs that don't have significant gaps
-        nodes = self._merge_adjacent_paragraphs(nodes)
-
-        # Convert paragraphs with list markers into List/ListItem structures
-        nodes = self._convert_paragraphs_to_lists(nodes)
-
-        # Add images if placement markers enabled
-        if page_images and self.options.image_placement_markers:
-            for img in page_images:
-                img_node = self._create_image_node(img, page_num)
-                if img_node:
-                    nodes.append(img_node)
+        # Process columns and tables
+        nodes = self._process_columns_and_tables(columns, table_info, page, page_num, page_images)
 
         return nodes
 
