@@ -87,7 +87,7 @@ def _is_openapi_content(content: bytes) -> bool:
 
         # Try parsing as YAML
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             data = yaml.safe_load(text)
             if isinstance(data, dict):
@@ -246,7 +246,7 @@ class OpenApiParser(BaseParser):
             content = input_data
         else:
             # File-like object
-            raw_content: bytes | str = input_data.read()  # type: ignore[assignment]
+            raw_content: bytes | str = input_data.read()
             if isinstance(raw_content, str):
                 content = raw_content.encode("utf-8")
             else:

@@ -389,7 +389,7 @@ def _detect_columns_by_gaps(
             return [blocks]
 
     # Group blocks into columns
-    columns = [[] for _ in range(len(column_boundaries))]
+    columns: list[list[dict]] = [[] for _ in range(len(column_boundaries))]
 
     for block in blocks:
         if "bbox" not in block:
@@ -1930,7 +1930,7 @@ class PdfToAstConverter(BaseParser):
 
         # Convert PyMuPDF pixmap to PIL Image
         # PyMuPDF uses RGB format
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
 
         # Run Tesseract OCR
         try:
@@ -3519,8 +3519,8 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
     renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
     optional_packages=[
-        ("pytesseract", "pytesseract", ">=0.3.10"),
-        ("Pillow", "PIL", ">=9.0.0"),
+        ("pytesseract", "pytesseract"),
+        ("Pillow", "PIL"),
     ],
     import_error_message=("PDF conversion requires 'PyMuPDF'. " "Install with: pip install pymupdf"),
     parser_options_class=PdfOptions,

@@ -628,10 +628,14 @@ class ZipToAstConverter(BaseParser):
             file_obj.seek(0)
 
             # Convert using the detected format
+            from typing import cast
+
+            from all2md.constants import DocumentFormat
+
             doc = to_ast(
                 file_obj,
-                source_format=detected_format,
-                progress=self.progress_callback,  # type: ignore[arg-type]
+                source_format=cast(DocumentFormat, detected_format),
+                progress=self.progress_callback,
             )
 
             return doc

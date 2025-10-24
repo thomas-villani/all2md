@@ -1051,7 +1051,7 @@ class HtmlToAstConverter(BaseParser):
             Converted node based on details_parsing option
 
         """
-        if self.options.details_parsing == "ignore":
+        if self.options.details_parsing == "skip":
             return None
 
         if self.options.details_parsing == "html":
@@ -1922,7 +1922,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renders_as_string=True,
     parser_required_packages=[("beautifulsoup4", "bs4", ">=4.14.2")],
     renderer_required_packages=[],
-    optional_packages=[("readability-lxml", "readability", ">=0.8.1")],
+    optional_packages=[("readability-lxml", "readability")],
     parser_options_class=HtmlOptions,
     renderer_options_class="all2md.options.html.HtmlRendererOptions",
     description="Convert HTML documents to/from AST",

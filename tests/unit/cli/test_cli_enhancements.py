@@ -342,6 +342,10 @@ class TestEnhancedDryRun:
 
         mock_registry.get_format_info = Mock(return_value=[mock_metadata])
 
+        # Set up mock return values for dependency checking
+        mock_check_version.return_value = (True, "1.0.0")
+        mock_check_installed.return_value = True
+
         args = Mock()
         args.rich = False
         args.collate = False

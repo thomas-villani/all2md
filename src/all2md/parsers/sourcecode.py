@@ -89,10 +89,7 @@ class SourceCodeToAstConverter(BaseParser):
             elif hasattr(input_data, "read"):
                 # Handle file-like object (IO[bytes])
                 raw_content = input_data.read()
-                if isinstance(raw_content, bytes):
-                    content = read_text_with_encoding_detection(raw_content)
-                else:
-                    content = str(raw_content)
+                content = read_text_with_encoding_detection(raw_content)
             else:
                 raise ValueError(f"Unsupported input type: {type(input_data)}")
         except Exception as e:

@@ -290,14 +290,14 @@ class OutlookToAstConverter(BaseParser):
         try:
             # Load MSG file
             if isinstance(input_data, (str, Path)):
-                msg_obj = extract_msg.Message(str(input_data))
+                msg_obj = extract_msg.Message(str(input_data))  # type: ignore[no-untyped-call]
             elif isinstance(input_data, bytes):
                 # Save to temp file
                 with tempfile.NamedTemporaryFile(suffix=".msg", delete=False) as tmp:
                     tmp.write(input_data)
                     tmp_path = tmp.name
                 try:
-                    msg_obj = extract_msg.Message(tmp_path)
+                    msg_obj = extract_msg.Message(tmp_path)  # type: ignore[no-untyped-call]
                 finally:
                     # Clean up temp file
                     try:
@@ -314,7 +314,7 @@ class OutlookToAstConverter(BaseParser):
                     tmp.write(data)
                     tmp_path = tmp.name
                 try:
-                    msg_obj = extract_msg.Message(tmp_path)
+                    msg_obj = extract_msg.Message(tmp_path)  # type: ignore[no-untyped-call]
                 finally:
                     # Clean up temp file
                     try:

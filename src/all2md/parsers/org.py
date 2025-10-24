@@ -353,7 +353,10 @@ class OrgParser(BaseParser):
                 footnote_content_text = footnote_match.group(2)
                 # Parse footnote content as inline
                 footnote_content = [Paragraph(content=self._parse_inline(footnote_content_text))]
-                footnote_defs.append(FootnoteDefinition(identifier=footnote_id, content=cast(list[Node], footnote_content)))
+                footnote_def = FootnoteDefinition(
+                    identifier=footnote_id, content=cast(list[Node], footnote_content)
+                )
+                footnote_defs.append(footnote_def)
                 continue
 
             # Check for math blocks \[...\]

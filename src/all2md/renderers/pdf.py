@@ -118,6 +118,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._footnote_counter: int = 0
         self._footnote_id_to_number: dict[str, int] = {}
         self._footnote_definitions: dict[str, str] = {}
+        self._paragraph_buffer: list[str] | None = None
 
     @requires_dependencies("pdf_render", [("reportlab", "reportlab", ">=4.0.0")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -1175,9 +1176,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         if comment_mode == "visible":
             # Render as visible paragraph
-            p = self._Paragraph(f"[{comment_text}]", self._get_style("BodyText"))
-            self._story.append(p)
-            self._story.append(self._Spacer(1, 6))
+            p = self._Paragraph(f"[{comment_text}]", self._styles["BodyText"])
+            self._flowables.append(p)
+            self._flowables.append(self._Spacer(1, 6))
 
     def visit_comment_inline(self, node: CommentInline) -> None:
         """Render a CommentInline node according to comment_mode option.

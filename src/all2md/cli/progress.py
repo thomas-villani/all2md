@@ -313,7 +313,7 @@ def create_progress_context_callback(progress: "ProgressContext") -> "ProgressCa
                 error = event.metadata.get("error", "Unknown error")
                 progress.log(f"Download failed: {url} - {error}", level="error")
 
-    return callback  # type: ignore[return-value]
+    return callback
 
 
 __all__ = ["ProgressContext", "SummaryRenderer", "create_progress_context_callback"]

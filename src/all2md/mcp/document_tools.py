@@ -233,7 +233,13 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
                 raise TypeError(f"Expected Document, got {type(content_doc)}")
 
             # Map action to position
-            position_map = {"insert:start": "start", "insert:end": "end", "insert:after_heading": "after_heading"}
+            from typing import Literal
+
+            position_map: dict[str, Literal["start", "end", "after_heading"]] = {
+                "insert:start": "start",
+                "insert:end": "end",
+                "insert:after_heading": "after_heading",
+            }
             position = position_map[input_data.action]
 
             modified_doc = insert_into_section(
@@ -241,7 +247,7 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
                 target,
                 content_doc.children,
                 position=position,
-                case_sensitive=False,  # type: ignore[arg-type]
+                case_sensitive=False,
             )
 
             # Serialize to markdown

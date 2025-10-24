@@ -1142,7 +1142,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             # Render as visible italic text paragraph
             para = P()
             span = Span()
-            span.setAttribute("stylename", self._get_or_create_italic_style())
+            # Use default italic text style
             span.addText(comment_text)
             para.addElement(span)
             self._current_frame.addElement(para)
@@ -1232,6 +1232,6 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
             # Render as visible italic text
             span = Span()
-            span.setAttribute("stylename", self._get_or_create_italic_style())
+            # Use default italic text style
             span.addText(comment_text)
             self._current_paragraph.addElement(span)

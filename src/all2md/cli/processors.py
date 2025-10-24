@@ -2068,7 +2068,7 @@ def process_files_unified(
 
     # Check if output_type was explicitly provided by user
     # If not, use "auto" to enable format detection from output filename
-    provided_args = getattr(args, "_provided_args", set())
+    provided_args: set[str] = getattr(args, "_provided_args", set())
     if "output_type" in provided_args:
         target_format_default = args.output_type
     else:

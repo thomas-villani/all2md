@@ -390,19 +390,25 @@ class NodeTransformer(NodeVisitor):
 
     def visit_definition_list(self, node: "DefinitionList") -> "DefinitionList":
         """Transform a DefinitionList node."""
-        transformed_items = []
+        from all2md.ast.nodes import DefinitionDescription, DefinitionTerm
+
+        transformed_items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
         for term, descriptions in node.items:
             t_term = self.transform(term)
-            if t_term is None:
+            if t_term is None or not isinstance(t_term, DefinitionTerm):
                 continue
-            t_descs = [d for d in (self.transform(desc) for desc in descriptions) if d is not None]
+            t_descs = [
+                d
+                for d in (self.transform(desc) for desc in descriptions)
+                if d is not None and isinstance(d, DefinitionDescription)
+            ]
             if not t_descs:
                 continue
             transformed_items.append((t_term, t_descs))
         return DefinitionList(
             items=transformed_items,
             metadata=node.metadata.copy(),
-            source_location=node.source_location,  # type: ignore
+            source_location=node.source_location,
         )
 
     def visit_definition_term(self, node: "DefinitionTerm") -> "DefinitionTerm":

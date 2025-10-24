@@ -31,7 +31,6 @@ from all2md.constants import (
     DEFAULT_OCR_ENABLED,
     DEFAULT_OCR_IMAGE_AREA_THRESHOLD,
     DEFAULT_OCR_LANGUAGES,
-    DEFAULT_OCR_MODE,
     DEFAULT_OCR_PRESERVE_EXISTING_TEXT,
     DEFAULT_OCR_TESSERACT_CONFIG,
     DEFAULT_OCR_TEXT_THRESHOLD,
@@ -595,7 +594,7 @@ class OCROptions(CloneFrozenMixin):
         },
     )
     mode: OCRMode = field(
-        default=DEFAULT_OCR_MODE,
+        default="auto",
         metadata={
             "help": "OCR mode: 'auto' (detect when needed), 'force' (always), 'off' (disable)",
             "choices": ["auto", "force", "off"],

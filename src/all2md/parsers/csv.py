@@ -234,7 +234,7 @@ class CsvToAstConverter(BaseParser):
         sample = text_stream.read(self.options.dialect_sample_size)
         text_stream.seek(0)
 
-        dialect_obj: type[csv.Dialect]
+        dialect_obj: type[csv.Dialect] | None
 
         # If any custom dialect options are set, create custom dialect
         if (

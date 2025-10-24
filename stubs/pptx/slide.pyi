@@ -20,6 +20,11 @@ class Slide:
         """Slide layout for this slide."""
         ...
 
+    @property
+    def notes_slide(self) -> Any:
+        """Notes slide for this slide."""
+        ...
+
 class SlideLayout:
     """Represents a slide layout."""
 

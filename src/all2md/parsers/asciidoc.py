@@ -1306,9 +1306,9 @@ class AsciiDocParser(BaseParser):
         match = self.footnoteref_pattern.match(text)
         if match:
             identifier = match.group(1).strip()
-            footnote_text: str | None = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
-            if footnote_text:
-                processed_text = self._postprocess_escapes(footnote_text, escape_map)
+            footnote_ref_text: str | None = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
+            if footnote_ref_text:
+                processed_text = self._postprocess_escapes(footnote_ref_text, escape_map)
                 if identifier not in self._footnote_definitions:
                     self._footnote_definitions[identifier] = processed_text
             return [FootnoteReference(identifier=identifier)], match.end()
