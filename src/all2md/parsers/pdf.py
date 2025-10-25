@@ -595,7 +595,9 @@ def resolve_links(
     # Find all links that overlap with this span
     overlapping_links = []
     for link in links:
-        hot = link["from"]  # the hot area of the link
+        hot = link.get("from")  # the hot area of the link
+        if hot is None:
+            continue  # Skip links without valid hot area
         overlap = hot & bbox
         if abs(overlap) > 0:
             overlapping_links.append((link, overlap))
@@ -608,10 +610,13 @@ def resolve_links(
         link, overlap = overlapping_links[0]
         bbox_area = (threshold_percent / 100.0) * abs(bbox)
         if abs(overlap) >= bbox_area:
+            uri = link.get("uri")
+            if not uri:
+                return None  # Skip links without valid URI
             link_text = span_text.strip()
             if md_options and md_options.escape_special:
                 link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
-            return f"[{link_text}]({link['uri']})"
+            return f"[{link_text}]({uri})"
 
     # Handle multiple or partial links by character-level analysis
     # Estimate character positions based on bbox width
@@ -856,6 +861,10 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
         text = page.get_textbox(search_rect)
         if text:
             text = text.strip()
+            # Limit text length to prevent ReDoS attacks
+            # Captions should be short, so 500 chars is reasonable
+            if len(text) > 500:
+                text = text[:500]
             # Check if text matches caption pattern
             for pattern in caption_patterns:
                 if re.match(pattern, text, re.IGNORECASE):
@@ -1862,6 +1871,18 @@ class PdfToAstConverter(BaseParser):
                 year = int(clean_date[0:4])
                 month = int(clean_date[4:6])
                 day = int(clean_date[6:8])
+
+                # Validate date ranges before passing to datetime
+                if not (1000 <= year <= 9999):
+                    logger.debug(f"Invalid year in PDF date: {year}")
+                    return date_str
+                if not (1 <= month <= 12):
+                    logger.debug(f"Invalid month in PDF date: {month}")
+                    return date_str
+                if not (1 <= day <= 31):
+                    logger.debug(f"Invalid day in PDF date: {day}")
+                    return date_str
+
                 return datetime(year, month, day).isoformat()
         except (ValueError, IndexError):
             pass
@@ -2956,6 +2977,23 @@ class PdfToAstConverter(BaseParser):
 
         return None
 
+    @staticmethod
+    def _extract_cell_text(cell_text: Any) -> str:
+        """Extract and normalize text from a table cell.
+
+        Parameters
+        ----------
+        cell_text : Any
+            Cell text value which may be None, string, or other type
+
+        Returns
+        -------
+        str
+            Normalized cell text as string, empty string if None
+
+        """
+        return str(cell_text).strip() if cell_text is not None else ""
+
     def _process_table_to_ast(self, table: Any, page_num: int) -> AstTable | None:
         """Process a PyMuPDF table to AST Table node.
 
@@ -2991,8 +3029,7 @@ class PdfToAstConverter(BaseParser):
             # Build AST header row
             header_cells = []
             for cell_text in header_row_data:
-                # Cell text could be None, convert to empty string
-                cell_content = str(cell_text).strip() if cell_text is not None else ""
+                cell_content = self._extract_cell_text(cell_text)
                 header_cells.append(TableCell(content=[Text(content=cell_content)]))
 
             header_row = TableRow(cells=header_cells, is_header=True)
@@ -3002,8 +3039,7 @@ class PdfToAstConverter(BaseParser):
             for row_data in data_rows_data:
                 row_cells = []
                 for cell_text in row_data:
-                    # Cell text could be None, convert to empty string
-                    cell_content = str(cell_text).strip() if cell_text is not None else ""
+                    cell_content = self._extract_cell_text(cell_text)
                     row_cells.append(TableCell(content=[Text(content=cell_content)]))
 
                 data_rows.append(TableRow(cells=row_cells))
