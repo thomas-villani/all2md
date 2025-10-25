@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 from all2md.constants import (
+    DANGEROUS_NULL_LIKE_CHARS,
     DEFAULT_MAX_COMPRESSION_RATIO,
     DEFAULT_MAX_UNCOMPRESSED_SIZE,
     DEFAULT_MAX_ZIP_ENTRIES,
@@ -28,6 +29,61 @@ from all2md.constants import (
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_null_bytes(content: str) -> str:
+    r"""Remove null bytes and zero-width characters that can bypass XSS filters.
+
+    This function removes various null-like and zero-width Unicode characters
+    that attackers may use to bypass XSS sanitization filters. These characters
+    can be used to hide malicious payloads or break parser assumptions.
+
+    Removed characters:
+    - \\x00 (NULL byte)
+    - \\ufeff (BOM/Zero Width No-Break Space)
+    - \\u200b (Zero Width Space)
+    - \\u200c (Zero Width Non-Joiner)
+    - \\u200d (Zero Width Joiner)
+    - \\u2060 (Word Joiner)
+
+    Parameters
+    ----------
+    content : str
+        Content to sanitize
+
+    Returns
+    -------
+    str
+        Sanitized content with dangerous characters removed
+
+    Examples
+    --------
+    >>> sanitize_null_bytes("Hello\\x00World")
+    'HelloWorld'
+    >>> sanitize_null_bytes("Test\\u200bZero\\u200cWidth")
+    'TestZeroWidth'
+    >>> sanitize_null_bytes("Normal text")
+    'Normal text'
+
+    Notes
+    -----
+    This function is used by HTML and other parsers to prevent XSS attacks
+    that rely on null bytes or zero-width characters to bypass security filters.
+
+    See Also
+    --------
+    HtmlToAstConverter.convert_to_ast : Uses this function to sanitize HTML input
+
+    """
+    if not content:
+        return content
+
+    # Remove all dangerous null-like and zero-width characters
+    for char in DANGEROUS_NULL_LIKE_CHARS:
+        if char in content:
+            content = content.replace(char, "")
+
+    return content
 
 
 def resolve_file_url_to_path(file_url: str) -> Path:

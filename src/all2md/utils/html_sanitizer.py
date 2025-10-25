@@ -190,13 +190,13 @@ def sanitize_html_content(content: str, mode: HtmlPassthroughMode = "escape") ->
         return ""
 
     if mode == "sanitize":
-        return _sanitize_html_string(content)
+        return sanitize_html_string(content)
 
     # Fallback to pass-through for unknown modes (defensive programming)
     return content  # type: ignore[unreachable]
 
 
-def _sanitize_html_string(content: str) -> str:
+def sanitize_html_string(content: str) -> str:
     """Sanitize HTML string by removing dangerous elements and attributes.
 
     This is a basic string-based sanitizer. For more robust sanitization,
@@ -690,4 +690,5 @@ __all__ = [
     "is_element_safe",
     "is_url_safe",
     "sanitize_url",
+    "sanitize_html_string",
 ]

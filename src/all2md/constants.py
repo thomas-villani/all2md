@@ -518,6 +518,21 @@ DEFAULT_MAX_CONCURRENT_REQUESTS = 5  # Maximum concurrent network requests
 # Asset size limit for security (applies to downloads, attachments, images, etc.)
 DEFAULT_MAX_ASSET_SIZE_BYTES = 50 * 1024 * 1024  # 50MB maximum per asset
 
+# HTML parser security limits (DoS protection)
+MAX_META_TAG_CONTENT_LENGTH = 10 * 1024  # 10KB maximum per meta tag content
+MAX_JSON_LD_SIZE_BYTES = 1024 * 1024  # 1MB maximum per JSON-LD script
+
+# Dangerous null-like and zero-width characters that can bypass XSS filters
+# These characters should be removed from HTML content for security
+DANGEROUS_NULL_LIKE_CHARS = [
+    "\x00",  # NULL
+    "\ufeff",  # BOM/Zero Width No-Break Space
+    "\u200b",  # Zero Width Space
+    "\u200c",  # Zero Width Non-Joiner
+    "\u200d",  # Zero Width Joiner
+    "\u2060",  # Word Joiner
+]
+
 # ZIP archive security
 DEFAULT_MAX_COMPRESSION_RATIO = 100.0  # Maximum compression ratio (uncompressed/compressed)
 DEFAULT_MAX_UNCOMPRESSED_SIZE = 1024 * 1024 * 1024  # 1GB maximum uncompressed size

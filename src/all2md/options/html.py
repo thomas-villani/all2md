@@ -490,3 +490,16 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
+    html_parser: Literal["html.parser", "html5lib", "lxml"] = field(
+        default="html.parser",
+        metadata={
+            "help": (
+                "BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), "
+                "'html5lib' (standards-compliant, slower, matches browser behavior), "
+                "'lxml' (fast, requires C library). "
+                "For security-critical applications, consider 'html5lib' for more consistent parsing."
+            ),
+            "choices": ["html.parser", "html5lib", "lxml"],
+            "importance": "advanced",
+        },
+    )

@@ -1112,7 +1112,7 @@ class DynamicCLIBuilder:
         """
         parser = argparse.ArgumentParser(
             prog="all2md",
-            usage="all2md [-h] [-o OUTPUT] [--config CONFIG] [--format FORMAT] [--output-format OUTPUT_TYPE] "
+            usage="all2md [-h] [-o OUTPUT] [--config CONFIG] [--format FORMAT] [--output-format FORMAT] "
             "[OPTIONS] input [input ...]",
             description="Convert documents to Markdown (and other formats)",
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1679,7 +1679,7 @@ Examples:
             "input",
             "out",
             "format",
-            "output_type",
+            "output_format",
             "config",
             "preset",
             "verbose",

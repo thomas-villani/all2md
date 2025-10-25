@@ -21,7 +21,7 @@ def test_tiered_help_action_quick(capsys):
     assert "Global options:" in captured.out
     assert "Parser options:" in captured.out
     assert "Renderer options:" in captured.out
-    assert "  Universal attachment options:" in captured.out
+    assert "  Universal parser options:" in captured.out
     assert "    --out" in captured.out
     assert "      Output file path" in captured.out
     assert "  DOCX renderer options:" in captured.out

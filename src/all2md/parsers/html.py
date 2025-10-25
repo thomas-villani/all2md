@@ -51,9 +51,12 @@ from all2md.ast import (
 )
 from all2md.constants import (
     DANGEROUS_HTML_ELEMENTS,
+    MAX_JSON_LD_SIZE_BYTES,
+    MAX_META_TAG_CONTENT_LENGTH,
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import (
+    DependencyError,
     FileAccessError,
     MalformedFileError,
     NetworkSecurityError,
@@ -66,12 +69,12 @@ from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.encoding import read_text_with_encoding_detection
-from all2md.utils.html_sanitizer import is_element_safe
+from all2md.utils.html_sanitizer import is_element_safe, sanitize_html_string
 from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 from all2md.utils.parser_helpers import attachment_result_to_image_node
-from all2md.utils.security import sanitize_language_identifier, validate_local_file_access
+from all2md.utils.security import sanitize_language_identifier, sanitize_null_bytes, validate_local_file_access
 
 logger = logging.getLogger(__name__)
 
@@ -211,8 +214,10 @@ class HtmlToAstConverter(BaseParser):
         # Emit started event
         self._emit_progress("started", "Converting HTML document", current=0, total=1)
 
-        # Sanitize null bytes from HTML to prevent XSS bypass
-        html_content = html_content.replace("\x00", "")
+        # M8: Sanitize null bytes and zero-width characters from HTML to prevent XSS bypass
+        # This removes \x00, \ufeff, \u200b, \u200c, \u200d, \u2060 which can be used to
+        # hide malicious payloads or bypass security filters
+        html_content = sanitize_null_bytes(html_content)
 
         readability_title: str | None = None
         if self.options.extract_readable:
@@ -220,20 +225,34 @@ class HtmlToAstConverter(BaseParser):
 
         from bs4 import BeautifulSoup
         from bs4.element import Tag
+        from bs4.exceptions import FeatureNotFound
 
-        soup = BeautifulSoup(html_content, "html.parser")
-
-        # Note: Comments are now handled in _process_node_to_ast based on strip_comments option
+        # M10: Use configurable parser (html.parser by default, html5lib for browser-like parsing)
+        # html.parser: Fast, built-in, but may handle malformed HTML differently than browsers
+        # html5lib: Standards-compliant, matches browser behavior, but slower, requires html5lib installed
+        # lxml: Fast, requires C library
+        try:
+            soup = BeautifulSoup(html_content, self.options.html_parser)
+        except FeatureNotFound as e:
+            if "html5lib" in str(e):
+                missing_packages = [("html5lib", "")]
+            elif "lxml" in str(e):
+                missing_packages = [("lxml", "")]
+            else:
+                missing_packages = []
+            raise DependencyError(
+                f"Error in HtmlToAstConverter! Selected HtmlOptions.html_parser " f"not found: {e}.",
+                missing_packages=missing_packages,
+            ) from e
 
         # Sanitize HTML: Use single-pass bleach when possible, fall back to multi-pass BeautifulSoup
         # This reduces duplication and aligns with HtmlRenderer's sanitization approach
         if self.options.strip_dangerous_elements and self.options.allowed_attributes is None:
             # Use shared sanitization utility from html_sanitizer module for single-pass approach
             # This provides comprehensive sanitization with bleach (when available) or BeautifulSoup fallback
-            from all2md.utils.html_sanitizer import _sanitize_html_string
 
-            sanitized_html = _sanitize_html_string(str(soup))
-            soup = BeautifulSoup(sanitized_html, "html.parser")
+            sanitized_html = sanitize_html_string(str(soup))
+            soup = BeautifulSoup(sanitized_html, self.options.html_parser)
             logger.debug("Applied single-pass HTML sanitization via html_sanitizer utility")
         elif self.options.strip_dangerous_elements or self.options.allowed_attributes is not None:
             # Use multi-pass BeautifulSoup for custom attribute allowlists
@@ -502,7 +521,17 @@ class HtmlToAstConverter(BaseParser):
             json_ld_data = []
             for script in json_ld_scripts:
                 try:
-                    data = json.loads(script.string)
+                    # M9: Check JSON-LD script size to prevent DoS via large JSON payloads
+                    script_content = script.string or ""
+                    if len(script_content) > MAX_JSON_LD_SIZE_BYTES:
+                        logger.warning(
+                            f"JSON-LD script exceeds maximum size "
+                            f"({len(script_content)} > {MAX_JSON_LD_SIZE_BYTES} bytes), "
+                            f"skipping to prevent DoS attack"
+                        )
+                        continue
+
+                    data = json.loads(script_content)
                     json_ld_data.append(data)
                 except Exception:
                     pass
@@ -575,6 +604,15 @@ class HtmlToAstConverter(BaseParser):
                 content = meta.get("content", "").strip()
 
                 if meta_name and content:
+                    # M13: Check meta tag content size to prevent DoS via oversized meta tags
+                    if len(content) > MAX_META_TAG_CONTENT_LENGTH:
+                        logger.warning(
+                            f"Meta tag '{meta_name}' content exceeds maximum length "
+                            f"({len(content)} > {MAX_META_TAG_CONTENT_LENGTH} bytes), "
+                            f"truncating to prevent DoS attack"
+                        )
+                        content = content[:MAX_META_TAG_CONTENT_LENGTH]
+
                     self._process_meta_tag(meta_name, content, metadata)
 
             # Detect charset
@@ -1483,8 +1521,12 @@ class HtmlToAstConverter(BaseParser):
         """Read image data from local file:// URL.
 
         SECURITY: This method should ONLY be called after validate_local_file_access
-        has confirmed access is allowed. Path resolution uses the same centralized
-        function (resolve_file_url_to_path) as validation to prevent TOCTOU attacks.
+        has confirmed access is allowed. Uses file descriptors to prevent TOCTOU
+        (Time-of-Check-Time-of-Use) race conditions.
+
+        M11: Fixed TOCTOU vulnerability by using file descriptors. The file is opened
+        first, then validated using fstat on the descriptor, then read. This prevents
+        attacks where a file is swapped between validation and reading.
 
         Parameters
         ----------
@@ -1502,35 +1544,58 @@ class HtmlToAstConverter(BaseParser):
             If file cannot be read or does not exist
 
         """
+        import stat
+
         from all2md.utils.security import resolve_file_url_to_path
 
         # Resolve file URL to canonical path
-        # IMPORTANT: This uses the same path resolution logic as validate_local_file_access
-        # to prevent TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
         try:
             file_path = resolve_file_url_to_path(file_url)
         except ValueError as e:
             raise Exception(f"Invalid file URL: {e}") from e
 
-        # Read file
+        # M11: Use file descriptors to prevent TOCTOU attacks
+        # Open the file first to get a file descriptor
+        fd = None
         try:
-            with open(file_path, "rb") as f:
-                data = f.read()
+            # Open file with O_RDONLY flag and get file descriptor
+            fd = os.open(str(file_path), os.O_RDONLY)
 
-            # Check against max asset size
-            if len(data) > self.options.max_asset_size_bytes:
+            # Validate the file descriptor using fstat (prevents symlink swaps)
+            stat_info = os.fstat(fd)
+
+            # Check if it's a regular file (not a directory, device, etc.)
+            if not stat.S_ISREG(stat_info.st_mode):
+                raise Exception(f"Path is not a regular file: {file_path}")
+
+            # Check file size before reading
+            file_size = stat_info.st_size
+            if file_size > self.options.max_asset_size_bytes:
                 raise Exception(
                     f"Local file exceeds maximum allowed size: "
-                    f"{len(data)} bytes > {self.options.max_asset_size_bytes} bytes"
+                    f"{file_size} bytes > {self.options.max_asset_size_bytes} bytes"
                 )
 
+            # Read from the file descriptor
+            data = os.read(fd, file_size)
+
             return data
+
         except FileNotFoundError as e:
             raise Exception(f"Local file not found: {file_path}") from e
         except PermissionError as e:
             raise Exception(f"Permission denied reading local file: {file_path}") from e
         except Exception as e:
+            if "not a regular file" in str(e):
+                raise
             raise Exception(f"Failed to read local file {file_path}: {e}") from e
+        finally:
+            # Always close the file descriptor if it was opened
+            if fd is not None:
+                try:
+                    os.close(fd)
+                except Exception:
+                    pass  # Best effort cleanup
 
     def _download_image_data(self, url: str) -> bytes:
         """Download image data from URL using secure network client.
@@ -1849,8 +1914,24 @@ class HtmlToAstConverter(BaseParser):
 
         url_lower = url.lower().strip()
 
-        # Preserve relative URLs
-        if url_lower.startswith(("#", "/", "./", "../", "?")):
+        # M12: Check fragment content for dangerous schemes before preserving relative URLs
+        # URLs like #javascript:alert(1) should be blocked
+        if url_lower.startswith("#"):
+            # Extract the fragment content (everything after #)
+            fragment = url_lower[1:]
+            # Check if the fragment contains dangerous schemes
+            dangerous_schemes_in_fragment = ["javascript:", "data:", "vbscript:"]
+            if any(scheme in fragment for scheme in dangerous_schemes_in_fragment):
+                logger.warning(
+                    f"Blocked anchor link with dangerous scheme in fragment: "
+                    f"{url[:100]}{'...' if len(url) > 100 else ''}"
+                )
+                return ""
+            # Safe fragment, preserve it
+            return url
+
+        # Preserve other relative URLs
+        if url_lower.startswith(("/", "./", "../", "?")):
             return url
 
         # Parse URL scheme

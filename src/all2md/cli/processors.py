@@ -829,7 +829,7 @@ def _create_output_package(
 
     try:
         # Determine target format
-        target_format = getattr(parsed_args, "output_type", "markdown")
+        target_format = getattr(parsed_args, "output_format", "markdown")
 
         # Determine zip path
         if parsed_args.zip == "auto":
@@ -1593,7 +1593,7 @@ def _determine_output_destination(
         return str(Path(args.out))
 
     if args.output_dir:
-        target_format = getattr(args, "output_type", "markdown")
+        target_format = getattr(args, "output_format", "markdown")
         computed = _generate_output_path_for_item(
             item,
             Path(args.output_dir),
@@ -1877,7 +1877,7 @@ def process_files_collated(
         output_path = Path(args.out)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    target_format = args.output_type
+    target_format = args.output_format
     if target_format == "auto":
         if output_path:
             try:
@@ -2130,11 +2130,11 @@ def process_files_unified(
     if rich_dependency_error:
         print(f"Warning: {rich_dependency_error}", file=sys.stderr)
 
-    # Check if output_type was explicitly provided by user
+    # Check if output_format was explicitly provided by user
     # If not, use "auto" to enable format detection from output filename
     provided_args: set[str] = getattr(args, "_provided_args", set())
-    if "output_type" in provided_args:
-        target_format_default = args.output_type
+    if "output_format" in provided_args:
+        target_format_default = args.output_format
     else:
         target_format_default = "auto"
 
