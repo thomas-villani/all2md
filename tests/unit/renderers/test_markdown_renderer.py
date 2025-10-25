@@ -43,7 +43,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.utils.flavors import GFMFlavor
 
@@ -85,7 +85,7 @@ class TestMathRendering:
 
     def test_inline_math_default_latex(self) -> None:
         doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
-        renderer = MarkdownRenderer(MarkdownOptions(flavor="gfm"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="gfm"))
         result = renderer.render_to_string(doc)
         assert "$x^2$" in result
 
@@ -103,13 +103,13 @@ class TestMathRendering:
                 )
             ]
         )
-        renderer = MarkdownRenderer(MarkdownOptions(math_mode="mathml"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(math_mode="mathml"))
         result = renderer.render_to_string(doc)
         assert '<span class="math math-inline" data-notation="mathml">' in result
 
     def test_inline_math_commonmark_html_fallback(self) -> None:
         doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
-        renderer = MarkdownRenderer(MarkdownOptions(flavor="commonmark"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="commonmark"))
         result = renderer.render_to_string(doc)
         assert '<span class="math math-inline" data-notation="latex">' in result
 
@@ -123,7 +123,7 @@ class TestMathRendering:
                 )
             ]
         )
-        renderer = MarkdownRenderer(MarkdownOptions(math_mode="mathml"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(math_mode="mathml"))
         result = renderer.render_to_string(doc)
         assert '<div class="math math-block" data-notation="mathml">' in result
 
@@ -149,7 +149,7 @@ class TestHeadingRendering:
     def test_heading_setext_h1(self):
         """Test rendering h1 with setext style."""
         doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
-        options = MarkdownOptions(use_hash_headings=False)
+        options = MarkdownRendererOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "Title\n====="
@@ -157,7 +157,7 @@ class TestHeadingRendering:
     def test_heading_setext_h2(self):
         """Test rendering h2 with setext style."""
         doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
-        options = MarkdownOptions(use_hash_headings=False)
+        options = MarkdownRendererOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "Subtitle\n--------"
@@ -186,7 +186,7 @@ class TestInlineFormatting:
     def test_emphasis_with_underscore(self):
         """Test rendering emphasis with underscore symbol."""
         doc = Document(children=[Paragraph(content=[Emphasis(content=[Text(content="italic")])])])
-        options = MarkdownOptions(emphasis_symbol="_")
+        options = MarkdownRendererOptions(emphasis_symbol="_")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "_italic_"
@@ -239,7 +239,7 @@ class TestExtendedInlineFormatting:
     def test_strikethrough_gfm(self):
         """Test strikethrough with GFM flavor."""
         doc = Document(children=[Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])])
-        options = MarkdownOptions(flavor=GFMFlavor())
+        options = MarkdownRendererOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "~~deleted~~"
@@ -247,7 +247,7 @@ class TestExtendedInlineFormatting:
     def test_strikethrough_commonmark(self):
         """Test strikethrough fallback with CommonMark."""
         doc = Document(children=[Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])])
-        options = MarkdownOptions(flavor="commonmark")
+        options = MarkdownRendererOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<del>deleted</del>"
@@ -255,7 +255,7 @@ class TestExtendedInlineFormatting:
     def test_underline_html_mode(self):
         """Test underline with HTML mode."""
         doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
-        options = MarkdownOptions(underline_mode="html")
+        options = MarkdownRendererOptions(underline_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<u>underlined</u>"
@@ -263,7 +263,7 @@ class TestExtendedInlineFormatting:
     def test_superscript_html_mode(self):
         """Test superscript with HTML mode."""
         doc = Document(children=[Paragraph(content=[Superscript(content=[Text(content="2")])])])
-        options = MarkdownOptions(superscript_mode="html")
+        options = MarkdownRendererOptions(superscript_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<sup>2</sup>"
@@ -271,7 +271,7 @@ class TestExtendedInlineFormatting:
     def test_subscript_html_mode(self):
         """Test subscript with HTML mode."""
         doc = Document(children=[Paragraph(content=[Subscript(content=[Text(content="0")])])])
-        options = MarkdownOptions(subscript_mode="html")
+        options = MarkdownRendererOptions(subscript_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<sub>0</sub>"
@@ -437,7 +437,7 @@ class TestLists:
                 )
             ]
         )
-        options = MarkdownOptions(flavor=GFMFlavor())
+        options = MarkdownRendererOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert "* [x]" in result
@@ -611,7 +611,7 @@ class TestTables:
         table = Table(header=header, rows=[row1], alignments=["left", "right"])
 
         doc = Document(children=[table])
-        options = MarkdownOptions(flavor=GFMFlavor())
+        options = MarkdownRendererOptions(flavor=GFMFlavor())
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
 
@@ -626,7 +626,7 @@ class TestTables:
         table = Table(header=header, rows=[])
 
         doc = Document(children=[table])
-        options = MarkdownOptions(flavor="commonmark")
+        options = MarkdownRendererOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
 
@@ -663,7 +663,7 @@ class TestHTMLNodes:
         result = renderer.render_to_string(doc)
         assert result == "&lt;div&gt;Custom HTML&lt;/div&gt;"
 
-        renderer = MarkdownRenderer(MarkdownOptions(html_sanitization="pass-through"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_sanitization="pass-through"))
         result = renderer.render_to_string(doc)
         assert result == "<div>Custom HTML</div>"
 
@@ -684,7 +684,7 @@ class TestHTMLNodes:
         result = renderer.render_to_string(doc)
         assert result == "Text with &lt;span&gt;HTML&lt;/span&gt; inline"
 
-        renderer = MarkdownRenderer(MarkdownOptions(html_sanitization="pass-through"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_sanitization="pass-through"))
         result = renderer.render_to_string(doc)
         assert result == "Text with <span>HTML</span> inline"
 
@@ -762,7 +762,7 @@ class TestEscaping:
     def test_escape_special_characters(self):
         """Test escaping special markdown characters."""
         doc = Document(children=[Paragraph(content=[Text(content="*asterisks* and [brackets]")])])
-        options = MarkdownOptions(escape_special=True)
+        options = MarkdownRendererOptions(escape_special=True)
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert "\\*" in result
@@ -771,7 +771,7 @@ class TestEscaping:
     def test_no_escape_when_disabled(self):
         """Test that escaping can be disabled."""
         doc = Document(children=[Paragraph(content=[Text(content="*asterisks*")])])
-        options = MarkdownOptions(escape_special=False)
+        options = MarkdownRendererOptions(escape_special=False)
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert "\\*" not in result
@@ -790,7 +790,7 @@ class TestFootnotes:
                 FootnoteDefinition(identifier="1", content=[Text(content="Footnote text")]),
             ]
         )
-        options = MarkdownOptions(flavor="pandoc")
+        options = MarkdownRendererOptions(flavor="pandoc")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
 
@@ -806,7 +806,7 @@ class TestFootnotes:
             ]
         )
         # CommonMark doesn't support footnotes
-        options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="html")
+        options = MarkdownRendererOptions(flavor="commonmark", unsupported_inline_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
 
@@ -824,7 +824,7 @@ class TestFootnotes:
             ]
         )
         # CommonMark doesn't support footnotes
-        options = MarkdownOptions(flavor="commonmark", unsupported_inline_mode="drop")
+        options = MarkdownRendererOptions(flavor="commonmark", unsupported_inline_mode="drop")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
 
@@ -871,7 +871,7 @@ class TestHTMLSanitization:
     def test_html_sanitization_pass_through_mode(self):
         """Test HTML pass-through mode (allows raw HTML)."""
         doc = Document(children=[HTMLBlock(content="<div class='custom'>Content</div>")])
-        options = MarkdownOptions(html_sanitization="pass-through")
+        options = MarkdownRendererOptions(html_sanitization="pass-through")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Should pass through unchanged
@@ -880,7 +880,7 @@ class TestHTMLSanitization:
     def test_html_sanitization_escape_mode(self):
         """Test HTML escape mode (shows HTML as text)."""
         doc = Document(children=[HTMLBlock(content="<script>dangerous()</script>")])
-        options = MarkdownOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_sanitization="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Should be HTML-escaped
@@ -896,7 +896,7 @@ class TestHTMLSanitization:
                 Paragraph(content=[Text(content="After")]),
             ]
         )
-        options = MarkdownOptions(html_sanitization="drop")
+        options = MarkdownRendererOptions(html_sanitization="drop")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # HTML content should be removed
@@ -909,7 +909,7 @@ class TestHTMLSanitization:
     def test_html_sanitization_sanitize_mode(self):
         """Test HTML sanitize mode (removes dangerous elements)."""
         doc = Document(children=[HTMLBlock(content="<p>Safe paragraph</p><script>alert('bad')</script>")])
-        options = MarkdownOptions(html_sanitization="sanitize")
+        options = MarkdownRendererOptions(html_sanitization="sanitize")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Safe HTML should be preserved
@@ -924,7 +924,7 @@ class TestHTMLSanitization:
 
         # Escape mode
         doc_escape = Document(children=[Paragraph(content=[HTMLInline(content=html_content)])])
-        options_escape = MarkdownOptions(html_sanitization="escape")
+        options_escape = MarkdownRendererOptions(html_sanitization="escape")
         renderer_escape = MarkdownRenderer(options_escape)
         result_escape = renderer_escape.render_to_string(doc_escape)
         assert "&lt;span" in result_escape
@@ -935,7 +935,7 @@ class TestHTMLSanitization:
                 Paragraph(content=[Text(content="Before "), HTMLInline(content=html_content), Text(content=" After")])
             ]
         )
-        options_drop = MarkdownOptions(html_sanitization="drop")
+        options_drop = MarkdownRendererOptions(html_sanitization="drop")
         renderer_drop = MarkdownRenderer(options_drop)
         result_drop = renderer_drop.render_to_string(doc_drop)
         assert "Before  After" in result_drop or "Before After" in result_drop
@@ -945,7 +945,7 @@ class TestHTMLSanitization:
         """Test that HTML sanitization does NOT affect code blocks."""
         doc = Document(children=[CodeBlock(content="<script>alert('This is code')</script>", language="html")])
         # Even with escape mode, code blocks should render their content unchanged
-        options = MarkdownOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_sanitization="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Code block should contain the raw HTML (not escaped)
@@ -955,7 +955,7 @@ class TestHTMLSanitization:
         """Test that HTML sanitization does NOT affect inline code."""
         doc = Document(children=[Paragraph(content=[Text(content="Example: "), Code(content="<div>code</div>")])])
         # Even with escape mode, inline code should render their content unchanged
-        options = MarkdownOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_sanitization="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Inline code should contain the raw HTML (not escaped)
@@ -970,7 +970,7 @@ class TestHTMLSanitization:
                 HTMLBlock(content="<script>evil()</script>"),
             ]
         )
-        options = MarkdownOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_sanitization="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Both HTML blocks should be escaped
@@ -988,7 +988,7 @@ class TestHTMLSanitization:
                 Paragraph(content=[Text(content="After")]),
             ]
         )
-        options = MarkdownOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_sanitization="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Should not produce errors

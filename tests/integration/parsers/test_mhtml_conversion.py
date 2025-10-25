@@ -22,7 +22,7 @@ from utils import assert_markdown_valid
 from all2md import MhtmlOptions
 from all2md import to_markdown as mhtml_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 
 
 @pytest.mark.integration
@@ -287,7 +287,7 @@ class TestMhtmlIntegrationOptions:
         mhtml_content = create_simple_mhtml()
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
-        md_options = MarkdownOptions(emphasis_symbol="_", bullet_symbols="+-*")
+        md_options = MarkdownRendererOptions(emphasis_symbol="_", bullet_symbols="+-*")
         parser_options = MhtmlOptions()
         result = mhtml_to_markdown(mhtml_file, parser_options=parser_options, renderer_options=md_options)
 
@@ -319,7 +319,7 @@ class TestMhtmlIntegrationOptions:
             (MhtmlOptions(attachment_mode="base64"), None),
             (MhtmlOptions(attachment_mode="skip"), None),
             (MhtmlOptions(attachment_mode="download", attachment_output_dir=str(temp_dir / "images")), None),
-            (MhtmlOptions(attachment_mode="base64"), MarkdownOptions(emphasis_symbol="_")),
+            (MhtmlOptions(attachment_mode="base64"), MarkdownRendererOptions(emphasis_symbol="_")),
         ]
 
         for parser_options, renderer_options in option_combinations:

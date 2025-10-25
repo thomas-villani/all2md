@@ -27,7 +27,14 @@ from utils import assert_markdown_valid
 from all2md import convert, from_ast, from_markdown, to_ast, to_markdown
 from all2md.ast import Document, Heading, Paragraph, Strong, Table
 from all2md.exceptions import FormatError, MalformedFileError
-from all2md.options import DocxOptions, HtmlOptions, HtmlRendererOptions, MarkdownOptions, PdfOptions, PptxOptions
+from all2md.options import (
+    DocxOptions,
+    HtmlOptions,
+    HtmlRendererOptions,
+    MarkdownRendererOptions,
+    PdfOptions,
+    PptxOptions,
+)
 
 
 @pytest.mark.e2e
@@ -513,7 +520,7 @@ class TestMultiStepWorkflowsE2E:
         ast_doc = to_ast(BytesIO(html.encode("utf-8")), source_format="html")
 
         # Step 2: Create multiple outputs with different options
-        md_content = from_ast(ast_doc, "markdown", renderer_options=MarkdownOptions(bullet_symbols="-"))
+        md_content = from_ast(ast_doc, "markdown", renderer_options=MarkdownRendererOptions(bullet_symbols="-"))
 
         html_content = from_ast(ast_doc, "html", renderer_options=HtmlRendererOptions(standalone=True))
 
@@ -854,7 +861,7 @@ class TestFullConversionPipeline:
 
         # Test conversion with different options
         options = DocxOptions(attachment_mode="base64")
-        markdown_options = MarkdownOptions(bullet_symbols="-")
+        markdown_options = MarkdownRendererOptions(bullet_symbols="-")
 
         # Convert to markdown
         result = to_markdown(
@@ -879,7 +886,7 @@ class TestFullConversionPipeline:
 
         # Convert with options
         options = HtmlOptions(strip_dangerous_elements=True)
-        markdown_options = MarkdownOptions()
+        markdown_options = MarkdownRendererOptions()
 
         result = to_markdown(
             BytesIO(html_content.encode("utf-8")),
@@ -907,7 +914,7 @@ class TestFullConversionPipeline:
 
         # Convert with options
         options = PptxOptions(attachment_mode="skip", include_slide_numbers=True)
-        markdown_options = MarkdownOptions()
+        markdown_options = MarkdownRendererOptions()
 
         result = to_markdown(
             BytesIO(pptx_bytes), source_format="pptx", parser_options=options, renderer_options=markdown_options
@@ -937,7 +944,7 @@ class TestFullConversionPipeline:
 
             # Convert with options
             options = PdfOptions(attachment_mode="base64", enable_table_fallback_detection=True)
-            markdown_options = MarkdownOptions()
+            markdown_options = MarkdownRendererOptions()
 
             result = to_markdown(
                 pdf_bytes, source_format="pdf", parser_options=options, renderer_options=markdown_options
@@ -1098,7 +1105,7 @@ class TestFullConversionPipeline:
 
         # Convert with comprehensive options
         docx_options = DocxOptions(attachment_mode="base64")
-        markdown_options = MarkdownOptions(bullet_symbols="-")
+        markdown_options = MarkdownRendererOptions(bullet_symbols="-")
 
         result = to_markdown(
             BytesIO(docx_bytes), source_format="docx", parser_options=docx_options, renderer_options=markdown_options

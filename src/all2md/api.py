@@ -14,7 +14,7 @@ from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, FormatError, ParsingError
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
+from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions
 from all2md.progress import ProgressCallback
 from all2md.utils.input_sources import (
     DocumentSource,
@@ -328,7 +328,7 @@ def to_markdown(
     source: Union[str, Path, IO[bytes], bytes],
     *,
     parser_options: Optional[BaseParserOptions] = None,
-    renderer_options: Optional[MarkdownOptions] = None,
+    renderer_options: Optional[MarkdownRendererOptions] = None,
     source_format: DocumentFormat = "auto",
     flavor: Optional[str] = None,
     transforms: Optional[list] = None,
@@ -402,13 +402,13 @@ def to_markdown(
         >>> markdown = to_markdown("document.pdf", parser_options=pdf_opts)
 
     With renderer options:
-        >>> md_opts = MarkdownOptions(emphasis_symbol="_", flavor="commonmark")
+        >>> md_opts = MarkdownRendererOptions(emphasis_symbol="_", flavor="commonmark")
         >>> markdown = to_markdown("document.pdf", renderer_options=md_opts)
 
     Using both parser and renderer options:
         >>> markdown = to_markdown("doc.pdf",
         ...     parser_options=PdfOptions(pages=[0, 1]),
-        ...     renderer_options=MarkdownOptions(flavor="gfm"))
+        ...     renderer_options=MarkdownRendererOptions(flavor="gfm"))
 
     Using kwargs (automatically split):
         >>> markdown = to_markdown("doc.pdf", pages=[0, 1], emphasis_symbol="_")
@@ -449,18 +449,18 @@ def to_markdown(
     if flavor:
         renderer_kwargs["flavor"] = flavor
 
-    final_renderer_options: MarkdownOptions
+    final_renderer_options: MarkdownRendererOptions
     if renderer_kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
         result = _create_renderer_options_from_kwargs("markdown", **renderer_kwargs)
-        assert result is None or isinstance(result, MarkdownOptions)
-        final_renderer_options = result if result else MarkdownOptions()
+        assert result is None or isinstance(result, MarkdownRendererOptions)
+        final_renderer_options = result if result else MarkdownRendererOptions()
     elif renderer_options:
         final_renderer_options = renderer_options
     else:
         # Default to GFM flavor
-        final_renderer_options = MarkdownOptions()
+        final_renderer_options = MarkdownRendererOptions()
 
     # Convert to AST
     try:
@@ -730,7 +730,7 @@ def from_ast(
         >>> from_ast(ast_doc, "markdown", output="output.md")
 
     With renderer options:
-        >>> md_opts = MarkdownOptions(flavor="commonmark")
+        >>> md_opts = MarkdownRendererOptions(flavor="commonmark")
         >>> markdown_text = from_ast(ast_doc, "markdown", renderer_options=md_opts)
 
     """
@@ -945,7 +945,7 @@ def convert(
     Convert with output file:
         >>> convert("doc.pdf", "output.md",
         ...     parser_options=PdfOptions(pages=[0, 1]),
-        ...     renderer_options=MarkdownOptions(flavor="commonmark"))
+        ...     renderer_options=MarkdownRendererOptions(flavor="commonmark"))
 
     Bidirectional with transforms:
         >>> convert("input.docx", "output.md",

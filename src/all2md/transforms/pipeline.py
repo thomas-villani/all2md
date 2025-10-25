@@ -54,7 +54,7 @@ from typing import Any, Optional, Union
 
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.renderers.base import BaseRendererOptions
 from all2md.transforms.hooks import HookCallable, HookContext, HookManager, HookTarget
@@ -206,7 +206,7 @@ class Pipeline:
         >>> from all2md.renderers.markdown import MarkdownRenderer
         >>> pipeline = Pipeline(
         ...     transforms=['remove-images'],
-        ...     renderer=MarkdownRenderer(options=MarkdownOptions(flavor='commonmark'))
+        ...     renderer=MarkdownRenderer(options=MarkdownRendererOptions(flavor='commonmark'))
         ... )
         >>> output = pipeline.execute(document)
 
@@ -226,7 +226,7 @@ class Pipeline:
         transforms: Optional[list[Union[str, NodeTransformer]]] = None,
         hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
         renderer: Optional[Union[str, type, Any, bool]] = None,
-        options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
+        options: Optional[Union[BaseRendererOptions, MarkdownRendererOptions]] = None,
         progress_callback: Optional[ProgressCallback] = None,
         strict_hooks: bool = False,
     ):
@@ -245,7 +245,7 @@ class Pipeline:
             - instance: Pre-configured renderer to use
             - False: Skip renderer setup (for AST-only processing)
             - None: Use default MarkdownRenderer (default)
-        options : BaseRendererOptions or MarkdownOptions, optional
+        options : BaseRendererOptions or MarkdownRendererOptions, optional
             Options for rendering (used if renderer is string or class,
             ignored if renderer is instance)
         progress_callback : ProgressCallback, optional
@@ -268,7 +268,11 @@ class Pipeline:
             self.renderer = self._setup_renderer(renderer, options)
 
         # Store options for backward compatibility (some code may access pipeline.options)
-        self.options = options if isinstance(options, (BaseRendererOptions, MarkdownOptions)) else MarkdownOptions()
+        self.options = (
+            options
+            if isinstance(options, (BaseRendererOptions, MarkdownRendererOptions))
+            else MarkdownRendererOptions()
+        )
 
         # Register provided hooks
         if hooks:
@@ -278,7 +282,9 @@ class Pipeline:
                     self.hook_manager.register_hook(target, hook, priority=priority)
 
     def _setup_renderer(
-        self, renderer: Optional[Union[str, type, Any]], options: Optional[Union[BaseRendererOptions, MarkdownOptions]]
+        self,
+        renderer: Optional[Union[str, type, Any]],
+        options: Optional[Union[BaseRendererOptions, MarkdownRendererOptions]],
     ) -> Any:
         """Set up the renderer instance.
 
@@ -286,7 +292,7 @@ class Pipeline:
         ----------
         renderer : str, type, or instance, optional
             Renderer specification
-        options : BaseRendererOptions or MarkdownOptions, optional
+        options : BaseRendererOptions or MarkdownRendererOptions, optional
             Options to use if creating renderer from string/class
 
         Returns
@@ -314,15 +320,15 @@ class Pipeline:
         # Default to MarkdownRenderer
         from all2md.renderers.markdown import MarkdownRenderer
 
-        # Use MarkdownOptions if no options provided or if BaseOptions provided for markdown
+        # Use MarkdownRendererOptions if no options provided or if BaseOptions provided for markdown
         if options is None:
-            return MarkdownRenderer(options=MarkdownOptions())
-        elif isinstance(options, MarkdownOptions):
+            return MarkdownRenderer(options=MarkdownRendererOptions())
+        elif isinstance(options, MarkdownRendererOptions):
             return MarkdownRenderer(options=options)
         elif hasattr(options, "markdown_options") and options.markdown_options:
             return MarkdownRenderer(options=options.markdown_options)
         else:
-            return MarkdownRenderer(options=MarkdownOptions())
+            return MarkdownRenderer(options=MarkdownRendererOptions())
 
     def _resolve_transforms(self) -> list[NodeTransformer]:
         """Resolve transform names/instances to ordered list of instances.
@@ -1124,7 +1130,7 @@ def render(
     transforms: Optional[list[Union[str, NodeTransformer]]] = None,
     hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
     renderer: Optional[Union[str, type, Any]] = None,
-    options: Optional[Union[BaseRendererOptions, MarkdownOptions]] = None,
+    options: Optional[Union[BaseRendererOptions, MarkdownRendererOptions]] = None,
     progress_callback: Optional[ProgressCallback] = None,
     strict_hooks: bool = False,
     **kwargs: Any,
@@ -1190,7 +1196,7 @@ def render(
         >>> from all2md.renderers.markdown import MarkdownRenderer
         >>> output = render(
         ...     doc,
-        ...     renderer=MarkdownRenderer(options=MarkdownOptions(flavor='commonmark'))
+        ...     renderer=MarkdownRenderer(options=MarkdownRendererOptions(flavor='commonmark'))
         ... )
 
     With hooks:
@@ -1208,7 +1214,7 @@ def render(
         ...         'link': [rewrite_links],
         ...         'post_render': [add_footer]
         ...     },
-        ...     options=MarkdownOptions(flavor='commonmark')
+        ...     options=MarkdownRendererOptions(flavor='commonmark')
         ... )
 
     With MarkdownOptions kwargs:
@@ -1224,10 +1230,10 @@ def render(
     """
     # Create options from kwargs if not provided
     if options is None and kwargs:
-        options = MarkdownOptions(**kwargs)
+        options = MarkdownRendererOptions(**kwargs)
     elif options is None and renderer is None:
-        # Default to MarkdownOptions for markdown renderer
-        options = MarkdownOptions()
+        # Default to MarkdownRendererOptions for markdown renderer
+        options = MarkdownRendererOptions()
 
     # Create and execute pipeline
     pipeline = Pipeline(

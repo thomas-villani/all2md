@@ -21,7 +21,7 @@ from utils import assert_markdown_valid
 
 from all2md.options.chm import ChmOptions
 from all2md.options.html import HtmlOptions
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 from all2md.parsers.chm import ChmParser
 from all2md.renderers.markdown import MarkdownRenderer
 
@@ -74,7 +74,7 @@ class TestChmIntegrationBasic:
         parser = ChmParser()
         doc = parser.convert_to_ast(mock_chm)
 
-        markdown_options = MarkdownOptions(use_hash_headings=True, emphasis_symbol="*")
+        markdown_options = MarkdownRendererOptions(use_hash_headings=True, emphasis_symbol="*")
         renderer = MarkdownRenderer(options=markdown_options)
         result = renderer.render_to_string(doc)
 
@@ -284,7 +284,7 @@ class TestChmMetadataIntegration:
         doc = parser.convert_to_ast(mock_chm)
 
         # Use markdown options to include frontmatter
-        markdown_options = MarkdownOptions(metadata_frontmatter=True, metadata_format="yaml")
+        markdown_options = MarkdownRendererOptions(metadata_frontmatter=True, metadata_format="yaml")
 
         renderer = MarkdownRenderer(options=markdown_options)
         result = renderer.render_to_string(doc)

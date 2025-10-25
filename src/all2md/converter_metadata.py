@@ -70,7 +70,7 @@ class ConverterMetadata:
         - None for no parser options
     renderer_options_class : Union[str, type, None]
         Renderer options class specification. Can be:
-        - Simple class name (e.g., "MarkdownOptions") - looks in all2md.options
+        - Simple class name (e.g., "MarkdownRendererOptions") - looks in all2md.options
         - Fully qualified name (e.g., "myplugin.options.MyRendererOptions")
         - Direct class reference (e.g., MyRendererOptionsClass)
         - None for no renderer options

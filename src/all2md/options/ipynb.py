@@ -14,7 +14,7 @@ from typing import Literal
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_LINES, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 
 
 @dataclass(frozen=True)
@@ -152,7 +152,7 @@ class IpynbRendererOptions(BaseRendererOptions):
     inline_attachments : bool, default True
         Whether to emit attachments inline (base64-encoded) in the notebook
         instead of delegating to external download locations.
-    markdown_options : MarkdownOptions or None, default None
+    markdown_options : MarkdownRendererOptions or None, default None
         Optional Markdown renderer configuration used when consolidating AST
         nodes into markdown notebook cells. When None, a default renderer is
         constructed per cell.
@@ -237,7 +237,7 @@ class IpynbRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
-    markdown_options: MarkdownOptions | None = field(
+    markdown_options: MarkdownRendererOptions | None = field(
         default=None,
         metadata={
             "help": "Override markdown renderer configuration for markdown cells",

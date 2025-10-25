@@ -291,10 +291,10 @@ Word Document Issues
 
 .. code-block:: python
 
-   from all2md.options import DocxOptions, MarkdownOptions
+   from all2md.options import DocxOptions, MarkdownRendererOptions
 
    # Ensure formatting is preserved
-   md_options = MarkdownOptions(
+   md_options = MarkdownRendererOptions(
        emphasis_symbol='*',  # or '_'
        escape_special=True
    )

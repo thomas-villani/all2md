@@ -87,9 +87,9 @@ Use ``MarkdownRenderer`` to convert AST back to Markdown:
    print(markdown)
 
    # Render with specific flavor
-   from all2md.options import MarkdownOptions
+   from all2md.options import MarkdownRendererOptions
 
-   options = MarkdownOptions(flavor="gfm")
+   options = MarkdownRendererOptions(flavor="gfm")
    renderer = MarkdownRenderer(options=options)
    gfm_markdown = renderer.render_to_string(doc)
 

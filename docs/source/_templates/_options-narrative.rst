@@ -13,7 +13,7 @@ The options stack is intentionally layered:
 2. Nested security helpers such as :class:`~all2md.options.common.NetworkFetchOptions` and
    :class:`~all2md.options.common.LocalFileAccessOptions`
 3. Format-specific options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) which may embed
-   :class:`~all2md.options.markdown.MarkdownOptions` or renderer counterparts
+   :class:`~all2md.options.markdown.MarkdownRendererOptions` or renderer counterparts
 
 Because every class inherits from ``CloneFrozenMixin`` you can derive safe variants without mutating originals:
 
@@ -74,7 +74,7 @@ The table below shows where to look for the most commonly tuned converters.
      - ``ZipOptions``
      - Include/exclude patterns, directory depth limits, section heading layout
    * - Markdown rendering
-     - ``MarkdownOptions`` / ``MarkdownParserOptions``
+     - ``MarkdownRendererOptions`` / ``MarkdownParserOptions``
      - Flavour defaults (GFM/CommonMark/etc), table handling, HTML passthrough policy
 
 Using Options
@@ -160,7 +160,7 @@ following common ``--no-*`` conventions in shell scripts.
      - Default
      - CLI to enable
      - CLI to disable
-   * - ``MarkdownOptions.use_hash_headings``
+   * - ``MarkdownRendererOptions.use_hash_headings``
      - ``True``
      - (default)
      - ``--markdown-no-use-hash-headings``

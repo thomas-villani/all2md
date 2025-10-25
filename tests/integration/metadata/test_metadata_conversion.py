@@ -7,7 +7,7 @@ import pytest
 from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md import EmlOptions, HtmlOptions, IpynbOptions, MhtmlOptions, to_markdown
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 
 
 @pytest.mark.integration
@@ -48,7 +48,7 @@ class TestMetadataIntegration:
         html_file.write_text(html_content, encoding="utf-8")
 
         # Test with metadata extraction enabled
-        md_options = MarkdownOptions(metadata_frontmatter=True)
+        md_options = MarkdownRendererOptions(metadata_frontmatter=True)
         parser_options = HtmlOptions(extract_metadata=True)
         result = to_markdown(str(html_file), parser_options=parser_options, renderer_options=md_options)
 
@@ -87,7 +87,7 @@ Test Sender
         eml_file.write_bytes(eml_content.encode("utf-8"))
 
         # Test with metadata extraction enabled
-        md_options = MarkdownOptions(metadata_frontmatter=True)
+        md_options = MarkdownRendererOptions(metadata_frontmatter=True)
         parser_options = EmlOptions(extract_metadata=True)
         result = to_markdown(str(eml_file), parser_options=parser_options, renderer_options=md_options)
 
@@ -137,7 +137,7 @@ Test Sender
         notebook_file.write_text(json.dumps(notebook_content), encoding="utf-8")
 
         # Test with metadata extraction enabled
-        md_options = MarkdownOptions(metadata_frontmatter=True)
+        md_options = MarkdownRendererOptions(metadata_frontmatter=True)
         parser_options = IpynbOptions(extract_metadata=True)
         result = to_markdown(str(notebook_file), parser_options=parser_options, renderer_options=md_options)
 
@@ -191,7 +191,7 @@ Content-Type: text/html; charset=utf-8
         mhtml_file.write_bytes(mhtml_content)
 
         # Test with metadata extraction enabled
-        md_options = MarkdownOptions(metadata_frontmatter=True)
+        md_options = MarkdownRendererOptions(metadata_frontmatter=True)
         parser_options = MhtmlOptions(extract_metadata=True)
         result = to_markdown(str(mhtml_file), parser_options=parser_options, renderer_options=md_options)
 
@@ -275,7 +275,7 @@ Content-Type: text/html; charset=utf-8
 
         # Test with BytesIO
         html_bytes = BytesIO(html_content.encode("utf-8"))
-        md_options = MarkdownOptions(metadata_frontmatter=True)
+        md_options = MarkdownRendererOptions(metadata_frontmatter=True)
         parser_options = HtmlOptions(extract_metadata=True)
         result = to_markdown(
             html_bytes, source_format="html", parser_options=parser_options, renderer_options=md_options

@@ -129,13 +129,13 @@ Guides & References
    :maxdepth: 2
    :caption: Advanced Topics
 
+   architecture
    bidirectional
    templates
-   architecture
    static_sites
-   performance
    security
    threat_model
+   performance
    recipes
 
 .. toctree::

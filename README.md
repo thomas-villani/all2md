@@ -257,11 +257,11 @@ print(markdown_content)
 Fine-tune the conversion by passing `Options` objects or keyword arguments.
 
 ```python
-from all2md import to_markdown, PdfOptions, MarkdownOptions
+from all2md import to_markdown, PdfOptions, MarkdownRendererOptions
 
 # Use an options object for type safety and clarity
 pdf_opts = PdfOptions(pages="1-3,5", attachment_mode="base64")
-md_opts = MarkdownOptions(flavor="gfm", emphasis_symbol="_")
+md_opts = MarkdownRendererOptions(flavor="gfm", emphasis_symbol="_")
 
 markdown_content = to_markdown(
     'report.pdf',
@@ -271,6 +271,7 @@ markdown_content = to_markdown(
 
 # Convert a scanned PDF with OCR
 from all2md.options.common import OCROptions
+
 ocr_opts = OCROptions(enabled=True, mode="auto", languages="eng", dpi=300)
 pdf_opts_with_ocr = PdfOptions(ocr=ocr_opts)
 markdown_content = to_markdown('scanned.pdf', parser_options=pdf_opts_with_ocr)
@@ -278,10 +279,10 @@ markdown_content = to_markdown('scanned.pdf', parser_options=pdf_opts_with_ocr)
 # Alternatively, pass options as keyword arguments
 markdown_content = to_markdown(
     'report.pdf',
-    pages="1-3,5",          # PdfOptions
-    attachment_mode="base64", # BaseParserOptions
-    flavor="gfm",             # MarkdownOptions
-    emphasis_symbol="_"       # MarkdownOptions
+    pages="1-3,5",  # PdfOptions
+    attachment_mode="base64",  # BaseParserOptions
+    flavor="gfm",  # MarkdownRendererOptions
+    emphasis_symbol="_"  # MarkdownRendererOptions
 )
 
 # Convert an MBOX mailbox with message filtering

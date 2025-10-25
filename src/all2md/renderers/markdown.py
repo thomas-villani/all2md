@@ -56,7 +56,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.flavors import (
     CommonMarkFlavor,
@@ -88,12 +88,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     Basic usage:
 
         >>> from all2md.ast import Document, Heading, Text
-        >>> from all2md.options import MarkdownOptions
+        >>> from all2md.options import MarkdownRendererOptions
         >>> from all2md.renderers.markdown import MarkdownRenderer
         >>> doc = Document(children=[
         ...     Heading(level=1, content=[Text(content="Title")])
         ... ])
-        >>> options = MarkdownOptions(flavor="gfm")
+        >>> options = MarkdownRendererOptions(flavor="gfm")
         >>> renderer = MarkdownRenderer(options)
         >>> markdown = renderer.render_to_string(doc)
         >>> print(markdown)
@@ -101,12 +101,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     """
 
-    def __init__(self, options: MarkdownOptions | None = None):
+    def __init__(self, options: MarkdownRendererOptions | None = None):
         """Initialize the Markdown renderer with options."""
         # Initialize BaseRenderer
-        options = options or MarkdownOptions()
+        options = options or MarkdownRendererOptions()
         BaseRenderer.__init__(self, options)
-        self.options: MarkdownOptions = options
+        self.options: MarkdownRendererOptions = options
         self._flavor = self._get_flavor(self.options.flavor)
         self._output: list[str] = []
         self._indent_level: int = 0

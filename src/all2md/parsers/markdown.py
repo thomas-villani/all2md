@@ -1084,7 +1084,7 @@ CONVERTER_METADATA = ConverterMetadata(
     optional_packages=[],
     import_error_message="Markdown parsing requires 'mistune'. Install with: pip install 'all2md[markdown]'",
     parser_options_class=MarkdownParserOptions,
-    renderer_options_class="all2md.options.markdown.MarkdownOptions",
+    renderer_options_class="all2md.options.markdown.MarkdownRendererOptions",
     description="Parse Markdown to AST and render AST to Markdown",
     priority=10,
 )

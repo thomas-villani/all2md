@@ -81,7 +81,7 @@ doctest_global_setup = """
 from all2md import to_markdown, to_ast
 from all2md.options import (
     PdfOptions, DocxOptions, HtmlOptions, PptxOptions,
-    EmlOptions, IpynbOptions, MarkdownOptions
+    EmlOptions, IpynbOptions, MarkdownRendererOptions
 )
 from all2md.ast import NodeVisitor, Heading
 from all2md.renderers.markdown import MarkdownRenderer

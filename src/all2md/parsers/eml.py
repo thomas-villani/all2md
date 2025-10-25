@@ -33,7 +33,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, ParsingError, ValidationError
 from all2md.options.eml import EmlOptions
 from all2md.options.html import HtmlOptions
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
@@ -268,8 +268,8 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     try:
         from all2md import to_markdown
 
-        # Create MarkdownOptions with default hash headings
-        md_options = MarkdownOptions(use_hash_headings=True)
+        # Create MarkdownRendererOptions with default hash headings
+        md_options = MarkdownRendererOptions(use_hash_headings=True)
 
         # Create HTML options that match EML preferences and security settings
         html_options = HtmlOptions(

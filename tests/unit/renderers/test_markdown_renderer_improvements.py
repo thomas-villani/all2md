@@ -2,7 +2,7 @@
 """Unit tests for new Markdown renderer improvements."""
 
 from all2md.ast import Document, Heading, Link, Paragraph, Strong, Text
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 from all2md.renderers.markdown import MarkdownRenderer
 
 
@@ -13,7 +13,7 @@ class TestMarkdownSetextUnderlineWidth:
         """Test setext H1 underline matches plain text length."""
         doc = Document(children=[Heading(level=1, content=[Text(content="Hello World")])])
 
-        options = MarkdownOptions(use_hash_headings=False)
+        options = MarkdownRendererOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -34,7 +34,7 @@ class TestMarkdownSetextUnderlineWidth:
             ]
         )
 
-        options = MarkdownOptions(use_hash_headings=False)
+        options = MarkdownRendererOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -49,7 +49,7 @@ class TestMarkdownSetextUnderlineWidth:
         """Test setext H2 underline matches plain text length."""
         doc = Document(children=[Heading(level=2, content=[Text(content="Section")])])
 
-        options = MarkdownOptions(use_hash_headings=False)
+        options = MarkdownRendererOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -72,7 +72,7 @@ class TestMarkdownSetextUnderlineWidth:
             ]
         )
 
-        options = MarkdownOptions(use_hash_headings=False)
+        options = MarkdownRendererOptions(use_hash_headings=False)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -85,7 +85,7 @@ class TestMarkdownSetextUnderlineWidth:
         """Test prefer_setext_headings option works correctly."""
         doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
 
-        options = MarkdownOptions(use_hash_headings=True, prefer_setext_headings=True)
+        options = MarkdownRendererOptions(use_hash_headings=True, prefer_setext_headings=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -101,7 +101,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test simple URL gets autolinked."""
         doc = Document(children=[Paragraph(content=[Text(content="Visit http://example.com for info")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -113,7 +113,7 @@ class TestMarkdownBareUrlAutolinking:
             children=[Paragraph(content=[Text(content="See http://en.wikipedia.org/wiki/Foo_(bar) article")])]
         )
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -125,7 +125,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with deeply nested parentheses."""
         doc = Document(children=[Paragraph(content=[Text(content="URL http://example.com/path(foo(bar)) here")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -136,7 +136,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL surrounded by parentheses is autolinked."""
         doc = Document(children=[Paragraph(content=[Text(content="(see http://example.com)")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -147,7 +147,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with trailing period is autolinked."""
         doc = Document(children=[Paragraph(content=[Text(content="Visit http://example.com.")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -158,7 +158,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with trailing comma is autolinked."""
         doc = Document(children=[Paragraph(content=[Text(content="Sites: http://example.com, http://test.com")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -170,7 +170,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with query string preserves query parameters."""
         doc = Document(children=[Paragraph(content=[Text(content="Search http://example.com?q=test&page=1 query")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -181,7 +181,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with fragment preserves the fragment."""
         doc = Document(children=[Paragraph(content=[Text(content="See http://example.com/page#section")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -192,7 +192,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with query string and trailing punctuation."""
         doc = Document(children=[Paragraph(content=[Text(content="Link: http://example.com?q=test.")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -203,7 +203,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test HTTPS URL is autolinked."""
         doc = Document(children=[Paragraph(content=[Text(content="Secure: https://secure.example.com")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -213,7 +213,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test FTP URL is autolinked."""
         doc = Document(children=[Paragraph(content=[Text(content="Files at ftp://files.example.com")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -223,7 +223,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test autolink_bare_urls=False doesn't autolink."""
         doc = Document(children=[Paragraph(content=[Text(content="Visit http://example.com")])])
 
-        options = MarkdownOptions(autolink_bare_urls=False)
+        options = MarkdownRendererOptions(autolink_bare_urls=False)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -243,7 +243,7 @@ class TestMarkdownBareUrlAutolinking:
             ]
         )
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -254,7 +254,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with port number."""
         doc = Document(children=[Paragraph(content=[Text(content="Server: http://localhost:8080/app")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 
@@ -264,7 +264,7 @@ class TestMarkdownBareUrlAutolinking:
         """Test URL with username."""
         doc = Document(children=[Paragraph(content=[Text(content="FTP: ftp://user@ftp.example.com/files")])])
 
-        options = MarkdownOptions(autolink_bare_urls=True)
+        options = MarkdownRendererOptions(autolink_bare_urls=True)
         renderer = MarkdownRenderer(options=options)
         output = renderer.render_to_string(doc)
 

@@ -332,7 +332,7 @@ Pass the class object directly:
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
         parser_options_class=BaseParserOptions,  # Direct class reference
-        renderer_options_class=MarkdownOptions,
+        renderer_options_class=MarkdownRendererOptions,
         # ... rest of metadata ...
     )
 
@@ -345,7 +345,7 @@ Use a string with the full module path:
     CONVERTER_METADATA = ConverterMetadata(
         # ... other fields ...
         parser_options_class="all2md.options.BaseParserOptions",  # String reference
-        renderer_options_class="all2md.options.markdown.MarkdownOptions",
+        renderer_options_class="all2md.options.markdown.MarkdownRendererOptions",
         # ... rest of metadata ...
     )
 

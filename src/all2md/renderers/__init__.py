@@ -31,11 +31,11 @@ Convert AST to Markdown:
 
     >>> from all2md.ast import Document, Heading, Text
     >>> from all2md.renderers import MarkdownRenderer
-    >>> from all2md.options import MarkdownOptions
+    >>> from all2md.options import MarkdownRendererOptions
     >>> doc = Document(children=[
     ...     Heading(level=1, content=[Text(content="Title")])
     ... ])
-    >>> renderer = MarkdownRenderer(MarkdownOptions())
+    >>> renderer = MarkdownRenderer(MarkdownRendererOptions())
     >>> markdown = renderer.render_to_string(doc)
 
 Convert AST to HTML (with dynamic loading):

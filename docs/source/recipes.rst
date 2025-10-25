@@ -55,11 +55,11 @@ Converting Directory of Mixed Documents
    import os
    from pathlib import Path
    from concurrent.futures import ThreadPoolExecutor
-   from all2md import to_markdown, PdfOptions, HtmlOptions, PptxOptions, MarkdownOptions
+   from all2md import to_markdown, PdfOptions, HtmlOptions, PptxOptions, MarkdownRendererOptions
 
    def convert_documents_parallel(source_dir: str, output_dir: str):
        # Create shared markdown options
-       md_options = MarkdownOptions(
+       md_options = MarkdownRendererOptions(
            emphasis_symbol="_",
            bullet_symbols="•◦▪",
            extract_metadata=True
@@ -154,10 +154,10 @@ Creating Text-Only Archive from Website
 
    from pathlib import Path
    from datetime import datetime
-   from all2md import to_markdown, HtmlOptions, MarkdownOptions
+   from all2md import to_markdown, HtmlOptions, MarkdownRendererOptions
 
    def create_website_archive(html_dir: str, output_file: str):
-       md_options = MarkdownOptions(
+       md_options = MarkdownRendererOptions(
            escape_special=False,  # Keep text readable
            use_hash_headings=True
        )
@@ -219,7 +219,7 @@ Document Processing for Fine-tuning
    import json
    from pathlib import Path
    from typing import Dict, List
-   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownOptions
+   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownRendererOptions
 
    class LLMDataProcessor:
        def __init__(self, output_dir: str):
@@ -227,7 +227,7 @@ Document Processing for Fine-tuning
            self.output_dir.mkdir(exist_ok=True)
 
            # Configure for clean, minimal markdown
-           self.md_options = MarkdownOptions(
+           self.md_options = MarkdownRendererOptions(
                escape_special=False,  # Don't escape for readability
                emphasis_symbol="*",
                bullet_symbols="*-+",
@@ -362,7 +362,7 @@ Web Application Integration
    import os
    from pathlib import Path
    from typing import Optional, Union
-   from all2md import to_markdown, HtmlOptions, PdfOptions, MarkdownOptions
+   from all2md import to_markdown, HtmlOptions, PdfOptions, MarkdownRendererOptions
    from all2md.options import NetworkFetchOptions, LocalFileAccessOptions
 
    class SecureDocumentProcessor:
@@ -372,7 +372,7 @@ Web Application Integration
            self.max_file_size = max_file_size
 
            # Security-focused markdown options
-           self.md_options = MarkdownOptions(
+           self.md_options = MarkdownRendererOptions(
                escape_special=True,  # Escape for security
                use_hash_headings=True
            )
@@ -515,7 +515,7 @@ Directory Processing with Progress Tracking
    from concurrent.futures import ThreadPoolExecutor, as_completed
    from dataclasses import dataclass, asdict
    from typing import List, Dict, Optional
-   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownOptions
+   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownRendererOptions
 
    @dataclass
    class ProcessingResult:
@@ -536,7 +536,7 @@ Directory Processing with Progress Tracking
            self.max_workers = max_workers
 
            # Setup options
-           md_options = MarkdownOptions(
+           md_options = MarkdownRendererOptions(
                emphasis_symbol="_",
                use_hash_headings=True
            )
@@ -779,13 +779,13 @@ Email Chain Analysis
    from pathlib import Path
    from datetime import datetime
    from typing import List, Dict, Optional
-   from all2md import to_markdown, EmlOptions, MarkdownOptions
+   from all2md import to_markdown, EmlOptions, MarkdownRendererOptions
 
    class EmailAnalyzer:
        """Advanced email processing and analysis."""
 
        def __init__(self):
-           self.md_options = MarkdownOptions(
+           self.md_options = MarkdownRendererOptions(
                use_hash_headings=True,
                escape_special=False,  # Keep email content readable
                page_separator="\\n" + "="*80 + "\\n"
@@ -1146,7 +1146,7 @@ Text-Only Dataset Creation
    import json
    from pathlib import Path
    from typing import List, Dict
-   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownOptions
+   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownRendererOptions
 
    class LLMDatasetBuilder:
        """Build clean LLM training datasets from documents."""
@@ -1156,7 +1156,7 @@ Text-Only Dataset Creation
            self.output_dir.mkdir(parents=True, exist_ok=True)
 
            # Configure for clean, minimal markdown
-           self.md_options = MarkdownOptions(
+           self.md_options = MarkdownRendererOptions(
                escape_special=False,  # Keep text readable
                use_hash_headings=True,
                page_separator="\\n\\n---\\n\\n"  # Clear page breaks

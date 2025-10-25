@@ -20,7 +20,7 @@ from utils import assert_markdown_valid
 from all2md import EpubOptions
 from all2md import to_markdown as epub_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 
 # Skip tests if ebooklib is not available
 try:
@@ -194,7 +194,7 @@ class TestEpubIntegrationFootnotes:
         epub_content = create_epub_with_footnotes()
         epub_file = create_epub_file(epub_content, temp_dir)
 
-        md_options = MarkdownOptions(emphasis_symbol="_")
+        md_options = MarkdownRendererOptions(emphasis_symbol="_")
         parser_options = EpubOptions()
         result = epub_to_markdown(epub_file, parser_options=parser_options, renderer_options=md_options)
 
@@ -365,7 +365,7 @@ class TestEpubIntegrationOptionsValidation:
             (EpubOptions(include_toc=True, merge_chapters=False, attachment_mode="skip"), None),
             (
                 EpubOptions(include_toc=False, merge_chapters=True, attachment_mode="base64"),
-                MarkdownOptions(emphasis_symbol="_"),
+                MarkdownRendererOptions(emphasis_symbol="_"),
             ),
         ]
 

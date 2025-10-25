@@ -5,7 +5,7 @@ from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md import DocxOptions
 from all2md import to_markdown as docx_to_markdown
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 
 
 class TestDocxEscaping:
@@ -93,7 +93,7 @@ class TestDocxEscaping:
 
         # Test with escaping enabled
         parser_options = DocxOptions()
-        renderer_options = MarkdownOptions(escape_special=True)
+        renderer_options = MarkdownRendererOptions(escape_special=True)
         markdown = docx_to_markdown(str(temp_file), parser_options=parser_options, renderer_options=renderer_options)
         assert_markdown_valid(markdown)
 
@@ -105,7 +105,7 @@ class TestDocxEscaping:
 
         # Test with escaping disabled
         parser_options_no_escape = DocxOptions()
-        renderer_options_no_escape = MarkdownOptions(escape_special=False)
+        renderer_options_no_escape = MarkdownRendererOptions(escape_special=False)
         markdown_no_escape = docx_to_markdown(
             str(temp_file), parser_options=parser_options_no_escape, renderer_options=renderer_options_no_escape
         )
@@ -214,7 +214,7 @@ class TestDocxEscaping:
 
         # Test with asterisk emphasis
         parser_options_asterisk = DocxOptions()
-        renderer_options_asterisk = MarkdownOptions(emphasis_symbol="*")
+        renderer_options_asterisk = MarkdownRendererOptions(emphasis_symbol="*")
         markdown_asterisk = docx_to_markdown(
             str(temp_file), parser_options=parser_options_asterisk, renderer_options=renderer_options_asterisk
         )
@@ -222,7 +222,7 @@ class TestDocxEscaping:
 
         # Test with underscore emphasis
         parser_options_underscore = DocxOptions()
-        renderer_options_underscore = MarkdownOptions(emphasis_symbol="_")
+        renderer_options_underscore = MarkdownRendererOptions(emphasis_symbol="_")
         markdown_underscore = docx_to_markdown(
             str(temp_file), parser_options=parser_options_underscore, renderer_options=renderer_options_underscore
         )

@@ -8,7 +8,7 @@ import pytest
 
 from all2md import to_markdown
 from all2md.converter_registry import registry
-from all2md.options import MarkdownOptions, SourceCodeOptions
+from all2md.options import MarkdownRendererOptions, SourceCodeOptions
 
 
 class TestSourceCodeIntegration:
@@ -207,14 +207,14 @@ print(fibonacci(10))"""
                 Path(temp_path).unlink()
 
     def test_markdown_options_integration(self):
-        """Test integration with MarkdownOptions."""
-        from all2md.options import MarkdownOptions
+        """Test integration with MarkdownRendererOptions."""
+        from all2md.options import MarkdownRendererOptions
 
         content = "def greet(name):\n    return f'Hello, {name}!'"
 
         # Create options with metadata extraction and frontmatter enabled
         parser_options = SourceCodeOptions(extract_metadata=True)
-        renderer_options = MarkdownOptions(emphasis_symbol="_", metadata_frontmatter=True)
+        renderer_options = MarkdownRendererOptions(emphasis_symbol="_", metadata_frontmatter=True)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(content)
@@ -249,7 +249,7 @@ print(fibonacci(10))"""
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             f.write(content)
             temp_path = f.name
-        opts = MarkdownOptions(escape_special=False)
+        opts = MarkdownRendererOptions(escape_special=False)
         try:
             # Without extension, should fall back to txt handling
             result = to_markdown(temp_path, renderer_options=opts)
@@ -344,7 +344,7 @@ if __name__ == "__main__":
 
         try:
             # Test with different option combinations
-            md_options = MarkdownOptions(metadata_frontmatter=True)
+            md_options = MarkdownRendererOptions(metadata_frontmatter=True)
             parser_options = SourceCodeOptions(include_filename=True, extract_metadata=True)
 
             result = to_markdown(temp_path, parser_options=parser_options, renderer_options=md_options)

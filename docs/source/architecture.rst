@@ -520,7 +520,7 @@ Options Hierarchy
    ├── attachment_mode
    ├── attachment_output_dir
    ├── alt_text_mode
-   └── markdown_options (MarkdownOptions)
+   └── markdown_options (MarkdownRendererOptions)
 
    Format-Specific Options (inherit from BaseParserOptions)
    ├── HtmlOptions

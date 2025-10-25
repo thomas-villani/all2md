@@ -16,7 +16,7 @@ import pytest
 from all2md import IpynbOptions
 from all2md import to_markdown as ipynb_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 
 
 @pytest.mark.integration
@@ -521,7 +521,7 @@ def test_notebook_with_markdown_options():
 
     try:
         # Test with custom markdown options
-        md_options = MarkdownOptions()
+        md_options = MarkdownRendererOptions()
         parser_options = IpynbOptions()
 
         result = ipynb_to_markdown(temp_path, parser_options=parser_options, renderer_options=md_options)

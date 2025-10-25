@@ -77,7 +77,7 @@ from all2md.ast import (
 from all2md.exceptions import All2MdError
 from all2md.options import (
     HtmlRendererOptions,
-    MarkdownOptions,
+    MarkdownRendererOptions,
     PdfOptions,
 )
 
@@ -193,7 +193,7 @@ class TestFromAst:
         doc = create_sample_ast_document()
 
         # Test with emphasis symbol preference
-        result = from_ast(doc, "markdown", renderer_options=MarkdownOptions(emphasis_symbol="_"))
+        result = from_ast(doc, "markdown", renderer_options=MarkdownRendererOptions(emphasis_symbol="_"))
 
         assert "_italic_" in result
 
@@ -276,7 +276,7 @@ class TestFromAst:
     def test_from_ast_with_kwargs_override(self):
         """Test from_ast with kwargs overriding renderer options."""
         doc = create_sample_ast_document()
-        base_options = MarkdownOptions(emphasis_symbol="*")
+        base_options = MarkdownRendererOptions(emphasis_symbol="*")
 
         result = from_ast(doc, "markdown", renderer_options=base_options, emphasis_symbol="_")  # Override
 
@@ -561,7 +561,7 @@ class TestConvert:
             source_format="html",
             target_format="markdown",
             convert_nbsp=True,  # HtmlOptions (parser)
-            emphasis_symbol="_",  # MarkdownOptions (renderer)
+            emphasis_symbol="_",  # MarkdownRendererOptions (renderer)
         )
 
         assert isinstance(result, str)
@@ -987,7 +987,7 @@ class TestIntegration:
 
         # Test with different option combinations
         parser_options1 = DocxOptions(preserve_tables=True)
-        renderer_options1 = MarkdownOptions(escape_special=True)
+        renderer_options1 = MarkdownRendererOptions(escape_special=True)
 
         result1 = to_markdown(str(docx_file), parser_options=parser_options1, renderer_options=renderer_options1)
         assert_markdown_valid(result1)
@@ -1163,7 +1163,7 @@ class TestNewAPI:
         html_io = BytesIO(html_content)
 
         # Create options with one setting
-        md_opts = MarkdownOptions(use_hash_headings=False)
+        md_opts = MarkdownRendererOptions(use_hash_headings=False)
         base_parser_options = HtmlOptions(convert_nbsp=True)
 
         # Override with kwargs
@@ -1187,7 +1187,7 @@ class TestNewAPI:
             source_format="html",
             use_hash_headings=True,
             convert_nbsp=False,
-            emphasis_symbol="_",  # MarkdownOptions field
+            emphasis_symbol="_",  # MarkdownRendererOptions field
         )
 
         assert_markdown_valid(result)
@@ -1281,7 +1281,7 @@ class TestNewAPI:
         assert "Bob" in result
 
     def test_markdown_options_inheritance(self):
-        """Test that MarkdownOptions are properly handled across formats."""
+        """Test that MarkdownRendererOptions are properly handled across formats."""
         html_content = b"<html><body><em>italic</em> <strong>bold</strong></body></html>"
         html_io = BytesIO(html_content)
 

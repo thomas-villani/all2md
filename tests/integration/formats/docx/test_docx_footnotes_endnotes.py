@@ -7,7 +7,7 @@ from fixtures import FIXTURES_PATH
 
 from all2md.ast import FootnoteDefinition, FootnoteReference
 from all2md.ast.transforms import extract_nodes
-from all2md.options import DocxOptions, MarkdownOptions
+from all2md.options import DocxOptions, MarkdownRendererOptions
 from all2md.parsers.docx import DocxToAstConverter
 from all2md.renderers.markdown import MarkdownRenderer
 
@@ -34,7 +34,7 @@ def test_docx_fixture_contains_expected_notes() -> None:
     assert "footnote" in metadata_note_types
     assert "endnote" in metadata_note_types
 
-    renderer = MarkdownRenderer(MarkdownOptions(flavor="pandoc"))
+    renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="pandoc"))
     markdown_output = renderer.render_to_string(document)
 
     for identifier in ref_ids:
@@ -54,7 +54,7 @@ def test_docx_inline_comments_render_inline() -> None:
     converter = DocxToAstConverter(options=options)
     document = converter.parse(DOCX_FIXTURE_PATH)
 
-    markdown_output = MarkdownRenderer(MarkdownOptions(flavor="pandoc")).render_to_string(document)
+    markdown_output = MarkdownRenderer(MarkdownRendererOptions(flavor="pandoc")).render_to_string(document)
 
     assert "I decided not to think of something funny." in markdown_output
     assert "comment1" in markdown_output

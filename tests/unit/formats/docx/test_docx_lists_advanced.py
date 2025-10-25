@@ -6,7 +6,7 @@ from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
 from all2md import DocxOptions
 from all2md import to_markdown as docx_to_markdown
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 
 
 class TestDocxListsAdvanced:
@@ -92,7 +92,7 @@ class TestDocxListsAdvanced:
         doc.save(str(temp_file))
 
         parser_options = DocxOptions()
-        renderer_options = MarkdownOptions(bullet_symbols="*+-")
+        renderer_options = MarkdownRendererOptions(bullet_symbols="*+-")
         markdown = docx_to_markdown(str(temp_file), parser_options=parser_options, renderer_options=renderer_options)
         assert_markdown_valid(markdown)
 

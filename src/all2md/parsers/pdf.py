@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 from all2md.options.pdf import PdfOptions
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.parser_helpers import attachment_result_to_image_node
@@ -495,7 +495,7 @@ def detect_columns(
     return _detect_columns_by_gaps(blocks, block_ranges, x_coords, column_gap_threshold, force_multi_column)
 
 
-def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -> str:
+def handle_rotated_text(line: dict, md_options: MarkdownRendererOptions | None = None) -> str:
     """Process rotated text blocks and convert to readable format.
 
     Handles text that is rotated 90°, 180°, or 270° by extracting the text
@@ -505,7 +505,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
     ----------
     line : dict
         Line dictionary from PyMuPDF containing direction and span information
-    md_options : MarkdownOptions or None, optional
+    md_options : MarkdownRendererOptions or None, optional
         Markdown formatting options for escaping special characters
 
     Returns
@@ -550,7 +550,7 @@ def handle_rotated_text(line: dict, md_options: MarkdownOptions | None = None) -
 
 
 def resolve_links(
-    links: list, span: dict, md_options: MarkdownOptions | None = None, overlap_threshold: float | None = None
+    links: list, span: dict, md_options: MarkdownRendererOptions | None = None, overlap_threshold: float | None = None
 ) -> str | None:
     """Accept a span bbox and return a markdown link string.
 
@@ -563,7 +563,7 @@ def resolve_links(
         List of link dictionaries from page.get_links()
     span : dict
         Text span dictionary containing bbox and text information
-    md_options : MarkdownOptions or None, optional
+    md_options : MarkdownRendererOptions or None, optional
         Markdown formatting options for escaping special characters
     overlap_threshold : float or None, optional
         Percentage overlap required for link detection (0-100). If None, uses DEFAULT_OVERLAP_THRESHOLD_PERCENT.

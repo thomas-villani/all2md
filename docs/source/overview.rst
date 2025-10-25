@@ -109,7 +109,7 @@ The library provides several core conversion functions in ``api.py``. The ``to_m
        source: Union[str, Path, IO[bytes], bytes],
        *,
        parser_options: Optional[BaseParserOptions] = None,
-       renderer_options: Optional[MarkdownOptions] = None,
+       renderer_options: Optional[MarkdownRendererOptions] = None,
        source_format: DocumentFormat = "auto",
        flavor: Optional[str] = None,
        transforms: Optional[list] = None,
@@ -131,7 +131,7 @@ For conversions between any supported formats (not just to Markdown), use the ``
 .. code-block:: python
 
    from all2md import convert
-   from all2md.options import PdfOptions, MarkdownOptions
+   from all2md.options import PdfOptions, MarkdownRendererOptions
 
    # Convert PDF to Markdown (returns str when no output specified)
    markdown = convert("document.pdf", target_format="markdown")
@@ -234,8 +234,8 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
    transformed = transformer.transform(doc_ast)
 
    # Render to GitHub Flavored Markdown
-   from all2md.options import MarkdownOptions
-   renderer = MarkdownRenderer(options=MarkdownOptions(flavor="gfm"))
+   from all2md.options import MarkdownRendererOptions
+   renderer = MarkdownRenderer(options=MarkdownRendererOptions(flavor="gfm"))
    gfm_markdown = renderer.render_to_string(transformed)
 
 **AST Node Types:**
@@ -349,17 +349,17 @@ Options are expressed as frozen dataclasses so configurations are explicit, type
 
 1. **``BaseParserOptions``** shared fields (attachment handling, metadata extraction, asset limits)
 2. **Nested security helpers** such as ``NetworkFetchOptions`` and ``LocalFileAccessOptions`` (used by HTML/MHTML/EPUB/CHM parsers)
-3. **Format-specific options** (``PdfOptions``, ``HtmlOptions``, ``OrgParserOptions``, ``ZipOptions``, etc.) that may embed **``MarkdownOptions``** for renderer tweaks
+3. **Format-specific options** (``PdfOptions``, ``HtmlOptions``, ``OrgParserOptions``, ``ZipOptions``, etc.) that may embed **``MarkdownRendererOptions``** for renderer tweaks
 
 .. code-block:: python
 
    from all2md.options import (
-       MarkdownOptions,
+       MarkdownRendererOptions,
        NetworkFetchOptions,
        HtmlOptions,
    )
 
-   markdown_defaults = MarkdownOptions(emphasis_symbol="_")
+   markdown_defaults = MarkdownRendererOptions(emphasis_symbol="_")
 
    html_network = NetworkFetchOptions(
        allow_remote_fetch=False,
@@ -919,7 +919,7 @@ New option classes inherit from ``BaseOptions``:
    @dataclass
    class NewFormatOptions(BaseOptions):
        custom_setting: bool = True
-       markdown_options: Optional[MarkdownOptions] = None
+       markdown_options: Optional[MarkdownRendererOptions] = None
 
 Integration Patterns
 --------------------

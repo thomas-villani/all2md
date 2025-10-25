@@ -109,7 +109,7 @@ from all2md.options.epub import EpubOptions, EpubRendererOptions
 from all2md.options.html import HtmlOptions, HtmlRendererOptions
 from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
 from all2md.options.latex import LatexOptions, LatexRendererOptions
-from all2md.options.markdown import MarkdownOptions, MarkdownParserOptions
+from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions
 from all2md.options.mediawiki import MediaWikiOptions
 from all2md.options.mhtml import MhtmlOptions
 from all2md.options.odp import OdpOptions
@@ -172,7 +172,7 @@ __all__ = [
     "IpynbRendererOptions",
     "LatexRendererOptions",
     "LatexOptions",
-    "MarkdownOptions",
+    "MarkdownRendererOptions",
     "MarkdownParserOptions",
     "MediaWikiOptions",
     "MhtmlOptions",

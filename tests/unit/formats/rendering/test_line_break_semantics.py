@@ -17,7 +17,7 @@ from all2md.options import (
     AsciiDocRendererOptions,
     HtmlRendererOptions,
     LatexRendererOptions,
-    MarkdownOptions,
+    MarkdownRendererOptions,
     MediaWikiOptions,
     RstRendererOptions,
 )
@@ -123,7 +123,7 @@ class TestLineBreakSemantics:
                 )
             ]
         )
-        renderer = MarkdownRenderer(MarkdownOptions())
+        renderer = MarkdownRenderer(MarkdownRendererOptions())
         result = renderer.render_to_string(doc)
         # Soft breaks should render as newline in Markdown
         assert "Line 1\nLine 2" in result
@@ -143,7 +143,7 @@ class TestLineBreakSemantics:
                 )
             ]
         )
-        renderer = MarkdownRenderer(MarkdownOptions())
+        renderer = MarkdownRenderer(MarkdownRendererOptions())
         result = renderer.render_to_string(doc)
         # Hard breaks should render as two-space-newline in Markdown
         assert "Line 1  \nLine 2" in result

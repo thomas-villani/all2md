@@ -23,7 +23,7 @@ from utils import assert_markdown_valid
 
 from all2md import to_markdown as webarchive_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 from all2md.options.webarchive import WebArchiveOptions
 
 
@@ -289,7 +289,7 @@ class TestWebArchiveIntegrationOptions:
         webarchive_content = create_simple_webarchive()
         webarchive_file = create_webarchive_file(webarchive_content, temp_dir)
 
-        md_options = MarkdownOptions(emphasis_symbol="_", bullet_symbols="+-*")
+        md_options = MarkdownRendererOptions(emphasis_symbol="_", bullet_symbols="+-*")
         parser_options = WebArchiveOptions()
         result = webarchive_to_markdown(webarchive_file, parser_options=parser_options, renderer_options=md_options)
 
@@ -321,7 +321,7 @@ class TestWebArchiveIntegrationOptions:
             (WebArchiveOptions(extract_title=True), None),
             (
                 WebArchiveOptions(extract_subresources=True, attachment_output_dir=str(temp_dir / "res2")),
-                MarkdownOptions(emphasis_symbol="_"),
+                MarkdownRendererOptions(emphasis_symbol="_"),
             ),
         ]
 

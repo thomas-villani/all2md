@@ -28,7 +28,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 from all2md.renderers import MarkdownRenderer
 
 
@@ -90,7 +90,7 @@ class TestMarkdownRendering:
     def test_full_document_to_markdown(self):
         """Test rendering complete document to Markdown."""
         doc = create_sample_document()
-        renderer = MarkdownRenderer(MarkdownOptions())
+        renderer = MarkdownRenderer(MarkdownRendererOptions())
         result = renderer.render_to_string(doc)
 
         # Verify all major elements are present
@@ -107,12 +107,12 @@ class TestMarkdownRendering:
         doc = create_sample_document()
 
         # GFM
-        gfm_renderer = MarkdownRenderer(MarkdownOptions(flavor="gfm"))
+        gfm_renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="gfm"))
         gfm_result = gfm_renderer.render_to_string(doc)
         assert "| Name" in gfm_result  # Tables supported in GFM
 
         # CommonMark
-        cm_renderer = MarkdownRenderer(MarkdownOptions(flavor="commonmark", unsupported_table_mode="html"))
+        cm_renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="commonmark", unsupported_table_mode="html"))
         cm_result = cm_renderer.render_to_string(doc)
         # Tables as HTML in CommonMark
         assert "<table>" in cm_result

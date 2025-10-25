@@ -1,7 +1,7 @@
 """Tests for frontmatter format selection (YAML, TOML, JSON)."""
 
 from all2md.ast.nodes import Document, Paragraph, Text
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.utils.metadata import (
     DocumentMetadata,
@@ -81,7 +81,7 @@ def test_markdown_renderer_yaml_frontmatter():
         },
     )
 
-    options = MarkdownOptions(metadata_frontmatter=True, metadata_format="yaml")
+    options = MarkdownRendererOptions(metadata_frontmatter=True, metadata_format="yaml")
     renderer = MarkdownRenderer(options)
     result = renderer.render_to_string(doc)
 
@@ -101,7 +101,7 @@ def test_markdown_renderer_toml_frontmatter():
         },
     )
 
-    options = MarkdownOptions(metadata_frontmatter=True, metadata_format="toml")
+    options = MarkdownRendererOptions(metadata_frontmatter=True, metadata_format="toml")
     renderer = MarkdownRenderer(options)
     result = renderer.render_to_string(doc)
 
@@ -121,7 +121,7 @@ def test_markdown_renderer_json_frontmatter():
         },
     )
 
-    options = MarkdownOptions(metadata_frontmatter=True, metadata_format="json")
+    options = MarkdownRendererOptions(metadata_frontmatter=True, metadata_format="json")
     renderer = MarkdownRenderer(options)
     result = renderer.render_to_string(doc)
 

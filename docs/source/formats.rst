@@ -139,7 +139,7 @@ Markdown
 
 - Supports flavour-specific parsing and rendering (GFM, CommonMark, Markdown Plus, etc.)
 - Enables bidirectional conversion to DOCX/HTML/PDF (see :doc:`bidirectional`)
-- Works with ``MarkdownParserOptions`` and ``MarkdownOptions`` for fine control of tables, code fences, and math
+- Works with ``MarkdownParserOptions`` and ``MarkdownRendererOptions`` for fine control of tables, code fences, and math
 
 AsciiDoc
 ~~~~~~~~~

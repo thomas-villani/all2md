@@ -26,7 +26,7 @@ from all2md.cli.custom_actions import (
 from all2md.cli.presets import get_preset_names
 from all2md.converter_registry import registry
 from all2md.exceptions import FileError, PasswordProtectedError, RenderingError, SecurityError, ValidationError
-from all2md.options.markdown import MarkdownOptions
+from all2md.options.markdown import MarkdownRendererOptions
 
 # Module logger for consistent warning/error reporting
 logger = logging.getLogger(__name__)
@@ -241,7 +241,7 @@ class DynamicCLIBuilder:
 
         options_classes["base"] = BaseParserOptions
         options_classes["renderer_base"] = BaseRendererOptions
-        options_classes["markdown"] = MarkdownOptions
+        options_classes["markdown"] = MarkdownRendererOptions
         options_classes["remote_input"] = RemoteInputOptions
 
         registry.auto_discover()
@@ -1256,9 +1256,9 @@ Examples:
             parser, BaseParserOptions, format_prefix=None, group_name="Universal parser options"
         )
 
-        # Add MarkdownOptions as common options
+        # Add MarkdownRendererOptions as common options
         self.add_options_class_arguments(
-            parser, MarkdownOptions, format_prefix="markdown", group_name="Common Markdown formatting options"
+            parser, MarkdownRendererOptions, format_prefix="markdown", group_name="Common Markdown formatting options"
         )
 
         # Add remote input options (top-level, apply to all formats)
@@ -1276,7 +1276,7 @@ Examples:
 
         for format_name in registry.list_formats():
             try:
-                # Skip markdown format - we already added MarkdownOptions explicitly above
+                # Skip markdown format - we already added MarkdownRendererOptions explicitly above
                 # to avoid duplicate --markdown-flavor and other overlapping arguments
                 if format_name == "markdown":
                     continue

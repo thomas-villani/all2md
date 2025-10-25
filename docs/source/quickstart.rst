@@ -125,16 +125,16 @@ Common Use Cases
 
 .. code-block:: python
 
-   from all2md import to_markdown, PdfOptions, MarkdownOptions
+   from all2md import to_markdown, PdfOptions, MarkdownRendererOptions
 
    # Use underscores for emphasis and custom bullets
-   md_options = MarkdownOptions(
+   md_options = MarkdownRendererOptions(
        emphasis_symbol='_',
        bullet_symbols='•◦▪',
        use_hash_headings=True
    )
 
-   # Nest MarkdownOptions within format-specific options
+   # Nest MarkdownRendererOptions within format-specific options
    options = PdfOptions(markdown_options=md_options)
    markdown = to_markdown('document.pdf', options=options)
 

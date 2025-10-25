@@ -32,7 +32,7 @@ if str(SRC_PATH) not in sys.path:
 from all2md.converter_registry import registry  # noqa: E402
 from all2md.options.base import BaseParserOptions, BaseRendererOptions  # noqa: E402
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions  # noqa: E402
-from all2md.options.markdown import MarkdownOptions  # noqa: E402
+from all2md.options.markdown import MarkdownRendererOptions  # noqa: E402
 
 # Type alias for clarity
 DataclassType = Type[Any]
@@ -303,7 +303,7 @@ class OptionsRenderer:
                 )
                 continue
 
-            if field.name == "markdown_options" and underlying_type is MarkdownOptions:
+            if field.name == "markdown_options" and underlying_type is MarkdownRendererOptions:
                 lines.append(f"**{field.name}**")
                 lines.append("")
                 lines.append(
@@ -440,7 +440,7 @@ def generate_reference_section() -> list[str]:
     shared_sections = [
         ("Base Parser Options", BaseParserOptions, None),
         ("Base Renderer Options", BaseRendererOptions, "renderer"),
-        ("Markdown Options", MarkdownOptions, "markdown"),
+        ("Markdown Options", MarkdownRendererOptions, "markdown"),
         ("Network Fetch Options", NetworkFetchOptions, "network"),
         ("Local File Access Options", LocalFileAccessOptions, "local"),
     ]

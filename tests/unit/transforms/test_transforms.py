@@ -5,7 +5,7 @@ import pytest
 
 from all2md.ast import Document, Heading, Image, Link, Paragraph, Text
 from all2md.ast.transforms import NodeTransformer
-from all2md.options import MarkdownOptions
+from all2md.options import MarkdownRendererOptions
 from all2md.transforms import (
     Pipeline,
     TransformMetadata,
@@ -97,7 +97,7 @@ class TestBasicRendering:
 
     def test_render_with_options(self, sample_document):
         """Test rendering with custom options."""
-        options = MarkdownOptions(flavor="commonmark", emphasis_symbol="_")
+        options = MarkdownRendererOptions(flavor="commonmark", emphasis_symbol="_")
         markdown = render(sample_document, options=options)
 
         assert "# Title" in markdown
@@ -375,7 +375,7 @@ class TestPipelineClass:
         pipeline = Pipeline(
             transforms=[UppercaseTextTransform()],
             hooks={"pre_render": [lambda doc, ctx: doc]},
-            options=MarkdownOptions(flavor="gfm"),
+            options=MarkdownRendererOptions(flavor="gfm"),
         )
 
         assert pipeline.transforms is not None
