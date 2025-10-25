@@ -621,7 +621,7 @@ class HtmlToAstConverter(BaseParser):
             return True
 
         # Use centralized element safety check from html_sanitizer utility
-        return is_element_safe(element)
+        return is_element_safe(element, strip_framework_attributes=self.options.strip_framework_attributes)
 
     def _apply_custom_sanitization(self, soup: Any) -> Any:
         """Apply custom sanitization with user-specified attribute allowlists.

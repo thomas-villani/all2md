@@ -355,6 +355,121 @@ Defense Mechanisms
 
 ---
 
+6. Cross-Site Scripting (XSS) via HTML Attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Attack Description
+^^^^^^^^^^^^^^^^^^
+
+When processing HTML documents and re-rendering the output as HTML (or storing it for later HTML rendering), malicious HTML attributes can execute JavaScript code. This includes both standard HTML5 event handlers and JavaScript framework-specific attributes.
+
+**Attack Vectors:**
+
+1. **Event Handler Attributes:** HTML5 specifies 100+ event handler attributes that can execute JavaScript
+2. **Framework Attributes:** JavaScript frameworks (Alpine.js, Vue.js, Angular, HTMX) use special attributes that execute code in framework contexts
+3. **Data Attributes:** Framework-prefixed data attributes (``data-x-*``, ``data-v-*``) can execute code
+
+**Example Attacks:**
+
+.. code-block:: html
+
+   <!-- Standard event handlers -->
+   <div onclick="alert('XSS')">Click me</div>
+   <img src="x" onerror="stealCookies()">
+   <body onload="maliciousCode()">
+
+   <!-- Less common but still dangerous -->
+   <div onmouseover="trackUser()">Hover</div>
+   <input onfocus="captureInput()">
+   <div onanimationstart="exploit()">Animated</div>
+
+   <!-- Framework attributes (dangerous in framework contexts) -->
+   <div x-html="userContent">Alpine.js XSS</div>
+   <div v-html="maliciousHTML">Vue.js XSS</div>
+   <div ng-bind-html="unsafeContent">Angular XSS</div>
+
+Defense Mechanisms
+^^^^^^^^^^^^^^^^^^
+
+all2md provides comprehensive attribute sanitization via ``HtmlOptions.strip_dangerous_elements`` and ``HtmlOptions.strip_framework_attributes``:
+
+1. **Event Handler Detection (Automatic with strip_dangerous_elements):**
+
+   .. code-block:: python
+
+      from all2md import to_markdown, HtmlOptions
+
+      # Remove all dangerous elements AND event handler attributes
+      safe_config = HtmlOptions(
+          strip_dangerous_elements=True  # Removes script, style, event handlers
+      )
+
+      result = to_markdown(html_doc, parser_options=safe_config)
+
+2. **Framework Attribute Stripping (Opt-in):**
+
+   .. code-block:: python
+
+      # Additional protection for framework-aware contexts
+      framework_safe_config = HtmlOptions(
+          strip_dangerous_elements=True,
+          strip_framework_attributes=True  # Remove x-*, v-*, ng-*, hx-*, etc.
+      )
+
+      result = to_markdown(html_doc, parser_options=framework_safe_config)
+
+**Protected Event Handlers (Comprehensive List):**
+
+All HTML5 event handlers are detected via pattern matching:
+
+* **Window Events:** onload, onunload, onbeforeunload, onhashchange, onmessage, etc.
+* **Form Events:** onsubmit, onchange, oninput, oninvalid, onreset, onselect
+* **Mouse Events:** onclick, onmouseover, onmouseenter, onmouseleave, onmousedown, onmouseup, etc.
+* **Keyboard Events:** onkeydown, onkeyup, onkeypress
+* **Drag & Drop:** ondrag, ondrop, ondragstart, ondragend, ondragover, etc.
+* **Media Events:** onplay, onpause, onended, onvolumechange, ontimeupdate, etc.
+* **Clipboard Events:** oncopy, oncut, onpaste
+* **Animation Events:** onanimationstart, onanimationend, onanimationiteration, ontransitionend
+* **Touch Events:** ontouchstart, ontouchend, ontouchmove, ontouchcancel
+* **And 60+ more...**
+
+**Protected Framework Attributes:**
+
+When ``strip_framework_attributes=True``:
+
+* **Alpine.js:** x-data, x-html, x-bind, x-on, x-text, x-model, x-if, x-for, x-init, etc.
+* **Vue.js:** v-html, v-bind, v-on, v-model, v-if, v-for, @click, :href, etc.
+* **Angular:** ng-bind-html, ng-click, ng-model, ng-if, ng-repeat, [attr], (event), etc.
+* **HTMX:** hx-get, hx-post, hx-put, hx-delete, hx-trigger, hx-vals, hx-on, etc.
+
+**Implementation Details:**
+
+* Pattern-based detection catches all ``on*`` attributes (not just a hardcoded list)
+* Smart pattern matching avoids false positives (e.g., ``one-time``, ``only-when``)
+* Event handlers must follow HTML5 naming: ``on`` + alphabetic event name (no hyphens)
+* Framework attributes are only stripped when explicitly enabled (opt-in for backward compatibility)
+* Sanitization occurs in both ``is_element_safe()`` validation and ``_basic_sanitize_html_string()``
+
+**Risk Level:** High (if HTML output is re-rendered in browsers)
+
+**Mitigation Effectiveness:** High (comprehensive pattern-based detection)
+
+**When to Enable Framework Stripping:**
+
+* Output HTML will be rendered in browsers with JavaScript frameworks installed
+* Processing user-generated content for display in framework-based web apps
+* Converting HTML for storage in CMS systems that use JavaScript frameworks
+* Maximum security posture for untrusted input
+
+**When Framework Stripping is NOT Needed:**
+
+* Converting to Markdown for plain text viewing
+* Output will not be re-rendered as HTML
+* No JavaScript frameworks present in rendering context
+* Processing purely static HTML documents
+
+---
+
 Security Options Quick Reference
 ---------------------------------
 
@@ -385,6 +500,12 @@ This table maps each attack vector to the relevant security options:
    * - Path Traversal
      - validate_zip_archive
      - Automatic (blocks ``../``)
+   * - XSS (Event Handlers)
+     - strip_dangerous_elements
+     - ``strip_dangerous_elements=True`` (removes all on* attributes)
+   * - XSS (Framework Attrs)
+     - strip_framework_attributes
+     - ``strip_framework_attributes=True`` (opt-in for frameworks)
 
 Best Practices
 --------------
@@ -407,7 +528,8 @@ When processing documents from untrusted sources (user uploads, web scraping):
        local_files=LocalFileAccessOptions(
            allow_local_files=False  # Block all file:// access
        ),
-       strip_dangerous_elements=True,  # Remove <script>, <iframe>, etc.
+       strip_dangerous_elements=True,  # Remove <script>, <iframe>, event handlers
+       strip_framework_attributes=True,  # Remove x-*, v-*, ng-*, hx-* attributes
        attachment_mode="alt_text"  # Don't download anything
    )
 
@@ -499,7 +621,8 @@ Use this checklist when deploying all2md for untrusted input:
 
    [ ] Set allow_remote_fetch=False or use allowed_hosts allowlist
    [ ] Set allow_local_files=False (or strict allowlist)
-   [ ] Set strip_dangerous_elements=True for HTML
+   [ ] Set strip_dangerous_elements=True for HTML (removes script, style, event handlers)
+   [ ] Set strip_framework_attributes=True if re-rendering HTML with frameworks
    [ ] Set max_asset_bytes to reasonable limit
    [ ] Set network_timeout to prevent hangs
    [ ] Implement application-level file size limits

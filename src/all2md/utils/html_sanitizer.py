@@ -394,11 +394,29 @@ def _basic_sanitize_html_string(content: str) -> str:
                 attrs_to_update = {}  # For attributes we want to sanitize rather than remove
 
                 for attr_name in element.attrs:
-                    if attr_name.lower() in DANGEROUS_HTML_ATTRIBUTES:
+                    attr_name_lower = attr_name.lower()
+
+                    # Check for explicit dangerous attributes
+                    if attr_name_lower in DANGEROUS_HTML_ATTRIBUTES:
                         attrs_to_remove.append(attr_name)
 
+                    # Check for any event handler attribute (on* pattern)
+                    # This catches all HTML5 event handlers even if not in the explicit list
+                    # Event handlers are: "on" + event name (continuous letters, no hyphens/underscores)
+                    # Examples: onclick, onload, onerror, onmouseover
+                    # Non-handlers: one-time, only-when, on_click (invalid syntax)
+                    elif attr_name_lower.startswith("on") and len(attr_name_lower) > 2:
+                        # Extract the part after "on"
+                        event_part = attr_name_lower[2:]
+                        # Event handlers are all alphabetic (no hyphens, underscores, numbers at start)
+                        # and start with a letter
+                        if event_part and event_part[0].isalpha() and event_part.replace("_", "").isalpha():
+                            # Check if there are no hyphens (which would indicate it's not an event handler)
+                            if "-" not in attr_name_lower:
+                                attrs_to_remove.append(attr_name)
+
                     # Check URL attributes for dangerous schemes
-                    elif attr_name.lower() in ("href", "src", "action", "formaction"):
+                    elif attr_name_lower in ("href", "src", "action", "formaction"):
                         attr_value = element.attrs[attr_name]
                         if isinstance(attr_value, str) and not is_url_safe(attr_value):
                             attrs_to_remove.append(attr_name)
@@ -483,7 +501,7 @@ def strip_html_tags(content: str) -> str:
     return text
 
 
-def is_element_safe(element: Any) -> bool:
+def is_element_safe(element: Any, *, strip_framework_attributes: bool = False) -> bool:
     """Check if a BeautifulSoup element is safe (no dangerous tags/attributes).
 
     This function is designed for use in the HTML parser (HtmlToAstConverter)
@@ -493,6 +511,11 @@ def is_element_safe(element: Any) -> bool:
     ----------
     element : Any
         BeautifulSoup element to check
+    strip_framework_attributes : bool, default False
+        If True, also check for JavaScript framework attributes (Alpine.js, Vue.js,
+        Angular, HTMX, etc.) which can execute code in framework contexts.
+        These are only dangerous if the HTML will be re-rendered in a browser
+        with these frameworks present.
 
     Returns
     -------
@@ -510,7 +533,25 @@ def is_element_safe(element: Any) -> bool:
     >>> is_element_safe(soup.script)
     False
 
+    >>> soup = BeautifulSoup('<div onclick="alert()">Click</div>', "html.parser")
+    >>> is_element_safe(soup.div)
+    False
+
+    >>> soup = BeautifulSoup('<div x-data="{open: false}">Alpine</div>', "html.parser")
+    >>> is_element_safe(soup.div)  # Without framework stripping
+    True
+    >>> is_element_safe(soup.div, strip_framework_attributes=True)  # With framework stripping
+    False
+
     """
+    from all2md.constants import (
+        DANGEROUS_HTML_ATTRIBUTES,
+        DANGEROUS_HTML_ELEMENTS,
+        DANGEROUS_SCHEMES,
+        FRAMEWORK_ATTRIBUTE_PREFIXES,
+        FRAMEWORK_ATTRIBUTES,
+    )
+
     if not hasattr(element, "name"):
         return True
 
@@ -521,20 +562,58 @@ def is_element_safe(element: Any) -> bool:
     # Check for dangerous attributes
     if hasattr(element, "attrs") and element.attrs:
         for attr_name, attr_value in element.attrs.items():
-            if attr_name in DANGEROUS_HTML_ATTRIBUTES:
+            attr_name_lower = attr_name.lower()
+
+            # Check for explicit dangerous attributes (event handlers)
+            if attr_name_lower in DANGEROUS_HTML_ATTRIBUTES:
                 return False
+
+            # Check for any event handler attribute (on* pattern)
+            # This catches all HTML5 event handlers even if not in the explicit list
+            # Event handlers are: "on" + event name (continuous letters, no hyphens/underscores)
+            # Examples: onclick, onload, onerror, onmouseover
+            # Non-handlers: one-time, only-when, on_click (invalid syntax)
+            if attr_name_lower.startswith("on") and len(attr_name_lower) > 2:
+                # Extract the part after "on"
+                event_part = attr_name_lower[2:]
+                # Event handlers are all alphabetic (no hyphens, underscores, numbers at start)
+                # and start with a letter
+                if event_part and event_part[0].isalpha() and event_part.replace("_", "").isalpha():
+                    # Check if there are no hyphens (which would indicate it's not an event handler)
+                    if "-" not in attr_name_lower:
+                        return False
+
+            # Check for framework-specific attributes if requested
+            if strip_framework_attributes:
+                # Check explicit framework attributes
+                if attr_name_lower in FRAMEWORK_ATTRIBUTES:
+                    return False
+
+                # Check framework attribute prefixes
+                # Note: Some prefixes like @ and : need special handling since they may
+                # appear at the start of the attribute name in some parsers
+                for prefix in FRAMEWORK_ATTRIBUTE_PREFIXES:
+                    if attr_name.startswith(prefix) or attr_name_lower.startswith(prefix):
+                        # Special handling for Angular bracket/paren syntax
+                        if prefix in ("[", "(") and (
+                            attr_name.startswith(prefix) or attr_name.endswith("]" if prefix == "[" else ")")
+                        ):
+                            return False
+                        # Standard prefix matching
+                        elif prefix not in ("[", "("):
+                            return False
 
             # Enhanced URL scheme checking for href and src attributes
             if isinstance(attr_value, str):
                 attr_value_lower = attr_value.lower().strip()
 
                 # Check specific URL attributes for dangerous schemes
-                if attr_name.lower() in ("href", "src", "action", "formaction"):
+                if attr_name_lower in ("href", "src", "action", "formaction"):
                     if not is_url_safe(attr_value):
                         return False
 
                 # Check for dangerous scheme content in style-related attributes
-                elif attr_name.lower() in ("style", "background", "expression"):
+                elif attr_name_lower in ("style", "background", "expression"):
                     if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
                         return False
 

@@ -377,7 +377,7 @@ The CLI provides security presets for common use cases:
 Strict HTML Sanitization
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Remove all potentially dangerous HTML elements:
+Remove all potentially dangerous HTML elements and attributes:
 
 .. code-block:: bash
 
@@ -388,8 +388,50 @@ This enables ``HtmlOptions.strip_dangerous_elements=True`` which removes:
 
 * ``<script>`` tags
 * ``<style>`` tags
-* Event handlers (onclick, onload, etc.)
+* **All** event handler attributes (onclick, onload, onerror, onmouseover, onkeydown, etc.)
 * ``<iframe>`` and ``<embed>`` tags
+* ``<object>`` and ``<form>`` tags
+
+**Comprehensive Event Handler Protection:**
+
+The sanitizer uses pattern-based detection to block all HTML5 event handlers:
+
+* **Window Events:** onload, onunload, onbeforeunload, onhashchange, onmessage
+* **Form Events:** onsubmit, onchange, oninput, oninvalid, onreset, onselect
+* **Mouse Events:** onclick, onmouseover, onmouseenter, onmouseleave, onmousedown, onmouseup, oncontextmenu
+* **Keyboard Events:** onkeydown, onkeyup, onkeypress
+* **Drag & Drop:** ondrag, ondrop, ondragstart, ondragend, ondragover
+* **Media Events:** onplay, onpause, onended, onvolumechange, ontimeupdate
+* **Clipboard Events:** oncopy, oncut, onpaste
+* **Animation Events:** onanimationstart, onanimationend, ontransitionend
+* **And 60+ more event handlers...**
+
+Pattern matching catches even vendor-specific or future event handlers (any attribute starting with ``on`` followed by an alphabetic event name).
+
+**JavaScript Framework Attribute Protection:**
+
+For additional security when output may be re-rendered with JavaScript frameworks:
+
+.. code-block:: python
+
+   from all2md import to_markdown, HtmlOptions
+
+   # Maximum XSS protection including framework attributes
+   options = HtmlOptions(
+       strip_dangerous_elements=True,      # Remove script, style, event handlers
+       strip_framework_attributes=True,    # Remove framework directives
+   )
+
+   markdown = to_markdown(html_doc, parser_options=options)
+
+When ``strip_framework_attributes=True``, the sanitizer also removes:
+
+* **Alpine.js:** x-data, x-html, x-bind, x-on, x-text, x-model, x-if, x-for, x-init
+* **Vue.js:** v-html, v-bind, v-on, v-model, v-if, v-for, @click, :href
+* **Angular:** ng-bind-html, ng-click, ng-model, ng-if, ng-repeat, [attr], (event)
+* **HTMX:** hx-get, hx-post, hx-put, hx-delete, hx-trigger, hx-vals, hx-on
+
+These attributes are only dangerous if the output HTML is rendered in a browser with these frameworks present. For conversion to Markdown or plain text, framework attribute stripping is not necessary.
 
 Safe Mode
 ~~~~~~~~~
@@ -423,6 +465,7 @@ Paranoid mode enables:
 * All safe mode protections
 * Blocks ALL network requests (``allow_remote_fetch=False``)
 * Blocks ALL local files including CWD (``allow_cwd_files=False``)
+* Strips JavaScript framework attributes (``strip_framework_attributes=True``)
 * Strict timeouts and size limits
 * Attachment mode set to ``skip`` (no file writes)
 
@@ -439,8 +482,8 @@ Use the following starting points and adjust to match your threat model:
      - How to enable
      - Highlights
    * - Locked-down HTML ingestion
-     - ``HtmlOptions`` with ``allow_remote_fetch=False``, ``allow_local_files=False``, ``strip_dangerous_elements=True``; CLI ``--paranoid-mode``
-     - Maximizes isolation by blocking network/local files and stripping risky markup
+     - ``HtmlOptions`` with ``allow_remote_fetch=False``, ``allow_local_files=False``, ``strip_dangerous_elements=True``, ``strip_framework_attributes=True``; CLI ``--paranoid-mode``
+     - Maximizes isolation by blocking network/local files and stripping all risky markup including event handlers and framework attributes
    * - Balanced safe defaults
      - CLI ``--safe-mode`` or preset ``security.safe``
      - Keeps HTTPS-only remote fetch, sanitizes HTML, and limits attachments while allowing opt-in flexibility
@@ -522,7 +565,8 @@ HTML documents are particularly risky. Always use strict settings:
    # Maximum security HTML processing
    untrusted_html_options = HtmlOptions(
        extract_title=True,
-       strip_dangerous_elements=True,
+       strip_dangerous_elements=True,      # Remove script, style, event handlers
+       strip_framework_attributes=True,     # Remove framework directives (if re-rendering HTML)
        network=NetworkFetchOptions(
            allow_remote_fetch=False  # No network access
        ),
@@ -616,7 +660,8 @@ When processing documents from untrusted sources, ensure:
 
 **Content Security:**
 
-- [ ] Enable ``strip_dangerous_elements`` for HTML
+- [ ] Enable ``strip_dangerous_elements`` for HTML (removes script, style, event handlers)
+- [ ] Enable ``strip_framework_attributes`` if re-rendering HTML with frameworks
 - [ ] Set ``attachment_mode='skip'`` to prevent file writes
 - [ ] Validate file sizes before processing
 - [ ] Limit output size to prevent DoS

@@ -19,6 +19,7 @@ from all2md.constants import (
     DEFAULT_HTML_COMMENT_MODE,
     DEFAULT_HTML_PASSTHROUGH_MODE,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
+    DEFAULT_STRIP_FRAMEWORK_ATTRIBUTES,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
     HTML_PASSTHROUGH_MODES,
     HtmlCommentMode,
@@ -305,7 +306,12 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     convert_nbsp : bool, default False
         Whether to convert non-breaking spaces (&nbsp;) to regular spaces in the output.
     strip_dangerous_elements : bool, default False
-        Whether to remove potentially dangerous HTML elements (script, style, etc.).
+        Whether to remove potentially dangerous HTML elements (script, style, etc.) and
+        event handler attributes (onclick, onload, etc.).
+    strip_framework_attributes : bool, default False
+        Whether to remove JavaScript framework attributes (Alpine.js x-*, Vue.js v-*,
+        Angular ng-*, HTMX hx-*, etc.) that can execute code in framework contexts.
+        Only needed if output HTML will be rendered in browsers with these frameworks.
     detect_table_alignment : bool, default True
         Whether to automatically detect table column alignment from CSS/attributes.
     preserve_nested_structure : bool, default True
@@ -354,6 +360,15 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     strip_dangerous_elements: bool = field(
         default=DEFAULT_STRIP_DANGEROUS_ELEMENTS,
         metadata={"help": "Remove potentially dangerous HTML elements (script, style, etc.)", "importance": "security"},
+    )
+    strip_framework_attributes: bool = field(
+        default=DEFAULT_STRIP_FRAMEWORK_ATTRIBUTES,
+        metadata={
+            "help": "Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) "
+            "that can execute code in framework contexts. "
+            "Only needed if output HTML will be rendered in browsers with these frameworks installed.",
+            "importance": "security",
+        },
     )
     detect_table_alignment: bool = field(
         default=DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,

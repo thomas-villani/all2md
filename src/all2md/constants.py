@@ -248,8 +248,229 @@ HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handlin
 
 # Content sanitization
 DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
+DEFAULT_STRIP_FRAMEWORK_ATTRIBUTES = False
+
 DANGEROUS_HTML_ELEMENTS = {"script", "style", "object", "embed", "form", "input", "iframe"}
-DANGEROUS_HTML_ATTRIBUTES = {"onclick", "onload", "onerror", "onmouseover", "onfocus", "onblur"}
+
+# HTML5 Event Handler Attributes - Comprehensive list of all on* attributes
+# These can execute JavaScript and pose XSS risks if user-controlled
+# See: https://developer.mozilla.org/en-US/docs/Web/Events
+DANGEROUS_HTML_ATTRIBUTES = frozenset(
+    {
+        # Original set (preserved for backward compatibility documentation)
+        "onclick",
+        "onload",
+        "onerror",
+        "onmouseover",
+        "onfocus",
+        "onblur",
+        # Window Events
+        "onafterprint",
+        "onbeforeprint",
+        "onbeforeunload",
+        "onhashchange",
+        "onmessage",
+        "onoffline",
+        "ononline",
+        "onpagehide",
+        "onpageshow",
+        "onpopstate",
+        "onstorage",
+        "onunload",
+        # Form Events
+        "onchange",
+        "oninput",
+        "oninvalid",
+        "onreset",
+        "onsearch",
+        "onselect",
+        "onsubmit",
+        # Keyboard Events
+        "onkeydown",
+        "onkeypress",
+        "onkeyup",
+        # Mouse Events
+        "onmousedown",
+        "onmouseenter",
+        "onmouseleave",
+        "onmousemove",
+        "onmouseout",
+        "onmouseup",
+        "onmousewheel",
+        "onwheel",
+        "oncontextmenu",
+        # Drag Events
+        "ondrag",
+        "ondragend",
+        "ondragenter",
+        "ondragleave",
+        "ondragover",
+        "ondragstart",
+        "ondrop",
+        # Clipboard Events
+        "oncopy",
+        "oncut",
+        "onpaste",
+        # Media Events
+        "onabort",
+        "oncanplay",
+        "oncanplaythrough",
+        "oncuechange",
+        "ondurationchange",
+        "onemptied",
+        "onended",
+        "onloadeddata",
+        "onloadedmetadata",
+        "onloadstart",
+        "onpause",
+        "onplay",
+        "onplaying",
+        "onprogress",
+        "onratechange",
+        "onseeked",
+        "onseeking",
+        "onstalled",
+        "onsuspend",
+        "ontimeupdate",
+        "onvolumechange",
+        "onwaiting",
+        # Animation/Transition Events
+        "onanimationend",
+        "onanimationiteration",
+        "onanimationstart",
+        "ontransitionend",
+        # Other Events
+        "onscroll",
+        "onresize",
+        "ontoggle",
+        "onshow",
+        "onclose",
+    }
+)
+
+# Framework-specific attributes that can execute code in JavaScript framework contexts
+# These are only dangerous if the HTML will be rendered in a browser with these frameworks
+# By default, these are NOT stripped unless strip_framework_attributes=True
+FRAMEWORK_ATTRIBUTES = frozenset(
+    {
+        # Alpine.js attributes
+        "x-data",
+        "x-init",
+        "x-show",
+        "x-bind",
+        "x-on",
+        "x-text",
+        "x-html",
+        "x-model",
+        "x-if",
+        "x-for",
+        "x-transition",
+        "x-effect",
+        "x-ignore",
+        "x-ref",
+        "x-cloak",
+        "x-teleport",
+        "x-modelable",
+        # Vue.js attributes (v-* and shorthand @:)
+        "v-bind",
+        "v-on",
+        "v-model",
+        "v-if",
+        "v-else",
+        "v-else-if",
+        "v-for",
+        "v-show",
+        "v-html",
+        "v-text",
+        "v-once",
+        "v-pre",
+        "v-cloak",
+        "v-slot",
+        # Angular attributes
+        "ng-app",
+        "ng-bind",
+        "ng-bind-html",
+        "ng-bind-template",
+        "ng-blur",
+        "ng-change",
+        "ng-checked",
+        "ng-class",
+        "ng-click",
+        "ng-controller",
+        "ng-copy",
+        "ng-cut",
+        "ng-dblclick",
+        "ng-disabled",
+        "ng-focus",
+        "ng-form",
+        "ng-hide",
+        "ng-href",
+        "ng-if",
+        "ng-include",
+        "ng-init",
+        "ng-keydown",
+        "ng-keypress",
+        "ng-keyup",
+        "ng-list",
+        "ng-model",
+        "ng-mousedown",
+        "ng-mouseenter",
+        "ng-mouseleave",
+        "ng-mousemove",
+        "ng-mouseover",
+        "ng-mouseup",
+        "ng-non-bindable",
+        "ng-paste",
+        "ng-readonly",
+        "ng-repeat",
+        "ng-selected",
+        "ng-show",
+        "ng-src",
+        "ng-style",
+        "ng-submit",
+        "ng-switch",
+        "ng-transclude",
+        "ng-value",
+        # HTMX attributes
+        "hx-get",
+        "hx-post",
+        "hx-put",
+        "hx-patch",
+        "hx-delete",
+        "hx-trigger",
+        "hx-target",
+        "hx-swap",
+        "hx-vals",
+        "hx-boost",
+        "hx-push-url",
+        "hx-select",
+        "hx-indicator",
+        "hx-params",
+        "hx-headers",
+        "hx-confirm",
+        "hx-on",
+    }
+)
+
+# Attribute prefixes that indicate framework-specific bindings
+# Used for pattern matching (e.g., @click, :href, [attr], (event))
+FRAMEWORK_ATTRIBUTE_PREFIXES = frozenset(
+    {
+        "x-",  # Alpine.js
+        "v-",  # Vue.js
+        "@",  # Vue.js shorthand for v-on
+        ":",  # Vue.js shorthand for v-bind
+        "ng-",  # Angular
+        "[",  # Angular property binding
+        "(",  # Angular event binding
+        "hx-",  # HTMX
+        "data-x-",  # Alpine.js with data prefix
+        "data-v-",  # Vue.js with data prefix
+        "data-ng-",  # Angular with data prefix
+        "data-hx-",  # HTMX with data prefix
+    }
+)
+
 DANGEROUS_SCHEMES = {
     "javascript:",
     "vbscript:",
