@@ -730,6 +730,9 @@ def extract_page_images(
     image_list = page.get_images()
 
     for img_idx, img in enumerate(image_list):
+        # Initialize pixmap references for proper cleanup in finally block
+        pix = None
+        pix_rgb = None
         try:
             # Get image data
             xref = img[0]
@@ -802,14 +805,16 @@ def extract_page_images(
             # Store the process_attachment result dict instead of just markdown string
             images.append({"bbox": bbox, "result": result, "caption": caption})
 
-            # Clean up
-            if pix_rgb != pix:
-                pix_rgb = None
-            pix = None
-
         except Exception:
             # Skip problematic images
             continue
+        finally:
+            # Clean up pixmap resources to prevent memory leaks
+            # This is critical for long-running operations and batch processing
+            if pix_rgb is not None and pix_rgb != pix:
+                pix_rgb = None
+            if pix is not None:
+                pix = None
 
     return images, collected_footnotes
 
@@ -2016,15 +2021,16 @@ class PdfToAstConverter(BaseParser):
         zoom = dpi / 72.0
         import fitz
 
-        mat = fitz.Matrix(zoom, zoom)
-        pix = page.get_pixmap(matrix=mat)
-
-        # Convert PyMuPDF pixmap to PIL Image
-        # PyMuPDF uses RGB format
-        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-
-        # Run Tesseract OCR
+        # Initialize pixmap reference for proper cleanup in finally block
+        pix = None
         try:
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+
+            # Convert PyMuPDF pixmap to PIL Image
+            # PyMuPDF uses RGB format
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
             # Build custom config if provided
             config = ocr_opts.tesseract_config if ocr_opts.tesseract_config else ""
 
@@ -2045,8 +2051,10 @@ class PdfToAstConverter(BaseParser):
             logger.warning(f"OCR failed for page: {e}")
             return ""
         finally:
-            # Clean up resources
-            pix = None
+            # Clean up pixmap resources to prevent memory leaks
+            # This is critical for long-running OCR operations
+            if pix is not None:
+                pix = None
 
     def _detect_page_tables(
         self, page: "fitz.Page", page_num: int, total_pages: int
@@ -2524,7 +2532,11 @@ class PdfToAstConverter(BaseParser):
                         in_code_block = True
                     # Add line to code block
                     # Compute approximate indentation
-                    delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (spans[0]["size"] * 0.5))
+                    span_size = spans[0]["size"]
+                    if span_size > 0:
+                        delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5))
+                    else:
+                        delta = 0
                     code_block_lines.append(" " * delta + text)
                     continue
 
@@ -2786,7 +2798,11 @@ class PdfToAstConverter(BaseParser):
                     in_code_block = True
                 # Add line to code block
                 # Compute approximate indentation
-                delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (spans[0]["size"] * 0.5))
+                span_size = spans[0]["size"]
+                if span_size > 0:
+                    delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5))
+                else:
+                    delta = 0
                 code_block_lines.append(" " * delta + text)
                 continue
 

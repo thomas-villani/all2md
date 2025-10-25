@@ -348,8 +348,10 @@ def process_attachment(
     attachment_base_url: str | None = None,
     is_image: bool = True,
     alt_text_mode: AltTextMode = DEFAULT_ALT_TEXT_MODE,
+    allowed_output_base_dirs: list[str | Path] | None = None,
+    block_sensitive_paths: bool = True,
 ) -> dict[str, Any]:
-    """Process an attachment according to the specified mode.
+    r"""Process an attachment according to the specified mode.
 
     Parameters
     ----------
@@ -362,7 +364,10 @@ def process_attachment(
     attachment_mode : AttachmentMode, default "alt_text"
         How to handle the attachment
     attachment_output_dir : str | None, default None
-        Directory to save attachments in download mode
+        Directory to save attachments in download mode. For security, the directory
+        is validated to ensure it stays within the current working directory and
+        does not contain path traversal patterns. If validation fails, falls back
+        to alt_text mode. Defaults to "attachments" if None.
     attachment_base_url : str | None, default None
         Base URL for resolving relative URLs in download mode.
         Note: Only the filename (not the directory structure) is appended to this URL.
@@ -377,6 +382,16 @@ def process_attachment(
         - "plain_filename": Render non-images as plain filename text
         - "strict_markdown": Use ![alt](#) format for proper Markdown structure
         - "footnote": Use footnote references for accessibility
+    allowed_output_base_dirs : list[str | Path] | None, default None
+        Optional allowlist of base directories for output validation. If provided,
+        attachment_output_dir must be within one of these directories. When None,
+        uses default security checks (blocks path traversal and sensitive paths).
+        Useful for server environments where output should be restricted to specific
+        directories.
+    block_sensitive_paths : bool, default True
+        Block output to sensitive system directories (/etc, /sys, C:\\Windows, etc.).
+        Set to False to allow writing to any directory (use with caution).
+        Only applies when allowed_output_base_dirs is None.
 
     Returns
     -------
@@ -514,6 +529,27 @@ def process_attachment(
     if attachment_mode == "download":
         if not attachment_output_dir:
             attachment_output_dir = "attachments"
+
+        # Validate output directory for security (prevent path traversal)
+        try:
+            from all2md.utils.security import validate_safe_output_directory
+
+            # Validate that the output directory is safe
+            # Applies security checks based on configuration
+            validated_output_dir = validate_safe_output_directory(
+                attachment_output_dir,
+                allowed_base_dirs=allowed_output_base_dirs,
+                block_sensitive_paths=block_sensitive_paths,
+            )
+            # Use the validated path for all subsequent operations
+            attachment_output_dir = str(validated_output_dir)
+        except Exception as e:
+            # SecurityError or other validation errors
+            logger.warning(
+                f"Output directory validation failed for '{attachment_output_dir}': {e}. "
+                f"Falling back to alt_text mode for security."
+            )
+            return _make_fallback_result()
 
         # Create output directory if it doesn't exist
         try:

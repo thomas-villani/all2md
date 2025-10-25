@@ -107,7 +107,7 @@ def resolve_file_url_to_path(file_url: str) -> Path:
         # Check if it looks like a UNC path (has at least one slash/backslash after server name)
         elif "/" in path_part or "\\" in path_part:
             # Likely UNC path: file://server/share/file -> \\server\share\file
-            file_path = Path(f"\\\\{path_part.replace('/', chr(92))}")
+            file_path = Path(f"\\\\{path_part.replace("/", "\\")}")
         else:
             # Likely relative path: file://filename
             file_path = Path.cwd() / path_part
@@ -749,6 +749,167 @@ def sanitize_language_identifier(language: str) -> str:
         return ""
 
     return language
+
+
+def validate_safe_output_directory(
+    output_dir: str | Path,
+    allowed_base_dirs: list[str | Path] | None = None,
+    block_sensitive_paths: bool = True,
+) -> Path:
+    """Validate that an output directory is safe for file operations.
+
+    This function prevents path traversal attacks by detecting and blocking
+    relative paths that escape the current working directory (e.g., `../../etc/`).
+    Absolute paths are allowed but can be validated against an allowlist.
+
+    Security Model
+    --------------
+    By default, this function:
+    - BLOCKS: Relative paths that traverse outside CWD (e.g., `../../../etc/`)
+    - BLOCKS: Paths to sensitive system directories (optional, via block_sensitive_paths)
+    - ALLOWS: Relative paths within CWD (e.g., `./attachments`, `subdir/files`)
+    - ALLOWS: Absolute paths (explicit intent, but check sensitive paths)
+
+    Parameters
+    ----------
+    output_dir : str or Path
+        The output directory to validate
+    allowed_base_dirs : list[str | Path] | None, default None
+        Optional allowlist of base directories. If provided, output_dir must be
+        within one of these directories. When None, uses the default security
+        model described above.
+    block_sensitive_paths : bool, default True
+        Block paths to common sensitive system directories like /etc, /sys, /proc.
+        Only applies when allowed_base_dirs is None.
+
+    Returns
+    -------
+    Path
+        The validated, resolved absolute path
+
+    Raises
+    ------
+    SecurityError
+        If the path contains path traversal patterns or targets sensitive locations
+
+    Examples
+    --------
+    >>> validate_safe_output_directory("./attachments")  # doctest: +SKIP
+    Path('/current/working/directory/attachments')
+
+    >>> validate_safe_output_directory("../../../etc/")  # doctest: +SKIP
+    SecurityError: Path traversal detected
+
+    >>> validate_safe_output_directory("/tmp/safe-output")  # doctest: +SKIP
+    Path('/tmp/safe-output')
+
+    >>> validate_safe_output_directory("/tmp/out", allowed_base_dirs=["/tmp"])  # doctest: +SKIP
+    Path('/tmp/out')
+
+    Notes
+    -----
+    This function focuses on preventing PATH TRAVERSAL attacks (the actual
+    vulnerability identified in the security review) rather than restricting
+    all paths outside CWD, which would break legitimate use cases.
+
+    """
+    from all2md.exceptions import SecurityError
+
+    if not output_dir or (isinstance(output_dir, str) and not output_dir.strip()):
+        raise SecurityError("Output directory cannot be empty")
+
+    # Store original for error messages
+    original_dir = str(output_dir)
+
+    # Check for path traversal patterns in the original string
+    # This is the primary security check - detect attempts to escape via ../
+    if isinstance(output_dir, str):
+        # Normalize path separators
+        normalized = output_dir.replace("\\", "/")
+
+        # Check for parent directory traversal patterns
+        if "/../" in normalized or normalized.startswith("../") or normalized.endswith("/.."):
+            # Additional check: does it actually escape CWD?
+            # Some patterns like "subdir/../otherdir" are safe (stay in CWD)
+            try:
+                test_path = Path(output_dir).resolve()
+                cwd = Path.cwd().resolve()
+                try:
+                    test_path.relative_to(cwd)
+                    # It's within CWD despite having .., allow it
+                    pass
+                except ValueError:
+                    # It escapes CWD - this is the attack vector
+                    raise SecurityError(
+                        f"Path traversal detected in output directory: '{original_dir}'. "
+                        f"Relative paths that escape the current working directory are not allowed. "
+                        f"Attempted to access: {test_path}, CWD: {cwd}"
+                    ) from None
+            except Exception as e:
+                # If we can't resolve it, be safe and block it
+                raise SecurityError(f"Suspicious path traversal pattern detected: '{original_dir}'") from e
+
+    # Convert to Path and resolve to absolute canonical form
+    try:
+        output_path = Path(output_dir).resolve()
+    except Exception as e:
+        raise SecurityError(f"Invalid output directory path: {output_dir}") from e
+
+    # Check if allowed_base_dirs is provided (explicit allowlist)
+    if allowed_base_dirs is not None:
+        if not allowed_base_dirs:
+            raise SecurityError(
+                "allowed_base_dirs cannot be an empty list. "
+                "Pass None to use default security checks, or provide allowed directories."
+            )
+
+        # Validate against allowed base directories
+        for base_dir in allowed_base_dirs:
+            try:
+                base_path = Path(base_dir).resolve()
+                # Check if output_path is within or equal to base_path
+                try:
+                    output_path.relative_to(base_path)
+                    # Success - output_path is within this base directory
+                    return output_path
+                except ValueError:
+                    # Not within this base directory, try next one
+                    continue
+            except Exception as e:
+                logger.warning(f"Invalid base directory in allowlist: {base_dir}: {e}")
+                continue
+
+        # If we get here, output_path is not within any allowed base directory
+        raise SecurityError(
+            f"Output directory '{original_dir}' is not within any allowed base directory. "
+            f"Allowed base directories: {[str(d) for d in allowed_base_dirs]}"
+        )
+
+    # No explicit allowlist - apply default security checks
+    # Block paths to sensitive system directories
+    if block_sensitive_paths:
+        sensitive_prefixes = [
+            "/etc",
+            "/sys",
+            "/proc",
+            "/dev",
+            "/boot",
+            "/root",
+            "C:\\Windows",
+            "C:\\System32",
+            "C:\\Program Files",
+        ]
+
+        output_str = str(output_path).replace("\\", "/")
+        for prefix in sensitive_prefixes:
+            prefix_normalized = prefix.replace("\\", "/")
+            if output_str.startswith(prefix_normalized):
+                raise SecurityError(
+                    f"Output directory targets sensitive system location: '{original_dir}' -> {output_path}. "
+                    f"Writing to {prefix} is not allowed for security reasons."
+                )
+
+    return output_path
 
 
 def validate_user_regex_pattern(pattern: str) -> None:

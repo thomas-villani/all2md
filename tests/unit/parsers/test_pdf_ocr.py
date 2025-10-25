@@ -188,17 +188,31 @@ class TestShouldUseOCR:
 class TestDetectPageLanguage:
     """Test language detection functionality."""
 
-    def test_detect_page_language_single(self) -> None:
+    @patch("langdetect.detect")
+    def test_detect_page_language_single(self, mock_detect: Mock) -> None:
         """Test language detection with single language."""
         mock_page = Mock()
+        mock_page.get_text.return_value = "Sample text for language detection"
+        # Mock langdetect to return UNKNOWN_LANG to trigger fallback
+        from langdetect.detector import Detector
+
+        mock_detect.return_value = Detector.UNKNOWN_LANG
+
         options = PdfOptions(ocr=OCROptions(languages="fra"))
 
         lang = _detect_page_language(mock_page, options)
         assert lang == "fra"
 
-    def test_detect_page_language_list(self) -> None:
+    @patch("langdetect.detect")
+    def test_detect_page_language_list(self, mock_detect: Mock) -> None:
         """Test language detection with language list."""
         mock_page = Mock()
+        mock_page.get_text.return_value = "Sample text for language detection"
+        # Mock langdetect to return UNKNOWN_LANG to trigger fallback
+        from langdetect.detector import Detector
+
+        mock_detect.return_value = Detector.UNKNOWN_LANG
+
         options = PdfOptions(ocr=OCROptions(languages=["eng", "fra", "deu"]))
 
         lang = _detect_page_language(mock_page, options)
