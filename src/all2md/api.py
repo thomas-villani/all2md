@@ -613,11 +613,12 @@ def to_ast(
     if source_format != "auto":
         actual_format = source_format
     else:
-        if isinstance(resolved_payload, (str, Path, bytes)) or (
-            hasattr(resolved_payload, "read")
-            and hasattr(resolved_payload, "mode")
-            and "b" in getattr(resolved_payload, "mode", "")
-        ):
+        # Accept: str, Path, bytes, BytesIO, NamedBytesIO, or any binary stream
+        if isinstance(resolved_payload, (str, Path, bytes)):
+            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[assignment]
+        elif hasattr(resolved_payload, "read") and hasattr(resolved_payload, "seek"):
+            # Binary stream (has read+seek) - let registry.detect_format handle it
+            # This includes BytesIO, NamedBytesIO, and file objects
             actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[arg-type, assignment]
         else:
             raise ValueError(
@@ -963,11 +964,12 @@ def convert(
     if source_format != "auto":
         actual_source_format = source_format
     else:
-        if isinstance(resolved_payload, (str, Path, bytes)) or (
-            hasattr(resolved_payload, "read")
-            and hasattr(resolved_payload, "mode")
-            and "b" in getattr(resolved_payload, "mode", "")
-        ):
+        # Accept: str, Path, bytes, BytesIO, NamedBytesIO, or any binary stream
+        if isinstance(resolved_payload, (str, Path, bytes)):
+            actual_source_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[assignment]
+        elif hasattr(resolved_payload, "read") and hasattr(resolved_payload, "seek"):
+            # Binary stream (has read+seek) - let registry.detect_format handle it
+            # This includes BytesIO, NamedBytesIO, and file objects
             actual_source_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[arg-type, assignment]
         else:
             raise ValueError(

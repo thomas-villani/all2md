@@ -61,8 +61,9 @@ class TestReadDocumentAsMarkdownImpl:
         """Test reading from base64-encoded content (auto-detected)."""
         config = MCPConfig()
 
-        # Create base64-encoded HTML
-        html_content = b"<h1>Base64 Test</h1>"
+        # Create base64-encoded HTML with sufficient length (>50 bytes decoded)
+        # to pass the stricter base64 detection heuristics
+        html_content = b"<h1>Base64 Test</h1><p>This is a longer content to ensure it passes the minimum size threshold for base64 detection.</p>"
         base64_content = base64.b64encode(html_content).decode("ascii")
 
         input_data = ReadDocumentAsMarkdownInput(source=base64_content, format_hint="html")
@@ -128,6 +129,35 @@ class TestReadDocumentAsMarkdownImpl:
         assert len(result) >= 1
         markdown = result[0]
         assert isinstance(markdown, str)
+
+    def test_invalid_format_hint_rejected(self):
+        """Test that invalid format_hint values are rejected (security fix)."""
+        config = MCPConfig()
+
+        # Test with invalid format_hint
+        input_data = ReadDocumentAsMarkdownInput(
+            source="<h1>Test</h1>",
+            format_hint="invalid_format_xyz",  # type: ignore[arg-type]
+        )
+
+        with pytest.raises(ValueError, match="Invalid format_hint"):
+            read_document_as_markdown_impl(input_data, config)
+
+    def test_valid_format_hint_accepted(self):
+        """Test that valid format_hint values are accepted."""
+        config = MCPConfig()
+
+        # Test with valid format_hint
+        input_data = ReadDocumentAsMarkdownInput(source="<h1>Test</h1>", format_hint="html")
+
+        result = read_document_as_markdown_impl(input_data, config)
+
+        # Verify - result is now a list [markdown_str, ...images]
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        markdown = result[0]
+        assert isinstance(markdown, str)
+        assert "Test" in markdown
 
 
 class TestSaveDocumentFromMarkdownImpl:
@@ -218,3 +248,106 @@ class TestToolsErrorHandling:
 
         with pytest.raises(All2MdError):
             save_document_from_markdown_impl(input_data, config)
+
+
+class TestBase64DetectionHeuristics:
+    """Tests for base64 detection heuristics (security fix for Issue #3)."""
+
+    def test_plain_text_not_misidentified_as_base64(self):
+        """Test that plain text is not misidentified as base64 (security fix)."""
+        from all2md.mcp.tools import _detect_source_type
+
+        config = MCPConfig()
+
+        # Plain text that only contains base64 characters (like a password)
+        # Should NOT be detected as base64
+        plain_texts = [
+            "AAAAAABBBBBBCCCCCCDDDDDD",  # Only A-D chars
+            "HelloWorld",  # Short text
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",  # Alphabet
+        ]
+
+        for text in plain_texts:
+            source, detection_type = _detect_source_type(text, config)
+            # Should be detected as plain_text, not base64
+            assert detection_type == "plain_text", f"Text '{text}' was incorrectly detected as {detection_type}"
+
+    def test_valid_base64_detected_correctly(self):
+        """Test that valid base64 is still detected correctly."""
+        from all2md.mcp.tools import _detect_source_type
+
+        config = MCPConfig()
+
+        # Create valid base64 with sufficient length and diversity
+        # Base64 encode a meaningful amount of data (>50 bytes decoded)
+        original_data = b"This is test data " * 10  # Will be >50 bytes
+        base64_str = base64.b64encode(original_data).decode("ascii")
+
+        source, detection_type = _detect_source_type(base64_str, config)
+
+        # Should be detected as base64
+        assert detection_type == "base64"
+        assert isinstance(source, bytes)
+        assert source == original_data
+
+    def test_short_base64_rejected(self):
+        """Test that short base64 is rejected (likely not a file)."""
+        from all2md.mcp.tools import _detect_source_type
+
+        config = MCPConfig()
+
+        # Base64 that decodes to <50 bytes (minimum threshold)
+        short_data = b"short"  # Only 5 bytes
+        base64_str = base64.b64encode(short_data).decode("ascii")
+
+        source, detection_type = _detect_source_type(base64_str, config)
+
+        # Should NOT be detected as base64 (too short)
+        assert detection_type == "plain_text"
+
+    def test_low_entropy_base64_rejected(self):
+        """Test that low entropy base64 is rejected (e.g., AAAABBBB...)."""
+        from all2md.mcp.tools import _detect_source_type
+
+        config = MCPConfig()
+
+        # Create base64 with low character diversity (repeated chars)
+        # Even if it's long enough, it should be rejected for low entropy
+        low_entropy = "A" * 200  # Long but only one unique char
+
+        source, detection_type = _detect_source_type(low_entropy, config)
+
+        # Should NOT be detected as base64 (insufficient diversity)
+        assert detection_type == "plain_text"
+
+    def test_malformed_base64_rejected(self):
+        """Test that malformed base64 is rejected."""
+        from all2md.mcp.tools import _detect_source_type
+
+        config = MCPConfig()
+
+        # Base64 with invalid length (not multiple of 4)
+        malformed = "SGVsbG8gV29ybGQ"  # Missing padding, length not multiple of 4
+
+        source, detection_type = _detect_source_type(malformed, config)
+
+        # Should NOT be detected as base64 (malformed)
+        assert detection_type == "plain_text"
+
+    def test_data_uri_still_works(self):
+        """Test that data URI detection still works (not affected by base64 changes)."""
+        from all2md.mcp.tools import _detect_source_type
+
+        config = MCPConfig()
+
+        # Data URI with base64
+        html_data = b"<h1>Test</h1>"
+        base64_data = base64.b64encode(html_data).decode("ascii")
+        data_uri = f"data:text/html;base64,{base64_data}"
+
+        source, detection_type = _detect_source_type(data_uri, config)
+
+        # Should be detected as data_uri
+        assert detection_type == "data_uri"
+        assert isinstance(source, bytes)
+        assert source == html_data

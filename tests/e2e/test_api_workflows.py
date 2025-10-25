@@ -262,6 +262,40 @@ class TestToAstE2E:
 
         assert isinstance(ast_doc, Document)
 
+    def test_to_ast_auto_detect_from_bytes(self):
+        """Test auto-detection from raw bytes (regression test)."""
+        # HTML bytes without explicit format - should auto-detect
+        html_bytes = b"<html><body><h1>Title</h1><p>Content</p></body></html>"
+
+        ast_doc = to_ast(html_bytes)  # No source_format specified
+
+        assert isinstance(ast_doc, Document)
+        assert len(ast_doc.children) > 0
+
+    def test_to_ast_auto_detect_from_bytesio(self):
+        """Test auto-detection from BytesIO (regression test)."""
+        # BytesIO without explicit format - should auto-detect
+        html_bytes = b"<html><body><h1>Title</h1><p>Content</p></body></html>"
+        html_io = BytesIO(html_bytes)
+
+        ast_doc = to_ast(html_io)  # No source_format specified
+
+        assert isinstance(ast_doc, Document)
+        assert len(ast_doc.children) > 0
+
+    def test_to_ast_auto_detect_from_namedbytesio(self):
+        """Test auto-detection from NamedBytesIO (regression test for remote input)."""
+        from all2md.utils.input_sources import NamedBytesIO
+
+        # NamedBytesIO (used by remote input loader) without explicit format
+        html_bytes = b"<html><body><h1>Title</h1><p>Content</p></body></html>"
+        named_io = NamedBytesIO(html_bytes, name="test.html")
+
+        ast_doc = to_ast(named_io)  # No source_format specified
+
+        assert isinstance(ast_doc, Document)
+        assert len(ast_doc.children) > 0
+
     def test_to_ast_ast_structure_validation(self):
         """Test that AST structure is well-formed."""
         html = """
@@ -1159,3 +1193,28 @@ class TestFullConversionPipeline:
         # All should be valid markdown
         for result in results:
             assert_markdown_valid(result)
+
+    def test_convert_auto_detect_from_bytes(self):
+        """Test convert() with auto-detection from raw bytes (regression test)."""
+        html_bytes = b"<html><body><h1>Title</h1><p>Content</p></body></html>"
+
+        # Should auto-detect HTML format from content
+        result = convert(html_bytes, target_format="markdown")
+
+        assert isinstance(result, str)
+        assert "Title" in result
+        assert "Content" in result
+        assert_markdown_valid(result)
+
+    def test_convert_auto_detect_from_bytesio(self):
+        """Test convert() with auto-detection from BytesIO (regression test)."""
+        html_bytes = b"<html><body><h1>Title</h1><p>Content</p></body></html>"
+        html_io = BytesIO(html_bytes)
+
+        # Should auto-detect HTML format from content
+        result = convert(html_io, target_format="markdown")
+
+        assert isinstance(result, str)
+        assert "Title" in result
+        assert "Content" in result
+        assert_markdown_valid(result)

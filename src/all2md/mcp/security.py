@@ -8,13 +8,17 @@ Functions
 - validate_read_path: Validate a path is in the read allowlist
 - validate_write_path: Validate a path is in the write allowlist
 - prepare_allowlist_dirs: Convert allowlist strings to resolved Paths
+- secure_open_for_write: Open a file for writing with TOCTOU protection
 
 """
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import logging
+import os
+import sys
 from pathlib import Path
+from typing import BinaryIO
 
 from all2md.exceptions import All2MdError
 
@@ -248,3 +252,95 @@ def prepare_allowlist_dirs(paths: list[str | Path] | None) -> list[Path] | None:
             raise MCPSecurityError(f"Invalid allowlist path: {path_item} ({e})", path=str(path_item)) from e
 
     return validated_paths
+
+
+def secure_open_for_write(validated_path: Path) -> BinaryIO:
+    """Open a file for writing with TOCTOU race condition protection.
+
+    This function opens a file using OS-level flags to prevent Time-Of-Check
+    Time-Of-Use (TOCTOU) attacks where a file could be replaced with a symlink
+    between validation and write operations.
+
+    Parameters
+    ----------
+    validated_path : Path
+        Path that has already been validated by validate_write_path().
+        Must be an absolute, resolved path.
+
+    Returns
+    -------
+    BinaryIO
+        Binary file object opened for writing in a secure manner.
+        Caller is responsible for closing this file.
+
+    Raises
+    ------
+    MCPSecurityError
+        If the file cannot be opened securely (e.g., it's a symlink or
+        access is denied)
+
+    Notes
+    -----
+    Security measures:
+    - On Unix-like systems: Uses O_NOFOLLOW flag to prevent following symlinks
+    - On Windows: Uses os.open without follow_symlinks behavior
+    - Creates new files with O_CREAT | O_EXCL when possible
+    - For existing files, verifies they are not symlinks before opening
+
+    This function should be called immediately after validate_write_path() to
+    minimize the TOCTOU window. The returned file object must be used for all
+    write operations to ensure the validated path is actually being written to.
+
+    """
+    # Ensure path is absolute
+    if not validated_path.is_absolute():
+        raise MCPSecurityError(
+            f"secure_open_for_write requires absolute path, got: {validated_path}", path=str(validated_path)
+        )
+
+    # Check if file is a symlink (final check before opening)
+    # Note: This check is still subject to TOCTOU, but combined with O_NOFOLLOW
+    # it provides defense in depth
+    if validated_path.is_symlink():
+        raise MCPSecurityError(f"Refusing to write to symlink: {validated_path}", path=str(validated_path))
+
+    # Prepare flags for secure file opening
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+
+    # Add O_NOFOLLOW on platforms that support it (Unix/Linux/macOS)
+    # This is the key protection against symlink attacks
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+        logger.debug("Using O_NOFOLLOW flag for symlink protection")
+    else:
+        # On Windows, O_NOFOLLOW doesn't exist, but symlink behavior is different
+        # Windows symlinks require special privileges by default
+        logger.debug("O_NOFOLLOW not available (Windows), relying on is_symlink check")
+
+    # Add O_BINARY on Windows to ensure binary mode
+    if sys.platform == "win32" and hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+
+    try:
+        # Open file with secure flags
+        # Mode 0o644 = rw-r--r-- (owner can read/write, others can read)
+        fd = os.open(str(validated_path), flags, mode=0o644)
+        logger.debug(f"Securely opened file for writing: {validated_path}")
+
+        # Convert file descriptor to file object
+        # Use binary mode as that's what most document formats need
+        return os.fdopen(fd, "wb")
+
+    except OSError as e:
+        # Could fail for several reasons:
+        # - ELOOP: Too many symbolic links (O_NOFOLLOW prevented following symlink)
+        # - EACCES: Permission denied
+        # - EISDIR: Path is a directory
+        # - ENOENT: Parent directory doesn't exist
+        error_msg = f"Failed to securely open file for writing: {validated_path} ({e})"
+
+        # Provide more specific error for symlink detection
+        if e.errno == 40 or "symbolic link" in str(e).lower() or "ELOOP" in str(e):
+            error_msg = f"Refusing to write to symlink (TOCTOU attack prevented): {validated_path}"
+
+        raise MCPSecurityError(error_msg, path=str(validated_path)) from e

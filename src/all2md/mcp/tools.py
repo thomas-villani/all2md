@@ -16,7 +16,7 @@ import base64
 import logging
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 from all2md import from_ast, from_markdown, to_ast
 from all2md.ast.document_utils import extract_section
@@ -29,8 +29,9 @@ from all2md.mcp.schemas import (
     ReadDocumentAsMarkdownInput,
     SaveDocumentFromMarkdownInput,
     SaveDocumentFromMarkdownOutput,
+    SourceFormat,
 )
-from all2md.mcp.security import MCPSecurityError, validate_read_path, validate_write_path
+from all2md.mcp.security import MCPSecurityError, secure_open_for_write, validate_read_path, validate_write_path
 
 try:
     from fastmcp.utilities.types import Image as FastMCPImage
@@ -157,18 +158,38 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
                 # Fall through to next detection method
 
     # 3. Attempt base64 decode (if looks like base64)
-    # Base64 strings are typically alphanumeric with +/= and reasonable length
-    if len(source) > 20 and re.match(r"^[A-Za-z0-9+/=\s]+$", source):
+    # Use strict heuristics to avoid misidentifying plain text as base64
+    # Base64 strings are typically:
+    # - Long (files are hundreds+ chars when base64 encoded)
+    # - Have diverse character set (not just AAAABBBB...)
+    # - Length is multiple of 4 (after removing whitespace)
+    # - Have proper padding with = at end (if not multiple of 4)
+    if len(source) > 100 and re.match(r"^[A-Za-z0-9+/=\s]+$", source):
         try:
             # Remove whitespace before decoding
             cleaned = re.sub(r"\s", "", source)
-            decoded = base64.b64decode(cleaned, validate=True)
-            # Only accept if decoded size makes sense (not too small)
-            if len(decoded) > 10:
-                logger.info(f"Detected as base64 ({len(decoded)} bytes)")
-                return decoded, "base64"
-        except Exception:
+
+            # Validate base64 structure:
+            # 1. Length must be multiple of 4
+            if len(cleaned) % 4 != 0:
+                logger.debug("Rejecting as base64: length not multiple of 4")
+            # 2. Check character diversity (entropy check)
+            # Plain text like "AAAAAABBBBBB" would have low diversity
+            elif len(set(cleaned.replace("=", ""))) < 4:
+                logger.debug("Rejecting as base64: insufficient character diversity")
+            else:
+                # Attempt decode with validation
+                decoded = base64.b64decode(cleaned, validate=True)
+                # Only accept if decoded size makes sense (meaningful file content)
+                # Minimum 50 bytes to avoid treating short passwords as base64
+                if len(decoded) >= 50:
+                    logger.info(f"Detected as base64 ({len(decoded)} bytes)")
+                    return decoded, "base64"
+                else:
+                    logger.debug(f"Rejecting as base64: decoded size too small ({len(decoded)} bytes)")
+        except Exception as e:
             # Not valid base64, continue
+            logger.debug(f"Base64 decode failed: {e}")
             pass
 
     # 4. Otherwise, treat as plain text content
@@ -228,9 +249,20 @@ def read_document_as_markdown_impl(input_data: ReadDocumentAsMarkdownInput, conf
     # include_images=False -> alt_text (no images, just alt text)
     kwargs["attachment_mode"] = "base64" if config.include_images else "alt_text"
 
+    # Validate format_hint if provided (defense in depth against invalid format strings)
+    # Even though FastMCP validates the Literal type, we add runtime validation to ensure
+    # the value is actually valid before passing to to_ast
+    if input_data.format_hint is not None:
+        valid_formats = get_args(SourceFormat)
+        if input_data.format_hint not in valid_formats:
+            raise ValueError(
+                f"Invalid format_hint: '{input_data.format_hint}'. " f"Must be one of: {', '.join(valid_formats)}"
+            )
+
     # Perform conversion using AST approach
     try:
         # Convert to AST first (allows us to extract images and sections)
+        # format_hint has been validated above, safe to cast to DocumentFormat
         doc = to_ast(source, source_format=cast(DocumentFormat, input_data.format_hint or "auto"), **kwargs)
 
         # Validate return type
@@ -298,6 +330,14 @@ def save_document_from_markdown_impl(
     All2MdError
         If rendering fails
 
+    Notes
+    -----
+    This function uses secure file opening with TOCTOU protection to prevent
+    symlink attacks. The file is opened immediately after validation using
+    OS-level flags (O_NOFOLLOW) to ensure the validated path is actually
+    being written to, not a symlink that was swapped in between validation
+    and write operations.
+
     """
     warnings: list[str] = []
 
@@ -307,15 +347,20 @@ def save_document_from_markdown_impl(
     logger.info(f"Writing output to: {validated_output}")
 
     # Perform rendering (always write to disk)
+    # Use secure file handle to prevent TOCTOU attacks
     try:
-        # Cast format (TargetFormat is a subset of DocumentFormat)
-        # Use server-level flavor from config
-        from_markdown(
-            input_data.source,
-            target_format=cast(DocumentFormat, input_data.format),
-            output=output_path,
-            flavor=config.flavor,
-        )
+        # Open file securely with TOCTOU protection (immediately after validation)
+        # This prevents symlink attacks where file is replaced between validation and write
+        with secure_open_for_write(validated_output) as output_file:
+            # Cast format (TargetFormat is a subset of DocumentFormat)
+            # Use server-level flavor from config
+            # Pass file handle instead of path to ensure we write to the validated location
+            from_markdown(
+                input_data.source,
+                target_format=cast(DocumentFormat, input_data.format),
+                output=output_file,
+                flavor=config.flavor,
+            )
 
         logger.info(f"Rendering successful, written to {output_path}")
         return SaveDocumentFromMarkdownOutput(output_path=output_path, warnings=warnings)

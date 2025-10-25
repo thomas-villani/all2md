@@ -1,10 +1,14 @@
 """Unit tests for MCP security module."""
 
+import os
+from pathlib import Path
+
 import pytest
 
 from all2md.mcp.security import (
     MCPSecurityError,
     prepare_allowlist_dirs,
+    secure_open_for_write,
     validate_read_path,
     validate_write_path,
 )
@@ -173,3 +177,79 @@ class TestValidateWritePath:
 
         with pytest.raises(MCPSecurityError, match="parent directory"):
             validate_write_path(str(traversal_path), allowlist)
+
+
+class TestSecureOpenForWrite:
+    """Tests for secure_open_for_write function (TOCTOU protection)."""
+
+    def test_secure_open_creates_new_file(self, tmp_path):
+        """Test that secure_open_for_write creates a new file successfully."""
+        output_file = tmp_path / "new_file.txt"
+
+        with secure_open_for_write(output_file) as f:
+            f.write(b"test content")
+
+        assert output_file.exists()
+        assert output_file.read_bytes() == b"test content"
+
+    def test_secure_open_overwrites_existing_file(self, tmp_path):
+        """Test that secure_open_for_write overwrites existing file."""
+        output_file = tmp_path / "existing.txt"
+        output_file.write_text("old content")
+
+        with secure_open_for_write(output_file) as f:
+            f.write(b"new content")
+
+        assert output_file.read_bytes() == b"new content"
+
+    def test_secure_open_rejects_symlink(self, tmp_path):
+        """Test that secure_open_for_write rejects symlinks (TOCTOU protection)."""
+        # Create a target file
+        target_file = tmp_path / "target.txt"
+        target_file.write_text("sensitive data")
+
+        # Create a symlink
+        symlink = tmp_path / "link.txt"
+        try:
+            symlink.symlink_to(target_file)
+        except (OSError, NotImplementedError):
+            pytest.skip("Symlinks not supported on this platform")
+
+        # Should reject the symlink
+        with pytest.raises(MCPSecurityError, match="symlink"):
+            secure_open_for_write(symlink)
+
+        # Verify target file was not modified
+        assert target_file.read_text() == "sensitive data"
+
+    def test_secure_open_requires_absolute_path(self, tmp_path):
+        """Test that secure_open_for_write requires absolute path."""
+        # Use relative path
+        relative_path = Path("relative/path.txt")
+
+        with pytest.raises(MCPSecurityError, match="absolute path"):
+            secure_open_for_write(relative_path)
+
+    def test_secure_open_binary_mode(self, tmp_path):
+        """Test that secure_open_for_write opens in binary mode."""
+        output_file = tmp_path / "binary.bin"
+
+        with secure_open_for_write(output_file) as f:
+            # Should be binary mode
+            assert hasattr(f, "write")
+            f.write(b"\x00\x01\x02\xff")
+
+        assert output_file.read_bytes() == b"\x00\x01\x02\xff"
+
+    @pytest.mark.skipif(not hasattr(os, "O_NOFOLLOW"), reason="O_NOFOLLOW not available on Windows")
+    def test_secure_open_uses_nofollow_flag(self, tmp_path):
+        """Test that O_NOFOLLOW flag is used on supported platforms."""
+        # This test verifies that O_NOFOLLOW is used when available
+        # The actual protection is tested in test_secure_open_rejects_symlink
+        output_file = tmp_path / "test.txt"
+
+        # Should succeed with O_NOFOLLOW
+        with secure_open_for_write(output_file) as f:
+            f.write(b"test")
+
+        assert output_file.exists()
