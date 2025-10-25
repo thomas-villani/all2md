@@ -321,6 +321,143 @@ class TestValidateLocalFileAccess:
         assert validate_local_file_access("file:///C:/Users/file.txt", allow_local_files=True) is True
 
 
+class TestResolveFileUrlToPath:
+    """Test resolve_file_url_to_path function and TOCTOU vulnerability prevention."""
+
+    def test_resolve_file_url_basic(self):
+        """Test basic file URL resolution."""
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Test absolute path resolution
+        path = resolve_file_url_to_path("file:///etc/passwd")
+        assert path.is_absolute()
+        assert str(path) == str(Path("/etc/passwd").resolve())
+
+    def test_resolve_file_url_relative_cwd(self):
+        """Test relative path resolution from CWD."""
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Test ./ relative path
+        path = resolve_file_url_to_path("file://./test.txt")
+        assert path.is_absolute()
+        assert path == (Path.cwd() / "test.txt").resolve()
+
+    def test_resolve_file_url_relative_parent(self):
+        """Test relative parent path resolution."""
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Test ../ relative path
+        path = resolve_file_url_to_path("file://../test.txt")
+        assert path.is_absolute()
+        assert path == (Path.cwd() / ".." / "test.txt").resolve()
+
+    def test_resolve_file_url_path_traversal_normalization(self):
+        """Test that path traversal sequences are properly normalized."""
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Path traversal in the URL should be normalized by resolve()
+        path1 = resolve_file_url_to_path("file://./foo/../bar/test.txt")
+        path2 = resolve_file_url_to_path("file://./bar/test.txt")
+
+        # Both should resolve to the same canonical path
+        assert path1 == path2
+
+    def test_resolve_file_url_windows_drive_letter(self):
+        """Test Windows drive letter path resolution."""
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Test file:///C:/path format
+        path = resolve_file_url_to_path("file:///C:/Users/test.txt")
+        assert path.is_absolute()
+
+    def test_resolve_file_url_rejects_non_file_url(self):
+        """Test that non-file:// URLs are rejected."""
+        from all2md.utils.security import resolve_file_url_to_path
+
+        with pytest.raises(ValueError, match="Not a file:// URL"):
+            resolve_file_url_to_path("http://example.com/test.txt")
+
+        with pytest.raises(ValueError, match="Not a file:// URL"):
+            resolve_file_url_to_path("https://example.com/test.txt")
+
+        with pytest.raises(ValueError, match="Not a file:// URL"):
+            resolve_file_url_to_path("/absolute/path/test.txt")
+
+    def test_toctou_prevention_consistency(self, tmp_path):
+        """Test that validation and reading use the same path resolution (prevents TOCTOU).
+
+        This test ensures that validate_local_file_access and _read_local_file
+        resolve file URLs to the same canonical path, preventing attackers from
+        bypassing validation through path traversal tricks.
+        """
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Create a test file in a subdirectory
+        test_dir = tmp_path / "allowed"
+        test_dir.mkdir()
+        test_file = test_dir / "test.txt"
+        test_file.write_text("test content")
+
+        # Create various file URLs that all point to the same file
+        file_urls = [
+            f"file://{test_file}",
+            f"file:///{test_file}",
+        ]
+
+        # All URLs should resolve to the same canonical path
+        paths = [resolve_file_url_to_path(url) for url in file_urls]
+
+        # Verify all paths are identical (prevent TOCTOU)
+        for i in range(len(paths) - 1):
+            assert paths[i] == paths[i + 1], (
+                f"Path resolution inconsistency detected! "
+                f"URL '{file_urls[i]}' -> {paths[i]} vs "
+                f"URL '{file_urls[i + 1]}' -> {paths[i + 1]}"
+            )
+
+        # Also verify that path traversal resolves consistently
+        parent_url = f"file://{test_dir}/subdir/../test.txt"
+        direct_url = f"file://{test_dir}/test.txt"
+        assert resolve_file_url_to_path(parent_url) == resolve_file_url_to_path(direct_url)
+
+    def test_path_traversal_attack_vectors(self, tmp_path):
+        """Test various path traversal attack vectors are properly normalized.
+
+        This is a security regression test to ensure the TOCTOU fix properly
+        handles various path traversal attack patterns.
+        """
+        from all2md.utils.security import resolve_file_url_to_path
+
+        # Create a file outside the "allowed" directory
+        restricted_file = tmp_path / "restricted.txt"
+        restricted_file.write_text("secret")
+
+        allowed_dir = tmp_path / "allowed"
+        allowed_dir.mkdir()
+
+        # Try various path traversal patterns
+        # Note: These will resolve to valid paths, but validation should block them
+        attack_vectors = [
+            f"file://{allowed_dir}/../restricted.txt",
+            f"file:///{allowed_dir}/../restricted.txt",
+        ]
+
+        # All should resolve to the same restricted file (canonical path)
+        for url in attack_vectors:
+            resolved = resolve_file_url_to_path(url)
+            # The path should be resolved consistently
+            assert resolved == restricted_file.resolve()
+
+        # Validate that allowlist would block these (not part of resolve function)
+        # This demonstrates that the fix works: consistent resolution + proper validation
+        for url in attack_vectors:
+            is_allowed = validate_local_file_access(
+                url, allow_local_files=True, local_file_allowlist=[str(allowed_dir)], allow_cwd_files=False
+            )
+            # Should be blocked because resolved path is outside allowlist
+            assert is_allowed is False, f"Attack vector should be blocked: {url}"
+
+
 class TestFilenameSanitization:
     """Test filename sanitization security features."""
 

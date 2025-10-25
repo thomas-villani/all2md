@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 
 from all2md.constants import DEFAULT_USER_AGENT
 from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationError
+from all2md.options import CloneFrozenMixin
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.network_security import fetch_content_securely, is_network_disabled
 
@@ -72,7 +73,7 @@ class NamedBytesIO(BytesIO):
 
 
 @dataclass(frozen=True)
-class RemoteInputOptions:
+class RemoteInputOptions(CloneFrozenMixin):
     """Global options controlling remote document retrieval."""
 
     allow_remote_input: bool = field(
@@ -118,24 +119,10 @@ class RemoteInputOptions:
         metadata={"help": "User-Agent included on header for requests", "importance": "security"},
     )
 
-    # Placeholder for future rate limiting / credentials fields
-
     def __post_init__(self) -> None:
         """Normalize allowed_hosts to a list after initialization."""
         if self.allowed_hosts is not None:
             object.__setattr__(self, "allowed_hosts", list(self.allowed_hosts))
-
-    def create_updated(self, **kwargs: Any) -> "RemoteInputOptions":
-        """Return a copy of this options object with updated fields."""
-        data = {
-            "allow_remote_input": self.allow_remote_input,
-            "allowed_hosts": list(self.allowed_hosts) if self.allowed_hosts is not None else None,
-            "require_https": self.require_https,
-            "timeout": self.timeout,
-            "max_size_bytes": self.max_size_bytes,
-        }
-        data.update(kwargs)
-        return RemoteInputOptions(**data)  # type: ignore[arg-type]
 
 
 @dataclass(frozen=True)

@@ -1471,7 +1471,9 @@ def _detect_page_language(page: "fitz.Page", options: "PdfOptions") -> str:
     from langdetect import detect
     from langdetect.detector import Detector
 
-    detected_lang_code = detect(page.get_text())
+    page_text_sample = page.get_text()[:10000]  # Limit to 10KB
+    detected_lang_code = detect(page_text_sample)
+
     if detected_lang_code == Detector.UNKNOWN_LANG:
         # Return the configured languages (handle both string and list formats)
         if isinstance(options.ocr.languages, list):

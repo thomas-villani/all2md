@@ -1482,8 +1482,9 @@ class HtmlToAstConverter(BaseParser):
     def _read_local_file(self, file_url: str) -> bytes:
         """Read image data from local file:// URL.
 
-        This method should only be called after validate_local_file_access
-        has confirmed access is allowed.
+        SECURITY: This method should ONLY be called after validate_local_file_access
+        has confirmed access is allowed. Path resolution uses the same centralized
+        function (resolve_file_url_to_path) as validation to prevent TOCTOU attacks.
 
         Parameters
         ----------
@@ -1501,25 +1502,18 @@ class HtmlToAstConverter(BaseParser):
             If file cannot be read or does not exist
 
         """
-        # Parse file:// URL to get local path
-        parsed = urlparse(file_url)
+        from all2md.utils.security import resolve_file_url_to_path
 
-        # Handle different file:// URL formats
-        if file_url.startswith("file://./") or file_url.startswith("file://../"):
-            # Relative paths: file://./image.png or file://../image.png
-            path = file_url[7:]  # Remove "file://" prefix
-            file_path = Path.cwd() / path
-        elif file_url.startswith("file://") and not file_url.startswith("file:///"):
-            # file://filename (without leading slash) - treat as relative to CWD
-            path = file_url[7:]  # Remove "file://" prefix
-            file_path = Path.cwd() / path
-        else:
-            # Standard absolute file:///path
-            file_path = Path(parsed.path)
-
-        # Resolve and read file
+        # Resolve file URL to canonical path
+        # IMPORTANT: This uses the same path resolution logic as validate_local_file_access
+        # to prevent TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
         try:
-            file_path = file_path.resolve()
+            file_path = resolve_file_url_to_path(file_url)
+        except ValueError as e:
+            raise Exception(f"Invalid file URL: {e}") from e
+
+        # Read file
+        try:
             with open(file_path, "rb") as f:
                 data = f.read()
 
@@ -1887,8 +1881,7 @@ class HtmlToAstConverter(BaseParser):
         safe_schemes = {"http", "https", "mailto", "ftp", "ftps", "tel", "sms"}
         if scheme and scheme not in safe_schemes:
             logger.warning(
-                f"Blocked link with unsupported scheme '{scheme}:' "
-                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
+                f"Blocked link with unsupported scheme '{scheme}:' (URL: {url[:100]}{'...' if len(url) > 100 else ''})"
             )
             return ""
 
