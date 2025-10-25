@@ -371,7 +371,7 @@ class HttpRetriever(DocumentSourceRetriever):
         try:
             content = fetch_content_securely(
                 url=url,
-                allowed_hosts=list(remote_options.allowed_hosts) if remote_options.allowed_hosts else None,
+                allowed_hosts=list(remote_options.allowed_hosts) if remote_options.allowed_hosts is not None else None,
                 require_https=remote_options.require_https,
                 max_size_bytes=remote_options.max_size_bytes,
                 timeout=remote_options.timeout,

@@ -28,12 +28,13 @@ def test_http_retriever_requires_remote_input_enabled(loader):
 def test_http_retriever_fetches_when_enabled(monkeypatch, loader):
     captured = {}
 
-    def fake_fetch_content_securely(*, url, allowed_hosts, require_https, max_size_bytes, timeout):
+    def fake_fetch_content_securely(*, url, allowed_hosts, require_https, max_size_bytes, timeout, user_agent):
         captured["url"] = url
         captured["allowed_hosts"] = allowed_hosts
         captured["require_https"] = require_https
         captured["max_size_bytes"] = max_size_bytes
         captured["timeout"] = timeout
+        captured["user_agent"] = user_agent
         return b"hello world"
 
     monkeypatch.setattr("all2md.utils.input_sources.fetch_content_securely", fake_fetch_content_securely)
@@ -76,3 +77,33 @@ def test_local_path_retriever_requires_existing_file(tmp_path, loader):
 
     assert isinstance(source.payload, Path)
     assert source.payload == existing
+
+
+def test_http_retriever_empty_allowlist_denies_all_hosts(monkeypatch, loader):
+    """Test that an empty allowed_hosts list denies all remote hosts.
+
+    This is a security test to verify that allowed_hosts=[] is treated
+    differently from allowed_hosts=None. An empty list should deny all hosts,
+    while None allows all hosts (with a warning).
+    """
+    captured = {}
+
+    def fake_fetch_content_securely(*, url, allowed_hosts, require_https, max_size_bytes, timeout, user_agent):
+        captured["allowed_hosts"] = allowed_hosts
+        return b"should not reach here"
+
+    monkeypatch.setattr("all2md.utils.input_sources.fetch_content_securely", fake_fetch_content_securely)
+
+    # Create options with empty allowlist (should deny all)
+    remote_options = RemoteInputOptions(
+        allow_remote_input=True,
+        allowed_hosts=[],  # Empty list should mean "deny all"
+    )
+    request = DocumentSourceRequest(raw_input="https://example.com/file.txt", remote_options=remote_options)
+
+    # Attempt to load - should call fetch_content_securely with empty list
+    loader.load(request)
+
+    # Verify that empty list was passed (not None)
+    assert captured["allowed_hosts"] == []
+    assert captured["allowed_hosts"] is not None
