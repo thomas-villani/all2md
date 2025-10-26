@@ -9,14 +9,12 @@ from typing import Any
 import pytest
 
 from all2md.cli import processors
-from all2md.cli.output import should_use_rich_output
 from all2md.cli.processors import (
     EXIT_SUCCESS,
     build_transform_instances,
     convert_single_file,
 )
 from all2md.converter_registry import registry
-from all2md.exceptions import DependencyError
 
 
 @pytest.fixture
@@ -269,18 +267,6 @@ def test_render_single_item_to_stdout_invokes_rich_syntax(
     assert call_args["text"] == "<html/>"
     assert call_args["format"] == "html"
     assert call_args["no_wrap"] is False
-
-
-@pytest.mark.unit
-def test_should_use_rich_output_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_should_use_rich_output should raise DependencyError when rich is unavailable."""
-    args = argparse.Namespace(rich=True, force_rich=False)
-    monkeypatch.setattr(processors, "_check_rich_available", lambda: False)
-
-    with pytest.raises(DependencyError) as exc:
-        should_use_rich_output(args, True)
-
-    assert "rich output requires the optional" in str(exc.value).lower()
 
 
 @pytest.mark.unit

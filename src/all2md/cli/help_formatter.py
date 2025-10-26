@@ -705,8 +705,10 @@ def display_help(
     supported, the target stream is a TTY, and color has not been disabled via
     ``NO_COLOR`` or a ``dumb`` terminal.
     """
-    use_rich_ns = Namespace(use_rich=use_rich)
-
+    if use_rich is None:
+        use_rich = check_rich_available()
+    # This is a bit of a hack since the should_use_rich_output takes the raw args from argparse.
+    use_rich_ns = Namespace(rich=use_rich)
     resolved_use_rich = should_use_rich_output(use_rich_ns, raise_on_missing=False, stream=stream)
     renderer = build_help_renderer(use_rich=resolved_use_rich)
 
