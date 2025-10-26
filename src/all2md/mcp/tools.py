@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 from typing import Any, cast, get_args
 
-from all2md import from_ast, from_markdown, to_ast
+from all2md.api import from_ast, from_markdown, to_ast
 from all2md.ast.document_utils import extract_section
 from all2md.ast.nodes import Document, Image
 from all2md.ast.transforms import NodeCollector

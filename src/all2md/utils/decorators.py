@@ -14,8 +14,8 @@ import importlib
 from functools import wraps
 from typing import Any, Callable, List, Tuple
 
-from all2md.dependencies import check_version_requirement
 from all2md.exceptions import DependencyError
+from all2md.utils.packages import check_version_requirement
 
 
 def requires_dependencies(converter_name: str, packages: List[Tuple[str, str, str]]) -> Callable:

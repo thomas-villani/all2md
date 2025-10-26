@@ -203,7 +203,7 @@ Images and files are extracted and saved to the specified directory. Markdown ou
        # Optionally set base URL for Markdown references
        attachment_base_url='https://example.com/media'
    )
-   markdown = to_markdown('document.docx', options=options)
+   markdown = to_markdown('document.docx', parser_options=options)
 
 This creates references like:
 
@@ -360,7 +360,7 @@ PDF Documents
        # PDF-specific: control image quality for extracted images
        extract_images=True
    )
-   markdown = to_markdown('report.pdf', options=options)
+   markdown = to_markdown('report.pdf', parser_options=options)
 
 **Note:** PDF vector graphics are rasterized during extraction. Image quality depends on the PDF's embedded resolution.
 
@@ -384,7 +384,7 @@ Word Documents (DOCX)
        attachment_mode='download',
        attachment_output_dir='./word_images'
    )
-   markdown = to_markdown('document.docx', options=options)
+   markdown = to_markdown('document.docx', parser_options=options)
 
 **Note:** DOCX images maintain their original format (PNG, JPEG, etc.) and quality.
 
@@ -408,7 +408,7 @@ PowerPoint (PPTX)
        attachment_mode='base64',  # Embed all slide images
        include_slide_numbers=True
    )
-   markdown = to_markdown('presentation.pptx', options=options)
+   markdown = to_markdown('presentation.pptx', parser_options=options)
 
 **Note:** Each visual element on a slide may be extracted as a separate image.
 
@@ -426,18 +426,18 @@ HTML and MHTML
 
 .. code-block:: python
 
-   from all2md.options import HtmlOptions, NetworkSecurityOptions
+   from all2md.options import HtmlOptions, NetworkFetchOptions
 
    options = HtmlOptions(
        attachment_mode='download',
        attachment_output_dir='./web_images',
        attachment_base_url='https://example.com',  # Resolve relative URLs
-       network=NetworkSecurityOptions(
+       network=NetworkFetchOptions(
            allow_remote_fetch=True,  # Allow downloading remote images
            require_https=True        # Only HTTPS images
        )
    )
-   markdown = to_markdown('webpage.html', options=options)
+   markdown = to_markdown('webpage.html', parser_options=options)
 
 **Security Note:** Be cautious with ``allow_remote_fetch`` on untrusted HTML. See :doc:`security` for details.
 
@@ -464,7 +464,7 @@ Email Files (EML)
        # EML-specific: limit attachment size
        max_email_attachment_bytes=10 * 1024 * 1024  # 10 MB max
    )
-   markdown = to_markdown('message.eml', options=options)
+   markdown = to_markdown('message.eml', parser_options=options)
 
 **Note:** Email attachments include both files explicitly attached and images embedded in HTML emails.
 
@@ -488,7 +488,7 @@ EPUB E-books
        attachment_output_dir='./epub_images',
        include_toc=True
    )
-   markdown = to_markdown('book.epub', options=options)
+   markdown = to_markdown('book.epub', parser_options=options)
 
 **Note:** EPUB images are already packaged within the EPUB file and maintain their original format.
 
@@ -511,7 +511,7 @@ OpenDocument (ODT/ODP)
        attachment_mode='download',
        attachment_output_dir='./odt_images'
    )
-   markdown = to_markdown('document.odt', options=options)
+   markdown = to_markdown('document.odt', parser_options=options)
 
 Excel and Spreadsheets (XLSX/ODS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -532,7 +532,7 @@ Excel and Spreadsheets (XLSX/ODS)
        attachment_mode='base64',  # Embed images inline
        chart_mode='data'          # Extract chart data as tables
    )
-   markdown = to_markdown('spreadsheet.xlsx', options=options)
+   markdown = to_markdown('spreadsheet.xlsx', parser_options=options)
 
 **Note:** Charts are rendered as static images during conversion.
 
@@ -555,7 +555,7 @@ Jupyter Notebooks (IPYNB)
        attachment_mode='base64',  # Embed all plots
        include_outputs=True
    )
-   markdown = to_markdown('notebook.ipynb', options=options)
+   markdown = to_markdown('notebook.ipynb', parser_options=options)
 
 Filename Sanitization
 ---------------------
@@ -643,12 +643,12 @@ HTML documents can reference remote resources. This poses security risks:
 
 .. code-block:: python
 
-   from all2md.options import HtmlOptions, NetworkSecurityOptions
+   from all2md.options import HtmlOptions, NetworkFetchOptions
 
    # Strict security (default)
    options = HtmlOptions(
        attachment_mode='skip',  # Don't fetch any remote content
-       network=NetworkSecurityOptions(
+       network=NetworkFetchOptions(
            allow_remote_fetch=False
        )
    )
@@ -657,7 +657,7 @@ HTML documents can reference remote resources. This poses security risks:
    options = HtmlOptions(
        attachment_mode='download',
        attachment_output_dir='./images',
-       network=NetworkSecurityOptions(
+       network=NetworkFetchOptions(
            allow_remote_fetch=True,
            require_https=True,              # HTTPS only
            allowed_hosts=['example.com'],   # Whitelist specific domains

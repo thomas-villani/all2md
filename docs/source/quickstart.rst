@@ -98,7 +98,7 @@ Common Use Cases
        attachment_output_dir='./pdf_images'
    )
 
-   markdown = to_markdown('report.pdf', options=options)
+   markdown = to_markdown('report.pdf', parser_options=options)
 
 .. code-block:: bash
 
@@ -118,7 +118,7 @@ Common Use Cases
        attachment_output_dir='./doc_images'
    )
 
-   markdown = to_markdown('document.docx', options=options)
+   markdown = to_markdown('document.docx', parser_options=options)
 
 3. Custom Markdown Formatting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,7 +136,7 @@ Common Use Cases
 
    # Nest MarkdownRendererOptions within format-specific options
    options = PdfOptions(markdown_options=md_options)
-   markdown = to_markdown('document.pdf', options=options)
+   markdown = to_markdown('document.pdf', parser_options=options)
 
 .. code-block:: bash
 
@@ -162,7 +162,7 @@ Extract and convert multiple files from ZIP archives:
        create_section_headings=True
    )
 
-   markdown = to_markdown('archive.zip', options=options)
+   markdown = to_markdown('archive.zip', parser_options=options)
 
 .. code-block:: bash
 
@@ -306,7 +306,7 @@ Email Processing Example
        clean_wrapped_urls=True        # Fix broken URLs
    )
 
-   markdown = to_markdown('message.eml', options=options)
+   markdown = to_markdown('message.eml', parser_options=options)
 
 Jupyter Notebook Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -321,7 +321,7 @@ Jupyter Notebook Example
        attachment_mode='base64'          # Embed plots as base64
    )
 
-   markdown = to_markdown('analysis.ipynb', options=options)
+   markdown = to_markdown('analysis.ipynb', parser_options=options)
 
 Error Handling
 --------------
@@ -401,7 +401,7 @@ For advanced use cases, all2md provides an Abstract Syntax Tree (AST) API that e
 
    # Render to Markdown
    renderer = MarkdownRenderer()
-   markdown = renderer.render(transformed_ast)
+   markdown = renderer.render_to_string(transformed_ast)
 
 **Why use the AST?**
 

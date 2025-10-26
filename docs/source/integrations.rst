@@ -64,7 +64,7 @@ Basic file upload and conversion view:
            # Convert document
            markdown = to_markdown(
                uploaded_file.temporary_file_path(),
-               options=options
+               parser_options=options
            )
 
            # Return markdown
@@ -486,7 +486,7 @@ Stream large document conversions:
                    attachment_mode='skip'
                )
 
-               chunk_markdown = to_markdown(filename, options=options)
+               chunk_markdown = to_markdown(filename, parser_options=options)
                yield chunk_markdown.encode('utf-8')
 
        return StreamingResponse(
@@ -692,7 +692,7 @@ Deploy all2md as AWS Lambda function:
            )
 
            # Convert document
-           markdown = to_markdown(str(tmp_path), options=options)
+           markdown = to_markdown(str(tmp_path), parser_options=options)
 
            # Cleanup
            tmp_path.unlink()

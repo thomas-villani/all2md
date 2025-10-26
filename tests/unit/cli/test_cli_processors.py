@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 
 from all2md.cli import processors
+from all2md.cli.output import should_use_rich_output
 from all2md.cli.processors import (
     EXIT_SUCCESS,
-    _should_use_rich_output,
     build_transform_instances,
     convert_single_file,
 )
@@ -278,7 +278,7 @@ def test_should_use_rich_output_missing_dependency(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(processors, "_check_rich_available", lambda: False)
 
     with pytest.raises(DependencyError) as exc:
-        _should_use_rich_output(args)
+        should_use_rich_output(args, True)
 
     assert "rich output requires the optional" in str(exc.value).lower()
 

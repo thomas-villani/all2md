@@ -425,7 +425,7 @@ Environment Variables
      - CWD
      - Semicolon-separated write allowlist paths
    * - ``ALL2MD_MCP_INCLUDE_IMAGES``
-     - ``true``
+     - ``false``
      - Include images in output (true/false)
    * - ``ALL2MD_MCP_FLAVOR``
      - ``gfm``

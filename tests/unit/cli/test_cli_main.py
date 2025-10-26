@@ -1200,6 +1200,180 @@ class TestEnhancedCLIIntegration:
         result = main(["check-deps", "pdf"])
         assert result in [0, 1]  # Should either succeed or indicate missing deps
 
+    def test_dependency_check_json_all_formats(self, capsys):
+        """Test dependency check with JSON output for all formats."""
+        import json
+
+        # Test check-deps with --json flag
+        result = main(["check-deps", "--json"])
+        assert result in [0, 1]  # Should either succeed or indicate missing deps
+
+        captured = capsys.readouterr()
+
+        # Should output valid JSON
+        try:
+            output = json.loads(captured.out)
+        except json.JSONDecodeError:
+            pytest.fail("Output is not valid JSON")
+
+        # Verify JSON structure
+        assert "status" in output
+        assert output["status"] in ["ok", "missing"]
+        assert "formats" in output
+        assert "summary" in output
+        assert isinstance(output["formats"], dict)
+        assert isinstance(output["summary"], dict)
+
+        # Verify summary structure
+        assert "total_formats" in output["summary"]
+        assert "formats_ok" in output["summary"]
+        assert "formats_missing" in output["summary"]
+        assert isinstance(output["summary"]["total_formats"], int)
+        assert isinstance(output["summary"]["formats_ok"], int)
+        assert isinstance(output["summary"]["formats_missing"], int)
+
+        # Verify at least one format is present
+        assert len(output["formats"]) > 0
+
+        # Verify format structure
+        for _format_name, format_info in output["formats"].items():
+            assert "status" in format_info
+            assert format_info["status"] in ["ok", "missing"]
+            assert "packages" in format_info
+            assert isinstance(format_info["packages"], list)
+
+            # Verify package structure if packages exist
+            for package in format_info["packages"]:
+                assert "name" in package
+                assert "import_name" in package
+                assert "status" in package
+                assert package["status"] in ["ok", "missing"]
+                # version_spec and installed_version can be None
+
+    def test_dependency_check_json_specific_format(self, capsys):
+        """Test dependency check with JSON output for specific format."""
+        import json
+
+        # Test check-deps for specific format with --json flag
+        result = main(["check-deps", "pdf", "--json"])
+        assert result in [0, 1]  # Should either succeed or indicate missing deps
+
+        captured = capsys.readouterr()
+
+        # Should output valid JSON
+        try:
+            output = json.loads(captured.out)
+        except json.JSONDecodeError:
+            pytest.fail("Output is not valid JSON")
+
+        # Verify JSON structure
+        assert "status" in output
+        assert output["status"] in ["ok", "missing"]
+        assert "format" in output
+        assert output["format"] == "pdf"
+        assert "packages" in output
+        assert "missing_packages" in output
+        assert "install_command" in output
+        assert isinstance(output["packages"], list)
+        assert isinstance(output["missing_packages"], list)
+        assert isinstance(output["install_command"], str)
+
+        # Verify package structure if packages exist
+        for package in output["packages"]:
+            assert "name" in package
+            assert "import_name" in package
+            assert "status" in package
+            assert package["status"] in ["ok", "missing"]
+
+        # If status is missing, should have missing packages and install command
+        if output["status"] == "missing":
+            assert len(output["missing_packages"]) > 0
+            assert len(output["install_command"]) > 0
+            assert "pip install" in output["install_command"]
+        else:
+            assert len(output["missing_packages"]) == 0
+
+    def test_dependency_check_json_exit_codes(self, capsys):
+        """Test that exit codes remain correct with JSON output."""
+        import json
+
+        # Test exit code for all formats
+        result = main(["check-deps", "--json"])
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+
+        # Exit code should match status
+        if output["status"] == "ok":
+            assert result == 0
+        else:
+            assert result == 1
+
+        # Test exit code for specific format (pdf should have deps)
+        result = main(["check-deps", "pdf", "--json"])
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+
+        # Exit code should match status
+        if output["status"] == "ok":
+            assert result == 0
+        else:
+            assert result == 1
+
+    def test_dependency_check_no_json_output_when_flag_not_set(self, capsys):
+        """Test that JSON is not output when --json flag is not set."""
+        import json
+
+        # Test without --json flag
+        result = main(["check-deps"])
+        assert result in [0, 1]  # Should either succeed or indicate missing deps
+        captured = capsys.readouterr()
+
+        # Should not be valid JSON (human-readable instead)
+        try:
+            json.loads(captured.out)
+            pytest.fail("Output should not be JSON when --json flag is not set")
+        except json.JSONDecodeError:
+            # This is expected - output should be human-readable
+            pass
+
+        # Should contain human-readable markers
+        assert "All2MD Dependency Status" in captured.out or "dependencies" in captured.out.lower()
+
+    def test_dependency_check_invalid_format(self, capsys):
+        """Test dependency check with invalid format name."""
+        # Test invalid format without JSON
+        result = main(["check-deps", "nonexistent"])
+        assert result == 1  # Should fail
+
+        captured = capsys.readouterr()
+        assert "Unknown format" in captured.err or "nonexistent" in captured.err
+        assert "Available formats" in captured.err
+
+    def test_dependency_check_invalid_format_json(self, capsys):
+        """Test dependency check with invalid format name and JSON output."""
+        import json
+
+        # Test invalid format with JSON
+        result = main(["check-deps", "nonexistent", "--json"])
+        assert result == 1  # Should fail
+
+        captured = capsys.readouterr()
+
+        # Should output valid JSON error
+        try:
+            output = json.loads(captured.out)
+        except json.JSONDecodeError:
+            pytest.fail("Output is not valid JSON")
+
+        # Verify error structure
+        assert "status" in output
+        assert output["status"] == "error"
+        assert "error" in output
+        assert "nonexistent" in output["error"]
+        assert "available_formats" in output
+        assert isinstance(output["available_formats"], list)
+        assert len(output["available_formats"]) > 0
+
     def test_save_config_integration(self):
         """Test configuration saving integration."""
         config_file = self.temp_dir / "test_config.json"

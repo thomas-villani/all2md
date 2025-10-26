@@ -13,7 +13,7 @@ Functions
 
 import logging
 
-from all2md import from_ast, to_ast
+from all2md.api import from_ast, to_ast
 from all2md.ast.document_utils import (
     add_section_after,
     add_section_before,

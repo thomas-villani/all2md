@@ -266,7 +266,7 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
 
     """
     try:
-        from all2md import to_markdown
+        from all2md.api import to_markdown
 
         # Create MarkdownRendererOptions with default hash headings
         md_options = MarkdownRendererOptions(use_hash_headings=True)

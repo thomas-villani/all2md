@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from all2md import to_markdown
+from all2md.api import to_markdown
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 from all2md.cli.processors import generate_output_path
 from all2md.constants import IMAGE_EXTENSIONS, DocumentFormat

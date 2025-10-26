@@ -229,7 +229,7 @@ PDF Problems
    from all2md import to_markdown, PdfOptions
 
    options = PdfOptions(pages=[1])  # Test first page only
-   markdown = to_markdown('document.pdf', options=options)
+   markdown = to_markdown('document.pdf', parser_options=options)
 
    if not markdown.strip():
        print("PDF may be image-based or encrypted")
@@ -478,7 +478,7 @@ Memory Issues
    for i in range(0, total_pages, 10):
        page_chunk = list(range(i, min(i + 10, total_pages)))
        options = PdfOptions(pages=page_chunk)
-       chunk_markdown = to_markdown('large.pdf', options=options)
+       chunk_markdown = to_markdown('large.pdf', parser_options=options)
        # Process chunk_markdown
 
    # Skip attachment processing

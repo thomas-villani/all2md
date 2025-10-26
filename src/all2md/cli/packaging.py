@@ -68,7 +68,7 @@ def create_package_from_conversions(
         ... )
 
     """
-    from all2md import convert
+    from all2md.api import convert
     from all2md.converter_registry import registry
 
     # Get target extension

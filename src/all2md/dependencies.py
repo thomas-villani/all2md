@@ -6,91 +6,13 @@ optional dependencies for various converter modules.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+import json
+import sys
+from typing import Any, Dict, List, Optional, Tuple
 
-from all2md.converter_registry import _check_package_installed, registry
-
-
-def check_package_installed(package_name: str) -> bool:
-    """Check if a package is installed and importable.
-
-    Parameters
-    ----------
-    package_name : str
-        Name of the package to check
-
-    Returns
-    -------
-    bool
-        True if package is installed and importable
-
-    """
-    return _check_package_installed(package_name)
-
-
-def get_package_version(package_name: str) -> Optional[str]:
-    """Get the installed version of a package.
-
-    Parameters
-    ----------
-    package_name : str
-        Name of the package
-
-    Returns
-    -------
-    str or None
-        Version string if package installed, None otherwise
-
-    """
-    # For version checking, we need to use the pip package name, not import name
-    # Most tools use the actual package name for version info
-
-    # Prefer importlib.metadata (modern approach, Python 3.8+)
-    try:
-        from importlib import metadata
-
-        return metadata.version(package_name)
-    except Exception:
-        # Fallback to pkg_resources for older environments
-        # Note: pkg_resources is deprecated but kept for compatibility
-        try:
-            import pkg_resources
-
-            return pkg_resources.get_distribution(package_name).version
-        except Exception:
-            return None
-
-
-def check_version_requirement(package_name: str, version_spec: str) -> Tuple[bool, Optional[str]]:
-    """Check if installed package meets version requirement.
-
-    Parameters
-    ----------
-    package_name : str
-        Name of the package
-    version_spec : str
-        Version specification (e.g., ">=1.24.0")
-
-    Returns
-    -------
-    tuple
-        (meets_requirement, installed_version)
-
-    """
-    installed_version = get_package_version(package_name)
-    if not installed_version:
-        return False, None
-
-    try:
-        from packaging import version
-        from packaging.specifiers import SpecifierSet
-
-        spec = SpecifierSet(version_spec)
-        meets = version.parse(installed_version) in spec
-        return meets, installed_version
-    except ImportError:
-        # If packaging not available, just check if installed
-        return True, installed_version
+from all2md.cli.output import should_use_rich_output
+from all2md.converter_registry import check_package_installed, registry
+from all2md.utils.packages import check_version_requirement, get_package_version
 
 
 def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
@@ -144,6 +66,24 @@ def check_all_dependencies() -> Dict[str, Dict[str, bool]]:
         status[format_name] = format_status
 
     return status
+
+
+def is_valid_format(format_name: str) -> bool:
+    """Check if a format name is valid.
+
+    Parameters
+    ----------
+    format_name : str
+        Format name to validate
+
+    Returns
+    -------
+    bool
+        True if format is valid, False otherwise
+
+    """
+    registry.auto_discover()
+    return format_name in registry.list_formats()
 
 
 def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
@@ -337,6 +277,233 @@ def suggest_full_install() -> str:
     return generate_install_command(sorted(all_packages))
 
 
+def format_json_all_formats() -> Dict[str, Any]:
+    """Generate JSON output for all format dependencies.
+
+    Returns
+    -------
+    dict
+        JSON-serializable dict with dependency information for all formats
+
+    """
+    all_deps = get_all_dependencies()
+
+    formats_data = {}
+    total_formats = 0
+    formats_ok = 0
+    formats_missing = 0
+
+    for format_name, packages in sorted(all_deps.items()):
+        total_formats += 1
+        format_packages = []
+        format_status = "ok"
+
+        for package_name, import_name, version_spec in packages:
+            installed_version = get_package_version(package_name)
+
+            if version_spec:
+                meets, installed_version = check_version_requirement(package_name, version_spec)
+                pkg_status = "ok" if meets else "missing"
+            else:
+                is_installed = check_package_installed(import_name)
+                pkg_status = "ok" if is_installed else "missing"
+
+            if pkg_status == "missing":
+                format_status = "missing"
+
+            format_packages.append(
+                {
+                    "name": package_name,
+                    "import_name": import_name,
+                    "version_spec": version_spec if version_spec else None,
+                    "installed_version": installed_version,
+                    "status": pkg_status,
+                }
+            )
+
+        if format_status == "ok":
+            formats_ok += 1
+        else:
+            formats_missing += 1
+
+        formats_data[format_name] = {"status": format_status, "packages": format_packages}
+
+    overall_status = "ok" if formats_missing == 0 else "missing"
+
+    return {
+        "status": overall_status,
+        "formats": formats_data,
+        "summary": {"total_formats": total_formats, "formats_ok": formats_ok, "formats_missing": formats_missing},
+    }
+
+
+def format_json_specific_format(format_name: str) -> Dict[str, Any]:
+    """Generate JSON output for a specific format's dependencies.
+
+    Parameters
+    ----------
+    format_name : str
+        Format to check dependencies for
+
+    Returns
+    -------
+    dict
+        JSON-serializable dict with dependency information for the format
+
+    """
+    metadata_list = registry.get_format_info(format_name)
+    if not metadata_list or len(metadata_list) == 0:
+        return {"status": "ok", "format": format_name, "packages": [], "missing_packages": [], "install_command": ""}
+
+    metadata = metadata_list[0]
+    if not metadata.required_packages:
+        return {"status": "ok", "format": format_name, "packages": [], "missing_packages": [], "install_command": ""}
+
+    packages_data = []
+    missing_packages = []
+
+    for package_name, import_name, version_spec in metadata.required_packages:
+        installed_version = get_package_version(package_name)
+
+        if version_spec:
+            meets, installed_version = check_version_requirement(package_name, version_spec)
+            pkg_status = "ok" if meets else "missing"
+            if not meets:
+                version_str = f"{package_name}{version_spec}"
+                missing_packages.append(version_str)
+        else:
+            is_installed = check_package_installed(import_name)
+            pkg_status = "ok" if is_installed else "missing"
+            if not is_installed:
+                missing_packages.append(package_name)
+
+        packages_data.append(
+            {
+                "name": package_name,
+                "import_name": import_name,
+                "version_spec": version_spec if version_spec else None,
+                "installed_version": installed_version,
+                "status": pkg_status,
+            }
+        )
+
+    overall_status = "ok" if len(missing_packages) == 0 else "missing"
+    install_command = ""
+
+    if missing_packages:
+        missing_tuples = get_missing_dependencies(format_name)
+        install_command = generate_install_command(missing_tuples)
+
+    return {
+        "status": overall_status,
+        "format": format_name,
+        "packages": packages_data,
+        "missing_packages": missing_packages,
+        "install_command": install_command,
+    }
+
+
+def print_dependency_report_rich() -> None:
+    """Generate a rich formatted dependency report using tables.
+
+    Notes
+    -----
+    This function displays dependencies in a formatted table with color coding.
+
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    status = check_all_dependencies()
+
+    # Create main table
+    table = Table(title="All2MD Dependency Status")
+    table.add_column("Format", style="cyan", no_wrap=True)
+    table.add_column("Package", style="yellow")
+    table.add_column("Status", style="white")
+    table.add_column("Install Command", style="magenta")
+
+    for format_name, packages in sorted(status.items()):
+        if not packages:
+            table.add_row(format_name.upper(), "-", "[green]OK[/green] (No dependencies)", "-")
+        else:
+            all_installed = all(packages.values())
+            for idx, (package_name, is_installed) in enumerate(sorted(packages.items())):
+                format_col = format_name.upper() if idx == 0 else ""
+                status_text = "[green]OK[/green]" if is_installed else "[red]MISSING[/red]"
+
+                # Get install command for missing packages
+                install_cmd = ""
+                if not all_installed and idx == 0:
+                    missing = get_missing_dependencies(format_name)
+                    if missing:
+                        install_cmd = generate_install_command(missing)
+
+                table.add_row(format_col, package_name, status_text, install_cmd if idx == 0 else "")
+
+    console.print(table)
+
+
+def print_dependency_report_rich_specific(format_name: str) -> None:
+    """Generate a rich formatted dependency report for a specific format.
+
+    Parameters
+    ----------
+    format_name : str
+        Format to check dependencies for
+
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    metadata_list = registry.get_format_info(format_name)
+
+    if not metadata_list or len(metadata_list) == 0:
+        console.print(f"[green]All dependencies for {format_name} are installed.[/green]")
+        return
+
+    metadata = metadata_list[0]
+    if not metadata.required_packages:
+        console.print(f"[green]All dependencies for {format_name} are installed.[/green]")
+        return
+
+    # Create table
+    table = Table(title=f"Dependencies for {format_name.upper()}")
+    table.add_column("Package", style="cyan")
+    table.add_column("Version Requirement", style="yellow")
+    table.add_column("Installed Version", style="magenta")
+    table.add_column("Status", style="white")
+
+    missing = get_missing_dependencies(format_name)
+    has_missing = len(missing) > 0
+
+    for package_name, import_name, version_spec in metadata.required_packages:
+        installed_version = get_package_version(package_name)
+
+        if version_spec:
+            meets, installed_version = check_version_requirement(package_name, version_spec)
+            status_text = "[green]OK[/green]" if meets else "[red]MISSING[/red]"
+        else:
+            is_installed = check_package_installed(import_name)
+            status_text = "[green]OK[/green]" if is_installed else "[red]MISSING[/red]"
+
+        table.add_row(
+            package_name,
+            version_spec if version_spec else "-",
+            installed_version if installed_version else "-",
+            status_text,
+        )
+
+    console.print(table)
+
+    # Show install command if there are missing dependencies
+    if has_missing:
+        cmd = generate_install_command(missing)
+        console.print(f"\n[yellow]Install with:[/yellow] {cmd}")
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Execute dependency management CLI.
 
@@ -361,32 +528,81 @@ def main(argv: Optional[List[str]] = None) -> int:
     check_parser = subparsers.add_parser("check", help="Check dependency status")
     check_parser.add_argument("--format", help="Check dependencies for specific format only")
 
+    # Create mutually exclusive group for output modes
+    output_group = check_parser.add_mutually_exclusive_group()
+    output_group.add_argument("--json", action="store_true", help="Output results as JSON")
+    output_group.add_argument("--rich", action="store_true", help="Use rich table formatting")
+
     args = parser.parse_args(argv)
 
     if args.command == "check":
         if args.format:
-            # Check specific format
-            missing = get_missing_dependencies(args.format)
-            if missing:
-                print(f"Missing dependencies for {args.format}:")
-                for package, version in missing:
-                    version_str = version if version else ""
-                    print(f"  - {package}{version_str}")
-                cmd = generate_install_command(missing)
-                print(f"\nInstall with: {cmd}")
+            # Validate format exists
+            if not is_valid_format(args.format):
+                if args.json:
+                    # Output error as JSON
+                    error_result = {
+                        "status": "error",
+                        "error": f"Unknown format: {args.format}",
+                        "available_formats": sorted(registry.list_formats()),
+                    }
+                    print(json.dumps(error_result, indent=2))
+                else:
+                    # Human-readable error
+                    print(f"Error: Unknown format '{args.format}'", file=sys.stderr)
+                    print(f"\nAvailable formats: {', '.join(sorted(registry.list_formats()))}", file=sys.stderr)
                 return 1
+
+            # Check specific format
+            if args.json:
+                # Output JSON for specific format
+                result = format_json_specific_format(args.format)
+                print(json.dumps(result, indent=2))
+                return 1 if result["status"] == "missing" else 0
+            elif should_use_rich_output(args):
+                # Rich formatted output
+                print_dependency_report_rich_specific(args.format)
+                missing = get_missing_dependencies(args.format)
+                return 1 if missing else 0
             else:
-                print(f"All dependencies for {args.format} are installed.")
-                return 0
+                # Human-readable output
+                missing = get_missing_dependencies(args.format)
+                if missing:
+                    print(f"Missing dependencies for {args.format}:")
+                    for package, version in missing:
+                        version_str = version if version else ""
+                        print(f"  - {package}{version_str}")
+                    cmd = generate_install_command(missing)
+                    print(f"\nInstall with: {cmd}")
+                    return 1
+                else:
+                    print(f"All dependencies for {args.format} are installed.")
+                    return 0
         else:
             # Check all dependencies
-            print(print_dependency_report())
-            status = check_all_dependencies()
-            # Return 1 if any format has missing dependencies
-            for format_status in status.values():
-                if format_status and not all(format_status.values()):
-                    return 1
-            return 0
+            if args.json:
+                # Output JSON for all formats
+                result = format_json_all_formats()
+                print(json.dumps(result, indent=2))
+                return 1 if result["status"] == "missing" else 0
+            elif should_use_rich_output(args):
+                # Rich formatted output
+                print_dependency_report_rich()
+                status = check_all_dependencies()
+                # Return 1 if any format has missing dependencies
+                for format_status in status.values():
+                    if format_status and not all(format_status.values()):
+                        return 1
+                return 0
+            else:
+                # Human-readable output
+                print(print_dependency_report())
+                status = check_all_dependencies()
+                # Return 1 if any format has missing dependencies
+                for format_status in status.values():
+                    if format_status and not all(format_status.values()):
+                        return 1
+                return 0
     else:
         parser.print_help()
         return 1

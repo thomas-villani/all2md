@@ -17,7 +17,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
-from all2md import convert, from_ast, to_ast, to_markdown
+from all2md.api import convert, from_ast, to_ast, to_markdown
 from all2md.ast.nodes import Document as ASTDocument
 from all2md.ast.nodes import Heading, Text, ThematicBreak
 from all2md.cli.builder import (
@@ -29,6 +29,8 @@ from all2md.cli.builder import (
     get_exit_code_for_exception,
 )
 from all2md.cli.input_items import CLIInputItem
+from all2md.cli.output import should_use_rich_output
+from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
@@ -247,63 +249,6 @@ def prepare_options_for_execution(
     if remote_options:
         filtered["remote_input_options"] = remote_options
     return filtered
-
-
-def _check_rich_available() -> bool:
-    """Check if Rich library is available.
-
-    Returns
-    -------
-    bool
-        True if Rich is available, False otherwise
-
-    """
-    try:
-        import rich  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
-def _should_use_rich_output(args: argparse.Namespace) -> bool:
-    """Determine if Rich output should be used based on TTY and args.
-
-    Parameters
-    ----------
-    args : argparse.Namespace
-        Parsed command line arguments
-
-    Returns
-    -------
-    bool
-        True if Rich output should be used
-
-    Notes
-    -----
-    Rich output is used when:
-    - The --rich flag is set
-    - AND either --force-rich is set OR stdout is a TTY
-    - AND Rich library is available
-
-    """
-    if not args.rich:
-        return False
-
-    # Check if Rich is available
-    if not _check_rich_available():
-        raise DependencyError(
-            converter_name="rich-output",
-            missing_packages=[("rich", "")],
-            message=("Rich output requires the optional 'rich' dependency. " "Install with: pip install all2md[rich]"),
-        )
-
-    # Force rich output regardless of TTY if explicitly requested
-    if hasattr(args, "force_rich") and args.force_rich:
-        return True
-
-    # Only use rich output if stdout is a TTY (not piped/redirected)
-    return sys.stdout.isatty()
 
 
 def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
@@ -1297,7 +1242,8 @@ def _check_converter_dependencies(
         (converter_available, dependency_status_list)
 
     """
-    from all2md.dependencies import check_package_installed, check_version_requirement
+    from all2md.dependencies import check_package_installed
+    from all2md.utils.packages import check_version_requirement
 
     converter_available = True
     dependency_status: list[tuple[str, str, str | None, str | None]] = []
@@ -1495,7 +1441,8 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
         List of file info dictionaries
 
     """
-    from all2md.dependencies import check_package_installed, check_version_requirement
+    from all2md.dependencies import check_package_installed
+    from all2md.utils.packages import check_version_requirement
 
     file_info_list: List[Dict[str, Any]] = []
 
@@ -2116,12 +2063,10 @@ def process_files_unified(
     transforms: Optional[list] = None,
 ) -> int:
     """Process CLI inputs with unified progress handling."""
-    from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
-
     base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
 
     try:
-        should_use_rich = _should_use_rich_output(args)
+        should_use_rich = should_use_rich_output(args, True)
         rich_dependency_error: Optional[str] = None
     except DependencyError as exc:
         should_use_rich = False

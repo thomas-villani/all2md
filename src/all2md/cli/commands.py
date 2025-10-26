@@ -36,9 +36,9 @@ from all2md.cli.validation import (
     validate_arguments,
 )
 from all2md.converter_registry import registry
-from all2md.dependencies import check_version_requirement, get_package_version
 from all2md.logging_utils import configure_logging as configure_root_logging
 from all2md.transforms import registry as transform_registry
+from all2md.utils.packages import check_version_requirement, get_package_version
 
 logger = logging.getLogger(__name__)
 
@@ -1494,7 +1494,7 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
-    from all2md import to_ast
+    from all2md.api import to_ast
     from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
     from all2md.renderers.markdown import MarkdownRenderer
     from all2md.utils.static_site import (
@@ -1685,15 +1685,38 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
         # Convert to standard deps CLI format
         deps_args = ["check"]
 
-        # Check for help flags first
-        if len(args) > 1 and args[1] in ("--help", "-h"):
+        # Parse remaining arguments
+        remaining_args = args[1:]
+        format_arg = None
+        has_json = False
+        has_rich = False
+        has_help = False
+
+        for arg in remaining_args:
+            if arg in ("--help", "-h"):
+                has_help = True
+            elif arg == "--json":
+                has_json = True
+            elif arg == "--rich":
+                has_rich = True
+            elif not arg.startswith("-"):
+                # This is the format argument
+                format_arg = arg
+
+        # Add arguments in the correct order
+        if has_help:
             deps_args.append("--help")
-        elif len(args) > 1 and args[1] not in ("--help", "-h"):
-            # Only add format if it's not a help flag
-            deps_args.extend(["--format", args[1]])
-            # Check for help flags after format
-            if len(args) > 2 and args[2] in ("--help", "-h"):
-                deps_args.append("--help")
+        elif format_arg:
+            deps_args.extend(["--format", format_arg])
+            if has_json:
+                deps_args.append("--json")
+            if has_rich:
+                deps_args.append("--rich")
+        else:
+            if has_json:
+                deps_args.append("--json")
+            if has_rich:
+                deps_args.append("--rich")
 
         return deps_main(deps_args)
 

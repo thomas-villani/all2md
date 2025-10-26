@@ -181,7 +181,7 @@ The ``require_https`` option forces all remote fetches to use HTTPS:
    )
 
    html_opts = HtmlOptions(network=network_opts)
-   markdown = to_markdown("webpage.html", options=html_opts)
+   markdown = to_markdown("webpage.html", parser_options=html_opts)
 
 Size, Rate, and Timeout Limits
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -541,7 +541,7 @@ When integrating all2md into a web application:
            tmp_path = tmp.name
 
        try:
-           markdown = to_markdown(tmp_path, options=options)
+           markdown = to_markdown(tmp_path, parser_options=options)
 
            # Limit output size (prevent DoS)
            MAX_OUTPUT = 1024 * 1024  # 1MB
@@ -577,7 +577,7 @@ HTML documents are particularly risky. Always use strict settings:
        attachment_mode='skip'
    )
 
-   markdown = to_markdown(untrusted_html, options=untrusted_html_options)
+   markdown = to_markdown(untrusted_html, parser_options=untrusted_html_options)
 
 Content from Known Sources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

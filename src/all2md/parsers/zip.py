@@ -62,7 +62,7 @@ def _process_zip_file_worker(
         Document is None on failure, error_dict contains error details if failed
 
     """
-    from all2md import to_ast
+    from all2md.api import to_ast
     from all2md.constants import RESOURCE_FILE_EXTENSIONS
 
     try:
@@ -594,7 +594,7 @@ class ZipToAstConverter(BaseParser):
 
         """
         # Import here to avoid circular dependency
-        from all2md import to_ast
+        from all2md.api import to_ast
 
         # Check if this file should be treated as a resource BEFORE attempting to parse
         if self._is_resource_file(file_path):

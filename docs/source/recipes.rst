@@ -94,7 +94,7 @@ Converting Directory of Mixed Documents
                options = options_map.get(ext)
 
                # Convert to markdown
-               markdown_content = to_markdown(file_path, options=options)
+               markdown_content = to_markdown(file_path, parser_options=options)
 
                # Create output path preserving structure
                relative_path = file_path.relative_to(source_dir)
@@ -184,7 +184,7 @@ Creating Text-Only Archive from Website
        for i, html_file in enumerate(html_files, 1):
            try:
                # Convert HTML to markdown
-               markdown = to_markdown(html_file, options=html_options)
+               markdown = to_markdown(html_file, parser_options=html_options)
 
                # Add page separator with metadata
                separator = "=" * 80
@@ -264,7 +264,7 @@ Document Processing for Fine-tuning
                    options = None
 
                # Convert to markdown
-               content = to_markdown(file_path, options=options)
+               content = to_markdown(file_path, parser_options=options)
 
                # Clean up content for training
                content = self.clean_content(content)
@@ -440,7 +440,7 @@ Web Application Integration
 
                    try:
                        # Convert to markdown
-                       markdown_content = to_markdown(temp_file.name, options=options)
+                       markdown_content = to_markdown(temp_file.name, parser_options=options)
 
                        # Limit output size (prevent DoS)
                        max_output = 1024 * 1024  # 1MB markdown limit
@@ -564,7 +564,7 @@ Directory Processing with Progress Tracking
                options = self.options_map.get(ext)
 
                # Convert to markdown
-               content = to_markdown(file_path, options=options)
+               content = to_markdown(file_path, parser_options=options)
 
                # Create output path
                relative_path = file_path.relative_to(file_path.parent)
@@ -864,7 +864,7 @@ Email Chain Analysis
            for eml_file in eml_files:
                try:
                    # Convert email to markdown
-                   markdown_content = to_markdown(eml_file, options=self.eml_options)
+                   markdown_content = to_markdown(eml_file, parser_options=self.eml_options)
 
                    # Extract metadata
                    metadata = self.extract_email_metadata(markdown_content)
@@ -1060,7 +1060,7 @@ Secure Web Scraping and Conversion
                    raise ValueError(f"Content too large: {len(content)} bytes")
 
                # Convert HTML to Markdown with security options
-               markdown = to_markdown(content, options=self.html_options)
+               markdown = to_markdown(content, parser_options=self.html_options)
 
                # Save output
                output_path = self.output_dir / output_filename
@@ -1208,7 +1208,7 @@ Text-Only Dataset Creation
                    return {'success': False, 'error': 'Unsupported format'}
 
                # Convert to markdown
-               content = to_markdown(file_path, options=options)
+               content = to_markdown(file_path, parser_options=options)
 
                # Clean content
                content = self.clean_text(content)

@@ -37,7 +37,7 @@ All conversions use the same simple interface:
    from all2md import to_markdown
 
    # Works for any supported format
-   markdown = to_markdown(input_file, options=format_options)
+   markdown = to_markdown(input_file, parser_options=format_options)
 
 Format-specific complexity is handled internally while maintaining API consistency.
 
@@ -115,6 +115,7 @@ The library provides several core conversion functions in ``api.py``. The ``to_m
        transforms: Optional[list] = None,
        hooks: Optional[dict] = None,
        progress_callback: Optional[ProgressCallback] = None,
+       remote_input_options: Optional[RemoteInputOptions] = None,
        **kwargs: Any
    ) -> str:
        # 1. Format detection (if source_format="auto")
@@ -384,13 +385,13 @@ Options can be provided in multiple ways and are merged intelligently:
 
    # Method 1: Pre-configured options object
    options = PdfOptions(pages=[0, 1, 2], attachment_mode='download')
-   markdown = to_markdown('doc.pdf', options=options)
+   markdown = to_markdown('doc.pdf', parser_options=options)
 
    # Method 2: Keyword arguments (creates options object)
    markdown = to_markdown('doc.pdf', pages=[0, 1, 2], attachment_mode='download')
 
    # Method 3: Mixed (kwargs override options)
-   markdown = to_markdown('doc.pdf', options=options, attachment_mode='base64')
+   markdown = to_markdown('doc.pdf', parser_options=options, attachment_mode='base64')
 
 The merger prioritises keyword arguments over pre-configured options, allowing flexible overrides. CLI flags, presets, configuration files, and environment variables all feed into the same dataclasses, ensuring consistent behaviour regardless of entrypoint.
 
@@ -493,7 +494,7 @@ HTML processing includes sophisticated network security features to prevent SSRF
    )
 
    # Process HTML with strict security controls
-   markdown = to_markdown("webpage.html", options=secure_options)
+   markdown = to_markdown("webpage.html", parser_options=secure_options)
 
 **Global Network Disable:**
 
@@ -733,18 +734,20 @@ Each format's dependencies are isolated:
    try:
        import fitz  # PyMuPDF
    except ImportError:
-       raise ImportError("PyMuPDF required for PDF processing")
+       raise DependencyError("pdf", [("pymupdf", ">=1.23.0")])
 
    # Word converter
    try:
        from docx import Document
    except ImportError:
-       raise ImportError("python-docx required for DOCX processing")
+       raise DependencyError("docx", [("python-docx", ">=1.2.0"])
 
 This allows partial installations and clear error messages for missing dependencies. See :doc:`installation` for complete dependency installation instructions.
 
+.. todo: improve the following section by improving the get_missing_dependencies command.
+
 Programmatic Dependency Management
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For automated setups, CI/CD pipelines, or installation scripts, all2md provides programmatic dependency checking:
 

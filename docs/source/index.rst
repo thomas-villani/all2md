@@ -55,7 +55,7 @@ Quick Example
        attachment_mode='download',
        attachment_output_dir='./images'
    )
-   markdown = to_markdown('document.pdf', options=options)
+   markdown = to_markdown('document.pdf', parser_options=options)
 
    # With AST transforms
    from all2md.transforms import RemoveImagesTransform, HeadingOffsetTransform

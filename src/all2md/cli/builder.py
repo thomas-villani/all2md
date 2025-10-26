@@ -14,9 +14,9 @@ import types
 from dataclasses import MISSING, fields, is_dataclass
 from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_origin, get_type_hints
 
-from all2md import DependencyError, FormatError, ParsingError
 from all2md.cli.custom_actions import (
     DynamicVersionAction,
+    TieredHelpAction,
     TrackingAppendAction,
     TrackingPositiveIntAction,
     TrackingStoreAction,
@@ -25,7 +25,16 @@ from all2md.cli.custom_actions import (
 )
 from all2md.cli.presets import get_preset_names
 from all2md.converter_registry import registry
-from all2md.exceptions import FileError, PasswordProtectedError, RenderingError, SecurityError, ValidationError
+from all2md.exceptions import (
+    DependencyError,
+    FileError,
+    FormatError,
+    ParsingError,
+    PasswordProtectedError,
+    RenderingError,
+    SecurityError,
+    ValidationError,
+)
 from all2md.options.markdown import MarkdownRendererOptions
 
 # Module logger for consistent warning/error reporting
@@ -36,59 +45,6 @@ logger = logging.getLogger(__name__)
 CLI_METADATA_NEGATES_DEFAULT = "cli_negates_default"
 CLI_METADATA_FLATTEN = "cli_flatten"
 CLI_METADATA_NEGATED_NAME = "cli_negated_name"
-
-
-class TieredHelpAction(argparse.Action):
-    """Custom help action that integrates the enhanced help formatter."""
-
-    def __init__(self, option_strings: list[str], dest: str = argparse.SUPPRESS, **kwargs: Any) -> None:
-        """Initialize the tiered help action.
-
-        Parameters
-        ----------
-        option_strings : list
-            Option strings for this action
-        dest : str, optional
-            Destination attribute, defaults to SUPPRESS
-        **kwargs : dict
-            Additional argparse action keyword arguments
-
-        """
-        kwargs.setdefault("nargs", "?")
-        kwargs.setdefault("default", argparse.SUPPRESS)
-        kwargs.setdefault("metavar", "SECTION")
-        super().__init__(option_strings, dest, **kwargs)
-
-    def __call__(
-        self,
-        parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
-        values: Any,
-        option_string: Optional[str] = None,
-    ) -> None:
-        """Execute the help action.
-
-        Parameters
-        ----------
-        parser : ArgumentParser
-            The argument parser
-        namespace : Namespace
-            The namespace object
-        values : Any
-            The help section selector
-        option_string : str, optional
-            The option string used, if any
-
-        """
-        selector = values or "quick"
-        try:
-            from all2md.cli.help_formatter import display_help
-        except ImportError:  # pragma: no cover - defensive
-            parser.print_help()
-            parser.exit()
-
-        display_help(selector)
-        parser.exit()
 
 
 class DynamicCLIBuilder:

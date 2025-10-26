@@ -237,7 +237,7 @@ resources.
    :CLI flag: ``--archive-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -319,7 +319,7 @@ resources.
    :Type: ``list[str] | None``
    :CLI flag: ``--archive-include``
    :Default: ``None``
-   :Importance: core
+   :Importance: advanced
 
 **exclude_patterns**
 
@@ -328,7 +328,7 @@ resources.
    :Type: ``list[str] | None``
    :CLI flag: ``--archive-exclude``
    :Default: ``None``
-   :Importance: core
+   :Importance: advanced
 
 **max_depth**
 
@@ -355,7 +355,7 @@ resources.
    :Type: ``bool``
    :CLI flag: ``--archive-no-preserve-directory``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **flatten_structure**
 
@@ -373,7 +373,7 @@ resources.
    :Type: ``bool``
    :CLI flag: ``--archive-no-extract-resources``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **resource_file_extensions**
 
@@ -836,7 +836,7 @@ for embedded images and resources.
    :CLI flag: ``--chm-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -934,6 +934,7 @@ for embedded images and resources.
    :Type: ``HtmlOptions | None``
    :CLI flag: ``--chm-html-options``
    :Default: ``None``
+   :Importance: advanced
 
 CSV Options
 ~~~~~~~~~~~
@@ -1251,7 +1252,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
    :CLI flag: ``--docx-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -1779,7 +1780,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :CLI flag: ``--eml-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -1879,7 +1880,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Type: ``DateFormatMode``
    :CLI flag: ``--eml-date-format-mode``
    :Default: ``'strftime'``
-   :Importance: core
+   :Importance: advanced
 
 **date_strftime_pattern**
 
@@ -1906,7 +1907,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Type: ``bool``
    :CLI flag: ``--eml-clean-quotes``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **detect_reply_separators**
 
@@ -1915,7 +1916,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Type: ``bool``
    :CLI flag: ``--eml-detect-reply-separators``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **normalize_headers**
 
@@ -1946,9 +1947,12 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
 **url_wrappers**
 
+   URL wrappers (e.g. 'urldefense') to strip from links
+
    :Type: ``list[str] | None``
    :CLI flag: ``--eml-url-wrappers``
    :Default factory: ``EmlOptions.<lambda>``
+   :Importance: security
 
 **html_network**
 
@@ -1975,7 +1979,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Type: ``bool``
    :CLI flag: ``--eml-no-subject-as-h1``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **include_attach_section_heading**
 
@@ -2002,16 +2006,16 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Type: ``bool``
    :CLI flag: ``--eml-no-include-html-parts``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **include_plain_parts**
 
    Include plain text content parts from emails
 
    :Type: ``bool``
-   :CLI flag: ``--eml-no-include-plain-parts``
-   :Default: ``True``
-   :Importance: core
+   :CLI flag: ``--eml-include-plain-parts``
+   :Default: ``False``
+   :Importance: advanced
 
 EPUB Options
 ~~~~~~~~~~~~
@@ -2044,7 +2048,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
    :CLI flag: ``--epub-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -2317,7 +2321,7 @@ in FictionBook 2.0 ebooks.
    :CLI flag: ``--fb2-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -2451,7 +2455,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :CLI flag: ``--html-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -2553,6 +2557,15 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Default: ``False``
    :Importance: security
 
+**strip_framework_attributes**
+
+   Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+
+   :Type: ``bool``
+   :CLI flag: ``--html-strip-framework-attributes``
+   :Default: ``False``
+   :Importance: security
+
 **detect_table_alignment**
 
    Automatically detect table column alignment from CSS/attributes
@@ -2560,7 +2573,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Type: ``bool``
    :CLI flag: ``--html-no-detect-table-alignment``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **network**
 
@@ -2578,15 +2591,6 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :CLI flag: ``--html-local-files``
    :Default factory: ``LocalFileAccessOptions``
 
-**preserve_nested_structure**
-
-   Maintain proper nesting for blockquotes and other elements
-
-   :Type: ``bool``
-   :CLI flag: ``--html-no-preserve-nested-structure``
-   :Default: ``True``
-   :Importance: core
-
 **strip_comments**
 
    Remove HTML comments from output
@@ -2594,7 +2598,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Type: ``bool``
    :CLI flag: ``--html-no-strip-comments``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **collapse_whitespace**
 
@@ -2603,7 +2607,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Type: ``bool``
    :CLI flag: ``--html-no-collapse-whitespace``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **extract_readable**
 
@@ -2680,6 +2684,16 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Type: ``str | None``
    :CLI flag: ``--html-base-url``
    :Default: ``None``
+   :Importance: advanced
+
+**html_parser**
+
+   BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
+
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :CLI flag: ``--html-html-parser``
+   :Default: ``'html.parser'``
+   :Choices: ``html.parser``, ``html5lib``, ``lxml``
    :Importance: advanced
 
 HTML Renderer Options
@@ -2925,7 +2939,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
    :CLI flag: ``--ipynb-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -3819,7 +3833,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001E575560A10>``
+   :Default: ``<object object at 0x00000278C77E0A10>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3829,7 +3843,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001E575560A10>``
+   :Default: ``<object object at 0x00000278C77E0A10>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4025,7 +4039,7 @@ message filtering, and folder handling.
    :CLI flag: ``--mbox-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -4125,7 +4139,7 @@ message filtering, and folder handling.
    :Type: ``DateFormatMode``
    :CLI flag: ``--mbox-date-format-mode``
    :Default: ``'strftime'``
-   :Importance: core
+   :Importance: advanced
 
 **date_strftime_pattern**
 
@@ -4152,7 +4166,7 @@ message filtering, and folder handling.
    :Type: ``bool``
    :CLI flag: ``--mbox-clean-quotes``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **detect_reply_separators**
 
@@ -4161,7 +4175,7 @@ message filtering, and folder handling.
    :Type: ``bool``
    :CLI flag: ``--mbox-detect-reply-separators``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **normalize_headers**
 
@@ -4192,9 +4206,12 @@ message filtering, and folder handling.
 
 **url_wrappers**
 
+   URL wrappers (e.g. 'urldefense') to strip from links
+
    :Type: ``list[str] | None``
    :CLI flag: ``--mbox-url-wrappers``
    :Default factory: ``EmlOptions.<lambda>``
+   :Importance: security
 
 **html_network**
 
@@ -4221,7 +4238,7 @@ message filtering, and folder handling.
    :Type: ``bool``
    :CLI flag: ``--mbox-no-subject-as-h1``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **include_attach_section_heading**
 
@@ -4248,16 +4265,16 @@ message filtering, and folder handling.
    :Type: ``bool``
    :CLI flag: ``--mbox-no-include-html-parts``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **include_plain_parts**
 
    Include plain text content parts from emails
 
    :Type: ``bool``
-   :CLI flag: ``--mbox-no-include-plain-parts``
-   :Default: ``True``
-   :Importance: core
+   :CLI flag: ``--mbox-include-plain-parts``
+   :Default: ``False``
+   :Importance: advanced
 
 **mailbox_format**
 
@@ -4494,7 +4511,7 @@ primarily for handling embedded assets like images and local file security.
    :CLI flag: ``--mhtml-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -4596,6 +4613,15 @@ primarily for handling embedded assets like images and local file security.
    :Default: ``False``
    :Importance: security
 
+**strip_framework_attributes**
+
+   Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-strip-framework-attributes``
+   :Default: ``False``
+   :Importance: security
+
 **detect_table_alignment**
 
    Automatically detect table column alignment from CSS/attributes
@@ -4603,7 +4629,7 @@ primarily for handling embedded assets like images and local file security.
    :Type: ``bool``
    :CLI flag: ``--mhtml-no-detect-table-alignment``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **network**
 
@@ -4621,15 +4647,6 @@ primarily for handling embedded assets like images and local file security.
    :CLI flag: ``--mhtml-local-files``
    :Default factory: ``LocalFileAccessOptions``
 
-**preserve_nested_structure**
-
-   Maintain proper nesting for blockquotes and other elements
-
-   :Type: ``bool``
-   :CLI flag: ``--mhtml-no-preserve-nested-structure``
-   :Default: ``True``
-   :Importance: core
-
 **strip_comments**
 
    Remove HTML comments from output
@@ -4637,7 +4654,7 @@ primarily for handling embedded assets like images and local file security.
    :Type: ``bool``
    :CLI flag: ``--mhtml-no-strip-comments``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **collapse_whitespace**
 
@@ -4646,7 +4663,7 @@ primarily for handling embedded assets like images and local file security.
    :Type: ``bool``
    :CLI flag: ``--mhtml-no-collapse-whitespace``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **extract_readable**
 
@@ -4725,6 +4742,16 @@ primarily for handling embedded assets like images and local file security.
    :Default: ``None``
    :Importance: advanced
 
+**html_parser**
+
+   BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
+
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :CLI flag: ``--mhtml-html-parser``
+   :Default: ``'html.parser'``
+   :Choices: ``html.parser``, ``html5lib``, ``lxml``
+   :Importance: advanced
+
 ODP Options
 ~~~~~~~~~~~
 
@@ -4755,7 +4782,7 @@ processing, including slide selection, numbering, and notes.
    :CLI flag: ``--odp-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -5049,7 +5076,7 @@ and adds ODS-specific options.
    :CLI flag: ``--ods-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -5266,7 +5293,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
    :CLI flag: ``--odt-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -5793,7 +5820,7 @@ PST/OST archive handling, and advanced message selection.
    :CLI flag: ``--outlook-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -5893,7 +5920,7 @@ PST/OST archive handling, and advanced message selection.
    :Type: ``DateFormatMode``
    :CLI flag: ``--outlook-date-format-mode``
    :Default: ``'strftime'``
-   :Importance: core
+   :Importance: advanced
 
 **date_strftime_pattern**
 
@@ -5920,7 +5947,7 @@ PST/OST archive handling, and advanced message selection.
    :Type: ``bool``
    :CLI flag: ``--outlook-clean-quotes``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **detect_reply_separators**
 
@@ -5929,7 +5956,7 @@ PST/OST archive handling, and advanced message selection.
    :Type: ``bool``
    :CLI flag: ``--outlook-detect-reply-separators``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **normalize_headers**
 
@@ -5960,9 +5987,12 @@ PST/OST archive handling, and advanced message selection.
 
 **url_wrappers**
 
+   URL wrappers (e.g. 'urldefense') to strip from links
+
    :Type: ``list[str] | None``
    :CLI flag: ``--outlook-url-wrappers``
    :Default factory: ``EmlOptions.<lambda>``
+   :Importance: security
 
 **html_network**
 
@@ -5989,7 +6019,7 @@ PST/OST archive handling, and advanced message selection.
    :Type: ``bool``
    :CLI flag: ``--outlook-no-subject-as-h1``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **include_attach_section_heading**
 
@@ -6016,16 +6046,16 @@ PST/OST archive handling, and advanced message selection.
    :Type: ``bool``
    :CLI flag: ``--outlook-no-include-html-parts``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **include_plain_parts**
 
    Include plain text content parts from emails
 
    :Type: ``bool``
-   :CLI flag: ``--outlook-no-include-plain-parts``
-   :Default: ``True``
-   :Importance: core
+   :CLI flag: ``--outlook-include-plain-parts``
+   :Default: ``False``
+   :Importance: advanced
 
 **output_structure**
 
@@ -6130,7 +6160,7 @@ including page selection, image handling, and formatting preferences.
    :CLI flag: ``--pdf-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -7032,7 +7062,7 @@ processing, including slide numbering and image handling.
    :CLI flag: ``--pptx-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -7605,7 +7635,7 @@ attachment handling from AttachmentOptionsMixin.
    :CLI flag: ``--rtf-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -7932,7 +7962,7 @@ including options for handling embedded resources and nested frames.
    :CLI flag: ``--webarchive-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -8034,6 +8064,15 @@ including options for handling embedded resources and nested frames.
    :Default: ``False``
    :Importance: security
 
+**strip_framework_attributes**
+
+   Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-strip-framework-attributes``
+   :Default: ``False``
+   :Importance: security
+
 **detect_table_alignment**
 
    Automatically detect table column alignment from CSS/attributes
@@ -8041,7 +8080,7 @@ including options for handling embedded resources and nested frames.
    :Type: ``bool``
    :CLI flag: ``--webarchive-no-detect-table-alignment``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **network**
 
@@ -8059,15 +8098,6 @@ including options for handling embedded resources and nested frames.
    :CLI flag: ``--webarchive-local-files``
    :Default factory: ``LocalFileAccessOptions``
 
-**preserve_nested_structure**
-
-   Maintain proper nesting for blockquotes and other elements
-
-   :Type: ``bool``
-   :CLI flag: ``--webarchive-no-preserve-nested-structure``
-   :Default: ``True``
-   :Importance: core
-
 **strip_comments**
 
    Remove HTML comments from output
@@ -8075,7 +8105,7 @@ including options for handling embedded resources and nested frames.
    :Type: ``bool``
    :CLI flag: ``--webarchive-no-strip-comments``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **collapse_whitespace**
 
@@ -8084,7 +8114,7 @@ including options for handling embedded resources and nested frames.
    :Type: ``bool``
    :CLI flag: ``--webarchive-no-collapse-whitespace``
    :Default: ``True``
-   :Importance: core
+   :Importance: advanced
 
 **extract_readable**
 
@@ -8163,6 +8193,16 @@ including options for handling embedded resources and nested frames.
    :Default: ``None``
    :Importance: advanced
 
+**html_parser**
+
+   BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
+
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :CLI flag: ``--webarchive-html-parser``
+   :Default: ``'html.parser'``
+   :Choices: ``html.parser``, ``html5lib``, ``lxml``
+   :Importance: advanced
+
 **extract_subresources**
 
    Extract embedded resources (images, CSS, JS) from WebSubresources
@@ -8213,7 +8253,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
    :CLI flag: ``--xlsx-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -8422,7 +8462,7 @@ resources.
    :CLI flag: ``--zip-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
-   :Importance: core
+   :Importance: advanced
 
 **attachment_output_dir**
 
@@ -8815,7 +8855,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001E575560A10>``
+   :Default: ``<object object at 0x00000278C77E0A10>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -8825,7 +8865,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001E575560A10>``
+   :Default: ``<object object at 0x00000278C77E0A10>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

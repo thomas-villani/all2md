@@ -47,7 +47,7 @@ Use ``to_ast()`` to convert any supported document to an AST:
 
    # With options (same as to_markdown)
    from all2md.options import PdfOptions
-   ast_doc = to_ast("document.pdf", options=PdfOptions(pages=[1, 2, 3]))
+   ast_doc = to_ast("document.pdf", parser_options=PdfOptions(pages=[1, 2, 3]))
 
 The AST Document Structure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -248,7 +248,8 @@ Transform AST nodes by subclassing ``NodeTransformer``:
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import NodeTransformer, Heading, MarkdownRenderer
+   from all2md.ast import NodeTransformer, Heading
+   from all2md.renderers.markdown import MarkdownRenderer
 
    class IncreaseHeadingLevel(NodeTransformer):
        """Increase all heading levels by 1 (H1 -> H2, etc.)."""
@@ -268,7 +269,7 @@ Transform AST nodes by subclassing ``NodeTransformer``:
 
    # Render transformed document
    renderer = MarkdownRenderer()
-   markdown = renderer.render(transformed_doc)
+   markdown = renderer.render_to_string(transformed_doc)
 
 Built-in Transformers
 ~~~~~~~~~~~~~~~~~~~~~
@@ -280,7 +281,8 @@ all2md provides commonly-used transformers:
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import HeadingLevelTransformer, MarkdownRenderer
+   from all2md.ast import HeadingLevelTransformer
+   from all2md.renderers.markdown import MarkdownRenderer
 
    doc = to_ast("document.md")
 
@@ -297,7 +299,8 @@ all2md provides commonly-used transformers:
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import LinkRewriter, MarkdownRenderer
+   from all2md.ast import LinkRewriter
+   from all2md.renderers.markdown import MarkdownRenderer
 
    doc = to_ast("document.md")
 
@@ -406,9 +409,9 @@ Build documents programmatically using AST nodes:
 
    from all2md.ast import (
        Document, Heading, Paragraph, Text,
-       Strong, Emphasis, Link, CodeBlock,
-       MarkdownRenderer
+       Strong, Emphasis, Link, CodeBlock
    )
+   from all2md.renderers.markdown import MarkdownRenderer
 
    # Build document structure
    doc = Document(children=[
@@ -439,7 +442,7 @@ Build documents programmatically using AST nodes:
 
    # Render to Markdown
    renderer = MarkdownRenderer()
-   markdown = renderer.render(doc)
+   markdown = renderer.render_to_string(doc)
    print(markdown)
 
 Using Document Builders
@@ -451,7 +454,8 @@ all2md provides builders for complex structures:
 
 .. code-block:: python
 
-   from all2md.ast import TableBuilder, Text, MarkdownRenderer
+   from all2md.ast import TableBuilder, Text
+   from all2md.renderers.markdown import MarkdownRenderer
 
    # Build table programmatically
    builder = TableBuilder()
@@ -480,7 +484,7 @@ all2md provides builders for complex structures:
 
    # Render
    renderer = MarkdownRenderer()
-   markdown = renderer.render(table)
+   markdown = renderer.render_to_string(table)
 
 **ListBuilder:**
 
@@ -530,7 +534,8 @@ Combine multiple documents into one:
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import merge_documents, MarkdownRenderer
+   from all2md.ast import merge_documents
+   from all2md.renderers.markdown import MarkdownRenderer
 
    # Convert multiple documents
    doc1 = to_ast("chapter1.md")
@@ -542,7 +547,7 @@ Combine multiple documents into one:
 
    # Render combined document
    renderer = MarkdownRenderer()
-   markdown = renderer.render(combined)
+   markdown = renderer.render_to_string(combined)
 
 AST Serialization
 -----------------
@@ -570,9 +575,9 @@ Persist AST structure for later use:
    restored_doc = json_to_ast(loaded_json)
 
    # Render restored document
-   from all2md.ast import MarkdownRenderer
+   from all2md.renderers.markdown import MarkdownRenderer
    renderer = MarkdownRenderer()
-   markdown = renderer.render(restored_doc)
+   markdown = renderer.render_to_string(restored_doc)
 
 Dictionary Format
 ~~~~~~~~~~~~~~~~~
@@ -610,42 +615,36 @@ Render the same AST in different Markdown dialects:
 
    from all2md import to_ast
    from all2md.renderers.markdown import MarkdownRenderer
-   from all2md.utils.flavors import (
-       GFMFlavor,
-       CommonMarkFlavor,
-       MarkdownPlusFlavor
-   )
+   from all2md.options import MarkdownRendererOptions
 
    doc = to_ast("document.pdf")
 
    # GitHub Flavored Markdown
-   gfm_renderer = MarkdownRenderer(flavor=GFMFlavor())
-   gfm_md = gfm_renderer.render(doc)
+   gfm_renderer = MarkdownRenderer(options=MarkdownRendererOptions(flavor="gfm"))
+   gfm_md = gfm_renderer.render_to_string(doc)
 
    # CommonMark (strict)
-   cm_renderer = MarkdownRenderer(flavor=CommonMarkFlavor())
-   cm_md = cm_renderer.render(doc)
+   cm_renderer = MarkdownRenderer(options=MarkdownRendererOptions(flavor="commonmark"))
+   cm_md = cm_renderer.render_to_string(doc)
 
    # Markdown Plus (extended features)
-   mdp_renderer = MarkdownRenderer(flavor=MarkdownPlusFlavor())
-   mdp_md = mdp_renderer.render(doc)
+   mdp_renderer = MarkdownRenderer(options=MarkdownRendererOptions(flavor="markdown_plus"))
+   mdp_md = mdp_renderer.render_to_string(doc)
 
 Flavor Differences
 ~~~~~~~~~~~~~~~~~~
 
 Different flavors support different features:
 
-.. code-block:: python
+.. code-block:: text
 
-   from all2md.utils.flavors import GFMFlavor, CommonMarkFlavor
-
-   # GFM supports:
+   # GFM (flavor="gfm") supports:
    # - Tables
    # - Strikethrough
    # - Task lists
    # - Automatic URL linking
 
-   # CommonMark supports:
+   # CommonMark (flavor="commonmark") supports:
    # - Core Markdown only
    # - No tables (rendered as HTML)
    # - No strikethrough (rendered as HTML)
@@ -761,7 +760,8 @@ Update links across multiple documents:
 
    from pathlib import Path
    from all2md import to_ast
-   from all2md.ast import LinkRewriter, MarkdownRenderer
+   from all2md.ast import LinkRewriter
+   from all2md.renderers.markdown import MarkdownRenderer
 
    def migrate_documentation(source_dir: Path, output_dir: Path):
        """Migrate documentation with updated links."""
@@ -788,7 +788,7 @@ Update links across multiple documents:
            updated_doc = transformer.transform(doc)
 
            # Render to Markdown
-           markdown = renderer.render(updated_doc)
+           markdown = renderer.render_to_string(updated_doc)
 
            # Save to output directory
            output_file = output_dir / md_file.relative_to(source_dir)
@@ -895,14 +895,15 @@ AST nodes are immutable by default. Transformations create new trees. This makes
 
    from concurrent.futures import ThreadPoolExecutor
    from all2md import to_ast
-   from all2md.ast import HeadingLevelTransformer, MarkdownRenderer
+   from all2md.ast import HeadingLevelTransformer
+   from all2md.renderers.markdown import MarkdownRenderer
 
    def transform_document(file_path):
        doc = to_ast(file_path)
        transformer = HeadingLevelTransformer(offset=1)
        new_doc = transformer.transform(doc)
        renderer = MarkdownRenderer()
-       return renderer.render(new_doc)
+       return renderer.render_to_string(new_doc)
 
    # Safe concurrent processing
    files = ['doc1.pdf', 'doc2.pdf', 'doc3.pdf']

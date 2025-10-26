@@ -112,7 +112,7 @@ For large documents, process only required pages:
 
    # Process only first 10 pages
    options = PdfOptions(pages=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-   markdown = to_markdown('large_document.pdf', options=options)
+   markdown = to_markdown('large_document.pdf', parser_options=options)
 
    # Or use page ranges (CLI-style)
    markdown = to_markdown('large_document.pdf', pages="1-10")
@@ -137,7 +137,7 @@ Disable features you don't need:
        extract_metadata=False    # Skip metadata extraction
    )
 
-   markdown = to_markdown('document.pdf', options=fast_options)
+   markdown = to_markdown('document.pdf', parser_options=fast_options)
 
 For HTML, disable sanitization if processing trusted content:
 
@@ -204,7 +204,7 @@ For very large files, use chunked processing:
                attachment_mode='skip'  # Further reduce memory
            )
 
-           chunk_markdown = to_markdown(pdf_path, options=options)
+           chunk_markdown = to_markdown(pdf_path, parser_options=options)
            all_markdown.append(chunk_markdown)
 
            # Optional: Force garbage collection
@@ -265,7 +265,7 @@ Process multiple documents in parallel using multiprocessing:
        """Convert a single PDF file."""
        try:
            options = PdfOptions(attachment_mode='skip')
-           markdown = to_markdown(str(pdf_path), options=options)
+           markdown = to_markdown(str(pdf_path), parser_options=options)
            return str(pdf_path), markdown
        except Exception as e:
            return str(pdf_path), f"ERROR: {e}"
@@ -698,7 +698,7 @@ Optimize for web service deployment:
                    options = None
 
                # Convert with timeout protection (implement externally)
-               markdown = to_markdown(tmp.name, options=options)
+               markdown = to_markdown(tmp.name, parser_options=options)
 
                # Limit output size
                max_output = 1024 * 1024  # 1MB
@@ -752,7 +752,7 @@ Optimize for ETL/data pipeline scenarios:
                    logger.info(f"Skipping (exists): {file_path.name}")
                    return file_path, True
 
-               markdown = to_markdown(str(file_path), options=options)
+               markdown = to_markdown(str(file_path), parser_options=options)
                output_path.write_text(markdown, encoding='utf-8')
                logger.info(f"Converted: {file_path.name}")
                return file_path, True
@@ -799,7 +799,7 @@ Create custom benchmarks:
 
        for i in range(iterations):
            start = time.perf_counter()
-           markdown = to_markdown(str(file_path), options=options)
+           markdown = to_markdown(str(file_path), parser_options=options)
            elapsed = time.perf_counter() - start
            times.append(elapsed)
            print(f"  Run {i+1}: {elapsed:.3f}s")

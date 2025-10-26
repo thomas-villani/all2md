@@ -87,11 +87,16 @@ def validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: s
                 pass
 
     elif hasattr(input_data, "read"):
-        # File-like inputs - read, validate, reset position
-        original_position = input_data.tell() if hasattr(input_data, "tell") else 0
-        input_data.seek(0)
-        data = input_data.read()
-        input_data.seek(original_position)
+        # File-like inputs - read, validate, reset position (if seekable)
+        if hasattr(input_data, "seek"):
+            # Seekable stream - preserve position
+            original_position = input_data.tell() if hasattr(input_data, "tell") else 0
+            input_data.seek(0)
+            data = input_data.read()
+            input_data.seek(original_position)
+        else:
+            # Non-seekable stream - read once
+            data = input_data.read()
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(data)
@@ -173,10 +178,15 @@ def validated_zip_input(
 
         elif hasattr(input_data, "read"):
             # File-like inputs - read, create temp file, validate, yield path
-            original_position = input_data.tell() if hasattr(input_data, "tell") else 0
-            input_data.seek(0)
-            data = input_data.read()
-            input_data.seek(original_position)
+            if hasattr(input_data, "seek"):
+                # Seekable stream - preserve position
+                original_position = input_data.tell() if hasattr(input_data, "tell") else 0
+                input_data.seek(0)
+                data = input_data.read()
+                input_data.seek(original_position)
+            else:
+                # Non-seekable stream - read once
+                data = input_data.read()
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 tmp.write(data)

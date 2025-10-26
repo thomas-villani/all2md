@@ -9,11 +9,13 @@ supported when the ``rich`` package is available and requested.
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 import textwrap
+from argparse import Namespace
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Literal, Optional, Sequence
+
+from all2md.cli.output import check_rich_available, should_use_rich_output
 
 if TYPE_CHECKING:
     from rich.text import Text
@@ -375,7 +377,7 @@ class HelpRenderer:
 
         """
         self.catalog = catalog
-        self.use_rich = use_rich and _rich_available()
+        self.use_rich = use_rich and check_rich_available()
 
     def render(self, selector: str = "quick") -> str:
         """Render help text for the specified selector.
@@ -680,15 +682,6 @@ class HelpRenderer:
         text.highlight_regex(r"\[[^\]]+\]", style="dim")
 
 
-def _rich_available() -> bool:
-    try:  # pragma: no cover - runtime check
-        import rich  # noqa: F401
-
-        return True
-    except ImportError:  # pragma: no cover - runtime check
-        return False
-
-
 def build_help_renderer(*, use_rich: bool = False) -> HelpRenderer:
     """Build a complete help renderer with parser and catalog."""
     # Use create_parser() to get the full parser with all top-level options
@@ -712,7 +705,9 @@ def display_help(
     supported, the target stream is a TTY, and color has not been disabled via
     ``NO_COLOR`` or a ``dumb`` terminal.
     """
-    resolved_use_rich = _should_enable_rich(use_rich=use_rich, stream=stream)
+    use_rich_ns = Namespace(use_rich=use_rich)
+
+    resolved_use_rich = should_use_rich_output(use_rich_ns, raise_on_missing=False, stream=stream)
     renderer = build_help_renderer(use_rich=resolved_use_rich)
 
     if resolved_use_rich and not renderer.use_rich:
@@ -723,37 +718,6 @@ def display_help(
         )
 
     renderer.print(selector, stream=stream)
-
-
-def _should_enable_rich(*, use_rich: Optional[bool], stream: Optional[Any]) -> bool:
-    """Return ``True`` when rich output should be used for help rendering."""
-    if use_rich is False:
-        return False
-
-    if not _rich_available():
-        return False
-
-    if os.environ.get("NO_COLOR"):
-        return False
-
-    term = os.environ.get("TERM", "")
-    if term.lower() == "dumb":
-        return False
-
-    # Explicit request overrides TTY checks when color is otherwise permitted.
-    if use_rich is True:
-        return True
-
-    target = stream or sys.stdout
-    isatty = getattr(target, "isatty", None)
-    if callable(isatty):
-        try:
-            if isatty():
-                return True
-        except Exception:  # pragma: no cover - defensive: respect failures
-            return False
-
-    return False
 
 
 __all__ = [

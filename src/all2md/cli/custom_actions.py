@@ -5,8 +5,9 @@ for better argument tracking, nested namespace handling, and environment
 variable support.
 """
 
-#  Copyright (c) 2025 Tom Villani, Ph.D.
+from __future__ import annotations
 
+#  Copyright (c) 2025 Tom Villani, Ph.D.
 import argparse
 import logging
 import os
@@ -621,3 +622,56 @@ def merge_nested_dicts(base: dict, update: dict) -> dict:
             result[key] = value
 
     return result
+
+
+class TieredHelpAction(argparse.Action):
+    """Custom help action that integrates the enhanced help formatter."""
+
+    def __init__(self, option_strings: list[str], dest: str = argparse.SUPPRESS, **kwargs: Any) -> None:
+        """Initialize the tiered help action.
+
+        Parameters
+        ----------
+        option_strings : list
+            Option strings for this action
+        dest : str, optional
+            Destination attribute, defaults to SUPPRESS
+        **kwargs : dict
+            Additional argparse action keyword arguments
+
+        """
+        kwargs.setdefault("nargs", "?")
+        kwargs.setdefault("default", argparse.SUPPRESS)
+        kwargs.setdefault("metavar", "SECTION")
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: Optional[str] = None,
+    ) -> None:
+        """Execute the help action.
+
+        Parameters
+        ----------
+        parser : ArgumentParser
+            The argument parser
+        namespace : Namespace
+            The namespace object
+        values : Any
+            The help section selector
+        option_string : str, optional
+            The option string used, if any
+
+        """
+        selector = values or "quick"
+        try:
+            from all2md.cli.help_formatter import display_help
+        except ImportError:  # pragma: no cover - defensive
+            parser.print_help()
+            parser.exit()
+
+        display_help(selector)
+        parser.exit()

@@ -17,13 +17,13 @@ import mimetypes
 from pathlib import Path
 from typing import IO, Dict, List, Optional, Union
 
-from .converter_metadata import ConverterMetadata
-from .exceptions import FormatError
+from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import FormatError
 
 logger = logging.getLogger(__name__)
 
 
-def _check_package_installed(import_name: str) -> bool:
+def check_package_installed(import_name: str) -> bool:
     """Check if a package is installed and importable.
 
     Parameters
@@ -775,7 +775,7 @@ class ConverterRegistry:
             required_packages = metadata.get_required_packages_for_content(content, input_data, operation)
 
             for pkg_name, import_name, _ in required_packages:
-                if not _check_package_installed(import_name):
+                if not check_package_installed(import_name):
                     format_missing.append(pkg_name)
 
             if format_missing:

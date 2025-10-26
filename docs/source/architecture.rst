@@ -225,7 +225,7 @@ Core Components
 * ``ipynb.py`` – Jupyter notebooks via nbformat
 * ``rtf.py`` – RTF via pyth3
 * ``chm.py`` – Compiled HTML Help archives
-* ``sourcecode.py`` / ``txt.py`` – Code and plain-text lexers (200+ formats)
+* ``sourcecode.py`` / ``plaintext.py`` – Code and plain-text lexers (200+ formats)
 * ``zip.py`` – Mixed archives with per-entry detection
 * ``ast_json.py`` – Developer-facing AST JSON interchange
 
