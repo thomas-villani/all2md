@@ -126,13 +126,50 @@ def _resolve_hostname_to_ips(hostname: str) -> list[ipaddress.IPv4Address | ipad
         raise NetworkSecurityError(f"Failed to resolve hostname {hostname}: {e}") from e
 
 
-def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None) -> bool:
-    """Check if hostname is in the allowlist.
+def _normalize_hostname(hostname: str) -> str:
+    """Normalize a hostname for case-insensitive comparison.
+
+    Applies IDNA encoding (for internationalized domain names) and lowercasing
+    to ensure consistent hostname comparison regardless of input casing.
 
     Parameters
     ----------
     hostname : str
-        Hostname to check
+        Hostname to normalize
+
+    Returns
+    -------
+    str
+        Normalized hostname (IDNA-encoded and lowercased)
+
+    Examples
+    --------
+    >>> _normalize_hostname("Example.com")
+    'example.com'
+    >>> _normalize_hostname("EXAMPLE.COM")
+    'example.com'
+
+    """
+    try:
+        # Apply IDNA encoding for internationalized domain names
+        # Then lowercase for case-insensitive comparison
+        return hostname.encode("idna").decode("ascii").lower()
+    except Exception:
+        # If IDNA encoding fails, fall back to simple lowercasing
+        return hostname.lower()
+
+
+def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None) -> bool:
+    """Check if hostname is in the allowlist.
+
+    Normalizes both the incoming hostname and allowlist entries (IDNA encoding
+    + lowercasing) to ensure case-insensitive matching. CIDR blocks in the
+    allowlist are handled separately and don't require normalization.
+
+    Parameters
+    ----------
+    hostname : str
+        Hostname to check (will be normalized internally)
     allowed_hosts : list[str] | None
         List of allowed hostnames/CIDR blocks, or None to allow all
 
@@ -145,13 +182,26 @@ def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None)
     if allowed_hosts is None:
         return True
 
-    # Check exact hostname match
-    if hostname in allowed_hosts:
-        return True
+    # Normalize the incoming hostname for case-insensitive comparison
+    normalized_hostname = _normalize_hostname(hostname)
+
+    # Check exact hostname match with normalization
+    for allowed_entry in allowed_hosts:
+        # Try to parse as CIDR block first
+        try:
+            ipaddress.ip_network(allowed_entry, strict=False)
+            # It's a valid CIDR block, skip normalization for this entry
+            # We'll check it later with IP resolution
+            continue
+        except ValueError:
+            # Not a CIDR block, treat as hostname and normalize for comparison
+            normalized_allowed = _normalize_hostname(allowed_entry)
+            if normalized_hostname == normalized_allowed:
+                return True
 
     # Check if any of the resolved IPs are in allowed CIDR blocks
     try:
-        resolved_ips = _resolve_hostname_to_ips(hostname)
+        resolved_ips = _resolve_hostname_to_ips(normalized_hostname)
         for allowed_entry in allowed_hosts:
             try:
                 # Try to parse as CIDR block
@@ -160,7 +210,7 @@ def _validate_hostname_allowlist(hostname: str, allowed_hosts: list[str] | None)
                     if ip in allowed_network:
                         return True
             except ValueError:
-                # Not a valid CIDR block, skip
+                # Not a valid CIDR block, already checked as hostname above
                 continue
     except NetworkSecurityError:
         # Hostname resolution failed, deny access
@@ -349,12 +399,8 @@ def validate_url_security(url: str, allowed_hosts: list[str] | None = None, requ
             f"Consider using HTTPS for {url}"
         )
 
-    # Normalize hostname (handle IDN/punycode)
-    try:
-        normalized_hostname = hostname.encode("idna").decode("ascii").lower()
-    except Exception:
-        # If IDN encoding fails, use original hostname
-        normalized_hostname = hostname.lower()
+    # Normalize hostname (handle IDN/punycode and case sensitivity)
+    normalized_hostname = _normalize_hostname(hostname)
 
     # Check allowlist first (if specified)
     if not _validate_hostname_allowlist(normalized_hostname, allowed_hosts):

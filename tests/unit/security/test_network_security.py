@@ -22,6 +22,7 @@ from all2md.exceptions import NetworkSecurityError
 from all2md.utils.network_security import (
     RateLimiter,
     _is_private_or_reserved_ip,
+    _normalize_hostname,
     _parse_content_type,
     _resolve_hostname_to_ips,
     _validate_hostname_allowlist,
@@ -133,6 +134,42 @@ class TestHostnameResolution:
             _resolve_hostname_to_ips("empty.example")
 
 
+class TestHostnameNormalization:
+    """Test hostname normalization for case-insensitive matching."""
+
+    def test_normalize_lowercase(self):
+        """Test normalization of lowercase hostnames."""
+        assert _normalize_hostname("example.com") == "example.com"
+        assert _normalize_hostname("trusted.org") == "trusted.org"
+
+    def test_normalize_uppercase(self):
+        """Test normalization of uppercase hostnames."""
+        assert _normalize_hostname("EXAMPLE.COM") == "example.com"
+        assert _normalize_hostname("TRUSTED.ORG") == "trusted.org"
+
+    def test_normalize_mixed_case(self):
+        """Test normalization of mixed-case hostnames."""
+        assert _normalize_hostname("Example.com") == "example.com"
+        assert _normalize_hostname("ExAmPlE.CoM") == "example.com"
+        assert _normalize_hostname("TrUsTeD.oRg") == "trusted.org"
+
+    def test_normalize_idna_ascii(self):
+        """Test IDNA normalization of ASCII hostnames."""
+        # ASCII hostnames should remain unchanged (except lowercasing)
+        assert _normalize_hostname("example.com") == "example.com"
+        assert _normalize_hostname("sub.example.com") == "sub.example.com"
+
+    def test_normalize_with_subdomain(self):
+        """Test normalization of hostnames with subdomains."""
+        assert _normalize_hostname("api.Example.com") == "api.example.com"
+        assert _normalize_hostname("WWW.EXAMPLE.COM") == "www.example.com"
+
+    def test_normalize_preserves_dots(self):
+        """Test that normalization preserves dot structure."""
+        assert _normalize_hostname("a.b.c.example.com") == "a.b.c.example.com"
+        assert _normalize_hostname("A.B.C.EXAMPLE.COM") == "a.b.c.example.com"
+
+
 class TestHostnameAllowlist:
     """Test hostname allowlist validation."""
 
@@ -163,6 +200,64 @@ class TestHostnameAllowlist:
         allowed_hosts = ["example.com"]
 
         assert not _validate_hostname_allowlist("badhost.example", allowed_hosts)
+
+    def test_allowlist_case_insensitive_match(self):
+        """Test that hostname matching is case-insensitive."""
+        # Allowlist with mixed case
+        allowed_hosts = ["Example.com", "TRUSTED.ORG"]
+
+        # Lowercase incoming hostnames should match
+        assert _validate_hostname_allowlist("example.com", allowed_hosts)
+        assert _validate_hostname_allowlist("trusted.org", allowed_hosts)
+
+        # Uppercase incoming hostnames should match
+        assert _validate_hostname_allowlist("EXAMPLE.COM", allowed_hosts)
+        assert _validate_hostname_allowlist("TRUSTED.ORG", allowed_hosts)
+
+        # Mixed case incoming hostnames should match
+        assert _validate_hostname_allowlist("ExAmPlE.cOm", allowed_hosts)
+        assert _validate_hostname_allowlist("TrUsTeD.oRg", allowed_hosts)
+
+    def test_allowlist_case_insensitive_with_lowercase_allowlist(self):
+        """Test case-insensitive matching with lowercase allowlist."""
+        # Allowlist with all lowercase (common case)
+        allowed_hosts = ["example.com", "trusted.org"]
+
+        # Various case variations should all match
+        assert _validate_hostname_allowlist("Example.com", allowed_hosts)
+        assert _validate_hostname_allowlist("EXAMPLE.COM", allowed_hosts)
+        assert _validate_hostname_allowlist("example.com", allowed_hosts)
+
+        # Non-matching hostname should still fail
+        assert not _validate_hostname_allowlist("evil.com", allowed_hosts)
+        assert not _validate_hostname_allowlist("EVIL.COM", allowed_hosts)
+
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
+    def test_allowlist_mixed_hostnames_and_cidr(self, mock_resolve):
+        """Test allowlist with both case-varied hostnames and CIDR blocks."""
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
+        allowed_hosts = ["Example.com", "8.8.8.0/24", "TRUSTED.ORG"]
+
+        # Hostname matches should be case-insensitive
+        assert _validate_hostname_allowlist("example.com", allowed_hosts)
+        assert _validate_hostname_allowlist("EXAMPLE.COM", allowed_hosts)
+        assert _validate_hostname_allowlist("trusted.org", allowed_hosts)
+
+        # CIDR block match should still work
+        assert _validate_hostname_allowlist("google-dns.example", allowed_hosts)
+
+    def test_allowlist_idna_normalization(self):
+        """Test that IDNA/punycode domains are properly normalized."""
+        # Test with ASCII domain in allowlist
+        allowed_hosts = ["example.com"]
+
+        # Same domain but explicitly IDNA-encoded should match
+        # (though encode("idna").decode("ascii") for ASCII is identity)
+        assert _validate_hostname_allowlist("example.com", allowed_hosts)
+
+        # Test case-insensitive IDNA
+        allowed_hosts_mixed = ["Example.COM"]
+        assert _validate_hostname_allowlist("example.com", allowed_hosts_mixed)
 
 
 class TestURLSecurityValidation:
