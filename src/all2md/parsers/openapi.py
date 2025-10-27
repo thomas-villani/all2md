@@ -240,8 +240,18 @@ class OpenApiParser(BaseParser):
         # Read content
         if isinstance(input_data, (str, Path)):
             path = Path(input_data)
-            with open(path, "rb") as f:
-                content = f.read()
+            # Check if it's an existing file before trying to open
+            # This allows passing inline YAML/JSON strings
+            if path.exists():
+                with open(path, "rb") as f:
+                    content = f.read()
+            else:
+                # Treat as inline YAML/JSON content
+                if isinstance(input_data, str):
+                    content = input_data.encode("utf-8")
+                else:
+                    # Path object that doesn't exist - treat as string content
+                    content = str(input_data).encode("utf-8")
         elif isinstance(input_data, bytes):
             content = input_data
         else:

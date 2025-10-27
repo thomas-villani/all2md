@@ -138,6 +138,9 @@ def _convert_msg_to_email_message(msg_obj: Any) -> EmailMessage:
     # Add attachments
     if msg_obj.attachments:
         for attachment in msg_obj.attachments:
+            # Initialize att_name before try block to avoid UnboundLocalError
+            # in exception handler if early operations fail
+            att_name = "unknown_attachment"
             try:
                 # Get attachment data
                 att_data = attachment.data

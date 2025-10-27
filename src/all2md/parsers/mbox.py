@@ -212,6 +212,7 @@ class MboxToAstConverter(BaseParser):
             mbox_class = _get_mailbox_class(format_name)
 
             # Open mailbox
+            mbox = None  # Initialize for finally block
             try:
                 mbox = mbox_class(str(path))
             except Exception as e:
@@ -221,33 +222,41 @@ class MboxToAstConverter(BaseParser):
                     original_error=e,
                 ) from e
 
-            # Get total message count for progress reporting
             try:
-                total_messages = len(mbox)
-            except Exception:
-                total_messages = 0  # Some mailbox types don't support len()
+                # Get total message count for progress reporting
+                try:
+                    total_messages = len(mbox)
+                except Exception:
+                    total_messages = 0  # Some mailbox types don't support len()
 
-            self._emit_progress(
-                "started",
-                f"Processing {format_name} mailbox",
-                total=min(total_messages, self.options.max_messages or total_messages),
-            )
+                self._emit_progress(
+                    "started",
+                    f"Processing {format_name} mailbox",
+                    total=min(total_messages, self.options.max_messages or total_messages),
+                )
 
-            # Process messages with streaming
-            messages = self._process_messages(mbox, format_name)
+                # Process messages with streaming
+                messages = self._process_messages(mbox, format_name)
 
-            # Extract metadata from the mailbox
-            metadata = self.extract_metadata({"format": format_name, "message_count": len(messages)})
+                # Extract metadata from the mailbox
+                metadata = self.extract_metadata({"format": format_name, "message_count": len(messages)})
 
-            # Convert to AST
-            doc = self._format_mailbox_as_ast(messages)
-            doc.metadata = metadata.to_dict()
+                # Convert to AST
+                doc = self._format_mailbox_as_ast(messages)
+                doc.metadata = metadata.to_dict()
 
-            self._emit_progress(
-                "finished", f"Processed {len(messages)} messages", current=len(messages), total=len(messages)
-            )
+                self._emit_progress(
+                    "finished", f"Processed {len(messages)} messages", current=len(messages), total=len(messages)
+                )
 
-            return doc
+                return doc
+            finally:
+                # Ensure mailbox is closed to release file locks and descriptors
+                if mbox is not None:
+                    try:
+                        mbox.close()
+                    except Exception:
+                        pass  # Ignore errors during cleanup
 
         except Exception as e:
             if isinstance(e, (ValidationError, MalformedFileError, ParsingError)):

@@ -1146,20 +1146,32 @@ class HtmlToAstConverter(BaseParser):
         if caption_tag:
             caption = caption_tag.get_text().strip()
 
-        # Process thead - collect cells from ALL header rows
+        # Process thead - use only first row as header, remaining as body rows
         thead = node.find("thead")
         if thead:
-            header_cells = []
-            # Find ALL <tr> elements in thead, not just the first one
-            for header_tr in thead.find_all("tr", recursive=False):
-                for th in header_tr.find_all(["th", "td"]):
+            thead_rows = thead.find_all("tr", recursive=False)
+
+            if thead_rows:
+                # Use only the first row as the header to avoid malformed tables
+                # where header cell count doesn't match body cell count
+                header_cells = []
+                first_header_tr = thead_rows[0]
+                for th in first_header_tr.find_all(["th", "td"]):
                     content = self._process_children_to_inline(th)
                     alignment = self._get_alignment(th)
                     alignments.append(alignment)
                     header_cells.append(TableCell(content=content))
 
-            if header_cells:
-                header = TableRow(cells=header_cells, is_header=True)
+                if header_cells:
+                    header = TableRow(cells=header_cells, is_header=True)
+
+                # Add remaining thead rows as body rows to preserve content
+                for header_tr in thead_rows[1:]:
+                    row_cells = []
+                    for td in header_tr.find_all(["td", "th"]):
+                        content = self._process_children_to_inline(td)
+                        row_cells.append(TableCell(content=content))
+                    rows.append(TableRow(cells=row_cells))
 
         # Process tbody or direct rows
         tbody = node.find("tbody")
