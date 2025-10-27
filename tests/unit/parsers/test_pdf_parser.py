@@ -546,3 +546,67 @@ class TestTextExtraction:
 
         # Should skip empty blocks
         assert len(ast_doc.children) >= 2
+
+
+@pytest.mark.unit
+class TestInputTypes:
+    """Tests for different input types to the PDF parser."""
+
+    def test_parse_with_bytesio_binary(self) -> None:
+        """Test parsing PDF from BytesIO object (binary mode)."""
+        from io import BytesIO
+
+        # Create a minimal valid PDF
+        pdf_content = b"""%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [3 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 44 >>
+stream
+BT
+/F1 12 Tf
+100 700 Td
+(Hello World) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000214 00000 n
+trailer
+<< /Size 5 /Root 1 0 R >>
+startxref
+308
+%%EOF"""
+
+        stream = BytesIO(pdf_content)
+
+        # This should not raise TypeError
+        converter = PdfToAstConverter()
+        ast_doc = converter.parse(stream)
+
+        assert isinstance(ast_doc, Document)
+
+    def test_parse_with_string_io_raises_error(self) -> None:
+        """Test that parsing PDF from StringIO raises appropriate error."""
+        from io import StringIO
+
+        # Create a text stream (which shouldn't work for PDF)
+        stream = StringIO("Not a PDF")
+
+        converter = PdfToAstConverter()
+
+        # This should raise an error during conversion
+        with pytest.raises(Exception):  # Could be MalformedFileError or TypeError
+            converter.parse(stream)

@@ -39,6 +39,7 @@ from all2md.options.fb2 import Fb2Options
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
+from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
@@ -206,7 +207,8 @@ class Fb2ToAstConverter(BaseParser):
 
         if hasattr(input_data, "read"):
             original_position = input_data.tell() if hasattr(input_data, "tell") else None
-            data = input_data.read()
+            # Normalize stream to bytes (handles both binary and text mode)
+            data = normalize_stream_to_bytes(input_data)
             if original_position is not None:
                 input_data.seek(original_position)
             if data.startswith(b"PK\x03\x04"):

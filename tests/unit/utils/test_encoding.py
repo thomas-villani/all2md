@@ -5,9 +5,15 @@
 
 from __future__ import annotations
 
+from io import BytesIO, StringIO
+
+import pytest
+
 from all2md.utils.encoding import (
     detect_encoding,
     get_charset_from_content_type,
+    normalize_stream_to_bytes,
+    normalize_stream_to_text,
     read_text_with_encoding_detection,
 )
 
@@ -299,3 +305,190 @@ class TestEncodingIntegration:
         # Should decode successfully
         assert isinstance(result, str)
         assert "Project" in result
+
+
+class TestNormalizeStreamToText:
+    """Test cases for normalize_stream_to_text function."""
+
+    def test_binary_stream_utf8(self):
+        """Test normalizing a binary stream with UTF-8 content."""
+        original = "Hello, world! 你好世界"
+        stream = BytesIO(original.encode("utf-8"))
+        result = normalize_stream_to_text(stream)
+        assert result == original
+
+    def test_text_stream(self):
+        """Test normalizing a text stream (StringIO)."""
+        original = "Hello, world! This is text."
+        stream = StringIO(original)
+        result = normalize_stream_to_text(stream)
+        assert result == original
+
+    def test_binary_stream_latin1(self):
+        """Test normalizing a binary stream with Latin-1 content."""
+        original = "Café résumé"
+        stream = BytesIO(original.encode("latin-1"))
+        result = normalize_stream_to_text(stream)
+        # Should detect and decode correctly
+        assert result == original or "Caf" in result
+
+    def test_binary_stream_with_bom(self):
+        """Test normalizing a binary stream with UTF-8 BOM."""
+        original = "Hello, world!"
+        stream = BytesIO(original.encode("utf-8-sig"))
+        result = normalize_stream_to_text(stream)
+        # Should strip BOM
+        assert result == original
+
+    def test_empty_binary_stream(self):
+        """Test normalizing an empty binary stream."""
+        stream = BytesIO(b"")
+        result = normalize_stream_to_text(stream)
+        assert result == ""
+
+    def test_empty_text_stream(self):
+        """Test normalizing an empty text stream."""
+        stream = StringIO("")
+        result = normalize_stream_to_text(stream)
+        assert result == ""
+
+    def test_custom_fallback_encodings(self):
+        """Test with custom fallback encodings."""
+        original = "Café"
+        stream = BytesIO(original.encode("cp1252"))
+        result = normalize_stream_to_text(stream, fallback_encodings=["cp1252", "utf-8", "latin-1"])
+        assert result == original
+
+    def test_disable_chardet(self):
+        """Test with chardet disabled."""
+        original = "Hello, world!"
+        stream = BytesIO(original.encode("utf-8"))
+        result = normalize_stream_to_text(stream, use_chardet=False)
+        assert result == original
+
+    def test_invalid_stream_type_raises_error(self):
+        """Test that invalid stream types raise TypeError."""
+
+        class FakeStream:
+            def read(self):
+                return 123  # Not bytes or str
+
+        stream = FakeStream()
+        with pytest.raises(TypeError):
+            normalize_stream_to_text(stream)
+
+
+class TestNormalizeStreamToBytes:
+    """Test cases for normalize_stream_to_bytes function."""
+
+    def test_binary_stream(self):
+        """Test normalizing a binary stream."""
+        original = b"Hello, world!"
+        stream = BytesIO(original)
+        result = normalize_stream_to_bytes(stream)
+        assert result == original
+
+    def test_text_stream_utf8(self):
+        """Test normalizing a text stream with UTF-8 encoding."""
+        original = "Hello, world! 你好世界"
+        stream = StringIO(original)
+        result = normalize_stream_to_bytes(stream)
+        assert result == original.encode("utf-8")
+
+    def test_text_stream_custom_encoding(self):
+        """Test normalizing a text stream with custom encoding."""
+        original = "Café"
+        stream = StringIO(original)
+        result = normalize_stream_to_bytes(stream, encoding="latin-1")
+        assert result == original.encode("latin-1")
+
+    def test_empty_binary_stream(self):
+        """Test normalizing an empty binary stream."""
+        stream = BytesIO(b"")
+        result = normalize_stream_to_bytes(stream)
+        assert result == b""
+
+    def test_empty_text_stream(self):
+        """Test normalizing an empty text stream."""
+        stream = StringIO("")
+        result = normalize_stream_to_bytes(stream)
+        assert result == b""
+
+    def test_binary_stream_with_special_bytes(self):
+        """Test binary stream with special byte sequences."""
+        original = b"\x00\x01\x02\xff\xfe\xfd"
+        stream = BytesIO(original)
+        result = normalize_stream_to_bytes(stream)
+        assert result == original
+
+    def test_invalid_stream_type_raises_error(self):
+        """Test that invalid stream types raise TypeError."""
+
+        class FakeStream:
+            def read(self):
+                return 123  # Not bytes or str
+
+        stream = FakeStream()
+        with pytest.raises(TypeError):
+            normalize_stream_to_bytes(stream)
+
+
+class TestStreamNormalizationIntegration:
+    """Integration tests for stream normalization in realistic parser scenarios."""
+
+    def test_markdown_parser_with_binary_stream(self):
+        """Test that markdown content works with binary streams."""
+        markdown = "# Hello World\n\nThis is a **test**."
+        stream = BytesIO(markdown.encode("utf-8"))
+        result = normalize_stream_to_text(stream)
+        assert result == markdown
+        assert "# Hello World" in result
+
+    def test_markdown_parser_with_text_stream(self):
+        """Test that markdown content works with text streams."""
+        markdown = "# Hello World\n\nThis is a **test**."
+        stream = StringIO(markdown)
+        result = normalize_stream_to_text(stream)
+        assert result == markdown
+
+    def test_json_parser_with_binary_stream(self):
+        """Test JSON parsing with binary streams (simulating ipynb)."""
+        json_content = '{"cells": [], "metadata": {}}'
+        stream = BytesIO(json_content.encode("utf-8"))
+        result = normalize_stream_to_bytes(stream)
+        assert result == json_content.encode("utf-8")
+
+    def test_json_parser_with_text_stream(self):
+        """Test JSON parsing with text streams."""
+        json_content = '{"cells": [], "metadata": {}}'
+        stream = StringIO(json_content)
+        result = normalize_stream_to_bytes(stream)
+        assert result == json_content.encode("utf-8")
+
+    def test_bbcode_with_unicode(self):
+        """Test BBCode content with Unicode characters."""
+        bbcode = "[b]Hello 世界[/b]\n[i]Café[/i]"
+        stream = BytesIO(bbcode.encode("utf-8"))
+        result = normalize_stream_to_text(stream)
+        assert result == bbcode
+
+    def test_latex_with_special_chars(self):
+        """Test LaTeX content with special characters."""
+        latex = r"\documentclass{article}\begin{document}Café résumé\end{document}"
+        stream = BytesIO(latex.encode("utf-8"))
+        result = normalize_stream_to_bytes(stream)
+        assert result == latex.encode("utf-8")
+
+    def test_source_code_with_various_encodings(self):
+        """Test source code with various encodings."""
+        code = "# -*- coding: utf-8 -*-\ndef test():\n    print('Hello 世界')"
+
+        # Binary stream
+        stream = BytesIO(code.encode("utf-8"))
+        result = normalize_stream_to_text(stream)
+        assert result == code
+
+        # Text stream
+        stream = StringIO(code)
+        result = normalize_stream_to_text(stream)
+        assert result == code

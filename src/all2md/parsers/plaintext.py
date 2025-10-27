@@ -20,7 +20,7 @@ from all2md.exceptions import ParsingError
 from all2md.options.base import BaseParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -73,9 +73,8 @@ class PlainTextToAstConverter(BaseParser):
                 # Decode bytes with encoding detection
                 content = read_text_with_encoding_detection(input_data)
             elif hasattr(input_data, "read"):
-                # Handle file-like object (IO[bytes])
-                raw_content = input_data.read()
-                content = read_text_with_encoding_detection(raw_content)
+                # Handle file-like object (handles both binary and text mode)
+                content = normalize_stream_to_text(input_data)
             else:
                 raise ValueError(f"Unsupported input type: {type(input_data)}")
         except Exception as e:

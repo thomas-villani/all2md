@@ -51,7 +51,7 @@ from all2md.exceptions import ParsingError
 from all2md.options.bbcode import BBCodeParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_html_content, sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -226,10 +226,9 @@ class BBCodeParser(BaseParser):
                 # Assume it's BBCode content
                 return input_data
         else:
-            # File-like object - IO[bytes] returns bytes
+            # File-like object (handles both binary and text mode)
             input_data.seek(0)
-            content_bytes = input_data.read()
-            return read_text_with_encoding_detection(content_bytes)
+            return normalize_stream_to_text(input_data)
 
     def _parse_content(self, bbcode: str) -> list[Node]:
         """Parse BBCode content into AST nodes.

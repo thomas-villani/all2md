@@ -25,6 +25,7 @@ from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
+from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
@@ -110,9 +111,9 @@ class IpynbToAstConverter(BaseParser):
             elif isinstance(input_data, bytes):
                 notebook = json.loads(input_data.decode("utf-8"))
             elif hasattr(input_data, "read"):
-                raw_content = input_data.read()
-                content = raw_content.decode("utf-8")
-                notebook = json.loads(content)
+                # Normalize stream to bytes (handles both binary and text mode)
+                content_bytes = normalize_stream_to_bytes(input_data)
+                notebook = json.loads(content_bytes.decode("utf-8"))
             else:
                 raise ValidationError(f"Unsupported input type: {type(input_data).__name__}")
 

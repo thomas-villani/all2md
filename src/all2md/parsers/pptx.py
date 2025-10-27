@@ -133,7 +133,7 @@ class PptxToAstConverter(BaseParser):
 
             # Validate ZIP archive security for all input types
             if not isinstance(doc_input, PresentationType):
-                self._validate_zip_input(input_data, suffix=".pptx")
+                self._validate_zip_security(input_data, suffix=".pptx")
 
             # Open presentation based on input type
             if input_type == "object" and isinstance(doc_input, PresentationType):

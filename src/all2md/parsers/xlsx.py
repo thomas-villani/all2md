@@ -468,7 +468,7 @@ class XlsxToAstConverter(BaseParser):
         import openpyxl
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix=".xlsx")
+        self._validate_zip_security(input_data, suffix=".xlsx")
 
         # Load workbook
         try:

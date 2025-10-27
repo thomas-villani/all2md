@@ -52,7 +52,7 @@ from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
 
@@ -188,10 +188,9 @@ class MarkdownToAstConverter(BaseParser):
                 # Assume it's markdown content
                 return input_data
         else:
-            # File-like object (IO[bytes])
+            # File-like object (handles both binary and text mode)
             input_data.seek(0)
-            content_bytes = input_data.read()
-            return read_text_with_encoding_detection(content_bytes)
+            return normalize_stream_to_text(input_data)
 
     def _try_extract_yaml_frontmatter(self, content: str) -> tuple[str, DocumentMetadata] | None:
         """Try to extract YAML frontmatter (--- ... ---).

@@ -60,6 +60,7 @@ from all2md.exceptions import DependencyError, MalformedFileError, PasswordProte
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import (
     PDF_FIELD_MAPPING,
@@ -1549,8 +1550,9 @@ class PdfToAstConverter(BaseParser):
             if input_type == "path":
                 doc = fitz.open(filename=str(doc_input))
             elif input_type in ("file", "bytes"):
-                doc = fitz.open(stream=doc_input, filetype="pdf")
-                # Handle different file-like object types
+                # PyMuPDF expects bytes, not file-like objects
+                stream_bytes = normalize_stream_to_bytes(doc_input)
+                doc = fitz.open(stream=stream_bytes, filetype="pdf")
             elif input_type == "object":
                 if isinstance(doc_input, fitz.Document) or (
                     hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")

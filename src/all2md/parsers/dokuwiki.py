@@ -50,7 +50,7 @@ from all2md.exceptions import ParsingError
 from all2md.options.dokuwiki import DokuWikiParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -228,11 +228,9 @@ class DokuWikiParser(BaseParser):
             with open(input_data, "rb") as f:
                 return read_text_with_encoding_detection(f.read())
 
-        # File-like object
+        # File-like object (handles both binary and text mode)
         if hasattr(input_data, "read"):
-            content = input_data.read()
-            # input_data is typed as IO[bytes], so content is always bytes
-            return read_text_with_encoding_detection(content)
+            return normalize_stream_to_text(input_data)
 
         raise ValueError(f"Unsupported input type: {type(input_data)}")
 

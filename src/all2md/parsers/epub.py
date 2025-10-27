@@ -76,14 +76,14 @@ class EpubToAstConverter(BaseParser):
         temp_file = None
         if isinstance(input_data, (str, Path)):
             # Path inputs - validate directly
-            self._validate_zip_input(input_data, suffix=".epub")
+            self._validate_zip_security(input_data, suffix=".epub")
             epub_path = str(input_data)
         elif isinstance(input_data, bytes):
             # Bytes inputs - create temp file and validate
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".epub")
             temp_file.write(input_data)
             temp_file.close()
-            self._validate_zip_input(temp_file.name, suffix=".epub")
+            self._validate_zip_security(temp_file.name, suffix=".epub")
             epub_path = temp_file.name
         elif hasattr(input_data, "read"):
             # File-like inputs - read and create temp file
@@ -94,7 +94,7 @@ class EpubToAstConverter(BaseParser):
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".epub")
             temp_file.write(data)
             temp_file.close()
-            self._validate_zip_input(temp_file.name, suffix=".epub")
+            self._validate_zip_security(temp_file.name, suffix=".epub")
             epub_path = temp_file.name
         else:
             # Fallback - should not reach here with proper type hints

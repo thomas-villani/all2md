@@ -210,7 +210,7 @@ class DocxToAstConverter(BaseParser):
             pass
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix=".docx")
+        self._validate_zip_security(input_data, suffix=".docx")
 
         # Load the document with error handling
         try:

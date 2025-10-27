@@ -57,7 +57,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options.asciidoc import AsciiDocOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import parse_delimited_block
@@ -612,10 +612,9 @@ class AsciiDocParser(BaseParser):
                 # Assume it's content
                 return input_data
         else:
-            # File-like object
+            # File-like object (handles both binary and text mode)
             input_data.seek(0)
-            content_bytes = input_data.read()
-            return read_text_with_encoding_detection(content_bytes)
+            return normalize_stream_to_text(input_data)
 
     def _current_token(self) -> Token:
         """Get the current token.

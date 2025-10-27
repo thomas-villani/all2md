@@ -111,15 +111,15 @@ class OdpToAstConverter(BaseParser):
         """
         from odf import opendocument
 
-        # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix=".odp")
+        # Validate ZIP archive security and get validated input
+        # For bytes/IO inputs, this creates a temp file that odfpy can read
+        with self._validated_zip_input(input_data, suffix=".odp") as validated_input:
+            try:
+                doc = opendocument.load(validated_input)
+            except Exception as e:
+                raise MalformedFileError(f"Failed to open ODP document: {e!r}", original_error=e) from e
 
-        try:
-            doc = opendocument.load(input_data)
-        except Exception as e:
-            raise MalformedFileError(f"Failed to open ODP document: {e!r}", original_error=e) from e
-
-        return self.convert_to_ast(doc)
+            return self.convert_to_ast(doc)
 
     def convert_to_ast(self, doc: "odf.opendocument.OpenDocument") -> Document:
         """Convert ODP document to AST Document.

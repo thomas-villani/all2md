@@ -47,6 +47,7 @@ from all2md.exceptions import ParsingError
 from all2md.options.latex import LatexOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.metadata import DocumentMetadata
 
 
@@ -233,9 +234,9 @@ class LatexParser(BaseParser):
                 # Assume it's content
                 return input_data
         else:
-            # File-like object
+            # File-like object (handles both binary and text mode)
             input_data.seek(0)
-            content_bytes = input_data.read()
+            content_bytes = normalize_stream_to_bytes(input_data)
             return content_bytes.decode(self.options.encoding, errors="replace")
 
     def _extract_preamble_metadata(self, content: str) -> tuple[str, dict[str, Any]]:

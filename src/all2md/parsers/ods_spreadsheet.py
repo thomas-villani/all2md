@@ -268,7 +268,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         from odf import opendocument
 
         # Validate ZIP archive security for all input types
-        self._validate_zip_input(input_data, suffix=".ods")
+        self._validate_zip_security(input_data, suffix=".ods")
 
         # Load ODS document
         try:

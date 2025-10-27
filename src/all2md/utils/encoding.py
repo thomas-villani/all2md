@@ -11,6 +11,7 @@ strategies for maximum compatibility.
 from __future__ import annotations
 
 import logging
+from typing import IO
 
 logger = logging.getLogger(__name__)
 
@@ -213,3 +214,145 @@ def get_charset_from_content_type(content_type: str) -> str | None:
                 return charset.strip()
 
     return None
+
+
+def normalize_stream_to_text(
+    stream: IO[bytes] | IO[str],
+    fallback_encodings: list[str] | None = None,
+    use_chardet: bool = True,
+    chardet_sample_size: int = 8192,
+    chardet_confidence_threshold: float = 0.7,
+) -> str:
+    """Read content from a file-like object and normalize to text.
+
+    This helper handles both binary-mode streams (IO[bytes]) and text-mode
+    streams (IO[str]):
+    - Binary streams: decodes using automatic encoding detection
+    - Text streams: returns content as-is
+
+    This is useful for parsers that need to accept both binary and text mode
+    file-like objects without crashing on type mismatches.
+
+    Parameters
+    ----------
+    stream : IO[bytes] or IO[str]
+        File-like object to read from. Can be either binary mode (e.g.,
+        io.BytesIO, open(file, 'rb')) or text mode (e.g., io.StringIO,
+        open(file, 'r'))
+    fallback_encodings : list[str] or None, optional
+        List of encodings to try if chardet detection fails. If None,
+        uses ['utf-8', 'utf-8-sig', 'latin-1']
+    use_chardet : bool, default True
+        Whether to use chardet for automatic encoding detection on
+        binary streams
+    chardet_sample_size : int, default 8192
+        Number of bytes to sample for chardet detection
+    chardet_confidence_threshold : float, default 0.7
+        Minimum confidence level for chardet detection
+
+    Returns
+    -------
+    str
+        Decoded text content from the stream
+
+    Raises
+    ------
+    TypeError
+        If stream.read() returns something other than bytes or str
+
+    Examples
+    --------
+    >>> from io import BytesIO, StringIO
+    >>> # Binary stream
+    >>> binary_stream = BytesIO(b"Hello, world!")
+    >>> text = normalize_stream_to_text(binary_stream)
+    >>> print(text)
+    Hello, world!
+
+    >>> # Text stream
+    >>> text_stream = StringIO("Hello, world!")
+    >>> text = normalize_stream_to_text(text_stream)
+    >>> print(text)
+    Hello, world!
+
+    """
+    content = stream.read()
+
+    if isinstance(content, bytes):
+        # Binary stream - decode with encoding detection
+        return read_text_with_encoding_detection(
+            content,
+            fallback_encodings=fallback_encodings,
+            use_chardet=use_chardet,
+            chardet_sample_size=chardet_sample_size,
+            chardet_confidence_threshold=chardet_confidence_threshold,
+        )
+    elif isinstance(content, str):
+        # Text stream - return as-is
+        return content
+    else:
+        # Unexpected type
+        raise TypeError(f"Stream read() returned unexpected type {type(content).__name__}. " f"Expected bytes or str.")
+
+
+def normalize_stream_to_bytes(
+    stream: IO[bytes] | IO[str],
+    encoding: str = "utf-8",
+) -> bytes:
+    """Read content from a file-like object and normalize to bytes.
+
+    This helper handles both binary-mode streams (IO[bytes]) and text-mode
+    streams (IO[str]):
+    - Binary streams: returns content as-is
+    - Text streams: encodes using specified encoding
+
+    This is useful for parsers that need to work with binary data (e.g., for
+    format detection, ZIP signatures, JSON decoding) but may receive either
+    binary or text mode streams.
+
+    Parameters
+    ----------
+    stream : IO[bytes] or IO[str]
+        File-like object to read from. Can be either binary mode (e.g.,
+        io.BytesIO, open(file, 'rb')) or text mode (e.g., io.StringIO,
+        open(file, 'r'))
+    encoding : str, default "utf-8"
+        Encoding to use when converting text streams to bytes
+
+    Returns
+    -------
+    bytes
+        Content as bytes
+
+    Raises
+    ------
+    TypeError
+        If stream.read() returns something other than bytes or str
+
+    Examples
+    --------
+    >>> from io import BytesIO, StringIO
+    >>> # Binary stream
+    >>> binary_stream = BytesIO(b"Hello, world!")
+    >>> data = normalize_stream_to_bytes(binary_stream)
+    >>> print(data)
+    b'Hello, world!'
+
+    >>> # Text stream
+    >>> text_stream = StringIO("Hello, world!")
+    >>> data = normalize_stream_to_bytes(text_stream)
+    >>> print(data)
+    b'Hello, world!'
+
+    """
+    content = stream.read()
+
+    if isinstance(content, bytes):
+        # Binary stream - return as-is
+        return content
+    elif isinstance(content, str):
+        # Text stream - encode with specified encoding
+        return content.encode(encoding)
+    else:
+        # Unexpected type
+        raise TypeError(f"Stream read() returned unexpected type {type(content).__name__}. " f"Expected bytes or str.")

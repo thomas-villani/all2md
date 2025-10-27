@@ -203,11 +203,12 @@ class BaseParser(ABC):
             logger.warning(f"Progress callback raised exception: {e}", exc_info=True)
 
     @staticmethod
-    def _validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
-        """Validate a zip archive across different input types.
+    def _validate_zip_security(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
+        """Validate security of a zip archive across different input types.
 
         This helper method delegates to the parser_helpers module to perform
-        zip validation for Path, bytes, and IO[bytes] inputs.
+        security validation for zip archives. This method only performs validation
+        and does not return a usable input object.
 
         Parameters
         ----------
@@ -226,7 +227,9 @@ class BaseParser(ABC):
         Notes
         -----
         This method should be called early in the parse() method to validate
-        zip-based formats before processing.
+        zip-based formats before processing. For parsers that need to use the
+        validated input, prefer _validated_zip_input() which provides a context
+        manager that yields a usable input object.
 
         """
         _validate_zip_input_helper(input_data, suffix)
@@ -260,7 +263,7 @@ class BaseParser(ABC):
         Notes
         -----
         This method optimizes memory usage by avoiding double-reading of input data.
-        Prefer this over _validate_zip_input() when you need to reuse the validated input.
+        Prefer this over _validate_zip_security() when you need to reuse the validated input.
 
         """
         return _validated_zip_input_helper(input_data, suffix)

@@ -47,7 +47,7 @@ from all2md.options.mediawiki import MediaWikiParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.encoding import read_text_with_encoding_detection
+from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_html_content, sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -164,10 +164,9 @@ class MediaWikiParser(BaseParser):
                 # Assume it's WikiText content
                 return input_data
         else:
-            # File-like object - IO[bytes] returns bytes
+            # File-like object (handles both binary and text mode)
             input_data.seek(0)
-            content_bytes = input_data.read()
-            return read_text_with_encoding_detection(content_bytes)
+            return normalize_stream_to_text(input_data)
 
     def _flush_inline_buffer(self, inline_buffer: list[Node], result: list[Node]) -> None:
         """Flush inline buffer to result as a paragraph.
