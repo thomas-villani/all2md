@@ -126,6 +126,26 @@ class TestFileReadingTOCTOU:
 
     def test_symlink_handled_correctly(self):
         """Test that symlinks are resolved and handled correctly."""
+        import sys
+
+        import pytest
+
+        # Skip on Windows where symlinks require elevated privileges
+        if sys.platform == "win32":
+            # Try to create a test symlink to check if we have permissions
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                test_target = tmp.name
+            test_link = test_target + ".link"
+            try:
+                os.symlink(test_target, test_link)
+                os.unlink(test_link)
+            except OSError:
+                # No symlink permission on Windows, skip test
+                pytest.skip("Symlink creation requires elevated privileges on Windows")
+            finally:
+                if os.path.exists(test_target):
+                    os.unlink(test_target)
+
         # Create a regular file
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".png", delete=False) as f:
             f.write(b"target data")

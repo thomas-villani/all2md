@@ -201,7 +201,8 @@ class EditDocumentSimpleOutput:
         Content returned by the operation (when applicable).
         - For "list-sections": formatted list of sections with metadata
         - For "extract": markdown content of the extracted section
-        - For other operations: None
+        - For "add:before", "add:after", "remove", "replace", "insert:*": updated markdown content
+        - None otherwise
 
     """
 

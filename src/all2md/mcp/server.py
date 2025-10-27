@@ -284,6 +284,9 @@ def main() -> int:
             os.environ["ALL2MD_DISABLE_NETWORK"] = "true"
             logger.info("Network access disabled")
         else:
+            # Clear or override the env var to ensure network is actually enabled
+            if "ALL2MD_DISABLE_NETWORK" in os.environ:
+                del os.environ["ALL2MD_DISABLE_NETWORK"]
             logger.warning("Network access enabled - ensure this is intentional!")
 
         # Import tool implementations after setting env vars

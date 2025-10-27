@@ -35,13 +35,15 @@ from all2md.mcp.security import MCPSecurityError, validate_read_path
 logger = logging.getLogger(__name__)
 
 
-def _parse_markdown_content(content: str) -> Document:
+def _parse_markdown_content(content: str, config: MCPConfig) -> Document:
     """Parse markdown content string to Document AST.
 
     Parameters
     ----------
     content : str
         Markdown content to parse
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -54,19 +56,21 @@ def _parse_markdown_content(content: str) -> Document:
         If parsing doesn't return a Document
 
     """
-    doc = to_ast(content, source_format="markdown", flavor="gfm")
+    doc = to_ast(content, source_format="markdown", flavor=config.flavor)
     if not isinstance(doc, Document):
         raise TypeError(f"Expected Document, got {type(doc)}")
     return doc
 
 
-def _serialize_to_markdown(doc: Document) -> str:
+def _serialize_to_markdown(doc: Document, config: MCPConfig) -> str:
     """Serialize Document AST to markdown string.
 
     Parameters
     ----------
     doc : Document
         Document AST to serialize
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -79,7 +83,7 @@ def _serialize_to_markdown(doc: Document) -> str:
         If serialization doesn't return a string
 
     """
-    result = from_ast(doc, target_format="markdown", flavor="gfm")
+    result = from_ast(doc, target_format="markdown", flavor=config.flavor)
     if not isinstance(result, str):
         raise TypeError(f"Expected str from from_ast, got {type(result)}")
     return result
@@ -133,7 +137,7 @@ def _handle_list_sections(doc: Document) -> EditDocumentSimpleOutput:
     return EditDocumentSimpleOutput(success=True, message=f"Found {len(sections)} section(s).", content=content)
 
 
-def _handle_extract(doc: Document, target: str | int) -> EditDocumentSimpleOutput:
+def _handle_extract(doc: Document, target: str | int, config: MCPConfig) -> EditDocumentSimpleOutput:
     """Handle extract action.
 
     Parameters
@@ -142,6 +146,8 @@ def _handle_extract(doc: Document, target: str | int) -> EditDocumentSimpleOutpu
         Source document
     target : str or int
         Target section to extract
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -150,12 +156,14 @@ def _handle_extract(doc: Document, target: str | int) -> EditDocumentSimpleOutpu
 
     """
     section_doc = extract_section(doc, target, case_sensitive=False)
-    result_md = _serialize_to_markdown(section_doc)
+    result_md = _serialize_to_markdown(section_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(success=True, message=f"Successfully extracted {target_desc}.", content=result_md)
 
 
-def _handle_add(doc: Document, target: str | int, content: str, action: str) -> EditDocumentSimpleOutput:
+def _handle_add(
+    doc: Document, target: str | int, content: str, action: str, config: MCPConfig
+) -> EditDocumentSimpleOutput:
     """Handle add:before and add:after actions.
 
     Parameters
@@ -168,6 +176,8 @@ def _handle_add(doc: Document, target: str | int, content: str, action: str) -> 
         Content to add
     action : str
         Either "add:before" or "add:after"
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -175,7 +185,7 @@ def _handle_add(doc: Document, target: str | int, content: str, action: str) -> 
         Result with modified document
 
     """
-    new_doc = _parse_markdown_content(content)
+    new_doc = _parse_markdown_content(content, config)
 
     if action == "add:before":
         modified_doc = add_section_before(doc, target, new_doc, case_sensitive=False)
@@ -184,14 +194,14 @@ def _handle_add(doc: Document, target: str | int, content: str, action: str) -> 
         modified_doc = add_section_after(doc, target, new_doc, case_sensitive=False)
         position_desc = "after"
 
-    result_md = _serialize_to_markdown(modified_doc)
+    result_md = _serialize_to_markdown(modified_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(
         success=True, message=f"Successfully added content {position_desc} {target_desc}.", content=result_md
     )
 
 
-def _handle_remove(doc: Document, target: str | int) -> EditDocumentSimpleOutput:
+def _handle_remove(doc: Document, target: str | int, config: MCPConfig) -> EditDocumentSimpleOutput:
     """Handle remove action.
 
     Parameters
@@ -200,6 +210,8 @@ def _handle_remove(doc: Document, target: str | int) -> EditDocumentSimpleOutput
         Source document
     target : str or int
         Target section to remove
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -208,12 +220,12 @@ def _handle_remove(doc: Document, target: str | int) -> EditDocumentSimpleOutput
 
     """
     modified_doc = remove_section(doc, target, case_sensitive=False)
-    result_md = _serialize_to_markdown(modified_doc)
+    result_md = _serialize_to_markdown(modified_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(success=True, message=f"Successfully removed {target_desc}.", content=result_md)
 
 
-def _handle_replace(doc: Document, target: str | int, content: str) -> EditDocumentSimpleOutput:
+def _handle_replace(doc: Document, target: str | int, content: str, config: MCPConfig) -> EditDocumentSimpleOutput:
     """Handle replace action.
 
     Parameters
@@ -224,6 +236,8 @@ def _handle_replace(doc: Document, target: str | int, content: str) -> EditDocum
         Target section to replace
     content : str
         Replacement content
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -231,14 +245,16 @@ def _handle_replace(doc: Document, target: str | int, content: str) -> EditDocum
         Result with modified document
 
     """
-    new_doc = _parse_markdown_content(content)
+    new_doc = _parse_markdown_content(content, config)
     modified_doc = replace_section(doc, target, new_doc, case_sensitive=False)
-    result_md = _serialize_to_markdown(modified_doc)
+    result_md = _serialize_to_markdown(modified_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(success=True, message=f"Successfully replaced {target_desc}.", content=result_md)
 
 
-def _handle_insert(doc: Document, target: str | int, content: str, action: str) -> EditDocumentSimpleOutput:
+def _handle_insert(
+    doc: Document, target: str | int, content: str, action: str, config: MCPConfig
+) -> EditDocumentSimpleOutput:
     """Handle insert:start, insert:end, and insert:after_heading actions.
 
     Parameters
@@ -251,6 +267,8 @@ def _handle_insert(doc: Document, target: str | int, content: str, action: str) 
         Content to insert
     action : str
         One of "insert:start", "insert:end", or "insert:after_heading"
+    config : MCPConfig
+        Server configuration (for flavor)
 
     Returns
     -------
@@ -260,7 +278,7 @@ def _handle_insert(doc: Document, target: str | int, content: str, action: str) 
     """
     from typing import Literal
 
-    content_doc = _parse_markdown_content(content)
+    content_doc = _parse_markdown_content(content, config)
 
     position_map: dict[str, Literal["start", "end", "after_heading"]] = {
         "insert:start": "start",
@@ -277,7 +295,7 @@ def _handle_insert(doc: Document, target: str | int, content: str, action: str) 
         case_sensitive=False,
     )
 
-    result_md = _serialize_to_markdown(modified_doc)
+    result_md = _serialize_to_markdown(modified_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(
         success=True, message=f"Successfully inserted content into {target_desc}.", content=result_md
@@ -366,7 +384,7 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
             return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Read access denied: {e}")
 
         logger.info(f"Loading document from: {validated_path}")
-        doc = to_ast(validated_path, source_format="markdown", flavor="gfm")
+        doc = to_ast(validated_path, source_format="markdown", flavor=config.flavor)
         if not isinstance(doc, Document):
             raise TypeError(f"Expected Document from to_ast, got {type(doc)}")
 
@@ -377,22 +395,22 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
             return _handle_list_sections(doc)
         elif input_data.action == "extract":
             assert target is not None  # Already validated above
-            return _handle_extract(doc, target)
+            return _handle_extract(doc, target, config)
         elif input_data.action in ("add:before", "add:after"):
             assert target is not None  # Already validated above
             assert input_data.content is not None  # Already validated above
-            return _handle_add(doc, target, input_data.content, input_data.action)
+            return _handle_add(doc, target, input_data.content, input_data.action, config)
         elif input_data.action == "remove":
             assert target is not None  # Already validated above
-            return _handle_remove(doc, target)
+            return _handle_remove(doc, target, config)
         elif input_data.action == "replace":
             assert target is not None  # Already validated above
             assert input_data.content is not None  # Already validated above
-            return _handle_replace(doc, target, input_data.content)
+            return _handle_replace(doc, target, input_data.content, config)
         elif input_data.action in ("insert:start", "insert:end", "insert:after_heading"):
             assert target is not None  # Already validated above
             assert input_data.content is not None  # Already validated above
-            return _handle_insert(doc, target, input_data.content, input_data.action)
+            return _handle_insert(doc, target, input_data.content, input_data.action, config)
         else:
             # Should never reach here due to validation above
             return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Unhandled action: {input_data.action}")

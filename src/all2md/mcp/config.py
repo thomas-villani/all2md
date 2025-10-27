@@ -52,7 +52,7 @@ class MCPConfig(CloneFrozenMixin):
         Whether to include images in the output for vLLM visibility.
         - True: Images embedded as base64 (vLLMs can see them)
         - False: Images replaced with alt text only
-        Default: True for optimal vLLM experience.
+        Default: False (opt-in for vision-enabled LLMs).
         Note: With disable_network=True (default), only works for embedded
         images (PDF, DOCX, PPTX), not for external HTML images that require fetching.
     flavor : str
@@ -265,7 +265,7 @@ Environment Variables:
   ALL2MD_MCP_ENABLE_DOC_EDIT       Enable edit_document tool (default: false)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
-  ALL2MD_MCP_INCLUDE_IMAGES        Include images in output for vLLM visibility (default: true)
+  ALL2MD_MCP_INCLUDE_IMAGES        Include images in output for vLLM visibility (default: false)
   ALL2MD_MCP_FLAVOR                Markdown flavor: gfm, commonmark, multimarkdown, pandoc, kramdown,
                                    markdown_plus (default: gfm)
   ALL2MD_DISABLE_NETWORK           Disable network access (default: true)
@@ -322,7 +322,7 @@ Examples:
         "--enable-from-md",
         action="store_true",
         dest="enable_from_md",
-        help="Enable render_from_markdown tool (default: true unless --no-from-md)",
+        help="Enable render_from_markdown tool (default: false for security)",
     )
     from_md_group.add_argument(
         "--no-from-md", action="store_false", dest="enable_from_md", help="Disable render_from_markdown tool"
@@ -356,7 +356,7 @@ Examples:
         "--include-images",
         action="store_true",
         dest="include_images",
-        help="Include images in output for vLLM visibility (default: true)",
+        help="Include images in output for vLLM visibility (default: false)",
     )
     include_images_group.add_argument(
         "--no-include-images",

@@ -5,8 +5,11 @@ from unittest.mock import Mock, patch
 from utils import cleanup_test_dir, create_test_temp_dir
 
 from all2md import to_markdown as pdf_to_markdown
+from all2md.ast.nodes import Document
 from all2md.options import PdfOptions
-from all2md.parsers.pdf import IdentifyHeaders, detect_columns
+from all2md.options.markdown import MarkdownRendererOptions
+from all2md.parsers.pdf import IdentifyHeaders, PdfToAstConverter, detect_columns
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 class TestPdfLayoutAdvanced:
@@ -145,12 +148,19 @@ class TestPdfLayoutAdvanced:
         mock_doc.name = "test.pdf"
         mock_doc.metadata = {}  # Add metadata dict for extraction
         mock_doc.is_encrypted = False  # Not password-protected
+        # Remove read method so mock is not detected as file-like object
+        del mock_doc.read
         mock_fitz_open.return_value = mock_doc
 
-        options = PdfOptions(handle_rotated_text=True)
+        # Use the parser directly instead of going through the full API
+        converter = PdfToAstConverter(options=PdfOptions(handle_rotated_text=True))
+        ast_doc = converter.convert_to_ast(mock_doc, range(mock_doc.page_count), "test.pdf")
+        assert isinstance(ast_doc, Document)
 
-        # This would be called by pdf_to_markdown internally
-        result = pdf_to_markdown(mock_doc, source_format="pdf", parser_options=options)
+        # Render to markdown
+        renderer = MarkdownRenderer(MarkdownRendererOptions())
+        result = renderer.render_to_string(ast_doc)
+
         # Should handle rotated text (currently rotated text may be filtered out)
         # The test verifies that the function runs without error with rotated text present
         assert "Normal Text" in result

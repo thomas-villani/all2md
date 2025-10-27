@@ -31,7 +31,7 @@ from all2md.mcp.schemas import (
     SaveDocumentFromMarkdownOutput,
     SourceFormat,
 )
-from all2md.mcp.security import MCPSecurityError, secure_open_for_write, validate_read_path, validate_write_path
+from all2md.mcp.security import secure_open_for_write, validate_read_path, validate_write_path
 
 try:
     from fastmcp.utilities.types import Image as FastMCPImage
@@ -124,12 +124,15 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
     ):  # Or has dot and reasonable length
         try:
             path_obj = Path(source)
-            validated_path = validate_read_path(path_obj, config.read_allowlist)
-            logger.info(f"Detected as file path: {validated_path}")
-            return validated_path, "path"
-        except MCPSecurityError:
-            # Security violation - re-raise immediately
-            raise
+            # Only validate if the path actually exists on the filesystem
+            # This prevents false positives when text happens to contain path-like strings
+            if path_obj.exists():
+                validated_path = validate_read_path(path_obj, config.read_allowlist)
+                logger.info(f"Detected as file path: {validated_path}")
+                return validated_path, "path"
+            else:
+                # Path doesn't exist, continue to other detection methods
+                logger.debug(f"Path does not exist: {path_obj}, treating as content")
         except (OSError, ValueError):
             # Not a valid path, continue to other detection methods
             pass

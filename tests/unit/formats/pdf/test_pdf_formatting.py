@@ -4,9 +4,11 @@ from unittest.mock import Mock, patch
 
 from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
-from all2md import to_markdown as pdf_to_markdown
-from all2md.options import PdfOptions
-from all2md.parsers.pdf import IdentifyHeaders
+from all2md.ast.nodes import Document
+from all2md.options.markdown import MarkdownRendererOptions
+from all2md.options.pdf import PdfOptions
+from all2md.parsers.pdf import IdentifyHeaders, PdfToAstConverter
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 class TestPdfFormatting:
@@ -120,9 +122,18 @@ class TestPdfFormatting:
         mock_doc.name = "test.pdf"  # Add name for format detection
         mock_doc.metadata = {}  # Add metadata dict for extraction
         mock_doc.is_encrypted = False  # Not password-protected
+        # Remove read method so mock is not detected as file-like object
+        del mock_doc.read
         mock_fitz_open.return_value = mock_doc
 
-        result = pdf_to_markdown(mock_doc, source_format="pdf")
+        # Use the parser directly instead of going through the full API
+        converter = PdfToAstConverter()
+        ast_doc = converter.convert_to_ast(mock_doc, range(mock_doc.page_count), "test.pdf")
+        assert isinstance(ast_doc, Document)
+
+        # Render to markdown
+        renderer = MarkdownRenderer(MarkdownRendererOptions())
+        result = renderer.render_to_string(ast_doc)
 
         assert_markdown_valid(result)
 
@@ -290,9 +301,18 @@ class TestPdfFormatting:
         mock_doc.name = "test.pdf"  # Add name for format detection
         mock_doc.metadata = {}  # Add metadata dict for extraction
         mock_doc.is_encrypted = False  # Not password-protected
+        # Remove read method so mock is not detected as file-like object
+        del mock_doc.read
         mock_fitz_open.return_value = mock_doc
 
-        result = pdf_to_markdown(mock_doc, source_format="pdf")
+        # Use the parser directly instead of going through the full API
+        converter = PdfToAstConverter()
+        ast_doc = converter.convert_to_ast(mock_doc, range(mock_doc.page_count), "test.pdf")
+        assert isinstance(ast_doc, Document)
+
+        # Render to markdown
+        renderer = MarkdownRenderer(MarkdownRendererOptions())
+        result = renderer.render_to_string(ast_doc)
 
         assert_markdown_valid(result)
 
