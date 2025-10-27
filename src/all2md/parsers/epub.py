@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
@@ -18,6 +19,7 @@ from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError, ZipFileSecurityError
 from all2md.options.epub import EpubOptions
+from all2md.options.html import HtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
@@ -43,7 +45,18 @@ class EpubToAstConverter(BaseParser):
         options = options or EpubOptions()
         super().__init__(options, progress_callback)
         self.options: EpubOptions = options
-        self.html_parser = HtmlToAstConverter(self.options.html_options)
+
+        # Create HtmlOptions with attachment settings forwarded from EPUB options
+        html_opts = self.options.html_options or HtmlOptions()
+        html_opts = replace(
+            html_opts,
+            attachment_mode=self.options.attachment_mode,
+            attachment_output_dir=self.options.attachment_output_dir,
+            attachment_base_url=self.options.attachment_base_url,
+            alt_text_mode=self.options.alt_text_mode,
+            max_asset_size_bytes=self.options.max_asset_size_bytes,
+        )
+        self.html_parser = HtmlToAstConverter(html_opts)
 
     @requires_dependencies("epub", [("ebooklib", "ebooklib", "")])
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:

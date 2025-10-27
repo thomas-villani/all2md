@@ -40,10 +40,6 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
     output_types : list[str] or None, default ["stream", "execute_result", "display_data"]
         Types of outputs to include. Valid types: "stream", "execute_result", "display_data", "error".
         If None, includes all output types.
-    image_format : str, default "png"
-        Preferred image format for notebook outputs. Options: "png", "jpeg".
-    image_quality : int, default 85
-        JPEG quality setting (1-100) when converting images to JPEG format.
     truncate_long_outputs : int or None, default DEFAULT_TRUNCATE_OUTPUT_LINES
         Maximum number of lines for text outputs before truncating.
         If None, outputs are not truncated.
@@ -87,13 +83,6 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "core",
         },
     )
-    image_format: str = field(
-        default="png",
-        metadata={"help": "Preferred image format for notebook outputs (png, jpeg)", "importance": "advanced"},
-    )
-    image_quality: int = field(
-        default=85, metadata={"help": "JPEG quality setting (1-100) for image conversion", "importance": "advanced"}
-    )
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
 
@@ -108,10 +97,6 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
         """
         # Call parent validation
         super().__post_init__()
-
-        # Validate image quality (1-100)
-        if not 1 <= self.image_quality <= 100:
-            raise ValueError(f"image_quality must be in range [1, 100], got {self.image_quality}")
 
 
 @dataclass(frozen=True)

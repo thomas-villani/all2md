@@ -913,8 +913,8 @@ class EmlToAstConverter(BaseParser):
 
             messages = []
 
-            # Enhanced chain splitting with reply detection
-            if message["content"]:
+            # Enhanced chain splitting with reply detection (only if preserve_thread_structure is enabled)
+            if self.options.preserve_thread_structure and message["content"]:
                 # Clean unicode characters that cause issues
                 cleaned_content = message["content"].replace("\u200b", "").replace("\u202f", " ")
                 split_messages = split_chain(cleaned_content, self.options)
@@ -928,6 +928,7 @@ class EmlToAstConverter(BaseParser):
                 else:
                     messages = [message]
             else:
+                # No thread splitting - treat as single message
                 messages = [message]
 
             # Clean message content
