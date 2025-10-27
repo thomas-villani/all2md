@@ -118,6 +118,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         self._current_paragraph: Any = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._temp_files: list[str] = []  # Track temp files for cleanup
+        self._presentation: Any | None = None  # Current presentation object for image embedding
 
     @requires_dependencies("odp_render", [("odfpy", "odf", "")])
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -165,8 +166,9 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 master_page = MasterPage(name="Standard", pagelayoutname=page_layout)
                 prs.masterstyles.addElement(master_page)
 
-            # Store master page for slide creation
+            # Store master page and presentation for slide creation and image embedding
             self._master_page = master_page
+            self._presentation = prs
 
             # Split document into slides
             slides_data = self._split_into_slides(doc)
@@ -455,21 +457,33 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 image_file = image.url
 
             # Add image to page if we have a valid file
-            if image_file:
+            if image_file and self._presentation:
                 # Generate unique name for image
                 import os
 
                 from odf.draw import Frame
                 from odf.draw import Image as OdfImage
 
+                from all2md.utils.images import detect_image_format_from_bytes
+
+                # Read image data
+                with open(image_file, "rb") as f:
+                    image_data = f.read()
+
                 ext = os.path.splitext(image_file)[1] or ".png"
                 image_name = f"Pictures/image_{id(image)}{ext}"
 
-                # Note: In a complete implementation, we would need to:
-                # 1. Read the image data
-                # 2. Add it to the presentation's manifest
-                # 3. Properly embed it in the ODP package
-                # For now, we just create the frame reference
+                # Detect actual image format for correct MIME type
+                image_format = detect_image_format_from_bytes(image_data)
+                if image_format:
+                    # Map format to MIME type
+                    mime_type = f"image/{image_format}"
+                else:
+                    # Fallback to extension-based detection
+                    mime_type = f"image/{ext.lstrip('.') or 'png'}"
+
+                # Add image to presentation's manifest and embed it in the ODP package
+                self._presentation.addPicture(image_name, mediatype=mime_type, content=image_data)
 
                 # Create frame and image
                 frame = Frame(width="4in", height="4in", x="2.5in", y="2.5in")

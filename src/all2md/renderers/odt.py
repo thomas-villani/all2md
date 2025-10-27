@@ -848,11 +848,22 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
                 # Generate unique name for image
                 import os
 
+                from all2md.utils.images import detect_image_format_from_bytes
+
                 ext = os.path.splitext(image_file)[1] or ".png"
                 image_name = f"Pictures/image_{id(node)}{ext}"
 
+                # Detect actual image format for correct MIME type
+                image_format = detect_image_format_from_bytes(image_data)
+                if image_format:
+                    # Map format to MIME type
+                    mime_type = f"image/{image_format}"
+                else:
+                    # Fallback to extension-based detection
+                    mime_type = f"image/{ext.lstrip('.') or 'png'}"
+
                 # Add to document
-                self.document.addPicture(image_name, mediatype="image/png", content=image_data)
+                self.document.addPicture(image_name, mediatype=mime_type, content=image_data)
 
                 # Create frame and image
                 frame = Frame(width="3in", height="3in")

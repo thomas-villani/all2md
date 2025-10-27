@@ -152,7 +152,9 @@ class EpubRenderer(BaseRenderer):
             chapter_filename = f"chapter_{idx}.xhtml"
 
             # Create chapter document for rendering
-            chapter_doc = Document(children=content_nodes, metadata=doc.metadata)
+            # Include the heading in the chapter content so it appears in the rendered chapter
+            chapter_children = [heading] + content_nodes if heading else content_nodes
+            chapter_doc = Document(children=chapter_children, metadata=doc.metadata)
 
             # Render chapter content to HTML
             chapter_html = self.html_renderer.render_to_string(chapter_doc)

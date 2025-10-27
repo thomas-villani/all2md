@@ -622,8 +622,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         if comment_mode == "note":
             # Render as NOTE admonition block
-            self._output.append("[NOTE]")
-            self._output.append("====")
+            self._output.append("[NOTE]\n")
+            self._output.append("====\n")
 
             # Add attribution if present
             if author:
@@ -634,6 +634,9 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             # Add content
             self._output.append(node.content)
+            # Ensure content ends with newline before closing delimiter
+            if not node.content.endswith("\n"):
+                self._output.append("\n")
             self._output.append("====\n")
             return
 
