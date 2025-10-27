@@ -828,7 +828,8 @@ class DokuWikiParser(BaseParser):
         elif earliest_type == "linebreak":
             result.append(LineBreak(soft=False))
         elif earliest_type in ("c_comment", "html_comment"):
-            result.append(self._handle_comment_pattern(earliest_match, earliest_type.replace("_", "-")))
+            comment_type = "c-style" if earliest_type == "c_comment" else "html"
+            result.append(self._handle_comment_pattern(earliest_match, comment_type))
         else:
             # Formatting patterns (bold, italic, underline, etc.)
             result.append(self._handle_formatting_pattern(earliest_match, earliest_type))

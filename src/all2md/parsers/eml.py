@@ -980,8 +980,10 @@ class EmlToAstConverter(BaseParser):
             # Add email headers as paragraphs if requested
             if self.options.include_headers:
                 header_lines = []
-                header_lines.append(f"From: {item['from']}")
-                header_lines.append(f"To: {item['to']}")
+                if "from" in item:
+                    header_lines.append(f"From: {item['from']}")
+                if "to" in item:
+                    header_lines.append(f"To: {item['to']}")
 
                 if item.get("cc"):
                     header_lines.append(f"cc: {item['cc']}")
@@ -995,9 +997,10 @@ class EmlToAstConverter(BaseParser):
                 if not self.options.subject_as_h1 and "subject" in item:
                     header_lines.append(f"Subject: {item['subject']}")
 
-                # Create a single paragraph with all headers
-                header_text = "\n".join(header_lines)
-                children.append(Paragraph(content=[Text(content=header_text)]))
+                # Create a single paragraph with all headers (only if we have any)
+                if header_lines:
+                    header_text = "\n".join(header_lines)
+                    children.append(Paragraph(content=[Text(content=header_text)]))
 
             # Add content - parse safely to avoid XSS via HTMLInline
             content = item.get("content", "")

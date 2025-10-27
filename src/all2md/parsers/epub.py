@@ -164,8 +164,9 @@ class EpubToAstConverter(BaseParser):
                 chapter_doc = self.html_parser.convert_to_ast(html_content)
                 if chapter_doc.children:
                     children.extend(chapter_doc.children)
-                    # Add chapter separator
-                    children.append(ThematicBreak())
+                    # Add chapter separator only when not merging chapters
+                    if not self.options.merge_chapters:
+                        children.append(ThematicBreak())
 
         # Emit finished event
         self._emit_progress("finished", "EPUB conversion completed", current=1, total=1)

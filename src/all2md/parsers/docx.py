@@ -1655,12 +1655,12 @@ def _iter_block_items(
                             )
                         )
 
+            # Always yield the paragraph to preserve text content
+            yield paragraph
+            # Also yield any images found separately
             if has_image and img_data:
-                # Yield ImageData objects directly
                 for image_data in img_data:
                     yield image_data
-            elif not has_image:
-                yield paragraph
 
 
 # Converter metadata for registration
