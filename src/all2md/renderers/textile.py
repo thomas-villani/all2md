@@ -11,6 +11,7 @@ for controlling output format.
 
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 from typing import IO, Union
 
@@ -178,8 +179,6 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if width <= 0:
             return text
-
-        import textwrap
 
         return textwrap.fill(text, width=width, break_long_words=False, break_on_hyphens=False)
 

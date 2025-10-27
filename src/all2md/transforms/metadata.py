@@ -35,10 +35,13 @@ Define a transform with metadata:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, ClassVar, Optional, Type
 
 from all2md.ast.transforms import NodeTransformer
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -283,18 +286,16 @@ class ParameterSpec:
         >>> #           'default': 10, 'help': 'Threshold', 'dest': 'my_transform_threshold'}
 
         """
-        # Import tracking actions here to avoid circular dependency
+        kwargs: dict = {
+            "help": self.help or f"{param_name} parameter for {transform_name}",
+            "dest": self.get_dest_name(param_name, transform_name),
+        }
         from all2md.cli.custom_actions import (
             TrackingAppendAction,
             TrackingStoreAction,
             TrackingStoreFalseAction,
             TrackingStoreTrueAction,
         )
-
-        kwargs: dict = {
-            "help": self.help or f"{param_name} parameter for {transform_name}",
-            "dest": self.get_dest_name(param_name, transform_name),
-        }
 
         # Set type and action based on parameter type
         if self.type is bool:
@@ -503,10 +504,6 @@ class TransformMetadata:
         >>> instance = metadata.create_instance(threshold=20)
 
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         # Validate and filter parameters
         validated_params = {}
 

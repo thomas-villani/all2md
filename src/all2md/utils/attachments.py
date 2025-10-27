@@ -33,6 +33,7 @@ from urllib.parse import urljoin
 
 from all2md.constants import DEFAULT_ALT_TEXT_MODE, AltTextMode, AttachmentMode
 from all2md.utils.escape import escape_markdown_context_aware
+from all2md.utils.security import validate_safe_output_directory
 
 logger = logging.getLogger(__name__)
 
@@ -339,6 +340,311 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
     raise RuntimeError(f"Unable to find unique path after {max_attempts} attempts for {base_path}")
 
 
+def _make_result(
+    markdown: str,
+    url: str = "",
+    footnote_label: str | None = None,
+    footnote_content: str | None = None,
+    source_data: str | None = None,
+) -> dict[str, Any]:
+    """Create result dictionary for attachment processing.
+
+    Parameters
+    ----------
+    markdown : str
+        Markdown representation of the attachment
+    url : str, default ""
+        URL/path for the attachment
+    footnote_label : str | None, default None
+        Footnote label if alt_text_mode is "footnote"
+    footnote_content : str | None, default None
+        Content for footnote definition
+    source_data : str | None, default None
+        Source of the attachment data
+
+    Returns
+    -------
+    dict[str, Any]
+        Result dictionary
+
+    """
+    result = {
+        "markdown": markdown,
+        "url": url,
+        "footnote_label": footnote_label,
+        "footnote_content": footnote_content,
+    }
+    if source_data:
+        result["source_data"] = source_data
+    return result
+
+
+def _build_attachment_markdown(
+    is_image: bool, alt_text_mode: AltTextMode, text_content: str, attachment_name: str
+) -> tuple[str, str | None, str | None]:
+    """Build attachment markdown based on mode.
+
+    Parameters
+    ----------
+    is_image : bool
+        Whether this is an image attachment
+    alt_text_mode : AltTextMode
+        How to render alt-text content
+    text_content : str
+        Text to display (alt text for images, filename for files)
+    attachment_name : str
+        Attachment filename (used for footnote labels)
+
+    Returns
+    -------
+    tuple[str, str | None, str | None]
+        Tuple of (markdown, footnote_label, footnote_content)
+
+    """
+    if is_image:
+        # Escape alt text for images to prevent Markdown injection
+        escaped_text = escape_markdown_context_aware(text_content, context="image_alt")
+
+        if alt_text_mode == "strict_markdown":
+            return (f"![{escaped_text}](#)", None, None)
+        elif alt_text_mode == "footnote":
+            footnote_label = sanitize_footnote_label(attachment_name)
+            markdown = f"![{escaped_text}] [^{footnote_label}]"
+            return (markdown, footnote_label, text_content)
+        else:  # default mode
+            return (f"![{escaped_text}]", None, None)
+    else:
+        # Escape link text for files to prevent Markdown injection
+        escaped_text = escape_markdown_context_aware(text_content, context="link")
+
+        if alt_text_mode == "plain_filename":
+            return (text_content, None, None)
+        elif alt_text_mode == "strict_markdown":
+            return (f"[{escaped_text}](#)", None, None)
+        elif alt_text_mode == "footnote":
+            footnote_label = sanitize_footnote_label(attachment_name)
+            markdown = f"[{escaped_text}] [^{footnote_label}]"
+            return (markdown, footnote_label, text_content)
+        else:  # default mode
+            return (f"[{escaped_text}]", None, None)
+
+
+def _make_fallback_result(
+    is_image: bool, alt_text: str, attachment_name: str, alt_text_mode: AltTextMode
+) -> dict[str, Any]:
+    """Create fallback result using alt_text mode logic.
+
+    Parameters
+    ----------
+    is_image : bool
+        Whether this is an image attachment
+    alt_text : str
+        Alt text for the attachment
+    attachment_name : str
+        Attachment filename
+    alt_text_mode : AltTextMode
+        How to render alt-text content
+
+    Returns
+    -------
+    dict[str, Any]
+        Result dictionary
+
+    """
+    # For images: use alt_text if available, otherwise filename
+    # For files: always use filename (alt_text is only for images)
+    if is_image:
+        text_content = alt_text or attachment_name
+    else:
+        text_content = attachment_name
+
+    markdown, footnote_label, footnote_content = _build_attachment_markdown(
+        is_image, alt_text_mode, text_content, attachment_name
+    )
+    # For strict_markdown mode, set url to "#"
+    url = "#" if alt_text_mode == "strict_markdown" else ""
+    return _make_result(
+        markdown,
+        url=url,
+        footnote_label=footnote_label,
+        footnote_content=footnote_content,
+    )
+
+
+def _handle_base64_mode(
+    attachment_data: bytes | None,
+    attachment_name: str,
+    alt_text: str,
+    is_image: bool,
+    alt_text_mode: AltTextMode,
+) -> dict[str, Any] | None:
+    """Handle base64 attachment mode.
+
+    Parameters
+    ----------
+    attachment_data : bytes | None
+        Raw attachment data
+    attachment_name : str
+        Attachment filename
+    alt_text : str
+        Alt text for the attachment
+    is_image : bool
+        Whether this is an image attachment
+    alt_text_mode : AltTextMode
+        How to render alt-text content
+
+    Returns
+    -------
+    dict[str, Any] | None
+        Result dictionary if successful, None if fallback needed
+
+    """
+    if not is_image:
+        return None
+
+    if not attachment_data:
+        logger.info(f"No attachment data available for base64 mode: {attachment_name}")
+        return None
+
+    # Determine MIME type from file extension
+    ext = Path(attachment_name).suffix.lower()
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+    }
+    mime_type = mime_types.get(ext, "image/png")
+
+    b64_data = base64.b64encode(attachment_data).decode("utf-8")
+    data_uri = f"data:{mime_type};base64,{b64_data}"
+
+    # Escape alt text for images to prevent Markdown injection
+    escaped_alt = escape_markdown_context_aware(alt_text or attachment_name, context="image_alt")
+    markdown = f"![{escaped_alt}]({data_uri})"
+    return _make_result(markdown, url=data_uri, source_data="base64")
+
+
+def _handle_download_mode(
+    attachment_data: bytes | None,
+    attachment_name: str,
+    alt_text: str,
+    attachment_output_dir: str | None,
+    attachment_base_url: str | None,
+    is_image: bool,
+    allowed_output_base_dirs: list[str | Path] | None,
+    block_sensitive_paths: bool,
+) -> dict[str, Any] | None:
+    """Handle download attachment mode.
+
+    Parameters
+    ----------
+    attachment_data : bytes | None
+        Raw attachment data
+    attachment_name : str
+        Attachment filename
+    alt_text : str
+        Alt text for the attachment
+    attachment_output_dir : str | None
+        Directory to save attachments
+    attachment_base_url : str | None
+        Base URL for resolving relative URLs
+    is_image : bool
+        Whether this is an image attachment
+    allowed_output_base_dirs : list[str | Path] | None
+        Optional allowlist of base directories
+    block_sensitive_paths : bool
+        Block output to sensitive system directories
+
+    Returns
+    -------
+    dict[str, Any] | None
+        Result dictionary if successful, None if fallback needed
+
+    """
+    if not attachment_output_dir:
+        attachment_output_dir = "attachments"
+
+    # Validate output directory for security (prevent path traversal)
+    try:
+
+        # Validate that the output directory is safe
+        validated_output_dir = validate_safe_output_directory(
+            attachment_output_dir,
+            allowed_base_dirs=allowed_output_base_dirs,
+            block_sensitive_paths=block_sensitive_paths,
+        )
+        # Use the validated path for all subsequent operations
+        attachment_output_dir = str(validated_output_dir)
+    except Exception as e:
+        # SecurityError or other validation errors
+        logger.warning(
+            f"Output directory validation failed for '{attachment_output_dir}': {e}. "
+            f"Falling back to alt_text mode for security."
+        )
+        return None
+
+    # Create output directory if it doesn't exist
+    try:
+        os.makedirs(attachment_output_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Failed to create attachment directory {attachment_output_dir}: {e}")
+        return None
+
+    # Check if attachment data is available
+    if not attachment_data:
+        logger.warning(
+            f"No attachment data available for download mode: {attachment_name}. " f"Falling back to alt_text mode."
+        )
+        return None
+
+    # Sanitize the filename for security
+    safe_name = sanitize_attachment_filename(attachment_name)
+
+    # Create the initial attachment path
+    base_path = Path(attachment_output_dir) / safe_name
+
+    # Ensure the path is unique to prevent collisions
+    unique_path = ensure_unique_attachment_path(base_path)
+
+    # Write attachment data to file
+    try:
+        with open(unique_path, "wb") as f:
+            f.write(attachment_data)
+        logger.debug(f"Wrote attachment to: {unique_path}")
+    except OSError as e:
+        logger.error(f"Failed to write attachment {unique_path}: {e}")
+        return None
+
+    # Build URL using the final filename
+    final_filename = unique_path.name
+
+    # URL-encode the filename to handle special characters
+    encoded_filename = url_quote(final_filename, safe="")
+
+    if attachment_base_url:
+        # When using base URL, construct URL with encoded filename
+        url = urljoin(attachment_base_url.rstrip("/") + "/", encoded_filename)
+    else:
+        # For local paths, use POSIX-style paths with forward slashes
+        url = str(unique_path.as_posix())
+
+    # Use the sanitized filename for display if no alt_text provided
+    display_name = alt_text or safe_name
+
+    # Escape display name to prevent Markdown injection
+    if is_image:
+        escaped_display = escape_markdown_context_aware(display_name, context="image_alt")
+        markdown = f"![{escaped_display}]({url})"
+    else:
+        escaped_display = escape_markdown_context_aware(display_name, context="link")
+        markdown = f"[{escaped_display}]({url})"
+
+    return _make_result(markdown, url=url, source_data="downloaded")
+
+
 def process_attachment(
     attachment_data: bytes | None,
     attachment_name: str,
@@ -404,215 +710,37 @@ def process_attachment(
         - "source_data": str | None - Source of the attachment data (e.g., "base64", "downloaded")
 
     """
-
-    # Helper function to create result dict
-    def _make_result(
-        markdown: str,
-        url: str = "",
-        footnote_label: str | None = None,
-        footnote_content: str | None = None,
-        source_data: str | None = None,
-    ) -> dict[str, Any]:
-        result = {
-            "markdown": markdown,
-            "url": url,
-            "footnote_label": footnote_label,
-            "footnote_content": footnote_content,
-        }
-        if source_data:
-            result["source_data"] = source_data
-        return result
-
-    # Helper function to build attachment markdown (centralized logic)
-    def _build_attachment_markdown(
-        is_image: bool, alt_text_mode: AltTextMode, text_content: str, attachment_name: str
-    ) -> tuple[str, str | None, str | None]:
-        """Build attachment markdown based on mode.
-
-        Parameters
-        ----------
-        is_image : bool
-            Whether this is an image attachment
-        alt_text_mode : AltTextMode
-            How to render alt-text content
-        text_content : str
-            Text to display (alt text for images, filename for files)
-        attachment_name : str
-            Attachment filename (used for footnote labels)
-
-        Returns
-        -------
-        tuple[str, str | None, str | None]
-            Tuple of (markdown, footnote_label, footnote_content)
-
-        """
-        if is_image:
-            # Escape alt text for images to prevent Markdown injection
-            escaped_text = escape_markdown_context_aware(text_content, context="image_alt")
-
-            if alt_text_mode == "strict_markdown":
-                return (f"![{escaped_text}](#)", None, None)
-            elif alt_text_mode == "footnote":
-                footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"![{escaped_text}] [^{footnote_label}]"
-                return (markdown, footnote_label, text_content)
-            else:  # default mode
-                return (f"![{escaped_text}]", None, None)
-        else:
-            # Escape link text for files to prevent Markdown injection
-            escaped_text = escape_markdown_context_aware(text_content, context="link")
-
-            if alt_text_mode == "plain_filename":
-                return (text_content, None, None)
-            elif alt_text_mode == "strict_markdown":
-                return (f"[{escaped_text}](#)", None, None)
-            elif alt_text_mode == "footnote":
-                footnote_label = sanitize_footnote_label(attachment_name)
-                markdown = f"[{escaped_text}] [^{footnote_label}]"
-                return (markdown, footnote_label, text_content)
-            else:  # default mode
-                return (f"[{escaped_text}]", None, None)
-
-    # Helper function for fallback mode (replicates alt_text logic)
-    def _make_fallback_result() -> dict[str, Any]:
-        # For images: use alt_text if available, otherwise filename
-        # For files: always use filename (alt_text is only for images)
-        if is_image:
-            text_content = alt_text or attachment_name
-        else:
-            text_content = attachment_name
-
-        markdown, footnote_label, footnote_content = _build_attachment_markdown(
-            is_image, alt_text_mode, text_content, attachment_name
-        )
-        # For strict_markdown mode, set url to "#"
-        url = "#" if alt_text_mode == "strict_markdown" else ""
-        return _make_result(
-            markdown,
-            url=url,
-            footnote_label=footnote_label,
-            footnote_content=footnote_content,
-        )
-
+    # Handle skip mode
     if attachment_mode == "skip":
         logger.debug(f"Skipping attachment: {attachment_name}")
         return _make_result("")
 
+    # Handle alt_text mode
     if attachment_mode == "alt_text":
-        # Use the same logic as fallback mode - they are identical
-        return _make_fallback_result()
+        return _make_fallback_result(is_image, alt_text, attachment_name, alt_text_mode)
 
-    if attachment_mode == "base64" and is_image:
-        if not attachment_data:
-            logger.info(f"No attachment data available for base64 mode: {attachment_name}")
-        else:
-            # Determine MIME type from file extension
-            ext = Path(attachment_name).suffix.lower()
-            mime_types = {
-                ".png": "image/png",
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".gif": "image/gif",
-                ".webp": "image/webp",
-                ".svg": "image/svg+xml",
-            }
-            mime_type = mime_types.get(ext, "image/png")
+    # Handle base64 mode
+    if attachment_mode == "base64":
+        result = _handle_base64_mode(attachment_data, attachment_name, alt_text, is_image, alt_text_mode)
+        if result is not None:
+            return result
+        # Fall through to fallback if base64 failed
 
-            b64_data = base64.b64encode(attachment_data).decode("utf-8")
-            data_uri = f"data:{mime_type};base64,{b64_data}"
-
-            # Escape alt text for images to prevent Markdown injection
-            escaped_alt = escape_markdown_context_aware(alt_text or attachment_name, context="image_alt")
-            markdown = f"![{escaped_alt}]({data_uri})"
-            return _make_result(markdown, url=data_uri, source_data="base64")
-
+    # Handle download mode
     if attachment_mode == "download":
-        if not attachment_output_dir:
-            attachment_output_dir = "attachments"
-
-        # Validate output directory for security (prevent path traversal)
-        try:
-            from all2md.utils.security import validate_safe_output_directory
-
-            # Validate that the output directory is safe
-            # Applies security checks based on configuration
-            validated_output_dir = validate_safe_output_directory(
-                attachment_output_dir,
-                allowed_base_dirs=allowed_output_base_dirs,
-                block_sensitive_paths=block_sensitive_paths,
-            )
-            # Use the validated path for all subsequent operations
-            attachment_output_dir = str(validated_output_dir)
-        except Exception as e:
-            # SecurityError or other validation errors
-            logger.warning(
-                f"Output directory validation failed for '{attachment_output_dir}': {e}. "
-                f"Falling back to alt_text mode for security."
-            )
-            return _make_fallback_result()
-
-        # Create output directory if it doesn't exist
-        try:
-            os.makedirs(attachment_output_dir, exist_ok=True)
-        except OSError as e:
-            logger.error(f"Failed to create attachment directory {attachment_output_dir}: {e}")
-            # Fall back to alt-text mode if directory creation fails
-            return _make_fallback_result()
-
-        # Check if attachment data is available - cannot create download link without data
-        if not attachment_data:
-            logger.warning(
-                f"No attachment data available for download mode: {attachment_name}. "
-                f"Falling back to alt_text mode (alt_text_mode={alt_text_mode}, is_image={is_image})."
-            )
-            return _make_fallback_result()
-
-        # Sanitize the filename for security
-        safe_name = sanitize_attachment_filename(attachment_name)
-
-        # Create the initial attachment path
-        base_path = Path(attachment_output_dir) / safe_name
-
-        # Ensure the path is unique to prevent collisions
-        unique_path = ensure_unique_attachment_path(base_path)
-
-        # Write attachment data to file
-        try:
-            with open(unique_path, "wb") as f:
-                f.write(attachment_data)
-            logger.debug(f"Wrote attachment to: {unique_path}")
-        except OSError as e:
-            logger.error(f"Failed to write attachment {unique_path}: {e}")
-            # Fall back to alt-text mode if writing fails
-            return _make_fallback_result()
-
-        # Build URL using the final filename
-        final_filename = unique_path.name
-
-        # URL-encode the filename to handle special characters (spaces, &, #, etc.)
-        # Use safe='' to encode all special characters
-        encoded_filename = url_quote(final_filename, safe="")
-
-        if attachment_base_url:
-            # When using base URL, construct URL with encoded filename
-            url = urljoin(attachment_base_url.rstrip("/") + "/", encoded_filename)
-        else:
-            # For local paths (no base URL), use POSIX-style paths with forward slashes
-            # This ensures URLs work correctly even on Windows
-            url = str(unique_path.as_posix())
-
-        # Use the sanitized filename for display if no alt_text provided
-        display_name = alt_text or safe_name
-
-        # Escape display name to prevent Markdown injection
-        if is_image:
-            escaped_display = escape_markdown_context_aware(display_name, context="image_alt")
-            markdown = f"![{escaped_display}]({url})"
-        else:
-            escaped_display = escape_markdown_context_aware(display_name, context="link")
-            markdown = f"[{escaped_display}]({url})"
-
-        return _make_result(markdown, url=url, source_data="downloaded")
+        result = _handle_download_mode(
+            attachment_data,
+            attachment_name,
+            alt_text,
+            attachment_output_dir,
+            attachment_base_url,
+            is_image,
+            allowed_output_base_dirs,
+            block_sensitive_paths,
+        )
+        if result is not None:
+            return result
+        # Fall through to fallback if download failed
 
     # Fallback to alt_text mode if attachment data is missing or mode is unsupported
     logger.debug(
@@ -620,7 +748,7 @@ def process_attachment(
         f"(mode: {attachment_mode}, alt_text_mode: {alt_text_mode}, "
         f"has_data: {attachment_data is not None}, is_image: {is_image})"
     )
-    return _make_fallback_result()
+    return _make_fallback_result(is_image, alt_text, attachment_name, alt_text_mode)
 
 
 def extract_pptx_image_data(shape: Any) -> bytes | None:

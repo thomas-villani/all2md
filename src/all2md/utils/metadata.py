@@ -13,6 +13,8 @@ creation date, keywords, and format-specific metadata fields.
 """
 
 import hashlib
+import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -647,8 +649,6 @@ def format_json_frontmatter(
     \`\`\`
 
     """
-    import json
-
     data = prepare_metadata_for_render(metadata, policy)
 
     if not data:
@@ -714,8 +714,6 @@ def extract_keywords_from_string(keywords_str: str) -> List[str]:
     """
     if not keywords_str or not keywords_str.strip():
         return []
-
-    import re
 
     keywords = [k.strip() for k in re.split("[,;]", keywords_str) if k.strip()]
     return keywords
@@ -887,10 +885,7 @@ def enrich_metadata_with_conversion_info(
         The enriched metadata object
 
     """
-    # Set extraction date
-    from datetime import datetime as dt
-
-    metadata.extraction_date = dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    metadata.extraction_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Try to extract source_path from input
     if isinstance(input_data, (str, Path)):

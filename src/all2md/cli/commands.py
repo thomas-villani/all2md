@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote, urlparse
 
-from all2md.api import to_ast
 from all2md.cli.builder import (
     EXIT_ERROR,
     EXIT_FILE_ERROR,
@@ -479,6 +478,158 @@ def save_config_to_file(args: argparse.Namespace, config_path: str) -> None:
     print(f"Configuration saved to {config_path}")
 
 
+def _handle_stdin_input(stdin_data_ref: list[bytes | None], raw_argument: str) -> Optional[CLIInputItem]:
+    """Process stdin input and return CLIInputItem if valid.
+
+    Parameters
+    ----------
+    stdin_data_ref : list[bytes | None]
+        Reference to stdin data buffer (single-element list for mutability)
+    raw_argument : str
+        Original argument string
+
+    Returns
+    -------
+    CLIInputItem or None
+        CLIInputItem for stdin or None if empty/already processed
+
+    """
+    if stdin_data_ref[0] is None:
+        stdin_data_ref[0] = sys.stdin.buffer.read()
+
+    stdin_data = stdin_data_ref[0]
+    if stdin_data and len(stdin_data) > 0:
+        return CLIInputItem(
+            raw_input=stdin_data,
+            kind="stdin_bytes",
+            display_name="<stdin>",
+            original_argument=raw_argument,
+        )
+    return None
+
+
+def _handle_remote_uri_input(raw_argument: str, remote_items: Dict[str, CLIInputItem]) -> bool:
+    """Process remote URI input and add to remote_items dict.
+
+    Parameters
+    ----------
+    raw_argument : str
+        Original argument string
+    remote_items : dict
+        Dictionary of remote items keyed by normalized URI
+
+    Returns
+    -------
+    bool
+        True if URI was processed and added (or duplicate), False if not a URI
+
+    """
+    if not _is_probable_uri(raw_argument):
+        return False
+
+    path_hint, metadata = _derive_path_hint_from_uri(raw_argument)
+    key = _normalize_uri_key(raw_argument)
+    if key not in remote_items:
+        remote_items[key] = CLIInputItem(
+            raw_input=raw_argument,
+            kind="remote_uri",
+            display_name=raw_argument,
+            path_hint=path_hint,
+            original_argument=raw_argument,
+            metadata=metadata,
+        )
+    return True
+
+
+def _handle_local_path_input(
+    raw_argument: str,
+    recursive: bool,
+    extension_allowed: Any,
+) -> List[Path]:
+    """Process local path input (file, directory, or glob) and return matched files.
+
+    Parameters
+    ----------
+    raw_argument : str
+        Original argument string (path or glob pattern)
+    recursive : bool
+        Whether to process directories recursively
+    extension_allowed : callable
+        Function to check if path extension is allowed
+
+    Returns
+    -------
+    list[Path]
+        List of matched file paths that pass extension filter
+
+    """
+    input_path = Path(raw_argument)
+    matched_paths: List[Path] = []
+
+    # Handle glob patterns
+    if any(char in raw_argument for char in "*?["):
+        matched_paths.extend(Path.cwd().glob(raw_argument))
+    # Handle single file
+    elif input_path.is_file():
+        matched_paths.append(input_path)
+    # Handle directory
+    elif input_path.is_dir():
+        iterator = input_path.rglob("*") if recursive else input_path.iterdir()
+        for child in iterator:
+            if child.is_file():
+                matched_paths.append(child)
+    else:
+        logging.warning(f"Path does not exist: {input_path}")
+        return []
+
+    # Filter by extension and file status
+    filtered_paths: List[Path] = []
+    for candidate in matched_paths:
+        if candidate.is_file() and extension_allowed(candidate):
+            filtered_paths.append(candidate)
+
+    return filtered_paths
+
+
+def _deduplicate_and_create_items(
+    local_candidates: List[Path],
+) -> List[CLIInputItem]:
+    """Deduplicate local paths and create CLIInputItem objects.
+
+    Parameters
+    ----------
+    local_candidates : list[Path]
+        List of local file paths (may contain duplicates)
+
+    Returns
+    -------
+    list[CLIInputItem]
+        Sorted list of unique CLIInputItem objects
+
+    """
+    # Deduplicate by resolved path
+    unique_local: Dict[str, Path] = {}
+    for candidate in local_candidates:
+        try:
+            key = str(candidate.resolve())
+        except OSError:
+            key = str(candidate)
+        unique_local[key] = candidate
+
+    sorted_local_paths = sorted(unique_local.values())
+
+    return [
+        CLIInputItem(
+            raw_input=path,
+            kind="local_file",
+            display_name=str(path),
+            path_hint=path,
+            original_argument=str(path),
+        )
+        for path in sorted_local_paths
+    ]
+
+
 def collect_input_files(
     input_paths: List[str],
     recursive: bool = False,
@@ -498,105 +649,47 @@ def collect_input_files(
 
     normalized_exts = {ext.lower() for ext in extensions} if extensions else None
 
-    local_candidates: List[Path] = []
-    remote_items: Dict[str, CLIInputItem] = {}
-    stdin_item: Optional[CLIInputItem] = None
-    stdin_data: bytes | None = None
-
     def extension_allowed(path: Path) -> bool:
         if normalized_exts is None:
             return True
         return path.suffix.lower() in normalized_exts
 
+    local_candidates: List[Path] = []
+    remote_items: Dict[str, CLIInputItem] = {}
+    stdin_item: Optional[CLIInputItem] = None
+    stdin_data_ref: list[bytes | None] = [None]  # Use list for mutability in helper
+
+    # Process each input argument
     for raw_argument in input_paths:
+        # Handle stdin
         if raw_argument == "-":
-            if stdin_item is not None:
-                continue
-            if stdin_data is None:
-                stdin_data = sys.stdin.buffer.read()
-            if len(stdin_data) > 0:
-                stdin_item = CLIInputItem(
-                    raw_input=stdin_data or b"",
-                    kind="stdin_bytes",
-                    display_name="<stdin>",
-                    original_argument=raw_argument,
-                )
+            if stdin_item is None:
+                stdin_item = _handle_stdin_input(stdin_data_ref, raw_argument)
             continue
 
-        if _is_probable_uri(raw_argument):
-            path_hint, metadata = _derive_path_hint_from_uri(raw_argument)
-            key = _normalize_uri_key(raw_argument)
-            if key in remote_items:
-                continue
-            remote_items[key] = CLIInputItem(
-                raw_input=raw_argument,
-                kind="remote_uri",
-                display_name=raw_argument,
-                path_hint=path_hint,
-                original_argument=raw_argument,
-                metadata=metadata,
-            )
+        # Handle remote URIs
+        if _handle_remote_uri_input(raw_argument, remote_items):
             continue
 
-        input_path = Path(raw_argument)
-        matched_paths: List[Path] = []
+        # Handle local paths (files, directories, globs)
+        matched_files = _handle_local_path_input(raw_argument, recursive, extension_allowed)
+        local_candidates.extend(matched_files)
 
-        if any(char in raw_argument for char in "*?["):
-            matched_paths.extend(Path.cwd().glob(raw_argument))
-        elif input_path.is_file():
-            matched_paths.append(input_path)
-        elif input_path.is_dir():
-            iterator = input_path.rglob("*") if recursive else input_path.iterdir()
-            for child in iterator:
-                if child.is_file():
-                    matched_paths.append(child)
-        else:
-            logging.warning(f"Path does not exist: {input_path}")
-            continue
+    # Deduplicate and create items
+    local_items = _deduplicate_and_create_items(local_candidates)
 
-        for candidate in matched_paths:
-            if not candidate.is_file():
-                continue
-            if not extension_allowed(candidate):
-                continue
-            local_candidates.append(candidate)
-
-    # Deduplicate and sort local paths for deterministic ordering
-    unique_local: Dict[str, Path] = {}
-    for candidate in local_candidates:
-        try:
-            key = str(candidate.resolve())
-        except OSError:
-            key = str(candidate)
-        unique_local[key] = candidate
-
-    sorted_local_paths = sorted(unique_local.values())
-
-    local_items: List[CLIInputItem] = [
-        CLIInputItem(
-            raw_input=path,
-            kind="local_file",
-            display_name=str(path),
-            path_hint=path,
-            original_argument=str(path),
-        )
-        for path in sorted_local_paths
-    ]
-
+    # Combine all items
     all_items: List[CLIInputItem] = []
-
     all_items.extend(remote_items.values())
     all_items.extend(local_items)
     if stdin_item is not None:
         all_items.append(stdin_item)
 
+    # Apply exclusion patterns
     if exclude_patterns:
-        filtered: List[CLIInputItem] = []
-        for item in all_items:
-            if any(_matches_exclusion(item, pattern) for pattern in exclude_patterns):
-                continue
-            filtered.append(item)
-        all_items = filtered
+        all_items = [
+            item for item in all_items if not any(_matches_exclusion(item, pattern) for pattern in exclude_patterns)
+        ]
 
     # Deterministic ordering for downstream processing
     all_items.sort(key=lambda item: item.display_name.lower())
@@ -1578,6 +1671,7 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
     error_count = 0
 
     print(f"Converting {len(items)} file(s) to {generator.value} site...")
+    from all2md.api import to_ast
 
     for index, item in enumerate(items, start=1):
         try:

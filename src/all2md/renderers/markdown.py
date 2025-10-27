@@ -69,6 +69,11 @@ from all2md.utils.flavors import (
 )
 from all2md.utils.html_sanitizer import sanitize_html_content
 from all2md.utils.html_utils import render_math_html
+from all2md.utils.metadata import (
+    format_json_frontmatter,
+    format_toml_frontmatter,
+    format_yaml_frontmatter,
+)
 
 
 class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
@@ -498,13 +503,6 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         filtered_metadata = self._prepare_metadata(metadata)
         if not filtered_metadata:
             return
-
-        # Import formatters
-        from all2md.utils.metadata import (
-            format_json_frontmatter,
-            format_toml_frontmatter,
-            format_yaml_frontmatter,
-        )
 
         # Select formatter based on metadata_format option
         if self.options.metadata_format == "toml":

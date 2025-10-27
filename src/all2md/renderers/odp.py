@@ -16,6 +16,7 @@ content to ODP shapes, and assembles a complete presentation.
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -192,8 +193,6 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             ) from e
         finally:
             # Clean up temporary files
-            import os
-
             for temp_file in self._temp_files:
                 try:
                     if os.path.exists(temp_file):
@@ -459,7 +458,6 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             # Add image to page if we have a valid file
             if image_file and self._presentation:
                 # Generate unique name for image
-                import os
 
                 from odf.draw import Frame
                 from odf.draw import Image as OdfImage

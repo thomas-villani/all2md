@@ -15,13 +15,12 @@ generate ODT content with appropriate styles and formatting.
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
+from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, Any, Union
 from urllib.parse import urlparse
-
-if TYPE_CHECKING:
-    pass
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -67,7 +66,7 @@ from all2md.exceptions import RenderingError
 from all2md.options.odt import OdtRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.images import decode_base64_image_to_file
+from all2md.utils.images import decode_base64_image_to_file, detect_image_format_from_bytes
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 
 logger = logging.getLogger(__name__)
@@ -178,8 +177,6 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             If ODT generation fails
 
         """
-        from io import BytesIO
-
         # Create a BytesIO buffer and render to it
         buffer = BytesIO()
         self.render(doc, buffer)
@@ -846,10 +843,6 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
                 # Add picture to document's manifest
 
                 # Generate unique name for image
-                import os
-
-                from all2md.utils.images import detect_image_format_from_bytes
-
                 ext = os.path.splitext(image_file)[1] or ".png"
                 image_name = f"Pictures/image_{id(node)}{ext}"
 

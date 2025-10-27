@@ -25,8 +25,11 @@ from all2md.constants import (
     DANGEROUS_HTML_ATTRIBUTES,
     DANGEROUS_HTML_ELEMENTS,
     DANGEROUS_SCHEMES,
+    FRAMEWORK_ATTRIBUTE_PREFIXES,
+    FRAMEWORK_ATTRIBUTES,
     HtmlPassthroughMode,
 )
+from all2md.utils.security import is_url_scheme_dangerous
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +362,146 @@ def sanitize_html_string(content: str) -> str:
         return _basic_sanitize_html_string(content)
 
 
+def _is_event_handler_attribute(attr_name: str) -> bool:
+    """Check if attribute name is a JavaScript event handler.
+
+    Parameters
+    ----------
+    attr_name : str
+        Attribute name to check
+
+    Returns
+    -------
+    bool
+        True if attribute is an event handler
+
+    """
+    attr_name_lower = attr_name.lower()
+
+    # Event handlers start with "on" followed by event name
+    if not (attr_name_lower.startswith("on") and len(attr_name_lower) > 2):
+        return False
+
+    # Extract the part after "on"
+    event_part = attr_name_lower[2:]
+
+    # Event handlers are all alphabetic and start with a letter
+    # Examples: onclick, onload, onerror, onmouseover
+    # Non-handlers: one-time, only-when, on_click (invalid syntax)
+    if event_part and event_part[0].isalpha() and event_part.replace("_", "").isalpha():
+        # Check if there are no hyphens (which would indicate it's not an event handler)
+        if "-" not in attr_name_lower:
+            return True
+
+    return False
+
+
+def _check_url_attribute_safety(attr_name: str, attr_value: Any) -> bool:
+    """Check if a URL attribute has a safe value.
+
+    Parameters
+    ----------
+    attr_name : str
+        Attribute name
+    attr_value : Any
+        Attribute value
+
+    Returns
+    -------
+    bool
+        True if safe, False if should be removed
+
+    """
+    attr_name_lower = attr_name.lower()
+    if attr_name_lower not in ("href", "src", "action", "formaction"):
+        return True
+
+    if isinstance(attr_value, str) and not is_url_safe(attr_value):
+        return False
+
+    return True
+
+
+def _process_srcset_attribute(attr_value: Any) -> tuple[bool, str | None]:
+    """Process srcset attribute and return sanitization result.
+
+    Parameters
+    ----------
+    attr_value : Any
+        Attribute value
+
+    Returns
+    -------
+    tuple[bool, str | None]
+        Tuple of (should_remove, updated_value)
+        If should_remove is True, attribute should be removed
+        If should_remove is False and updated_value is not None, update attribute
+
+    """
+    if not isinstance(attr_value, str):
+        return (False, None)
+
+    sanitized_srcset = _sanitize_srcset(attr_value)
+    if sanitized_srcset is None:
+        # All URLs in srcset were unsafe, remove the attribute
+        return (True, None)
+    elif sanitized_srcset != attr_value:
+        # Some URLs were removed, update with sanitized version
+        return (False, sanitized_srcset)
+
+    return (False, None)
+
+
+def _check_style_attribute_safety(attr_value: Any) -> bool:
+    """Check if a style attribute has safe value.
+
+    Parameters
+    ----------
+    attr_value : Any
+        Attribute value
+
+    Returns
+    -------
+    bool
+        True if safe, False if should be removed
+
+    """
+    if isinstance(attr_value, str):
+        # Use the comprehensive style safety check
+        if not _is_style_safe(attr_value):
+            return False
+    return True
+
+
+def _check_other_style_attribute_safety(attr_name: str, attr_value: Any) -> bool:
+    """Check if background/expression attributes have safe values.
+
+    Parameters
+    ----------
+    attr_name : str
+        Attribute name
+    attr_value : Any
+        Attribute value
+
+    Returns
+    -------
+    bool
+        True if safe, False if should be removed
+
+    """
+    attr_name_lower = attr_name.lower()
+    if attr_name_lower not in ("background", "expression"):
+        return True
+
+    if isinstance(attr_value, str):
+        attr_value_lower = attr_value.lower()
+        # Check for dangerous schemes
+        if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
+            return False
+
+    return True
+
+
 def _basic_sanitize_html_string(content: str) -> str:
     """BeautifulSoup-based HTML sanitization (fallback when bleach unavailable).
 
@@ -389,66 +532,47 @@ def _basic_sanitize_html_string(content: str) -> str:
         # Remove dangerous attributes from all remaining elements
         for element in soup.find_all():
             if hasattr(element, "attrs"):
-                # Remove dangerous attributes
                 attrs_to_remove = []
-                attrs_to_update = {}  # For attributes we want to sanitize rather than remove
+                attrs_to_update = {}
 
                 for attr_name in element.attrs:
                     attr_name_lower = attr_name.lower()
+                    attr_value = element.attrs[attr_name]
 
                     # Check for explicit dangerous attributes
                     if attr_name_lower in DANGEROUS_HTML_ATTRIBUTES:
                         attrs_to_remove.append(attr_name)
+                        continue
 
-                    # Check for any event handler attribute (on* pattern)
-                    # This catches all HTML5 event handlers even if not in the explicit list
-                    # Event handlers are: "on" + event name (continuous letters, no hyphens/underscores)
-                    # Examples: onclick, onload, onerror, onmouseover
-                    # Non-handlers: one-time, only-when, on_click (invalid syntax)
-                    elif attr_name_lower.startswith("on") and len(attr_name_lower) > 2:
-                        # Extract the part after "on"
-                        event_part = attr_name_lower[2:]
-                        # Event handlers are all alphabetic (no hyphens, underscores, numbers at start)
-                        # and start with a letter
-                        if event_part and event_part[0].isalpha() and event_part.replace("_", "").isalpha():
-                            # Check if there are no hyphens (which would indicate it's not an event handler)
-                            if "-" not in attr_name_lower:
-                                attrs_to_remove.append(attr_name)
+                    # Check for event handler attributes
+                    if _is_event_handler_attribute(attr_name):
+                        attrs_to_remove.append(attr_name)
+                        continue
 
                     # Check URL attributes for dangerous schemes
-                    elif attr_name_lower in ("href", "src", "action", "formaction"):
-                        attr_value = element.attrs[attr_name]
-                        if isinstance(attr_value, str) and not is_url_safe(attr_value):
-                            attrs_to_remove.append(attr_name)
+                    if not _check_url_attribute_safety(attr_name, attr_value):
+                        attrs_to_remove.append(attr_name)
+                        continue
 
                     # Check and sanitize srcset attribute
-                    elif attr_name.lower() == "srcset":
-                        attr_value = element.attrs[attr_name]
-                        if isinstance(attr_value, str):
-                            sanitized_srcset = _sanitize_srcset(attr_value)
-                            if sanitized_srcset is None:
-                                # All URLs in srcset were unsafe, remove the attribute
-                                attrs_to_remove.append(attr_name)
-                            elif sanitized_srcset != attr_value:
-                                # Some URLs were removed, update with sanitized version
-                                attrs_to_update[attr_name] = sanitized_srcset
+                    if attr_name.lower() == "srcset":
+                        should_remove, updated_value = _process_srcset_attribute(attr_value)
+                        if should_remove:
+                            attrs_to_remove.append(attr_name)
+                        elif updated_value is not None:
+                            attrs_to_update[attr_name] = updated_value
+                        continue
 
-                    # Enhanced style attribute checking
-                    elif attr_name.lower() == "style":
-                        attr_value = element.attrs[attr_name]
-                        if isinstance(attr_value, str):
-                            # Use the comprehensive style safety check
-                            if not _is_style_safe(attr_value):
-                                attrs_to_remove.append(attr_name)
+                    # Check style attribute
+                    if attr_name.lower() == "style":
+                        if not _check_style_attribute_safety(attr_value):
+                            attrs_to_remove.append(attr_name)
+                        continue
 
-                    # Check other style-related attributes (background, expression) for dangerous content
-                    elif attr_name.lower() in ("background", "expression"):
-                        attr_value = element.attrs[attr_name]
-                        if isinstance(attr_value, str):
-                            attr_value_lower = attr_value.lower()
-                            # Check for dangerous schemes
-                            if any(scheme in attr_value_lower for scheme in DANGEROUS_SCHEMES):
-                                attrs_to_remove.append(attr_name)
+                    # Check other style-related attributes
+                    if not _check_other_style_attribute_safety(attr_name, attr_value):
+                        attrs_to_remove.append(attr_name)
+                        continue
 
                 # Apply attribute removals
                 for attr in attrs_to_remove:
@@ -544,14 +668,6 @@ def is_element_safe(element: Any, *, strip_framework_attributes: bool = False) -
     False
 
     """
-    from all2md.constants import (
-        DANGEROUS_HTML_ATTRIBUTES,
-        DANGEROUS_HTML_ELEMENTS,
-        DANGEROUS_SCHEMES,
-        FRAMEWORK_ATTRIBUTE_PREFIXES,
-        FRAMEWORK_ATTRIBUTES,
-    )
-
     if not hasattr(element, "name"):
         return True
 
@@ -645,8 +761,6 @@ def is_url_safe(url: str) -> bool:
     False
 
     """
-    from all2md.utils.security import is_url_scheme_dangerous
-
     if not url or not url.strip():
         return True
 

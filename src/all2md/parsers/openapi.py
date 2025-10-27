@@ -38,6 +38,94 @@ from all2md.utils.metadata import DocumentMetadata
 logger = logging.getLogger(__name__)
 
 
+def _validate_openapi_structure(data: dict[str, Any]) -> bool:
+    """Validate if a parsed dictionary is a valid OpenAPI/Swagger spec.
+
+    Parameters
+    ----------
+    data : dict
+        Parsed specification data
+
+    Returns
+    -------
+    bool
+        True if data is a valid OpenAPI/Swagger spec
+
+    """
+    if not isinstance(data, dict):
+        return False
+
+    # Check for OpenAPI 3.x
+    if "openapi" in data and "paths" in data and "info" in data:
+        openapi_version = data["openapi"]
+        if isinstance(openapi_version, (str, float, int)):
+            openapi_str = str(openapi_version)
+            if openapi_str.startswith("3."):
+                if isinstance(data["paths"], dict):
+                    if isinstance(data["info"], dict) and "title" in data["info"]:
+                        return True
+
+    # Check for Swagger 2.0
+    if "swagger" in data and "paths" in data and "info" in data:
+        swagger_version = data["swagger"]
+        if isinstance(swagger_version, (str, float, int)):
+            swagger_str = str(swagger_version)
+            if swagger_str.startswith("2."):
+                if isinstance(data["paths"], dict):
+                    if isinstance(data["info"], dict) and "title" in data["info"]:
+                        return True
+
+    return False
+
+
+def _try_parse_json(text: str) -> dict[str, Any] | None:
+    """Attempt to parse text as JSON.
+
+    Parameters
+    ----------
+    text : str
+        Text to parse
+
+    Returns
+    -------
+    dict or None
+        Parsed dict if successful, None otherwise
+
+    """
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+    return None
+
+
+def _try_parse_yaml(text: str) -> dict[str, Any] | None:
+    """Attempt to parse text as YAML.
+
+    Parameters
+    ----------
+    text : str
+        Text to parse
+
+    Returns
+    -------
+    dict or None
+        Parsed dict if successful, None otherwise
+
+    """
+    try:
+        import yaml  # type: ignore[import-untyped]
+
+        data = yaml.safe_load(text)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+    return None
+
+
 def _is_openapi_content(content: bytes) -> bool:
     """Detect if content is an OpenAPI/Swagger specification.
 
@@ -60,63 +148,15 @@ def _is_openapi_content(content: bytes) -> bool:
         if "openapi" not in text and "swagger" not in text:
             return False
 
-        # Try parsing as JSON
-        try:
-            data = json.loads(text)
-            if isinstance(data, dict):
-                # Check for OpenAPI 3.x
-                if "openapi" in data and "paths" in data and "info" in data:
-                    # Validate version format (must be string starting with "3.")
-                    if isinstance(data["openapi"], str) and data["openapi"].startswith("3."):
-                        # Validate paths is a dict
-                        if isinstance(data["paths"], dict):
-                            # Validate info is a dict with required title field
-                            if isinstance(data["info"], dict) and "title" in data["info"]:
-                                return True
-                # Check for Swagger 2.0
-                if "swagger" in data and "paths" in data and "info" in data:
-                    # Validate version format (must be string "2.0" or starting with "2.")
-                    if isinstance(data["swagger"], str) and data["swagger"].startswith("2."):
-                        # Validate paths is a dict
-                        if isinstance(data["paths"], dict):
-                            # Validate info is a dict with required title field
-                            if isinstance(data["info"], dict) and "title" in data["info"]:
-                                return True
-        except json.JSONDecodeError:
-            pass
+        # Try parsing as JSON first
+        data = _try_parse_json(text)
+        if data and _validate_openapi_structure(data):
+            return True
 
         # Try parsing as YAML
-        try:
-            import yaml  # type: ignore[import-untyped]
-
-            data = yaml.safe_load(text)
-            if isinstance(data, dict):
-                # Check for OpenAPI 3.x
-                if "openapi" in data and "paths" in data and "info" in data:
-                    # Validate version format (must be string starting with "3.")
-                    openapi_version = data["openapi"]
-                    if isinstance(openapi_version, (str, float, int)):
-                        openapi_str = str(openapi_version)
-                        if openapi_str.startswith("3."):
-                            # Validate paths is a dict
-                            if isinstance(data["paths"], dict):
-                                # Validate info is a dict with required title field
-                                if isinstance(data["info"], dict) and "title" in data["info"]:
-                                    return True
-                # Check for Swagger 2.0
-                if "swagger" in data and "paths" in data and "info" in data:
-                    # Validate version format (must be string/number "2.0" or starting with "2.")
-                    swagger_version = data["swagger"]
-                    if isinstance(swagger_version, (str, float, int)):
-                        swagger_str = str(swagger_version)
-                        if swagger_str.startswith("2."):
-                            # Validate paths is a dict
-                            if isinstance(data["paths"], dict):
-                                # Validate info is a dict with required title field
-                                if isinstance(data["info"], dict) and "title" in data["info"]:
-                                    return True
-        except Exception:
-            pass
+        data = _try_parse_yaml(text)
+        if data and _validate_openapi_structure(data):
+            return True
 
         return False
 

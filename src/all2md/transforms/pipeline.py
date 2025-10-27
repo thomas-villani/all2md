@@ -56,6 +56,7 @@ from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.progress import ProgressCallback, ProgressEvent
+from all2md.renderers import MarkdownRenderer
 from all2md.renderers.base import BaseRendererOptions
 from all2md.transforms.hooks import HookCallable, HookContext, HookManager, HookTarget
 from all2md.transforms.registry import registry
@@ -312,13 +313,9 @@ class Pipeline:
 
         # If renderer is a string, look it up via registry
         if isinstance(renderer, str):
-            from all2md.converter_registry import registry
 
             renderer_class = registry.get_renderer(renderer)
             return renderer_class(options=options)
-
-        # Default to MarkdownRenderer
-        from all2md.renderers.markdown import MarkdownRenderer
 
         # Use MarkdownRendererOptions if no options provided or if BaseOptions provided for markdown
         if options is None:

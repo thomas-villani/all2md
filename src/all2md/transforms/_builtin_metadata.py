@@ -13,8 +13,7 @@ These metadata objects are exported via entry points in pyproject.toml.
 from __future__ import annotations
 
 from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
-
-from .builtin import (
+from all2md.transforms.builtin import (
     AddAttachmentFootnotesTransform,
     AddConversionTimestampTransform,
     AddHeadingIdsTransform,
@@ -27,7 +26,7 @@ from .builtin import (
     RemoveNodesTransform,
     TextReplacerTransform,
 )
-from .metadata import ParameterSpec, TransformMetadata
+from all2md.transforms.metadata import ParameterSpec, TransformMetadata
 
 # RemoveImagesTransform metadata
 REMOVE_IMAGES_METADATA = TransformMetadata(

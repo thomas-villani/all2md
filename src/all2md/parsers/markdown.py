@@ -877,6 +877,107 @@ class MarkdownToAstConverter(BaseParser):
 
         return nodes
 
+    def _handle_text_token(self, token: dict[str, Any]) -> Text:
+        """Handle text token."""
+        content = token.get("raw", "")
+        return Text(content=content)
+
+    def _handle_strong_token(self, token: dict[str, Any]) -> Strong:
+        """Handle strong token."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Strong(content=content)
+
+    def _handle_emphasis_token(self, token: dict[str, Any]) -> Emphasis:
+        """Handle emphasis token."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Emphasis(content=content)
+
+    def _handle_codespan_token(self, token: dict[str, Any]) -> Code:
+        """Handle codespan token."""
+        content = token.get("raw", "")
+        return Code(content=content)
+
+    def _handle_link_token(self, token: dict[str, Any]) -> Link:
+        """Handle link token."""
+        attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
+        url = attrs.get("url", "")
+        title = attrs.get("title", None)
+        children = token.get("children", [])
+        if not isinstance(children, list):
+            children = []
+        content = self._process_inline_tokens(children)
+        return Link(url=url, content=content, title=title)
+
+    def _handle_image_token(self, token: dict[str, Any]) -> Image:
+        """Handle image token."""
+        attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
+        url = attrs.get("url", "")
+        title = attrs.get("title", None)
+        # Alt text is in children, not attrs
+        children = token.get("children", [])
+        alt_text = ""
+        if isinstance(children, list) and children:
+            # Extract text from children
+            alt_parts = []
+            for child in children:
+                if isinstance(child, dict) and child.get("type") == "text":
+                    alt_parts.append(child.get("raw", ""))
+            alt_text = "".join(alt_parts)
+        return Image(url=url, alt_text=alt_text, title=title)
+
+    def _handle_linebreak_token(self, token: dict[str, Any]) -> LineBreak:
+        """Handle linebreak token."""
+        attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
+        soft = attrs.get("soft", False)
+        return LineBreak(soft=soft)
+
+    def _handle_strikethrough_token(self, token: dict[str, Any]) -> Strikethrough:
+        """Handle strikethrough token."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Strikethrough(content=content)
+
+    def _handle_inline_html_token(self, token: dict[str, Any]) -> Node | None:
+        """Handle inline_html token."""
+        content = token.get("raw", "")
+
+        # Check if this is an HTML comment
+        if self._is_html_comment(content):
+            comment_text = self._extract_comment_text(content)
+            return CommentInline(content=comment_text)
+
+        if not self.options.preserve_html:
+            # When preserve_html is False, use html_handling option
+            if self.options.html_handling == "sanitize":
+                sanitized = sanitize_html_content(content)
+                return HTMLInline(content=sanitized)
+            else:  # "drop"
+                return None
+
+        # preserve_html is True, keep raw content
+        return HTMLInline(content=content)
+
+    def _handle_inline_math_token(self, token: dict[str, Any]) -> MathInline:
+        """Handle inline_math token."""
+        content = token.get("raw", "")
+        return MathInline(content=content)
+
+    def _handle_footnote_ref_token(self, token: dict[str, Any]) -> FootnoteReference:
+        """Handle footnote_ref token."""
+        attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
+        identifier = attrs.get("label", "")
+        return FootnoteReference(identifier=identifier)
+
     def _process_inline_token(self, token: dict[str, Any]) -> Node | list[Node] | None:
         """Process a single inline token.
 
@@ -893,98 +994,24 @@ class MarkdownToAstConverter(BaseParser):
         """
         token_type = token.get("type", "")
 
-        if token_type == "text":
-            content = token.get("raw", "")
-            return Text(content=content)
+        # Dispatch to appropriate handler
+        handler_map: dict[str, Any] = {
+            "text": self._handle_text_token,
+            "strong": self._handle_strong_token,
+            "emphasis": self._handle_emphasis_token,
+            "codespan": self._handle_codespan_token,
+            "link": self._handle_link_token,
+            "image": self._handle_image_token,
+            "linebreak": self._handle_linebreak_token,
+            "strikethrough": self._handle_strikethrough_token,
+            "inline_html": self._handle_inline_html_token,
+            "inline_math": self._handle_inline_math_token,
+            "footnote_ref": self._handle_footnote_ref_token,
+        }
 
-        elif token_type == "strong":
-            children = token.get("children", [])
-            content = self._process_inline_tokens(children)
-            return Strong(content=content)
-
-        elif token_type == "emphasis":
-            children = token.get("children", [])
-            content = self._process_inline_tokens(children)
-            return Emphasis(content=content)
-
-        elif token_type == "codespan":
-            content = token.get("raw", "")
-            return Code(content=content)
-
-        elif token_type == "link":
-            attrs = token.get("attrs", {})
-            if not isinstance(attrs, dict):
-                attrs = {}
-            url = attrs.get("url", "")
-            title = attrs.get("title", None)
-            children = token.get("children", [])
-            if not isinstance(children, list):
-                children = []
-            content = self._process_inline_tokens(children)
-            return Link(url=url, content=content, title=title)
-
-        elif token_type == "image":
-            attrs = token.get("attrs", {})
-            if not isinstance(attrs, dict):
-                attrs = {}
-            url = attrs.get("url", "")
-            title = attrs.get("title", None)
-            # Alt text is in children, not attrs
-            children = token.get("children", [])
-            alt_text = ""
-            if isinstance(children, list) and children:
-                # Extract text from children
-                alt_parts = []
-                for child in children:
-                    if isinstance(child, dict) and child.get("type") == "text":
-                        alt_parts.append(child.get("raw", ""))
-                alt_text = "".join(alt_parts)
-            return Image(url=url, alt_text=alt_text, title=title)
-
-        elif token_type == "linebreak":
-            attrs = token.get("attrs", {})
-            if not isinstance(attrs, dict):
-                attrs = {}
-            soft = attrs.get("soft", False)
-            return LineBreak(soft=soft)
-
-        elif token_type == "strikethrough":
-            children = token.get("children", [])
-            content = self._process_inline_tokens(children)
-            return Strikethrough(content=content)
-
-        elif token_type == "inline_html":
-            content = token.get("raw", "")
-
-            # Check if this is an HTML comment
-            if self._is_html_comment(content):
-                comment_text = self._extract_comment_text(content)
-                return CommentInline(content=comment_text)
-
-            if not self.options.preserve_html:
-                # When preserve_html is False, use html_handling option
-                if self.options.html_handling == "sanitize":
-                    # Sanitize HTML content
-
-                    sanitized = sanitize_html_content(content)
-                    return HTMLInline(content=sanitized)
-                else:  # "drop"
-                    return None
-
-            # preserve_html is True, keep raw content
-            return HTMLInline(content=content)
-
-        elif token_type == "inline_math":
-            content = token.get("raw", "")
-            return MathInline(content=content)
-
-        elif token_type == "footnote_ref":
-            attrs = token.get("attrs", {})
-            if not isinstance(attrs, dict):
-                attrs = {}
-            identifier = attrs.get("label", "")
-            return FootnoteReference(identifier=identifier)
-
+        handler = handler_map.get(token_type)
+        if handler:
+            return handler(token)
         return None
 
     def _is_html_comment(self, content: str) -> bool:

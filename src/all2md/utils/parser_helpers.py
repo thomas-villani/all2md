@@ -20,15 +20,14 @@ Functions
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Generator, Iterable, Union
+from typing import IO, Any, Callable, Generator, Iterable, Text, Union
 
+from all2md.ast import Emphasis, FootnoteDefinition, Heading, Image, Node, Paragraph, Strong, Underline
 from all2md.utils.security import validate_zip_archive
-
-if TYPE_CHECKING:
-    from all2md.ast import Node
 
 
 def validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
@@ -245,9 +244,6 @@ def append_attachment_footnotes(
     if not attachment_footnotes:
         return
 
-    # Import AST nodes here to avoid circular dependencies
-    from all2md.ast import FootnoteDefinition, Heading, Paragraph, Text
-
     # Add section heading
     children.append(Heading(level=2, content=[Text(content=section_title)]))
 
@@ -303,9 +299,6 @@ def attachment_result_to_image_node(
     and only falls back to markdown parsing when necessary.
 
     """
-    # Import here to avoid circular dependencies
-    from all2md.ast import Image
-
     # Check if result has content
     markdown = attachment_result.get("markdown", "")
     if not markdown:
@@ -316,8 +309,6 @@ def attachment_result_to_image_node(
 
     # Extract alt text from markdown using simple regex
     # Pattern: ![alt_text](url) or ![alt_text] or ![alt_text][^footnote]
-    import re
-
     match = re.match(r"^!\[([^]]*)]", markdown)
     if match:
         alt_text = match.group(1) or fallback_alt_text
@@ -406,9 +397,6 @@ def group_and_format_runs(
     This matches the rendering order where bold appears before italic in markdown.
 
     """
-    # Import AST nodes here to avoid circular dependencies
-    from all2md.ast import Emphasis, Strong, Text, Underline
-
     # Default format builders if not provided
     if format_builders is None:
         format_builders = (

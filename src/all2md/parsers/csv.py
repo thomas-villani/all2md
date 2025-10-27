@@ -195,6 +195,163 @@ class CsvToAstConverter(BaseParser):
         # Default to comma
         return ","
 
+    def _detect_csv_dialect(self, sample: str, delimiter: str | None) -> type[csv.Dialect]:
+        """Detect or create CSV dialect from sample.
+
+        Parameters
+        ----------
+        sample : str
+            Sample text for dialect detection
+        delimiter : str or None
+            Optional explicit delimiter
+
+        Returns
+        -------
+        type[csv.Dialect]
+            CSV dialect to use
+
+        """
+        # If any custom dialect options are set, create custom dialect
+        if (
+            self.options.delimiter
+            or self.options.quote_char
+            or self.options.escape_char
+            or self.options.double_quote is not None
+        ):
+            return _make_csv_dialect(
+                delimiter=self.options.delimiter or delimiter,
+                quotechar=self.options.quote_char,
+                escapechar=self.options.escape_char,
+                doublequote=self.options.double_quote,
+            )
+
+        if not self.options.detect_csv_dialect:
+            return _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
+
+        # Try dialect detection
+        try:
+            sniffer = csv.Sniffer()
+            detected_dialect = sniffer.sniff(sample, delimiters=",\t;|\x1f")
+
+            # Validate the detected delimiter
+            if _validate_csv_delimiter(sample, detected_dialect):
+                logger.debug(f"CSV Sniffer detected and validated delimiter: {repr(detected_dialect.delimiter)}")
+                return detected_dialect
+
+            # Try alternatives
+            logger.debug(
+                f"CSV Sniffer detected delimiter {repr(detected_dialect.delimiter)} "
+                f"but validation failed, trying alternatives"
+            )
+            for candidate in [",", "\t", ";", "|"]:
+                test_dialect = _make_csv_dialect(delimiter=candidate)
+                if _validate_csv_delimiter(sample, test_dialect):
+                    logger.debug(f"Alternative delimiter validated: {repr(candidate)}")
+                    return test_dialect
+
+            logger.debug("No delimiter validated, using detected or default")
+            return detected_dialect
+
+        except Exception as e:
+            logger.debug(f"CSV dialect detection failed: {e}, using fallback")
+            return _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
+
+    def _read_csv_rows(self, reader: csv.reader) -> list[list[str]]:
+        """Read CSV rows with max_rows limit.
+
+        Parameters
+        ----------
+        reader : csv.reader
+            CSV reader
+
+        Returns
+        -------
+        list[list[str]]
+            List of rows
+
+        """
+        rows: list[list[str]] = []
+
+        # Calculate maximum rows to read
+        max_total_rows = None
+        if self.options.max_rows is not None:
+            max_total_rows = (self.options.max_rows + 1) if self.options.has_header else self.options.max_rows
+
+        # Read rows with early termination
+        row_count = 0
+        for r in reader:
+            rows.append(r)
+            row_count += 1
+            if max_total_rows is not None and row_count >= max_total_rows:
+                break
+
+        # Skip empty rows if requested
+        if self.options.skip_empty_rows:
+
+            def is_empty(row: list[str]) -> bool:
+                return all((not (c or "").strip()) for c in row)
+
+            while rows and is_empty(rows[0]):
+                rows.pop(0)
+            while rows and is_empty(rows[-1]):
+                rows.pop()
+
+        return rows
+
+    def _process_csv_headers_and_data(self, rows: list[list[str]]) -> tuple[list[str], list[list[str]], bool]:
+        """Process CSV headers and data rows.
+
+        Parameters
+        ----------
+        rows : list[list[str]]
+            Raw CSV rows
+
+        Returns
+        -------
+        tuple[list[str], list[list[str]], bool]
+            Tuple of (header, data_rows, truncated)
+
+        """
+        if not rows:
+            return [], [], False
+
+        # Separate header and data
+        if self.options.has_header:
+            header = rows[0]
+            data_rows = rows[1:]
+        else:
+            num_cols = len(rows[0])
+            header = [f"Column {i + 1}" for i in range(num_cols)]
+            data_rows = rows
+
+        # Truncate columns
+        if self.options.max_cols is not None:
+            header = header[: self.options.max_cols]
+            data_rows = [r[: self.options.max_cols] for r in data_rows]
+
+        # Truncate rows
+        truncated = False
+        if self.options.max_rows is not None and len(data_rows) > self.options.max_rows:
+            data_rows = data_rows[: self.options.max_rows]
+            truncated = True
+
+        # Sanitize cells
+        if self.options.has_header:
+            header = [sanitize_cell_text(c).lstrip("\ufeff") for c in header]
+        else:
+            header = [sanitize_cell_text(c) for c in header]
+        data_rows = [[sanitize_cell_text(c) for c in r] for r in data_rows]
+
+        # Strip whitespace if requested
+        if self.options.strip_whitespace:
+            header = [c.strip() for c in header]
+            data_rows = [[c.strip() for c in r] for r in data_rows]
+
+        # Apply header case transformation
+        header = transform_header_case(header, self.options.header_case)
+
+        return header, data_rows, truncated
+
     def csv_to_ast(
         self,
         input_data: Union[str, Path, IO[bytes], IO[str], bytes],
@@ -228,143 +385,33 @@ class CsvToAstConverter(BaseParser):
                 f"Failed to read CSV/TSV input: {e}", parsing_stage="input_processing", original_error=e
             ) from e
 
-        # Sniff dialect
+        # Detect dialect
         text_stream.seek(0)
         sample = text_stream.read(self.options.dialect_sample_size)
         text_stream.seek(0)
+        dialect_obj = self._detect_csv_dialect(sample, delimiter)
 
-        dialect_obj: type[csv.Dialect] | None
-
-        # If any custom dialect options are set, create custom dialect
-        if (
-            self.options.delimiter
-            or self.options.quote_char
-            or self.options.escape_char
-            or self.options.double_quote is not None
-        ):
-            dialect_obj = _make_csv_dialect(
-                delimiter=self.options.delimiter or delimiter,
-                quotechar=self.options.quote_char,
-                escapechar=self.options.escape_char,
-                doublequote=self.options.double_quote,
-            )
-        elif self.options.detect_csv_dialect:
-            try:
-                sniffer = csv.Sniffer()
-                detected_dialect = sniffer.sniff(sample, delimiters=",\t;|\x1f")
-
-                # Validate the detected delimiter - ensure it produces multiple columns
-                if _validate_csv_delimiter(sample, detected_dialect):
-                    dialect_obj = detected_dialect
-                    logger.debug(f"CSV Sniffer detected and validated delimiter: {repr(detected_dialect.delimiter)}")
-                else:
-                    # Detected delimiter produces single-column output, try alternatives
-                    logger.debug(
-                        f"CSV Sniffer detected delimiter {repr(detected_dialect.delimiter)} "
-                        f"but validation failed, trying alternatives"
-                    )
-                    # Try delimiters in preference order: comma, tab, semicolon, pipe
-                    delimiter_candidates = [",", "\t", ";", "|"]
-                    dialect_obj = None
-
-                    for candidate in delimiter_candidates:
-                        test_dialect = _make_csv_dialect(delimiter=candidate)
-                        if _validate_csv_delimiter(sample, test_dialect):
-                            dialect_obj = test_dialect
-                            logger.debug(f"Alternative delimiter validated: {repr(candidate)}")
-                            break
-
-                    # If no candidate validated, fall back to detected or default
-                    if dialect_obj is None:
-                        logger.debug("No delimiter validated, using detected or default")
-                        dialect_obj = detected_dialect
-
-            except Exception as e:
-                logger.debug(f"CSV dialect detection failed: {e}, using fallback")
-                dialect_obj = _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
-        else:
-            dialect_obj = _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
-
+        # Read rows
         reader = csv.reader(text_stream, dialect=dialect_obj)
-        rows: list[list[str]] = []
+        rows = self._read_csv_rows(reader)
 
-        # Calculate maximum rows to read (header + max_rows data rows)
-        max_total_rows = None
-        if self.options.max_rows is not None:
-            # Account for header row if present
-            max_total_rows = (self.options.max_rows + 1) if self.options.has_header else self.options.max_rows
-
-        # Read rows with early termination if max_rows is set
-        row_count = 0
-        for r in reader:
-            rows.append(r)
-            row_count += 1
-            if max_total_rows is not None and row_count >= max_total_rows:
-                break
-
-        # Extract metadata (CSV/TSV have no structured metadata)
+        # Extract metadata
         metadata = self.extract_metadata(None)
-
-        # Drop leading/trailing fully empty rows
-        def is_empty(row: list[str]) -> bool:
-            return all((not (c or "").strip()) for c in row)
-
-        # Skip empty rows if requested
-        if self.options.skip_empty_rows:
-            while rows and is_empty(rows[0]):
-                rows.pop(0)
-            while rows and is_empty(rows[-1]):
-                rows.pop()
 
         if not rows:
             return Document(children=[], metadata=metadata.to_dict())
 
-        # Handle header
-        if self.options.has_header:
-            header = rows[0]
-            data_rows = rows[1:]
-        else:
-            if rows:
-                num_cols = len(rows[0]) if rows else 0
-                header = [f"Column {i + 1}" for i in range(num_cols)]
-                data_rows = rows
-            else:
-                return Document(children=[], metadata=metadata.to_dict())
+        # Process headers and data
+        header, data_rows, truncated = self._process_csv_headers_and_data(rows)
 
-        # Truncate columns
-        if self.options.max_cols is not None:
-            header = header[: self.options.max_cols]
-            data_rows = [r[: self.options.max_cols] for r in data_rows]
-
-        # Truncate rows
-        truncated = False
-        if self.options.max_rows is not None and len(data_rows) > self.options.max_rows:
-            data_rows = data_rows[: self.options.max_rows]
-            truncated = True
-
-        # Sanitize cells
-        if self.options.has_header:
-            header = [sanitize_cell_text(c).lstrip("\ufeff") for c in header]
-        else:
-            header = [sanitize_cell_text(c) for c in header]
-        data_rows = [[sanitize_cell_text(c) for c in r] for r in data_rows]
-
-        # Strip whitespace if requested
-        if self.options.strip_whitespace:
-            header = [c.strip() for c in header]
-            data_rows = [[c.strip() for c in r] for r in data_rows]
-
-        # Apply header case transformation
-        header = transform_header_case(header, self.options.header_case)
-
-        # Alignments default to center
-        alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
+        if not header:
+            return Document(children=[], metadata=metadata.to_dict())
 
         # Build table AST
+        alignments: list[Alignment] = cast(list[Alignment], ["center"] * len(header))
         table = build_table_ast(header, data_rows, alignments)
 
         children: list[Node] = [table]
-
         if truncated:
             children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))
 

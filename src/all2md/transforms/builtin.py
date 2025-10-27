@@ -52,8 +52,10 @@ Generate table of contents:
 
 from __future__ import annotations
 
+import difflib
 import re
 from datetime import datetime, timezone
+from typing import cast
 
 from all2md.ast.nodes import (
     Document,
@@ -61,15 +63,19 @@ from all2md.ast.nodes import (
     Heading,
     Image,
     Link,
+    List,
+    ListItem,
     Node,
     Paragraph,
     Text,
+    replace_node_children,
 )
 from all2md.ast.transforms import NodeTransformer
 from all2md.ast.utils import extract_text
-from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
-from all2md.transforms.hooks import HookManager
+from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS, MAX_TEXT_LENGTH_FOR_REGEX, MAX_URL_LENGTH
+from all2md.transforms.hooks import _NODE_TYPE_MAP, HookManager
 from all2md.utils.attachments import sanitize_footnote_label
+from all2md.utils.security import validate_user_regex_pattern
 from all2md.utils.text import make_unique_slug, slugify
 
 
@@ -139,10 +145,6 @@ class RemoveNodesTransform(NodeTransformer):
             if any node_type is unknown (typo detection)
 
         """
-        import difflib
-
-        from all2md.transforms.hooks import _NODE_TYPE_MAP
-
         # Validate that 'document' is not in node_types
         if "document" in node_types:
             raise ValueError(
@@ -314,8 +316,6 @@ class LinkRewriterTransform(NodeTransformer):
             If pattern contains dangerous constructs
 
         """
-        from all2md.utils.security import validate_user_regex_pattern
-
         # Validate pattern for ReDoS protection
         validate_user_regex_pattern(pattern)
 
@@ -336,8 +336,6 @@ class LinkRewriterTransform(NodeTransformer):
             Link with potentially rewritten URL
 
         """
-        from all2md.constants import MAX_URL_LENGTH
-
         # Skip rewriting for excessively long URLs to prevent excessive processing
         # Preserve the original URL instead of truncating (prevents data loss)
         if len(node.url) > MAX_URL_LENGTH:
@@ -580,8 +578,6 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
             If any user-supplied pattern contains dangerous constructs
 
         """
-        from all2md.utils.security import validate_user_regex_pattern
-
         self.patterns = patterns if patterns is not None else DEFAULT_BOILERPLATE_PATTERNS
         self.skip_if_truncated = skip_if_truncated
 
@@ -606,8 +602,6 @@ class RemoveBoilerplateTextTransform(NodeTransformer):
             None if matches boilerplate, otherwise paragraph
 
         """
-        from all2md.constants import MAX_TEXT_LENGTH_FOR_REGEX
-
         # Extract text from paragraph (no joiner to match exact text)
         text = extract_text(node.content, joiner="")
 
@@ -1187,7 +1181,6 @@ class GenerateTocTransform(NodeTransformer):
         # Second pass: if set_ids_if_missing is True, inject IDs into headings
         if self.set_ids_if_missing and self._heading_id_map:
             # Create a new document with updated headings
-            from typing import cast
 
             node = cast(Document, self._inject_heading_ids(node))
 
@@ -1318,7 +1311,6 @@ class GenerateTocTransform(NodeTransformer):
             else:
                 # For other node types, try to update children if they have that attribute
                 if hasattr(node, "children"):
-                    from all2md.ast.nodes import replace_node_children
 
                     return replace_node_children(node, new_children)
 
@@ -1373,10 +1365,7 @@ class GenerateTocTransform(NodeTransformer):
             (List node or None if no items, next index to process)
 
         """
-        from all2md.ast.nodes import List as ListNode
-        from all2md.ast.nodes import ListItem as ListItemNode
-
-        items: list[ListItemNode] = []
+        items: list[ListItem] = []
         idx = start_idx
 
         while idx < len(self._headings):
@@ -1409,12 +1398,12 @@ class GenerateTocTransform(NodeTransformer):
                 else:
                     idx += 1
 
-                items.append(ListItemNode(children=item_content))
+                items.append(ListItem(children=item_content))
             else:
                 # Skip deeper nested items (they'll be handled recursively)
                 idx += 1
 
-        result_list = None if not items else ListNode(ordered=False, items=items, tight=False)
+        result_list = None if not items else List(ordered=False, items=items, tight=False)
         return (result_list, idx)
 
 

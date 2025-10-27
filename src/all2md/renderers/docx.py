@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union
 from urllib.parse import urlparse
@@ -194,8 +195,6 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             If DOCX generation fails
 
         """
-        from io import BytesIO
-
         # Create a BytesIO buffer and render to it
         buffer = BytesIO()
         self.render(doc, buffer)

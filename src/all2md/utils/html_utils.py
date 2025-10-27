@@ -5,6 +5,8 @@ from __future__ import annotations
 from html import escape as _html_escape
 from typing import TYPE_CHECKING, Literal
 
+from all2md.utils.html_sanitizer import sanitize_html_content
+
 if TYPE_CHECKING:
     pass
 
@@ -61,9 +63,6 @@ def render_math_html(
     elif notation == "mathml":
         # MathML content must be sanitized to prevent XSS when escape_enabled=True
         if escape_enabled:
-            # Import at runtime to avoid circular dependency
-            from all2md.utils.html_sanitizer import sanitize_html_content
-
             # Sanitize MathML to remove dangerous elements/attributes
             inner = sanitize_html_content(content, mode="sanitize")
             # If content doesn't look like MathML after sanitization, wrap it

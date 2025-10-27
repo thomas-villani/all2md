@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Any, Dict, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, List, Optional, Tuple, Union, cast
 
 from all2md.ast import Document
 from all2md.ast.nodes import CodeBlock, Comment, CommentInline, Image, Node
@@ -63,9 +64,6 @@ class IpynbRenderer(BaseRenderer):
             return
 
         # Handle both binary and text streams
-        import io
-        from typing import cast
-
         if isinstance(output, (io.BytesIO, io.BufferedWriter)) or (
             hasattr(output, "mode") and "b" in getattr(output, "mode", "")
         ):

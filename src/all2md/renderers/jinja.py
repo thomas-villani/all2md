@@ -12,6 +12,10 @@ import logging
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Union, cast
 
+from all2md.renderers.html import HtmlRenderer
+from all2md.renderers.markdown import MarkdownRenderer
+from all2md.renderers.plaintext import PlainTextRenderer
+
 if TYPE_CHECKING:
     from jinja2 import Environment, Template
 
@@ -558,22 +562,15 @@ class JinjaRenderer(BaseRenderer):
         format_type = self.options.default_render_format
 
         # Create a minimal document with just this node
-        from all2md.ast import Document as DocNode
 
-        temp_doc = DocNode(children=[node] if hasattr(node, "accept") else [])
+        temp_doc = Document(children=[node] if hasattr(node, "accept") else [])
 
         try:
             if format_type == "markdown":
-                from all2md.renderers.markdown import MarkdownRenderer
-
                 return MarkdownRenderer().render_to_string(temp_doc).strip()
             elif format_type == "plain":
-                from all2md.renderers.plaintext import PlainTextRenderer
-
                 return PlainTextRenderer().render_to_string(temp_doc).strip()
             else:  # format_type == "html"
-                from all2md.renderers.html import HtmlRenderer
-
                 return HtmlRenderer().render_to_string(temp_doc).strip()
         except Exception as e:
             logger.warning(f"Failed to render node {type(node).__name__}: {e}")

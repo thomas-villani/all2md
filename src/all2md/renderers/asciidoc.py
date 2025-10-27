@@ -11,6 +11,8 @@ for controlling output format.
 
 from __future__ import annotations
 
+import logging
+import textwrap
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -53,6 +55,8 @@ from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.escape import escape_asciidoc, escape_asciidoc_attribute
 from all2md.utils.footnotes import FootnoteCollector
 from all2md.utils.html_sanitizer import sanitize_html_content
+
+logger = logging.getLogger(__name__)
 
 
 class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
@@ -243,8 +247,6 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if width <= 0:
             return text
-
-        import textwrap
 
         # Split on hard breaks first to preserve them
         hard_break_marker = " +"
@@ -969,10 +971,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(f"footnote:{canonical_id}[{footnote_text}]")
             else:
                 # No definition found, just emit the reference
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.warning(f"Footnote reference '{canonical_id}' has no definition", stacklevel=2)
+                logger.debug(f"Footnote reference '{canonical_id}' has no definition", stacklevel=2)
                 self._output.append(f"footnote:{canonical_id}[]")
 
             self._footnotes_emitted.add(canonical_id)

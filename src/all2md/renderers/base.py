@@ -12,6 +12,7 @@ into various output formats.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from io import BytesIO
 from pathlib import Path
 from typing import IO, Any, Dict, Mapping, Union
 
@@ -158,8 +159,6 @@ class BaseRenderer(ABC):
             >>> assert content.startswith(b'PK')  # DOCX is a ZIP file
 
         """
-        from io import BytesIO
-
         buffer = BytesIO()
         try:
             self.render(doc, buffer)

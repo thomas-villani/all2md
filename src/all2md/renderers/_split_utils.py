@@ -10,10 +10,7 @@ strategies. Used by EPUB and PPTX renderers.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from all2md.ast.nodes import Document, Heading, Node
+from all2md.ast.nodes import Document, Heading, Node, Text, ThematicBreak
 
 
 def split_ast_by_separator(doc: Document) -> list[list[Node]]:
@@ -51,8 +48,6 @@ def split_ast_by_separator(doc: Document) -> list[list[Node]]:
     in the output chunks.
 
     """
-    from all2md.ast.nodes import ThematicBreak
-
     chunks: list[list[Node]] = []
     current_chunk: list[Node] = []
 
@@ -114,8 +109,6 @@ def split_ast_by_heading(doc: Document, heading_level: int = 1) -> list[tuple[He
     for titles while rendering content separately.
 
     """
-    from all2md.ast.nodes import Heading
-
     chunks: list[tuple[Heading | None, list[Node]]] = []
     current_heading: Heading | None = None
     current_chunk: list[Node] = []
@@ -189,8 +182,6 @@ def auto_split_ast(doc: Document, heading_level: int = 1) -> list[tuple[Heading 
     for consistency, even when using separator-based splitting.
 
     """
-    from all2md.ast.nodes import ThematicBreak
-
     # Check if document contains any ThematicBreak nodes
     has_separators = any(isinstance(node, ThematicBreak) for node in doc.children)
 
@@ -228,8 +219,6 @@ def extract_heading_text(heading: Heading | None) -> str:
     'Chapter One'
 
     """
-    from all2md.ast.nodes import Text
-
     if heading is None:
         return ""
 

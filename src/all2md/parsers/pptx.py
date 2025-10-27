@@ -1091,6 +1091,194 @@ class PptxToAstConverter(BaseParser):
 
         return notes_nodes
 
+    def _open_pptx_as_zip(
+        self, input_data: Union[str, Path, IO[bytes], bytes]
+    ) -> tuple[zipfile.ZipFile | None, str | None]:
+        """Open PPTX input data as a ZipFile.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            PPTX input data
+
+        Returns
+        -------
+        tuple[zipfile.ZipFile | None, str | None]
+            Tuple of (zip_file, temp_file_path). temp_file_path is set if a temp file was created.
+
+        """
+        zip_file: zipfile.ZipFile | None = None
+        temp_file_path: str | None = None
+
+        if isinstance(input_data, (str, Path)):
+            # File path - open directly
+            zip_file = zipfile.ZipFile(str(input_data), "r")
+        elif isinstance(input_data, bytes):
+            # Bytes - write to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as temp_file:
+                temp_file.write(input_data)
+                temp_file_path = temp_file.name
+            zip_file = zipfile.ZipFile(temp_file_path, "r")
+        elif hasattr(input_data, "read"):
+            # File-like object - write to temp file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as temp_file:
+                temp_file.write(input_data.read())
+                temp_file_path = temp_file.name
+                # Reset the file pointer if possible
+                if hasattr(input_data, "seek"):
+                    try:
+                        input_data.seek(0)
+                    except Exception:
+                        pass
+            zip_file = zipfile.ZipFile(temp_file_path, "r")
+
+        return zip_file, temp_file_path
+
+    def _parse_comment_authors(self, zip_file: zipfile.ZipFile, namespaces: dict[str, str]) -> dict[str, str]:
+        """Parse comment authors from PPTX ZIP file.
+
+        Parameters
+        ----------
+        zip_file : zipfile.ZipFile
+            Open PPTX ZIP file
+        namespaces : dict[str, str]
+            XML namespaces
+
+        Returns
+        -------
+        dict[str, str]
+            Mapping of author IDs to author names
+
+        """
+        authors_map: dict[str, str] = {}
+        try:
+            if "ppt/commentAuthors.xml" in zip_file.namelist():
+                authors_xml = zip_file.read("ppt/commentAuthors.xml")
+                authors_root = ET.fromstring(authors_xml)
+
+                # Parse author elements
+                for author_elem in authors_root.findall(".//p:cmAuthor", namespaces):
+                    author_id = author_elem.get("id")
+                    author_name = author_elem.get("name")
+                    if author_id and author_name:
+                        authors_map[author_id] = author_name
+        except Exception as e:
+            logger.debug(f"Failed to parse comment authors: {e}")
+
+        return authors_map
+
+    def _parse_slide_comments(
+        self,
+        zip_file: zipfile.ZipFile,
+        filename: str,
+        authors_map: dict[str, str],
+        namespaces: dict[str, str],
+    ) -> tuple[int | None, list[Comment]]:
+        """Parse comments from a single slide's comment file.
+
+        Parameters
+        ----------
+        zip_file : zipfile.ZipFile
+            Open PPTX ZIP file
+        filename : str
+            Comment file path within ZIP
+        authors_map : dict[str, str]
+            Mapping of author IDs to names
+        namespaces : dict[str, str]
+            XML namespaces
+
+        Returns
+        -------
+        tuple[int | None, list[Comment]]
+            Tuple of (slide_number, comments). Returns (None, []) on error.
+
+        """
+        try:
+            # Extract slide number from filename
+            slide_num_str = filename.replace("ppt/comments/comment", "").replace(".xml", "")
+            slide_number = int(slide_num_str)
+
+            # Parse comment XML
+            comment_xml = zip_file.read(filename)
+            comment_root = ET.fromstring(comment_xml)
+
+            # Extract comments from this slide
+            slide_comments: list[Comment] = []
+            for cm_elem in comment_root.findall(".//p:cm", namespaces):
+                comment_node = self._create_comment_node(cm_elem, slide_number, authors_map, namespaces)
+                if comment_node:
+                    slide_comments.append(comment_node)
+
+            return slide_number, slide_comments
+
+        except Exception as e:
+            logger.debug(f"Failed to parse comments from {filename}: {e}")
+            return None, []
+
+    def _create_comment_node(
+        self,
+        cm_elem: Any,
+        slide_number: int,
+        authors_map: dict[str, str],
+        namespaces: dict[str, str],
+    ) -> Comment | None:
+        """Create a Comment node from XML element.
+
+        Parameters
+        ----------
+        cm_elem : Any
+            Comment XML element
+        slide_number : int
+            Slide number (1-based)
+        authors_map : dict[str, str]
+            Mapping of author IDs to names
+        namespaces : dict[str, str]
+            XML namespaces
+
+        Returns
+        -------
+        Comment | None
+            Comment node, or None if creation fails
+
+        """
+        # Extract comment attributes
+        comment_id = cm_elem.get("idx") or cm_elem.get("id")
+        author_id = cm_elem.get("authorId")
+        date_time = cm_elem.get("dt")
+
+        # Extract comment text
+        text_elem = cm_elem.find(".//p:text", namespaces)
+        comment_text = text_elem.text if text_elem is not None and text_elem.text else ""
+
+        # Get author name from map
+        author_name = authors_map.get(author_id, f"Author {author_id}") if author_id else "Unknown"
+
+        # Create Comment metadata
+        comment_metadata: dict[str, Any] = {
+            "comment_type": "pptx_comment",
+            "slide_number": slide_number,
+        }
+
+        if author_name:
+            comment_metadata["author"] = author_name
+        if date_time:
+            comment_metadata["date"] = date_time
+        if comment_id:
+            comment_metadata["identifier"] = comment_id
+
+        # Extract position if available
+        pos_elem = cm_elem.find(".//p:pos", namespaces)
+        if pos_elem is not None:
+            x_pos = pos_elem.get("x")
+            y_pos = pos_elem.get("y")
+            if x_pos and y_pos:
+                comment_metadata["position"] = {"x": x_pos, "y": y_pos}
+
+        return Comment(
+            content=comment_text.strip() if comment_text else "",
+            metadata=comment_metadata,
+        )
+
     def _extract_pptx_comments(self, input_data: Union[str, Path, IO[bytes], bytes]) -> dict[int, list[Comment]]:
         """Extract PowerPoint comments from PPTX ZIP archive.
 
@@ -1118,34 +1306,10 @@ class PptxToAstConverter(BaseParser):
         """
         comments_by_slide: dict[int, list[Comment]] = {}
 
-        # We need to access the PPTX as a ZIP file
-        # Handle different input types
         try:
-            zip_file: zipfile.ZipFile | None = None
-            temp_file_path: str | None = None
-
-            if isinstance(input_data, (str, Path)):
-                # File path - open directly
-                zip_file = zipfile.ZipFile(str(input_data), "r")
-            elif isinstance(input_data, bytes):
-                # Bytes - write to temp file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as temp_file:
-                    temp_file.write(input_data)
-                    temp_file_path = temp_file.name
-                zip_file = zipfile.ZipFile(temp_file_path, "r")
-            elif hasattr(input_data, "read"):
-                # File-like object - write to temp file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pptx") as temp_file:
-                    temp_file.write(input_data.read())
-                    temp_file_path = temp_file.name
-                    # Reset the file pointer if possible
-                    if hasattr(input_data, "seek"):
-                        try:
-                            input_data.seek(0)
-                        except Exception:
-                            pass
-                zip_file = zipfile.ZipFile(temp_file_path, "r")
-            else:
+            # Open PPTX as ZIP file
+            zip_file, temp_file_path = self._open_pptx_as_zip(input_data)
+            if not zip_file:
                 logger.debug("Unsupported input type for comment extraction")
                 return comments_by_slide
 
@@ -1155,84 +1319,17 @@ class PptxToAstConverter(BaseParser):
                 "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
             }
 
-            # Step 1: Parse comment authors
-            authors_map: dict[str, str] = {}
-            try:
-                if "ppt/commentAuthors.xml" in zip_file.namelist():
-                    authors_xml = zip_file.read("ppt/commentAuthors.xml")
-                    authors_root = ET.fromstring(authors_xml)
+            # Parse comment authors
+            authors_map = self._parse_comment_authors(zip_file, namespaces)
 
-                    # Parse author elements
-                    for author_elem in authors_root.findall(".//p:cmAuthor", namespaces):
-                        author_id = author_elem.get("id")
-                        author_name = author_elem.get("name")
-                        if author_id and author_name:
-                            authors_map[author_id] = author_name
-            except Exception as e:
-                logger.debug(f"Failed to parse comment authors: {e}")
-
-            # Step 2: Parse comments for each slide
+            # Parse comments for each slide
             for filename in zip_file.namelist():
-                # Look for comment files: ppt/comments/comment1.xml, comment2.xml, etc.
                 if filename.startswith("ppt/comments/comment") and filename.endswith(".xml"):
-                    try:
-                        # Extract slide number from filename
-                        # Format: ppt/comments/commentN.xml where N is the slide number
-                        slide_num_str = filename.replace("ppt/comments/comment", "").replace(".xml", "")
-                        slide_number = int(slide_num_str)
-
-                        # Parse comment XML
-                        comment_xml = zip_file.read(filename)
-                        comment_root = ET.fromstring(comment_xml)
-
-                        # Extract comments from this slide
-                        slide_comments: list[Comment] = []
-                        for cm_elem in comment_root.findall(".//p:cm", namespaces):
-                            # Extract comment attributes
-                            comment_id = cm_elem.get("idx") or cm_elem.get("id")
-                            author_id = cm_elem.get("authorId")
-                            date_time = cm_elem.get("dt")
-
-                            # Extract comment text
-                            text_elem = cm_elem.find(".//p:text", namespaces)
-                            comment_text = text_elem.text if text_elem is not None and text_elem.text else ""
-
-                            # Get author name from map
-                            author_name = authors_map.get(author_id, f"Author {author_id}") if author_id else "Unknown"
-
-                            # Create Comment node
-                            comment_metadata: dict[str, Any] = {
-                                "comment_type": "pptx_comment",
-                                "slide_number": slide_number,
-                            }
-
-                            if author_name:
-                                comment_metadata["author"] = author_name
-                            if date_time:
-                                comment_metadata["date"] = date_time
-                            if comment_id:
-                                comment_metadata["identifier"] = comment_id
-
-                            # Extract position if available
-                            pos_elem = cm_elem.find(".//p:pos", namespaces)
-                            if pos_elem is not None:
-                                x_pos = pos_elem.get("x")
-                                y_pos = pos_elem.get("y")
-                                if x_pos and y_pos:
-                                    comment_metadata["position"] = {"x": x_pos, "y": y_pos}
-
-                            comment_node = Comment(
-                                content=comment_text.strip() if comment_text else "",
-                                metadata=comment_metadata,
-                            )
-                            slide_comments.append(comment_node)
-
-                        if slide_comments:
-                            comments_by_slide[slide_number] = slide_comments
-
-                    except Exception as e:
-                        logger.debug(f"Failed to parse comments from {filename}: {e}")
-                        continue
+                    slide_number, slide_comments = self._parse_slide_comments(
+                        zip_file, filename, authors_map, namespaces
+                    )
+                    if slide_number is not None and slide_comments:
+                        comments_by_slide[slide_number] = slide_comments
 
             zip_file.close()
 

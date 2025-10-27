@@ -1481,7 +1481,129 @@ def _omml_find_child(element: Any, name: str) -> Any | None:
     return None
 
 
+def _omml_handle_container(element: Any) -> str:
+    """Handle container elements that just concatenate children."""
+    return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
+
+
+def _omml_handle_text(element: Any) -> str:
+    """Handle text elements."""
+    return (getattr(element, "text", "") or "").strip()
+
+
+def _omml_handle_fraction(element: Any) -> str:
+    """Handle fraction elements (f)."""
+    numerator = _omml_to_latex(_omml_find_child(element, "num"))
+    denominator = _omml_to_latex(_omml_find_child(element, "den"))
+    if numerator and denominator:
+        return f"\\frac{{{numerator}}}{{{denominator}}}"
+    return numerator or denominator
+
+
+def _omml_handle_superscript(element: Any) -> str:
+    """Handle superscript elements (sSup)."""
+    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+    sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
+    if base_expr and sup_expr:
+        return f"{base_expr}^{{{sup_expr}}}"
+    return base_expr or sup_expr
+
+
+def _omml_handle_subscript(element: Any) -> str:
+    """Handle subscript elements (sSub)."""
+    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+    sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
+    if base_expr and sub_expr:
+        return f"{base_expr}_{{{sub_expr}}}"
+    return base_expr or sub_expr
+
+
+def _omml_handle_subsuperscript(element: Any) -> str:
+    """Handle combined subscript and superscript elements (sSubSup)."""
+    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+    sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
+    sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
+    if base_expr:
+        if sub_expr:
+            base_expr = f"{base_expr}_{{{sub_expr}}}"
+        if sup_expr:
+            base_expr = f"{base_expr}^{{{sup_expr}}}"
+        return base_expr
+    return sub_expr or sup_expr
+
+
+def _omml_handle_radical(element: Any) -> str:
+    """Handle radical elements (rad)."""
+    base_expr = _omml_to_latex(_omml_find_child(element, "base"))
+    degree_expr = _omml_to_latex(_omml_find_child(element, "deg"))
+    if base_expr and degree_expr:
+        return f"\\sqrt[{degree_expr}]{{{base_expr}}}"
+    if base_expr:
+        return f"\\sqrt{{{base_expr}}}"
+    return base_expr
+
+
+def _omml_handle_nary(element: Any) -> str:
+    """Handle n-ary operator elements (nary)."""
+    char_node = _omml_find_child(element, "chr")
+    symbol = "\\sum"
+    if char_node is not None:
+        symbol = char_node.get(f"{MATH_TAG_PREFIX}val", symbol) or symbol
+    sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
+    sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
+    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
+    result = symbol
+    if sub_expr:
+        result += f"_{{{sub_expr}}}"
+    if sup_expr:
+        result += f"^{{{sup_expr}}}"
+    if base_expr:
+        result += base_expr
+    return result
+
+
+def _omml_handle_default(element: Any) -> str:
+    """Handle default elements by concatenating text, children, and tail."""
+    text = (getattr(element, "text", "") or "").strip()
+    children_text = "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
+    tail = (getattr(element, "tail", "") or "").strip()
+    return (text + children_text + tail).strip()
+
+
+_OMML_HANDLERS: dict[str, Any] = {
+    "oMathPara": lambda el: _omml_handle_container(el).strip(),
+    "oMath": lambda el: _omml_handle_container(el).strip(),
+    "r": _omml_handle_container,
+    "t": _omml_handle_text,
+    "f": _omml_handle_fraction,
+    "num": _omml_handle_container,
+    "den": _omml_handle_container,
+    "e": _omml_handle_container,
+    "base": _omml_handle_container,
+    "sup": _omml_handle_container,
+    "sub": _omml_handle_container,
+    "sSup": _omml_handle_superscript,
+    "sSub": _omml_handle_subscript,
+    "sSubSup": _omml_handle_subsuperscript,
+    "rad": _omml_handle_radical,
+    "nary": _omml_handle_nary,
+}
+
+
 def _omml_to_latex(element: Any) -> str:
+    """Convert Office Math Markup Language (OMML) element to LaTeX.
+
+    Parameters
+    ----------
+    element : Any
+        OMML element to convert
+
+    Returns
+    -------
+    str
+        LaTeX representation of the element
+
+    """
     if element is None:
         return ""
 
@@ -1489,81 +1611,9 @@ def _omml_to_latex(element: Any) -> str:
     if not name:
         return ""
 
-    if name in {"oMathPara", "oMath"}:
-        return "".join(_omml_to_latex(child) for child in _iter_omml_children(element)).strip()
-
-    if name == "r":
-        return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
-
-    if name == "t":
-        return (getattr(element, "text", "") or "").strip()
-
-    if name == "f":
-        numerator = _omml_to_latex(_omml_find_child(element, "num"))
-        denominator = _omml_to_latex(_omml_find_child(element, "den"))
-        if numerator and denominator:
-            return f"\\frac{{{numerator}}}{{{denominator}}}"
-        return numerator or denominator
-
-    if name in {"num", "den", "e", "base", "sup", "sub"}:
-        return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
-
-    if name == "sSup":
-        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-        sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
-        if base_expr and sup_expr:
-            return f"{base_expr}^{{{sup_expr}}}"
-        return base_expr or sup_expr
-
-    if name == "sSub":
-        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-        sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
-        if base_expr and sub_expr:
-            return f"{base_expr}_{{{sub_expr}}}"
-        return base_expr or sub_expr
-
-    if name == "sSubSup":
-        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-        sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
-        sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
-        if base_expr:
-            if sub_expr:
-                base_expr = f"{base_expr}_{{{sub_expr}}}"
-            if sup_expr:
-                base_expr = f"{base_expr}^{{{sup_expr}}}"
-            return base_expr
-        return sub_expr or sup_expr
-
-    if name == "rad":
-        base_expr = _omml_to_latex(_omml_find_child(element, "base"))
-        degree_expr = _omml_to_latex(_omml_find_child(element, "deg"))
-        if base_expr and degree_expr:
-            return f"\\sqrt[{degree_expr}]{{{base_expr}}}"
-        if base_expr:
-            return f"\\sqrt{{{base_expr}}}"
-        return base_expr
-
-    if name == "nary":
-        char_node = _omml_find_child(element, "chr")
-        symbol = "\\sum"
-        if char_node is not None:
-            symbol = char_node.get(f"{MATH_TAG_PREFIX}val", symbol) or symbol
-        sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
-        sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
-        base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-        result = symbol
-        if sub_expr:
-            result += f"_{{{sub_expr}}}"
-        if sup_expr:
-            result += f"^{{{sup_expr}}}"
-        if base_expr:
-            result += base_expr
-        return result
-
-    text = (getattr(element, "text", "") or "").strip()
-    children_text = "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
-    tail = (getattr(element, "tail", "") or "").strip()
-    return (text + children_text + tail).strip()
+    # Dispatch to handler function
+    handler = _OMML_HANDLERS.get(name, _omml_handle_default)
+    return handler(element)
 
 
 def _iter_block_items(

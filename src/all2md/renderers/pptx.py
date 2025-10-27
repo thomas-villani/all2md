@@ -16,6 +16,7 @@ content to PowerPoint shapes, and assembles a complete presentation.
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -178,8 +179,6 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             ) from e
         finally:
             # Clean up temporary files
-            import os
-
             for temp_file in self._temp_files:
                 try:
                     if os.path.exists(temp_file):

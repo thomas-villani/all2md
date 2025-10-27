@@ -983,133 +983,92 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
         raise argparse.ArgumentTypeError(f"Error reading merge list from {source_desc}: {e}") from e
 
 
-def process_merge_from_list(
-    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
-) -> int:
-    """Process files from a list file and merge them into a single document.
+def _merge_single_entry(
+    file_path: Path,
+    section_title: Optional[str],
+    options: Dict[str, Any],
+    format_arg: str,
+    no_section_titles: bool,
+    progress_cb: Optional[Any] = None,
+) -> tuple[list, int, Optional[str]]:
+    """Process a single file for merging.
 
     Parameters
     ----------
-    args : argparse.Namespace
-        Command-line arguments containing merge-from-list settings
+    file_path : Path
+        Path to file to process
+    section_title : Optional[str]
+        Optional section title
     options : Dict[str, Any]
         Conversion options
     format_arg : str
         Format specification
-    transforms : list, optional
-        List of transform instances to apply
+    no_section_titles : bool
+        Whether to skip section titles
+    progress_cb : ProgressCallback, optional
+        Optional progress callback
 
     Returns
     -------
-    int
-        Exit code (0 for success, highest error code otherwise)
+    tuple[list, int, Optional[str]]
+        Tuple of (children nodes, exit code, error message)
 
     """
-    # Parse the list file (or stdin if '-')
     try:
-        list_path_arg = args.merge_from_list
-        separator = args.list_separator if hasattr(args, "list_separator") else "\t"
+        # Convert file to AST
+        effective_options = prepare_options_for_execution(
+            options,
+            file_path,
+            format_arg,
+        )
 
-        # Pass as string to preserve '-' for stdin detection
-        entries = parse_merge_list(list_path_arg, separator=separator)
+        doc = to_ast(
+            file_path,
+            source_format=cast(DocumentFormat, format_arg),
+            progress_callback=progress_cb,
+            **effective_options,
+        )
+
+        children = []
+        # Add section title if provided and not disabled
+        if section_title and not no_section_titles:
+            section_heading = Heading(level=1, content=[Text(content=section_title)])
+            children.append(section_heading)
+
+        # Add all children from this document
+        children.extend(doc.children)
+
+        return children, EXIT_SUCCESS, None
+
     except Exception as e:
-        print(f"Error parsing merge list: {e}", file=sys.stderr)
-        return EXIT_INPUT_ERROR
+        exit_code = get_exit_code_for_exception(e)
+        error_msg = str(e)
+        if isinstance(e, ImportError):
+            error_msg = f"Missing dependency: {e}"
+        elif not isinstance(e, All2MdError):
+            error_msg = f"Unexpected error: {e}"
 
-    # Prepare for merging
-    merged_children: list = []
-    failed: list = []
-    max_exit_code = EXIT_SUCCESS
+        return [], exit_code, error_msg
 
-    # Determine if we should show progress
-    show_progress = args.progress or args.rich or len(entries) > 1
 
-    # Helper function to process a single file
-    def process_entry(file_path: Path, section_title: Optional[str], progress_cb: Optional[Any] = None) -> int:
-        """Process a single file for merging.
+def _apply_document_transforms(merged_doc: Document, args: argparse.Namespace, transforms: Optional[list]) -> Document:
+    """Apply TOC generation and additional transforms to merged document.
 
-        Parameters
-        ----------
-        file_path : Path
-            Path to file to process
-        section_title : Optional[str]
-            Optional section title
-        progress_cb : ProgressCallback, optional
-            Optional progress callback
+    Parameters
+    ----------
+    merged_doc : Document
+        Merged document to transform
+    args : argparse.Namespace
+        Command-line arguments
+    transforms : list, optional
+        List of transform instances
 
-        Returns
-        -------
-        int
-            Exit code (0 for success)
+    Returns
+    -------
+    Document
+        Transformed document
 
-        """
-        nonlocal max_exit_code
-
-        try:
-            # Convert file to AST
-            effective_options = prepare_options_for_execution(
-                options,
-                file_path,
-                format_arg,
-            )
-
-            doc = to_ast(
-                file_path,
-                source_format=cast(DocumentFormat, format_arg),
-                progress_callback=progress_cb,
-                **effective_options,
-            )
-
-            # Add section title if provided and not disabled
-            if section_title and not args.no_section_titles:
-                # Insert section heading at the beginning
-                section_heading = Heading(level=1, content=[Text(content=section_title)])
-                merged_children.append(section_heading)
-
-            # Add all children from this document
-            merged_children.extend(doc.children)
-
-            return EXIT_SUCCESS
-
-        except Exception as e:
-            exit_code = get_exit_code_for_exception(e)
-            error_msg = str(e)
-            if isinstance(e, ImportError):
-                error_msg = f"Missing dependency: {e}"
-            elif not isinstance(e, All2MdError):
-                error_msg = f"Unexpected error: {e}"
-
-            failed.append((file_path, error_msg))
-            max_exit_code = max(max_exit_code, exit_code)
-            return exit_code
-
-    use_rich = args.rich
-    with ProgressContext(use_rich, show_progress, len(entries), "Merging files from list") as progress:
-        # Create progress callback wrapper
-        progress_callback = create_progress_context_callback(progress) if show_progress else None
-
-        for file_path, section_title in entries:
-            progress.set_postfix(f"Processing {file_path.name}")
-            exit_code = process_entry(file_path, section_title, progress_callback)
-
-            if exit_code == EXIT_SUCCESS:
-                progress.log(f"[OK] Processed {file_path}", level="success")
-            else:
-                error_msg = failed[-1][1] if failed else "Unknown error"
-                progress.log(f"[ERROR] {file_path}: {error_msg}", level="error")
-                if not args.skip_errors:
-                    break
-
-            progress.update()
-
-    # If all files failed, return error
-    if not merged_children:
-        print("Error: No files were successfully processed", file=sys.stderr)
-        return max_exit_code or EXIT_INPUT_ERROR
-
-    # Create merged document
-    merged_doc = Document(children=merged_children)
-
+    """
     # Apply TOC generation if requested
     if args.generate_toc:
         # First, add heading IDs if they don't exist
@@ -1135,30 +1094,69 @@ def process_merge_from_list(
             assert isinstance(transformed, Document), "Transform should return Document"
             merged_doc = transformed
 
-    # Determine output path
-    output_path: Optional[Path] = None
-    if args.out:
-        output_path = Path(args.out)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+    return merged_doc
 
-    # Determine target format (infer from filename or use explicit --output-format)
+
+def _determine_output_format(args: argparse.Namespace, output_path: Optional[Path]) -> str:
+    """Determine target output format from args and output path.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments
+    output_path : Optional[Path]
+        Output path if specified
+
+    Returns
+    -------
+    str
+        Target format string
+
+    """
     # Check if output_format was explicitly provided by user
     provided_args: set[str] = getattr(args, "_provided_args", set())
     if "output_format" in provided_args:
-        target_format = args.output_format
-    else:
-        target_format = "auto"
+        return args.output_format
 
-    if target_format == "auto":
-        if output_path:
-            try:
-                detected_target = registry.detect_format(output_path)
-                target_format = detected_target if detected_target != "txt" else "markdown"
-            except Exception:
-                target_format = "markdown"
-        else:
-            target_format = "markdown"
+    # Auto-detect from output path
+    if output_path:
+        try:
+            detected_target = registry.detect_format(output_path)
+            return detected_target if detected_target != "txt" else "markdown"
+        except Exception:
+            return "markdown"
 
+    return "markdown"
+
+
+def _write_merged_output(
+    merged_doc: Document,
+    target_format: str,
+    output_path: Optional[Path],
+    options: Dict[str, Any],
+    format_arg: str,
+) -> Optional[Any]:
+    """Render and write merged document to output.
+
+    Parameters
+    ----------
+    merged_doc : Document
+        Merged document to render
+    target_format : str
+        Target format for rendering
+    output_path : Optional[Path]
+        Output path if specified
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Format specification
+
+    Returns
+    -------
+    Optional[Any]
+        Rendered result if output to stdout, None if written to file
+
+    """
     # Prepare renderer options
     render_options = prepare_options_for_execution(
         options,
@@ -1168,31 +1166,116 @@ def process_merge_from_list(
     )
     render_options.pop("remote_input_options", None)
 
-    # Render the merged document to the target format
+    # Render the merged document
+    result = from_ast(
+        merged_doc,
+        target_format=cast(DocumentFormat, target_format),
+        output=output_path,
+        transforms=None,
+        **render_options,
+    )
+
+    # Handle output to stdout
+    if result is not None and output_path is None:
+        if isinstance(result, bytes):
+            sys.stdout.buffer.write(result)
+            sys.stdout.buffer.flush()
+        else:
+            print(result)
+    elif output_path is None and result is None:
+        print("", end="")
+
+    return result
+
+
+def process_merge_from_list(
+    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
+) -> int:
+    """Process files from a list file and merge them into a single document.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments containing merge-from-list settings
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Format specification
+    transforms : list, optional
+        List of transform instances to apply
+
+    Returns
+    -------
+    int
+        Exit code (0 for success, highest error code otherwise)
+
+    """
+    # Parse the list file
     try:
-        result = from_ast(
-            merged_doc,
-            target_format=cast(DocumentFormat, target_format),
-            output=output_path,
-            transforms=None,
-            **render_options,
-        )
+        list_path_arg = args.merge_from_list
+        separator = args.list_separator if hasattr(args, "list_separator") else "\t"
+        entries = parse_merge_list(list_path_arg, separator=separator)
+    except Exception as e:
+        print(f"Error parsing merge list: {e}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
 
-        # Handle output
-        if result is not None and output_path is None:
-            if isinstance(result, bytes):
-                sys.stdout.buffer.write(result)
-                sys.stdout.buffer.flush()
+    # Process entries with progress tracking
+    merged_children: list = []
+    failed: list = []
+    max_exit_code = EXIT_SUCCESS
+
+    show_progress = args.progress or args.rich or len(entries) > 1
+    use_rich = args.rich
+
+    with ProgressContext(use_rich, show_progress, len(entries), "Merging files from list") as progress:
+        progress_callback = create_progress_context_callback(progress) if show_progress else None
+
+        for file_path, section_title in entries:
+            progress.set_postfix(f"Processing {file_path.name}")
+
+            children, exit_code, error_msg = _merge_single_entry(
+                file_path, section_title, options, format_arg, args.no_section_titles, progress_callback
+            )
+
+            if exit_code == EXIT_SUCCESS:
+                merged_children.extend(children)
+                progress.log(f"[OK] Processed {file_path}", level="success")
             else:
-                print(result)
-        elif output_path is None and result is None:
-            print("", end="")
+                failed.append((file_path, error_msg))
+                max_exit_code = max(max_exit_code, exit_code)
+                progress.log(f"[ERROR] {file_path}: {error_msg}", level="error")
+                if not args.skip_errors:
+                    break
 
+            progress.update()
+
+    # Check if any files were successfully processed
+    if not merged_children:
+        print("Error: No files were successfully processed", file=sys.stderr)
+        return max_exit_code or EXIT_INPUT_ERROR
+
+    # Create and transform merged document
+    merged_doc = Document(children=merged_children)
+    merged_doc = _apply_document_transforms(merged_doc, args, transforms)
+
+    # Determine output path and format
+    output_path: Optional[Path] = None
+    if args.out:
+        output_path = Path(args.out)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    target_format = _determine_output_format(args, output_path)
+
+    # Render and write output
+    try:
+        _write_merged_output(merged_doc, target_format, output_path, options, format_arg)
+
+        # Print success message
         quiet = getattr(args, "quiet", False)
         if output_path and not quiet:
             print(f"Successfully merged {len(entries)} files to {output_path}")
 
-        # Print warnings for failed files if any
+        # Print warnings for failed files
         if failed and not quiet:
             print(f"\nWarning: {len(failed)} file(s) failed to process:", file=sys.stderr)
             for file_path, error in failed:

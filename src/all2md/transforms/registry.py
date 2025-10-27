@@ -42,14 +42,16 @@ with the library's design.
 
 from __future__ import annotations
 
+import heapq
 import importlib
 import importlib.metadata
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from all2md.ast.transforms import NodeTransformer
 
-from .metadata import TransformMetadata
+if TYPE_CHECKING:
+    from all2md.transforms.metadata import TransformMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -286,6 +288,7 @@ class TransformRegistry:
 
         """
         discovered_count = 0
+        from all2md.transforms.metadata import TransformMetadata
 
         try:
             # Get entry points for all2md.transforms group
@@ -393,8 +396,6 @@ class TransformRegistry:
         indegree: dict[str, int] = {name: len(graph[name]) for name in graph}
 
         # Initialize min-heap with zero-indegree nodes (sorted by priority)
-        import heapq
-
         heap: list[tuple[int, str]] = [(priorities.get(name, 100), name) for name, deg in indegree.items() if deg == 0]
         heapq.heapify(heap)
 
