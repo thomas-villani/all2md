@@ -222,14 +222,6 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
-    list_numbering_style: Literal["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"] = field(
-        default="detect",
-        metadata={
-            "help": "List numbering style: detect, decimal, lowerroman, upperroman, loweralpha, upperalpha",
-            "choices": ["detect", "decimal", "lowerroman", "upperroman", "loweralpha", "upperalpha"],
-            "importance": "advanced",
-        },
-    )
     code_style_names: list[str] = field(
         default_factory=lambda: ["Code", "HTML Code", "Source Code", "Macro Text"],
         metadata={

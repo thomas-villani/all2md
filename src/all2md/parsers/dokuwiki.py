@@ -28,6 +28,8 @@ from all2md.ast import (
     FootnoteDefinition,
     FootnoteReference,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     LineBreak,
     Link,
@@ -116,6 +118,9 @@ LINE_BREAK_PATTERN = re.compile(r"\\\\")
 
 # Footnote: ((footnote text))
 FOOTNOTE_PATTERN = re.compile(r"\(\(([^\)]+)\)\)")
+
+# HTML tags (for html_passthrough_mode handling)
+HTML_TAG_PATTERN = re.compile(r"<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>.*?</\1>|<[a-zA-Z][a-zA-Z0-9]*\b[^>]*/>", re.DOTALL)
 
 
 class DokuWikiParser(BaseParser):
@@ -507,6 +512,77 @@ class DokuWikiParser(BaseParser):
             return True, new_i
         return False, i
 
+    def _try_parse_plugin_block(self, line: str, inline_buffer: list[Node], result: list[Node]) -> tuple[bool, int]:
+        """Try to parse plugin syntax as block-level element.
+
+        Parameters
+        ----------
+        line : str
+            Line to check
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, lines_consumed)
+
+        """
+        plugin_match = PLUGIN_PATTERN.match(line.strip())
+        if plugin_match and plugin_match.group(0) == line.strip():
+            self._flush_inline_buffer(inline_buffer, result)
+            if self.options.parse_plugins:
+                # Convert plugin syntax to HTMLBlock node
+                result.append(HTMLBlock(content=plugin_match.group(0)))
+            # else: strip the plugin (do nothing)
+            return True, 1
+        return False, 0
+
+    def _try_parse_html_block(self, line: str, inline_buffer: list[Node], result: list[Node]) -> tuple[bool, int]:
+        """Try to parse HTML tag as block-level element based on html_passthrough_mode.
+
+        Parameters
+        ----------
+        line : str
+            Line to check
+        inline_buffer : list[Node]
+            Current inline buffer
+        result : list[Node]
+            Result list
+
+        Returns
+        -------
+        tuple[bool, int]
+            (matched, lines_consumed)
+
+        """
+        html_match = HTML_TAG_PATTERN.match(line.strip())
+        if html_match and html_match.group(0) == line.strip():
+            self._flush_inline_buffer(inline_buffer, result)
+            html_content = html_match.group(0)
+            mode = self.options.html_passthrough_mode
+
+            if mode == "pass-through":
+                result.append(HTMLBlock(content=html_content))
+            elif mode == "escape":
+                import html
+
+                result.append(Paragraph(content=[Text(content=html.escape(html_content))]))
+            elif mode == "drop":
+                pass  # Don't add anything
+            elif mode == "sanitize":
+                from all2md.utils.html_sanitizer import sanitize_html_string
+
+                safe_html = sanitize_html_string(html_content)
+                if safe_html:
+                    result.append(HTMLBlock(content=safe_html))
+                # If empty after sanitization, don't add anything
+
+            return True, 1
+        return False, 0
+
     def _process_content(self, content: str) -> list[Node]:
         """Process DokuWiki content into AST nodes.
 
@@ -572,6 +648,16 @@ class DokuWikiParser(BaseParser):
             matched, new_i = self._try_parse_blockquote(lines, i, inline_buffer, result)
             if matched:
                 i = new_i
+                continue
+
+            matched, consumed = self._try_parse_plugin_block(line, inline_buffer, result)
+            if matched:
+                i += consumed
+                continue
+
+            matched, consumed = self._try_parse_html_block(line, inline_buffer, result)
+            if matched:
+                i += consumed
                 continue
 
             # Regular text line - add to inline buffer
@@ -746,6 +832,39 @@ class DokuWikiParser(BaseParser):
             comment_text = match.group(0)[4:-3].strip()
         return CommentInline(content=comment_text, metadata={"comment_type": "wiki"})
 
+    def _handle_html_tag_pattern(self, match: re.Match) -> Node:
+        """Handle HTML tag pattern based on html_passthrough_mode.
+
+        Parameters
+        ----------
+        match : Match
+            Regex match object
+
+        Returns
+        -------
+        Node
+            Appropriate node based on passthrough mode
+
+        """
+        html_content = match.group(0)
+        mode = self.options.html_passthrough_mode
+
+        if mode == "pass-through":
+            return HTMLInline(content=html_content)
+        elif mode == "escape":
+            import html
+
+            return Text(content=html.escape(html_content))
+        elif mode == "drop":
+            return Text(content="")
+        else:  # mode == "sanitize"
+            from all2md.utils.html_sanitizer import sanitize_html_string
+
+            safe_html = sanitize_html_string(html_content)
+            if safe_html:
+                return HTMLInline(content=safe_html)
+            return Text(content="")
+
     def _process_inline(self, text: str) -> list[Node]:
         """Process inline formatting in text.
 
@@ -788,6 +907,13 @@ class DokuWikiParser(BaseParser):
             ("linebreak", LINE_BREAK_PATTERN),
         ]
 
+        # Add plugin pattern if enabled
+        if self.options.parse_plugins:
+            patterns.append(("plugin", PLUGIN_PATTERN))
+
+        # Add HTML tag pattern after specific formatting patterns to avoid intercepting known tags
+        patterns.append(("html_tag", HTML_TAG_PATTERN))
+
         if not self.options.strip_comments:
             patterns.extend([("c_comment", C_COMMENT_PATTERN), ("html_comment", HTML_COMMENT_PATTERN)])
 
@@ -824,8 +950,13 @@ class DokuWikiParser(BaseParser):
             result.append(self._handle_link_pattern(earliest_match))
         elif earliest_type == "footnote":
             result.append(self._handle_footnote_pattern(earliest_match))
+        elif earliest_type == "html_tag":
+            result.append(self._handle_html_tag_pattern(earliest_match))
         elif earliest_type == "linebreak":
             result.append(LineBreak(soft=False))
+        elif earliest_type == "plugin":
+            # Convert plugin syntax to HTMLInline node
+            result.append(HTMLInline(content=earliest_match.group(0)))
         elif earliest_type in ("c_comment", "html_comment"):
             comment_type = "c-style" if earliest_type == "c_comment" else "html"
             result.append(self._handle_comment_pattern(earliest_match, comment_type))

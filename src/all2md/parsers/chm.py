@@ -49,8 +49,20 @@ class ChmParser(BaseParser):
         options = options or ChmOptions()
         super().__init__(options, progress_callback)
         self.options: ChmOptions = options
-        # Create HTML parser with nested options if provided
-        html_options = self.options.html_options if self.options.html_options else None
+        # Create HTML parser with nested options, forwarding attachment settings from CHM options
+        html_options = self.options.html_options
+        if html_options is None:
+            # Create new HtmlOptions with attachment settings from CHM options
+            from all2md.options.html import HtmlOptions
+
+            html_options = HtmlOptions(
+                attachment_mode=self.options.attachment_mode,
+                attachment_output_dir=self.options.attachment_output_dir,
+                attachment_base_url=self.options.attachment_base_url,
+                attachment_filename_template=self.options.attachment_filename_template,
+                alt_text_mode=self.options.alt_text_mode,
+                attachments_footnotes_section=self.options.attachments_footnotes_section,
+            )
         self.html_parser = HtmlToAstConverter(html_options)
 
     @requires_dependencies("chm", [("pychm", "chm", "")])
