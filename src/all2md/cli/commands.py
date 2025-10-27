@@ -21,11 +21,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote, urlparse
 
+from all2md.api import to_ast
 from all2md.cli.builder import (
+    EXIT_ERROR,
     EXIT_FILE_ERROR,
+    EXIT_SUCCESS,
     EXIT_VALIDATION_ERROR,
     DynamicCLIBuilder,
 )
+from all2md.cli.config import get_config_search_paths, load_config_file, load_config_with_priority
 from all2md.cli.help_formatter import display_help
 from all2md.cli.input_items import CLIInputItem
 from all2md.cli.processors import (
@@ -36,9 +40,20 @@ from all2md.cli.validation import (
     validate_arguments,
 )
 from all2md.converter_registry import registry
+from all2md.dependencies import main as deps_main
 from all2md.logging_utils import configure_logging as configure_root_logging
+from all2md.renderers.markdown import MarkdownRenderer
 from all2md.transforms import registry as transform_registry
+from all2md.utils.attachments import ensure_unique_attachment_path
 from all2md.utils.packages import check_version_requirement, get_package_version
+from all2md.utils.static_site import (
+    FrontmatterFormat,
+    FrontmatterGenerator,
+    SiteScaffolder,
+    StaticSiteGenerator,
+    copy_document_assets,
+    generate_output_filename,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1292,8 +1307,6 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
 
 def handle_config_show_command(args: list[str] | None = None) -> int:
     """Handle ``config show`` command to display effective configuration."""
-    from all2md.cli.config import get_config_search_paths, load_config_with_priority
-
     parser = argparse.ArgumentParser(
         prog="all2md config show",
         description="Display the effective configuration that all2md will use.",
@@ -1373,8 +1386,6 @@ def handle_config_validate_command(args: list[str] | None = None) -> int:
         Exit code (0 for success, 1 for invalid config)
 
     """
-    from all2md.cli.config import load_config_file
-
     # Parse arguments
     config_file = None
 
@@ -1494,18 +1505,6 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
         Exit code (0 for success)
 
     """
-    from all2md.api import to_ast
-    from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
-    from all2md.renderers.markdown import MarkdownRenderer
-    from all2md.utils.static_site import (
-        FrontmatterFormat,
-        FrontmatterGenerator,
-        SiteScaffolder,
-        StaticSiteGenerator,
-        copy_document_assets,
-        generate_output_filename,
-    )
-
     parser = argparse.ArgumentParser(
         prog="all2md generate-site",
         description="Generate Hugo or Jekyll static site from documents.",
@@ -1611,8 +1610,6 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
             output_path = content_dir / f"{output_filename}.md"
 
             # Ensure unique filename
-            from all2md.utils.attachments import ensure_unique_attachment_path
-
             output_path = ensure_unique_attachment_path(output_path)
 
             # Write output file
@@ -1680,8 +1677,6 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
 
     # Check for dependency management commands
     if args[0] == "check-deps":
-        from all2md.dependencies import main as deps_main
-
         # Convert to standard deps CLI format
         deps_args = ["check"]
 

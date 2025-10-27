@@ -11,6 +11,7 @@ into the all2md AST (Abstract Syntax Tree).
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import IO, Any, Optional, Union
@@ -22,6 +23,8 @@ from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import append_attachment_footnotes as _append_attachment_footnotes_helper
 from all2md.utils.parser_helpers import validate_zip_input as _validate_zip_input_helper
 from all2md.utils.parser_helpers import validated_zip_input as _validated_zip_input_helper
+
+logger = logging.getLogger(__name__)
 
 
 class BaseParser(ABC):
@@ -197,9 +200,6 @@ class BaseParser(ABC):
             self.progress_callback(event)
         except Exception as e:
             # Log but don't interrupt conversion if callback fails
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.warning(f"Progress callback raised exception: {e}", exc_info=True)
 
     @staticmethod

@@ -4,7 +4,11 @@ This module provides file system monitoring for automatic conversion of files
 when they change. Supports bidirectional conversion between any formats.
 """
 
+from __future__ import annotations
+
+import fnmatch
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -100,7 +104,6 @@ class ConversionEventHandler(FileSystemEventHandler):
                     break
             if self.base_dir is None:
                 # All paths are files, use their common parent
-                import os
 
                 self.base_dir = Path(os.path.commonpath([p.parent for p in paths_to_watch]))
 
@@ -136,7 +139,6 @@ class ConversionEventHandler(FileSystemEventHandler):
 
         # Check exclude patterns
         if self.exclude_patterns:
-            import fnmatch
 
             for pattern in self.exclude_patterns:
                 if fnmatch.fnmatch(str(path), pattern) or fnmatch.fnmatch(path.name, pattern):
@@ -307,7 +309,7 @@ def run_watch_mode(
     try:
         from watchdog.observers import Observer
     except ImportError:
-        logger.error("Watch mode requires the watchdog library. Install with: pip install all2md[cli_extras]")
+        logger.error("Watch mode (--watch) requires the watchdog library. Install with: pip install all2md[cli_extras]")
         return EXIT_DEPENDENCY_ERROR
 
     # Create output directory if it doesn't exist

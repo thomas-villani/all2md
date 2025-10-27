@@ -11,8 +11,26 @@ markdown into the same AST structure used for other formats.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, Union
+
+from all2md import DependencyError
+from all2md.utils.html_sanitizer import sanitize_html_content
+
+try:
+    import tomllib
+
+    _TOMLLIB_AVAILABLE = True
+except ImportError:
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+        _TOMLLIB_AVAILABLE = True
+    except ImportError:
+        tomllib = None
+        _TOMLLIB_AVAILABLE = False
+
 
 from all2md.ast import (
     BlockQuote,
@@ -224,7 +242,7 @@ class MarkdownToAstConverter(BaseParser):
         remaining_content = "".join(lines[end_index + 1 :])
 
         try:
-            import yaml  # type: ignore[import-untyped]
+            import yaml
 
             data = yaml.safe_load(yaml_content)
             if isinstance(data, dict):
@@ -251,6 +269,8 @@ class MarkdownToAstConverter(BaseParser):
             (remaining_content, metadata) if TOML found, None otherwise
 
         """
+        if not _TOMLLIB_AVAILABLE:
+            raise DependencyError("markdown", [("tomli", ">=1.0.0")])
         if not (content.startswith("+++\n") or content.startswith("+++\r\n")):
             return None
 
@@ -267,14 +287,6 @@ class MarkdownToAstConverter(BaseParser):
 
         toml_content = "".join(lines[1:end_index])
         remaining_content = "".join(lines[end_index + 1 :])
-
-        try:
-            import tomllib
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore[no-redef]
-            except ImportError:
-                return remaining_content, DocumentMetadata()
 
         try:
             data = tomllib.loads(toml_content)
@@ -304,7 +316,6 @@ class MarkdownToAstConverter(BaseParser):
             return None
 
         try:
-            import json
 
             # Find the end of JSON object
             brace_count = 0
@@ -747,8 +758,6 @@ class MarkdownToAstConverter(BaseParser):
             # When preserve_html is False, use html_handling option
             if self.options.html_handling == "sanitize":
                 # Sanitize HTML content
-                from all2md.utils.html_sanitizer import sanitize_html_content
-
                 sanitized = sanitize_html_content(content)
                 return HTMLBlock(content=sanitized)
             else:  # "drop"
@@ -956,7 +965,6 @@ class MarkdownToAstConverter(BaseParser):
                 # When preserve_html is False, use html_handling option
                 if self.options.html_handling == "sanitize":
                     # Sanitize HTML content
-                    from all2md.utils.html_sanitizer import sanitize_html_content
 
                     sanitized = sanitize_html_content(content)
                     return HTMLInline(content=sanitized)

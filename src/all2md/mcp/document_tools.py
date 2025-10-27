@@ -12,6 +12,7 @@ Functions
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import logging
+from typing import Literal
 
 from all2md.api import from_ast, to_ast
 from all2md.ast.document_utils import (
@@ -276,8 +277,6 @@ def _handle_insert(
         Result with modified document
 
     """
-    from typing import Literal
-
     content_doc = _parse_markdown_content(content, config)
 
     position_map: dict[str, Literal["start", "end", "after_heading"]] = {

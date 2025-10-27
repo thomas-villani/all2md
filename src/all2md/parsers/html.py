@@ -12,9 +12,11 @@ enabling multiple rendering strategies and improved testability.
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import re
+import stat
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 from urllib.parse import urljoin, urlparse
@@ -74,7 +76,12 @@ from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 from all2md.utils.parser_helpers import attachment_result_to_image_node
-from all2md.utils.security import sanitize_language_identifier, sanitize_null_bytes, validate_local_file_access
+from all2md.utils.security import (
+    resolve_file_url_to_path,
+    sanitize_language_identifier,
+    sanitize_null_bytes,
+    validate_local_file_access,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -516,7 +523,6 @@ class HtmlToAstConverter(BaseParser):
         # Extract JSON-LD structured data
         json_ld_scripts = document.find_all("script", type="application/ld+json")
         if json_ld_scripts:
-            import json
 
             json_ld_data = []
             for script in json_ld_scripts:
@@ -1556,10 +1562,6 @@ class HtmlToAstConverter(BaseParser):
             If file cannot be read or does not exist
 
         """
-        import stat
-
-        from all2md.utils.security import resolve_file_url_to_path
-
         # Resolve file URL to canonical path
         try:
             file_path = resolve_file_url_to_path(file_url)

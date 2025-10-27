@@ -236,7 +236,7 @@ ignore = [
     "D213",  # multi-line-summary-second-line (incompatible with D212)
 ]
 [tool.ruff.lint.mccabe]
-max-complexity = 25
+max-complexity = 26
 
 # Relax rules for test files
 [tool.ruff.lint.per-file-ignores]

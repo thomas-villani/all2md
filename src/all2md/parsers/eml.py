@@ -16,10 +16,12 @@ from email import message_from_binary_file, message_from_bytes, policy
 from email.header import decode_header
 from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
+from io import BytesIO
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 from urllib.parse import unquote
 
+from all2md.api import to_markdown
 from all2md.ast import (
     Document,
     Heading,
@@ -110,7 +112,7 @@ def _parse_date_safely(date_str: str | None) -> datetime.datetime | None:
         return None
 
 
-def _format_date(dt: datetime.datetime | None, options: EmlOptions) -> str:
+def format_eml_date(dt: datetime.datetime | None, options: EmlOptions) -> str:
     """Format datetime according to EmlOptions configuration.
 
     Parameters
@@ -198,7 +200,7 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
         html_content = "\n\n".join(html_parts)
         if options.convert_html_to_markdown:
             # Convert HTML to Markdown
-            return _convert_html_to_markdown(html_content, options)
+            return convert_eml_html_to_markdown(html_content, options)
         else:
             return html_content
     else:
@@ -249,7 +251,7 @@ def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> 
             return ""
 
 
-def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
+def convert_eml_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     """Convert HTML content to Markdown.
 
     Parameters
@@ -266,7 +268,6 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
 
     """
     try:
-        from all2md.api import to_markdown
 
         # Create MarkdownRendererOptions with default hash headings
         md_options = MarkdownRendererOptions(use_hash_headings=True)
@@ -284,7 +285,6 @@ def _convert_html_to_markdown(html_content: str, options: EmlOptions) -> str:
         )
 
         # Convert HTML to Markdown
-        from io import BytesIO
 
         return to_markdown(
             BytesIO(html_content.encode("utf-8")),

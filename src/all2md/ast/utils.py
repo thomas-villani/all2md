@@ -35,8 +35,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Union
 
+from all2md.ast.nodes import Text, get_node_children
+
 if TYPE_CHECKING:
-    from all2md.ast.nodes import Node, Text, get_node_children
+    from all2md.ast.nodes import Node
 
 
 def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> str:

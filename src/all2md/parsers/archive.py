@@ -21,12 +21,14 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import IO, Any, cast
 
+from all2md.api import to_ast
 from all2md.ast import Alignment, Document, Heading, Node, Paragraph, Table, TableCell, TableRow, Text
-from all2md.constants import DocumentFormat
+from all2md.constants import RESOURCE_FILE_EXTENSIONS, DocumentFormat
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.exceptions import (
     All2MdError,
+    ArchiveSecurityError,
     DependencyError,
     FormatError,
     MalformedFileError,
@@ -37,6 +39,12 @@ from all2md.options.archive import ArchiveOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.security import (
+    validate_7z_archive,
+    validate_rar_archive,
+    validate_safe_extraction_path,
+    validate_tar_archive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +72,6 @@ def _process_archive_file_worker(
         Document is None on failure, error_dict contains error details if failed
 
     """
-    from all2md.api import to_ast
-    from all2md.constants import RESOURCE_FILE_EXTENSIONS
-
     try:
         # Check if this file should be treated as a resource
         resource_extensions = options_dict.get("resource_file_extensions")
@@ -314,7 +319,6 @@ class ArchiveToAstConverter(BaseParser):
 
         """
         # Import security validation
-        from all2md.utils.security import validate_tar_archive
 
         # Determine mode based on archive type
         mode_map = {
@@ -417,7 +421,6 @@ class ArchiveToAstConverter(BaseParser):
             ) from e
 
         # Import security validation
-        from all2md.utils.security import validate_7z_archive
 
         cleanup_func = None
 
@@ -513,7 +516,6 @@ class ArchiveToAstConverter(BaseParser):
             ) from e
 
         # Import security validation
-        from all2md.utils.security import validate_rar_archive
 
         cleanup_func = None
 
@@ -1114,8 +1116,6 @@ class ArchiveToAstConverter(BaseParser):
             True if file should be treated as a resource, False if it should be parsed
 
         """
-        from all2md.constants import RESOURCE_FILE_EXTENSIONS
-
         # Get the configured resource extensions (None means use defaults)
         resource_extensions = self.options.resource_file_extensions
         if resource_extensions is None:
@@ -1148,9 +1148,6 @@ class ArchiveToAstConverter(BaseParser):
             Converted AST document, or None if conversion failed
 
         """
-        # Import here to avoid circular dependency
-        from all2md.api import to_ast
-
         # Check if this file should be treated as a resource BEFORE attempting to parse
         if self._is_resource_file(file_path):
             logger.debug(f"Treating as resource file (by extension): {file_path}")
@@ -1248,9 +1245,6 @@ class ArchiveToAstConverter(BaseParser):
             File content bytes
 
         """
-        from all2md.exceptions import ArchiveSecurityError
-        from all2md.utils.security import validate_safe_extraction_path
-
         if not self.options.attachment_output_dir:
             return
 

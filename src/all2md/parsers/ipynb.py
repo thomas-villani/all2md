@@ -22,7 +22,9 @@ from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IM
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions
+from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
+from all2md.parsers.markdown import markdown_to_ast
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.encoding import normalize_stream_to_bytes
@@ -488,9 +490,6 @@ class IpynbToAstConverter(BaseParser):
 
         """
         try:
-            # Import the markdown parser to parse the cell content
-            from all2md.options.markdown import MarkdownParserOptions
-            from all2md.parsers.markdown import markdown_to_ast
 
             # Parse markdown content with appropriate options
             options = MarkdownParserOptions(

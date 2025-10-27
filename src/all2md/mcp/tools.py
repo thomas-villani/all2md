@@ -17,6 +17,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Any, cast, get_args
+from urllib.parse import unquote
 
 from all2md.api import from_ast, from_markdown, to_ast
 from all2md.ast.document_utils import extract_section
@@ -151,7 +152,6 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
                     return decoded, "data_uri"
                 else:
                     # URL-decode the data part for non-base64 data URIs
-                    from urllib.parse import unquote
 
                     decoded_str = unquote(data_part)
                     logger.info(f"Detected as data URI (plain, {len(decoded_str)} chars)")

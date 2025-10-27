@@ -17,10 +17,12 @@ from typing import IO, Any, Dict, Optional, Union
 
 from all2md.ast import CodeBlock, Document
 from all2md.converter_metadata import ConverterMetadata
+from all2md.exceptions import ParsingError
 from all2md.options.sourcecode import SourceCodeOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
+from all2md.utils.inputs import is_path_like
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -67,9 +69,6 @@ class SourceCodeToAstConverter(BaseParser):
             If parsing fails
 
         """
-        from all2md.exceptions import ParsingError
-        from all2md.utils.inputs import is_path_like
-
         # Extract filename for language detection
         filename = None
         if is_path_like(input_data):

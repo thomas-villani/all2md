@@ -10,7 +10,9 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
+from all2md.api import convert
 from all2md.cli.input_items import CLIInputItem
+from all2md.converter_registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +70,6 @@ def create_package_from_conversions(
         ... )
 
     """
-    from all2md.api import convert
-    from all2md.converter_registry import registry
-
     # Get target extension
     extension = registry.get_default_extension_for_format(target_format)
 

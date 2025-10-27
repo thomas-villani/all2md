@@ -281,7 +281,6 @@ class DocxToAstConverter(BaseParser):
             List to append processed nodes to
 
         """
-        # Import here to avoid circular dependencies
         from docx.table import Table
         from docx.text.paragraph import Paragraph
 

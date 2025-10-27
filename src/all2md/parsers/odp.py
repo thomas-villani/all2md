@@ -11,8 +11,9 @@ It replaces the combined ODF parser with a focused presentation parser.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
 
 from all2md.ast import (
     Document,
@@ -523,7 +524,6 @@ class OdpToAstConverter(BaseParser):
         if math_blocks:
             if len(math_blocks) == 1:
                 return math_blocks[0]
-            from typing import cast
 
             return cast(list[Node], math_blocks)
 
@@ -810,7 +810,6 @@ class OdpToAstConverter(BaseParser):
                         kw_text = str(kw).strip()
                         if kw_text:
                             # Split by common delimiters
-                            import re
 
                             parts = [k.strip() for k in re.split("[,;]", kw_text) if k.strip()]
                             keyword_list.extend(parts)

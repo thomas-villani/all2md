@@ -12,9 +12,11 @@ Textile documents into the same AST structure used for other formats.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
+from all2md import HtmlOptions, NetworkFetchOptions
 from all2md.ast import Document
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
@@ -120,8 +122,7 @@ class TextileParser(BaseParser):
         # Use HtmlToAstConverter to convert HTML to AST
         # Configure network options to allow HTTP links (not just HTTPS)
         # since Textile documents may legitimately reference HTTP resources
-        from all2md.options.common import NetworkFetchOptions
-        from all2md.options.html import HtmlOptions
+        # TODO: I don't think that this is very smart, should respect user options.
 
         network_options = NetworkFetchOptions(require_https=False)
         html_options = HtmlOptions(network=network_options)
@@ -203,7 +204,6 @@ class TextileParser(BaseParser):
 
         # If document is a string, try to extract title from first h1
         if isinstance(document, str):
-            import re
 
             # Try to find h1. Title pattern
             h1_match = re.search(r"^h1\.\s+(.+?)$", document, re.MULTILINE)

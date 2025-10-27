@@ -14,12 +14,15 @@ import hashlib
 import io
 import logging
 import os
+import tempfile
 import zipfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any, Optional, Union, cast
 
+from all2md.api import to_ast
 from all2md.ast import Alignment, Document, Heading, Node, Paragraph, Table, TableCell, TableRow, Text
+from all2md.constants import RESOURCE_FILE_EXTENSIONS, DocumentFormat
 from all2md.converter_metadata import ConverterMetadata
 from all2md.converter_registry import registry
 from all2md.exceptions import (
@@ -62,9 +65,6 @@ def _process_zip_file_worker(
         Document is None on failure, error_dict contains error details if failed
 
     """
-    from all2md.api import to_ast
-    from all2md.constants import RESOURCE_FILE_EXTENSIONS
-
     try:
         # Check if this file should be treated as a resource
         resource_extensions = options_dict.get("resource_file_extensions")
@@ -180,8 +180,6 @@ class ZipToAstConverter(BaseParser):
         # If we have bytes, validate them as well
         if zip_bytes:
             # Write to temporary location for validation
-            import tempfile
-
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
                 tmp.write(zip_bytes)
                 tmp_path = tmp.name
@@ -581,8 +579,6 @@ class ZipToAstConverter(BaseParser):
             True if file should be treated as a resource, False if it should be parsed
 
         """
-        from all2md.constants import RESOURCE_FILE_EXTENSIONS
-
         # Get the configured resource extensions (None means use defaults)
         resource_extensions = self.options.resource_file_extensions
         if resource_extensions is None:
@@ -615,9 +611,6 @@ class ZipToAstConverter(BaseParser):
             Converted AST document, or None if conversion failed
 
         """
-        # Import here to avoid circular dependency
-        from all2md.api import to_ast
-
         # Check if this file should be treated as a resource BEFORE attempting to parse
         if self._is_resource_file(file_path):
             logger.debug(f"Treating as resource file (by extension): {file_path}")
@@ -650,10 +643,6 @@ class ZipToAstConverter(BaseParser):
             file_obj.seek(0)
 
             # Convert using the detected format
-            from typing import cast
-
-            from all2md.constants import DocumentFormat
-
             doc = to_ast(
                 file_obj,
                 source_format=cast(DocumentFormat, detected_format),

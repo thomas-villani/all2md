@@ -12,7 +12,9 @@ reuses the EML parser for individual message processing.
 from __future__ import annotations
 
 import datetime
+import logging
 import mailbox
+import re
 from email.message import Message
 from pathlib import Path
 from typing import IO, Any, Optional, Union
@@ -24,11 +26,14 @@ from all2md.options.mbox import MboxOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.eml import (
     clean_message,
+    format_eml_date,
     parse_single_message,
     process_email_attachments,
 )
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
+
+logger = logging.getLogger(__name__)
 
 
 def _detect_mailbox_format(path: Path) -> str:
@@ -344,9 +349,6 @@ class MboxToAstConverter(BaseParser):
 
             except Exception as e:
                 # Log error but continue processing
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Failed to process message {key}: {e}")
                 continue
 
@@ -389,9 +391,6 @@ class MboxToAstConverter(BaseParser):
 
             except Exception as e:
                 # Log error but continue processing
-                import logging
-
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Failed to process message {key} in folder {folder_name}: {e}")
                 continue
 
@@ -436,9 +435,6 @@ class MboxToAstConverter(BaseParser):
             return msg_data
 
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.warning(f"Failed to parse message: {e}")
             return None
 
@@ -521,9 +517,8 @@ class MboxToAstConverter(BaseParser):
                 header_lines.append(f"CC: {msg['cc']}")
 
             if "date" in msg and msg["date"] is not None:
-                from all2md.parsers.eml import _format_date
 
-                formatted_date = _format_date(msg["date"], self.options)
+                formatted_date = format_eml_date(msg["date"], self.options)
                 if formatted_date:
                     header_lines.append(f"Date: {formatted_date}")
 
@@ -539,7 +534,6 @@ class MboxToAstConverter(BaseParser):
         content = msg.get("content", "")
         if content.strip():
             # Split content into paragraphs
-            import re
 
             paragraphs = re.split(r"\n\n+", content.strip())
             for para_text in paragraphs:

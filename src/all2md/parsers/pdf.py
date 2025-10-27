@@ -19,9 +19,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 
+from all2md.options.common import OCROptions
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.options.pdf import PdfOptions
-from all2md.utils.attachments import create_attachment_sequencer, process_attachment
+from all2md.utils.attachments import create_attachment_sequencer, generate_attachment_filename, process_attachment
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 if TYPE_CHECKING:
@@ -770,7 +771,7 @@ def extract_page_images(
                 img_bytes = pix_rgb.tobytes("png")
 
             # Use sequencer if available, otherwise fall back to manual indexing
-            if attachment_sequencer:
+            if attachment_sequencer is not None:
                 img_filename, _ = attachment_sequencer(
                     base_stem=base_filename,
                     format_type="pdf",
@@ -778,7 +779,6 @@ def extract_page_images(
                     extension=img_extension,
                 )
             else:
-                from all2md.utils.attachments import generate_attachment_filename
 
                 img_filename = generate_attachment_filename(
                     base_stem=base_filename,
@@ -1310,7 +1310,7 @@ def _calculate_image_coverage(page: "fitz.Page") -> float:
     return coverage_ratio
 
 
-def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: "PdfOptions") -> bool:
+def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) -> bool:
     """Determine whether OCR should be applied to a PDF page.
 
     Analyzes the page content based on the OCR mode and detection thresholds
@@ -1338,9 +1338,6 @@ def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: "PdfOptions
     - "auto": Uses text_threshold and image_area_threshold to detect scanned pages
 
     """
-    # Import OCROptions type for type checking
-    from all2md.options.common import OCROptions
-
     ocr_opts: OCROptions = options.ocr
 
     # Check if OCR is enabled
@@ -1463,7 +1460,7 @@ def _get_tesseract_lang(detected_lang_code: str) -> str:
 
 
 @requires_dependencies("pdf", [("langdetect", "langdetect", ">=1.0.9")])
-def _detect_page_language(page: "fitz.Page", options: "PdfOptions") -> str:
+def _detect_page_language(page: "fitz.Page", options: PdfOptions) -> str:
     """Attempt to auto-detect the language of a PDF page for OCR.
 
     This is an experimental feature that tries to determine the language
@@ -1990,7 +1987,7 @@ class PdfToAstConverter(BaseParser):
 
     @staticmethod
     @requires_dependencies("pdf", [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")])
-    def _ocr_page_to_text(page: "fitz.Page", options: "PdfOptions") -> str:
+    def _ocr_page_to_text(page: "fitz.Page", options: PdfOptions) -> str:
         """Extract text from a PDF page using OCR (Optical Character Recognition).
 
         This method renders the PDF page as an image and uses Tesseract OCR

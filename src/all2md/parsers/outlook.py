@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import re
 import tempfile
 from email import policy
 from email.message import EmailMessage
@@ -29,6 +30,8 @@ from all2md.options.outlook import OutlookOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.eml import (
     clean_message,
+    convert_eml_html_to_markdown,
+    format_eml_date,
     parse_single_message,
     process_email_attachments,
 )
@@ -577,9 +580,7 @@ class OutlookToAstConverter(BaseParser):
                     if html_body:
                         # Convert HTML to markdown if option enabled
                         if self.options.convert_html_to_markdown:
-                            from all2md.parsers.eml import _convert_html_to_markdown
-
-                            msg_data["content"] = _convert_html_to_markdown(html_body, self.options)
+                            msg_data["content"] = convert_eml_html_to_markdown(html_body, self.options)
                         else:
                             msg_data["content"] = html_body
                     else:
@@ -681,9 +682,8 @@ class OutlookToAstConverter(BaseParser):
                 header_lines.append(f"CC: {msg['cc']}")
 
             if "date" in msg and msg["date"] is not None:
-                from all2md.parsers.eml import _format_date
 
-                formatted_date = _format_date(msg["date"], self.options)
+                formatted_date = format_eml_date(msg["date"], self.options)
                 if formatted_date:
                     header_lines.append(f"Date: {formatted_date}")
 
@@ -699,7 +699,6 @@ class OutlookToAstConverter(BaseParser):
         content = msg.get("content", "")
         if content.strip():
             # Split content into paragraphs
-            import re
 
             paragraphs = re.split(r"\n\n+", content.strip())
             for para_text in paragraphs:

@@ -9,6 +9,7 @@ function to improve maintainability and testability.
 import argparse
 import json
 import logging
+import mimetypes
 import os
 import platform
 import pydoc
@@ -18,8 +19,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 from all2md.api import convert, from_ast, to_ast, to_markdown
+from all2md.ast.nodes import Document, Heading, Text, ThematicBreak
 from all2md.ast.nodes import Document as ASTDocument
-from all2md.ast.nodes import Heading, Text, ThematicBreak
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
@@ -28,14 +29,19 @@ from all2md.cli.builder import (
     DynamicCLIBuilder,
     get_exit_code_for_exception,
 )
+from all2md.cli.config import load_config_with_priority
 from all2md.cli.input_items import CLIInputItem
 from all2md.cli.output import should_use_rich_output
+from all2md.cli.packaging import create_package_from_conversions
+from all2md.cli.presets import apply_preset
 from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
 from all2md.constants import DocumentFormat
-from all2md.converter_registry import registry
+from all2md.converter_registry import check_package_installed, registry
 from all2md.exceptions import All2MdError, DependencyError
+from all2md.transforms import AddHeadingIdsTransform, GenerateTocTransform
 from all2md.transforms import registry as transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
+from all2md.utils.packages import check_version_requirement
 
 logger = logging.getLogger(__name__)
 
@@ -445,12 +451,6 @@ def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]
         parsed_args.transform_specs = []
         return None
 
-    try:
-        from all2md.transforms import registry as transform_registry
-    except ImportError:
-        # Transform system not available
-        return None
-
     transform_instances = []
     transform_specs: list[TransformSpec] = []
 
@@ -641,9 +641,6 @@ def setup_and_validate_options(
         If config file cannot be loaded or transform building fails
 
     """
-    from all2md.cli.config import load_config_with_priority
-    from all2md.cli.presets import apply_preset
-
     # Load configuration from file (with auto-discovery if not explicitly specified)
     config_from_file = {}
     env_config_path = os.environ.get("ALL2MD_CONFIG")
@@ -768,13 +765,6 @@ def _create_output_package(
         Exit code (0 for success)
 
     """
-    import logging
-    from pathlib import Path
-
-    from all2md.cli.packaging import create_package_from_conversions
-
-    logger = logging.getLogger(__name__)
-
     try:
         # Determine target format
         target_format = getattr(parsed_args, "output_format", "markdown")
@@ -1015,10 +1005,6 @@ def process_merge_from_list(
         Exit code (0 for success, highest error code otherwise)
 
     """
-    from all2md.ast.nodes import Document, Heading, Text
-    from all2md.renderers.markdown import MarkdownRenderer
-    from all2md.transforms.builtin import AddHeadingIdsTransform, GenerateTocTransform
-
     # Parse the list file (or stdin if '-')
     try:
         list_path_arg = args.merge_from_list
@@ -1097,9 +1083,6 @@ def process_merge_from_list(
             max_exit_code = max(max_exit_code, exit_code)
             return exit_code
 
-    # Use unified progress tracking with ProgressContext
-    from all2md.cli.progress import ProgressContext, create_progress_context_callback
-
     use_rich = args.rich
     with ProgressContext(use_rich, show_progress, len(entries), "Merging files from list") as progress:
         # Create progress callback wrapper
@@ -1152,29 +1135,65 @@ def process_merge_from_list(
             assert isinstance(transformed, Document), "Transform should return Document"
             merged_doc = transformed
 
-    # Render the merged document to markdown
-    try:
-        renderer = MarkdownRenderer()
-        markdown_content = renderer.render_to_string(merged_doc)
+    # Determine output path
+    output_path: Optional[Path] = None
+    if args.out:
+        output_path = Path(args.out)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Determine output path
-        output_path = None
-        if args.out:
-            output_path = Path(args.out)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Determine target format (infer from filename or use explicit --output-format)
+    # Check if output_format was explicitly provided by user
+    provided_args: set[str] = getattr(args, "_provided_args", set())
+    if "output_format" in provided_args:
+        target_format = args.output_format
+    else:
+        target_format = "auto"
 
-        # Write output
+    if target_format == "auto":
         if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(markdown_content)
-            if not args.quiet:
-                print(f"Successfully merged {len(entries)} files to {output_path}")
+            try:
+                detected_target = registry.detect_format(output_path)
+                target_format = detected_target if detected_target != "txt" else "markdown"
+            except Exception:
+                target_format = "markdown"
         else:
-            # Print to stdout
-            print(markdown_content)
+            target_format = "markdown"
+
+    # Prepare renderer options
+    render_options = prepare_options_for_execution(
+        options,
+        None,
+        format_arg,
+        target_format,
+    )
+    render_options.pop("remote_input_options", None)
+
+    # Render the merged document to the target format
+    try:
+        result = from_ast(
+            merged_doc,
+            target_format=cast(DocumentFormat, target_format),
+            output=output_path,
+            transforms=None,
+            **render_options,
+        )
+
+        # Handle output
+        if result is not None and output_path is None:
+            if isinstance(result, bytes):
+                sys.stdout.buffer.write(result)
+                sys.stdout.buffer.flush()
+            else:
+                print(result)
+        elif output_path is None and result is None:
+            print("", end="")
+
+        quiet = getattr(args, "quiet", False)
+        if output_path and not quiet:
+            print(f"Successfully merged {len(entries)} files to {output_path}")
 
         # Print warnings for failed files if any
-        if failed and not args.quiet:
+        if failed and not quiet:
             print(f"\nWarning: {len(failed)} file(s) failed to process:", file=sys.stderr)
             for file_path, error in failed:
                 print(f"  {file_path}: {error}", file=sys.stderr)
@@ -1202,8 +1221,6 @@ def _detect_format_for_item(item: CLIInputItem, format_arg: str) -> tuple[str, s
         (detected_format, detection_method)
 
     """
-    from all2md.converter_registry import registry
-
     if format_arg != "auto":
         return format_arg, "explicit (--format)"
 
@@ -1217,8 +1234,6 @@ def _detect_format_for_item(item: CLIInputItem, format_arg: str) -> tuple[str, s
         return detected_format, "file extension"
 
     # Check MIME type
-    import mimetypes
-
     guess_target = item.display_name
     if item.path_hint:
         guess_target = str(item.path_hint)
@@ -1245,9 +1260,6 @@ def _check_converter_dependencies(
         (converter_available, dependency_status_list)
 
     """
-    from all2md.dependencies import check_package_installed
-    from all2md.utils.packages import check_version_requirement
-
     converter_available = True
     dependency_status: list[tuple[str, str, str | None, str | None]] = []
 
@@ -1367,8 +1379,6 @@ def _render_detection_results_plain(detection_results: list[dict[str, Any]]) -> 
 
 def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
     """Process inputs in detect-only mode - show format detection without conversion plan."""
-    from all2md.converter_registry import registry
-
     # Auto-discover parsers
     registry.auto_discover()
 
@@ -1444,9 +1454,6 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
         List of file info dictionaries
 
     """
-    from all2md.dependencies import check_package_installed
-    from all2md.utils.packages import check_version_requirement
-
     file_info_list: List[Dict[str, Any]] = []
 
     for index, item in enumerate(items, start=1):
@@ -1771,8 +1778,6 @@ def process_files_collated(
     transforms: Optional[list] = None,
 ) -> int:
     """Collate multiple inputs into a single output using an AST pipeline."""
-    from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
-
     collected_documents: List[ASTDocument] = []
     failures: List[Tuple[CLIInputItem, str, int]] = []
 
@@ -1921,8 +1926,6 @@ def generate_output_path(
 
     """
     # Determine output file extension based on target format
-    from all2md.converter_registry import registry
-
     extension = registry.get_default_extension_for_format(target_format)
 
     # Generate output filename

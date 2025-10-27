@@ -9,10 +9,9 @@ across different processing modes.
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from all2md.progress import ProgressCallback
+from all2md.progress import ProgressCallback, ProgressEvent
 
 
 class ProgressContext:
@@ -293,7 +292,6 @@ def create_progress_context_callback(progress: "ProgressContext") -> "ProgressCa
     ...     to_markdown("document.pdf", progress_callback=callback)
 
     """
-    from all2md.progress import ProgressEvent
 
     def callback(event: ProgressEvent) -> None:
         """Handle progress event and log to context."""

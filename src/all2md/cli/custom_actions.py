@@ -666,12 +666,8 @@ class TieredHelpAction(argparse.Action):
             The option string used, if any
 
         """
-        selector = values or "quick"
-        try:
-            from all2md.cli.help_formatter import display_help
-        except ImportError:  # pragma: no cover - defensive
-            parser.print_help()
-            parser.exit()
+        from all2md.cli.help_formatter import display_help
 
+        selector = values or "quick"
         display_help(selector)
         parser.exit()

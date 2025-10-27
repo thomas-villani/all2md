@@ -156,7 +156,7 @@ class TestEmlConverterSecurityInheritance:
 
     def test_eml_security_settings_passed_to_html(self):
         """Test that EML security settings are passed to HTML converter."""
-        from all2md.parsers.eml import _convert_html_to_markdown
+        from all2md.parsers.eml import convert_eml_html_to_markdown
 
         html_content = '<img src="https://example.com/image.png" alt="test">'
 
@@ -170,14 +170,14 @@ class TestEmlConverterSecurityInheritance:
 
         # The function now uses to_markdown which calls the parser internally
         # We can just verify that the conversion happens correctly
-        result = _convert_html_to_markdown(html_content, options)
+        result = convert_eml_html_to_markdown(html_content, options)
 
         # Verify the HTML was processed (should contain alt text at minimum)
         assert "test" in result
 
     def test_eml_default_security_blocks_remote_fetch(self):
         """Test that EML default security settings block remote fetching."""
-        from all2md.parsers.eml import _convert_html_to_markdown
+        from all2md.parsers.eml import convert_eml_html_to_markdown
 
         html_content = '<img src="https://example.com/image.png" alt="test">'
 
@@ -185,7 +185,7 @@ class TestEmlConverterSecurityInheritance:
         options = EmlOptions()
         assert not options.html_network.allow_remote_fetch
 
-        result = _convert_html_to_markdown(html_content, options)
+        result = convert_eml_html_to_markdown(html_content, options)
 
         # Should return the content without attempting to fetch
         assert "test" in result

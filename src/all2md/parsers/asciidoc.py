@@ -1917,7 +1917,6 @@ class AsciiDocParser(BaseParser):
                 # Pattern: [colspan].[rowspan]+
                 # Examples: 2+, .3+, 2.3+
                 # Also supports: 2* for duplication (treated as colspan)
-                import re
 
                 span_pattern = r"^(\d+)?\.?(\d+)?([+*])\s*"
                 match = re.match(span_pattern, part.strip())

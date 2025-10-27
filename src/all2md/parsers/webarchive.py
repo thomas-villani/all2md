@@ -13,6 +13,7 @@ import logging
 import plistlib
 from pathlib import Path
 from typing import IO, Any, Optional, Union
+from urllib.parse import urlparse
 
 from all2md.ast import Document, Heading, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
@@ -326,7 +327,6 @@ class WebArchiveToAstConverter(BaseParser):
         if url:
             metadata.custom["url"] = str(url)
             # Use domain/path as title if no better title found
-            from urllib.parse import urlparse
 
             parsed = urlparse(str(url))
             if parsed.netloc:

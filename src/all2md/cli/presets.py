@@ -8,6 +8,8 @@ processing, high quality output, minimal text extraction, etc.
 
 from typing import Any, Dict
 
+from all2md.cli.config import merge_configs
+
 # Preset definitions
 PRESETS: Dict[str, Dict[str, Any]] = {
     "fast": {
@@ -251,8 +253,6 @@ def apply_preset(preset_name: str, base_config: Dict[str, Any]) -> Dict[str, Any
     True
 
     """
-    from all2md.cli.config import merge_configs
-
     preset_config = get_preset_config(preset_name)
 
     # Merge with preset as base and explicit config as override

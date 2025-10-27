@@ -11,6 +11,7 @@ DokuWiki markup into the same AST structure used for other formats.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from pathlib import Path
@@ -679,8 +680,6 @@ class DokuWikiParser(BaseParser):
             FootnoteReference node
 
         """
-        import hashlib
-
         footnote_text = match.group(1).strip()
         identifier = hashlib.md5(footnote_text.encode()).hexdigest()[:8]
 
