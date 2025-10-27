@@ -35,7 +35,7 @@ Inline nodes represent text formatting:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal, Optional
 
 MathNotation = Literal["latex", "mathml", "html"]
@@ -1771,8 +1771,6 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
         True
 
     """
-    from dataclasses import replace
-
     # Block nodes with 'children' attribute
     if isinstance(node, (Document, BlockQuote, ListItem)):
         return replace(node, children=new_children)

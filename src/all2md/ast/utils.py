@@ -36,7 +36,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from all2md.ast.nodes import Node
+    from all2md.ast.nodes import Node, Text, get_node_children
 
 
 def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> str:
@@ -135,9 +135,6 @@ def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> s
         'This is bold text.'
 
     """
-    # Import here to avoid circular imports
-    from all2md.ast.nodes import Text, get_node_children
-
     # Handle list of nodes
     if isinstance(node_or_nodes, list):
         text_parts = []

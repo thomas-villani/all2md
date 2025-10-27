@@ -39,8 +39,6 @@ from all2md.utils.input_sources import RemoteInputOptions
 
 logger = logging.getLogger(__name__)
 
-_OPTION_COMPAT_WARNINGS: set[str] = set()
-
 
 def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
     """Return the shared base directory for local inputs when preserving structure."""
@@ -131,14 +129,20 @@ def _filter_options_for_formats(
     options : dict
         Fully-qualified options dictionary (e.g., {'pdf.pages': [1]})
     parser_format : str or None
-        Detected parser format. When None, fall back to legacy behaviour with warnings.
+        Detected parser format. When None, format-qualified options are applied as fallback.
     renderer_format : str or None
-        Target renderer format. When None, fall back with warnings for renderer-prefixed keys.
+        Target renderer format. When None, format-qualified renderer options are applied as fallback.
 
     Returns
     -------
     dict
         Options dictionary suitable for passing to convert()/to_markdown().
+
+    Notes
+    -----
+    When format is unknown (None), format-qualified options are still applied and will be
+    used if applicable to the actual parser/renderer that handles the input. This commonly
+    occurs with stdin input, collation rendering, or when format detection fails.
 
     """
     filtered: Dict[str, Any] = {}
@@ -167,27 +171,26 @@ def _filter_options_for_formats(
         if not renderer_format:
             renderer_fallback[terminal] = value
 
+    # Apply fallback options when format is unknown
     if not parser_format and parser_fallback:
-        for legacy_key, legacy_value in parser_fallback.items():
-            if legacy_key not in filtered:
-                filtered[legacy_key] = legacy_value
-            if legacy_key not in _OPTION_COMPAT_WARNINGS:
-                logger.warning(
-                    "Using legacy parser option '%s'. Specify --format to avoid relying on implicit mapping.",
-                    legacy_key,
-                )
-                _OPTION_COMPAT_WARNINGS.add(legacy_key)
+        logger.debug(
+            "Parser format unknown - applying %d format-qualified option(s) as fallback: %s",
+            len(parser_fallback),
+            ", ".join(parser_fallback.keys()),
+        )
+        for key, value in parser_fallback.items():
+            if key not in filtered:
+                filtered[key] = value
 
     if not renderer_format and renderer_fallback:
-        for legacy_key, legacy_value in renderer_fallback.items():
-            if legacy_key not in filtered:
-                filtered[legacy_key] = legacy_value
-            if legacy_key not in _OPTION_COMPAT_WARNINGS:
-                logger.warning(
-                    "Using legacy renderer option '%s'. Specify --output-format to avoid implicit mapping.",
-                    legacy_key,
-                )
-                _OPTION_COMPAT_WARNINGS.add(legacy_key)
+        logger.debug(
+            "Renderer format unknown - applying %d format-qualified option(s) as fallback: %s",
+            len(renderer_fallback),
+            ", ".join(renderer_fallback.keys()),
+        )
+        for key, value in renderer_fallback.items():
+            if key not in filtered:
+                filtered[key] = value
 
     return filtered
 

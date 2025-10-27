@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import json
 import logging
 import types
 from dataclasses import MISSING, fields, is_dataclass
@@ -35,7 +36,11 @@ from all2md.exceptions import (
     SecurityError,
     ValidationError,
 )
+from all2md.options import AttachmentOptionsMixin
+from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownRendererOptions
+from all2md.transforms import registry as transform_registry
+from all2md.utils.input_sources import RemoteInputOptions
 
 # Module logger for consistent warning/error reporting
 logger = logging.getLogger(__name__)
@@ -192,9 +197,6 @@ class DynamicCLIBuilder:
 
         options_classes: Dict[str, Type[Any]] = {}
 
-        from all2md.options.base import BaseParserOptions, BaseRendererOptions
-        from all2md.utils.input_sources import RemoteInputOptions
-
         options_classes["base"] = BaseParserOptions
         options_classes["renderer_base"] = BaseRendererOptions
         options_classes["markdown"] = MarkdownRendererOptions
@@ -281,7 +283,8 @@ class DynamicCLIBuilder:
 
         return kwargs
 
-    def _handle_union_type(self, resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
+    @staticmethod
+    def _handle_union_type(resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
         """Handle Union type inference (e.g., int | list[int]).
 
         Parameters
@@ -338,7 +341,8 @@ class DynamicCLIBuilder:
 
         return kwargs, help_suffix
 
-    def _handle_list_type(self, resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
+    @staticmethod
+    def _handle_list_type(resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
         """Handle list type inference.
 
         Parameters
@@ -392,7 +396,18 @@ class DynamicCLIBuilder:
             kwargs["type"] = parse_str_list_fallback
             return kwargs, "(comma-separated values)"
 
-    def _handle_dict_type(self) -> tuple[Dict[str, Any], str]:
+    @staticmethod
+    def _handle_int_list():
+        def parse_int_list(value: str) -> list[int]:
+            try:
+                return [int(x.strip()) for x in value.split(",")]
+            except ValueError as e:
+                raise argparse.ArgumentTypeError(f"Expected comma-separated integers, got: {value}") from e
+
+        return {"type": parse_int_list}, "(comma-separated integers)"
+
+    @staticmethod
+    def _handle_dict_type() -> tuple[Dict[str, Any], str]:
         """Handle dict type inference.
 
         Returns
@@ -401,7 +416,6 @@ class DynamicCLIBuilder:
             Argparse kwargs and help suffix
 
         """
-        import json
 
         def parse_json_dict(value: str) -> dict:
             try:
@@ -461,13 +475,7 @@ class DynamicCLIBuilder:
         # Handle legacy metadata types
         if metadata.get("type") == "list_int":
 
-            def parse_legacy_int_list(value: str) -> list[int]:
-                try:
-                    return [int(x.strip()) for x in value.split(",")]
-                except ValueError as e:
-                    raise argparse.ArgumentTypeError(f"Expected comma-separated integers, got: {value}") from e
-
-            return {"type": parse_legacy_int_list}, "(comma-separated integers)"
+            return self._handle_int_list()
 
         # Handle basic types
         if resolved_type in (int, float):
@@ -838,8 +846,6 @@ class DynamicCLIBuilder:
         # Get BaseOptions fields to exclude if requested
         base_field_names = set()
         if exclude_base_fields:
-            from all2md.options.base import BaseParserOptions
-
             base_field_names = {f.name for f in fields(BaseParserOptions)}
 
         # Create argument group if requested
@@ -951,12 +957,6 @@ class DynamicCLIBuilder:
             Parser to add transform arguments to
 
         """
-        try:
-            from all2md.transforms import registry as transform_registry
-        except ImportError:
-            # Transform system not available, skip
-            return
-
         # Add --transform flag (repeatable, ordered) with tracking
         parser.add_argument(
             "--transform",
@@ -1012,8 +1012,6 @@ class DynamicCLIBuilder:
             Parser to add arguments to
 
         """
-        from all2md.options.common import AttachmentOptionsMixin
-
         # Create argument group for global attachment options
         attachment_group = parser.add_argument_group(
             "Global attachment options",

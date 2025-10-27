@@ -16,16 +16,26 @@ from typing import Literal, Sequence
 
 from all2md.ast.nodes import (
     Alignment,
+    BlockQuote,
+    CodeBlock,
     DefinitionDescription,
+    DefinitionList,
     DefinitionTerm,
     Document,
+    FootnoteDefinition,
+    Heading,
+    HTMLBlock,
     List,
     ListItem,
+    MathBlock,
     MathNotation,
     Node,
+    Paragraph,
     Table,
     TableCell,
     TableRow,
+    Text,
+    ThematicBreak,
 )
 
 
@@ -271,8 +281,6 @@ class TableBuilder:
         internally.
 
         """
-        from all2md.ast.nodes import Text
-
         # Auto-detect header row if has_header is True and no header exists yet
         if self.has_header and self.header is None and not is_header:
             is_header = True
@@ -436,8 +444,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import Heading
-
         self.children.append(Heading(level=level, content=content))
         return self
 
@@ -455,8 +461,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import Paragraph
-
         self.children.append(Paragraph(content=content))
         return self
 
@@ -476,8 +480,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import CodeBlock
-
         self.children.append(CodeBlock(content=content, language=language))
         return self
 
@@ -490,8 +492,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import ThematicBreak
-
         self.children.append(ThematicBreak())
         return self
 
@@ -509,8 +509,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import BlockQuote
-
         self.children.append(BlockQuote(children=children))
         return self
 
@@ -536,8 +534,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import List
-
         self.children.append(List(ordered=ordered, items=items, start=start, tight=tight))
         return self
 
@@ -567,8 +563,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import Table
-
         self.children.append(Table(rows=rows, header=header, alignments=alignments or [], caption=caption))
         return self
 
@@ -586,8 +580,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import HTMLBlock
-
         self.children.append(HTMLBlock(content=content))
         return self
 
@@ -607,8 +599,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import FootnoteDefinition
-
         self.children.append(FootnoteDefinition(identifier=identifier, content=content))
         return self
 
@@ -626,8 +616,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import DefinitionList
-
         self.children.append(DefinitionList(items=items))
         return self
 
@@ -647,8 +635,6 @@ class DocumentBuilder:
             Self for method chaining
 
         """
-        from all2md.ast.nodes import MathBlock
-
         self.children.append(MathBlock(content=content, notation=notation))
         return self
 

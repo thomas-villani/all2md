@@ -52,6 +52,7 @@ from typing import Callable, Literal
 from all2md.ast.nodes import (
     Document,
     Heading,
+    Link,
     List,
     ListItem,
     Node,
@@ -1028,8 +1029,6 @@ def _build_toc_ast(sections: list[Section], max_level: int) -> list[Node]:
     parsing it back to AST, which creates a circular dependency on the markdown parser.
 
     """
-    from all2md.ast.nodes import Link
-
     if not sections:
         return []
 

@@ -676,12 +676,12 @@ class TestOptionPreparation:
         assert result["max_asset_size_bytes"] == 1024
 
     def test_prepare_options_fallback_warns_when_format_unknown(self, caplog):
-        """Unknown formats should fall back to legacy keys with a warning."""
+        """Unknown formats should fall back to format-qualified options with debug logging."""
         options = {"pdf.pages": [3, 4]}
 
-        caplog.set_level(logging.WARNING, logger="all2md.cli.processors")
+        caplog.set_level(logging.DEBUG, logger="all2md.cli.processors")
 
         result = prepare_options_for_execution(options, None, "auto", "markdown")
 
         assert result["pages"] == [3, 4]
-        assert any("legacy parser option" in record.message for record in caplog.records)
+        assert any("Parser format unknown" in record.message for record in caplog.records)

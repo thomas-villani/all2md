@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import copy
 import re
+from dataclasses import replace
 from typing import Any, Callable, Pattern, Type
 
 from all2md.ast.nodes import (
@@ -68,9 +69,12 @@ from all2md.ast.nodes import (
     Text,
     ThematicBreak,
     Underline,
+    get_node_children,
+    replace_node_children,
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.constants import SAFE_LINK_SCHEMES
+from all2md.utils.security import is_relative_url, is_url_scheme_dangerous, validate_user_regex_pattern
 
 
 def _validate_url_scheme(url: str, context: str = "URL") -> None:
@@ -97,8 +101,6 @@ def _validate_url_scheme(url: str, context: str = "URL") -> None:
     >>> _validate_url_scheme("javascript:alert(1)")  # Raises ValueError
 
     """
-    from all2md.utils.security import is_relative_url, is_url_scheme_dangerous
-
     if not url:
         return
 
@@ -207,14 +209,10 @@ class NodeTransformer(NodeVisitor):
         to minimize boilerplate in visitor implementations.
 
         """
-        from all2md.ast.nodes import get_node_children, replace_node_children
-
         children = get_node_children(node)
         if not children:
             # Leaf node - return a copy
-            from dataclasses import replace
-
-            return replace(node)  # type: ignore[type-var]
+            return replace(node)
 
         # Transform children and rebuild node
         transformed_children = self._transform_children(children)
@@ -390,8 +388,6 @@ class NodeTransformer(NodeVisitor):
 
     def visit_definition_list(self, node: "DefinitionList") -> "DefinitionList":
         """Transform a DefinitionList node."""
-        from all2md.ast.nodes import DefinitionDescription, DefinitionTerm
-
         transformed_items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
         for term, descriptions in node.items:
             t_term = self.transform(term)
@@ -473,8 +469,6 @@ class NodeCollector(NodeVisitor):
         in visitor implementations.
 
         """
-        from all2md.ast.nodes import get_node_children
-
         self._collect_if_match(node)
         children = get_node_children(node)
         self._visit_children(children)
@@ -1129,8 +1123,6 @@ class TextReplacer(NodeTransformer):
         # Compile and validate regex pattern if using regex mode
         if self.use_regex:
             # Validate pattern for ReDoS protection
-            from all2md.utils.security import validate_user_regex_pattern
-
             validate_user_regex_pattern(pattern)
 
             try:
