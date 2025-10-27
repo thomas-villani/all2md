@@ -503,14 +503,14 @@ class TestFix6AddAttachmentFootnotesRegistration:
 
     def test_transform_is_registered_in_registry(self):
         """Test that AddAttachmentFootnotesTransform is registered."""
-        from all2md.transforms import registry
+        from all2md.transforms import transform_registry
 
         # Clear any test transforms and re-initialize from builtin metadata
-        registry.clear()
-        registry._initialized = False
-        registry._ensure_initialized()
+        transform_registry.clear()
+        transform_registry._initialized = False
+        transform_registry._ensure_initialized()
 
-        registered_transforms = registry.list_transforms()
+        registered_transforms = transform_registry.list_transforms()
         assert (
             "add-attachment-footnotes" in registered_transforms
         ), "AddAttachmentFootnotesTransform should be registered as 'add-attachment-footnotes'"

@@ -872,13 +872,16 @@ _DESERIALIZATION_DISPATCH: dict[str, Any] = {
 }
 
 
-def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
+def dict_to_ast(data: dict[str, Any], strict_mode: bool = True) -> Node | SourceLocation:
     """Convert a dictionary representation back to an AST node.
 
     Parameters
     ----------
     data : dict
         Dictionary representation of a node
+    strict_mode : bool, default True
+        If True, raise ValueError on unknown node types.
+        If False, skip unknown nodes (useful for forward compatibility).
 
     Returns
     -------
@@ -888,7 +891,7 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
     Raises
     ------
     ValueError
-        If the dictionary contains an unknown node type
+        If the dictionary contains an unknown node type and strict_mode is True
 
     Examples
     --------
@@ -898,13 +901,31 @@ def dict_to_ast(data: dict[str, Any]) -> Node | SourceLocation:
     Hello
 
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     node_type = data.get("node_type")
     if not node_type:
-        raise ValueError("Dictionary must contain 'node_type' field")
+        if strict_mode:
+            raise ValueError("Dictionary must contain 'node_type' field")
+        else:
+            logger.warning("Dictionary missing 'node_type' field, skipping")
+            # Return a placeholder Text node for robustness
+            from all2md.ast import Text
+
+            return Text(content="")
 
     deserializer = _DESERIALIZATION_DISPATCH.get(node_type)
     if not deserializer:
-        raise ValueError(f"Unknown node type: {node_type}")
+        if strict_mode:
+            raise ValueError(f"Unknown node type: {node_type}")
+        else:
+            logger.warning(f"Unknown node type '{node_type}', skipping")
+            # Return a placeholder Text node for robustness
+            from all2md.ast import Text
+
+            return Text(content=f"[Unknown node type: {node_type}]")
 
     return deserializer(data)
 
@@ -950,7 +971,7 @@ def ast_to_json(node: Node, indent: int | None = None) -> str:
     return json.dumps(versioned_dict, indent=indent, ensure_ascii=False)
 
 
-def json_to_ast(json_str: str) -> Node:
+def json_to_ast(json_str: str, validate_schema: bool = True, strict_mode: bool = True) -> Node:
     """Deserialize a JSON string to an AST node.
 
     This function handles schema versioning to support future AST evolution.
@@ -961,6 +982,12 @@ def json_to_ast(json_str: str) -> Node:
     ----------
     json_str : str
         JSON string representation
+    validate_schema : bool, default True
+        If True, validate schema version and raise errors on unsupported versions.
+        If False, skip schema validation (useful for forward compatibility).
+    strict_mode : bool, default True
+        If True, raise ValueError on unknown node types or attributes.
+        If False, log warnings and skip unknown elements (useful for forward compatibility).
 
     Returns
     -------
@@ -971,7 +998,7 @@ def json_to_ast(json_str: str) -> Node:
     ------
     ValueError
         If JSON is invalid, contains unknown node types, or has an
-        unsupported schema version
+        unsupported schema version (when validate_schema=True or strict_mode=True)
     json.JSONDecodeError
         If JSON string is malformed
 
@@ -986,22 +1013,41 @@ def json_to_ast(json_str: str) -> Node:
     >>> print(node.content)
     Hello
 
+    Optional validation allows forward compatibility:
+
+    >>> # With validation disabled, can load newer schema versions
+    >>> node = json_to_ast(future_json, validate_schema=False, strict_mode=False)
+
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     data = json.loads(json_str)
 
     # Extract and validate schema version
     schema_version = data.pop("schema_version", None)
-    if schema_version is None:
-        # Backward compatibility: if no version specified, assume version 1
-        schema_version = 1
-    if not isinstance(schema_version, int):
-        raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
-    elif schema_version != 1:
-        raise ValueError(
-            f"Unsupported schema version: {schema_version}. " f"This version of all2md supports schema version 1 only."
-        )
 
-    return dict_to_ast(data)  # type: ignore
+    if validate_schema:
+        if schema_version is None:
+            # Backward compatibility: if no version specified, assume version 1
+            schema_version = 1
+        if not isinstance(schema_version, int):
+            raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
+        elif schema_version != 1:
+            raise ValueError(
+                f"Unsupported schema version: {schema_version}. "
+                f"This version of all2md supports schema version 1 only."
+            )
+    else:
+        # Schema validation disabled - just log a warning if version differs
+        if schema_version is not None and schema_version != 1:
+            logger.warning(
+                f"Schema version {schema_version} differs from supported version 1. "
+                f"Attempting to parse anyway (schema validation disabled)."
+            )
+
+    return dict_to_ast(data, strict_mode=strict_mode)  # type: ignore
 
 
 __all__ = [

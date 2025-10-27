@@ -33,7 +33,7 @@ Use a transform instance with parameters:
 
 Register a custom transform:
 
-    >>> from all2md.transforms import registry, TransformMetadata
+    >>> from all2md.transforms import transform_registry, TransformMetadata
     >>> from all2md.ast.transforms import NodeTransformer
     >>>
     >>> class MyTransform(NodeTransformer):
@@ -44,7 +44,7 @@ Register a custom transform:
     ...     description="My custom transform",
     ...     transformer_class=MyTransform
     ... )
-    >>> registry.register(metadata)
+    >>> transform_registry.register(metadata)
 
 Use hooks for element-specific processing:
 
@@ -98,7 +98,7 @@ from .metadata import ParameterSpec, TransformMetadata
 from .pipeline import HookAwareVisitor, Pipeline, apply, render
 
 # Registry
-from .registry import TransformRegistry, registry
+from .registry import TransformRegistry, transform_registry
 
 # Version info
 __version__ = "0.1.0"
@@ -109,7 +109,7 @@ __all__ = [
     "ParameterSpec",
     # Registry
     "TransformRegistry",
-    "registry",
+    "transform_registry",
     # Hooks
     "HookManager",
     "HookContext",

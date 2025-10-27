@@ -36,6 +36,7 @@ from all2md.exceptions import (
     ValidationError,
 )
 from all2md.options.archive import ArchiveOptions
+from all2md.options.base import BaseParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
@@ -63,7 +64,7 @@ def _process_archive_file_worker(
     file_data : bytes
         File content bytes
     options_dict : dict[str, Any]
-        Serialized options dictionary
+        Serialized options dictionary including attachment options
 
     Returns
     -------
@@ -102,8 +103,30 @@ def _process_archive_file_worker(
         # Reset the file object position for parsing
         file_obj.seek(0)
 
+        # Create parser options with attachment settings if available
+        parser_options = None
+        attachment_opts = options_dict.get("attachment_options")
+        if attachment_opts:
+            try:
+                from all2md.options.common import AttachmentOptionsMixin
+
+                options_class = registry.get_parser_options_class(detected_format)
+                if options_class and issubclass(options_class, AttachmentOptionsMixin):
+                    default_options = options_class()
+                    parser_options = default_options.create_updated(**attachment_opts)
+                elif options_class:
+                    parser_options = options_class()
+            except Exception:
+                # If options creation fails, fall back to None (use defaults)
+                parser_options = None
+
         # Convert using the detected format (no progress callback in parallel mode)
-        doc = to_ast(file_obj, source_format=detected_format, progress_callback=None)
+        doc = to_ast(
+            file_obj,
+            source_format=cast(DocumentFormat, detected_format),
+            parser_options=cast(BaseParserOptions | None, parser_options),
+            progress_callback=None,
+        )
 
         return (file_path, doc, None)
 
@@ -956,6 +979,7 @@ class ArchiveToAstConverter(BaseParser):
         # Prepare options dict for workers
         options_dict = {
             "resource_file_extensions": self.options.resource_file_extensions,
+            "attachment_options": self._get_attachment_options_dict(),
         }
 
         # Prepare file data cache
@@ -1058,7 +1082,7 @@ class ArchiveToAstConverter(BaseParser):
             Display path for section heading
 
         """
-        if self.options.flatten_structure or not self.options.preserve_directory_structure:
+        if not self.options.preserve_directory_structure:
             return Path(file_path).name
         return file_path
 
@@ -1101,6 +1125,72 @@ class ArchiveToAstConverter(BaseParser):
         if archive_type == "rar":
             return archive.read(file_path)
         return b""
+
+    def _get_attachment_options_dict(self) -> dict[str, Any]:
+        """Extract attachment-related options from ArchiveOptions as a dictionary.
+
+        This creates a dictionary of attachment options that can be passed to nested
+        parsers when converting files inside archives.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary of attachment option names and values
+
+        """
+        # Extract all attachment-related fields from self.options
+        # These come from AttachmentOptionsMixin
+        return {
+            "attachment_mode": self.options.attachment_mode,
+            "alt_text_mode": self.options.alt_text_mode,
+            "attachment_output_dir": self.options.attachment_output_dir,
+            "attachment_base_url": self.options.attachment_base_url,
+            "max_asset_size_bytes": self.options.max_asset_size_bytes,
+            "attachment_filename_template": self.options.attachment_filename_template,
+            "attachment_overwrite": self.options.attachment_overwrite,
+            "attachment_deduplicate_by_hash": self.options.attachment_deduplicate_by_hash,
+            "attachments_footnotes_section": self.options.attachments_footnotes_section,
+        }
+
+    def _create_nested_parser_options(self, detected_format: str) -> BaseParserOptions | None:
+        """Create parser options for a nested file with attachment settings from archive options.
+
+        Parameters
+        ----------
+        detected_format : str
+            The detected format of the nested file
+
+        Returns
+        -------
+        BaseParserOptions or None
+            Parser options with attachment settings, or None if format doesn't support attachments
+
+        """
+        # Get the options class for this format from the registry
+        try:
+            options_class = registry.get_parser_options_class(detected_format)
+            if options_class is None:
+                return None
+
+            # Check if this options class supports attachment options (has AttachmentOptionsMixin)
+            from all2md.options.common import AttachmentOptionsMixin
+
+            # Get attachment options as dict
+            attachment_opts = self._get_attachment_options_dict()
+
+            # Create options with attachment fields if the class supports them
+            if issubclass(options_class, AttachmentOptionsMixin):
+                # Use the create_updated method to create a new instance with modified fields
+                default_options = options_class()
+                # Replace with our attachment settings
+                return cast(BaseParserOptions, default_options.create_updated(**attachment_opts))
+            else:
+                # Format doesn't support attachments, return default options
+                return cast(BaseParserOptions, options_class())
+
+        except Exception as e:
+            logger.debug(f"Failed to create parser options for {detected_format}: {e}")
+            return None
 
     def _is_resource_file(self, file_path: str) -> bool:
         """Check if a file should be treated as a resource based on its extension.
@@ -1179,10 +1269,14 @@ class ArchiveToAstConverter(BaseParser):
             # Reset the file object position for parsing
             file_obj.seek(0)
 
-            # Convert using the detected format
+            # Create parser options with attachment settings from archive options
+            parser_options = self._create_nested_parser_options(detected_format)
+
+            # Convert using the detected format with options
             doc = to_ast(
                 file_obj,
                 source_format=cast(DocumentFormat, detected_format),
+                parser_options=parser_options,
                 progress_callback=self.progress_callback,
             )
 
@@ -1254,7 +1348,7 @@ class ArchiveToAstConverter(BaseParser):
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Validate and construct safe output path to prevent path traversal
-            if self.options.preserve_directory_structure and not self.options.flatten_structure:
+            if self.options.preserve_directory_structure:
                 # Use full path from archive, but validate it's safe
                 output_file = validate_safe_extraction_path(output_dir, file_path)
                 # Ensure parent directories exist

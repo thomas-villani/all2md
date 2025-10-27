@@ -15,20 +15,20 @@ Examples
 --------
 Register a transform using the global registry instance (preferred):
 
-    >>> from all2md.transforms import registry, TransformMetadata
-    >>> registry.register(my_transform_metadata)
+    >>> from all2md.transforms import transform_registry, TransformMetadata
+    >>> transform_registry.register(my_transform_metadata)
 
 Get a transform:
 
-    >>> from all2md.transforms import registry
-    >>> transformer = registry.get_transform("remove-images")
+    >>> from all2md.transforms import transform_registry
+    >>> transformer = transform_registry.get_transform("remove-images")
 
 List all transforms:
 
-    >>> from all2md.transforms import registry
-    >>> names = registry.list_transforms()
+    >>> from all2md.transforms import transform_registry
+    >>> names = transform_registry.list_transforms()
     >>> for name in names:
-    ...     metadata = registry.get_metadata(name)
+    ...     metadata = transform_registry.get_metadata(name)
     ...     print(f"{name}: {metadata.description}")
 
 Notes
@@ -78,16 +78,16 @@ class TransformRegistry:
     Examples
     --------
     Use the global registry instance (preferred):
-        >>> from all2md.transforms import registry
-        >>> registry.register(metadata)
+        >>> from all2md.transforms import transform_registry
+        >>> transform_registry.register(metadata)
 
     Get a transform instance:
-        >>> from all2md.transforms import registry
-        >>> transformer = registry.get_transform("remove-images")
+        >>> from all2md.transforms import transform_registry
+        >>> transformer = transform_registry.get_transform("remove-images")
 
     List all available transforms:
-        >>> from all2md.transforms import registry
-        >>> transforms = registry.list_transforms()
+        >>> from all2md.transforms import transform_registry
+        >>> transforms = transform_registry.list_transforms()
 
     """
 
@@ -129,8 +129,8 @@ class TransformRegistry:
         ...     description="My custom transform",
         ...     transformer_class=MyTransform
         ... )
-        >>> registry = TransformRegistry()
-        >>> registry.register(metadata)
+        >>> transform_registry = TransformRegistry()
+        >>> transform_registry.register(metadata)
 
         """
         if metadata.name in self._transforms:
@@ -209,8 +209,8 @@ class TransformRegistry:
 
         Examples
         --------
-        >>> registry = TransformRegistry()
-        >>> transformer = registry.get_transform("heading-offset", offset=2)
+        >>> transform_registry = TransformRegistry()
+        >>> transformer = transform_registry.get_transform("heading-offset", offset=2)
 
         """
         metadata = self.get_metadata(name)
@@ -250,10 +250,10 @@ class TransformRegistry:
         Examples
         --------
         List all transforms:
-            >>> names = registry.list_transforms()
+            >>> names = transform_registry.list_transforms()
 
         List transforms with specific tags:
-            >>> image_transforms = registry.list_transforms(tags=["images"])
+            >>> image_transforms = transform_registry.list_transforms(tags=["images"])
 
         """
         self._ensure_initialized()
@@ -282,8 +282,8 @@ class TransformRegistry:
 
         Examples
         --------
-        >>> registry = TransformRegistry()
-        >>> count = registry.discover_plugins()
+        >>> transform_registry = TransformRegistry()
+        >>> count = transform_registry.discover_plugins()
         >>> print(f"Discovered {count} transforms")
 
         """
@@ -346,8 +346,8 @@ class TransformRegistry:
 
         Examples
         --------
-        >>> registry = TransformRegistry()
-        >>> ordered = registry.resolve_dependencies([
+        >>> transform_registry = TransformRegistry()
+        >>> ordered = transform_registry.resolve_dependencies([
         ...     "sanitize-links",  # depends on "extract-metadata"
         ...     "extract-metadata"
         ... ])
@@ -426,14 +426,14 @@ class TransformRegistry:
         """
         self._transforms.clear()
         self._initialized = False
-        logger.debug("Cleared transform registry")
+        logger.debug("Cleared transform transform_registry")
 
 
 # Global registry instance (preferred access pattern)
 # Use this instance rather than instantiating TransformRegistry directly
-registry = TransformRegistry()
+transform_registry = TransformRegistry()
 
 __all__ = [
     "TransformRegistry",
-    "registry",
+    "transform_registry",
 ]

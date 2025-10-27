@@ -42,7 +42,7 @@ from all2md.converter_registry import registry
 from all2md.dependencies import main as deps_main
 from all2md.logging_utils import configure_logging as configure_root_logging
 from all2md.renderers.markdown import MarkdownRenderer
-from all2md.transforms import registry as transform_registry
+from all2md.transforms import transform_registry as transform_registry
 from all2md.utils.attachments import ensure_unique_attachment_path
 from all2md.utils.packages import check_version_requirement, get_package_version
 from all2md.utils.static_site import (

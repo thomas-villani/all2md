@@ -24,9 +24,9 @@ import re
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Any, Callable, Generator, Iterable, Text, Union
+from typing import IO, Any, Callable, Generator, Iterable, Union
 
-from all2md.ast import Emphasis, FootnoteDefinition, Heading, Image, Node, Paragraph, Strong, Underline
+from all2md.ast import Emphasis, FootnoteDefinition, Heading, Image, Node, Paragraph, Strong, Text, Underline
 from all2md.utils.security import validate_zip_archive
 
 

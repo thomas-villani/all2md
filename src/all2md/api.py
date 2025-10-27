@@ -22,6 +22,7 @@ from all2md.utils.input_sources import (
     RemoteInputOptions,
     default_loader,
 )
+from all2md.utils.io_utils import write_content
 
 logger = logging.getLogger(__name__)
 
@@ -792,9 +793,6 @@ def from_ast(
         progress_callback=progress_callback,
     )
 
-    # Handle output using centralized I/O utility
-    from all2md.utils.io_utils import write_content
-
     result = write_content(content, output)
 
     # Auto-unwrap file-like objects for better UX
@@ -1079,8 +1077,6 @@ def convert(
     )
 
     # Handle output using centralized I/O utility
-    from all2md.utils.io_utils import write_content
-
     result = write_content(rendered, output)
 
     # Auto-unwrap file-like objects for better UX

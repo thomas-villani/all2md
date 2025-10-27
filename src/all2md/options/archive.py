@@ -36,8 +36,11 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
         Whether to create section headings for each extracted file.
     preserve_directory_structure : bool, default True
         Whether to include directory path in section headings.
-    flatten_structure : bool, default False
-        Whether to flatten directory structure (ignore paths in output).
+        When False, only filenames are shown (directory structure is flattened).
+
+        .. note::
+           The ``flatten_structure`` option was removed in favor of using
+           ``preserve_directory_structure=False`` for the same effect.
     extract_resource_files : bool, default True
         Whether to extract non-parseable files (images, CSS, etc.) to attachment directory.
     resource_file_extensions : list[str] or None, default None
@@ -88,15 +91,10 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     preserve_directory_structure: bool = field(
         default=True,
         metadata={
-            "help": "Include directory path in section headings",
+            "help": "Include directory path in section headings (False = flatten structure)",
             "cli_name": "no-preserve-directory",
             "importance": "advanced",
         },
-    )
-
-    flatten_structure: bool = field(
-        default=False,
-        metadata={"help": "Flatten directory structure in output", "cli_name": "flatten", "importance": "advanced"},
     )
 
     extract_resource_files: bool = field(

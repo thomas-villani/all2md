@@ -54,12 +54,13 @@ from typing import Any, Optional, Union
 
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
+from all2md.converter_registry import registry
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.renderers import MarkdownRenderer
 from all2md.renderers.base import BaseRendererOptions
 from all2md.transforms.hooks import HookCallable, HookContext, HookManager, HookTarget
-from all2md.transforms.registry import registry
+from all2md.transforms.registry import transform_registry
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +260,7 @@ class Pipeline:
         """
         self.transforms = transforms or []
         self.hook_manager = HookManager(strict=strict_hooks)
-        self.registry = registry  # Use global registry instance
+        self.registry = transform_registry  # Use global registry instance
         self.progress_callback = progress_callback
 
         # Set up renderer (skip if renderer=False for AST-only processing)
@@ -331,7 +332,7 @@ class Pipeline:
         """Resolve transform names/instances to ordered list of instances.
 
         This method converts string transform names to instances via the
-        registry, resolves dependencies, and maintains the user-provided
+        transform_registry, resolves dependencies, and maintains the user-provided
         order by expanding named transforms in place with their dependencies.
 
         Returns
@@ -344,7 +345,7 @@ class Pipeline:
         TypeError
             If transform is not a string or NodeTransformer
         ValueError
-            If transform name is not found in registry
+            If transform name is not found in transform_registry
 
         """
         result: list[NodeTransformer] = []

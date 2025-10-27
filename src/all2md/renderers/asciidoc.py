@@ -476,7 +476,9 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             checkbox = "[x]" if node.task_status == "checked" else "[ ]"
             marker = f"{marker} {checkbox}"
 
-        self._output.append(f"{marker} ")
+        # Apply indentation for nested lists based on list_indent option
+        indent = " " * ((self._list_level - 1) * self.options.list_indent)
+        self._output.append(f"{indent}{marker} ")
 
         # Render children
         for i, child in enumerate(node.children):
@@ -487,16 +489,16 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     self._output.append(content)
                 else:
                     # First child is a block element - needs continuation
-                    self._output.append("\n+\n")
+                    self._output.append(f"\n{indent}+\n")
                     child.accept(self)
             else:
                 # Subsequent children need continuation marker if they're blocks
                 if self._is_block_element(child):
-                    self._output.append("\n+\n")
+                    self._output.append(f"\n{indent}+\n")
                     child.accept(self)
                 else:
                     # Non-block subsequent children (e.g., additional Paragraphs)
-                    self._output.append("\n+\n")
+                    self._output.append(f"\n{indent}+\n")
                     child.accept(self)
 
     def visit_table(self, node: Table) -> None:
@@ -971,7 +973,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(f"footnote:{canonical_id}[{footnote_text}]")
             else:
                 # No definition found, just emit the reference
-                logger.debug(f"Footnote reference '{canonical_id}' has no definition", stacklevel=2)
+                logger.warning(f"Footnote reference '{canonical_id}' has no definition", stacklevel=2)
                 self._output.append(f"footnote:{canonical_id}[]")
 
             self._footnotes_emitted.add(canonical_id)

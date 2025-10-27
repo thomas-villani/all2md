@@ -39,7 +39,7 @@ from all2md.exceptions import (
 from all2md.options import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownRendererOptions
-from all2md.transforms.registry import registry as transform_registry
+from all2md.transforms.registry import transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
 
 # Module logger for consistent warning/error reporting

@@ -6,6 +6,7 @@ optional dependencies for various converter modules.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -518,8 +519,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         Exit code (0 for success, 1 for failure)
 
     """
-    import argparse
-
     parser = argparse.ArgumentParser(prog="all2md-deps", description="Check and manage all2md dependencies")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

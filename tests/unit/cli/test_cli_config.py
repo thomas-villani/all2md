@@ -688,8 +688,8 @@ class TestConfigCommands:
         monkeypatch.delenv("ALL2MD_CONFIG", raising=False)
 
         with (
-            patch("all2md.cli.config.load_config_with_priority", return_value={"pdf": {"pages": [1]}}),
-            patch("all2md.cli.config.get_config_search_paths", return_value=[]),
+            patch("all2md.cli.commands.load_config_with_priority", return_value={"pdf": {"pages": [1]}}),
+            patch("all2md.cli.commands.get_config_search_paths", return_value=[]),
         ):
             exit_code = handle_config_show_command(["--format", "json", "--no-source"])
 

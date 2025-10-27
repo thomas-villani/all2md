@@ -39,7 +39,7 @@ from all2md.constants import DocumentFormat
 from all2md.converter_registry import check_package_installed, registry
 from all2md.exceptions import All2MdError, DependencyError
 from all2md.transforms import AddHeadingIdsTransform, GenerateTocTransform
-from all2md.transforms import registry as transform_registry
+from all2md.transforms import transform_registry as transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
 from all2md.utils.packages import check_version_requirement
 

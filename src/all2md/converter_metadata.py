@@ -6,6 +6,7 @@ requirements, and registration information for the plugin registry system.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, Callable, Optional, Union
@@ -110,12 +111,17 @@ class ConverterMetadata:
         """
         return self.parser_required_packages + self.renderer_required_packages
 
-    def get_install_command(self) -> str:
+    def get_install_command(self, as_args=False) -> str | list[str]:
         """Generate pip install command for required packages.
+
+        Parameters
+        ----------
+        as_args : bool, default False
+            Returns a list of str for subprocess if True
 
         Returns
         -------
-        str
+        str | list[str]
             Pip install command for all required packages
 
         """
@@ -133,6 +139,8 @@ class ConverterMetadata:
             else:
                 packages.append(pkg_name)
 
+        if as_args:
+            return ["pip", "install", *packages]
         return f"pip install {' '.join(packages)}"
 
     def matches_extension(self, filename: str) -> bool:
@@ -151,8 +159,6 @@ class ConverterMetadata:
         """
         if not filename:
             return False
-
-        import os
 
         _, ext = os.path.splitext(filename.lower())
         return ext in self.extensions

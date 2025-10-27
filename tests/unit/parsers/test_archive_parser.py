@@ -158,7 +158,7 @@ class TestArchiveParser:
         files = {"dir1/file1.txt": b"Content"}
         tar_data = create_test_tar(files)
 
-        options = ArchiveOptions(flatten_structure=True, create_section_headings=True)
+        options = ArchiveOptions(preserve_directory_structure=False, create_section_headings=True)
 
         parser = ArchiveToAstConverter(options=options)
         doc = parser.parse(tar_data)

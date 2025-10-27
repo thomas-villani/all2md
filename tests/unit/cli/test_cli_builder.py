@@ -1740,8 +1740,6 @@ class TestTransformParameterExposure:
     """Ensure transform parameter metadata controls CLI exposure."""
 
     def _install_stub_registry(self, monkeypatch, metadata):
-        transform_module = __import__("all2md.transforms", fromlist=["registry"])
-
         class StubRegistry:
             def list_transforms(self):
                 return [metadata.name]
@@ -1749,7 +1747,8 @@ class TestTransformParameterExposure:
             def get_metadata(self, name):
                 return metadata
 
-        monkeypatch.setattr(transform_module, "registry", StubRegistry())
+        # Patch where the builder uses it, not where it's defined
+        monkeypatch.setattr("all2md.cli.builder.transform_registry", StubRegistry())
 
     def test_exposed_parameter_without_cli_flag_adds_argument(self, monkeypatch):
         metadata = TransformMetadata(

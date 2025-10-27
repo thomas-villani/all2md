@@ -115,8 +115,9 @@ class AstJsonParser(BaseParser):
         self, options: AstJsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the AST JSON parser."""
-        super().__init__(options or AstJsonParserOptions(), progress_callback)
-        self.options: AstJsonParserOptions
+        options = options or AstJsonParserOptions()
+        super().__init__(options, progress_callback)
+        self.options: AstJsonParserOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse JSON AST input into a Document.
@@ -155,15 +156,18 @@ class AstJsonParser(BaseParser):
             else:
                 raise ValueError(f"Unsupported input type: {type(input_data)}")
 
-            # Parse JSON to AST using serialization module
+            # Parse JSON to AST using serialization module with optional validation
             try:
-                doc = json_to_ast(json_str)
+                doc = json_to_ast(
+                    json_str, validate_schema=self.options.validate_schema, strict_mode=self.options.strict_mode
+                )
             except json.JSONDecodeError as e:
                 raise ParsingError(
                     f"Invalid JSON in AST file: {e}", parsing_stage="json_parsing", original_error=e
                 ) from e
             except ValueError as e:
                 # This could be from schema version validation or unknown node types
+                # (only when validation is enabled)
                 raise ParsingError(
                     f"Invalid AST structure: {e}", parsing_stage="ast_deserialization", original_error=e
                 ) from e
@@ -171,7 +175,8 @@ class AstJsonParser(BaseParser):
             # Validate it's a Document node
             if not isinstance(doc, Document):
                 raise ParsingError(
-                    f"AST root must be a Document node, got {type(doc).__name__}", parsing_stage="ast_validation"
+                    f"Invalid AST structure: AST root must be a Document node, got {type(doc).__name__}",
+                    parsing_stage="ast_validation",
                 )
 
             self._emit_progress("finished", "AST JSON parsing complete", current=1, total=1)

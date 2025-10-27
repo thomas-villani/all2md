@@ -147,8 +147,6 @@ class AsciiDocRendererOptions(BaseRendererOptions):
     use_attributes : bool, default True
         Whether to include document attributes in output.
         When True, renders :name: value attributes at document start.
-    preserve_comments : bool, default False
-        Whether to include // comments in rendered output.
     line_length : int, default 0
         Target line length for wrapping text (0 = no wrapping).
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
@@ -162,7 +160,7 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         - "comment": Render as AsciiDoc comments (// Comment text)
         - "note": Render as NOTE admonition blocks (visible annotations)
         - "ignore": Skip comment nodes entirely
-        This controls presentation of comments from source documents.
+        This is the sole option controlling comment rendering behavior.
 
     """
 
@@ -174,10 +172,6 @@ class AsciiDocRendererOptions(BaseRendererOptions):
             "cli_name": "no-use-attributes",
             "importance": "core",
         },
-    )
-    preserve_comments: bool = field(
-        default=False,
-        metadata={"help": "Include comments in rendered output", "cli_name": "preserve-comments", "importance": "core"},
     )
     line_length: int = field(
         default=0,
