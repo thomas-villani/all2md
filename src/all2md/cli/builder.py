@@ -1651,6 +1651,7 @@ Examples:
             "pager",
             "progress",
             "output_dir",
+            "output_extension",
             "recursive",
             "parallel",
             "skip_errors",
@@ -1992,6 +1993,15 @@ def create_parser() -> argparse.ArgumentParser:
         action=TrackingStoreAction,
         type=str,
         help="Directory to save converted files (for multi-file processing)",
+    )
+
+    parser.add_argument(
+        "--output-extension",
+        action=TrackingStoreAction,
+        type=str,
+        metavar="EXT",
+        help="Custom output file extension (e.g., .htm). Overrides default extension from --output-format. "
+        "Primarily useful with --watch or --output-dir for batch conversions.",
     )
 
     parser.add_argument("--recursive", "-r", action=TrackingStoreTrueAction, help="Process directories recursively")

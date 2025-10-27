@@ -230,11 +230,19 @@ def main(args: list[str] | None = None) -> int:
         # Convert input paths (which might be strings) to Path objects
         paths_to_watch = [Path(f) for f in parsed_args.input]
 
+        # Determine target format (defaults to markdown for backward compatibility)
+        target_format = getattr(parsed_args, "output_format", "markdown")
+
+        # Get custom output extension if specified
+        output_extension = getattr(parsed_args, "output_extension", None)
+
         return run_watch_mode(
             paths=paths_to_watch,
             output_dir=Path(parsed_args.output_dir),
             options=options,
             format_arg=format_arg,
+            target_format=target_format,
+            output_extension=output_extension,
             transforms=transforms,
             debounce=parsed_args.watch_debounce,
             preserve_structure=parsed_args.preserve_structure,

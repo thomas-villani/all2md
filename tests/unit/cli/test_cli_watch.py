@@ -123,8 +123,8 @@ class TestConversionEventHandler:
         # Should skip
         assert not handler.should_process(str(test_file))
 
-    @patch("all2md.cli.watch.to_markdown")
-    def test_convert_file_success(self, mock_to_markdown, tmp_path):
+    @patch("all2md.cli.watch.convert")
+    def test_convert_file_success(self, mock_convert, tmp_path):
         """Test successful file conversion."""
         from all2md.cli.watch import ConversionEventHandler
 
@@ -136,21 +136,19 @@ class TestConversionEventHandler:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test content")
 
-        mock_to_markdown.return_value = "# Test"
-
         # Convert file
         handler.convert_file(str(test_file))
 
-        # Should call to_markdown
-        mock_to_markdown.assert_called_once()
+        # Should call convert
+        mock_convert.assert_called_once()
 
-        # Should create output file
-        output_file = output_dir / "test.md"
-        assert output_file.exists()
-        assert output_file.read_text() == "# Test"
+        # Verify the correct arguments were passed
+        call_args = mock_convert.call_args
+        assert call_args[1]["source_format"] == "auto"
+        assert call_args[1]["target_format"] == "markdown"
 
-    @patch("all2md.cli.watch.to_markdown")
-    def test_convert_file_handles_error(self, mock_to_markdown, tmp_path, caplog):
+    @patch("all2md.cli.watch.convert")
+    def test_convert_file_handles_error(self, mock_convert, tmp_path, caplog):
         """Test that conversion errors are handled gracefully."""
         from all2md.cli.watch import ConversionEventHandler
         from all2md.exceptions import All2MdError
@@ -163,7 +161,7 @@ class TestConversionEventHandler:
         test_file.write_text("test")
 
         # Simulate conversion error
-        mock_to_markdown.side_effect = All2MdError("Test error")
+        mock_convert.side_effect = All2MdError("Test error")
 
         # Should not raise, but log error
         handler.convert_file(str(test_file))
@@ -171,8 +169,8 @@ class TestConversionEventHandler:
         # Check error was logged
         assert any("Conversion error" in record.message for record in caplog.records)
 
-    @patch("all2md.cli.watch.to_markdown")
-    def test_convert_file_clears_processing_flag(self, mock_to_markdown, tmp_path):
+    @patch("all2md.cli.watch.convert")
+    def test_convert_file_clears_processing_flag(self, mock_convert, tmp_path):
         """Test that processing flag is cleared after conversion."""
         from all2md.cli.watch import ConversionEventHandler
 
@@ -182,8 +180,6 @@ class TestConversionEventHandler:
 
         test_file = tmp_path / "test.txt"
         test_file.write_text("test")
-
-        mock_to_markdown.return_value = "# Test"
 
         # Convert file
         handler.convert_file(str(test_file))
@@ -279,6 +275,86 @@ class TestConversionEventHandler:
 
         # Should not call convert_file for directories
         handler.convert_file.assert_not_called()
+
+    @patch("all2md.cli.watch.convert")
+    def test_convert_with_custom_target_format(self, mock_convert, tmp_path):
+        """Test conversion with custom target format."""
+        from all2md.cli.watch import ConversionEventHandler
+
+        output_dir = tmp_path / "out"
+        handler = ConversionEventHandler(
+            paths_to_watch=[tmp_path],
+            output_dir=output_dir,
+            options={},
+            format_arg="auto",
+            target_format="html",
+        )
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("# Test")
+
+        # Convert file
+        handler.convert_file(str(test_file))
+
+        # Should call convert with HTML target format
+        mock_convert.assert_called_once()
+        call_args = mock_convert.call_args
+        assert call_args[1]["target_format"] == "html"
+
+    @patch("all2md.cli.watch.convert")
+    def test_convert_with_custom_output_extension(self, mock_convert, tmp_path):
+        """Test conversion with custom output extension."""
+        from all2md.cli.watch import ConversionEventHandler
+
+        output_dir = tmp_path / "out"
+        handler = ConversionEventHandler(
+            paths_to_watch=[tmp_path],
+            output_dir=output_dir,
+            options={},
+            format_arg="auto",
+            target_format="html",
+            output_extension=".htm",
+        )
+
+        test_file = tmp_path / "test.md"
+        test_file.write_text("# Test")
+
+        # Convert file
+        handler.convert_file(str(test_file))
+
+        # Should call convert
+        mock_convert.assert_called_once()
+
+        # Verify output path has custom extension
+        call_args = mock_convert.call_args
+        output_path = call_args[1]["output"]
+        assert output_path.suffix == ".htm"
+
+    @patch("all2md.cli.watch.convert")
+    def test_convert_pdf_to_docx(self, mock_convert, tmp_path):
+        """Test PDF to DOCX conversion in watch mode."""
+        from all2md.cli.watch import ConversionEventHandler
+
+        output_dir = tmp_path / "out"
+        handler = ConversionEventHandler(
+            paths_to_watch=[tmp_path],
+            output_dir=output_dir,
+            options={},
+            format_arg="pdf",
+            target_format="docx",
+        )
+
+        test_file = tmp_path / "test.pdf"
+        test_file.write_bytes(b"fake pdf")
+
+        # Convert file
+        handler.convert_file(str(test_file))
+
+        # Should call convert with correct formats
+        mock_convert.assert_called_once()
+        call_args = mock_convert.call_args
+        assert call_args[1]["source_format"] == "pdf"
+        assert call_args[1]["target_format"] == "docx"
 
 
 class TestRunWatchMode:

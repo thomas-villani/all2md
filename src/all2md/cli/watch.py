@@ -1,7 +1,7 @@
 """Watch mode implementation for all2md CLI.
 
 This module provides file system monitoring for automatic conversion of files
-when they change.
+when they change. Supports bidirectional conversion between any formats.
 """
 
 import logging
@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from all2md.api import to_markdown
+from all2md.api import convert
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 from all2md.cli.processors import generate_output_path
 from all2md.constants import IMAGE_EXTENSIONS, DocumentFormat
@@ -41,7 +41,11 @@ class ConversionEventHandler(FileSystemEventHandler):
     options : Dict[str, Any]
         Conversion options
     format_arg : str
-        Format specification
+        Source format specification
+    target_format : DocumentFormat, default "markdown"
+        Target output format
+    output_extension : str, optional
+        Custom output file extension (overrides target_format default)
     transforms : list, optional
         Transform instances to apply
     debounce_seconds : float, default 1.0
@@ -61,6 +65,8 @@ class ConversionEventHandler(FileSystemEventHandler):
         output_dir: Path,
         options: Dict[str, Any],
         format_arg: DocumentFormat,
+        target_format: DocumentFormat = "markdown",
+        output_extension: Optional[str] = None,
         transforms: Optional[list] = None,
         debounce_seconds: float = 1.0,
         preserve_structure: bool = False,
@@ -72,6 +78,8 @@ class ConversionEventHandler(FileSystemEventHandler):
         self.output_dir = output_dir
         self.options = options
         self.format_arg: DocumentFormat = format_arg
+        self.target_format: DocumentFormat = target_format
+        self.output_extension = output_extension
         self.transforms = transforms
         self.debounce_seconds = debounce_seconds
         self.preserve_structure = preserve_structure
@@ -164,20 +172,28 @@ class ConversionEventHandler(FileSystemEventHandler):
             # Mark as processing
             self._processing.add(file_path)
 
-            # Determine output path
-            output_path = generate_output_path(path, self.output_dir, self.preserve_structure, self.base_dir)
-
-            # Convert
-            logger.info(f"Converting {file_path}...")
-            start_time = time.time()
-
-            markdown_content = to_markdown(
-                path, source_format=self.format_arg, transforms=self.transforms, **self.options
+            # Determine output path with target format
+            output_path = generate_output_path(
+                path, self.output_dir, self.preserve_structure, self.base_dir, target_format=self.target_format
             )
 
-            # Write output
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(markdown_content, encoding="utf-8")
+            # Apply custom output extension if specified
+            if self.output_extension:
+                output_path = output_path.with_suffix(self.output_extension)
+
+            # Convert
+            logger.info(f"Converting {file_path} to {self.target_format}...")
+            start_time = time.time()
+
+            # Use convert() API for bidirectional conversion
+            convert(
+                path,
+                output=output_path,
+                source_format=self.format_arg,
+                target_format=self.target_format,
+                transforms=self.transforms,
+                **self.options,
+            )
 
             elapsed = time.time() - start_time
             logger.info(f"Converted {file_path} -> {output_path} ({elapsed:.2f}s)")
@@ -245,6 +261,8 @@ def run_watch_mode(
     output_dir: Path,
     options: Dict[str, Any],
     format_arg: DocumentFormat,
+    target_format: DocumentFormat = "markdown",
+    output_extension: Optional[str] = None,
     transforms: Optional[list] = None,
     debounce: float = 1.0,
     preserve_structure: bool = False,
@@ -252,6 +270,8 @@ def run_watch_mode(
     exclude_patterns: Optional[List[str]] = None,
 ) -> int:
     """Run watch mode to monitor and convert files on change.
+
+    Supports bidirectional conversion between any formats using the convert() API.
 
     Parameters
     ----------
@@ -262,7 +282,11 @@ def run_watch_mode(
     options : Dict[str, Any]
         Conversion options
     format_arg : DocumentFormat
-        Format specification
+        Source format specification
+    target_format : DocumentFormat, default "markdown"
+        Target output format for conversion
+    output_extension : str, optional
+        Custom output file extension (overrides target_format default)
     transforms : list, optional
         Transform instances to apply
     debounce : float, default 1.0
@@ -295,6 +319,8 @@ def run_watch_mode(
         output_dir=output_dir,
         options=options,
         format_arg=format_arg,
+        target_format=target_format,
+        output_extension=output_extension,
         transforms=transforms,
         debounce_seconds=debounce,
         preserve_structure=preserve_structure,

@@ -259,10 +259,43 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) 
     if not options_class:
         return None
 
-    # Filter to only valid kwargs for this options class
+    # Collect nested dataclass kwargs
+    nested_info = _collect_nested_dataclass_kwargs(options_class, kwargs)
+    nested_dataclass_kwargs = nested_info["nested"]
+    flat_kwargs = nested_info["remaining"]
+
+    try:
+        type_hints = get_type_hints(options_class)
+    except Exception:
+        type_hints = {}
+
+    # Create instances of nested dataclasses
+    for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():
+        field_type = type_hints.get(nested_field_name)
+        if not field_type:
+            for field in fields(options_class):
+                if field.name == nested_field_name:
+                    field_type = field.type
+                    break
+
+        if field_type:
+            nested_class = None
+            if hasattr(field_type, "__origin__"):
+                if hasattr(field_type, "__args__"):
+                    for arg in field_type.__args__:
+                        if arg is not type(None) and is_dataclass(arg):
+                            nested_class = arg
+                            break
+            elif is_dataclass(field_type):
+                nested_class = field_type
+
+            if nested_class:
+                flat_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
+
+    # Filter to only valid top-level kwargs
     option_names = [field.name for field in fields(options_class)]
-    valid_kwargs = {k: v for k, v in kwargs.items() if k in option_names}
-    missing = [k for k in kwargs if k not in valid_kwargs]
+    valid_kwargs = {k: v for k, v in flat_kwargs.items() if k in option_names}
+    missing = [k for k in flat_kwargs if k not in valid_kwargs]
     if missing:
         logger.debug(f"Skipping unknown renderer options: {missing}")
     return options_class(**valid_kwargs)
@@ -308,6 +341,11 @@ def _split_kwargs_for_parser_and_renderer(
     renderer_fields = set()
     if renderer_class:
         renderer_fields = {f.name for f in fields(renderer_class)}
+        # Also include nested dataclass fields
+        nested_info = _collect_nested_dataclass_kwargs(renderer_class, kwargs)
+        for _nested_field_name, nested_dataclass in nested_info["nested"].items():
+            for k in nested_dataclass.keys():
+                renderer_fields.add(k)
 
     # Split kwargs
     for k, v in kwargs.items():
@@ -420,7 +458,7 @@ def to_markdown(
         >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
 
     """
-    resolved_source = _resolve_document_source(source, remote_input_options)
+    resolved_source = _resolve_document_source(source, remote_input_options, progress_callback)
     detection_input = resolved_source.payload
 
     # Determine format first

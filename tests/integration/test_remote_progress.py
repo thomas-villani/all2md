@@ -14,8 +14,41 @@ from all2md.utils.input_sources import RemoteInputOptions
 class TestRemoteProgressTracking:
     """Integration tests for progress tracking with remote inputs."""
 
+    def test_to_markdown_api_remote_url_emits_progress(self):
+        """Test that to_markdown API function emits progress events for remote URLs."""
+        from all2md import to_markdown
+
+        url = "https://example.com/document.md"
+        remote_options = RemoteInputOptions(allow_remote_input=True)
+        events_log = []
+
+        def logging_callback(event: ProgressEvent) -> None:
+            events_log.append((event.event_type, event.metadata.get("item_type")))
+
+        with patch("all2md.utils.input_sources.fetch_content_securely") as fetch_mock:
+            fetch_mock.return_value = b"# Test Document\n\nContent here."
+
+            result = to_markdown(
+                url,
+                source_format="markdown",
+                remote_input_options=remote_options,
+                progress_callback=logging_callback,
+            )
+
+        # Verify result
+        assert "# Test Document" in result
+
+        # Verify progress events were emitted
+        assert len(events_log) >= 2
+        # Check that download events were emitted
+        download_events = [e for e in events_log if e[1] == "download"]
+        assert len(download_events) >= 2
+        # Should have started and item_done
+        assert ("started", "download") in download_events
+        assert ("item_done", "download") in download_events
+
     def test_to_markdown_remote_url_emits_progress(self):
-        """Test that to_markdown emits progress events for remote URLs."""
+        """Test that convert emits progress events for remote URLs."""
         from all2md import convert
 
         url = "https://example.com/document.md"
