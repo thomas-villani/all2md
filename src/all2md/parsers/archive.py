@@ -98,7 +98,7 @@ def _process_archive_file_worker(
         file_obj.seek(0)
 
         # Convert using the detected format (no progress callback in parallel mode)
-        doc = to_ast(file_obj, source_format=detected_format, progress=None)  # type: ignore[arg-type]
+        doc = to_ast(file_obj, source_format=detected_format, progress_callback=None)
 
         return (file_path, doc, None)
 
@@ -817,6 +817,10 @@ class ArchiveToAstConverter(BaseParser):
                 future = executor.submit(_process_archive_file_worker, file_path, file_data, options_dict)
                 future_to_file[future] = file_path
 
+            # Track progress
+            total_files = len(future_to_file)
+            completed_count = 0
+
             # Collect results as they complete
             for future in as_completed(future_to_file):
                 file_path = future_to_file[future]
@@ -824,11 +828,29 @@ class ArchiveToAstConverter(BaseParser):
                     result_file_path, doc, error_dict = future.result()
                     results_map[result_file_path] = (doc, error_dict)
 
+                    # Emit progress event as each file completes
+                    completed_count += 1
+                    self._emit_progress(
+                        "file_processing",
+                        f"Completed {result_file_path}",
+                        current=completed_count,
+                        total=total_files,
+                        file_path=result_file_path,
+                    )
+
                     # Track errors
                     if error_dict:
                         self._failed_files.append(error_dict)
                 except Exception as e:
                     logger.warning(f"Worker exception for {file_path}: {e}")
+                    completed_count += 1
+                    self._emit_progress(
+                        "file_processing",
+                        f"Failed {file_path}",
+                        current=completed_count,
+                        total=total_files,
+                        file_path=file_path,
+                    )
                     self._failed_files.append(
                         {
                             "file_path": file_path,

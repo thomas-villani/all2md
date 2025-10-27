@@ -265,6 +265,69 @@ class TestArchiveParser:
         assert isinstance(markdown, str)
         assert "test.txt" in markdown or "Hello, World!" in markdown
 
+    def test_parallel_processing(self):
+        """Test parallel processing with many files.
+
+        This test verifies that the parallel processing code path works correctly
+        by creating an archive with enough files to trigger parallel processing.
+        It specifically tests for the bug where 'progress' was used instead of
+        'progress_callback' parameter name, causing TypeError in worker processes.
+        """
+        # Create archive with 12 files (exceeds default parallel_threshold of 10)
+        files = {f"file{i}.txt": f"Content {i}".encode() for i in range(12)}
+        tar_data = create_test_tar(files)
+
+        # Enable parallel processing
+        options = ArchiveOptions(enable_parallel_processing=True, max_workers=2)
+
+        parser = ArchiveToAstConverter(options=options)
+        doc = parser.parse(tar_data)
+
+        assert isinstance(doc, Document)
+        # Should have headings for all 12 files
+        headings = [node for node in doc.children if isinstance(node, Heading)]
+        assert len(headings) == 12
+
+    def test_parallel_processing_with_progress_callback(self):
+        """Test that progress callbacks work in parallel processing mode.
+
+        Verifies that progress events are emitted from the main process as files
+        complete, even though workers don't have access to the callback.
+        """
+        from all2md.progress import ProgressEvent
+
+        # Create archive with 12 files (exceeds default parallel_threshold of 10)
+        files = {f"file{i}.txt": f"Content {i}".encode() for i in range(12)}
+        tar_data = create_test_tar(files)
+
+        # Track progress events
+        events = []
+
+        def progress_callback(event: ProgressEvent) -> None:
+            events.append(event)
+
+        # Enable parallel processing with callback
+        options = ArchiveOptions(enable_parallel_processing=True, max_workers=2)
+
+        parser = ArchiveToAstConverter(options=options, progress_callback=progress_callback)
+        doc = parser.parse(tar_data)
+
+        assert isinstance(doc, Document)
+
+        # Should have received progress events
+        assert len(events) > 0
+
+        # Should have file_processing events
+        file_processing_events = [e for e in events if e.event_type == "file_processing"]
+        assert len(file_processing_events) == 12
+
+        # Events should have current/total counts
+        for event in file_processing_events:
+            assert event.current is not None
+            assert event.total is not None
+            assert 1 <= event.current <= event.total
+            assert event.total == 12
+
 
 @pytest.mark.skipif(
     not pytest.importorskip("py7zr", reason="py7zr not installed"), reason="Requires py7zr for 7Z support"
