@@ -90,14 +90,14 @@ class CsvRenderer(BaseRenderer):
         BaseRenderer.__init__(self, options)
         self.options: CsvRendererOptions = options
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
         """Render AST document to CSV file.
 
         Parameters
         ----------
         doc : Document
             AST Document node to render
-        output : str, Path, or IO[bytes]
+        output : str, Path, IO[bytes], or IO[str]
             Output destination
 
         Raises
@@ -107,14 +107,7 @@ class CsvRenderer(BaseRenderer):
 
         """
         csv_text = self.render_to_string(doc)
-
-        # Handle output
-        if isinstance(output, (str, Path)):
-            output_path = Path(output)
-            output_path.write_text(csv_text, encoding="utf-8")
-        else:
-            # File-like object
-            output.write(csv_text.encode("utf-8"))
+        self.write_text_output(csv_text, output)
 
     def render_to_string(self, doc: Document) -> str:
         """Render AST document to CSV string.

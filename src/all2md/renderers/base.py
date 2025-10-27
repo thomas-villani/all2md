@@ -18,6 +18,7 @@ from typing import IO, Any, Dict, Mapping, Union
 from all2md.ast import Document
 from all2md.ast.nodes import Node, TableRow
 from all2md.options.base import BaseRendererOptions
+from all2md.utils.io_utils import write_content
 from all2md.utils.metadata import DocumentMetadata, MetadataRenderPolicy, prepare_metadata_for_render
 
 
@@ -192,25 +193,29 @@ class BaseRenderer(ABC):
         return max_cols
 
     @staticmethod
-    def write_text_output(text: str, output: Union[str, Path, IO[bytes]]) -> None:
+    def write_text_output(text: str, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
         """Write text output to file or IO stream.
 
         Helper method to handle text output writing for text-based renderers.
-        Centralizes the logic for writing to different output destinations.
+        Centralizes the logic for writing to different output destinations,
+        automatically handling both text and binary streams.
 
         Parameters
         ----------
         text : str
             Rendered text to write
-        output : str, Path, or IO[bytes]
+        output : str, Path, IO[bytes], or IO[str]
             Output destination. Can be:
             - File path (str or Path)
-            - File-like object in binary mode
+            - File-like object in binary mode (IO[bytes])
+            - File-like object in text mode (IO[str])
 
         Raises
         ------
         IOError
             If output cannot be written
+        TypeError
+            If output type is not supported
 
         Examples
         --------
@@ -225,13 +230,15 @@ class BaseRenderer(ABC):
             >>> print(buffer.getvalue())
             b'# Hello'
 
+        Write to StringIO:
+            >>> from io import StringIO
+            >>> buffer = StringIO()
+            >>> BaseRenderer.write_text_output("# Hello", buffer)
+            >>> print(buffer.getvalue())
+            # Hello
+
         """
-        if isinstance(output, (str, Path)):
-            # Write to file
-            Path(output).write_text(text, encoding="utf-8")
-        else:
-            # Write to file-like object (binary mode)
-            output.write(text.encode("utf-8"))
+        write_content(text, output)
 
 
 class InlineContentMixin:

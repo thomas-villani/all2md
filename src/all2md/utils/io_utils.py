@@ -10,6 +10,7 @@ output destinations (files, file-like objects, or returning as file-like objects
 
 from __future__ import annotations
 
+import io
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import IO, Union, cast
@@ -93,16 +94,23 @@ def write_content(
 
     # If output is a file-like object, write to it
     if hasattr(output, "write"):
-        # Detect if binary or text mode
-        mode = getattr(output, "mode", "")
-
-        # Determine if binary mode (has 'b' in mode string, or is BytesIO)
-        is_binary_mode = False
-        if isinstance(mode, str) and "b" in mode:
-            is_binary_mode = True
-        elif isinstance(output, BytesIO):
+        # Detect if binary or text mode using multiple strategies
+        # Strategy 1: Check concrete types first (most reliable)
+        if isinstance(output, BytesIO):
             is_binary_mode = True
         elif isinstance(output, StringIO):
+            is_binary_mode = False
+        # Strategy 2: Check io module base classes (robust for standard streams)
+        elif isinstance(output, io.TextIOBase):
+            is_binary_mode = False
+        elif isinstance(output, (io.BufferedIOBase, io.RawIOBase)):
+            is_binary_mode = True
+        # Strategy 3: Check mode attribute (fallback for file objects)
+        elif hasattr(output, "mode"):
+            mode = getattr(output, "mode", "")
+            is_binary_mode = isinstance(mode, str) and "b" in mode
+        else:
+            # Default to text mode if we can't determine (safest for str content)
             is_binary_mode = False
 
         if is_binary_mode:

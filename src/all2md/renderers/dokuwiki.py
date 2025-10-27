@@ -806,31 +806,19 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         elif comment_mode == "visible":
             self._output.append(comment_text)
 
-    def render(self, document: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, document: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
         """Render a document to an output destination.
 
         Parameters
         ----------
         document : Document
             Document to render
-        output : str, Path, or IO[bytes]
+        output : str, Path, IO[bytes], or IO[str]
             Output destination (file path or file-like object)
 
         """
         content = self.render_to_string(document)
-
-        if isinstance(output, (str, Path)):
-            # Write to file
-            with open(output, "w", encoding="utf-8") as f:
-                f.write(content)
-        else:
-            # Write to file-like object
-            if hasattr(output, "write"):
-                # Check if binary mode
-                if hasattr(output, "mode") and "b" in output.mode:
-                    output.write(content.encode("utf-8"))
-                else:
-                    output.write(content)  # type: ignore[call-overload]
+        self.write_text_output(content, output)
 
 
 # =============================================================================
