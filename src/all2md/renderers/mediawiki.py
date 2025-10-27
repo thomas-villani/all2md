@@ -270,22 +270,44 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Render header
         if node.header:
-            self._output.append("! ")
-            for i, cell in enumerate(node.header.cells):
+            first_cell = True
+            for cell in node.header.cells:
+                # Add colspan/rowspan attributes if needed
+                span_attrs = ""
+                if cell.colspan > 1:
+                    span_attrs += f' colspan="{cell.colspan}"'
+                if cell.rowspan > 1:
+                    span_attrs += f' rowspan="{cell.rowspan}"'
+
+                if first_cell:
+                    self._output.append(f"!{span_attrs} ")
+                    first_cell = False
+                else:
+                    self._output.append(f" !!{span_attrs} ")
+
                 content = self._render_inline_content(cell.content)
-                if i > 0:
-                    self._output.append(" !! ")
                 self._output.append(content)
             self._output.append("\n")
 
         # Render rows
         for row in node.rows:
             self._output.append("|-\n")
-            self._output.append("| ")
-            for i, cell in enumerate(row.cells):
+            first_cell = True
+            for cell in row.cells:
+                # Add colspan/rowspan attributes if needed
+                span_attrs = ""
+                if cell.colspan > 1:
+                    span_attrs += f' colspan="{cell.colspan}"'
+                if cell.rowspan > 1:
+                    span_attrs += f' rowspan="{cell.rowspan}"'
+
+                if first_cell:
+                    self._output.append(f"|{span_attrs} ")
+                    first_cell = False
+                else:
+                    self._output.append(f" ||{span_attrs} ")
+
                 content = self._render_inline_content(cell.content)
-                if i > 0:
-                    self._output.append(" || ")
                 self._output.append(content)
             self._output.append("\n")
 

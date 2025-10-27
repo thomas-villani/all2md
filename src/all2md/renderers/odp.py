@@ -343,11 +343,22 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             AST table node
 
         """
+        from odf.table import CoveredTableCell, TableCell, TableColumn, TableRow
         from odf.table import Table as OdfTable
-        from odf.table import TableCell, TableColumn, TableRow
+        from odf.text import P
 
-        # Calculate table dimensions
-        num_cols = len(table.header.cells) if table.header else (len(table.rows[0].cells) if table.rows else 0)
+        # Collect all rows
+        all_rows = []
+        if table.header:
+            all_rows.append(table.header)
+        all_rows.extend(table.rows)
+
+        if not all_rows:
+            return
+
+        # Compute grid dimensions accounting for colspan/rowspan
+        num_rows = len(all_rows)
+        num_cols = self._compute_table_columns(all_rows)
 
         if num_cols == 0:
             return
@@ -359,32 +370,51 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         for _ in range(num_cols):
             odf_table.addElement(TableColumn())
 
-        # Render header
-        if table.header:
-            table_row = TableRow()
-            for cell in table.header.cells:
-                table_cell = TableCell()
-                cell_text = self._extract_text_from_nodes(cell.content)
-                from odf.text import P
+        # Track which grid cells are occupied
+        occupied = [[False] * num_cols for _ in range(num_rows)]
 
+        # Render all rows
+        for row_idx, ast_row in enumerate(all_rows):
+            table_row = TableRow()
+            col_idx = 0
+
+            for ast_cell in ast_row.cells:
+                # Skip occupied cells, add CoveredTableCell
+                while col_idx < num_cols and occupied[row_idx][col_idx]:
+                    table_row.addElement(CoveredTableCell())
+                    col_idx += 1
+
+                if col_idx >= num_cols:
+                    break
+
+                # Create cell
+                table_cell = TableCell()
+
+                # Set colspan/rowspan attributes
+                if ast_cell.colspan > 1:
+                    table_cell.setAttribute("numbercolumnsspanned", str(ast_cell.colspan))
+                if ast_cell.rowspan > 1:
+                    table_cell.setAttribute("numberrowsspanned", str(ast_cell.rowspan))
+
+                # Render cell content
+                cell_text = self._extract_text_from_nodes(ast_cell.content)
                 para = P()
                 para.addText(cell_text)
                 table_cell.addElement(para)
                 table_row.addElement(table_cell)
-            odf_table.addElement(table_row)
 
-        # Render body rows
-        for ast_row in table.rows:
-            table_row = TableRow()
-            for cell in ast_row.cells:
-                table_cell = TableCell()
-                cell_text = self._extract_text_from_nodes(cell.content)
-                from odf.text import P
+                # Mark occupied cells
+                for r in range(row_idx, min(row_idx + ast_cell.rowspan, num_rows)):
+                    for c in range(col_idx, min(col_idx + ast_cell.colspan, num_cols)):
+                        occupied[r][c] = True
 
-                para = P()
-                para.addText(cell_text)
-                table_cell.addElement(para)
-                table_row.addElement(table_cell)
+                col_idx += ast_cell.colspan
+
+            # Add remaining covered cells at end of row if needed
+            while col_idx < num_cols and occupied[row_idx][col_idx]:
+                table_row.addElement(CoveredTableCell())
+                col_idx += 1
+
             odf_table.addElement(table_row)
 
         # Add table to page

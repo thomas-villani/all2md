@@ -625,11 +625,12 @@ class JinjaRenderer(BaseRenderer):
             Template context dictionary
 
         """
+        metadata = document.metadata or {}
         context = {
             "document": document,
             "ast": ast_to_dict(document),
-            "metadata": document.metadata,
-            "title": document.metadata.get("title", ""),
+            "metadata": metadata,
+            "title": metadata.get("title", ""),
         }
 
         # Add traversal helpers if enabled

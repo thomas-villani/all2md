@@ -158,11 +158,25 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         return cast(Any, self._Paragraph)(content=runs)
 
     def _render_table_row(self, row: TableRow, header: bool = False) -> str:
-        """Render a table row to a pipe-delimited fallback string."""
+        """Render a table row to a pipe-delimited fallback string.
+
+        Note: Rowspan is not supported in this fallback format.
+        Colspan is approximated by repeating the cell content.
+
+        """
         cell_texts: list[str] = []
         for cell in row.cells:
             cell_text = self._render_plain_text(cell.content)
-            cell_texts.append(cell_text.strip())
+            cell_text_stripped = cell_text.strip()
+
+            # Add cell text
+            cell_texts.append(cell_text_stripped)
+
+            # Handle colspan by repeating the cell
+            if cell.colspan > 1:
+                for _ in range(cell.colspan - 1):
+                    cell_texts.append(cell_text_stripped)
+
         line = " | ".join(cell_texts)
         if header:
             underline = "-+-".join("-" * len(text) if text else "-" for text in cell_texts)

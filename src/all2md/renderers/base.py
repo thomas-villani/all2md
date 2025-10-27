@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import IO, Any, Dict, Mapping, Union
 
 from all2md.ast import Document
-from all2md.ast.nodes import Node
+from all2md.ast.nodes import Node, TableRow
 from all2md.options.base import BaseRendererOptions
 from all2md.utils.metadata import DocumentMetadata, MetadataRenderPolicy, prepare_metadata_for_render
 
@@ -169,6 +169,27 @@ class BaseRenderer(ABC):
     def _prepare_metadata(self, metadata: Union[Mapping[str, Any], "DocumentMetadata", None]) -> Dict[str, Any]:
         """Normalize and filter metadata according to the renderer policy."""
         return prepare_metadata_for_render(metadata, self.metadata_policy)
+
+    @staticmethod
+    def _compute_table_columns(rows: list[TableRow]) -> int:
+        """Compute the maximum number of columns needed for a table.
+
+        Parameters
+        ----------
+        rows : list[TableRow]
+            All table rows (including header)
+
+        Returns
+        -------
+        int
+            Maximum column count accounting for colspan
+
+        """
+        max_cols = 0
+        for row in rows:
+            col_count = sum(cell.colspan for cell in row.cells)
+            max_cols = max(max_cols, col_count)
+        return max_cols
 
     @staticmethod
     def write_text_output(text: str, output: Union[str, Path, IO[bytes]]) -> None:

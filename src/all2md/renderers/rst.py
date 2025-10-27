@@ -414,37 +414,62 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not rows_to_render:
             return
 
-        # Render all cells to determine column widths
-        rendered_rows = []
-        num_cols = len(rows_to_render[0].cells) if rows_to_render else 0
+        # Compute grid dimensions accounting for colspan/rowspan
+        num_rows = len(rows_to_render)
+        num_cols = self._compute_table_columns(rows_to_render)
 
-        for row in rows_to_render:
-            cells = []
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                cells.append(content)
-            rendered_rows.append(cells)
+        # Build expanded grid
+        rendered_grid = [["" for _ in range(num_cols)] for _ in range(num_rows)]
+        occupied = [[False] * num_cols for _ in range(num_rows)]
 
-        # Calculate column widths
+        # Fill the grid
+        for row_idx, ast_row in enumerate(rows_to_render):
+            col_idx = 0
+            for ast_cell in ast_row.cells:
+                # Skip occupied cells
+                while col_idx < num_cols and occupied[row_idx][col_idx]:
+                    col_idx += 1
+
+                if col_idx >= num_cols:
+                    break
+
+                # Render cell content
+                content = self._render_inline_content(ast_cell.content)
+
+                # Handle cell spanning
+                colspan = ast_cell.colspan
+                rowspan = ast_cell.rowspan
+
+                # Fill the grid
+                rendered_grid[row_idx][col_idx] = content
+
+                # Fill remaining spanned cells with empty strings
+                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
+                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
+                        occupied[r][c] = True
+                        if r != row_idx or c != col_idx:
+                            rendered_grid[r][c] = ""
+
+                col_idx += colspan
+
+        # Calculate column widths from expanded grid
         col_widths = [0] * num_cols
-        for row_cells in rendered_rows:
+        for row_cells in rendered_grid:
             for i, cell_content in enumerate(row_cells):
-                if i < num_cols:
-                    col_widths[i] = max(col_widths[i], len(cell_content))
+                col_widths[i] = max(col_widths[i], len(cell_content))
 
         # Build separator line
         separator = "+" + "+".join(["-" * (width + 2) for width in col_widths]) + "+"
 
-        # Render table
+        # Render table using expanded grid
         self._output.append(separator + "\n")
 
-        for i, row_cells in enumerate(rendered_rows):
+        for i, row_cells in enumerate(rendered_grid):
             # Render row
             row_parts = []
             for j, cell_content in enumerate(row_cells):
-                if j < num_cols:
-                    padded = cell_content.ljust(col_widths[j])
-                    row_parts.append(f" {padded} ")
+                padded = cell_content.ljust(col_widths[j])
+                row_parts.append(f" {padded} ")
             self._output.append("|" + "|".join(row_parts) + "|\n")
 
             # Add separator after header or after last row
@@ -452,7 +477,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 # Double separator after header
                 header_sep = "+" + "+".join(["=" * (width + 2) for width in col_widths]) + "+"
                 self._output.append(header_sep + "\n")
-            elif i == len(rendered_rows) - 1:
+            elif i == len(rendered_grid) - 1:
                 # Separator at end
                 self._output.append(separator)
             else:

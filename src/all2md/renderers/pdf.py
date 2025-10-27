@@ -627,27 +627,62 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             Table to render
 
         """
-        # Build table data
-        data = []
-
-        # Add header
+        # Collect all rows
+        all_rows = []
         if node.header:
-            header_row = []
-            for cell in node.header.cells:
-                text = self._process_inline_content(cell.content)
-                header_row.append(self._Paragraph(text, self._styles["Normal"]))
-            data.append(header_row)
+            all_rows.append(node.header)
+        all_rows.extend(node.rows)
 
-        # Add body rows
-        for row in node.rows:
-            row_data = []
-            for cell in row.cells:
-                text = self._process_inline_content(cell.content)
-                row_data.append(self._Paragraph(text, self._styles["Normal"]))
-            data.append(row_data)
-
-        if not data:
+        if not all_rows:
             return
+
+        # Compute grid dimensions accounting for colspan/rowspan
+        num_rows = len(all_rows)
+        num_cols = self._compute_table_columns(all_rows)
+
+        if num_cols == 0:
+            return
+
+        # Build expanded grid data - initialize with empty Paragraph objects
+        data: list[list[Any]] = [
+            [self._Paragraph("", self._styles["Normal"]) for _ in range(num_cols)] for _ in range(num_rows)
+        ]
+        span_commands: list[tuple[str, tuple[int, int], tuple[int, int]]] = []
+
+        # Track which grid cells are occupied
+        occupied = [[False] * num_cols for _ in range(num_rows)]
+
+        # Fill the grid
+        for row_idx, ast_row in enumerate(all_rows):
+            col_idx = 0
+            for ast_cell in ast_row.cells:
+                # Skip occupied cells
+                while col_idx < num_cols and occupied[row_idx][col_idx]:
+                    col_idx += 1
+
+                if col_idx >= num_cols:
+                    break
+
+                # Render cell content
+                text = self._process_inline_content(ast_cell.content)
+                data[row_idx][col_idx] = self._Paragraph(text, self._styles["Normal"])
+
+                # Handle cell spanning
+                colspan = ast_cell.colspan
+                rowspan = ast_cell.rowspan
+
+                # Mark occupied cells
+                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
+                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
+                        occupied[r][c] = True
+
+                # Add SPAN command if needed
+                if colspan > 1 or rowspan > 1:
+                    end_row = min(row_idx + rowspan - 1, num_rows - 1)
+                    end_col = min(col_idx + colspan - 1, num_cols - 1)
+                    span_commands.append(("SPAN", (col_idx, row_idx), (end_col, end_row)))
+
+                col_idx += colspan
 
         # Create table
         table = self._ReportLabTable(data)
@@ -665,8 +700,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]
 
-        # Filter out None commands
+        # Filter out None commands and add span commands
         style_commands = [cmd for cmd in style_commands if cmd is not None]
+        style_commands.extend(span_commands)  # type: ignore[arg-type]
 
         table.setStyle(self._TableStyle(style_commands))  # type: ignore[arg-type]
 

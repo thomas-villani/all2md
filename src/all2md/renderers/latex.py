@@ -338,38 +338,85 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._in_table = True
 
-        # Determine column count
-        col_count = 0
+        # Collect all rows
+        all_rows = []
         if node.header:
-            col_count = len(node.header.cells)
-        elif node.rows:
-            col_count = len(node.rows[0].cells)
+            all_rows.append(node.header)
+        all_rows.extend(node.rows)
+
+        if not all_rows:
+            self._in_table = False
+            return
+
+        # Compute grid dimensions accounting for colspan/rowspan
+        num_rows = len(all_rows)
+        num_cols = self._compute_table_columns(all_rows)
 
         # Generate column specification (all left-aligned for simplicity)
-        col_spec = "|" + "l|" * col_count
+        col_spec = "|" + "l|" * num_cols
 
         self._output.append(f"\\begin{{tabular}}{{{col_spec}}}\n")
         self._output.append("\\hline\n")
 
-        # Render header
-        if node.header:
-            for i, cell in enumerate(node.header.cells):
-                if i > 0:
-                    self._output.append(" & ")
-                content = self._render_inline_content(cell.content)
-                self._output.append(content)
-            self._output.append(" \\\\\n\\hline\n")
+        # Track which grid cells are occupied by spanning cells
+        occupied = [[False] * num_cols for _ in range(num_rows)]
 
-        # Render rows
-        for row in node.rows:
-            for i, cell in enumerate(row.cells):
-                if i > 0:
+        # Render all rows
+        for row_idx, ast_row in enumerate(all_rows):
+            col_idx = 0
+            first_cell = True
+
+            for ast_cell in ast_row.cells:
+                # Skip occupied cells
+                while col_idx < num_cols and occupied[row_idx][col_idx]:
+                    col_idx += 1
+
+                if col_idx >= num_cols:
+                    break
+
+                if not first_cell:
                     self._output.append(" & ")
-                content = self._render_inline_content(cell.content)
-                self._output.append(content)
+                first_cell = False
+
+                # Render cell content
+                content = self._render_inline_content(ast_cell.content)
+
+                # Handle cell spanning
+                colspan = ast_cell.colspan
+                rowspan = ast_cell.rowspan
+
+                # Mark occupied cells
+                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
+                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
+                        occupied[r][c] = True
+
+                # Emit cell with appropriate span commands
+                if colspan > 1 and rowspan > 1:
+                    # Both colspan and rowspan - use multirow inside multicolumn
+                    self._output.append(
+                        f"\\multicolumn{{{colspan}}}{{|l|}}{{\\multirow{{{rowspan}}}{{*}}{{{content}}}}}"
+                    )
+                elif colspan > 1:
+                    # Just colspan
+                    self._output.append(f"\\multicolumn{{{colspan}}}{{|l|}}{{{content}}}")
+                elif rowspan > 1:
+                    # Just rowspan
+                    self._output.append(f"\\multirow{{{rowspan}}}{{*}}{{{content}}}")
+                else:
+                    # No spanning
+                    self._output.append(content)
+
+                col_idx += colspan
+
+            # End row
             self._output.append(" \\\\\n")
 
-        self._output.append("\\hline\n")
+            # Add \hline after header or last row
+            if row_idx == 0 and node.header:
+                self._output.append("\\hline\n")
+            elif row_idx == len(all_rows) - 1:
+                self._output.append("\\hline\n")
+
         self._output.append("\\end{tabular}")
 
         self._in_table = False

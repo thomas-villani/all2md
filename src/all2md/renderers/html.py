@@ -786,8 +786,16 @@ hr {
                 align = ""
                 if node.alignments and i < len(node.alignments) and node.alignments[i]:
                     align = f' style="text-align: {node.alignments[i]}"'
+
+                # Add colspan/rowspan attributes if needed
+                span_attrs = ""
+                if cell.colspan > 1:
+                    span_attrs += f' colspan="{cell.colspan}"'
+                if cell.rowspan > 1:
+                    span_attrs += f' rowspan="{cell.rowspan}"'
+
                 content = self._render_inline_content(cell.content)
-                self._output.append(f"<th{align}>{content}</th>")
+                self._output.append(f"<th{align}{span_attrs}>{content}</th>")
             self._output.append("</tr>\n</thead>\n")
 
         # Render body
@@ -799,8 +807,16 @@ hr {
                     align = ""
                     if node.alignments and i < len(node.alignments) and node.alignments[i]:
                         align = f' style="text-align: {node.alignments[i]}"'
+
+                    # Add colspan/rowspan attributes if needed
+                    span_attrs = ""
+                    if cell.colspan > 1:
+                        span_attrs += f' colspan="{cell.colspan}"'
+                    if cell.rowspan > 1:
+                        span_attrs += f' rowspan="{cell.rowspan}"'
+
                     content = self._render_inline_content(cell.content)
-                    self._output.append(f"<td{align}>{content}</td>")
+                    self._output.append(f"<td{align}{span_attrs}>{content}</td>")
                 self._output.append("</tr>\n")
             self._output.append("</tbody>\n")
 

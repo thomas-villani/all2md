@@ -384,9 +384,18 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         """
         from pptx.util import Inches
 
-        # Calculate table dimensions
-        num_rows = len(table.rows) + (1 if table.header else 0)
-        num_cols = len(table.header.cells) if table.header else (len(table.rows[0].cells) if table.rows else 0)
+        # Collect all rows
+        all_rows = []
+        if table.header:
+            all_rows.append(table.header)
+        all_rows.extend(table.rows)
+
+        if not all_rows:
+            return
+
+        # Compute grid dimensions accounting for colspan/rowspan
+        num_rows = len(all_rows)
+        num_cols = self._compute_table_columns(all_rows)
 
         if num_cols == 0 or num_rows == 0:
             return
@@ -400,23 +409,42 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         table_shape = slide.shapes.add_table(num_rows, num_cols, left, top, width, height)
         pptx_table = table_shape.table
 
-        # Render header
-        row_idx = 0
-        if table.header:
-            for col_idx, cell in enumerate(table.header.cells):
-                if col_idx < len(pptx_table.rows[row_idx].cells):
-                    cell_text = self._extract_text_from_nodes(cell.content)
-                    pptx_table.rows[row_idx].cells[col_idx].text = cell_text
-            row_idx += 1
+        # Track which grid cells are occupied by spanning cells
+        occupied = [[False] * num_cols for _ in range(num_rows)]
 
-        # Render body rows
-        for ast_row in table.rows:
-            if row_idx < len(pptx_table.rows):
-                for col_idx, cell in enumerate(ast_row.cells):
-                    if col_idx < len(pptx_table.rows[row_idx].cells):
-                        cell_text = self._extract_text_from_nodes(cell.content)
-                        pptx_table.rows[row_idx].cells[col_idx].text = cell_text
-            row_idx += 1
+        # Render all rows
+        for row_idx, ast_row in enumerate(all_rows):
+            col_idx = 0
+            for ast_cell in ast_row.cells:
+                # Skip occupied cells
+                while col_idx < num_cols and occupied[row_idx][col_idx]:
+                    col_idx += 1
+
+                if col_idx >= num_cols:
+                    break
+
+                # Render cell content
+                pptx_cell = pptx_table.rows[row_idx].cells[col_idx]
+                cell_text = self._extract_text_from_nodes(ast_cell.content)
+                pptx_cell.text = cell_text
+
+                # Handle cell spanning
+                colspan = ast_cell.colspan
+                rowspan = ast_cell.rowspan
+
+                # Mark occupied cells
+                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
+                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
+                        occupied[r][c] = True
+
+                # Merge cells if needed
+                if colspan > 1 or rowspan > 1:
+                    end_row = min(row_idx + rowspan - 1, num_rows - 1)
+                    end_col = min(col_idx + colspan - 1, num_cols - 1)
+                    if end_row > row_idx or end_col > col_idx:
+                        pptx_cell.merge(pptx_table.rows[end_row].cells[end_col])
+
+                col_idx += colspan
 
     def _render_image(self, slide: "Slide", image: Image) -> None:
         """Render an image on the slide.

@@ -296,7 +296,15 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("|")
             for cell in node.header.cells:
                 content = self._render_inline_content(cell.content)
-                self._output.append(f"_.{content}|")
+
+                # Add span modifiers
+                span_mods = ""
+                if cell.colspan > 1:
+                    span_mods += f"\\{cell.colspan}. "
+                if cell.rowspan > 1:
+                    span_mods += f"/{cell.rowspan}. "
+
+                self._output.append(f"_{span_mods}.{content}|")
             self._output.append("\n")
 
         # Render rows
@@ -304,7 +312,18 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("|")
             for cell in row.cells:
                 content = self._render_inline_content(cell.content)
-                self._output.append(f"{content}|")
+
+                # Add span modifiers
+                span_mods = ""
+                if cell.colspan > 1:
+                    span_mods += f"\\{cell.colspan}. "
+                if cell.rowspan > 1:
+                    span_mods += f"/{cell.rowspan}. "
+
+                if span_mods:
+                    self._output.append(f"{span_mods}{content}|")
+                else:
+                    self._output.append(f"{content}|")
             self._output.append("\n")
 
         # Remove trailing newline as it will be added by block spacing
