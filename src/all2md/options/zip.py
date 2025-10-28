@@ -88,15 +88,10 @@ class ZipOptions(BaseParserOptions, AttachmentOptionsMixin):
     preserve_directory_structure: bool = field(
         default=True,
         metadata={
-            "help": "Include directory path in section headings",
+            "help": "Include directory path in section headings (False = flatten structure)",
             "cli_name": "no-preserve-directory",
-            "importance": "core",
+            "importance": "advanced",
         },
-    )
-
-    flatten_structure: bool = field(
-        default=False,
-        metadata={"help": "Flatten directory structure in output", "cli_name": "flatten", "importance": "advanced"},
     )
 
     extract_resource_files: bool = field(

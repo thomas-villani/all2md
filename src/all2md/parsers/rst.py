@@ -211,6 +211,13 @@ class RestructuredTextParser(BaseParser):
             return self._process_literal_block(node)
         elif isinstance(node, docutils_nodes.block_quote):
             return self._process_block_quote(node)
+        elif isinstance(node, docutils_nodes.Admonition):
+            # Handle admonitions (note, warning, tip, etc.)
+            if self.options.parse_admonitions:
+                return self._process_admonition(node)
+            else:
+                # Skip admonitions if parsing is disabled
+                return None
         elif isinstance(node, docutils_nodes.bullet_list):
             return self._process_bullet_list(node)
         elif isinstance(node, docutils_nodes.enumerated_list):
@@ -392,6 +399,55 @@ class RestructuredTextParser(BaseParser):
                     children.append(ast_node)
 
         return BlockQuote(children=children)
+
+    def _process_admonition(self, node: Any) -> BlockQuote:
+        """Process an admonition node (note, warning, tip, etc.) as a BlockQuote with metadata.
+
+        Admonitions in RST include: note, warning, tip, important, caution, danger, error,
+        hint, attention, and custom admonitions with titles.
+
+        Parameters
+        ----------
+        node : docutils.nodes.Admonition
+            Admonition node to process
+
+        Returns
+        -------
+        BlockQuote
+            Block quote AST node with admonition type in metadata
+
+        """
+        from docutils import nodes as docutils_nodes
+
+        admonition_type = node.tagname  # 'note', 'warning', 'tip', etc.
+        children = []
+
+        # Check if this is a custom admonition with a title
+        custom_title = None
+        for child in node.children:
+            if isinstance(child, docutils_nodes.title):
+                # Custom admonition - extract title and store in metadata
+                custom_title = child.astext()
+            else:
+                # Process content nodes
+                ast_node = self._process_node(child)
+                if ast_node is not None:
+                    if isinstance(ast_node, list):
+                        children.extend(ast_node)
+                    else:
+                        children.append(ast_node)
+
+        # Create BlockQuote with metadata indicating admonition type
+        metadata = {
+            "admonition_type": admonition_type,
+            "source_format": "rst",
+        }
+
+        # Add custom title to metadata if present
+        if custom_title:
+            metadata["admonition_title"] = custom_title
+
+        return BlockQuote(children=children, metadata=metadata)
 
     def _process_bullet_list(self, node: Any) -> List:
         """Process a bullet list node.

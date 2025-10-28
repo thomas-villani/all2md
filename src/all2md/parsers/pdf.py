@@ -1930,11 +1930,13 @@ class PdfToAstConverter(BaseParser):
                     children.extend(page_nodes)
 
                 # Add page separator between pages (but not after the last page)
-                if idx < len(pages_list) - 1:
-                    # Add page separator comment
-                    # Format: PAGE_SEP:{page_num}/{total_pages}
-                    sep_content = f"PAGE_SEP:{pno + 1}/{total_pages}"
-                    children.append(Comment(content=sep_content, metadata={"comment_type": "page_separator"}))
+                if idx < len(pages_list) - 1 and self.options.include_page_numbers:
+                    # Add page separator as Comment node - renderers decide whether to display it
+                    # Format using page_separator_template with placeholders
+                    separator_text = self.options.page_separator_template.format(
+                        page_num=pno + 1, total_pages=total_pages
+                    )
+                    children.append(Comment(content=separator_text, metadata={"comment_type": "page_separator"}))
 
                 # Emit page done event
                 self._emit_progress(

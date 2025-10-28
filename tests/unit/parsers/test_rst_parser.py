@@ -429,14 +429,37 @@ class TestOptions:
 
         assert isinstance(doc, Document)
 
-    def test_parse_directives_enabled(self) -> None:
-        """Test that parse_directives option is respected."""
-        rst = "Test content."
-        options = RstParserOptions(parse_directives=True)
+    def test_parse_admonitions_enabled(self) -> None:
+        """Test parsing admonitions when enabled."""
+        rst = """
+.. note::
+   This is a note.
+"""
+        options = RstParserOptions(parse_admonitions=True)
         parser = RestructuredTextParser(options)
-        doc = parser.parse(rst)
+        doc = parser.parse(rst.strip())
 
-        assert isinstance(doc, Document)
+        # Should have one BlockQuote with admonition metadata
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], BlockQuote)
+        assert doc.children[0].metadata.get("admonition_type") == "note"
+        assert doc.children[0].metadata.get("source_format") == "rst"
+
+    def test_parse_admonitions_disabled(self) -> None:
+        """Test skipping admonitions when disabled."""
+        rst = """
+.. note::
+   This is a note.
+
+Regular paragraph.
+"""
+        options = RstParserOptions(parse_admonitions=False)
+        parser = RestructuredTextParser(options)
+        doc = parser.parse(rst.strip())
+
+        # Should only have the regular paragraph, admonition should be skipped
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], Paragraph)
 
 
 @pytest.mark.unit
@@ -591,6 +614,68 @@ class TestHTMLContent:
         # Note: Inline raw HTML may require special RST role configuration
         # This is a basic test - actual behavior depends on docutils setup
         assert isinstance(doc, Document)
+
+
+@pytest.mark.unit
+class TestAdmonitions:
+    """Tests for admonition parsing."""
+
+    def test_note_admonition(self) -> None:
+        """Test parsing a note admonition."""
+        rst = """
+.. note::
+   This is a note with some **bold** text.
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], BlockQuote)
+        assert doc.children[0].metadata.get("admonition_type") == "note"
+
+    def test_warning_admonition(self) -> None:
+        """Test parsing a warning admonition."""
+        rst = """
+.. warning::
+   This is a warning!
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], BlockQuote)
+        assert doc.children[0].metadata.get("admonition_type") == "warning"
+
+    def test_custom_admonition(self) -> None:
+        """Test parsing a custom admonition with title."""
+        rst = """
+.. admonition:: Custom Title
+
+   This is a custom admonition.
+"""
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst.strip())
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], BlockQuote)
+        assert doc.children[0].metadata.get("admonition_type") == "admonition"
+        assert doc.children[0].metadata.get("admonition_title") == "Custom Title"
+
+    def test_all_admonition_types(self) -> None:
+        """Test all built-in admonition types."""
+        admonition_types = ["note", "warning", "tip", "important", "caution", "danger", "error", "hint", "attention"]
+
+        for adm_type in admonition_types:
+            rst = f"""
+.. {adm_type}::
+   Test content.
+"""
+            parser = RestructuredTextParser()
+            doc = parser.parse(rst.strip())
+
+            assert len(doc.children) == 1
+            assert isinstance(doc.children[0], BlockQuote)
+            assert doc.children[0].metadata.get("admonition_type") == adm_type
 
 
 @pytest.mark.unit

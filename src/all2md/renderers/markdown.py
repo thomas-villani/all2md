@@ -636,6 +636,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
 
+        If the BlockQuote has admonition metadata (from RST parsing), prepends
+        a styled label (e.g., "> **Note:** ") to the first line.
+
         Parameters
         ----------
         node : BlockQuote
@@ -645,11 +648,33 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         saved_output = self._output
         self._output = []
 
+        # Check if this is an admonition from RST
+        admonition_type = node.metadata.get("admonition_type") if node.metadata else None
+        admonition_title = node.metadata.get("admonition_title") if node.metadata else None
+
+        # Render children
         for child in node.children:
             child.accept(self)
 
         quoted = "".join(self._output)
         lines = quoted.split("\n")
+
+        # Prepend admonition label if this is an RST admonition
+        if admonition_type and node.metadata.get("source_format") == "rst":
+            # Use custom title if available, otherwise capitalize admonition type
+            if admonition_title:
+                label = admonition_title
+            else:
+                # Capitalize and format the admonition type
+                label = admonition_type.capitalize()
+
+            # Prepend label to first non-empty line
+            for i, line in enumerate(lines):
+                if line.strip():  # Find first non-empty line
+                    lines[i] = f"**{label}:** {line}"
+                    break
+
+        # Quote all lines
         quoted_lines = ["> " + line for line in lines]
 
         self._output = saved_output

@@ -17,7 +17,7 @@ from typing import IO, Optional, Union
 from all2md.ast import Document, Node, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
-from all2md.options.base import BaseParserOptions
+from all2md.options.plaintext import PlainTextParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
@@ -39,9 +39,13 @@ class PlainTextToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: BaseParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(
+        self, options: PlainTextParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+    ):
         """Initialize the plain text parser with options and progress callback."""
-        super().__init__(options or BaseParserOptions(), progress_callback)
+        options = options or PlainTextParserOptions()
+        super().__init__(options, progress_callback)
+        self.options: PlainTextParserOptions = options
 
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse plain text input into an AST Document.
@@ -111,9 +115,13 @@ class PlainTextToAstConverter(BaseParser):
             if not stripped:
                 continue
 
-            # Preserve single newlines within paragraphs as spaces
-            # (standard text rendering behavior)
-            normalized_text = " ".join(stripped.split("\n"))
+            # Handle newlines based on preserve_single_newlines option
+            if self.options.preserve_single_newlines:
+                # Keep newlines as-is for formats that need exact whitespace preservation
+                normalized_text = stripped
+            else:
+                # Normalize single newlines to spaces (standard text rendering behavior)
+                normalized_text = " ".join(stripped.split("\n"))
 
             children.append(Paragraph(content=[Text(content=normalized_text)]))
 
@@ -153,7 +161,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_required_packages=[],
     optional_packages=[],
     import_error_message="",
-    parser_options_class=BaseParserOptions,
+    parser_options_class="all2md.options.plaintext.PlainTextParserOptions",
     renderer_options_class="all2md.options.plaintext.PlainTextOptions",
     description="Parse and render plain text files.",
     priority=1,

@@ -33,6 +33,7 @@ from all2md.exceptions import (
     ValidationError,
     ZipFileSecurityError,
 )
+from all2md.options.base import BaseParserOptions
 from all2md.options.zip import ZipOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
@@ -56,7 +57,7 @@ def _process_zip_file_worker(
     file_data : bytes
         File content bytes
     options_dict : dict[str, Any]
-        Serialized options dictionary
+        Serialized options dictionary (includes resource_file_extensions and attachment options)
 
     Returns
     -------
@@ -95,8 +96,41 @@ def _process_zip_file_worker(
         # Reset the file object position for parsing
         file_obj.seek(0)
 
-        # Convert using the detected format (no progress callback in parallel mode)
-        doc = to_ast(file_obj, source_format=detected_format, progress_callback=None)
+        # Create parser options with attachment settings from the options dict
+        parser_options = None
+        try:
+            options_class = registry.get_parser_options_class(detected_format)
+            if options_class is not None:
+                from all2md.options.common import AttachmentOptionsMixin
+
+                # Extract attachment options from the options dict (if present)
+                attachment_opts = {
+                    k: v
+                    for k, v in options_dict.items()
+                    if k
+                    in (
+                        "attachment_mode",
+                        "alt_text_mode",
+                        "attachment_output_dir",
+                        "attachment_base_url",
+                        "max_asset_size_bytes",
+                        "attachment_filename_template",
+                        "attachment_overwrite",
+                        "attachment_deduplicate_by_hash",
+                        "attachments_footnotes_section",
+                    )
+                }
+
+                # Create options with attachment fields if the class supports them
+                if attachment_opts and issubclass(options_class, AttachmentOptionsMixin):
+                    default_options = options_class()
+                    parser_options = default_options.create_updated(**attachment_opts)
+        except Exception:
+            # If option creation fails, continue without options
+            pass
+
+        # Convert using the detected format with attachment options (no progress callback in parallel mode)
+        doc = to_ast(file_obj, source_format=detected_format, parser_options=parser_options, progress_callback=None)
 
         return (file_path, doc, None)
 
@@ -370,10 +404,12 @@ class ZipToAstConverter(BaseParser):
             children.append(Paragraph(content=[Text(content="(Empty archive or no matching files)")]))
             return Document(children=children)
 
-        # Prepare options dict for workers
+        # Prepare options dict for workers (includes attachment options for nested parsers)
         options_dict = {
             "resource_file_extensions": self.options.resource_file_extensions,
         }
+        # Add all attachment options for nested file parsing
+        options_dict.update(self._get_attachment_options_dict())
 
         # Read all files into memory for parallel processing
         file_data_map: dict[str, bytes] = {}
@@ -561,7 +597,7 @@ class ZipToAstConverter(BaseParser):
             Display path for section heading
 
         """
-        if self.options.flatten_structure or not self.options.preserve_directory_structure:
+        if not self.options.preserve_directory_structure:
             return Path(file_path).name
         return file_path
 
@@ -642,10 +678,14 @@ class ZipToAstConverter(BaseParser):
             # Reset the file object position for parsing
             file_obj.seek(0)
 
-            # Convert using the detected format
+            # Create parser options with attachment settings from ZIP options
+            parser_options = self._create_nested_parser_options(detected_format)
+
+            # Convert using the detected format with attachment options
             doc = to_ast(
                 file_obj,
                 source_format=cast(DocumentFormat, detected_format),
+                parser_options=parser_options,
                 progress_callback=self.progress_callback,
             )
 
@@ -685,6 +725,73 @@ class ZipToAstConverter(BaseParser):
         metadata.custom = {"file_count": file_count, "format": "zip"}
 
         return metadata
+
+    def _get_attachment_options_dict(self) -> dict[str, Any]:
+        """Extract attachment-related options from ZipOptions as a dictionary.
+
+        This creates a dictionary of attachment options that can be passed to nested
+        parsers when converting files inside ZIP archives.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary of attachment option names and values
+
+        """
+        # Extract all attachment-related fields from self.options
+        # These come from AttachmentOptionsMixin
+        return {
+            "attachment_mode": self.options.attachment_mode,
+            "alt_text_mode": self.options.alt_text_mode,
+            "attachment_output_dir": self.options.attachment_output_dir,
+            "attachment_base_url": self.options.attachment_base_url,
+            "max_asset_size_bytes": self.options.max_asset_size_bytes,
+            "attachment_filename_template": self.options.attachment_filename_template,
+            "attachment_overwrite": self.options.attachment_overwrite,
+            "attachment_deduplicate_by_hash": self.options.attachment_deduplicate_by_hash,
+            "attachments_footnotes_section": self.options.attachments_footnotes_section,
+        }
+
+    def _create_nested_parser_options(self, detected_format: str) -> BaseParserOptions | None:
+        """Create parser options for a nested file with attachment settings from ZIP options.
+
+        Parameters
+        ----------
+        detected_format : str
+            The detected format of the nested file
+
+        Returns
+        -------
+        BaseParserOptions or None
+            Parser options with attachment settings, or None if format doesn't support attachments
+
+        """
+        # Get the options class for this format from the registry
+        try:
+            options_class = registry.get_parser_options_class(detected_format)
+            if options_class is None:
+                return None
+
+            # Check if this options class supports attachment options (has AttachmentOptionsMixin)
+            from all2md.options.base import BaseParserOptions
+            from all2md.options.common import AttachmentOptionsMixin
+
+            # Get attachment options as dict
+            attachment_opts = self._get_attachment_options_dict()
+
+            # Create options with attachment fields if the class supports them
+            if issubclass(options_class, AttachmentOptionsMixin):
+                # Use the create_updated method to create a new instance with modified fields
+                default_options = options_class()
+                # Replace with our attachment settings
+                return cast(BaseParserOptions, default_options.create_updated(**attachment_opts))
+            else:
+                # Format doesn't support attachments, return default options
+                return cast(BaseParserOptions, options_class())
+
+        except Exception as e:
+            logger.debug(f"Failed to create parser options for {detected_format}: {e}")
+            return None
 
     def _extract_resource_file(self, file_path: str, file_data: bytes) -> None:
         """Extract a resource file to the attachment directory.

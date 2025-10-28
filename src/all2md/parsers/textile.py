@@ -104,11 +104,23 @@ class TextileParser(BaseParser):
         self._emit_progress("item_done", "Loaded Textile content", current=20, total=100, item_type="loading")
 
         # Import textile library (lazy loaded via decorator)
-        import textile
+        import textile as textile_lib
 
-        # Convert Textile to HTML
+        # Configure Textile processing based on html_passthrough_mode
+        # - "pass-through": Allow HTML (restricted=False)
+        # - "escape" or "sanitize": Restrict dangerous HTML (restricted=True)
+        # - "drop": Restrict HTML and configure downstream sanitization
+        restricted_mode = self.options.html_passthrough_mode in ("escape", "drop", "sanitize")
+
+        # Convert Textile to HTML using appropriate restrictions
         try:
-            html_content = textile.textile(textile_content)
+            if restricted_mode:
+                # Use restricted mode to sanitize dangerous HTML
+                processor = textile_lib.Textile(restricted=True, block_tags=True)
+                html_content = processor.parse(textile_content)
+            else:
+                # Allow HTML passthrough
+                html_content = textile_lib.textile(textile_content)
         except Exception as e:
             if self.options.strict_mode:
                 raise ParsingError(f"Failed to parse Textile markup: {e}") from e
@@ -122,8 +134,6 @@ class TextileParser(BaseParser):
         # Use HtmlToAstConverter to convert HTML to AST
         # Configure network options to allow HTTP links (not just HTTPS)
         # since Textile documents may legitimately reference HTTP resources
-        # TODO: I don't think that this is very smart, should respect user options.
-
         network_options = NetworkFetchOptions(require_https=False)
         html_options = HtmlOptions(network=network_options)
 

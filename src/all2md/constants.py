@@ -659,10 +659,9 @@ DEFAULT_RST_CODE_STYLE: RstCodeStyle = "directive"
 DEFAULT_RST_LINE_LENGTH = 80
 DEFAULT_RST_HARD_LINE_BREAK_MODE: RstLineBreakMode = "line_block"
 DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS = True
-DEFAULT_RST_PARSE_DIRECTIVES = True
 DEFAULT_RST_STRICT_MODE = False
-DEFAULT_RST_PRESERVE_RAW_DIRECTIVES = False
 DEFAULT_RST_STRIP_COMMENTS = False
+DEFAULT_RST_PARSE_ADMONITIONS = True
 
 # =============================================================================
 # MediaWiki Constants

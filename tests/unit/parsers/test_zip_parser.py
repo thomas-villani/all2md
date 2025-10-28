@@ -131,7 +131,7 @@ class TestZipParser:
         files = {"subdir/file.txt": b"Content"}
         zip_data = create_test_zip(files)
 
-        options = ZipOptions(flatten_structure=True)
+        options = ZipOptions(preserve_directory_structure=False)
 
         parser = ZipToAstConverter(options=options)
         doc = parser.parse(zip_data)

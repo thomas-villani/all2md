@@ -6,7 +6,29 @@ readme = "README.md"
 authors = [
     { name = "Thomas.Villani", email = "thomas.villani@gmail.com" }
 ]
+
+
 requires-python = ">=3.12"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+
+    "Intended Audience :: Developers",
+
+    "Topic :: File Formats",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Markup",
+
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Documentation",
+
+    "Topic :: Utilities",
+
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
 dependencies = [
     "tomli-w>=1.0.0",  # For writing TOML config files (tomllib in stdlib is read-only)
 ]

@@ -157,8 +157,6 @@ class PdfOptions(PaginatedParserOptions):
         Height in points to trim from bottom of page (requires trim_headers_footers).
     skip_image_extraction : bool, default False
         Skip all image extraction for text-only conversion (improves performance for large PDFs).
-    lazy_image_processing : bool, default False
-        Placeholder for future lazy image loading support (currently no effect).
     ocr : OCROptions, default OCROptions()
         OCR settings for extracting text from scanned/image-based PDF pages.
         Requires optional dependencies: pip install all2md[ocr]
@@ -476,14 +474,6 @@ class PdfOptions(PaginatedParserOptions):
         default=False,
         metadata={
             "help": "Completely skip image extraction for text-only conversion (improves performance for large PDFs)",
-            "importance": "advanced",
-        },
-    )
-    lazy_image_processing: bool = field(
-        default=False,
-        metadata={
-            "help": "Placeholder for future lazy image loading support. Note: Full implementation would require "
-            "paginator interface for streaming large PDFs. Currently has no effect.",
             "importance": "advanced",
         },
     )

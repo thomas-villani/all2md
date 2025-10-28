@@ -184,7 +184,7 @@ class TestZipIntegration:
         # Test with flattened structure
         from all2md.options.zip import ZipOptions
 
-        options = ZipOptions(flatten_structure=True)
+        options = ZipOptions(preserve_directory_structure=False)
         markdown = to_markdown(zip_data, source_format="zip", parser_options=options)
 
         # Filenames should appear without full paths

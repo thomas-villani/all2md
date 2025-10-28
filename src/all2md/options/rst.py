@@ -17,8 +17,7 @@ from all2md.constants import (
     DEFAULT_RST_HARD_LINE_BREAK_MODE,
     DEFAULT_RST_HEADING_CHARS,
     DEFAULT_RST_LINE_LENGTH,
-    DEFAULT_RST_PARSE_DIRECTIVES,
-    DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
+    DEFAULT_RST_PARSE_ADMONITIONS,
     DEFAULT_RST_STRICT_MODE,
     DEFAULT_RST_STRIP_COMMENTS,
     DEFAULT_RST_TABLE_STYLE,
@@ -39,42 +38,37 @@ class RstParserOptions(BaseParserOptions):
 
     Parameters
     ----------
-    parse_directives : bool, default True
-        Whether to parse RST directives (code-block, image, note, etc.).
-        When True, directives are converted to appropriate AST nodes.
-        When False, directives are preserved as code blocks.
     strict_mode : bool, default False
         Whether to raise errors on invalid RST syntax.
         When False, attempts to recover gracefully.
-    preserve_raw_directives : bool, default False
-        Whether to preserve unknown directives as code blocks.
-        When True, unknown directives become CodeBlock nodes.
-        When False, they are processed through docutils default handling.
+    parse_admonitions : bool, default True
+        Whether to parse RST admonitions (note, warning, tip, important, etc.).
+        When True, admonitions are converted to BlockQuote nodes with metadata
+        indicating the admonition type. When False, admonitions are skipped.
     strip_comments : bool, default False
         Whether to strip comments from the output.
         When True, RST comments are removed completely.
         When False, comments are preserved as Comment AST nodes with metadata.
 
+    Notes
+    -----
+    RST directives are always processed by docutils. Directive types like code-block,
+    image, and math are converted to their corresponding AST nodes. Admonitions
+    (note, warning, tip, etc.) are converted to BlockQuote nodes with metadata
+    when parse_admonitions=True.
+
     """
 
-    parse_directives: bool = field(
-        default=DEFAULT_RST_PARSE_DIRECTIVES,
-        metadata={
-            "help": "Parse RST directives (code-block, image, etc.)",
-            "cli_name": "no-parse-directives",
-            "importance": "core",
-        },
-    )
     strict_mode: bool = field(
         default=DEFAULT_RST_STRICT_MODE,
         metadata={"help": "Raise errors on invalid RST syntax (vs. graceful recovery)", "importance": "advanced"},
     )
-    preserve_raw_directives: bool = field(
-        default=DEFAULT_RST_PRESERVE_RAW_DIRECTIVES,
+    parse_admonitions: bool = field(
+        default=DEFAULT_RST_PARSE_ADMONITIONS,
         metadata={
-            "help": "Preserve unknown directives as code blocks",
-            "cli_name": "preserve-raw-directives",
-            "importance": "advanced",
+            "help": "Parse admonitions (note, warning, tip, etc.) as BlockQuote with metadata",
+            "cli_name": "no-parse-admonitions",
+            "importance": "core",
         },
     )
     strip_comments: bool = field(
