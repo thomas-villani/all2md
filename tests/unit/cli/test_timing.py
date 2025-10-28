@@ -1,13 +1,11 @@
 """Unit tests for timing instrumentation utilities."""
 
 import logging
-import os
 import time
 
 import pytest
 
 
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 @pytest.mark.timing
 @pytest.mark.unit
 class TestTimingContext:
@@ -27,27 +25,45 @@ class TestTimingContext:
         """Test that timing context logs messages."""
         from all2md.cli.timing import TimingContext
 
-        with caplog.at_level(logging.DEBUG):
-            with TimingContext("test operation"):
-                pass
+        # Explicitly set the logger level to ensure DEBUG messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.DEBUG)
 
-        # Should have start and completion logs
-        assert any("Starting: test operation" in record.message for record in caplog.records)
-        assert any("completed in" in record.message for record in caplog.records)
+        try:
+            with caplog.at_level(logging.DEBUG):
+                with TimingContext("test operation"):
+                    pass
+
+            # Should have start and completion logs
+            assert any("Starting: test operation" in record.message for record in caplog.records)
+            assert any("completed in" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
     def test_timing_context_with_exception(self, caplog):
         """Test timing context logs failure on exception."""
         from all2md.cli.timing import TimingContext
 
-        with caplog.at_level(logging.DEBUG):
-            try:
-                with TimingContext("failing operation"):
-                    raise ValueError("Test error")
-            except ValueError:
-                pass
+        # Explicitly set the logger level to ensure DEBUG messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.DEBUG)
 
-        # Should have failure log
-        assert any("failed after" in record.message for record in caplog.records)
+        try:
+            with caplog.at_level(logging.DEBUG):
+                try:
+                    with TimingContext("failing operation"):
+                        raise ValueError("Test error")
+                except ValueError:
+                    pass
+
+            # Should have failure log
+            assert any("failed after" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
     def test_timing_context_custom_logger(self, caplog):
         """Test timing context with custom logger."""
@@ -78,7 +94,6 @@ class TestTimingContext:
 
 @pytest.mark.timing
 @pytest.mark.unit
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 class TestInstrumentTiming:
     """Test instrument_timing decorator."""
 
@@ -91,12 +106,21 @@ class TestInstrumentTiming:
             time.sleep(0.01)
             return "result"
 
-        with caplog.at_level(logging.DEBUG):
-            result = test_function()
+        # Explicitly set the logger level to ensure DEBUG messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.DEBUG)
 
-        assert result == "result"
-        assert any("test_function" in record.message for record in caplog.records)
-        assert any("completed in" in record.message for record in caplog.records)
+        try:
+            with caplog.at_level(logging.DEBUG):
+                result = test_function()
+
+            assert result == "result"
+            assert any("test_function" in record.message for record in caplog.records)
+            assert any("completed in" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
     def test_decorator_custom_name(self, caplog):
         """Test decorator with custom operation name."""
@@ -106,11 +130,20 @@ class TestInstrumentTiming:
         def test_function():
             return "result"
 
-        with caplog.at_level(logging.DEBUG):
-            test_function()
+        # Explicitly set the logger level to ensure DEBUG messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.DEBUG)
 
-        # Should use custom name
-        assert any("custom operation" in record.message for record in caplog.records)
+        try:
+            with caplog.at_level(logging.DEBUG):
+                test_function()
+
+            # Should use custom name
+            assert any("custom operation" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
     def test_decorator_preserves_function_metadata(self):
         """Test that decorator preserves function metadata."""
@@ -132,11 +165,20 @@ class TestInstrumentTiming:
         def add(a, b):
             return a + b
 
-        with caplog.at_level(logging.DEBUG):
-            result = add(2, 3)
+        # Explicitly set the logger level to ensure DEBUG messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.DEBUG)
 
-        assert result == 5
-        assert any("completed in" in record.message for record in caplog.records)
+        try:
+            with caplog.at_level(logging.DEBUG):
+                result = add(2, 3)
+
+            assert result == 5
+            assert any("completed in" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
 
 @pytest.mark.unit
@@ -182,7 +224,6 @@ class TestFormatDuration:
 
 
 @pytest.mark.timing
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Timing tests are flaky in CI")
 class TestOperationTimer:
     """Test OperationTimer class."""
 

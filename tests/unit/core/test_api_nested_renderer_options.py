@@ -101,23 +101,32 @@ class TestNestedRendererOptions:
         """Test that nested renderer fields are not logged as unmatched kwargs."""
         import logging
 
+        # Set both the caplog level AND the logger level to ensure DEBUG messages are captured
         caplog.set_level(logging.DEBUG)
+        # Explicitly set the logger level for the api module
+        api_logger = logging.getLogger("all2md.api")
+        original_level = api_logger.level
+        api_logger.setLevel(logging.DEBUG)
 
-        kwargs = {
-            "allow_remote_fetch": True,  # nested field
-            "allowed_hosts": ["example.com"],  # nested field
-            "title": "Test",
-        }
+        try:
+            kwargs = {
+                "allow_remote_fetch": True,  # nested field
+                "allowed_hosts": ["example.com"],  # nested field
+                "title": "Test",
+            }
 
-        _split_kwargs_for_parser_and_renderer("pdf", "epub", kwargs)
+            _split_kwargs_for_parser_and_renderer("pdf", "epub", kwargs)
 
-        # Check that debug logs don't mention these as unmatched
-        unmatched_logs = [record for record in caplog.records if "don't match parser or renderer" in record.message]
+            # Check that debug logs don't mention these as unmatched
+            unmatched_logs = [record for record in caplog.records if "don't match parser or renderer" in record.message]
 
-        if unmatched_logs:
-            unmatched_msg = unmatched_logs[0].message
-            assert "allow_remote_fetch" not in unmatched_msg
-            assert "allowed_hosts" not in unmatched_msg
+            if unmatched_logs:
+                unmatched_msg = unmatched_logs[0].message
+                assert "allow_remote_fetch" not in unmatched_msg
+                assert "allowed_hosts" not in unmatched_msg
+        finally:
+            # Restore original logger level
+            api_logger.setLevel(original_level)
 
     def test_renderer_with_multiple_nested_dataclasses(self):
         """Test renderer options that have multiple nested dataclass fields."""
@@ -139,18 +148,27 @@ class TestNestedRendererOptions:
         """Test that invalid field names are still logged as unknown."""
         import logging
 
+        # Set both the caplog level AND the logger level to ensure DEBUG messages are captured
         caplog.set_level(logging.DEBUG)
+        # Explicitly set the logger level for the api module
+        api_logger = logging.getLogger("all2md.api")
+        original_level = api_logger.level
+        api_logger.setLevel(logging.DEBUG)
 
-        kwargs = {
-            "invalid_field_name": True,
-            "title": "Test",
-        }
+        try:
+            kwargs = {
+                "invalid_field_name": True,
+                "title": "Test",
+            }
 
-        _create_renderer_options_from_kwargs("epub", **kwargs)
+            _create_renderer_options_from_kwargs("epub", **kwargs)
 
-        # Should have a debug log about skipping unknown options
-        assert any("Skipping unknown renderer options" in record.message for record in caplog.records)
-        assert any("invalid_field_name" in record.message for record in caplog.records)
+            # Should have a debug log about skipping unknown options
+            assert any("Skipping unknown renderer options" in record.message for record in caplog.records)
+            assert any("invalid_field_name" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            api_logger.setLevel(original_level)
 
     def test_nested_renderer_options_with_markdown_target(self):
         """Test that nested fields work correctly when target is markdown (no nested fields)."""

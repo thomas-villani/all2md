@@ -229,14 +229,23 @@ class TestTimingInstrumentation:
         test_file = tmp_path / "test.md"
         test_file.write_text("# Test\n\ntest content")
 
-        # Enable DEBUG logging to capture timing logs
-        with caplog.at_level(logging.DEBUG):
-            to_markdown(test_file, source_format="markdown")
+        # Explicitly set the logger level for the api module to ensure DEBUG messages are captured
+        api_logger = logging.getLogger("all2md.api")
+        original_level = api_logger.level
+        api_logger.setLevel(logging.DEBUG)
 
-            # Check that timing logs were created
-            timing_logs = [record for record in caplog.records if "completed in" in record.message]
-            # Should have at least parsing and rendering timing
-            assert len(timing_logs) >= 2
+        try:
+            # Enable DEBUG logging to capture timing logs
+            with caplog.at_level(logging.DEBUG):
+                to_markdown(test_file, source_format="markdown")
+
+                # Check that timing logs were created
+                timing_logs = [record for record in caplog.records if "completed in" in record.message]
+                # Should have at least parsing and rendering timing
+                assert len(timing_logs) >= 2
+        finally:
+            # Restore original logger level
+            api_logger.setLevel(original_level)
 
     def test_normal_mode_no_timing(self, tmp_path, caplog):
         """Test that normal mode doesn't log timing."""
@@ -246,13 +255,22 @@ class TestTimingInstrumentation:
         test_file = tmp_path / "test.md"
         test_file.write_text("# Test\n\ntest content")
 
-        # Use WARNING level (normal mode)
-        with caplog.at_level(logging.WARNING):
-            to_markdown(test_file, source_format="markdown")
+        # Explicitly set the logger level to WARNING to ensure DEBUG messages are not captured
+        api_logger = logging.getLogger("all2md.api")
+        original_level = api_logger.level
+        api_logger.setLevel(logging.WARNING)
 
-            # Should not have timing logs at WARNING level
-            timing_logs = [record for record in caplog.records if "completed in" in record.message]
-            assert len(timing_logs) == 0
+        try:
+            # Use WARNING level (normal mode)
+            with caplog.at_level(logging.WARNING):
+                to_markdown(test_file, source_format="markdown")
+
+                # Should not have timing logs at WARNING level
+                timing_logs = [record for record in caplog.records if "completed in" in record.message]
+                assert len(timing_logs) == 0
+        finally:
+            # Restore original logger level
+            api_logger.setLevel(original_level)
 
 
 @pytest.mark.integration
