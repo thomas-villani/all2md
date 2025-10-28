@@ -474,7 +474,6 @@ class DynamicCLIBuilder:
 
         # Handle legacy metadata types
         if metadata.get("type") == "list_int":
-
             return self._handle_int_list()
 
         # Handle basic types

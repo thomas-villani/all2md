@@ -59,7 +59,6 @@ from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
-
 # =============================================================================
 # Regex Patterns for DokuWiki Syntax
 # =============================================================================

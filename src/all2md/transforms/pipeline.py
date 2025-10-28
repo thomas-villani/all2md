@@ -314,7 +314,6 @@ class Pipeline:
 
         # If renderer is a string, look it up via registry
         if isinstance(renderer, str):
-
             renderer_class = registry.get_renderer(renderer)
             return renderer_class(options=options)
 

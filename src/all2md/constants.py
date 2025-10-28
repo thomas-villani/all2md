@@ -5,8 +5,13 @@ This module centralizes all hardcoded values, magic numbers, and default
 configuration constants used across the all2md library. This improves
 maintainability and discoverability of configurable parameters.
 
-Constants are organized by category: formatting, conversion behavior,
-file handling, and Markdown flavor specifications.
+Constants are organized by category:
+1. Type Definitions - All Literal types and type aliases
+2. General Markdown Formatting - Basic markdown output settings
+3. Conversion Behavior - General conversion options
+4. Security Constants - Security and sanitization settings
+5. Format-Specific Constants - Settings for each supported format
+6. File Extensions and Format Detection - File type identification
 """
 
 from __future__ import annotations
@@ -14,72 +19,33 @@ from __future__ import annotations
 from typing import Literal
 
 # =============================================================================
-# Markdown Formatting Constants
+# Type Definitions - All Literal Types and Type Aliases
 # =============================================================================
 
-DEFAULT_PAGE_SEPARATOR = "-----"
-DEFAULT_LIST_INDENT_WIDTH = 4
-DEFAULT_TABLE_ALIGNMENT = "left"
-
-# Emphasis and formatting symbols
-DEFAULT_EMPHASIS_SYMBOL = "*"
-DEFAULT_BULLET_SYMBOLS = "*-+"
-MARKDOWN_SPECIAL_CHARS = "*_#[]()\\"
-
-# =============================================================================
-# Font and Layout Constants (PDF/DOCX)
-# =============================================================================
-
-DEFAULT_FONT_SIZE_THRESHOLD_PT = 36
-DEFAULT_INDENTATION_PT_PER_LEVEL = 36
-DEFAULT_OVERLAP_THRESHOLD_PERCENT = 70
-DEFAULT_OVERLAP_THRESHOLD_PX = 5
-DEFAULT_LINK_OVERLAP_THRESHOLD = 70.0  # Percentage overlap required for link detection (0-100)
-
-# Word document formatting
-DEFAULT_BULLETED_LIST_INDENT = 24
-
-# =============================================================================
-# Conversion Behavior Constants
-# =============================================================================
-
-
-# Attachment handling (unified across all parsers) - defined after AttachmentMode type
-DEFAULT_ATTACHMENT_OUTPUT_DIR = None
-DEFAULT_ATTACHMENT_BASE_URL = None
-
-# Text processing
-DEFAULT_ESCAPE_SPECIAL = True
-DEFAULT_USE_HASH_HEADINGS = True
-DEFAULT_EXTRACT_TITLE = False
-DEFAULT_SLIDE_NUMBERS = False
-DEFAULT_EXTRACT_METADATA = False
-DEFAULT_INCLUDE_METADATA_FRONTMATTER = False
-
-# Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
-DEFAULT_BOILERPLATE_PATTERNS = [
-    r"^CONFIDENTIAL$",
-    r"^Page \d+ of \d+$",
-    r"^Internal Use Only$",
-    r"^\[DRAFT\]$",
-    r"^Copyright \d{4}",
-    r"^Printed on \d{4}-\d{2}-\d{2}$",
-]
-
-# =============================================================================
-# Supported Format Types
-# =============================================================================
-
+# Markdown formatting types
+EmphasisSymbol = Literal["*", "_"]
 UnderlineMode = Literal["html", "markdown", "ignore"]
 SuperscriptMode = Literal["html", "markdown", "ignore"]
 SubscriptMode = Literal["html", "markdown", "ignore"]
 MathMode = Literal["latex", "mathml", "html"]
-EmphasisSymbol = Literal["*", "_"]
+LinkStyleType = Literal["inline", "reference"]
+ReferenceLinkPlacement = Literal["end_of_document", "after_block"]
+CodeFenceChar = Literal["`", "~"]
+
+# Markdown flavor and compatibility types
+FlavorType = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
+UnsupportedTableMode = Literal["drop", "ascii", "force", "html"]
+UnsupportedInlineMode = Literal["plain", "force", "html"]
+HtmlPassthroughMode = Literal["pass-through", "escape", "drop", "sanitize"]
+MetadataFormatType = Literal["yaml", "toml", "json"]
+HeaderCaseOption = Literal["preserve", "title", "upper", "lower"]
+
+# Asset and attachment handling types
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
+
+# Comment handling types (general and format-specific)
 CommentMode = Literal["html", "blockquote", "ignore"]
-
-
 HtmlCommentMode = Literal["native", "visible", "ignore"]
 DocxCommentMode = Literal["native", "visible", "ignore"]
 LatexCommentMode = Literal["percent", "todonotes", "marginnote", "ignore"]
@@ -99,35 +65,152 @@ PdfCommentMode = Literal["visible", "ignore"]
 CommentType = Literal["html", "docx_review", "latex", "code", "wiki", "generic"]
 CommentRenderMode = Literal["preserve", "convert", "strip"]
 
-# Markdown flavor and unsupported element handling
-FlavorType = Literal["gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus"]
-UnsupportedTableMode = Literal["drop", "ascii", "force", "html"]
-UnsupportedInlineMode = Literal["plain", "force", "html"]
-LinkStyleType = Literal["inline", "reference"]
-ReferenceLinkPlacement = Literal["end_of_document", "after_block"]
-CodeFenceChar = Literal["`", "~"]
-MetadataFormatType = Literal["yaml", "toml", "json"]
-
+# PDF-specific types
 PageSize = Literal["letter", "a4", "legal"]
-HtmlPassthroughMode = Literal["pass-through", "escape", "drop", "sanitize"]
-HTML_PASSTHROUGH_MODES = ["pass-through", "escape", "drop", "sanitize"]
-DEFAULT_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"
-
-HeaderCaseOption = Literal["preserve", "title", "upper", "lower"]
-
 ColumnDetectionMode = Literal["auto", "force_single", "force_multi", "disabled"]
 TableExtractionMode = Literal["none", "grid", "text_clustering"]
 TableDetectionMode = Literal["pymupdf", "ruling", "both", "none"]
 ImageFormat = Literal["png", "jpeg"]
 OCRMode = Literal["auto", "force", "off"]
 
-# ==============================================================================
+# Email-specific types
+DateFormatMode = Literal["iso8601", "locale", "strftime"]
+OutputStructureMode = Literal["flat", "hierarchical"]
+MailboxFormatType = Literal["auto", "mbox", "maildir", "mh", "babyl", "mmdf"]
 
+# Evernote (ENEX) types
+TagsFormatMode = Literal["frontmatter", "inline", "heading", "skip"]
+NoteSortMode = Literal["created", "updated", "title", "none"]
 
-# Attachment handling defaults - defined here after AttachmentMode type
+# Wiki markup types
+MediaWikiImageCaptionMode = Literal["auto", "alt_only", "caption_only"]
+
+# Org-Mode types
+OrgHeadingStyle = Literal["stars"]
+OrgTodoKeywordSet = Literal["default", "custom"]
+
+# reStructuredText types
+RstTableStyle = Literal["grid", "simple"]
+RstCodeStyle = Literal["double_colon", "directive"]
+RstLineBreakMode = Literal["line_block", "raw"]
+
+# BBCode types
+BBCodeUnknownTagMode = Literal["preserve", "strip", "escape"]
+
+# Auto-generated from converter registry.
+# To update: python scripts/update_document_formats.py --update
+# Used for type hints, CLI autocomplete, and API documentation
+DocumentFormat = Literal[
+    "auto",
+    "archive",
+    "asciidoc",
+    "ast",
+    "bbcode",
+    "chm",
+    "csv",
+    "docx",
+    "dokuwiki",
+    "eml",
+    "enex",
+    "epub",
+    "fb2",
+    "html",
+    "ipynb",
+    "jinja",
+    "latex",
+    "markdown",
+    "mbox",
+    "mediawiki",
+    "mhtml",
+    "odp",
+    "ods",
+    "odt",
+    "openapi",
+    "org",
+    "outlook",
+    "pdf",
+    "plaintext",
+    "pptx",
+    "rst",
+    "rtf",
+    "sourcecode",
+    "textile",
+    "webarchive",
+    "xlsx",
+    "zip",
+]
+
+# =============================================================================
+# General Markdown Formatting Constants
+# =============================================================================
+
+# Basic formatting defaults
+DEFAULT_PAGE_SEPARATOR = "-----"
+DEFAULT_LIST_INDENT_WIDTH = 4
+DEFAULT_TABLE_ALIGNMENT = "left"
+
+# Emphasis and special character handling
+DEFAULT_EMPHASIS_SYMBOL = "*"
+DEFAULT_BULLET_SYMBOLS = "*-+"
+MARKDOWN_SPECIAL_CHARS = "*_#[]()\\"
+
+# Heading and structure defaults
+DEFAULT_USE_HASH_HEADINGS = True
+DEFAULT_HEADING_LEVEL_OFFSET = 0
+DEFAULT_PRESERVE_NESTED_STRUCTURE = True
+
+# Code block formatting
+DEFAULT_CODE_FENCE_CHAR: CodeFenceChar = "`"
+DEFAULT_CODE_FENCE_MIN = 3
+MIN_CODE_FENCE_LENGTH = 3
+MAX_CODE_FENCE_LENGTH = 10
+
+# Code fence language identifier security (markdown injection prevention)
+SAFE_LANGUAGE_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9_+\-]+$"
+MAX_LANGUAGE_IDENTIFIER_LENGTH = 50
+
+# Link formatting
+DEFAULT_LINK_STYLE: LinkStyleType = "inline"
+DEFAULT_REFERENCE_LINK_PLACEMENT: ReferenceLinkPlacement = "end_of_document"
+DEFAULT_AUTOLINK_BARE_URLS = False
+
+# Table formatting
+DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
+DEFAULT_TABLE_PIPE_ESCAPE = True
+TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "justify": ":---"}
+
+# Text processing
+DEFAULT_COLLAPSE_BLANK_LINES = True
+DEFAULT_ESCAPE_SPECIAL = True
+
+# Font and layout thresholds (for format detection in PDF/DOCX)
+DEFAULT_FONT_SIZE_THRESHOLD_PT = 36
+DEFAULT_INDENTATION_PT_PER_LEVEL = 36
+DEFAULT_OVERLAP_THRESHOLD_PERCENT = 70
+DEFAULT_OVERLAP_THRESHOLD_PX = 5
+DEFAULT_LINK_OVERLAP_THRESHOLD = 70.0  # Percentage overlap required for link detection (0-100)
+
+# =============================================================================
+# Conversion Behavior Constants
+# =============================================================================
+
+# Metadata handling
+DEFAULT_EXTRACT_TITLE = False
+DEFAULT_EXTRACT_METADATA = False
+DEFAULT_INCLUDE_METADATA_FRONTMATTER = False
+DEFAULT_METADATA_FORMAT: MetadataFormatType = "yaml"
+
+# Asset and attachment handling
 DEFAULT_ATTACHMENT_MODE: AttachmentMode = "alt_text"
 DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
+DEFAULT_ATTACHMENT_OUTPUT_DIR = None
+DEFAULT_ATTACHMENT_BASE_URL = None
+
+# Comment handling defaults (general)
 DEFAULT_COMMENT_MODE: CommentMode = "blockquote"
+DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
+
+# Comment handling defaults (format-specific)
 DEFAULT_HTML_COMMENT_MODE: HtmlCommentMode = "native"
 DEFAULT_DOCX_COMMENT_MODE: DocxCommentMode = "native"
 DEFAULT_LATEX_COMMENT_MODE: LatexCommentMode = "percent"
@@ -144,112 +227,36 @@ DEFAULT_TEXTILE_COMMENT_MODE: TextileCommentMode = "html"
 DEFAULT_DOKUWIKI_COMMENT_MODE: DokuWikiCommentMode = "html"
 DEFAULT_PLAINTEXT_COMMENT_MODE: PlainTextCommentMode = "ignore"
 DEFAULT_PDF_COMMENT_MODE: PdfCommentMode = "ignore"
-DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 
-# Flavor and unsupported element defaults
+# Flavor and compatibility settings
 DEFAULT_FLAVOR: FlavorType = "gfm"
 # Use "force" as flavor-naive default (most markdown-like, works in most parsers)
 # Flavor-specific defaults are applied via get_flavor_defaults() when flavor is chosen
 DEFAULT_UNSUPPORTED_TABLE_MODE: UnsupportedTableMode = "force"
 DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "force"
 DEFAULT_MATH_MODE: MathMode = "latex"
-DEFAULT_METADATA_FORMAT: MetadataFormatType = "yaml"
-
-# Markdown rendering defaults
-DEFAULT_HEADING_LEVEL_OFFSET = 0
-DEFAULT_CODE_FENCE_CHAR: CodeFenceChar = "`"
-DEFAULT_CODE_FENCE_MIN = 3
-DEFAULT_COLLAPSE_BLANK_LINES = True
-DEFAULT_LINK_STYLE: LinkStyleType = "inline"
-DEFAULT_REFERENCE_LINK_PLACEMENT: ReferenceLinkPlacement = "end_of_document"
-DEFAULT_AUTOLINK_BARE_URLS = False
-DEFAULT_TABLE_PIPE_ESCAPE = True
+DEFAULT_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"
+HTML_PASSTHROUGH_MODES = ["pass-through", "escape", "drop", "sanitize"]
 DEFAULT_MARKDOWN_HTML_SANITIZATION: HtmlPassthroughMode = "escape"  # Secure by default
 
+# Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
+DEFAULT_BOILERPLATE_PATTERNS = [
+    r"^CONFIDENTIAL$",
+    r"^Page \d+ of \d+$",
+    r"^Internal Use Only$",
+    r"^\[DRAFT\]$",
+    r"^Copyright \d{4}",
+    r"^Printed on \d{4}-\d{2}-\d{2}$",
+]
+
+# Network and remote resource handling
 DEFAULT_USER_AGENT = "all2md-fetcher/1.0"
 
 # =============================================================================
-# PDF-specific Constants
+# Security Constants
 # =============================================================================
 
-PDF_MIN_PYMUPDF_VERSION = "1.26.4"
-
-# Header detection constants
-DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives
-DEFAULT_HEADER_USE_FONT_WEIGHT = True
-DEFAULT_HEADER_USE_ALL_CAPS = True
-DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
-DEFAULT_HEADER_FONT_SIZE_RATIO = 1.2  # Minimum ratio between header and body text font size
-DEFAULT_HEADER_MAX_LINE_LENGTH = 100  # Maximum character length for text to be considered a header
-DEFAULT_HEADER_DEBUG_OUTPUT = False  # Enable debug output for header detection analysis
-
-# Column detection constants
-DEFAULT_DETECT_COLUMNS = True
-DEFAULT_MERGE_HYPHENATED_WORDS = True
-DEFAULT_HANDLE_ROTATED_TEXT = True
-DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
-DEFAULT_COLUMN_DETECTION_MODE: ColumnDetectionMode = "auto"
-DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
-DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting blocks that span columns
-
-# Table detection fallback constants
-DEFAULT_TABLE_FALLBACK_DETECTION = True
-DEFAULT_DETECT_MERGED_CELLS = True
-DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
-DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE: TableExtractionMode = "grid"
-
-DEFAULT_IMAGE_PLACEMENT_MARKERS = True
-DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
-
-# Page separator constants
-DEFAULT_INCLUDE_PAGE_NUMBERS = False
-
-# Table detection mode constants
-DEFAULT_TABLE_DETECTION_MODE: TableDetectionMode = "both"
-
-# Image format constants
-DEFAULT_IMAGE_FORMAT: ImageFormat = "png"
-DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
-
-# Header/footer trimming constants
-DEFAULT_TRIM_HEADERS_FOOTERS = False
-DEFAULT_AUTO_TRIM_HEADERS_FOOTERS = False
-DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
-DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
-
-DEFAULT_PDF_PAGE_SIZE: PageSize = "letter"
-DEFAULT_PDF_MARGIN = 72.0
-DEFAULT_PDF_FONT_FAMILY = "Helvetica"
-DEFAULT_PDF_FONT_SIZE = 12
-DEFAULT_PDF_CODE_FONT = "Courier"
-DEFAULT_PDF_LINE_SPACING = 1.2
-
-# OCR-related constants for PDF parsing
-DEFAULT_OCR_ENABLED = False
-DEFAULT_OCR_MODE = "auto"
-DEFAULT_OCR_LANGUAGES = "eng"
-DEFAULT_OCR_AUTO_DETECT_LANGUAGE = False
-DEFAULT_OCR_DPI = 300
-DEFAULT_OCR_TEXT_THRESHOLD = 50  # Minimum characters to consider page as text-based
-DEFAULT_OCR_IMAGE_AREA_THRESHOLD = 0.5  # Ratio of image area to page area to trigger OCR
-DEFAULT_OCR_PRESERVE_EXISTING_TEXT = False
-DEFAULT_OCR_TESSERACT_CONFIG = ""
-
-# =============================================================================
-# HTML to Markdown Constants
-# =============================================================================
-
-HTML_EMPHASIS_SYMBOLS = ["*", "_"]
-HTML_BULLET_SYMBOLS = "*-+"
-
-# HTML entity handling
-DEFAULT_CONVERT_NBSP = False
-HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handling
-
-# Content sanitization
-DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
-DEFAULT_STRIP_FRAMEWORK_ATTRIBUTES = False
-
+# HTML security - Dangerous elements and attributes
 DANGEROUS_HTML_ELEMENTS = {"script", "style", "object", "embed", "form", "input", "iframe"}
 
 # HTML5 Event Handler Attributes - Comprehensive list of all on* attributes
@@ -471,6 +478,7 @@ FRAMEWORK_ATTRIBUTE_PREFIXES = frozenset(
     }
 )
 
+# URL scheme security
 DANGEROUS_SCHEMES = {
     "javascript:",
     "vbscript:",
@@ -481,20 +489,9 @@ DANGEROUS_SCHEMES = {
 }
 SAFE_LINK_SCHEMES = frozenset({"http", "https", "mailto", "ftp", "ftps", "tel", "sms", ""})
 
-# Block structure
-DEFAULT_PRESERVE_NESTED_STRUCTURE = True
-
-# Code block handling
-MIN_CODE_FENCE_LENGTH = 3
-MAX_CODE_FENCE_LENGTH = 10
-
-# Code fence language identifier security (markdown injection prevention)
-SAFE_LANGUAGE_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9_+\-]+$"
-MAX_LANGUAGE_IDENTIFIER_LENGTH = 50
-
-# Table handling
-DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT = True
-TABLE_ALIGNMENT_MAPPING = {"left": ":---", "center": ":---:", "right": "---:", "justify": ":---"}
+# Content sanitization defaults
+DEFAULT_STRIP_DANGEROUS_ELEMENTS = False
+DEFAULT_STRIP_FRAMEWORK_ATTRIBUTES = False
 
 # HTML rendering security defaults
 DEFAULT_ALLOW_REMOTE_SCRIPTS = False  # Secure by default - require opt-in for CDN scripts
@@ -515,7 +512,7 @@ DEFAULT_MAX_REDIRECTS = 5
 DEFAULT_MAX_REQUESTS_PER_SECOND = 10.0  # Rate limit for network requests
 DEFAULT_MAX_CONCURRENT_REQUESTS = 5  # Maximum concurrent network requests
 
-# Asset size limit for security (applies to downloads, attachments, images, etc.)
+# Asset size limits (applies to downloads, attachments, images, etc.)
 DEFAULT_MAX_ASSET_SIZE_BYTES = 50 * 1024 * 1024  # 50MB maximum per asset
 
 # HTML parser security limits (DoS protection)
@@ -558,78 +555,61 @@ DANGEROUS_REGEX_PATTERNS = [
 ]
 
 # =============================================================================
-# Email Processing Constants
+# Format-Specific Constants - PDF
 # =============================================================================
 
-EMAIL_DATE_FORMATS = ["%a, %d %b %Y %H:%M:%S %z", "%d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S", "%d %b %Y %H:%M:%S"]
+# Version requirements
+PDF_MIN_PYMUPDF_VERSION = "1.26.4"
 
-# Email date handling defaults
-DateFormatMode = Literal["iso8601", "locale", "strftime"]
-DEFAULT_DATE_FORMAT_MODE: DateFormatMode = "strftime"
-DEFAULT_DATE_STRFTIME_PATTERN = "%m/%d/%y %H:%M"
-DEFAULT_CONVERT_HTML_TO_MARKDOWN = False
+# Header detection
+DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives
+DEFAULT_HEADER_USE_FONT_WEIGHT = True
+DEFAULT_HEADER_USE_ALL_CAPS = True
+DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
+DEFAULT_HEADER_FONT_SIZE_RATIO = 1.2  # Minimum ratio between header and body text font size
+DEFAULT_HEADER_MAX_LINE_LENGTH = 100  # Maximum character length for text to be considered a header
+DEFAULT_HEADER_DEBUG_OUTPUT = False  # Enable debug output for header detection analysis
 
-# Quote processing defaults
-DEFAULT_CLEAN_QUOTES = True
-DEFAULT_DETECT_REPLY_SEPARATORS = True
-DEFAULT_NORMALIZE_HEADERS = True
+# Column detection
+DEFAULT_DETECT_COLUMNS = True
+DEFAULT_MERGE_HYPHENATED_WORDS = True
+DEFAULT_HANDLE_ROTATED_TEXT = True
+DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
+DEFAULT_COLUMN_DETECTION_MODE: ColumnDetectionMode = "auto"
+DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
+DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting blocks that span columns
 
-# URL cleaning defaults
-DEFAULT_CLEAN_WRAPPED_URLS = True
-DEFAULT_URL_WRAPPERS = [
-    "urldefense.com",
-    "safelinks.protection.outlook.com",
-    "urldefense.proofpoint.com",
-    "protect-links.mimecast.com",
-]
+# Table detection and extraction
+DEFAULT_TABLE_DETECTION_MODE: TableDetectionMode = "both"
+DEFAULT_TABLE_FALLBACK_DETECTION = True
+DEFAULT_DETECT_MERGED_CELLS = True
+DEFAULT_TABLE_RULING_LINE_THRESHOLD = 0.5  # Minimum line length ratio for table ruling
+DEFAULT_TABLE_FALLBACK_EXTRACTION_MODE: TableExtractionMode = "grid"
 
-# Header processing defaults
-DEFAULT_PRESERVE_RAW_HEADERS = False
+# Image handling
+DEFAULT_IMAGE_PLACEMENT_MARKERS = True
+DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
+DEFAULT_IMAGE_FORMAT: ImageFormat = "png"
+DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
 
-# =============================================================================
-# Email Archive (MBOX/Outlook) Constants
-# =============================================================================
+# Page structure
+DEFAULT_INCLUDE_PAGE_NUMBERS = False
 
-# Output structure modes
-OutputStructureMode = Literal["flat", "hierarchical"]
-DEFAULT_OUTPUT_STRUCTURE: OutputStructureMode = "flat"
+# Header/footer trimming
+DEFAULT_TRIM_HEADERS_FOOTERS = False
+DEFAULT_AUTO_TRIM_HEADERS_FOOTERS = False
+DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
+DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
 
-# Mailbox format detection
-MailboxFormatType = Literal["auto", "mbox", "maildir", "mh", "babyl", "mmdf"]
-DEFAULT_MAILBOX_FORMAT: MailboxFormatType = "auto"
+# PDF rendering defaults (for Markdown to PDF conversion)
+DEFAULT_PDF_PAGE_SIZE: PageSize = "letter"
+DEFAULT_PDF_MARGIN = 72.0
+DEFAULT_PDF_FONT_FAMILY = "Helvetica"
+DEFAULT_PDF_FONT_SIZE = 12
+DEFAULT_PDF_CODE_FONT = "Courier"
+DEFAULT_PDF_LINE_SPACING = 1.2
 
-# Default folders to skip for PST/OST
-DEFAULT_OUTLOOK_SKIP_FOLDERS = ["Deleted Items", "Junk Email", "Trash", "Drafts"]
-
-# Message processing defaults
-DEFAULT_MAX_MESSAGES = None  # None means no limit
-DEFAULT_INCLUDE_SUBFOLDERS = True
-
-# =============================================================================
-# Evernote (ENEX) Constants
-# =============================================================================
-
-# Tag rendering modes
-TagsFormatMode = Literal["frontmatter", "inline", "heading", "skip"]
-DEFAULT_TAGS_FORMAT_MODE: TagsFormatMode = "inline"
-
-# Note sorting options
-NoteSortMode = Literal["created", "updated", "title", "none"]
-DEFAULT_NOTE_SORT_MODE: NoteSortMode = "none"
-
-# Note title defaults
-DEFAULT_NOTE_TITLE_LEVEL = 1
-DEFAULT_INCLUDE_NOTE_METADATA = True
-DEFAULT_INCLUDE_TAGS = True
-DEFAULT_NOTEBOOK_AS_HEADING = False
-
-# Notes section title
-DEFAULT_NOTES_SECTION_TITLE = "Notes"
-
-# =============================================================================
-# PDF to Markdown Constants
-# =============================================================================
-
+# PDF page size definitions
 PDF_DEFAULT_PAGE_SIZE = "A4"
 PDF_PAGE_SIZES = {
     "A4": (595.0, 842.0),
@@ -638,11 +618,94 @@ PDF_PAGE_SIZES = {
     "A3": (842.0, 1191.0),
     "A5": (420.0, 595.0),
 }
-
 PDF_DEFAULT_MARGINS = (50, 50, 50, 50)  # top, right, bottom, left
 
+# OCR settings
+DEFAULT_OCR_ENABLED = False
+DEFAULT_OCR_MODE = "auto"
+DEFAULT_OCR_LANGUAGES = "eng"
+DEFAULT_OCR_AUTO_DETECT_LANGUAGE = False
+DEFAULT_OCR_DPI = 300
+DEFAULT_OCR_TEXT_THRESHOLD = 50  # Minimum characters to consider page as text-based
+DEFAULT_OCR_IMAGE_AREA_THRESHOLD = 0.5  # Ratio of image area to page area to trigger OCR
+DEFAULT_OCR_PRESERVE_EXISTING_TEXT = False
+DEFAULT_OCR_TESSERACT_CONFIG = ""
+
 # =============================================================================
-# Jupyter Notebook (IPYNB) Constants
+# Format-Specific Constants - HTML
+# =============================================================================
+
+# HTML emphasis and formatting
+HTML_EMPHASIS_SYMBOLS = ["*", "_"]
+HTML_BULLET_SYMBOLS = "*-+"
+
+# HTML entity handling
+DEFAULT_CONVERT_NBSP = False
+HTML_ENTITIES_TO_PRESERVE = ["nbsp"]  # Entities that might need special handling
+
+# =============================================================================
+# Format-Specific Constants - Email (EML)
+# =============================================================================
+
+# Date handling
+EMAIL_DATE_FORMATS = ["%a, %d %b %Y %H:%M:%S %z", "%d %b %Y %H:%M:%S %z", "%a, %d %b %Y %H:%M:%S", "%d %b %Y %H:%M:%S"]
+DEFAULT_DATE_FORMAT_MODE: DateFormatMode = "strftime"
+DEFAULT_DATE_STRFTIME_PATTERN = "%m/%d/%y %H:%M"
+DEFAULT_CONVERT_HTML_TO_MARKDOWN = False
+
+# Quote and reply processing
+DEFAULT_CLEAN_QUOTES = True
+DEFAULT_DETECT_REPLY_SEPARATORS = True
+DEFAULT_NORMALIZE_HEADERS = True
+
+# URL cleaning (security wrapper removal)
+DEFAULT_CLEAN_WRAPPED_URLS = True
+DEFAULT_URL_WRAPPERS = [
+    "urldefense.com",
+    "safelinks.protection.outlook.com",
+    "urldefense.proofpoint.com",
+    "protect-links.mimecast.com",
+]
+
+# Header processing
+DEFAULT_PRESERVE_RAW_HEADERS = False
+
+# =============================================================================
+# Format-Specific Constants - Email Archives (MBOX/Outlook)
+# =============================================================================
+
+# Output structure
+DEFAULT_OUTPUT_STRUCTURE: OutputStructureMode = "flat"
+
+# Mailbox format detection
+DEFAULT_MAILBOX_FORMAT: MailboxFormatType = "auto"
+
+# Default folders to skip for PST/OST
+DEFAULT_OUTLOOK_SKIP_FOLDERS = ["Deleted Items", "Junk Email", "Trash", "Drafts"]
+
+# Message processing
+DEFAULT_MAX_MESSAGES = None  # None means no limit
+DEFAULT_INCLUDE_SUBFOLDERS = True
+
+# =============================================================================
+# Format-Specific Constants - Evernote (ENEX)
+# =============================================================================
+
+# Tag rendering
+DEFAULT_TAGS_FORMAT_MODE: TagsFormatMode = "inline"
+
+# Note sorting
+DEFAULT_NOTE_SORT_MODE: NoteSortMode = "none"
+
+# Note title and metadata
+DEFAULT_NOTE_TITLE_LEVEL = 1
+DEFAULT_INCLUDE_NOTE_METADATA = True
+DEFAULT_INCLUDE_TAGS = True
+DEFAULT_NOTEBOOK_AS_HEADING = False
+DEFAULT_NOTES_SECTION_TITLE = "Notes"
+
+# =============================================================================
+# Format-Specific Constants - Jupyter Notebooks (IPYNB)
 # =============================================================================
 
 DEFAULT_TRUNCATE_OUTPUT_LINES = None
@@ -657,9 +720,13 @@ IPYNB_SUPPORTED_IMAGE_MIMETYPES = [
 ]
 
 # =============================================================================
-# .docx Constants
+# Format-Specific Constants - Word Documents (DOCX)
 # =============================================================================
 
+# Word document layout
+DEFAULT_BULLETED_LIST_INDENT = 24
+
+# DOCX rendering defaults (for Markdown to DOCX conversion)
 DEFAULT_DOCX_FONT = "Calibri"
 DEFAULT_DOCX_FONT_SIZE = 11
 DEFAULT_DOCX_CODE_FONT = "Courier New"
@@ -667,12 +734,14 @@ DEFAULT_DOCX_CODE_FONT_SIZE = 10
 DEFAULT_DOCX_TABLE_STYLE = "Light Grid Accent 1"
 
 # =============================================================================
-# reStructuredText (RST) Constants
+# Format-Specific Constants - PowerPoint (PPTX)
 # =============================================================================
 
-RstTableStyle = Literal["grid", "simple"]
-RstCodeStyle = Literal["double_colon", "directive"]
-RstLineBreakMode = Literal["line_block", "raw"]
+DEFAULT_SLIDE_NUMBERS = False
+
+# =============================================================================
+# Format-Specific Constants - reStructuredText (RST)
+# =============================================================================
 
 DEFAULT_RST_HEADING_CHARS = "=-~^*"
 DEFAULT_RST_TABLE_STYLE: RstTableStyle = "grid"
@@ -685,38 +754,33 @@ DEFAULT_RST_STRIP_COMMENTS = False
 DEFAULT_RST_PARSE_ADMONITIONS = True
 
 # =============================================================================
-# MediaWiki Constants
+# Format-Specific Constants - MediaWiki
 # =============================================================================
-
-MediaWikiImageCaptionMode = Literal["auto", "alt_only", "caption_only"]
 
 DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED = True
 DEFAULT_MEDIAWIKI_IMAGE_THUMB = True
 DEFAULT_MEDIAWIKI_IMAGE_CAPTION_MODE: MediaWikiImageCaptionMode = "alt_only"
 
-# MediaWiki Parser Options
+# MediaWiki parser options
 DEFAULT_MEDIAWIKI_PARSE_TEMPLATES = False
 DEFAULT_MEDIAWIKI_PARSE_TAGS = True
 DEFAULT_MEDIAWIKI_STRIP_COMMENTS = True
 
 # =============================================================================
-# DokuWiki Constants
+# Format-Specific Constants - DokuWiki
 # =============================================================================
 
 DEFAULT_DOKUWIKI_USE_HTML_FOR_UNSUPPORTED = True
 DEFAULT_DOKUWIKI_MONOSPACE_FENCE = False
 
-# DokuWiki Parser Options
+# DokuWiki parser options
 DEFAULT_DOKUWIKI_PARSE_PLUGINS = False
 DEFAULT_DOKUWIKI_STRIP_COMMENTS = True
 DEFAULT_DOKUWIKI_PARSE_INTERWIKI = True
 
 # =============================================================================
-# Org-Mode Constants
+# Format-Specific Constants - Org-Mode
 # =============================================================================
-
-OrgHeadingStyle = Literal["stars"]
-OrgTodoKeywordSet = Literal["default", "custom"]
 
 DEFAULT_ORG_HEADING_STYLE: OrgHeadingStyle = "stars"
 DEFAULT_ORG_TODO_KEYWORDS = ["TODO", "DONE"]
@@ -736,10 +800,8 @@ DEFAULT_ORG_PRESERVE_CLOCK = True
 DEFAULT_ORG_PRESERVE_CLOSED = True
 
 # =============================================================================
-# BBCode Constants
+# Format-Specific Constants - BBCode
 # =============================================================================
-
-BBCodeUnknownTagMode = Literal["preserve", "strip", "escape"]
 
 DEFAULT_BBCODE_UNKNOWN_TAG_MODE: BBCodeUnknownTagMode = "strip"
 DEFAULT_BBCODE_PARSE_COLOR_SIZE = True
@@ -747,8 +809,9 @@ DEFAULT_BBCODE_PARSE_ALIGNMENT = True
 DEFAULT_BBCODE_STRICT_MODE = False
 
 # =============================================================================
-# File Extension Lists
+# File Extensions and Format Detection
 # =============================================================================
+
 # NOTE: Supported document and plaintext extensions are now dynamically
 # determined by the converter registry. Use:
 #   from all2md.converter_registry import registry
@@ -810,47 +873,4 @@ RESOURCE_FILE_EXTENSIONS = [
     ".so",
     ".dylib",
     ".class",
-]
-
-# Auto-generated from converter registry.
-# To update: python scripts/update_document_formats.py --update
-# Used for type hints, CLI autocomplete, and API documentation
-DocumentFormat = Literal[
-    "auto",
-    "archive",
-    "asciidoc",
-    "ast",
-    "bbcode",
-    "chm",
-    "csv",
-    "docx",
-    "dokuwiki",
-    "eml",
-    "enex",
-    "epub",
-    "fb2",
-    "html",
-    "ipynb",
-    "jinja",
-    "latex",
-    "markdown",
-    "mbox",
-    "mediawiki",
-    "mhtml",
-    "odp",
-    "ods",
-    "odt",
-    "openapi",
-    "org",
-    "outlook",
-    "pdf",
-    "plaintext",
-    "pptx",
-    "rst",
-    "rtf",
-    "sourcecode",
-    "textile",
-    "webarchive",
-    "xlsx",
-    "zip",
 ]

@@ -4,18 +4,18 @@ import datetime
 from io import BytesIO
 
 import pytest
-
-from all2md.ast import Document, Heading, Paragraph, ThematicBreak
-from all2md.exceptions import MalformedFileError
-from all2md.options.enex import EnexOptions
-from all2md.parsers.enex import EnexToAstConverter, _format_enex_date, _parse_enex_date
-from tests.fixtures.generators.enex_fixtures import (
+from fixtures.generators.enex_fixtures import (
     generate_empty_note_enex,
     generate_multiple_notes_enex,
     generate_note_with_image_enex,
     generate_note_with_table_enex,
     generate_simple_note_enex,
 )
+
+from all2md.ast import Document, Heading, Paragraph, ThematicBreak
+from all2md.exceptions import MalformedFileError
+from all2md.options.enex import EnexOptions
+from all2md.parsers.enex import EnexToAstConverter, _format_enex_date, _parse_enex_date
 
 
 class TestEnexDateParsing:

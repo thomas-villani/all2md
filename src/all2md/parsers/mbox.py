@@ -298,7 +298,9 @@ class MboxToAstConverter(BaseParser):
             for folder_name in self.options.folder_filter:
                 try:
                     folder = mbox.get_folder(folder_name)
-                    messages.extend(self._process_folder_messages(folder, folder_name, processed_count))  # type: ignore[arg-type]
+                    messages.extend(
+                        self._process_folder_messages(folder, folder_name, processed_count)
+                    )  # type: ignore[arg-type]
                     processed_count = len(messages)
                 except (KeyError, mailbox.NoSuchMailboxError):
                     # Folder doesn't exist, skip

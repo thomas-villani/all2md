@@ -514,7 +514,7 @@ class OutlookToAstConverter(BaseParser):
 
                 self._emit_progress(
                     "message_done",
-                    f"Folder: {folder_name}, Message {i+1}/{message_count}",
+                    f"Folder: {folder_name}, Message {i + 1}/{message_count}",
                     current=len(messages),
                 )
 

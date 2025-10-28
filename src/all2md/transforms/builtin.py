@@ -1311,7 +1311,6 @@ class GenerateTocTransform(NodeTransformer):
             else:
                 # For other node types, try to update children if they have that attribute
                 if hasattr(node, "children"):
-
                     return replace_node_children(node, new_children)
 
         return node
