@@ -86,6 +86,7 @@ class PptxToAstConverter(BaseParser):
 
     def __init__(self, options: PptxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the PPTX parser with options and progress callback."""
+        BaseParser._validate_options_type(options, PptxOptions, "pptx")
         options = options or PptxOptions()
         super().__init__(options, progress_callback)
         self.options: PptxOptions = options

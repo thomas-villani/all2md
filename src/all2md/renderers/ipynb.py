@@ -46,6 +46,7 @@ class IpynbRenderer(BaseRenderer):
             Renderer options for Jupyter notebooks
 
         """
+        BaseRenderer._validate_options_type(options, IpynbRendererOptions, "ipynb")
         options = options or IpynbRendererOptions()
         super().__init__(options)
         self.options: IpynbRendererOptions = options

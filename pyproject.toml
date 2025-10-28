@@ -31,6 +31,7 @@ classifiers = [
 
 dependencies = [
     "tomli-w>=1.0.0",  # For writing TOML config files (tomllib in stdlib is read-only)
+    "pyyaml>=6.0",
 ]
 
 [tool.hatch.build.targets.wheel]

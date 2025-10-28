@@ -97,6 +97,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: PlainTextOptions | None = None):
         """Initialize the plain text renderer with options."""
+        BaseRenderer._validate_options_type(options, PlainTextOptions, "plaintext")
         options = options or PlainTextOptions()
         BaseRenderer.__init__(self, options)
         self.options: PlainTextOptions = options

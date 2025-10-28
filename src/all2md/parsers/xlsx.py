@@ -431,6 +431,7 @@ class XlsxToAstConverter(BaseParser):
 
     def __init__(self, options: Optional[XlsxOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the XLSX parser with options and progress callback."""
+        BaseParser._validate_options_type(options, XlsxOptions, "xlsx")
         options = options or XlsxOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions

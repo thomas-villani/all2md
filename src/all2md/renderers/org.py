@@ -148,8 +148,10 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: OrgRendererOptions | None = None):
         """Initialize the Org renderer with options."""
-        BaseRenderer.__init__(self, options or OrgRendererOptions())
-        self.options: OrgRendererOptions = self.options  # type narrowing
+        BaseRenderer._validate_options_type(options, OrgRendererOptions, "org")
+        options = options or OrgRendererOptions()
+        BaseRenderer.__init__(self, options)
+        self.options: OrgRendererOptions = options
         self._output: list[str] = []
         self._in_list: bool = False
         self._list_depth: int = 0

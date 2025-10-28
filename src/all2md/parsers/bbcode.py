@@ -139,6 +139,7 @@ class BBCodeParser(BaseParser):
         self, options: BBCodeParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the BBCode parser with options and progress callback."""
+        BaseParser._validate_options_type(options, BBCodeParserOptions, "bbcode")
         options = options or BBCodeParserOptions()
         super().__init__(options, progress_callback)
         self.options: BBCodeParserOptions = options

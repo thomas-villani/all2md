@@ -77,6 +77,7 @@ class IpynbToAstConverter(BaseParser):
 
     def __init__(self, options: IpynbOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the IPYNB parser with options and progress callback."""
+        BaseParser._validate_options_type(options, IpynbOptions, "ipynb")
         options = options or IpynbOptions()
         super().__init__(options, progress_callback)
         self.options: IpynbOptions = options

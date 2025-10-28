@@ -3,8 +3,11 @@
 # tests/unit/utils/test_static_site.py
 """Tests for static site generator utilities."""
 
+import tomllib
 from datetime import datetime
 from pathlib import Path
+
+import yaml
 
 from all2md.ast.nodes import Document, Heading, Image, Paragraph, Text
 from all2md.utils.static_site import (
@@ -16,6 +19,18 @@ from all2md.utils.static_site import (
     copy_document_assets,
     generate_output_filename,
 )
+
+
+def _parse_toml_frontmatter(text: str) -> dict:
+    assert text.startswith("+++\n")
+    assert text.endswith("+++\n\n")
+    return tomllib.loads(text[4:-5])
+
+
+def _parse_yaml_frontmatter(text: str) -> dict:
+    assert text.startswith("---\n")
+    assert text.endswith("---\n\n")
+    return yaml.safe_load(text[4:-5]) or {}
 
 
 class TestFrontmatterGenerator:
@@ -33,13 +48,13 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert result.startswith("+++\n")
-        assert result.endswith("+++\n\n")
-        assert 'title = "Test Post"' in result
-        assert 'author = "John Doe"' in result
-        assert "date = " in result and "2025-01-22" in result
-        assert 'tags = ["python", "coding"]' in result
-        assert "draft = false" in result
+        data = _parse_toml_frontmatter(result)
+
+        assert data["title"] == "Test Post"
+        assert data["author"] == "John Doe"
+        assert data["date"].startswith("2025-01-22")
+        assert data["tags"] == ["python", "coding"]
+        assert data["draft"] is False
 
     def test_jekyll_yaml_format(self):
         """Test generating Jekyll frontmatter in YAML format."""
@@ -53,15 +68,13 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert result.startswith("---\n")
-        assert result.endswith("---\n\n")
-        assert "title: Test Post" in result
-        assert "author: Jane Doe" in result
-        assert "date: " in result and "2025-01-22" in result
-        assert "layout: post" in result
-        assert "categories:" in result
-        assert "  - documentation" in result
-        assert "  - api" in result
+        data = _parse_yaml_frontmatter(result)
+
+        assert data["title"] == "Test Post"
+        assert data["author"] == "Jane Doe"
+        assert data["date"].startswith("2025-01-22")
+        assert data["layout"] == "post"
+        assert data["categories"] == ["documentation", "api"]
 
     def test_taxonomy_from_keywords(self):
         """Test extracting taxonomy from keywords field."""
@@ -73,7 +86,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert 'tags = ["python", "testing", "automation"]' in result
+        data = _parse_toml_frontmatter(result)
+        assert data["tags"] == ["python", "testing", "automation"]
 
     def test_taxonomy_from_category_string(self):
         """Test extracting categories from category string."""
@@ -85,8 +99,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert "categories:" in result
-        assert "  - documentation" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["categories"] == ["documentation"]
 
     def test_description_from_subject(self):
         """Test using subject as description fallback."""
@@ -98,7 +112,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert 'description = "This is a test subject"' in result
+        data = _parse_toml_frontmatter(result)
+        assert data["description"] == "This is a test subject"
 
     def test_empty_metadata(self):
         """Test generating frontmatter with minimal metadata."""
@@ -107,9 +122,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert result.startswith("+++\n")
-        assert result.endswith("+++\n\n")
-        assert "draft = false" in result
+        data = _parse_toml_frontmatter(result)
+        assert data["draft"] is False
 
     def test_date_formatting(self):
         """Test date formatting in frontmatter."""
@@ -122,10 +136,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        # Check that date is present and contains the expected date/time
-        assert "date = " in result
-        assert "2025-01-22" in result
-        assert "14:30:00" in result
+        data = _parse_toml_frontmatter(result)
+        assert data["date"].startswith("2025-01-22T14:30:00")
 
     def test_yaml_special_char_quoting(self):
         """Test YAML quoting for special characters."""
@@ -136,8 +148,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        # Should quote titles with colons
-        assert 'title: "Post: With Colon"' in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Post: With Colon"
 
     def test_toml_string_escaping(self):
         """Test TOML string escaping for quotes."""
@@ -148,8 +160,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        # Should escape inner quotes
-        assert r'title = "Post with \"quotes\""' in result
+        data = _parse_toml_frontmatter(result)
+        assert data["title"] == 'Post with "quotes"'
 
     def test_hugo_weight_field(self):
         """Test Hugo-specific weight field."""
@@ -161,7 +173,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert "weight = 10" in result
+        data = _parse_toml_frontmatter(result)
+        assert data["weight"] == 10
 
     def test_jekyll_permalink_field(self):
         """Test Jekyll-specific permalink field."""
@@ -173,7 +186,8 @@ class TestFrontmatterGenerator:
 
         result = gen.generate(metadata)
 
-        assert "permalink: /custom/path/" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["permalink"] == "/custom/path/"
 
 
 class TestImageCollector:

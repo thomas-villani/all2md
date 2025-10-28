@@ -136,6 +136,7 @@ class CsvToAstConverter(BaseParser):
 
     def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the CSV parser with options and progress callback."""
+        BaseParser._validate_options_type(options, CsvOptions, "csv")
         options = options or CsvOptions()
         super().__init__(options, progress_callback)
         self.options: CsvOptions = options

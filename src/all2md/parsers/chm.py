@@ -46,6 +46,7 @@ class ChmParser(BaseParser):
 
     def __init__(self, options: ChmOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the CHM parser with options and progress callback."""
+        BaseParser._validate_options_type(options, ChmOptions, "chm")
         options = options or ChmOptions()
         super().__init__(options, progress_callback)
         self.options: ChmOptions = options

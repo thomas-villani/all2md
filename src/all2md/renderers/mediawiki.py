@@ -86,6 +86,7 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: MediaWikiOptions | None = None):
         """Initialize the MediaWiki renderer with options."""
+        BaseRenderer._validate_options_type(options, MediaWikiOptions, "mediawiki")
         options = options or MediaWikiOptions()
         BaseRenderer.__init__(self, options)
         self.options: MediaWikiOptions = options

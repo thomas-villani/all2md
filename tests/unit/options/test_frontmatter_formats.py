@@ -1,5 +1,9 @@
 """Tests for frontmatter format selection (YAML, TOML, JSON)."""
 
+import tomllib
+
+import yaml
+
 from all2md.ast.nodes import Document, Paragraph, Text
 from all2md.options import MarkdownRendererOptions
 from all2md.renderers.markdown import MarkdownRenderer
@@ -10,6 +14,36 @@ from all2md.utils.metadata import (
     format_toml_frontmatter,
     format_yaml_frontmatter,
 )
+
+
+def _parse_yaml_frontmatter(text: str) -> dict:
+    assert text.startswith("---\n")
+    assert text.endswith("---\n\n")
+    return yaml.safe_load(text[4:-5]) or {}
+
+
+def _parse_toml_frontmatter(text: str) -> dict:
+    assert text.startswith("+++\n")
+    assert text.endswith("+++\n\n")
+    return tomllib.loads(text[4:-5])
+
+
+def _split_yaml_frontmatter_and_body(text: str) -> tuple[dict, str]:
+    marker = "\n---\n\n"
+    boundary = text.find(marker)
+    assert boundary != -1
+    frontmatter = text[: boundary + len(marker)]
+    body = text[boundary + len(marker) :]
+    return _parse_yaml_frontmatter(frontmatter), body
+
+
+def _split_toml_frontmatter_and_body(text: str) -> tuple[dict, str]:
+    marker = "\n+++\n\n"
+    boundary = text.find(marker)
+    assert boundary != -1
+    frontmatter = text[: boundary + len(marker)]
+    body = text[boundary + len(marker) :]
+    return _parse_toml_frontmatter(frontmatter), body
 
 
 def test_format_yaml_frontmatter():
@@ -26,13 +60,12 @@ def test_format_yaml_frontmatter():
 
     assert result.startswith("---\n")
     assert result.endswith("---\n\n")
-    assert "title: Test Document" in result
-    assert "author: John Doe" in result
-    assert "keywords:" in result
-    assert "python" in result
-    assert "testing" in result
-    assert "page_count: 5" in result
-    assert "word_count: 1000" in result
+    data = _parse_yaml_frontmatter(result)
+    assert data["title"] == "Test Document"
+    assert data["author"] == "John Doe"
+    assert data["keywords"] == ["python", "testing"]
+    assert data["page_count"] == 5
+    assert data["word_count"] == 1000
 
 
 def test_format_toml_frontmatter():
@@ -48,10 +81,11 @@ def test_format_toml_frontmatter():
 
     assert result.startswith("+++\n")
     assert result.endswith("+++\n\n")
-    assert 'title = "Test Document"' in result
-    assert 'author = "Jane Smith"' in result
-    assert 'keywords = ["rust", "toml"]' in result
-    assert "page_count = 3" in result
+    data = _parse_toml_frontmatter(result)
+    assert data["title"] == "Test Document"
+    assert data["author"] == "Jane Smith"
+    assert data["keywords"] == ["rust", "toml"]
+    assert data["page_count"] == 3
 
 
 def test_format_json_frontmatter():
@@ -85,10 +119,10 @@ def test_markdown_renderer_yaml_frontmatter():
     renderer = MarkdownRenderer(options)
     result = renderer.render_to_string(doc)
 
-    assert result.startswith("---\n")
-    assert "title: Test" in result
-    assert "author: Alice" in result
-    assert "Hello world" in result
+    frontmatter, body = _split_yaml_frontmatter_and_body(result)
+    assert frontmatter["title"] == "Test"
+    assert frontmatter["author"] == "Alice"
+    assert "Hello world" in body
 
 
 def test_markdown_renderer_toml_frontmatter():
@@ -105,10 +139,10 @@ def test_markdown_renderer_toml_frontmatter():
     renderer = MarkdownRenderer(options)
     result = renderer.render_to_string(doc)
 
-    assert result.startswith("+++\n")
-    assert 'title = "Test"' in result
-    assert 'author = "Alice"' in result
-    assert "Hello world" in result
+    frontmatter, body = _split_toml_frontmatter_and_body(result)
+    assert frontmatter["title"] == "Test"
+    assert frontmatter["author"] == "Alice"
+    assert "Hello world" in body
 
 
 def test_markdown_renderer_json_frontmatter():
@@ -145,12 +179,13 @@ def test_extended_metadata_fields():
 
     result = format_yaml_frontmatter(metadata)
 
-    assert 'source: "https://example.com"' in result
-    assert "page_count: 10" in result
-    assert "word_count: 2000" in result
-    assert 'accessed_date: "2025-01-01 12:00:00"' in result
-    assert "source_path" not in result
-    assert "sha256" not in result
+    data = _parse_yaml_frontmatter(result)
+    assert data["source"] == "https://example.com"
+    assert data["page_count"] == 10
+    assert data["word_count"] == 2000
+    assert data["accessed_date"] == "2025-01-01 12:00:00"
+    assert "source_path" not in data
+    assert "sha256" not in data
 
 
 def test_metadata_policy_all_visibility():
@@ -168,10 +203,11 @@ def test_metadata_policy_all_visibility():
     policy = MetadataRenderPolicy(visibility="all")
     result = format_yaml_frontmatter(metadata, policy=policy)
 
-    assert 'source: "https://example.com"' in result
-    assert "source_path: /path/to/file.pdf" in result
-    assert "sha256: abc123" in result
-    assert 'extraction_date: "2025-01-01 12:00:00"' in result
+    data = _parse_yaml_frontmatter(result)
+    assert data["source"] == "https://example.com"
+    assert data["source_path"] == "/path/to/file.pdf"
+    assert data["sha256"] == "abc123"
+    assert data["extraction_date"] == "2025-01-01 12:00:00"
 
 
 def test_empty_metadata():

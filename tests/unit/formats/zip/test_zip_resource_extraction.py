@@ -153,7 +153,6 @@ class TestZipResourceExtraction:
                 extract_resource_files=True,
                 attachment_output_dir=temp_dir,
                 preserve_directory_structure=True,
-                flatten_structure=False,
             )
             parser = ZipToAstConverter(options=options)
             parser.parse(zip_bytes)
@@ -179,7 +178,9 @@ class TestZipResourceExtraction:
         zip_bytes = zip_buffer.getvalue()
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            options = ZipOptions(extract_resource_files=True, attachment_output_dir=temp_dir, flatten_structure=True)
+            options = ZipOptions(
+                extract_resource_files=True, attachment_output_dir=temp_dir, preserve_directory_structure=False
+            )
             parser = ZipToAstConverter(options=options)
             parser.parse(zip_bytes)
 
@@ -358,7 +359,6 @@ class TestZipPathTraversalSecurity:
                 extract_resource_files=True,
                 attachment_output_dir=temp_dir,
                 preserve_directory_structure=True,
-                flatten_structure=False,
             )
             parser = ZipToAstConverter(options=options)
             doc = parser.parse(zip_bytes)
@@ -400,7 +400,7 @@ class TestZipPathTraversalSecurity:
                 options = ZipOptions(
                     extract_resource_files=True,
                     attachment_output_dir=temp_dir,
-                    flatten_structure=True,  # Even with flatten, should be secure
+                    preserve_directory_structure=False,  # Even with flatten, should be secure
                 )
                 parser = ZipToAstConverter(options=options)
                 parser.parse(zip_bytes)

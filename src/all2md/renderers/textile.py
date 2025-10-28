@@ -86,6 +86,7 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: TextileRendererOptions | None = None):
         """Initialize the Textile renderer with options."""
+        BaseRenderer._validate_options_type(options, TextileRendererOptions, "textile")
         options = options or TextileRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: TextileRendererOptions = options

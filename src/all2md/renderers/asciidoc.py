@@ -88,6 +88,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: AsciiDocRendererOptions | None = None):
         """Initialize the AsciiDoc renderer with options."""
+        BaseRenderer._validate_options_type(options, AsciiDocRendererOptions, "asciidoc")
         options = options or AsciiDocRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: AsciiDocRendererOptions = options

@@ -63,6 +63,7 @@ class Fb2ToAstConverter(BaseParser):
             Optional callback for progress updates
 
         """
+        BaseParser._validate_options_type(options, Fb2Options, "fb2")
         options = options or Fb2Options()
         super().__init__(options, progress_callback)
         self.options: Fb2Options = options

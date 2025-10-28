@@ -96,6 +96,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: HtmlRendererOptions | None = None):
         """Initialize the HTML renderer with options."""
+        BaseRenderer._validate_options_type(options, HtmlRendererOptions, "html")
         options = options or HtmlRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: HtmlRendererOptions = options

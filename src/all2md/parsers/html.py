@@ -101,6 +101,7 @@ class HtmlToAstConverter(BaseParser):
 
     def __init__(self, options: HtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the HTML parser with options and progress callback."""
+        BaseParser._validate_options_type(options, HtmlOptions, "html")
         options = options or HtmlOptions()
         super().__init__(options, progress_callback)
         self.options: HtmlOptions = options

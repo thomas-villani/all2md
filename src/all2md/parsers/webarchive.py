@@ -60,6 +60,7 @@ class WebArchiveToAstConverter(BaseParser):
 
     def __init__(self, options: WebArchiveOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the WebArchive parser with options and progress callback."""
+        BaseParser._validate_options_type(options, WebArchiveOptions, "webarchive")
         options = options or WebArchiveOptions()
         super().__init__(options, progress_callback)
         self.options: WebArchiveOptions = options

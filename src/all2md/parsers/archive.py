@@ -157,6 +157,7 @@ class ArchiveToAstConverter(BaseParser):
 
     def __init__(self, options: ArchiveOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the archive parser with options and progress callback."""
+        BaseParser._validate_options_type(options, ArchiveOptions, "archive")
         options = options or ArchiveOptions()
         super().__init__(options, progress_callback=progress_callback)
         self.options: ArchiveOptions = options

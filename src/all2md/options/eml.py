@@ -175,9 +175,10 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     include_plain_parts: bool = field(
-        default=False,
+        default=True,
         metadata={
             "help": "Include plain text content parts from emails",
+            "cli_name": "no-include-plain-parts",
             "importance": "advanced",
         },
     )

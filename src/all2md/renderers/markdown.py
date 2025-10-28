@@ -109,6 +109,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def __init__(self, options: MarkdownRendererOptions | None = None):
         """Initialize the Markdown renderer with options."""
         # Initialize BaseRenderer
+        BaseRenderer._validate_options_type(options, MarkdownRendererOptions, "markdown")
         options = options or MarkdownRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: MarkdownRendererOptions = options

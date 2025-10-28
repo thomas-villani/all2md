@@ -42,6 +42,7 @@ class MhtmlToAstConverter(BaseParser):
 
     def __init__(self, options: MhtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the MHTML parser with options and progress callback."""
+        BaseParser._validate_options_type(options, MhtmlOptions, "mhtml")
         options = options or MhtmlOptions()
         super().__init__(options, progress_callback)
         self.options: MhtmlOptions = options

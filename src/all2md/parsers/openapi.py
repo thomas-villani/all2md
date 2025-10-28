@@ -194,6 +194,8 @@ class OpenApiParser(BaseParser):
         self, options: OpenApiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the OpenAPI parser with options and progress callback."""
+        BaseParser._validate_options_type(options, OpenApiParserOptions, "openapi")
+        options = options or OpenApiParserOptions()
         super().__init__(options or OpenApiParserOptions(), progress_callback)
         self.options: OpenApiParserOptions = options or OpenApiParserOptions()
 

@@ -161,6 +161,7 @@ class ZipToAstConverter(BaseParser):
 
     def __init__(self, options: ZipOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ZIP parser with options and progress callback."""
+        BaseParser._validate_options_type(options, ZipOptions, "zip")
         options = options or ZipOptions()
         super().__init__(options, progress_callback=progress_callback)
         self.options: ZipOptions = options
@@ -813,7 +814,7 @@ class ZipToAstConverter(BaseParser):
             output_dir.mkdir(parents=True, exist_ok=True)
 
             # Validate and construct safe output path to prevent path traversal
-            if self.options.preserve_directory_structure and not self.options.flatten_structure:
+            if self.options.preserve_directory_structure:
                 # Use full path from archive, but validate it's safe
                 output_file = validate_safe_extraction_path(output_dir, file_path)
                 # Ensure parent directories exist

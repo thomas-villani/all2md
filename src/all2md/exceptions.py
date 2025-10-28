@@ -10,6 +10,7 @@ Exception Hierarchy
 - All2MdError (base exception)
 
   - ValidationError (parameter/option validation)
+    - InvalidOptionsError (wrong options class for parser)
     - PageRangeError (page range parsing errors)
 
   - FileError (file access and I/O)
@@ -107,6 +108,59 @@ class ValidationError(All2MdError):
         super().__init__(message, original_error=original_error)
         self.parameter_name = parameter_name
         self.parameter_value = parameter_value
+
+
+class InvalidOptionsError(ValidationError):
+    """Exception raised when incorrect options class is provided to a parser.
+
+    This exception is raised when a parser receives an options object of the
+    wrong type. For example, passing PdfOptions to a plaintext parser.
+
+    Parameters
+    ----------
+    converter_name : str
+        Name of the parser that received invalid options
+    expected_type : type
+        The expected options class type
+    received_type : type
+        The actual options class type that was received
+    message : str, optional
+        Custom error message. If not provided, generates a helpful message
+    original_error : Exception, optional
+        The original exception that caused this error
+
+    Attributes
+    ----------
+    converter_name : str
+        Name of the parser
+    expected_type : type
+        Expected options class
+    received_type : type
+        Received options class
+
+    """
+
+    def __init__(
+        self,
+        converter_name: str,
+        expected_type: type,
+        received_type: type,
+        message: str | None = None,
+        original_error: Exception | None = None,
+    ):
+        """Initialize the invalid options error."""
+        if message is None:
+            message = (
+                f"{converter_name} expected options of type '{expected_type.__name__}' "
+                f"but received '{received_type.__name__}'. "
+                f"Please provide the correct options type for the parser."
+            )
+        super().__init__(
+            message, parameter_name="options", parameter_value=received_type, original_error=original_error
+        )
+        self.converter_name = converter_name
+        self.expected_type = expected_type
+        self.received_type = received_type
 
 
 class PageRangeError(ValidationError):

@@ -25,6 +25,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import tomli_w
+import yaml
+
 from all2md.ast.nodes import Document, Image, Node
 from all2md.utils.attachments import ensure_unique_attachment_path, sanitize_attachment_filename
 from all2md.utils.text import slugify
@@ -133,13 +136,22 @@ class FrontmatterGenerator:
         # Normalize metadata to generator-specific fields
         normalized = self._normalize_metadata(metadata)
 
-        # Serialize to format
+        # Serialize to format using library helpers
         if self.format == FrontmatterFormat.TOML:
-            content = self._format_toml(normalized)
+            content = tomli_w.dumps(normalized)
+            if not content.endswith("\n"):
+                content += "\n"
             return f"+++\n{content}+++\n\n"
-        else:  # YAML
-            content = self._format_yaml(normalized)
-            return f"---\n{content}---\n\n"
+
+        content = yaml.safe_dump(
+            normalized,
+            sort_keys=False,
+            default_flow_style=False,
+            allow_unicode=True,
+        )
+        if not content.endswith("\n"):
+            content += "\n"
+        return f"---\n{content}---\n\n"
 
     def _normalize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize metadata to generator-specific fields.
@@ -257,128 +269,6 @@ class FrontmatterGenerator:
                 # Return as-is if parsing fails
                 return date_value
         return str(date_value)
-
-    def _format_toml(self, data: Dict[str, Any]) -> str:
-        """Format data as TOML.
-
-        Parameters
-        ----------
-        data : dict
-            Normalized metadata
-
-        Returns
-        -------
-        str
-            TOML-formatted content
-
-        """
-        lines = []
-        for key, value in data.items():
-            lines.append(self._format_toml_value(key, value))
-        return "\n".join(lines) + "\n"
-
-    def _format_toml_value(self, key: str, value: Any) -> str:
-        """Format a single TOML key-value pair.
-
-        Parameters
-        ----------
-        key : str
-            Field name
-        value : Any
-            Field value
-
-        Returns
-        -------
-        str
-            TOML-formatted line
-
-        """
-        if isinstance(value, bool):
-            return f"{key} = {str(value).lower()}"
-        elif isinstance(value, (int, float)):
-            return f"{key} = {value}"
-        elif isinstance(value, list):
-            items = ", ".join(f'"{item}"' for item in value)
-            return f"{key} = [{items}]"
-        elif value is None:
-            return ""
-        else:
-            # Escape quotes in strings
-            escaped = str(value).replace('"', '\\"')
-            return f'{key} = "{escaped}"'
-
-    def _format_yaml(self, data: Dict[str, Any]) -> str:
-        """Format data as YAML.
-
-        Parameters
-        ----------
-        data : dict
-            Normalized metadata
-
-        Returns
-        -------
-        str
-            YAML-formatted content
-
-        """
-        lines = []
-        for key, value in data.items():
-            lines.append(self._format_yaml_value(key, value))
-        return "\n".join(lines) + "\n"
-
-    def _format_yaml_value(self, key: str, value: Any) -> str:
-        """Format a single YAML key-value pair.
-
-        Parameters
-        ----------
-        key : str
-            Field name
-        value : Any
-            Field value
-
-        Returns
-        -------
-        str
-            YAML-formatted line
-
-        """
-        if isinstance(value, bool):
-            return f"{key}: {str(value).lower()}"
-        elif isinstance(value, (int, float)):
-            return f"{key}: {value}"
-        elif isinstance(value, list):
-            if not value:
-                return f"{key}: []"
-            items = "\n".join(f"  - {item}" for item in value)
-            return f"{key}:\n{items}"
-        elif value is None:
-            return f"{key}: null"
-        else:
-            # Quote strings that need quoting
-            str_value = str(value)
-            if self._needs_yaml_quoting(str_value):
-                escaped = str_value.replace('"', '\\"')
-                return f'{key}: "{escaped}"'
-            return f"{key}: {str_value}"
-
-    @staticmethod
-    def _needs_yaml_quoting(value: str) -> bool:
-        """Check if a YAML value needs quoting.
-
-        Parameters
-        ----------
-        value : str
-            Value to check
-
-        Returns
-        -------
-        bool
-            True if the value needs to be quoted
-
-        """
-        # Quote if contains special characters
-        special_chars = [":", "#", "[", "]", "{", "}", ",", "&", "*", "!", "|", ">", "%", "@"]
-        return any(char in value for char in special_chars)
 
 
 class SiteScaffolder:

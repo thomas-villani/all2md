@@ -404,6 +404,7 @@ class AsciiDocParser(BaseParser):
 
     def __init__(self, options: AsciiDocOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the AsciiDoc parser."""
+        BaseParser._validate_options_type(options, AsciiDocOptions, "asciidoc")
         options = options or AsciiDocOptions()
         super().__init__(options, progress_callback)
         self.options: AsciiDocOptions = options

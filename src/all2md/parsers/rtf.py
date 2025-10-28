@@ -64,6 +64,7 @@ class RtfToAstConverter(BaseParser):
     @requires_dependencies("rtf", [("pyth3", "pyth", "")])
     def __init__(self, options: RtfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the RTF parser with options and progress callback."""
+        BaseParser._validate_options_type(options, RtfOptions, "rtf")
         options = options or RtfOptions()
         super().__init__(options, progress_callback)
         self.options: RtfOptions = options

@@ -46,6 +46,7 @@ class SourceCodeToAstConverter(BaseParser):
 
     def __init__(self, options: SourceCodeOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the source code parser with options and progress callback."""
+        BaseParser._validate_options_type(options, SourceCodeOptions, "sourcecode")
         options = options or SourceCodeOptions()
         super().__init__(options, progress_callback)
         self.options: SourceCodeOptions = options

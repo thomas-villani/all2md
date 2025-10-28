@@ -433,6 +433,7 @@ class JinjaRenderer(BaseRenderer):
 
     def __init__(self, options: JinjaRendererOptions | None = None):
         """Initialize the Jinja2 renderer with options."""
+        BaseRenderer._validate_options_type(options, JinjaRendererOptions, "jinja")
         options = options or JinjaRendererOptions(template_string="{{ document }}")
         BaseRenderer.__init__(self, options)
         self.options: JinjaRendererOptions = options

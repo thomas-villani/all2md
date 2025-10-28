@@ -1227,21 +1227,36 @@ class TestNewAPI:
         assert "Filename Test" in result
 
     def test_format_specific_options_mapping(self):
-        """Test that format-specific options are properly handled."""
-        # Test with PDF options (even if we can't fully test PDF conversion here)
-        pdf_options = PdfOptions(pages=[0], attachment_mode="alt_text")
+        """Test that format-specific options are properly handled and validated."""
+        from all2md.exceptions import InvalidOptionsError
+        from all2md.options.plaintext import PlainTextParserOptions
 
-        # This should work with the options system even if PDF processing fails
+        # Test 1: Correct options for plaintext format
         simple_text = b"Simple text content"
         text_io = BytesIO(simple_text)
 
+        plaintext_options = PlainTextParserOptions(preserve_single_newlines=False)
         result = to_markdown(
             text_io,
-            parser_options=pdf_options,
-            source_format="plaintext",  # Force as text since we don't have real PDF
+            parser_options=plaintext_options,
+            source_format="plaintext",
         )
-
         assert result.strip() == "Simple text content"
+
+        # Test 2: Passing wrong options type should raise InvalidOptionsError
+        pdf_options = PdfOptions(pages=[0], attachment_mode="alt_text")
+        text_io2 = BytesIO(simple_text)
+
+        with pytest.raises(InvalidOptionsError) as exc_info:
+            to_markdown(
+                text_io2,
+                parser_options=pdf_options,
+                source_format="plaintext",  # Wrong options for this format
+            )
+
+        # Verify error message is helpful
+        assert "PlainText" in str(exc_info.value)
+        assert "PdfOptions" in str(exc_info.value)
 
     def test_backward_compatibility(self):
         """Test that old API usage still works."""

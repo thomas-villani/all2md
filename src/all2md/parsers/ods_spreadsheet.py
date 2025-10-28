@@ -232,6 +232,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
+        BaseParser._validate_options_type(options, OdsSpreadsheetOptions, "ods")
         options = options or OdsSpreadsheetOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions

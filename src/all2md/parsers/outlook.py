@@ -215,6 +215,7 @@ class OutlookToAstConverter(BaseParser):
 
     def __init__(self, options: OutlookOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the Outlook parser with options and progress callback."""
+        BaseParser._validate_options_type(options, OutlookOptions, "outlook")
         options = options or OutlookOptions()
         super().__init__(options, progress_callback)
         self.options: OutlookOptions = options

@@ -86,6 +86,7 @@ class CsvRenderer(BaseRenderer):
 
     def __init__(self, options: CsvRendererOptions | None = None):
         """Initialize the CSV renderer with options."""
+        BaseRenderer._validate_options_type(options, CsvRendererOptions, "csv")
         options = options or CsvRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: CsvRendererOptions = options

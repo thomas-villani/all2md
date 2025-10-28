@@ -58,6 +58,7 @@ class AstJsonRenderer(BaseRenderer):
 
     def __init__(self, options: AstJsonRendererOptions | None = None):
         """Initialize the AST JSON renderer with options."""
+        BaseRenderer._validate_options_type(options, AstJsonRendererOptions, "ast")
         options = options or AstJsonRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: AstJsonRendererOptions = options

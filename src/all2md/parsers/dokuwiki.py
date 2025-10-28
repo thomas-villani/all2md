@@ -158,6 +158,7 @@ class DokuWikiParser(BaseParser):
         progress_callback: Optional[ProgressCallback] = None,
     ):
         """Initialize the DokuWiki parser with options and progress callback."""
+        BaseParser._validate_options_type(options, DokuWikiParserOptions, "dokuwiki")
         options = options or DokuWikiParserOptions()
         super().__init__(options, progress_callback)
         self.options: DokuWikiParserOptions = options

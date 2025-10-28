@@ -18,6 +18,7 @@ from typing import IO, Any, Dict, Mapping, Union
 
 from all2md.ast import Document
 from all2md.ast.nodes import Node, TableRow
+from all2md.exceptions import InvalidOptionsError
 from all2md.options.base import BaseRendererOptions
 from all2md.utils.io_utils import write_content
 from all2md.utils.metadata import DocumentMetadata, MetadataRenderPolicy, prepare_metadata_for_render
@@ -190,6 +191,32 @@ class BaseRenderer(ABC):
             col_count = sum(cell.colspan for cell in row.cells)
             max_cols = max(max_cols, col_count)
         return max_cols
+
+    @staticmethod
+    def _validate_options_type(options: BaseRendererOptions | None, expected_type: type, renderer_name: str) -> None:
+        """Validate that options are of the correct type for this parser.
+
+        Parameters
+        ----------
+        options : BaseParserOptions or None
+            The options object to validate
+        expected_type : type
+            The expected options class type
+        renderer_name : str
+            Name of the parser (for error messages)
+
+        Raises
+        ------
+        InvalidOptionsError
+            If options are not None and not an instance of expected_type
+
+        """
+        if options is not None and not isinstance(options, expected_type):
+            raise InvalidOptionsError(
+                converter_name=renderer_name,
+                expected_type=expected_type,
+                received_type=type(options),
+            )
 
     @staticmethod
     def write_text_output(text: str, output: Union[str, Path, IO[bytes], IO[str]]) -> None:

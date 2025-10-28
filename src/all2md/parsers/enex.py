@@ -105,6 +105,7 @@ class EnexToAstConverter(BaseParser):
 
     def __init__(self, options: EnexOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ENEX parser with options and progress callback."""
+        BaseParser._validate_options_type(options, EnexOptions, "enex")
         options = options or EnexOptions()
         super().__init__(options, progress_callback)
         self.options: EnexOptions = options

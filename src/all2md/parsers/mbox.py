@@ -154,6 +154,7 @@ class MboxToAstConverter(BaseParser):
 
     def __init__(self, options: MboxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the MBOX parser with options and progress callback."""
+        BaseParser._validate_options_type(options, MboxOptions, "mbox")
         options = options or MboxOptions()
         super().__init__(options, progress_callback)
         self.options: MboxOptions = options

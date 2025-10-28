@@ -42,6 +42,7 @@ class EpubToAstConverter(BaseParser):
 
     def __init__(self, options: EpubOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the EPUB parser with options and progress callback."""
+        BaseParser._validate_options_type(options, EpubOptions, "epub")
         options = options or EpubOptions()
         super().__init__(options, progress_callback)
         self.options: EpubOptions = options

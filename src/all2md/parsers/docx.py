@@ -162,6 +162,7 @@ class DocxToAstConverter(BaseParser):
 
     def __init__(self, options: DocxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the DOCX parser with options and progress callback."""
+        BaseParser._validate_options_type(options, DocxOptions, "docx")
         options = options or DocxOptions()
         super().__init__(options, progress_callback)
         self.options: DocxOptions = options

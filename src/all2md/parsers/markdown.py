@@ -106,6 +106,7 @@ class MarkdownToAstConverter(BaseParser):
         self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the Markdown parser with options and progress callback."""
+        BaseParser._validate_options_type(options, MarkdownParserOptions, "markdown")
         options = options or MarkdownParserOptions()
         super().__init__(options, progress_callback)
         self.options: MarkdownParserOptions = options

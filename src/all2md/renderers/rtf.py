@@ -55,6 +55,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
 
     def __init__(self, options: RtfRendererOptions | None = None) -> None:
         """Initialize the renderer with format-specific options."""
+        BaseRenderer._validate_options_type(options, RtfRendererOptions, "rtf")
         options = options or RtfRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: RtfRendererOptions = options

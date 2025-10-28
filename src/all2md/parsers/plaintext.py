@@ -43,6 +43,8 @@ class PlainTextToAstConverter(BaseParser):
         self, options: PlainTextParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the plain text parser with options and progress callback."""
+        # Validate options type before processing
+        BaseParser._validate_options_type(options, PlainTextParserOptions, "plaintext")
         options = options or PlainTextParserOptions()
         super().__init__(options, progress_callback)
         self.options: PlainTextParserOptions = options

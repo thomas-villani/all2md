@@ -1510,6 +1510,7 @@ class PdfToAstConverter(BaseParser):
 
     def __init__(self, options: PdfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the PDF parser with options and progress callback."""
+        BaseParser._validate_options_type(options, PdfOptions, "pdf")
         options = options or PdfOptions()
         super().__init__(options, progress_callback)
         self.options: PdfOptions = options

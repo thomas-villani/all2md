@@ -123,6 +123,7 @@ class LatexParser(BaseParser):
 
     def __init__(self, options: LatexOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the LaTeX parser."""
+        BaseParser._validate_options_type(options, LatexOptions, "latex")
         options = options or LatexOptions()
         super().__init__(options, progress_callback)
         self.options: LatexOptions = options

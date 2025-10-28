@@ -834,6 +834,7 @@ class EmlToAstConverter(BaseParser):
 
     def __init__(self, options: EmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the EML parser with options and progress callback."""
+        BaseParser._validate_options_type(options, EmlOptions, "eml")
         options = options or EmlOptions()
         super().__init__(options, progress_callback)
         self.options: EmlOptions = options
@@ -1177,6 +1178,8 @@ CONVERTER_METADATA = ConverterMetadata(
         (b"From:", 0),
         (b"To:", 0),
         (b"Subject:", 0),
+        (b"Content-Type:", 0),
+        (b"MIME-Version:", 0),
     ],
     parser_class=EmlToAstConverter,
     renderer_class=None,

@@ -136,6 +136,7 @@ class OrgParser(BaseParser):
 
     def __init__(self, options: OrgParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the Org parser with options and progress callback."""
+        BaseParser._validate_options_type(options, OrgParserOptions, "org")
         options = options or OrgParserOptions()
         super().__init__(options, progress_callback)
         self.options: OrgParserOptions = options

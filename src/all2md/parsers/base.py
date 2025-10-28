@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document, Node
+from all2md.exceptions import InvalidOptionsError
 from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.metadata import DocumentMetadata
@@ -75,6 +76,32 @@ class BaseParser(ABC):
         """
         self.options: BaseParserOptions | None = options
         self.progress_callback: Optional[ProgressCallback] = progress_callback
+
+    @staticmethod
+    def _validate_options_type(options: BaseParserOptions | None, expected_type: type, parser_name: str) -> None:
+        """Validate that options are of the correct type for this parser.
+
+        Parameters
+        ----------
+        options : BaseParserOptions or None
+            The options object to validate
+        expected_type : type
+            The expected options class type
+        parser_name : str
+            Name of the parser (for error messages)
+
+        Raises
+        ------
+        InvalidOptionsError
+            If options are not None and not an instance of expected_type
+
+        """
+        if options is not None and not isinstance(options, expected_type):
+            raise InvalidOptionsError(
+                converter_name=parser_name,
+                expected_type=expected_type,
+                received_type=type(options),
+            )
 
     @abstractmethod
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:

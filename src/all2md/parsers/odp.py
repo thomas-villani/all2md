@@ -68,6 +68,7 @@ class OdpToAstConverter(BaseParser):
     @requires_dependencies("odp", [("odfpy", "odf", "")])
     def __init__(self, options: Optional[OdpOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODP parser with options and progress callback."""
+        BaseParser._validate_options_type(options, OdpOptions, "odp")
         options = options or OdpOptions()
         super().__init__(options, progress_callback)
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions

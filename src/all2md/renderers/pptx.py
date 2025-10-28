@@ -113,6 +113,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
     def __init__(self, options: PptxRendererOptions | None = None):
         """Initialize the PPTX renderer with options."""
+        BaseRenderer._validate_options_type(options, PptxRendererOptions, "pptx")
         options = options or PptxRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: PptxRendererOptions = options

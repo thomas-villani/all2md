@@ -115,6 +115,7 @@ class AstJsonParser(BaseParser):
         self, options: AstJsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the AST JSON parser."""
+        BaseParser._validate_options_type(options, AstJsonParserOptions, "ast")
         options = options or AstJsonParserOptions()
         super().__init__(options, progress_callback)
         self.options: AstJsonParserOptions = options

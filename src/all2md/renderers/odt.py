@@ -102,6 +102,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
     def __init__(self, options: OdtRendererOptions | None = None):
         """Initialize the ODT renderer with options."""
+        BaseRenderer._validate_options_type(options, OdtRendererOptions, "odt")
         options = options or OdtRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: OdtRendererOptions = options

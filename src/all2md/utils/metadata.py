@@ -2,11 +2,11 @@
 #
 # src/all2md/utils/metadata
 
-"""Metadata extraction and YAML front matter utilities for all2md.
+"""Metadata extraction and front matter utilities for all2md.
 
 This module provides utilities for extracting document metadata and formatting it
-as YAML front matter for prepending to Markdown output. It includes a simple
-YAML formatter that doesn't require the PyYAML dependency.
+as front matter for prepending to Markdown output. Serialization now relies on
+PyYAML and tomli_w for robust YAML and TOML generation.
 
 The metadata extraction supports various document properties like title, author,
 creation date, keywords, and format-specific metadata fields.
@@ -19,6 +19,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
+
+import tomli_w
+import yaml
 
 MetadataVisibility = Literal["core", "standard", "extended", "all"]
 
@@ -397,87 +400,13 @@ class DocumentMetadata:
         return result
 
 
-def format_yaml_value(value: Any) -> str:
-    """Format a single value for YAML output.
-
-    Parameters
-    ----------
-    value : Any
-        Value to format
-
-    Returns
-    -------
-    str
-        YAML-formatted string representation
-
-    """
-    if value is None:
-        return "null"
-    elif isinstance(value, bool):
-        return "true" if value else "false"
-    elif isinstance(value, (int, float)):
-        return str(value)
-    elif isinstance(value, (list, tuple)):
-        if not value:
-            return "[]"
-        # Check if we need to quote items
-        items = []
-        for item in value:
-            if isinstance(item, str):
-                # Quote if contains special YAML chars
-                if any(
-                    c in str(item)
-                    for c in [":", "#", '"', "'", "|", ">", "\n", "[", "]", "{", "}", ",", "&", "*", "!", "%", "@", "`"]
-                ):
-                    escaped = str(item).replace("\\", "\\\\").replace('"', '\\"')
-                    items.append(f'"{escaped}"')
-                else:
-                    items.append(str(item))
-            else:
-                items.append(str(item))
-        return f"[{', '.join(items)}]"
-    elif isinstance(value, dict):
-        # For nested dicts, we'll use a simple inline format
-        if not value:
-            return "{}"
-        items = []
-        for k, v in value.items():
-            formatted_value = format_yaml_value(v)
-            items.append(f"{k}: {formatted_value}")
-        return f"{{{', '.join(items)}}}"
-    elif isinstance(value, str):
-        # Check if string needs quoting
-        needs_quote = (
-            ":" in value
-            or "#" in value
-            or '"' in value
-            or "'" in value
-            or "\n" in value
-            or value.startswith((" ", "\t"))
-            or value.endswith((" ", "\t"))
-            or value in ["true", "false", "null", "yes", "no", "on", "off"]
-            or value.startswith(("|", ">", "-", "*", "&", "!", "%", "@", "`"))
-            or (value and value[0].isdigit() and "." in value)  # Might be confused with number
-        )
-
-        if needs_quote:
-            # Escape backslashes and quotes
-            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-            return f'"{escaped}"'
-        return value
-    else:
-        # Fallback for other types
-        return str(value)
-
-
 def format_yaml_frontmatter(
     metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as YAML front matter.
 
-    This function creates a simple YAML front matter block without requiring
-    the PyYAML dependency. It handles basic types: strings, numbers, booleans,
-    lists, and simple dictionaries.
+    This function creates a YAML front matter block using PyYAML for robust
+    serialization of metadata structures.
 
     Parameters
     ----------
@@ -512,27 +441,17 @@ def format_yaml_frontmatter(
     if not data:
         return ""
 
-    lines = ["---"]
+    yaml_content = yaml.safe_dump(
+        data,
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+    )
 
-    # Process each field
-    for key, value in data.items():
-        if value is None:
-            continue
+    if not yaml_content.endswith("\n"):
+        yaml_content += "\n"
 
-        # Format the value
-        formatted_value = format_yaml_value(value)
-
-        # Handle multiline strings specially
-        if isinstance(value, str) and "\n" in value:
-            # Use literal block scalar for multiline strings
-            lines.append(f"{key}: |")
-            for line in value.split("\n"):
-                lines.append(f"  {line}")
-        else:
-            lines.append(f"{key}: {formatted_value}")
-
-    lines.append("---")
-    return "\n".join(lines) + "\n\n"
+    return f"---\n{yaml_content}---\n\n"
 
 
 def format_toml_frontmatter(
@@ -540,8 +459,8 @@ def format_toml_frontmatter(
 ) -> str:
     """Format metadata as TOML front matter.
 
-    This function creates TOML front matter using standard library json module
-    (TOML can be represented as JSON-compatible structures).
+    This function creates TOML front matter using tomli_w for standards-compliant
+    serialization.
 
     Parameters
     ----------
@@ -575,42 +494,12 @@ def format_toml_frontmatter(
     if not data:
         return ""
 
-    lines = ["+++"]
+    toml_content = tomli_w.dumps(data)
 
-    # Process each field
-    for key, value in data.items():
-        if value is None:
-            continue
+    if not toml_content.endswith("\n"):
+        toml_content += "\n"
 
-        # Format the value for TOML
-        if isinstance(value, bool):
-            formatted_value = "true" if value else "false"
-        elif isinstance(value, (int, float)):
-            formatted_value = str(value)
-        elif isinstance(value, str):
-            # Escape quotes and backslashes
-            escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-            formatted_value = f'"{escaped}"'
-        elif isinstance(value, list):
-            # Format as TOML array
-            items = []
-            for item in value:
-                if isinstance(item, str):
-                    escaped = item.replace("\\", "\\\\").replace('"', '\\"')
-                    items.append(f'"{escaped}"')
-                else:
-                    items.append(str(item))
-            formatted_value = f"[{', '.join(items)}]"
-        elif isinstance(value, dict):
-            # Skip nested dicts for now (TOML tables are complex)
-            continue
-        else:
-            formatted_value = f'"{str(value)}"'
-
-        lines.append(f"{key} = {formatted_value}")
-
-    lines.append("+++")
-    return "\n".join(lines) + "\n\n"
+    return f"+++\n{toml_content}+++\n\n"
 
 
 def format_json_frontmatter(

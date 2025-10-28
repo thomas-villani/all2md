@@ -1,6 +1,9 @@
 """Unit tests for metadata utilities."""
 
+import tomllib
+
 import pytest
+import yaml
 
 from all2md.utils.metadata import (
     DocumentMetadata,
@@ -9,6 +12,35 @@ from all2md.utils.metadata import (
     prepare_metadata_for_render,
     prepend_metadata_if_enabled,
 )
+
+
+def _extract_yaml_frontmatter_block(frontmatter: str) -> str:
+    assert frontmatter.startswith("---\n")
+    assert frontmatter.endswith("---\n\n")
+    return frontmatter[4:-5]
+
+
+def _parse_yaml_frontmatter(frontmatter: str) -> dict:
+    return yaml.safe_load(_extract_yaml_frontmatter_block(frontmatter)) or {}
+
+
+def _extract_toml_frontmatter_block(frontmatter: str) -> str:
+    assert frontmatter.startswith("+++\n")
+    assert frontmatter.endswith("+++\n\n")
+    return frontmatter[4:-5]
+
+
+def _parse_toml_frontmatter(frontmatter: str) -> dict:
+    return tomllib.loads(_extract_toml_frontmatter_block(frontmatter))
+
+
+def _split_yaml_frontmatter_and_body(text: str) -> tuple[dict, str]:
+    marker = "\n---\n\n"
+    boundary = text.find(marker)
+    assert boundary != -1
+    frontmatter = text[: boundary + len(marker)]
+    body = text[boundary + len(marker) :]
+    return _parse_yaml_frontmatter(frontmatter), body
 
 
 @pytest.mark.unit
@@ -76,8 +108,9 @@ class TestFormatYamlFrontmatter:
 
         assert result.startswith("---\n")
         assert result.endswith("---\n\n")
-        assert "title: Test Document" in result
-        assert "author: Test Author" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Test Document"
+        assert data["author"] == "Test Author"
 
     def test_format_yaml_frontmatter_with_keywords(self):
         """Test YAML formatting with keyword list."""
@@ -85,8 +118,9 @@ class TestFormatYamlFrontmatter:
 
         result = format_yaml_frontmatter(metadata)
 
-        assert "title: Test Document" in result
-        assert "keywords: [python, testing, metadata]" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Test Document"
+        assert data["keywords"] == ["python", "testing", "metadata"]
 
     def test_format_yaml_frontmatter_with_quotes_needed(self):
         """Test YAML formatting with values that need quotes."""
@@ -96,9 +130,10 @@ class TestFormatYamlFrontmatter:
 
         result = format_yaml_frontmatter(metadata)
 
-        assert 'title: "Document: With Colon"' in result
-        assert "author: Author, With Comma" in result  # Commas don't require quotes in our implementation
-        assert "creation_date: 2025-01-01" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Document: With Colon"
+        assert data["author"] == "Author, With Comma"
+        assert data["creation_date"] == "2025-01-01"
 
     def test_format_yaml_frontmatter_with_custom_fields(self):
         """Test YAML formatting with custom fields."""
@@ -109,10 +144,11 @@ class TestFormatYamlFrontmatter:
 
         result = format_yaml_frontmatter(metadata)
 
-        assert "title: Test" in result
-        assert "page_count: 5" in result
-        assert "document_type: html" in result
-        assert "tags: [web, document]" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Test"
+        assert data["page_count"] == 5
+        assert data["document_type"] == "html"
+        assert data["tags"] == ["web", "document"]
 
     def test_format_yaml_frontmatter_empty_metadata(self):
         """Test YAML formatting with empty metadata."""
@@ -129,9 +165,10 @@ class TestFormatYamlFrontmatter:
 
         result = format_yaml_frontmatter(metadata_dict)
 
-        assert "title: Dict Test" in result
-        assert "author: Dict Author" in result
-        assert "keywords: [dict, test]" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Dict Test"
+        assert data["author"] == "Dict Author"
+        assert data["keywords"] == ["dict", "test"]
 
     def test_format_yaml_frontmatter_multiline_handling(self):
         """Test YAML formatting with multiline values."""
@@ -142,10 +179,11 @@ class TestFormatYamlFrontmatter:
 
         result = format_yaml_frontmatter(metadata)
 
-        # Multiline strings should use literal block scalar format
-        assert "title: Test Title" in result
-        assert "description: |" in result  # subject maps to description
-        assert "  This is a very long description" in result
+        data = _parse_yaml_frontmatter(result)
+        assert data["title"] == "Test Title"
+        assert data["description"] == (
+            "This is a very long description that might contain\nmultiple lines and should be handled properly"
+        )
 
 
 @pytest.mark.unit
@@ -159,11 +197,12 @@ class TestPrependMetadataIfEnabled:
 
         result = prepend_metadata_if_enabled(content, metadata, True)
 
-        assert result.startswith("---\n")
-        assert "title: Test" in result
-        assert "author: Author" in result
-        assert "# Test Document" in result
-        assert "This is content." in result
+        data, body = _split_yaml_frontmatter_and_body(result)
+
+        assert data["title"] == "Test"
+        assert data["author"] == "Author"
+        assert body.startswith("# Test Document")
+        assert "This is content." in body
 
     def test_prepend_metadata_enabled_no_metadata(self):
         """Test prepending when enabled but no metadata provided."""
@@ -205,25 +244,10 @@ class TestPrependMetadataIfEnabled:
 
         result = prepend_metadata_if_enabled(content, metadata, True)
 
-        lines = result.split("\n")
+        data, body = _split_yaml_frontmatter_and_body(result)
 
-        # Find the end of front matter
-        end_frontmatter_idx = None
-        start_frontmatter_idx = None
-        for i, line in enumerate(lines):
-            if line == "---":
-                if start_frontmatter_idx is None:
-                    start_frontmatter_idx = i
-                else:
-                    end_frontmatter_idx = i
-                    break
-
-        assert start_frontmatter_idx is not None
-        assert end_frontmatter_idx is not None
-
-        # Should have proper separation
-        assert lines[end_frontmatter_idx + 1] == ""  # Empty line after front matter
-        assert lines[end_frontmatter_idx + 2] == "# Title"  # Content starts after empty line
+        assert data["title"] == "Metadata Title"
+        assert body.startswith("# Title")
 
 
 @pytest.mark.unit
@@ -262,5 +286,6 @@ class TestMetadataRenderPolicy:
 
         result = prepend_metadata_if_enabled(content, metadata, True, policy=policy)
 
-        assert "sha256" not in result
-        assert "title: Title" in result
+        data, _ = _split_yaml_frontmatter_and_body(result)
+        assert "sha256" not in data
+        assert data["title"] == "Title"

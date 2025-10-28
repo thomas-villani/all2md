@@ -89,6 +89,7 @@ class RestructuredTextParser(BaseParser):
 
     def __init__(self, options: RstParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the RST parser with options and progress callback."""
+        BaseParser._validate_options_type(options, RstParserOptions, "rst")
         options = options or RstParserOptions()
         super().__init__(options, progress_callback)
         self.options: RstParserOptions = options

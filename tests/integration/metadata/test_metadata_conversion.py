@@ -95,7 +95,12 @@ Test Sender
         assert result.startswith("---")
         assert "title: Integration Test Email" in result
         assert "sender@example.com" in result  # Author field (may be quoted)
-        assert "creation_date: Fri, 26 Sep 2025 15:30:00 +0000" in result or "creation_date: 2025-09-26" in result
+        # Date may be quoted or unquoted in YAML
+        assert (
+            "creation_date: Fri, 26 Sep 2025 15:30:00 +0000" in result
+            or "creation_date: 2025-09-26" in result
+            or "creation_date: '2025-09-26'" in result
+        )
         assert "creator: Integration Test Mailer" in result
         assert "recipient@example.com" in result  # To field (format may vary)
         assert "integration-test@example.com" in result  # Message ID (format may vary)

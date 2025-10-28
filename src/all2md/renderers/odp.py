@@ -110,6 +110,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
     def __init__(self, options: OdpRendererOptions | None = None):
         """Initialize the ODP renderer with options."""
+        BaseRenderer._validate_options_type(options, OdpRendererOptions, "odp")
         options = options or OdpRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: OdpRendererOptions = options

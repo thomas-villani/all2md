@@ -65,6 +65,7 @@ class TextileParser(BaseParser):
         self, options: TextileParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
         """Initialize the Textile parser with options and progress callback."""
+        BaseParser._validate_options_type(options, TextileParserOptions, "textile")
         options = options or TextileParserOptions()
         super().__init__(options, progress_callback)
         self.options: TextileParserOptions = options

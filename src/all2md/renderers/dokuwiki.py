@@ -86,6 +86,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: DokuWikiOptions | None = None):
         """Initialize the DokuWiki renderer with options."""
+        BaseRenderer._validate_options_type(options, DokuWikiOptions, "dokuwiki")
         options = options or DokuWikiOptions()
         BaseRenderer.__init__(self, options)
         self.options: DokuWikiOptions = options

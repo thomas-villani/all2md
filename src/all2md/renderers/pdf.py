@@ -108,6 +108,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
     def __init__(self, options: PdfRendererOptions | None = None):
         """Initialize the PDF renderer with options."""
+        BaseRenderer._validate_options_type(options, PdfRendererOptions, "pdf")
         options = options or PdfRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: PdfRendererOptions = options

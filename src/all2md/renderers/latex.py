@@ -101,6 +101,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
     def __init__(self, options: LatexRendererOptions | None = None):
         """Initialize the LaTeX renderer with options."""
+        BaseRenderer._validate_options_type(options, LatexRendererOptions, "latex")
         options = options or LatexRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: LatexRendererOptions = options

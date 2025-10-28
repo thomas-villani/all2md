@@ -106,6 +106,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
     def __init__(self, options: DocxRendererOptions | None = None):
         """Initialize the DOCX renderer with options."""
+        BaseRenderer._validate_options_type(options, DocxRendererOptions, "docx")
         options = options or DocxRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: DocxRendererOptions = options
