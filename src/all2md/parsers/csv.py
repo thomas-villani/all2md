@@ -14,7 +14,7 @@ import csv
 import io
 import logging
 from pathlib import Path
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, Iterator, Optional, Union, cast
 
 from all2md.ast import Alignment, Document, HTMLInline, Node, Paragraph
 from all2md.converter_metadata import ConverterMetadata
@@ -257,13 +257,13 @@ class CsvToAstConverter(BaseParser):
             logger.debug(f"CSV dialect detection failed: {e}, using fallback")
             return _make_csv_dialect(delimiter=delimiter) if delimiter else csv.excel
 
-    def _read_csv_rows(self, reader: csv.reader) -> list[list[str]]:
+    def _read_csv_rows(self, reader: Iterator[list[str]]) -> list[list[str]]:
         """Read CSV rows with max_rows limit.
 
         Parameters
         ----------
-        reader : csv.reader
-            CSV reader
+        reader : Iterator[list[str]]
+            CSV reader iterator
 
         Returns
         -------

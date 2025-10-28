@@ -12,25 +12,11 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 import json
+
+# tomllib is part of standard library in Python 3.11+ (project requires 3.12+)
+import tomllib
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, Union
-
-from all2md import DependencyError
-from all2md.utils.html_sanitizer import sanitize_html_content
-
-try:
-    import tomllib
-
-    _TOMLLIB_AVAILABLE = True
-except ImportError:
-    try:
-        import tomli as tomllib  # type: ignore[no-redef]
-
-        _TOMLLIB_AVAILABLE = True
-    except ImportError:
-        tomllib = None
-        _TOMLLIB_AVAILABLE = False
-
 
 from all2md.ast import (
     BlockQuote,
@@ -71,6 +57,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
+from all2md.utils.html_sanitizer import sanitize_html_content
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
 
@@ -270,8 +257,6 @@ class MarkdownToAstConverter(BaseParser):
             (remaining_content, metadata) if TOML found, None otherwise
 
         """
-        if not _TOMLLIB_AVAILABLE:
-            raise DependencyError("markdown", [("tomli", ">=1.0.0")])
         if not (content.startswith("+++\n") or content.startswith("+++\r\n")):
             return None
 

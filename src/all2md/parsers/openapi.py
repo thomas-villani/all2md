@@ -52,9 +52,6 @@ def _validate_openapi_structure(data: dict[str, Any]) -> bool:
         True if data is a valid OpenAPI/Swagger spec
 
     """
-    if not isinstance(data, dict):
-        return False
-
     # Check for OpenAPI 3.x
     if "openapi" in data and "paths" in data and "info" in data:
         openapi_version = data["openapi"]
@@ -116,7 +113,7 @@ def _try_parse_yaml(text: str) -> dict[str, Any] | None:
 
     """
     try:
-        import yaml  # type: ignore[import-untyped]
+        import yaml
 
         data = yaml.safe_load(text)
         if isinstance(data, dict):

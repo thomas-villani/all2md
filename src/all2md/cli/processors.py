@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 from all2md.api import convert, from_ast, to_ast, to_markdown
-from all2md.ast.nodes import Document, Heading, Text, ThematicBreak
+from all2md.ast.nodes import Document, Heading, Node, Text, ThematicBreak
 from all2md.ast.nodes import Document as ASTDocument
 from all2md.cli.builder import (
     EXIT_DEPENDENCY_ERROR,
@@ -1029,7 +1029,7 @@ def _merge_single_entry(
             **effective_options,
         )
 
-        children = []
+        children: list[Node] = []
         # Add section title if provided and not disabled
         if section_title and not no_section_titles:
             section_heading = Heading(level=1, content=[Text(content=section_title)])

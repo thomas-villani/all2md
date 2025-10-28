@@ -7,6 +7,7 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
+from fixtures import FIXTURES_PATH
 from fixtures.generators.docx_fixtures import (
     create_docx_with_formatting,
     create_docx_with_lists,
@@ -82,7 +83,7 @@ class TestDOCXGoldenFromFiles:
 
     def test_basic_docx_file(self, snapshot):
         """Test basic DOCX file matches snapshot."""
-        fixture_path = "tests/fixtures/documents/basic.docx"
+        fixture_path = FIXTURES_PATH / "documents" / "basic.docx"
 
         try:
             with open(fixture_path, "rb") as f:
@@ -93,7 +94,7 @@ class TestDOCXGoldenFromFiles:
 
     def test_footnotes_endnotes_docx_file(self, snapshot):
         """Test DOCX with footnotes and endnotes matches snapshot."""
-        fixture_path = "tests/fixtures/documents/footnotes-endnotes-comments.docx"
+        fixture_path = FIXTURES_PATH / "documents" / "footnotes-endnotes-comments.docx"
 
         try:
             with open(fixture_path, "rb") as f:

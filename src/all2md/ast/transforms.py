@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import copy
 import re
-from dataclasses import replace
 from typing import Any, Callable, Pattern, Type
 
 from all2md.ast.nodes import (
@@ -212,7 +211,7 @@ class NodeTransformer(NodeVisitor):
         children = get_node_children(node)
         if not children:
             # Leaf node - return a copy
-            return replace(node)
+            return copy.copy(node)
 
         # Transform children and rebuild node
         transformed_children = self._transform_children(children)

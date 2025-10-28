@@ -84,7 +84,7 @@ def _process_zip_file_worker(
         file_obj.name = file_path
 
         # Detect format using registry
-        detected_format = registry.detect_format(file_obj)
+        detected_format = cast(DocumentFormat, registry.detect_format(file_obj))
 
         # Check if we have a parser for this format
         try:
@@ -97,7 +97,7 @@ def _process_zip_file_worker(
         file_obj.seek(0)
 
         # Create parser options with attachment settings from the options dict
-        parser_options = None
+        parser_options: Optional[BaseParserOptions] = None
         try:
             options_class = registry.get_parser_options_class(detected_format)
             if options_class is not None:
@@ -124,7 +124,7 @@ def _process_zip_file_worker(
                 # Create options with attachment fields if the class supports them
                 if attachment_opts and issubclass(options_class, AttachmentOptionsMixin):
                     default_options = options_class()
-                    parser_options = default_options.create_updated(**attachment_opts)
+                    parser_options = cast(BaseParserOptions, default_options.create_updated(**attachment_opts))
         except Exception:
             # If option creation fails, continue without options
             pass

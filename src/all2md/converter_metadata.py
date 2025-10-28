@@ -111,7 +111,7 @@ class ConverterMetadata:
         """
         return self.parser_required_packages + self.renderer_required_packages
 
-    def get_install_command(self, as_args=False) -> str | list[str]:
+    def get_install_command(self, as_args: bool = False) -> str | list[str]:
         """Generate pip install command for required packages.
 
         Parameters

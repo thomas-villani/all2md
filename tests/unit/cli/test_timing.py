@@ -83,13 +83,22 @@ class TestTimingContext:
         """Test timing context with custom log level."""
         from all2md.cli.timing import TimingContext
 
-        with caplog.at_level(logging.INFO):
-            with TimingContext("test", log_level=logging.INFO):
-                pass
+        # Explicitly set the logger level to ensure INFO messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.INFO)
 
-        # Should have INFO level logs
-        info_logs = [r for r in caplog.records if r.levelno == logging.INFO]
-        assert len(info_logs) >= 2  # Start and completion
+        try:
+            with caplog.at_level(logging.INFO):
+                with TimingContext("test", log_level=logging.INFO):
+                    pass
+
+            # Should have INFO level logs
+            info_logs = [r for r in caplog.records if r.levelno == logging.INFO]
+            assert len(info_logs) >= 2  # Start and completion
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
 
 @pytest.mark.timing
@@ -307,28 +316,37 @@ class TestOperationTimer:
         """Test timer report generation."""
         from all2md.cli.timing import OperationTimer
 
-        timer = OperationTimer()
+        # Explicitly set the logger level to ensure INFO messages are captured
+        timing_logger = logging.getLogger("all2md.cli.timing")
+        original_level = timing_logger.level
+        timing_logger.setLevel(logging.INFO)
 
-        timer.start("op1")
-        time.sleep(0.01)
-        timer.stop("op1")
+        try:
+            timer = OperationTimer()
 
-        timer.start("op2")
-        time.sleep(0.01)
-        timer.stop("op2")
+            timer.start("op1")
+            time.sleep(0.01)
+            timer.stop("op1")
 
-        with caplog.at_level(logging.INFO):
-            report = timer.report()
+            timer.start("op2")
+            time.sleep(0.01)
+            timer.stop("op2")
 
-        # Report should contain operation names
-        assert "op1" in report
-        assert "op2" in report
+            with caplog.at_level(logging.INFO):
+                report = timer.report()
 
-        # Should have timing info
-        assert "calls" in report
+            # Report should contain operation names
+            assert "op1" in report
+            assert "op2" in report
 
-        # Should log the report
-        assert any("Timing Report" in record.message for record in caplog.records)
+            # Should have timing info
+            assert "calls" in report
+
+            # Should log the report
+            assert any("Timing Report" in record.message for record in caplog.records)
+        finally:
+            # Restore original logger level
+            timing_logger.setLevel(original_level)
 
     def test_timer_get_stats_nonexistent(self):
         """Test get_stats for nonexistent operation."""

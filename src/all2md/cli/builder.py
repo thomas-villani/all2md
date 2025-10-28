@@ -397,7 +397,7 @@ class DynamicCLIBuilder:
             return kwargs, "(comma-separated values)"
 
     @staticmethod
-    def _handle_int_list():
+    def _handle_int_list() -> tuple[Dict[str, Any], str]:
         def parse_int_list(value: str) -> list[int]:
             try:
                 return [int(x.strip()) for x in value.split(",")]

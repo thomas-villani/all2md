@@ -42,8 +42,6 @@
 
   This paragraph contains a [link](https://example.com).
 
-  ---
-
   # Chapter 2: Content
 
   This chapter has a list:
@@ -58,14 +56,10 @@
   |---|---|
   | Cell 1 | Cell 2 |
 
-  ---
-
   ## Test EPUB Document
 
   1. [Chapter 1](chapter1.xhtml)
   2. [Chapter 2](chapter2.xhtml)
-
-  ---
   '''
 # ---
 # name: TestEpubGolden.test_epub_with_images
@@ -84,13 +78,9 @@
 
   Text after the image.
 
-  ---
-
   ## Test EPUB with Images
 
   1. [Chapter with Image](chapter_image.xhtml)
-
-  ---
   '''
 # ---
 # name: TestIpynbGolden.test_ipynb_simple_notebook

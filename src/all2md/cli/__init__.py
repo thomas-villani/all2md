@@ -59,6 +59,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import cast
 
 from all2md.cli.builder import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR, DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
@@ -83,6 +84,7 @@ from all2md.cli.validation import (
     report_validation_problems,
     validate_arguments,
 )
+from all2md.constants import DocumentFormat
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +202,9 @@ def _collect_and_filter_inputs(parsed_args: argparse.Namespace, has_merge_list: 
     return items, None
 
 
-def _handle_watch_mode(parsed_args: argparse.Namespace, options: dict, format_arg: str, transforms: list) -> int:
+def _handle_watch_mode(
+    parsed_args: argparse.Namespace, options: dict, format_arg: DocumentFormat, transforms: list | None
+) -> int:
     """Handle watch mode execution.
 
     Parameters
@@ -209,9 +213,9 @@ def _handle_watch_mode(parsed_args: argparse.Namespace, options: dict, format_ar
         Parsed command-line arguments
     options : dict
         Conversion options
-    format_arg : str
+    format_arg : DocumentFormat
         Format specification
-    transforms : list
+    transforms : list | None
         List of transforms
 
     Returns
@@ -227,7 +231,7 @@ def _handle_watch_mode(parsed_args: argparse.Namespace, options: dict, format_ar
     from all2md.cli.watch import run_watch_mode
 
     paths_to_watch = [Path(f) for f in parsed_args.input]
-    target_format = getattr(parsed_args, "output_format", "markdown")
+    target_format = cast(DocumentFormat, getattr(parsed_args, "output_format", "markdown"))
     output_extension = getattr(parsed_args, "output_extension", None)
 
     return run_watch_mode(
