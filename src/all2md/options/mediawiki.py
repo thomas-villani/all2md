@@ -103,7 +103,6 @@ class MediaWikiOptions(BaseRendererOptions):
             "importance": "security",
         },
     )
-    # TODO: move magic strings/numbers
     comment_mode: MediaWikiCommentMode = field(
         default=DEFAULT_MEDIAWIKI_COMMENT_MODE,
         metadata={

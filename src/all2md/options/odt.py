@@ -10,7 +10,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from all2md.constants import DEFAULT_ODT_COMMENT_MODE, OdtCommentMode
+from all2md.constants import (
+    DEFAULT_ODT_CODE_FONT,
+    DEFAULT_ODT_CODE_FONT_SIZE,
+    DEFAULT_ODT_COMMENT_MODE,
+    DEFAULT_ODT_DEFAULT_FONT,
+    DEFAULT_ODT_DEFAULT_FONT_SIZE,
+    DEFAULT_ODT_PRESERVE_FORMATTING,
+    DEFAULT_ODT_PRESERVE_TABLES,
+    DEFAULT_ODT_USE_STYLES,
+    OdtCommentMode,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
 
@@ -31,7 +41,7 @@ class OdtOptions(BaseParserOptions, AttachmentOptionsMixin):
     """
 
     preserve_tables: bool = field(
-        default=True,
+        default=DEFAULT_ODT_PRESERVE_TABLES,
         metadata={
             "help": "Preserve table formatting in Markdown",
             "cli_name": "no-preserve-tables",
@@ -77,12 +87,11 @@ class OdtRendererOptions(BaseRendererOptions):
 
     """
 
-    # TODO: move magic strings/numbers
     default_font: str = field(
-        default="Liberation Sans", metadata={"help": "Default font for body text", "importance": "core"}
+        default=DEFAULT_ODT_DEFAULT_FONT, metadata={"help": "Default font for body text", "importance": "core"}
     )
     default_font_size: int = field(
-        default=11,
+        default=DEFAULT_ODT_DEFAULT_FONT_SIZE,
         metadata={"help": "Default font size in points", "type": int, "importance": "core"},
     )
     heading_font_sizes: dict[int, int] | None = field(
@@ -93,7 +102,7 @@ class OdtRendererOptions(BaseRendererOptions):
         },
     )
     use_styles: bool = field(
-        default=True,
+        default=DEFAULT_ODT_USE_STYLES,
         metadata={
             "help": "Use built-in ODT styles vs direct formatting",
             "cli_name": "no-use-styles",
@@ -101,11 +110,15 @@ class OdtRendererOptions(BaseRendererOptions):
         },
     )
     code_font: str = field(
-        default="Liberation Mono", metadata={"help": "Font for code blocks and inline code", "importance": "core"}
+        default=DEFAULT_ODT_CODE_FONT,
+        metadata={"help": "Font for code blocks and inline code", "importance": "core"},
     )
-    code_font_size: int = field(default=10, metadata={"help": "Font size for code", "type": int, "importance": "core"})
+    code_font_size: int = field(
+        default=DEFAULT_ODT_CODE_FONT_SIZE,
+        metadata={"help": "Font size for code", "type": int, "importance": "core"},
+    )
     preserve_formatting: bool = field(
-        default=True,
+        default=DEFAULT_ODT_PRESERVE_FORMATTING,
         metadata={
             "help": "Preserve text formatting (bold, italic, etc.)",
             "cli_name": "no-preserve-formatting",

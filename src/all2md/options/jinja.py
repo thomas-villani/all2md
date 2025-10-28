@@ -8,8 +8,19 @@ templates, enabling users to create arbitrary text-based output formats.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
+from all2md.constants import (
+    DEFAULT_JINJA_AUTOESCAPE,
+    DEFAULT_JINJA_ENABLE_ESCAPE_FILTERS,
+    DEFAULT_JINJA_ENABLE_RENDER_FILTER,
+    DEFAULT_JINJA_ENABLE_TRAVERSAL_HELPERS,
+    DEFAULT_JINJA_ESCAPE_STRATEGY,
+    DEFAULT_JINJA_RENDER_FORMAT,
+    DEFAULT_JINJA_STRICT_UNDEFINED,
+    JinjaEscapeStrategy,
+    JinjaRenderFormat,
+)
 from all2md.options.base import BaseRendererOptions
 
 
@@ -168,9 +179,8 @@ class JinjaRendererOptions(BaseRendererOptions):
         },
     )
 
-    # TODO: move magic strings/numbers
-    escape_strategy: Literal["xml", "html", "latex", "yaml", "markdown", "none", "custom"] | None = field(
-        default=None,
+    escape_strategy: JinjaEscapeStrategy | None = field(
+        default=DEFAULT_JINJA_ESCAPE_STRATEGY,
         metadata={
             "help": "Default escaping strategy for output format",
             "choices": ["xml", "html", "latex", "yaml", "markdown", "none", "custom"],
@@ -188,7 +198,7 @@ class JinjaRendererOptions(BaseRendererOptions):
     )
 
     autoescape: bool = field(
-        default=False,
+        default=DEFAULT_JINJA_AUTOESCAPE,
         metadata={
             "help": "Enable Jinja2 autoescape using escape_strategy",
             "importance": "core",
@@ -196,7 +206,7 @@ class JinjaRendererOptions(BaseRendererOptions):
     )
 
     enable_render_filter: bool = field(
-        default=True,
+        default=DEFAULT_JINJA_ENABLE_RENDER_FILTER,
         metadata={
             "help": "Enable |render filter for nodes",
             "cli_name": "no-enable-render-filter",
@@ -205,7 +215,7 @@ class JinjaRendererOptions(BaseRendererOptions):
     )
 
     enable_escape_filters: bool = field(
-        default=True,
+        default=DEFAULT_JINJA_ENABLE_ESCAPE_FILTERS,
         metadata={
             "help": "Enable escape filters (escape_xml, etc.)",
             "cli_name": "no-enable-escape-filters",
@@ -214,7 +224,7 @@ class JinjaRendererOptions(BaseRendererOptions):
     )
 
     enable_traversal_helpers: bool = field(
-        default=True,
+        default=DEFAULT_JINJA_ENABLE_TRAVERSAL_HELPERS,
         metadata={
             "help": "Enable AST traversal helpers (get_headings, etc.)",
             "cli_name": "no-enable-traversal-helpers",
@@ -222,8 +232,8 @@ class JinjaRendererOptions(BaseRendererOptions):
         },
     )
 
-    default_render_format: Literal["markdown", "plain", "html"] = field(
-        default="markdown",
+    default_render_format: JinjaRenderFormat = field(
+        default=DEFAULT_JINJA_RENDER_FORMAT,
         metadata={
             "help": "Default format for |render filter",
             "choices": ["markdown", "plain", "html"],
@@ -241,7 +251,7 @@ class JinjaRendererOptions(BaseRendererOptions):
     )
 
     strict_undefined: bool = field(
-        default=True,
+        default=DEFAULT_JINJA_STRICT_UNDEFINED,
         metadata={
             "help": "Raise errors for undefined template variables",
             "cli_name": "no-strict-undefined",

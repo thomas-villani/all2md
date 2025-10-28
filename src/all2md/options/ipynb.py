@@ -11,7 +11,26 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_LINES, DEFAULT_TRUNCATE_OUTPUT_MESSAGE
+from all2md.constants import (
+    DEFAULT_IPYNB_DEFAULT_KERNEL_DISPLAY_NAME,
+    DEFAULT_IPYNB_DEFAULT_KERNEL_NAME,
+    DEFAULT_IPYNB_DEFAULT_LANGUAGE,
+    DEFAULT_IPYNB_INCLUDE_INPUTS,
+    DEFAULT_IPYNB_INCLUDE_OUTPUTS,
+    DEFAULT_IPYNB_INCLUDE_TRUSTED_METADATA,
+    DEFAULT_IPYNB_INCLUDE_UI_METADATA,
+    DEFAULT_IPYNB_INFER_KERNEL_FROM_DOCUMENT,
+    DEFAULT_IPYNB_INFER_LANGUAGE_FROM_DOCUMENT,
+    DEFAULT_IPYNB_INLINE_ATTACHMENTS,
+    DEFAULT_IPYNB_NBFORMAT,
+    DEFAULT_IPYNB_NBFORMAT_MINOR,
+    DEFAULT_IPYNB_OUTPUT_TYPES,
+    DEFAULT_IPYNB_PRESERVE_UNKNOWN_METADATA,
+    DEFAULT_IPYNB_SHOW_EXECUTION_COUNT,
+    DEFAULT_IPYNB_SKIP_EMPTY_CELLS,
+    DEFAULT_TRUNCATE_OUTPUT_LINES,
+    DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.markdown import MarkdownRendererOptions
@@ -49,7 +68,7 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
     """
 
     include_inputs: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_INCLUDE_INPUTS,
         metadata={
             "help": "Include cell input (source code) in output",
             "cli_name": "no-include-inputs",
@@ -57,7 +76,7 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     include_outputs: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_INCLUDE_OUTPUTS,
         metadata={
             "help": "Include cell outputs in the markdown",
             "cli_name": "no-include-outputs",
@@ -65,7 +84,7 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     skip_empty_cells: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_SKIP_EMPTY_CELLS,
         metadata={
             "help": "Skip cells with no content (preserves round-trip fidelity when False)",
             "cli_name": "no-skip-empty-cells",
@@ -73,12 +92,12 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     show_execution_count: bool = field(
-        default=False, metadata={"help": "Show execution counts for code cells", "importance": "advanced"}
+        default=DEFAULT_IPYNB_SHOW_EXECUTION_COUNT,
+        metadata={"help": "Show execution counts for code cells", "importance": "advanced"},
     )
 
-    # TODO: move magic strings/numbers
     output_types: tuple[str, ...] | None = field(
-        default=("stream", "execute_result", "display_data"),
+        default=DEFAULT_IPYNB_OUTPUT_TYPES,
         metadata={
             "help": "Types of outputs to include (stream, execute_result, display_data, error)",
             "action": "append",
@@ -86,9 +105,14 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
 
-    # TODO: these are not properly defined!
-    truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
-    truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
+    truncate_long_outputs: int | None = field(
+        default=DEFAULT_TRUNCATE_OUTPUT_LINES,
+        metadata={"help": "Maximum number of lines for text outputs before truncating", "importance": "advanced"},
+    )
+    truncate_output_message: str | None = field(
+        default=DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
+        metadata={"help": "Message to indicate truncated output", "importance": "advanced"},
+    )
 
     def __post_init__(self) -> None:
         """Validate numeric ranges for IPYNB options.
@@ -148,10 +172,8 @@ class IpynbRendererOptions(BaseRendererOptions):
 
     """
 
-    # TODO: move magic strings/numbers
-
     nbformat: int | Literal["auto"] = field(
-        default=4,
+        default=DEFAULT_IPYNB_NBFORMAT,
         metadata={
             "help": "Major notebook format version (auto = preserve from source)",
             "importance": "advanced",
@@ -159,70 +181,70 @@ class IpynbRendererOptions(BaseRendererOptions):
         },
     )
     nbformat_minor: int | Literal["auto"] = field(
-        default="auto",
+        default=DEFAULT_IPYNB_NBFORMAT_MINOR,
         metadata={
             "help": "Minor notebook format revision (auto = preserve from source)",
             "importance": "advanced",
         },
     )
     default_language: str = field(
-        default="python",
+        default=DEFAULT_IPYNB_DEFAULT_LANGUAGE,
         metadata={
             "help": "Fallback programming language for language_info",
             "importance": "core",
         },
     )
     default_kernel_name: str = field(
-        default="python3",
+        default=DEFAULT_IPYNB_DEFAULT_KERNEL_NAME,
         metadata={
             "help": "Fallback kernelspec name when inference fails",
             "importance": "core",
         },
     )
     default_kernel_display_name: str = field(
-        default="Python 3",
+        default=DEFAULT_IPYNB_DEFAULT_KERNEL_DISPLAY_NAME,
         metadata={
             "help": "Fallback kernelspec display name when inference fails",
             "importance": "core",
         },
     )
     infer_language_from_document: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_INFER_LANGUAGE_FROM_DOCUMENT,
         metadata={
             "help": "Infer language from Document metadata before using defaults",
             "importance": "advanced",
         },
     )
     infer_kernel_from_document: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_INFER_KERNEL_FROM_DOCUMENT,
         metadata={
             "help": "Infer kernelspec information from Document metadata when present",
             "importance": "advanced",
         },
     )
     include_trusted_metadata: bool = field(
-        default=False,
+        default=DEFAULT_IPYNB_INCLUDE_TRUSTED_METADATA,
         metadata={
             "help": "Preserve cell.metadata.trusted values in output notebook",
             "importance": "advanced",
         },
     )
     include_ui_metadata: bool = field(
-        default=False,
+        default=DEFAULT_IPYNB_INCLUDE_UI_METADATA,
         metadata={
             "help": "Preserve UI metadata like collapsed/scrolled/widget state",
             "importance": "advanced",
         },
     )
     preserve_unknown_metadata: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_PRESERVE_UNKNOWN_METADATA,
         metadata={
             "help": "Retain unrecognized metadata keys instead of dropping them",
             "importance": "advanced",
         },
     )
     inline_attachments: bool = field(
-        default=True,
+        default=DEFAULT_IPYNB_INLINE_ATTACHMENTS,
         metadata={
             "help": "Embed attachments directly inside notebook cells",
             "importance": "core",

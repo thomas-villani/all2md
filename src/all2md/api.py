@@ -654,13 +654,11 @@ def to_ast(
     else:
         # Accept: str, Path, bytes, BytesIO, NamedBytesIO, or any binary stream
         if isinstance(resolved_payload, (str, Path, bytes)):
-            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[assignment]
+            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))
         elif hasattr(resolved_payload, "read") and hasattr(resolved_payload, "seek"):
             # Binary stream (has read+seek) - let registry.detect_format handle it
             # This includes BytesIO, NamedBytesIO, and file objects
-            actual_format = cast(
-                DocumentFormat, registry.detect_format(resolved_payload)
-            )  # type: ignore[arg-type, assignment]
+            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))
         else:
             raise ValueError(
                 "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."

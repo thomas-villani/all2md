@@ -9,9 +9,22 @@ This module defines options for parsing and rendering ODP presentation files.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
-from all2md.constants import DEFAULT_ODP_COMMENT_MODE, OdpCommentMode
+from all2md.constants import (
+    DEFAULT_ODP_COMMENT_MODE,
+    DEFAULT_ODP_DEFAULT_FONT,
+    DEFAULT_ODP_DEFAULT_FONT_SIZE,
+    DEFAULT_ODP_DEFAULT_LAYOUT,
+    DEFAULT_ODP_INCLUDE_NOTES,
+    DEFAULT_ODP_INCLUDE_SLIDE_NUMBERS,
+    DEFAULT_ODP_PRESERVE_TABLES,
+    DEFAULT_ODP_SLIDE_SPLIT_HEADING_LEVEL,
+    DEFAULT_ODP_TITLE_FONT_SIZE,
+    DEFAULT_ODP_TITLE_SLIDE_LAYOUT,
+    DEFAULT_ODP_USE_HEADING_AS_SLIDE_TITLE,
+    OdpCommentMode,
+    SlideSplitMode,
+)
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
 
@@ -39,7 +52,7 @@ class OdpOptions(PaginatedParserOptions):
     """
 
     preserve_tables: bool = field(
-        default=True,
+        default=DEFAULT_ODP_PRESERVE_TABLES,
         metadata={
             "help": "Preserve table formatting in Markdown",
             "cli_name": "no-preserve-tables",
@@ -47,10 +60,11 @@ class OdpOptions(PaginatedParserOptions):
         },
     )
     include_slide_numbers: bool = field(
-        default=False, metadata={"help": "Include slide numbers in output", "importance": "core"}
+        default=DEFAULT_ODP_INCLUDE_SLIDE_NUMBERS,
+        metadata={"help": "Include slide numbers in output", "importance": "core"},
     )
     include_notes: bool = field(
-        default=True,
+        default=DEFAULT_ODP_INCLUDE_NOTES,
         metadata={"help": "Include speaker notes from slides", "cli_name": "no-include-notes", "importance": "core"},
     )
     slides: str | None = field(
@@ -104,8 +118,7 @@ class OdpRendererOptions(BaseRendererOptions):
 
     """
 
-    # TODO: move magic strings/numbers
-    slide_split_mode: Literal["separator", "heading", "auto"] = field(
+    slide_split_mode: SlideSplitMode = field(
         default="auto",
         metadata={
             "help": "Slide splitting strategy: separator, heading, or auto",
@@ -114,17 +127,19 @@ class OdpRendererOptions(BaseRendererOptions):
         },
     )
     slide_split_heading_level: int = field(
-        default=2,
+        default=DEFAULT_ODP_SLIDE_SPLIT_HEADING_LEVEL,
         metadata={"help": "Heading level for slide splits (H2 = level 2)", "type": int, "importance": "advanced"},
     )
     default_layout: str = field(
-        default="Default", metadata={"help": "Default slide layout name", "importance": "advanced"}
+        default=DEFAULT_ODP_DEFAULT_LAYOUT,
+        metadata={"help": "Default slide layout name", "importance": "advanced"},
     )
     title_slide_layout: str = field(
-        default="Title", metadata={"help": "Layout for first slide", "importance": "advanced"}
+        default=DEFAULT_ODP_TITLE_SLIDE_LAYOUT,
+        metadata={"help": "Layout for first slide", "importance": "advanced"},
     )
     use_heading_as_slide_title: bool = field(
-        default=True,
+        default=DEFAULT_ODP_USE_HEADING_AS_SLIDE_TITLE,
         metadata={
             "help": "Use first heading as slide title",
             "cli_name": "no-use-heading-as-slide-title",
@@ -135,13 +150,16 @@ class OdpRendererOptions(BaseRendererOptions):
         default=None, metadata={"help": "Path to .odp template file (None = default)", "importance": "core"}
     )
     default_font: str = field(
-        default="Liberation Sans", metadata={"help": "Default font for slide content", "importance": "core"}
+        default=DEFAULT_ODP_DEFAULT_FONT,
+        metadata={"help": "Default font for slide content", "importance": "core"},
     )
     default_font_size: int = field(
-        default=18, metadata={"help": "Default font size for body text", "type": int, "importance": "core"}
+        default=DEFAULT_ODP_DEFAULT_FONT_SIZE,
+        metadata={"help": "Default font size for body text", "type": int, "importance": "core"},
     )
     title_font_size: int = field(
-        default=44, metadata={"help": "Font size for slide titles", "type": int, "importance": "advanced"}
+        default=DEFAULT_ODP_TITLE_FONT_SIZE,
+        metadata={"help": "Font size for slide titles", "type": int, "importance": "advanced"},
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}

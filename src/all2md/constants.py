@@ -104,6 +104,19 @@ EmailSortOrder = Literal["asc", "desc"]
 AttributeMissingPolicy = Literal["keep", "blank", "warn"]
 TableHeaderDetection = Literal["first-row", "attribute-based", "auto"]
 
+# RTF types
+RtfFontFamily = Literal["roman", "swiss"]
+
+# LaTeX types
+LatexMathRenderMode = Literal["inline", "display"]
+
+# Jinja types
+JinjaEscapeStrategy = Literal["xml", "html", "latex", "yaml", "markdown", "none", "custom"]
+JinjaRenderFormat = Literal["markdown", "plain", "html"]
+
+# Jupyter Notebook (IPYNB) types
+IpynbOutputType = Literal["stream", "execute_result", "display_data", "error"]
+
 # CSV types
 MultiTableMode = Literal["first", "all", "error"]
 CsvQuotingMode = Literal["minimal", "all", "nonnumeric", "none"]
@@ -769,6 +782,26 @@ IPYNB_SUPPORTED_IMAGE_MIMETYPES = [
     "image/svg+xml",
 ]
 
+# IPYNB parser options
+DEFAULT_IPYNB_INCLUDE_INPUTS = True
+DEFAULT_IPYNB_INCLUDE_OUTPUTS = True
+DEFAULT_IPYNB_SKIP_EMPTY_CELLS = True
+DEFAULT_IPYNB_SHOW_EXECUTION_COUNT = False
+DEFAULT_IPYNB_OUTPUT_TYPES = ("stream", "execute_result", "display_data")
+
+# IPYNB renderer options
+DEFAULT_IPYNB_NBFORMAT: int | Literal["auto"] = 4
+DEFAULT_IPYNB_NBFORMAT_MINOR: int | Literal["auto"] = "auto"
+DEFAULT_IPYNB_DEFAULT_LANGUAGE = "python"
+DEFAULT_IPYNB_DEFAULT_KERNEL_NAME = "python3"
+DEFAULT_IPYNB_DEFAULT_KERNEL_DISPLAY_NAME = "Python 3"
+DEFAULT_IPYNB_INFER_LANGUAGE_FROM_DOCUMENT = True
+DEFAULT_IPYNB_INFER_KERNEL_FROM_DOCUMENT = True
+DEFAULT_IPYNB_INCLUDE_TRUSTED_METADATA = False
+DEFAULT_IPYNB_INCLUDE_UI_METADATA = False
+DEFAULT_IPYNB_PRESERVE_UNKNOWN_METADATA = True
+DEFAULT_IPYNB_INLINE_ATTACHMENTS = True
+
 # =============================================================================
 # Format-Specific Constants - Word Documents (DOCX)
 # =============================================================================
@@ -860,6 +893,13 @@ DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS = True
 DEFAULT_RST_STRICT_MODE = False
 DEFAULT_RST_STRIP_COMMENTS = False
 DEFAULT_RST_PARSE_ADMONITIONS = True
+
+# =============================================================================
+# Format-Specific Constants - RTF
+# =============================================================================
+
+DEFAULT_RTF_FONT_FAMILY: RtfFontFamily = "roman"
+DEFAULT_RTF_BOLD_HEADINGS = True
 
 # =============================================================================
 # Format-Specific Constants - MediaWiki
@@ -999,6 +1039,80 @@ DEFAULT_SPREADSHEET_PRESERVE_NEWLINES_IN_CELLS = False
 DEFAULT_SPREADSHEET_TRIM_EMPTY: TrimEmptyMode = "trailing"
 DEFAULT_SPREADSHEET_CHART_MODE: ChartMode = "skip"
 DEFAULT_SPREADSHEET_MERGED_CELL_MODE: MergedCellMode = "flatten"
+
+# =============================================================================
+# Format-Specific Constants - OpenAPI
+# =============================================================================
+
+DEFAULT_OPENAPI_INCLUDE_SERVERS = True
+DEFAULT_OPENAPI_INCLUDE_SCHEMAS = True
+DEFAULT_OPENAPI_INCLUDE_EXAMPLES = True
+DEFAULT_OPENAPI_GROUP_BY_TAG = True
+DEFAULT_OPENAPI_MAX_SCHEMA_DEPTH = 3
+DEFAULT_OPENAPI_CODE_BLOCK_LANGUAGE = "json"
+DEFAULT_OPENAPI_VALIDATE_SPEC = False
+DEFAULT_OPENAPI_INCLUDE_DEPRECATED = True
+DEFAULT_OPENAPI_EXPAND_REFS = True
+
+# =============================================================================
+# Format-Specific Constants - ODP (OpenDocument Presentation)
+# =============================================================================
+
+DEFAULT_ODP_PRESERVE_TABLES = True
+DEFAULT_ODP_INCLUDE_SLIDE_NUMBERS = False
+DEFAULT_ODP_INCLUDE_NOTES = True
+DEFAULT_ODP_SLIDE_SPLIT_HEADING_LEVEL = 2
+DEFAULT_ODP_DEFAULT_LAYOUT = "Default"
+DEFAULT_ODP_TITLE_SLIDE_LAYOUT = "Title"
+DEFAULT_ODP_USE_HEADING_AS_SLIDE_TITLE = True
+DEFAULT_ODP_DEFAULT_FONT = "Liberation Sans"
+DEFAULT_ODP_DEFAULT_FONT_SIZE = 18
+DEFAULT_ODP_TITLE_FONT_SIZE = 44
+
+# =============================================================================
+# Format-Specific Constants - ODT (OpenDocument Text)
+# =============================================================================
+
+DEFAULT_ODT_PRESERVE_TABLES = True
+DEFAULT_ODT_DEFAULT_FONT = "Liberation Sans"
+DEFAULT_ODT_DEFAULT_FONT_SIZE = 11
+DEFAULT_ODT_USE_STYLES = True
+DEFAULT_ODT_CODE_FONT = "Liberation Mono"
+DEFAULT_ODT_CODE_FONT_SIZE = 10
+DEFAULT_ODT_PRESERVE_FORMATTING = True
+
+# =============================================================================
+# Format-Specific Constants - LaTeX
+# =============================================================================
+
+# LaTeX parser options
+DEFAULT_LATEX_PARSE_PREAMBLE = True
+DEFAULT_LATEX_PARSE_MATH = True
+DEFAULT_LATEX_PARSE_CUSTOM_COMMANDS = False
+DEFAULT_LATEX_STRICT_MODE = False
+DEFAULT_LATEX_ENCODING = "utf-8"
+DEFAULT_LATEX_PRESERVE_COMMENTS = False
+
+# LaTeX renderer options
+DEFAULT_LATEX_DOCUMENT_CLASS = "article"
+DEFAULT_LATEX_INCLUDE_PREAMBLE = True
+DEFAULT_LATEX_PACKAGES = ["amsmath", "graphicx", "hyperref"]
+DEFAULT_LATEX_MATH_RENDER_MODE: LatexMathRenderMode = "display"
+DEFAULT_LATEX_LINE_WIDTH = 0
+DEFAULT_LATEX_ESCAPE_SPECIAL = True
+DEFAULT_LATEX_USE_UNICODE = True
+
+# =============================================================================
+# Format-Specific Constants - Jinja
+# =============================================================================
+
+DEFAULT_JINJA_ESCAPE_STRATEGY: JinjaEscapeStrategy | None = None
+DEFAULT_JINJA_AUTOESCAPE = False
+DEFAULT_JINJA_ENABLE_RENDER_FILTER = True
+DEFAULT_JINJA_ENABLE_ESCAPE_FILTERS = True
+DEFAULT_JINJA_ENABLE_TRAVERSAL_HELPERS = True
+DEFAULT_JINJA_RENDER_FORMAT: JinjaRenderFormat = "markdown"
+DEFAULT_JINJA_STRICT_UNDEFINED = True
 
 # =============================================================================
 # Format-Specific Constants - Common (shared across formats)

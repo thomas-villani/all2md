@@ -11,6 +11,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.constants import (
+    DEFAULT_OPENAPI_CODE_BLOCK_LANGUAGE,
+    DEFAULT_OPENAPI_EXPAND_REFS,
+    DEFAULT_OPENAPI_GROUP_BY_TAG,
+    DEFAULT_OPENAPI_INCLUDE_DEPRECATED,
+    DEFAULT_OPENAPI_INCLUDE_EXAMPLES,
+    DEFAULT_OPENAPI_INCLUDE_SCHEMAS,
+    DEFAULT_OPENAPI_INCLUDE_SERVERS,
+    DEFAULT_OPENAPI_MAX_SCHEMA_DEPTH,
+    DEFAULT_OPENAPI_VALIDATE_SPEC,
+)
 from all2md.options.base import BaseParserOptions
 
 
@@ -59,7 +70,7 @@ class OpenApiParserOptions(BaseParserOptions):
     """
 
     include_servers: bool = field(
-        default=True,
+        default=DEFAULT_OPENAPI_INCLUDE_SERVERS,
         metadata={
             "help": "Include server information section",
             "cli_name": "no-include-servers",
@@ -67,7 +78,7 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
     include_schemas: bool = field(
-        default=True,
+        default=DEFAULT_OPENAPI_INCLUDE_SCHEMAS,
         metadata={
             "help": "Include schema/model definitions section",
             "cli_name": "no-include-schemas",
@@ -75,7 +86,7 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
     include_examples: bool = field(
-        default=True,
+        default=DEFAULT_OPENAPI_INCLUDE_EXAMPLES,
         metadata={
             "help": "Include request/response examples as code blocks",
             "cli_name": "no-include-examples",
@@ -83,7 +94,7 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
     group_by_tag: bool = field(
-        default=True,
+        default=DEFAULT_OPENAPI_GROUP_BY_TAG,
         metadata={
             "help": "Group API paths by tags",
             "cli_name": "no-group-by-tag",
@@ -91,9 +102,8 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
 
-    # TODO: move magic strings/numbers
     max_schema_depth: int = field(
-        default=3,
+        default=DEFAULT_OPENAPI_MAX_SCHEMA_DEPTH,
         metadata={
             "help": "Maximum nesting depth for schema properties (prevents circular refs)",
             "type": int,
@@ -101,7 +111,7 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
     code_block_language: str = field(
-        default="json",
+        default=DEFAULT_OPENAPI_CODE_BLOCK_LANGUAGE,
         metadata={
             "help": "Language identifier for code block examples",
             "choices": ["json", "yaml", "text"],
@@ -109,14 +119,14 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
     validate_spec: bool = field(
-        default=False,
+        default=DEFAULT_OPENAPI_VALIDATE_SPEC,
         metadata={
             "help": "Validate OpenAPI spec",
             "importance": "advanced",
         },
     )
     include_deprecated: bool = field(
-        default=True,
+        default=DEFAULT_OPENAPI_INCLUDE_DEPRECATED,
         metadata={
             "help": "Include deprecated operations and parameters",
             "cli_name": "no-include-deprecated",
@@ -124,7 +134,7 @@ class OpenApiParserOptions(BaseParserOptions):
         },
     )
     expand_refs: bool = field(
-        default=True,
+        default=DEFAULT_OPENAPI_EXPAND_REFS,
         metadata={
             "help": "Expand $ref references inline or keep as links",
             "cli_name": "no-expand-refs",

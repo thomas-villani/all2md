@@ -12,14 +12,16 @@ The options stack is intentionally layered:
 1. :class:`~all2md.options.base.BaseParserOptions` — shared attachment policy, metadata extraction, asset limits
 2. Nested security helpers such as :class:`~all2md.options.common.NetworkFetchOptions` and
    :class:`~all2md.options.common.LocalFileAccessOptions`
-3. Format-specific options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) which may embed
-   :class:`~all2md.options.markdown.MarkdownRendererOptions` or renderer counterparts
+3. Format-specific parser options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) combined with
+   renderer counterparts (``MarkdownRendererOptions``, ``HtmlRendererOptions``) via the ``renderer_options``
+   parameter when rendering output
 
 Because every class inherits from ``CloneFrozenMixin`` you can derive safe variants without mutating originals:
 
 .. code-block:: python
 
-   from all2md.options import HtmlOptions, NetworkFetchOptions
+   from all2md import to_markdown
+   from all2md.options import HtmlOptions, MarkdownRendererOptions, NetworkFetchOptions
 
    hardened_network = NetworkFetchOptions(
        allow_remote_fetch=False,
@@ -32,9 +34,15 @@ Because every class inherits from ``CloneFrozenMixin`` you can derive safe varia
        network=hardened_network,
    )
 
-   secure_variant = html_options.create_updated(markdown_options=html_options.markdown_options.create_updated(
-       flavor="gfm",
-   ))
+   markdown_defaults = MarkdownRendererOptions(flavor="gfm")
+
+   secure_html = to_markdown(
+       "page.html",
+       parser_options=html_options,
+       renderer_options=markdown_defaults.create_updated(link_style="reference"),
+   )
+
+   hardened_html_options = html_options.create_updated(strip_dangerous_elements=True)
 
 CLI flag mapping follows the field path. For example ``HtmlOptions.network.require_https`` becomes
 ``--html-network-require-https`` (and the env var ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``). Nested collections such as
@@ -89,11 +97,11 @@ constructed automatically from matching kwargs.
 .. code-block:: python
 
    from all2md import to_markdown
-   from all2md.options import HtmlOptions
+   from all2md.options import HtmlOptions, MarkdownRendererOptions
 
    markdown = to_markdown(
        "page.html",
-       options=HtmlOptions(
+       parser_options=HtmlOptions(
            extract_title=True,
            network=dict(
                allow_remote_fetch=False,
@@ -101,12 +109,13 @@ constructed automatically from matching kwargs.
                require_https=True,
            ),
        ),
+       renderer_options=MarkdownRendererOptions(link_style="reference"),
    )
 
-   # Kwargs override existing settings
-   hardened = markdown = to_markdown(
+   # Kwargs override existing settings (nested dataclass fields are detected automatically)
+   hardened = to_markdown(
        "page.html",
-       options=HtmlOptions(),
+       parser_options=HtmlOptions(),
        allow_remote_fetch=False,
    )
 
@@ -279,7 +288,7 @@ resources.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--archive-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -860,7 +869,7 @@ for embedded images and resources.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--chm-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -1114,7 +1123,7 @@ including table selection, multi-table handling, and CSV dialect options.
 
    How to handle multiple tables: first, all, or error
 
-   :Type: ``Literal['first', 'all', 'error']``
+   :Type: ``MultiTableMode``
    :CLI flag: ``--csv-renderer-multi-table-mode``
    :Default: ``'first'``
    :Choices: ``first``, ``all``, ``error``
@@ -1142,7 +1151,7 @@ including table selection, multi-table handling, and CSV dialect options.
 
    CSV quoting style
 
-   :Type: ``Literal['minimal', 'all', 'nonnumeric', 'none']``
+   :Type: ``CsvQuotingMode``
    :CLI flag: ``--csv-renderer-quoting``
    :Default: ``'minimal'``
    :Choices: ``minimal``, ``all``, ``nonnumeric``, ``none``
@@ -1170,7 +1179,7 @@ including table selection, multi-table handling, and CSV dialect options.
 
    How to handle merged cells
 
-   :Type: ``Literal['repeat', 'blank', 'placeholder']``
+   :Type: ``MergedCellHandling``
    :CLI flag: ``--csv-renderer-handle-merged-cells``
    :Default: ``'repeat'``
    :Choices: ``repeat``, ``blank``, ``placeholder``
@@ -1276,7 +1285,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--docx-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -1707,7 +1716,7 @@ DokuWiki markup, suitable for DokuWiki-based wikis.
 
    :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--dokuwiki-renderer-html-passthrough-mode``
-   :Default: ``'pass-through'``
+   :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
 
@@ -1794,7 +1803,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--eml-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -1938,7 +1947,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
    Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
 
-   :Type: ``Literal['asc', 'desc']``
+   :Type: ``EmailSortOrder``
    :CLI flag: ``--eml-sort-order``
    :Default: ``'asc'``
    :Choices: ``asc``, ``desc``
@@ -1985,8 +1994,195 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    Include plain text content parts from emails
 
    :Type: ``bool``
-   :CLI flag: ``--eml-include-plain-parts``
+   :CLI flag: ``--eml-no-include-plain-parts``
+   :Default: ``True``
+   :Importance: advanced
+
+ENEX Options
+~~~~~~~~~~~~
+
+
+ENEX Parser Options
+^^^^^^^^^^^^^^^^^^^
+
+Configuration options for ENEX-to-Markdown conversion.
+
+This dataclass contains settings specific to Evernote Export file processing,
+including note title formatting, metadata handling, tag rendering, and
+attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``AttachmentMode``
+   :CLI flag: ``--enex-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``AltTextMode``
+   :CLI flag: ``--enex-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: advanced
+
+**attachment_output_dir**
+
+   Directory to save attachments when using download mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--enex-attachment-output-dir``
+   :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--enex-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--enex-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--enex-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``AttachmentOverwriteMode``
+   :CLI flag: ``--enex-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--enex-attachment-deduplicate-by-hash``
    :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--enex-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--enex-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**note_title_level**
+
+   Heading level for note titles (1-6)
+
+   :Type: ``int``
+   :CLI flag: ``--enex-note-title-level``
+   :Default: ``1``
+   :Importance: core
+
+**include_note_metadata**
+
+   Include note metadata (created/updated dates, source URL, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--enex-no-include-note-metadata``
+   :Default: ``True``
+   :Importance: core
+
+**include_tags**
+
+   Include note tags in output
+
+   :Type: ``bool``
+   :CLI flag: ``--enex-no-include-tags``
+   :Default: ``True``
+   :Importance: core
+
+**tags_format**
+
+   How to render tags: frontmatter, inline, heading, or skip
+
+   :Type: ``TagsFormatMode``
+   :CLI flag: ``--enex-tags-format``
+   :Default: ``'inline'``
+   :Importance: core
+
+**notebook_as_heading**
+
+   Add notebook name as top-level heading above notes
+
+   :Type: ``bool``
+   :CLI flag: ``--enex-notebook-as-heading``
+   :Default: ``False``
+   :Importance: advanced
+
+**date_format_mode**
+
+   Date formatting mode: iso8601, locale, or strftime
+
+   :Type: ``DateFormatMode``
+   :CLI flag: ``--enex-date-format-mode``
+   :Default: ``'strftime'``
+   :Importance: advanced
+
+**date_strftime_pattern**
+
+   Custom strftime pattern when date_format_mode is 'strftime'
+
+   :Type: ``str``
+   :CLI flag: ``--enex-date-strftime-pattern``
+   :Default: ``'%m/%d/%y %H:%M'``
+   :Importance: advanced
+
+**sort_notes_by**
+
+   Sort notes by: created, updated, title, or none
+
+   :Type: ``NoteSortMode``
+   :CLI flag: ``--enex-sort-notes-by``
+   :Default: ``'none'``
+   :Importance: advanced
+
+**notes_section_title**
+
+   Title for the notes section when rendering multiple notes
+
+   :Type: ``str``
+   :CLI flag: ``--enex-notes-section-title``
+   :Default: ``'Notes'``
    :Importance: advanced
 
 EPUB Options
@@ -2062,7 +2258,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--epub-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2335,7 +2531,7 @@ in FictionBook 2.0 ebooks.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--fb2-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2469,7 +2665,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--html-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2594,7 +2790,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to handle <br> tags: 'newline' or 'space'
 
-   :Type: ``Literal['newline', 'space']``
+   :Type: ``BrHandling``
    :CLI flag: ``--html-br-handling``
    :Default: ``'newline'``
    :Choices: ``newline``, ``space``
@@ -2624,7 +2820,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``FiguresParsing``
    :CLI flag: ``--html-figures-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
@@ -2634,7 +2830,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :Type: ``DetailsParsing``
    :CLI flag: ``--html-details-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``html``, ``skip``
@@ -2662,7 +2858,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
 
-   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :Type: ``HtmlParser``
    :CLI flag: ``--html-html-parser``
    :Default: ``'html.parser'``
    :Choices: ``html.parser``, ``html5lib``, ``lxml``
@@ -2716,7 +2912,7 @@ including document structure, styling, templating, and feature toggles.
 
    CSS inclusion method: inline, embedded, external, or none
 
-   :Type: ``Literal['inline', 'embedded', 'external', 'none']``
+   :Type: ``CssStyle``
    :CLI flag: ``--html-renderer-css-style``
    :Default: ``'embedded'``
    :Choices: ``inline``, ``embedded``, ``external``, ``none``
@@ -2762,7 +2958,7 @@ including document structure, styling, templating, and feature toggles.
 
    Math rendering library: mathjax, katex, or none
 
-   :Type: ``Literal['mathjax', 'katex', 'none']``
+   :Type: ``MathRenderer``
    :CLI flag: ``--html-renderer-math-renderer``
    :Default: ``'mathjax'``
    :Choices: ``mathjax``, ``katex``, ``none``
@@ -2791,7 +2987,7 @@ including document structure, styling, templating, and feature toggles.
 
    Template mode: inject, replace, jinja, or none
 
-   :Type: ``Literal['inject', 'replace', 'jinja'] | None``
+   :Type: ``TemplateMode | None``
    :CLI flag: ``--html-renderer-template-mode``
    :Default: ``None``
    :Choices: ``inject``, ``replace``, ``jinja``
@@ -2819,7 +3015,7 @@ including document structure, styling, templating, and feature toggles.
 
    How to inject content: append, prepend, or replace
 
-   :Type: ``Literal['append', 'prepend', 'replace']``
+   :Type: ``InjectionMode``
    :CLI flag: ``--html-renderer-injection-mode``
    :Default: ``'replace'``
    :Choices: ``append``, ``prepend``, ``replace``
@@ -2953,7 +3149,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--ipynb-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -3787,7 +3983,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001A1F2F80A10>``
+   :Default: ``<object object at 0x0000021A4D070A70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3797,7 +3993,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001A1F2F80A10>``
+   :Default: ``<object object at 0x0000021A4D070A70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4035,7 +4231,7 @@ message filtering, and folder handling.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--mbox-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -4179,7 +4375,7 @@ message filtering, and folder handling.
 
    Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
 
-   :Type: ``Literal['asc', 'desc']``
+   :Type: ``EmailSortOrder``
    :CLI flag: ``--mbox-sort-order``
    :Default: ``'asc'``
    :Choices: ``asc``, ``desc``
@@ -4226,8 +4422,8 @@ message filtering, and folder handling.
    Include plain text content parts from emails
 
    :Type: ``bool``
-   :CLI flag: ``--mbox-include-plain-parts``
-   :Default: ``False``
+   :CLI flag: ``--mbox-no-include-plain-parts``
+   :Default: ``True``
    :Importance: advanced
 
 **mailbox_format**
@@ -4421,7 +4617,7 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
 
    :Type: ``HtmlPassthroughMode``
    :CLI flag: ``--mediawiki-renderer-html-passthrough-mode``
-   :Default: ``'pass-through'``
+   :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
 
@@ -4507,7 +4703,7 @@ primarily for handling embedded assets like images and local file security.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--mhtml-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -4632,7 +4828,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to handle <br> tags: 'newline' or 'space'
 
-   :Type: ``Literal['newline', 'space']``
+   :Type: ``BrHandling``
    :CLI flag: ``--mhtml-br-handling``
    :Default: ``'newline'``
    :Choices: ``newline``, ``space``
@@ -4662,7 +4858,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``FiguresParsing``
    :CLI flag: ``--mhtml-figures-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
@@ -4672,7 +4868,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :Type: ``DetailsParsing``
    :CLI flag: ``--mhtml-details-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``html``, ``skip``
@@ -4700,7 +4896,7 @@ primarily for handling embedded assets like images and local file security.
 
    BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
 
-   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :Type: ``HtmlParser``
    :CLI flag: ``--mhtml-html-parser``
    :Default: ``'html.parser'``
    :Choices: ``html.parser``, ``html5lib``, ``lxml``
@@ -4778,7 +4974,7 @@ processing, including slide selection, numbering, and notes.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--odp-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5072,7 +5268,7 @@ and adds ODS-specific options.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--ods-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5171,7 +5367,7 @@ and adds ODS-specific options.
 
    Trim empty rows/columns: none, leading, trailing, or both
 
-   :Type: ``Literal['none', 'leading', 'trailing', 'both']``
+   :Type: ``TrimEmptyMode``
    :CLI flag: ``--ods-trim-empty``
    :Default: ``'trailing'``
    :Choices: ``none``, ``leading``, ``trailing``, ``both``
@@ -5191,7 +5387,7 @@ and adds ODS-specific options.
 
    Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts, default)
 
-   :Type: ``Literal['data', 'skip']``
+   :Type: ``ChartMode``
    :CLI flag: ``--ods-chart-mode``
    :Default: ``'skip'``
    :Choices: ``data``, ``skip``
@@ -5201,7 +5397,7 @@ and adds ODS-specific options.
 
    Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'
 
-   :Type: ``Literal['spans', 'flatten', 'skip']``
+   :Type: ``MergedCellMode``
    :CLI flag: ``--ods-merged-cell-mode``
    :Default: ``'flatten'``
    :Choices: ``spans``, ``flatten``, ``skip``
@@ -5289,7 +5485,7 @@ for embedded images.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--odt-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5534,7 +5730,7 @@ into AST representation, supporting both OpenAPI 3.x and Swagger 2.0 formats.
 
 **validate_spec**
 
-   Validate OpenAPI spec using jsonschema (requires jsonschema package)
+   Validate OpenAPI spec
 
    :Type: ``bool``
    :CLI flag: ``--openapi-validate-spec``
@@ -5834,7 +6030,7 @@ PST/OST archive handling, and advanced message selection.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--outlook-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5978,7 +6174,7 @@ PST/OST archive handling, and advanced message selection.
 
    Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
 
-   :Type: ``Literal['asc', 'desc']``
+   :Type: ``EmailSortOrder``
    :CLI flag: ``--outlook-sort-order``
    :Default: ``'asc'``
    :Choices: ``asc``, ``desc``
@@ -6025,8 +6221,8 @@ PST/OST archive handling, and advanced message selection.
    Include plain text content parts from emails
 
    :Type: ``bool``
-   :CLI flag: ``--outlook-include-plain-parts``
-   :Default: ``False``
+   :CLI flag: ``--outlook-no-include-plain-parts``
+   :Default: ``True``
    :Importance: advanced
 
 **output_structure**
@@ -6174,7 +6370,7 @@ including page selection, image handling, and formatting preferences.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--pdf-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -7070,7 +7266,7 @@ processing, including slide numbering and image handling.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--pptx-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -7153,7 +7349,7 @@ processing, including slide numbering and image handling.
 
    Chart conversion mode: 'data' (default, tables only), 'mermaid' (diagrams only), or 'both' (tables + diagrams)
 
-   :Type: ``Literal['data', 'mermaid', 'both']``
+   :Type: ``ChartsMode``
    :CLI flag: ``--pptx-charts-mode``
    :Default: ``'data'``
    :Choices: ``data``, ``mermaid``, ``both``
@@ -7216,7 +7412,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Slide splitting strategy: separator, heading, or auto
 
-   :Type: ``Literal['separator', 'heading', 'auto']``
+   :Type: ``SlideSplitMode``
    :CLI flag: ``--pptx-renderer-slide-split-mode``
    :Default: ``'auto'``
    :Choices: ``separator``, ``heading``, ``auto``
@@ -7634,7 +7830,7 @@ attachment handling from AttachmentOptionsMixin.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--rtf-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -7961,7 +8157,7 @@ including options for handling embedded resources and nested frames.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--webarchive-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -8086,7 +8282,7 @@ including options for handling embedded resources and nested frames.
 
    How to handle <br> tags: 'newline' or 'space'
 
-   :Type: ``Literal['newline', 'space']``
+   :Type: ``BrHandling``
    :CLI flag: ``--webarchive-br-handling``
    :Default: ``'newline'``
    :Choices: ``newline``, ``space``
@@ -8116,7 +8312,7 @@ including options for handling embedded resources and nested frames.
 
    How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``FiguresParsing``
    :CLI flag: ``--webarchive-figures-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
@@ -8126,7 +8322,7 @@ including options for handling embedded resources and nested frames.
 
    How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :Type: ``DetailsParsing``
    :CLI flag: ``--webarchive-details-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``html``, ``skip``
@@ -8154,7 +8350,7 @@ including options for handling embedded resources and nested frames.
 
    BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
 
-   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :Type: ``HtmlParser``
    :CLI flag: ``--webarchive-html-parser``
    :Default: ``'html.parser'``
    :Choices: ``html.parser``, ``html5lib``, ``lxml``
@@ -8252,7 +8448,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--xlsx-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -8351,7 +8547,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Trim empty rows/columns: none, leading, trailing, or both
 
-   :Type: ``Literal['none', 'leading', 'trailing', 'both']``
+   :Type: ``TrimEmptyMode``
    :CLI flag: ``--xlsx-trim-empty``
    :Default: ``'trailing'``
    :Choices: ``none``, ``leading``, ``trailing``, ``both``
@@ -8371,7 +8567,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts, default)
 
-   :Type: ``Literal['data', 'skip']``
+   :Type: ``ChartMode``
    :CLI flag: ``--xlsx-chart-mode``
    :Default: ``'skip'``
    :Choices: ``data``, ``skip``
@@ -8381,7 +8577,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'
 
-   :Type: ``Literal['spans', 'flatten', 'skip']``
+   :Type: ``MergedCellMode``
    :CLI flag: ``--xlsx-merged-cell-mode``
    :Default: ``'flatten'``
    :Choices: ``spans``, ``flatten``, ``skip``
@@ -8461,7 +8657,7 @@ resources.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :Type: ``AttachmentOverwriteMode``
    :CLI flag: ``--zip-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -8803,7 +8999,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001A1F2F80A10>``
+   :Default: ``<object object at 0x0000021A4D070A70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -8813,7 +9009,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001A1F2F80A10>``
+   :Default: ``<object object at 0x0000021A4D070A70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

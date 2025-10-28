@@ -24,6 +24,7 @@ Submodules
    all2md.parsers.docx
    all2md.parsers.dokuwiki
    all2md.parsers.eml
+   all2md.parsers.enex
    all2md.parsers.epub
    all2md.parsers.fb2
    all2md.parsers.html
