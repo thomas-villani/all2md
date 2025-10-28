@@ -350,20 +350,11 @@ resources.
 
 **preserve_directory_structure**
 
-   Include directory path in section headings
+   Include directory path in section headings (False = flatten structure)
 
    :Type: ``bool``
    :CLI flag: ``--archive-no-preserve-directory``
    :Default: ``True``
-   :Importance: advanced
-
-**flatten_structure**
-
-   Flatten directory structure in output
-
-   :Type: ``bool``
-   :CLI flag: ``--archive-flatten``
-   :Default: ``False``
    :Importance: advanced
 
 **extract_resource_files**
@@ -601,15 +592,6 @@ AsciiDoc output.
    :Type: ``bool``
    :CLI flag: ``--asciidoc-renderer-no-use-attributes``
    :Default: ``True``
-   :Importance: core
-
-**preserve_comments**
-
-   Include comments in rendered output
-
-   :Type: ``bool``
-   :CLI flag: ``--asciidoc-renderer-preserve-comments``
-   :Default: ``False``
    :Importance: core
 
 **line_length**
@@ -1380,16 +1362,6 @@ handling from AttachmentOptionsMixin for embedded images and media.
    :Type: ``bool``
    :CLI flag: ``--docx-no-include-image-captions``
    :Default: ``True``
-   :Importance: advanced
-
-**list_numbering_style**
-
-   List numbering style: detect, decimal, lowerroman, upperroman, loweralpha, upperalpha
-
-   :Type: ``Literal['detect', 'decimal', 'lowerroman', 'upperroman', 'loweralpha', 'upperalpha']``
-   :CLI flag: ``--docx-list-numbering-style``
-   :Default: ``'detect'``
-   :Choices: ``detect``, ``decimal``, ``lowerroman``, ``upperroman``, ``loweralpha``, ``upperalpha``
    :Importance: advanced
 
 **code_style_names**
@@ -3060,24 +3032,6 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
    :CLI action: ``append``
    :Importance: core
 
-**image_format**
-
-   Preferred image format for notebook outputs (png, jpeg)
-
-   :Type: ``str``
-   :CLI flag: ``--ipynb-image-format``
-   :Default: ``'png'``
-   :Importance: advanced
-
-**image_quality**
-
-   JPEG quality setting (1-100) for image conversion
-
-   :Type: ``int``
-   :CLI flag: ``--ipynb-image-quality``
-   :Default: ``85``
-   :Importance: advanced
-
 **truncate_long_outputs**
 
    :Type: ``int | None``
@@ -3426,7 +3380,7 @@ into AST representation using pylatexenc library.
 
 **parse_custom_commands**
 
-   Parse custom LaTeX commands (SECURITY: disabled by default)
+   Attempt to parse unknown/custom LaTeX commands by extracting their arguments. When False (default), unknown commands are processed safely with minimal interpretation. When True, parser attempts to extract content from custom command arguments. (SECURITY: disabled by default to prevent unexpected behavior)
 
    :Type: ``bool``
    :CLI flag: ``--latex-parse-custom-commands``
@@ -3833,7 +3787,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000027755B10A10>``
+   :Default: ``<object object at 0x000001A1F2F80A10>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3843,7 +3797,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000027755B10A10>``
+   :Default: ``<object object at 0x000001A1F2F80A10>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -5272,8 +5226,8 @@ ODT Parser Options
 Configuration options for ODT-to-Markdown conversion.
 
 This dataclass contains settings specific to OpenDocument Text (ODT)
-processing, including table preservation, footnotes, and comments.
-Inherits attachment handling from AttachmentOptionsMixin for embedded images.
+processing. Inherits attachment handling from AttachmentOptionsMixin
+for embedded images.
 
 **attachment_mode**
 
@@ -5374,33 +5328,6 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
    :Type: ``bool``
    :CLI flag: ``--odt-no-preserve-tables``
-   :Default: ``True``
-   :Importance: core
-
-**preserve_comments**
-
-   Include document comments in output
-
-   :Type: ``bool``
-   :CLI flag: ``--odt-preserve-comments``
-   :Default: ``False``
-   :Importance: advanced
-
-**include_footnotes**
-
-   Include footnotes in output
-
-   :Type: ``bool``
-   :CLI flag: ``--odt-no-include-footnotes``
-   :Default: ``True``
-   :Importance: core
-
-**include_endnotes**
-
-   Include endnotes in output
-
-   :Type: ``bool``
-   :CLI flag: ``--odt-no-include-endnotes``
    :Default: ``True``
    :Importance: core
 
@@ -5653,15 +5580,6 @@ into AST representation using orgparse.
    :Default: ``False``
    :Importance: core
 
-**parse_drawers**
-
-   Parse Org drawers (e.g., :PROPERTIES:, :LOGBOOK:)
-
-   :Type: ``bool``
-   :CLI flag: ``--org-no-parse-drawers``
-   :Default: ``True``
-   :Importance: core
-
 **parse_properties**
 
    Parse Org properties within drawers
@@ -5696,6 +5614,42 @@ into AST representation using orgparse.
    :Type: ``list[str]``
    :CLI flag: ``--org-todo-keywords``
    :Default factory: ``OrgParserOptions.<lambda>``
+   :Importance: core
+
+**parse_logbook**
+
+   Parse LOGBOOK drawer entries into structured data
+
+   :Type: ``bool``
+   :CLI flag: ``--org-no-parse-logbook``
+   :Default: ``True``
+   :Importance: core
+
+**parse_clock**
+
+   Parse CLOCK entries
+
+   :Type: ``bool``
+   :CLI flag: ``--org-no-parse-clock``
+   :Default: ``True``
+   :Importance: core
+
+**parse_closed**
+
+   Parse CLOSED timestamps for completed tasks
+
+   :Type: ``bool``
+   :CLI flag: ``--org-no-parse-closed``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_timestamp_metadata**
+
+   Store full timestamp metadata (repeaters, warnings, time ranges)
+
+   :Type: ``bool``
+   :CLI flag: ``--org-no-preserve-timestamp-metadata``
+   :Default: ``True``
    :Importance: core
 
 ORG Renderer Options
@@ -5743,15 +5697,6 @@ Org-Mode output.
    :Choices: ``stars``
    :Importance: advanced
 
-**preserve_drawers**
-
-   Preserve drawer content in rendered output
-
-   :Type: ``bool``
-   :CLI flag: ``--org-renderer-no-preserve-drawers``
-   :Default: ``False``
-   :Importance: advanced
-
 **preserve_properties**
 
    Preserve properties in rendered output
@@ -5787,6 +5732,33 @@ Org-Mode output.
    :CLI flag: ``--org-renderer-comment-mode``
    :Default: ``'comment'``
    :Choices: ``comment``, ``drawer``, ``ignore``
+   :Importance: core
+
+**preserve_logbook**
+
+   Render LOGBOOK drawer from metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--org-renderer-no-preserve-logbook``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_clock**
+
+   Render CLOCK entries
+
+   :Type: ``bool``
+   :CLI flag: ``--org-renderer-no-preserve-clock``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_closed**
+
+   Render CLOSED timestamps
+
+   :Type: ``bool``
+   :CLI flag: ``--org-renderer-no-preserve-closed``
+   :Default: ``True``
    :Importance: core
 
 OUTLOOK Options
@@ -6554,15 +6526,6 @@ including page selection, image handling, and formatting preferences.
    :Default: ``False``
    :Importance: advanced
 
-**lazy_image_processing**
-
-   Placeholder for future lazy image loading support. Note: Full implementation would require paginator interface for streaming large PDFs. Currently has no effect.
-
-   :Type: ``bool``
-   :CLI flag: ``--pdf-lazy-image-processing``
-   :Default: ``False``
-   :Importance: advanced
-
 Ocr Options
 +++++++++++
 
@@ -6906,13 +6869,7 @@ PLAINTEXT Options
 PLAINTEXT Parser Options
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Base class for all parser options.
-
-This class serves as the foundation for format-specific parser options.
-Parsers convert source documents into AST representation.
-
-For parsers that handle attachments (images, downloads, etc.), also inherit
-from AttachmentOptionsMixin to get attachment-related configuration fields.
+Configuration options for plain text parsing.
 
 **extract_metadata**
 
@@ -6920,6 +6877,15 @@ from AttachmentOptionsMixin to get attachment-related configuration fields.
 
    :Type: ``bool``
    :CLI flag: ``--plaintext-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**preserve_single_newlines**
+
+   Preserve single newlines characters in text
+
+   :Type: ``bool``
+   :CLI flag: ``--plaintext-preserve-single-newlines``
    :Default: ``False``
    :Importance: core
 
@@ -7466,15 +7432,6 @@ into AST representation using docutils.
    :Default: ``False``
    :Importance: core
 
-**parse_directives**
-
-   Parse RST directives (code-block, image, etc.)
-
-   :Type: ``bool``
-   :CLI flag: ``--rst-no-parse-directives``
-   :Default: ``True``
-   :Importance: core
-
 **strict_mode**
 
    Raise errors on invalid RST syntax (vs. graceful recovery)
@@ -7484,14 +7441,14 @@ into AST representation using docutils.
    :Default: ``False``
    :Importance: advanced
 
-**preserve_raw_directives**
+**parse_admonitions**
 
-   Preserve unknown directives as code blocks
+   Parse admonitions (note, warning, tip, etc.) as BlockQuote with metadata
 
    :Type: ``bool``
-   :CLI flag: ``--rst-preserve-raw-directives``
-   :Default: ``False``
-   :Importance: advanced
+   :CLI flag: ``--rst-no-parse-admonitions``
+   :Default: ``True``
+   :Importance: core
 
 **strip_comments**
 
@@ -8575,20 +8532,11 @@ resources.
 
 **preserve_directory_structure**
 
-   Include directory path in section headings
+   Include directory path in section headings (False = flatten structure)
 
    :Type: ``bool``
    :CLI flag: ``--zip-no-preserve-directory``
    :Default: ``True``
-   :Importance: core
-
-**flatten_structure**
-
-   Flatten directory structure in output
-
-   :Type: ``bool``
-   :CLI flag: ``--zip-flatten``
-   :Default: ``False``
    :Importance: advanced
 
 **extract_resource_files**
@@ -8855,7 +8803,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000027755B10A10>``
+   :Default: ``<object object at 0x000001A1F2F80A10>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -8865,7 +8813,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000027755B10A10>``
+   :Default: ``<object object at 0x000001A1F2F80A10>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

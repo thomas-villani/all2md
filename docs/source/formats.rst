@@ -111,7 +111,7 @@ EPUB eBooks
 - Automatically resolves embedded resources and applies attachment policy
 
 FictionBook 2.0 (FB2)
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 *Parser:* ``Fb2ToAstConverter``
 

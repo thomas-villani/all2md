@@ -606,6 +606,27 @@ DEFAULT_MAX_MESSAGES = None  # None means no limit
 DEFAULT_INCLUDE_SUBFOLDERS = True
 
 # =============================================================================
+# Evernote (ENEX) Constants
+# =============================================================================
+
+# Tag rendering modes
+TagsFormatMode = Literal["frontmatter", "inline", "heading", "skip"]
+DEFAULT_TAGS_FORMAT_MODE: TagsFormatMode = "inline"
+
+# Note sorting options
+NoteSortMode = Literal["created", "updated", "title", "none"]
+DEFAULT_NOTE_SORT_MODE: NoteSortMode = "none"
+
+# Note title defaults
+DEFAULT_NOTE_TITLE_LEVEL = 1
+DEFAULT_INCLUDE_NOTE_METADATA = True
+DEFAULT_INCLUDE_TAGS = True
+DEFAULT_NOTEBOOK_AS_HEADING = False
+
+# Notes section title
+DEFAULT_NOTES_SECTION_TITLE = "Notes"
+
+# =============================================================================
 # PDF to Markdown Constants
 # =============================================================================
 
@@ -805,6 +826,7 @@ DocumentFormat = Literal[
     "docx",
     "dokuwiki",
     "eml",
+    "enex",
     "epub",
     "fb2",
     "html",

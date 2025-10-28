@@ -25,6 +25,7 @@ Submodules
    all2md.options.docx
    all2md.options.dokuwiki
    all2md.options.eml
+   all2md.options.enex
    all2md.options.epub
    all2md.options.fb2
    all2md.options.html

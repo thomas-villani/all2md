@@ -29,6 +29,7 @@ Submodules
    all2md.utils.io_utils
    all2md.utils.metadata
    all2md.utils.network_security
+   all2md.utils.packages
    all2md.utils.parser_helpers
    all2md.utils.security
    all2md.utils.spreadsheet
