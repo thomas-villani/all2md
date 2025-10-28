@@ -357,8 +357,9 @@ PDF Documents
    options = PdfOptions(
        attachment_mode='download',
        attachment_output_dir='./pdf_images',
-       # PDF-specific: control image quality for extracted images
-       extract_images=True
+       image_format='jpeg',
+       image_quality=85,
+       skip_image_extraction=False
    )
    markdown = to_markdown('report.pdf', parser_options=options)
 

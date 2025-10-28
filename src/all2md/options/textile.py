@@ -56,7 +56,7 @@ class TextileParserOptions(BaseParserOptions):
         default=False, metadata={"help": "Raise errors on invalid Textile syntax", "importance": "advanced"}
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
-        default="escape",
+        default=DEFAULT_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle inline HTML: pass-through, escape, drop, or sanitize",
             "choices": HTML_PASSTHROUGH_MODES,

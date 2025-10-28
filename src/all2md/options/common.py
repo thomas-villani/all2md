@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
     DEFAULT_ALLOW_CWD_FILES,
@@ -20,8 +19,12 @@ from all2md.constants import (
     DEFAULT_ALLOWED_HOSTS,
     DEFAULT_ALT_TEXT_MODE,
     DEFAULT_ATTACHMENT_BASE_URL,
+    DEFAULT_ATTACHMENT_DEDUPLICATE_BY_HASH,
+    DEFAULT_ATTACHMENT_FILENAME_TEMPLATE,
     DEFAULT_ATTACHMENT_MODE,
     DEFAULT_ATTACHMENT_OUTPUT_DIR,
+    DEFAULT_ATTACHMENT_OVERWRITE,
+    DEFAULT_ATTACHMENTS_FOOTNOTES_SECTION,
     DEFAULT_MAX_ASSET_SIZE_BYTES,
     DEFAULT_MAX_CONCURRENT_REQUESTS,
     DEFAULT_MAX_REQUESTS_PER_SECOND,
@@ -37,10 +40,20 @@ from all2md.constants import (
     DEFAULT_PAGE_SEPARATOR,
     DEFAULT_REQUIRE_HEAD_SUCCESS,
     DEFAULT_REQUIRE_HTTPS,
+    DEFAULT_SPREADSHEET_CHART_MODE,
+    DEFAULT_SPREADSHEET_INCLUDE_SHEET_TITLES,
+    DEFAULT_SPREADSHEET_MERGED_CELL_MODE,
+    DEFAULT_SPREADSHEET_PRESERVE_NEWLINES_IN_CELLS,
+    DEFAULT_SPREADSHEET_RENDER_FORMULAS,
+    DEFAULT_SPREADSHEET_TRIM_EMPTY,
     AltTextMode,
     AttachmentMode,
+    AttachmentOverwriteMode,
+    ChartMode,
     HeaderCaseOption,
+    MergedCellMode,
     OCRMode,
+    TrimEmptyMode,
 )
 from all2md.options.base import BaseParserOptions, CloneFrozenMixin
 
@@ -312,14 +325,14 @@ class AttachmentOptionsMixin(CloneFrozenMixin):
 
     # Advanced attachment handling options
     attachment_filename_template: str = field(
-        default="{stem}_{type}{seq}.{ext}",
+        default=DEFAULT_ATTACHMENT_FILENAME_TEMPLATE,
         metadata={
             "help": "Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}",
             "importance": "advanced",
         },
     )
-    attachment_overwrite: Literal["unique", "overwrite", "skip"] = field(
-        default="unique",
+    attachment_overwrite: AttachmentOverwriteMode = field(
+        default=DEFAULT_ATTACHMENT_OVERWRITE,
         metadata={
             "help": "File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'",
             "choices": ["unique", "overwrite", "skip"],
@@ -327,10 +340,11 @@ class AttachmentOptionsMixin(CloneFrozenMixin):
         },
     )
     attachment_deduplicate_by_hash: bool = field(
-        default=False, metadata={"help": "Avoid saving duplicate attachments by content hash", "importance": "advanced"}
+        default=DEFAULT_ATTACHMENT_DEDUPLICATE_BY_HASH,
+        metadata={"help": "Avoid saving duplicate attachments by content hash", "importance": "advanced"},
     )
     attachments_footnotes_section: str | None = field(
-        default="Attachments",
+        default=DEFAULT_ATTACHMENTS_FOOTNOTES_SECTION,
         metadata={
             "help": "Section title for footnote-style attachment references (None to disable)",
             "importance": "advanced",
@@ -424,7 +438,7 @@ class SpreadsheetParserOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={"help": "Sheet names to include (list or regex pattern). default = all sheets", "importance": "core"},
     )
     include_sheet_titles: bool = field(
-        default=True,
+        default=DEFAULT_SPREADSHEET_INCLUDE_SHEET_TITLES,
         metadata={
             "help": "Prepend each sheet with '## {sheet_name}' heading",
             "cli_name": "no-include-sheet-titles",
@@ -432,7 +446,7 @@ class SpreadsheetParserOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     render_formulas: bool = field(
-        default=True,
+        default=DEFAULT_SPREADSHEET_RENDER_FORMULAS,
         metadata={
             "help": "Use stored cell values (True) or show formulas (False)",
             "cli_name": "no-render-formulas",
@@ -451,10 +465,11 @@ class SpreadsheetParserOptions(BaseParserOptions, AttachmentOptionsMixin):
         default="...", metadata={"help": "Note appended when rows/columns are truncated", "importance": "advanced"}
     )
     preserve_newlines_in_cells: bool = field(
-        default=False, metadata={"help": "Preserve line breaks within cells as <br> tags"}
+        default=DEFAULT_SPREADSHEET_PRESERVE_NEWLINES_IN_CELLS,
+        metadata={"help": "Preserve line breaks within cells as <br> tags"},
     )
-    trim_empty: Literal["none", "leading", "trailing", "both"] = field(
-        default="trailing",
+    trim_empty: TrimEmptyMode = field(
+        default=DEFAULT_SPREADSHEET_TRIM_EMPTY,
         metadata={
             "help": "Trim empty rows/columns: none, leading, trailing, or both",
             "choices": ["none", "leading", "trailing", "both"],
@@ -469,17 +484,16 @@ class SpreadsheetParserOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "core",
         },
     )
-    # TODO: move magic strings
-    chart_mode: Literal["data", "skip"] = field(
-        default="skip",
+    chart_mode: ChartMode = field(
+        default=DEFAULT_SPREADSHEET_CHART_MODE,
         metadata={
             "help": "Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts, default)",
             "choices": ["data", "skip"],
             "importance": "advanced",
         },
     )
-    merged_cell_mode: Literal["spans", "flatten", "skip"] = field(
-        default="flatten",
+    merged_cell_mode: MergedCellMode = field(
+        default=DEFAULT_SPREADSHEET_MERGED_CELL_MODE,
         metadata={
             "help": "Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'",
             "choices": ["spans", "flatten", "skip"],

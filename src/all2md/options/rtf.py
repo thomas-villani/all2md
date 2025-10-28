@@ -36,6 +36,7 @@ class RtfRendererOptions(BaseRendererOptions):
 
     """
 
+    # TODO: move magic strings/numbers
     font_family: Literal["roman", "swiss"] = field(
         default="roman",
         metadata={

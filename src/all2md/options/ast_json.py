@@ -11,6 +11,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.constants import (
+    DEFAULT_AST_JSON_ENSURE_ASCII,
+    DEFAULT_AST_JSON_INDENT,
+    DEFAULT_AST_JSON_SORT_KEYS,
+    DEFAULT_AST_JSON_STRICT_MODE,
+    DEFAULT_AST_JSON_VALIDATE_SCHEMA,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -28,10 +35,12 @@ class AstJsonParserOptions(BaseParserOptions):
     """
 
     validate_schema: bool = field(
-        default=True, metadata={"help": "Validate schema version during parsing", "importance": "core"}
+        default=DEFAULT_AST_JSON_VALIDATE_SCHEMA,
+        metadata={"help": "Validate schema version during parsing", "importance": "core"},
     )
     strict_mode: bool = field(
-        default=False, metadata={"help": "Fail on unknown node types or attributes", "importance": "advanced"}
+        default=DEFAULT_AST_JSON_STRICT_MODE,
+        metadata={"help": "Fail on unknown node types or attributes", "importance": "advanced"},
     )
 
 
@@ -62,11 +71,14 @@ class AstJsonRendererOptions(BaseRendererOptions):
     """
 
     indent: int | None = field(
-        default=2, metadata={"help": "JSON indentation spaces (None for compact)", "type": int, "importance": "core"}
+        default=DEFAULT_AST_JSON_INDENT,
+        metadata={"help": "JSON indentation spaces (None for compact)", "type": int, "importance": "core"},
     )
     ensure_ascii: bool = field(
-        default=False, metadata={"help": "Escape non-ASCII characters in JSON", "importance": "advanced"}
+        default=DEFAULT_AST_JSON_ENSURE_ASCII,
+        metadata={"help": "Escape non-ASCII characters in JSON", "importance": "advanced"},
     )
     sort_keys: bool = field(
-        default=False, metadata={"help": "Sort JSON object keys alphabetically", "importance": "advanced"}
+        default=DEFAULT_AST_JSON_SORT_KEYS,
+        metadata={"help": "Sort JSON object keys alphabetically", "importance": "advanced"},
     )

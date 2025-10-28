@@ -54,7 +54,6 @@ from all2md.options.org import OrgParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -168,7 +167,7 @@ class OrgParser(BaseParser):
 
         """
         # Load Org content from various input types
-        org_content = self._load_org_content(input_data)
+        org_content = self._load_text_content(input_data)
 
         import orgparse
 
@@ -216,40 +215,6 @@ class OrgParser(BaseParser):
                     children.append(ast_nodes)
 
         return Document(children=children, metadata=metadata.to_dict())
-
-    @staticmethod
-    def _load_org_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load Org content from various input types with encoding detection.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            Input data to load
-
-        Returns
-        -------
-        str
-            Org content as string
-
-        """
-        if isinstance(input_data, bytes):
-            return read_text_with_encoding_detection(input_data)
-        elif isinstance(input_data, Path):
-            with open(input_data, "rb") as f:
-                return read_text_with_encoding_detection(f.read())
-        elif isinstance(input_data, str):
-            # Could be file path or Org content
-            path = Path(input_data)
-            if path.exists() and path.is_file():
-                with open(path, "rb") as f:
-                    return read_text_with_encoding_detection(f.read())
-            else:
-                # Assume it's Org content
-                return input_data
-        else:
-            # File-like object (handles both binary and text mode)
-            input_data.seek(0)
-            return normalize_stream_to_text(input_data)
 
     def _process_node(self, node: Any) -> Node | list[Node] | None:
         """Process an orgparse node into an AST node.

@@ -10,6 +10,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from all2md.constants import (
+    DEFAULT_ARCHIVE_CREATE_SECTION_HEADINGS,
+    DEFAULT_ARCHIVE_ENABLE_PARALLEL_PROCESSING,
+    DEFAULT_ARCHIVE_EXTRACT_RESOURCE_FILES,
+    DEFAULT_ARCHIVE_INCLUDE_RESOURCE_MANIFEST,
+    DEFAULT_ARCHIVE_PARALLEL_THRESHOLD,
+    DEFAULT_ARCHIVE_PRESERVE_DIRECTORY_STRUCTURE,
+    DEFAULT_ARCHIVE_SKIP_EMPTY_FILES,
+)
 from all2md.options.base import BaseParserOptions
 from all2md.options.common import AttachmentOptionsMixin
 
@@ -80,7 +89,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     create_section_headings: bool = field(
-        default=True,
+        default=DEFAULT_ARCHIVE_CREATE_SECTION_HEADINGS,
         metadata={
             "help": "Create section headings for each file",
             "cli_name": "no-section-headings",
@@ -89,7 +98,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     preserve_directory_structure: bool = field(
-        default=True,
+        default=DEFAULT_ARCHIVE_PRESERVE_DIRECTORY_STRUCTURE,
         metadata={
             "help": "Include directory path in section headings (False = flatten structure)",
             "cli_name": "no-preserve-directory",
@@ -98,7 +107,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     extract_resource_files: bool = field(
-        default=True,
+        default=DEFAULT_ARCHIVE_EXTRACT_RESOURCE_FILES,
         metadata={
             "help": "Extract non-parseable files to attachment directory",
             "cli_name": "no-extract-resources",
@@ -116,7 +125,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     skip_empty_files: bool = field(
-        default=True,
+        default=DEFAULT_ARCHIVE_SKIP_EMPTY_FILES,
         metadata={
             "help": "Skip files with no content or parse failures",
             "cli_name": "no-skip-empty",
@@ -125,7 +134,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     include_resource_manifest: bool = field(
-        default=True,
+        default=DEFAULT_ARCHIVE_INCLUDE_RESOURCE_MANIFEST,
         metadata={
             "help": "Include manifest table of extracted resources",
             "cli_name": "no-resource-manifest",
@@ -134,7 +143,7 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     enable_parallel_processing: bool = field(
-        default=False,
+        default=DEFAULT_ARCHIVE_ENABLE_PARALLEL_PROCESSING,
         metadata={
             "help": "Enable parallel processing for large archives (opt-in)",
             "cli_name": "parallel",
@@ -150,9 +159,8 @@ class ArchiveOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
-
     parallel_threshold: int = field(
-        default=10,
+        default=DEFAULT_ARCHIVE_PARALLEL_THRESHOLD,
         metadata={
             "help": "Minimum number of files to enable parallel processing",
             "cli_name": "parallel-threshold",

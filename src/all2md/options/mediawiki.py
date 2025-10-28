@@ -18,6 +18,7 @@ from all2md.constants import (
     DEFAULT_MEDIAWIKI_PARSE_TEMPLATES,
     DEFAULT_MEDIAWIKI_STRIP_COMMENTS,
     DEFAULT_MEDIAWIKI_USE_HTML_FOR_UNSUPPORTED,
+    HTML_PASSTHROUGH_MODES,
     HtmlPassthroughMode,
     MediaWikiCommentMode,
     MediaWikiImageCaptionMode,
@@ -95,13 +96,14 @@ class MediaWikiOptions(BaseRendererOptions):
         },
     )
     html_passthrough_mode: HtmlPassthroughMode = field(
-        default="pass-through",
+        default=DEFAULT_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
-            "choices": ["pass-through", "escape", "drop", "sanitize"],
+            "choices": HTML_PASSTHROUGH_MODES,
             "importance": "security",
         },
     )
+    # TODO: move magic strings/numbers
     comment_mode: MediaWikiCommentMode = field(
         default=DEFAULT_MEDIAWIKI_COMMENT_MODE,
         metadata={

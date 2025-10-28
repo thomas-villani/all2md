@@ -53,7 +53,6 @@ from all2md.exceptions import ParsingError
 from all2md.options.dokuwiki import DokuWikiParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -187,7 +186,7 @@ class DokuWikiParser(BaseParser):
 
         """
         # Load DokuWiki content from various input types
-        dokuwiki_content = self._load_dokuwiki_content(input_data)
+        dokuwiki_content = self._load_text_content(input_data)
 
         # Reset parser state to prevent leakage across parse calls
         self._footnote_definitions = {}
@@ -202,43 +201,6 @@ class DokuWikiParser(BaseParser):
             raise ParsingError(f"Failed to parse DokuWiki markup: {e}") from e
 
         return Document(children=children, metadata=metadata.to_dict())
-
-    @staticmethod
-    def _load_dokuwiki_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load DokuWiki content from various input types with encoding detection.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            Input data to load
-
-        Returns
-        -------
-        str
-            DokuWiki content as string
-
-        """
-        if isinstance(input_data, bytes):
-            return read_text_with_encoding_detection(input_data)
-
-        if isinstance(input_data, str):
-            # Check if it's a file path
-            path = Path(input_data)
-            if path.exists() and path.is_file():
-                with open(path, "rb") as f:
-                    return read_text_with_encoding_detection(f.read())
-            # Otherwise treat as literal content
-            return input_data
-
-        if isinstance(input_data, Path):
-            with open(input_data, "rb") as f:
-                return read_text_with_encoding_detection(f.read())
-
-        # File-like object (handles both binary and text mode)
-        if hasattr(input_data, "read"):
-            return normalize_stream_to_text(input_data)
-
-        raise ValueError(f"Unsupported input type: {type(input_data)}")
 
     def _extract_comments_from_text(self, text: str) -> list[tuple[str, int, int, str]]:
         """Extract comments from text, returning comment info with positions.

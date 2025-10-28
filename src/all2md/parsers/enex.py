@@ -28,7 +28,6 @@ from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
-from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
@@ -146,7 +145,7 @@ class EnexToAstConverter(BaseParser):
 
         # Load XML bytes
         try:
-            xml_bytes = self._load_enex_bytes(input_data)
+            xml_bytes = self._load_bytes_content(input_data)
         except Exception as e:
             raise MalformedFileError(
                 f"Failed to load ENEX data: {e!r}",
@@ -212,34 +211,6 @@ class EnexToAstConverter(BaseParser):
                 parsing_stage="content_processing",
                 original_error=e,
             ) from e
-
-    def _load_enex_bytes(self, input_data: Union[str, Path, IO[bytes], bytes]) -> bytes:
-        """Load ENEX data as bytes from various input types.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            Input data to load
-
-        Returns
-        -------
-        bytes
-            Raw ENEX XML bytes
-
-        """
-        if isinstance(input_data, bytes):
-            return input_data
-        elif isinstance(input_data, (str, Path)):
-            path = Path(input_data)
-            return path.read_bytes()
-        elif hasattr(input_data, "read"):
-            return normalize_stream_to_bytes(input_data)
-        else:
-            raise ValidationError(
-                f"Unsupported input type: {type(input_data).__name__}",
-                parameter_name="input_data",
-                parameter_value=input_data,
-            )
 
     def _process_note(self, note_elem: ET.Element) -> dict[str, Any] | None:
         """Process a single note element.

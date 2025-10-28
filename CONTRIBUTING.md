@@ -45,66 +45,229 @@ Thank you for your interest in contributing to all2md! This guide will help you 
 
    ```bash
    # Install all format dependencies and development tools
-   pip install -e ".[all]"
-
-   # Install additional development tools
-   pip install pytest ruff mypy sphinx
+   pip install -e ".[all,dev]"
    ```
 
 ## Code Quality
 
-We use several tools to maintain code quality:
+We use several tools to maintain code quality and consistency across the codebase.
+
+### Code Formatting with Black
+
+Black is "the uncompromising Python code formatter" that ensures consistent code style across the project.
+
+**Configuration:**
+- Line length: 120 characters (configured in `pyproject.toml`)
+- Target: Python 3.12+
+- String normalization: enabled
+
+**Running Black manually:**
+
+```bash
+# Format all code (Windows)
+.venv/Scripts/python.exe -m black src/ tests/
+
+# Check formatting without making changes
+.venv/Scripts/python.exe -m black --check src/ tests/
+
+# Format specific file
+.venv/Scripts/python.exe -m black src/all2md/api.py
+
+# macOS/Linux
+python -m black src/ tests/
+```
+
+**Why Black?**
+- Zero configuration needed (opinionated by design)
+- Deterministic formatting (same code always formats the same way)
+- Fast formatting
+- Reduces code review time by eliminating style debates
 
 ### Linting with Ruff
 
-Run linting checks:
+Ruff is an extremely fast Python linter that replaces multiple tools (Flake8, isort, pyupgrade, etc.).
+
+**Enabled rule sets:**
+- `D` - pydocstyle (docstring conventions)
+- `E` - pycodestyle errors
+- `F` - pyflakes
+- `W` - pycodestyle warnings
+- `C` - complexity checks (max complexity: 25)
+- `B` - flake8-bugbear (common bugs)
+- `I` - import sorting
+
+**Running Ruff:**
 
 ```bash
-# Windows (from virtual environment)
+# Run linting checks (Windows)
 .venv/Scripts/python.exe -m ruff check
+
+# Auto-fix issues where possible
+.venv/Scripts/python.exe -m ruff check --fix
+
+# Check specific file
+.venv/Scripts/python.exe -m ruff check src/all2md/api.py
+
+# Show all violations (not just first occurrence)
+.venv/Scripts/python.exe -m ruff check --output-format=full
 
 # macOS/Linux
 python -m ruff check
 ```
 
-Auto-fix issues where possible:
+**Ruff can also format code:**
 
 ```bash
-.venv/Scripts/python.exe -m ruff check --fix
-```
-
-### Code Formatting
-
-Format code with Ruff:
-
-```bash
+# Format code (alternative to Black, but we use Black primarily)
 .venv/Scripts/python.exe -m ruff format
+
+# Check formatting without changes
+.venv/Scripts/python.exe -m ruff format --check
 ```
 
-### Type Checking
+### Type Checking with mypy
 
-Run type checking with mypy:
+mypy performs static type checking to catch type-related errors before runtime.
+
+**Configuration:**
+- Strict optional checking enabled
+- Disallow untyped definitions
+- Custom type stubs in `stubs/` directory
+- Python 3.12+ compatibility
+
+**Running mypy:**
 
 ```bash
+# Type check all source code (Windows)
 .venv/Scripts/python.exe -m mypy src/
+
+# Check specific module
+.venv/Scripts/python.exe -m mypy src/all2md/parsers/
+
+# Show error codes
+.venv/Scripts/python.exe -m mypy src/ --show-error-codes
+
+# macOS/Linux
+python -m mypy src/
 ```
+
+**Type hints requirements:**
+- All function signatures must have type hints
+- Use `from __future__ import annotations` for forward references
+- Follow NumPy-style docstrings with type information
+
+### Pre-commit Hooks
+
+Pre-commit hooks automatically run code quality checks before each commit, catching issues early.
+
+**Installation:**
+
+```bash
+# Install pre-commit hooks (one-time setup)
+# Windows
+.venv/Scripts/python.exe -m pip install pre-commit
+pre-commit install
+
+# macOS/Linux
+pip install pre-commit
+pre-commit install
+```
+
+**Configured hooks:**
+
+The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
+
+1. **Custom Format Sync Hooks** (Local)
+   - `format-sync-update`: Auto-updates DocumentFormat Literal in constants.py
+   - `format-sync-validate`: Validates DocumentFormat synchronization
+
+2. **Black** (v25.9.0)
+   - Automatically formats Python code on commit
+   - Configuration: 120 char line length, Python 3.12+
+
+3. **Ruff** (v0.14.2)
+   - Lints code and auto-fixes common issues
+   - Runs with `--fix` flag to automatically correct problems
+
+4. **Pre-commit-hooks** (v6.0.0) - Basic file checks:
+   - `trailing-whitespace`: Removes trailing whitespace
+   - `end-of-file-fixer`: Ensures files end with newline
+   - `check-yaml`: Validates YAML syntax
+   - `check-json`: Validates JSON syntax
+   - `check-toml`: Validates TOML syntax
+   - `check-added-large-files`: Prevents committing files >1MB
+   - `mixed-line-ending`: Ensures consistent line endings
+
+**Using pre-commit:**
+
+```bash
+# Hooks run automatically on git commit
+git commit -m "Your message"
+
+# Run hooks manually on all files
+pre-commit run --all-files
+
+# Run hooks on staged files only
+pre-commit run
+
+# Run specific hook
+pre-commit run black --all-files
+pre-commit run ruff --all-files
+
+# Update hook versions
+pre-commit autoupdate
+
+# Temporarily skip hooks (use sparingly!)
+git commit --no-verify -m "Emergency fix"
+```
+
+**What happens when hooks fail?**
+- The commit is aborted
+- Auto-fixable issues (formatting, trailing whitespace) are fixed automatically
+- Re-stage the fixed files and commit again:
+  ```bash
+  git add .
+  git commit -m "Your message"
+  ```
+
+**Benefits of pre-commit hooks:**
+- Catches issues before they reach code review
+- Ensures consistent code style across all contributors
+- Reduces back-and-forth in pull requests
+- Automatically fixes many common issues
 
 ### All Quality Checks
 
-Before submitting a PR, run all checks:
+Before submitting a PR, run all checks manually to ensure everything passes:
 
 ```bash
-# Linting
+# 1. Format code with Black
+.venv/Scripts/python.exe -m black src/ tests/
+
+# 2. Run linting
 .venv/Scripts/python.exe -m ruff check
 
-# Formatting
-.venv/Scripts/python.exe -m ruff format --check
+# 3. Check formatting
+.venv/Scripts/python.exe -m black --check src/ tests/
 
-# Type checking
+# 4. Run type checking
 .venv/Scripts/python.exe -m mypy src/
 
-# Tests
+# 5. Run tests
 .venv/Scripts/python.exe -m pytest -m unit
+
+# Or run pre-commit on all files
+pre-commit run --all-files
+```
+
+**Quick command to run everything:**
+
+```bash
+# Windows
+.venv/Scripts/python.exe -m black src/ tests/ && .venv/Scripts/python.exe -m ruff check && .venv/Scripts/python.exe -m mypy src/ && .venv/Scripts/python.exe -m pytest -m unit
+
+# macOS/Linux
+python -m black src/ tests/ && python -m ruff check && python -m mypy src/ && python -m pytest -m unit
 ```
 
 ## Testing
@@ -334,18 +497,32 @@ For third-party plugins, see the detailed guide in `docs/source/plugins.rst`.
 
 2. **Make your changes:**
 
-   - Follow code style guidelines (Ruff formatting)
+   - Follow code style guidelines (Black + Ruff)
    - Add/update tests
    - Add/update documentation
    - Use NumPy-style docstrings
+   - Install pre-commit hooks (recommended):
+     ```bash
+     pre-commit install
+     ```
 
 3. **Run quality checks:**
 
    ```bash
+   # Format with Black
+   .venv/Scripts/python.exe -m black src/ tests/
+
+   # Lint with Ruff
    .venv/Scripts/python.exe -m ruff check
-   .venv/Scripts/python.exe -m ruff format
+
+   # Type check
    .venv/Scripts/python.exe -m mypy src/
+
+   # Run tests
    .venv/Scripts/python.exe -m pytest -m unit
+
+   # Or use pre-commit to run all checks
+   pre-commit run --all-files
    ```
 
 4. **Commit your changes:**
@@ -354,6 +531,8 @@ For third-party plugins, see the detailed guide in `docs/source/plugins.rst`.
    git add .
    git commit -m "Add feature: brief description"
    ```
+
+   **Note:** If you installed pre-commit hooks, they will run automatically on commit and may modify files (formatting, trailing whitespace, etc.). If this happens, simply stage the changes and commit again.
 
    Use clear, descriptive commit messages:
    - `Add: new feature or functionality`

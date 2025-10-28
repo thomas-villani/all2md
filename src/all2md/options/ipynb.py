@@ -75,6 +75,8 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
     show_execution_count: bool = field(
         default=False, metadata={"help": "Show execution counts for code cells", "importance": "advanced"}
     )
+
+    # TODO: move magic strings/numbers
     output_types: tuple[str, ...] | None = field(
         default=("stream", "execute_result", "display_data"),
         metadata={
@@ -83,6 +85,8 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "core",
         },
     )
+
+    # TODO: these are not properly defined!
     truncate_long_outputs: int | None = DEFAULT_TRUNCATE_OUTPUT_LINES
     truncate_output_message: str | None = DEFAULT_TRUNCATE_OUTPUT_MESSAGE
 
@@ -143,6 +147,8 @@ class IpynbRendererOptions(BaseRendererOptions):
         constructed per cell.
 
     """
+
+    # TODO: move magic strings/numbers
 
     nbformat: int | Literal["auto"] = field(
         default=4,

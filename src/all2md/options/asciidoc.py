@@ -10,14 +10,29 @@ supporting both AST parsing and rendering operations.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
+    DEFAULT_ASCIIDOC_ATTRIBUTE_MISSING_POLICY,
     DEFAULT_ASCIIDOC_COMMENT_MODE,
+    DEFAULT_ASCIIDOC_HONOR_HARD_BREAKS,
+    DEFAULT_ASCIIDOC_LINE_LENGTH,
+    DEFAULT_ASCIIDOC_LIST_INDENT,
+    DEFAULT_ASCIIDOC_PARSE_ADMONITIONS,
+    DEFAULT_ASCIIDOC_PARSE_ATTRIBUTES,
+    DEFAULT_ASCIIDOC_PARSE_INCLUDES,
+    DEFAULT_ASCIIDOC_PARSE_TABLE_SPANS,
+    DEFAULT_ASCIIDOC_RESOLVE_ATTRIBUTE_REFS,
+    DEFAULT_ASCIIDOC_STRICT_MODE,
+    DEFAULT_ASCIIDOC_STRIP_COMMENTS,
+    DEFAULT_ASCIIDOC_SUPPORT_UNCONSTRAINED_FORMATTING,
+    DEFAULT_ASCIIDOC_TABLE_HEADER_DETECTION,
+    DEFAULT_ASCIIDOC_USE_ATTRIBUTES,
     DEFAULT_HTML_PASSTHROUGH_MODE,
     HTML_PASSTHROUGH_MODES,
     AsciiDocCommentMode,
+    AttributeMissingPolicy,
     HtmlPassthroughMode,
+    TableHeaderDetection,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
@@ -53,11 +68,11 @@ class AsciiDocOptions(BaseParserOptions):
     """
 
     parse_attributes: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_PARSE_ATTRIBUTES,
         metadata={"help": "Parse document attributes", "cli_name": "no-parse-attributes", "importance": "core"},
     )
     parse_admonitions: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_PARSE_ADMONITIONS,
         metadata={
             "help": "Parse admonition blocks ([NOTE], [IMPORTANT], etc.)",
             "cli_name": "no-parse-admonitions",
@@ -65,7 +80,7 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
     parse_includes: bool = field(
-        default=False,
+        default=DEFAULT_ASCIIDOC_PARSE_INCLUDES,
         metadata={
             "help": "Process include directives (SECURITY: disabled by default)",
             "cli_name": "parse-includes",
@@ -73,18 +88,19 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
     strict_mode: bool = field(
-        default=False, metadata={"help": "Raise errors on invalid AsciiDoc syntax", "importance": "advanced"}
+        default=DEFAULT_ASCIIDOC_STRICT_MODE,
+        metadata={"help": "Raise errors on invalid AsciiDoc syntax", "importance": "advanced"},
     )
     resolve_attribute_refs: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_RESOLVE_ATTRIBUTE_REFS,
         metadata={
             "help": "Resolve attribute references ({name}) in text",
             "cli_name": "no-resolve-attributes",
             "importance": "advanced",
         },
     )
-    attribute_missing_policy: Literal["keep", "blank", "warn"] = field(
-        default="keep",
+    attribute_missing_policy: AttributeMissingPolicy = field(
+        default=DEFAULT_ASCIIDOC_ATTRIBUTE_MISSING_POLICY,
         metadata={
             "help": "Policy for undefined attribute references: keep literal, use blank, or warn",
             "choices": ["keep", "blank", "warn"],
@@ -92,15 +108,15 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
     support_unconstrained_formatting: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_SUPPORT_UNCONSTRAINED_FORMATTING,
         metadata={
             "help": "Support unconstrained formatting (e.g., **b**old for mid-word)",
             "cli_name": "no-unconstrained-formatting",
             "importance": "advanced",
         },
     )
-    table_header_detection: Literal["first-row", "attribute-based", "auto"] = field(
-        default="attribute-based",
+    table_header_detection: TableHeaderDetection = field(
+        default=DEFAULT_ASCIIDOC_TABLE_HEADER_DETECTION,
         metadata={
             "help": "How to detect table headers: always first-row, use block attributes, or auto-detect",
             "choices": ["first-row", "attribute-based", "auto"],
@@ -108,7 +124,7 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
     honor_hard_breaks: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_HONOR_HARD_BREAKS,
         metadata={
             "help": "Honor explicit line breaks (trailing space + plus)",
             "cli_name": "no-honor-hard-breaks",
@@ -116,7 +132,7 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
     parse_table_spans: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_PARSE_TABLE_SPANS,
         metadata={
             "help": "Parse table colspan/rowspan syntax (e.g., 2+|cell)",
             "cli_name": "no-parse-table-spans",
@@ -124,7 +140,7 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
     strip_comments: bool = field(
-        default=False,
+        default=DEFAULT_ASCIIDOC_STRIP_COMMENTS,
         metadata={
             "help": "Strip comments (// syntax) instead of preserving as Comment nodes",
             "cli_name": "strip-comments",
@@ -164,9 +180,12 @@ class AsciiDocRendererOptions(BaseRendererOptions):
 
     """
 
-    list_indent: int = field(default=2, metadata={"help": "Spaces for nested list indentation", "type": int})
+    list_indent: int = field(
+        default=DEFAULT_ASCIIDOC_LIST_INDENT,
+        metadata={"help": "Spaces for nested list indentation", "type": int},
+    )
     use_attributes: bool = field(
-        default=True,
+        default=DEFAULT_ASCIIDOC_USE_ATTRIBUTES,
         metadata={
             "help": "Include document attributes in output",
             "cli_name": "no-use-attributes",
@@ -174,7 +193,7 @@ class AsciiDocRendererOptions(BaseRendererOptions):
         },
     )
     line_length: int = field(
-        default=0,
+        default=DEFAULT_ASCIIDOC_LINE_LENGTH,
         metadata={"help": "Target line length for wrapping (0 = no wrapping)", "type": int, "importance": "core"},
     )
     html_passthrough_mode: HtmlPassthroughMode = field(

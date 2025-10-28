@@ -6,16 +6,21 @@ supporting both AST parsing and rendering operations.
 """
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
     DEFAULT_DOCX_CODE_FONT,
     DEFAULT_DOCX_CODE_FONT_SIZE,
     DEFAULT_DOCX_COMMENT_MODE,
+    DEFAULT_DOCX_COMMENTS_POSITION,
     DEFAULT_DOCX_FONT,
     DEFAULT_DOCX_FONT_SIZE,
+    DEFAULT_DOCX_INCLUDE_COMMENTS,
+    DEFAULT_DOCX_INCLUDE_ENDNOTES,
+    DEFAULT_DOCX_INCLUDE_FOOTNOTES,
+    DEFAULT_DOCX_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_DOCX_TABLE_STYLE,
     DocxCommentMode,
+    DocxCommentsPosition,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
@@ -192,19 +197,20 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
 
     # Advanced DOCX options
     include_footnotes: bool = field(
-        default=True,
+        default=DEFAULT_DOCX_INCLUDE_FOOTNOTES,
         metadata={"help": "Include footnotes in output", "cli_name": "no-include-footnotes", "importance": "core"},
     )
     include_endnotes: bool = field(
-        default=True,
+        default=DEFAULT_DOCX_INCLUDE_ENDNOTES,
         metadata={"help": "Include endnotes in output", "cli_name": "no-include-endnotes", "importance": "core"},
     )
     include_comments: bool = field(
-        default=False, metadata={"help": "Include document comments in output", "importance": "core"}
+        default=DEFAULT_DOCX_INCLUDE_COMMENTS,
+        metadata={"help": "Include document comments in output", "importance": "core"},
     )
 
-    comments_position: Literal["inline", "footnotes"] = field(
-        default="footnotes",
+    comments_position: DocxCommentsPosition = field(
+        default=DEFAULT_DOCX_COMMENTS_POSITION,
         metadata={
             "help": (
                 "Where to place Comment nodes in the AST: inline (CommentInline nodes at reference points) "
@@ -215,7 +221,7 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     include_image_captions: bool = field(
-        default=True,
+        default=DEFAULT_DOCX_INCLUDE_IMAGE_CAPTIONS,
         metadata={
             "help": "Include image captions/descriptions in output",
             "cli_name": "no-include-image-captions",

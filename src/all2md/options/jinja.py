@@ -168,6 +168,7 @@ class JinjaRendererOptions(BaseRendererOptions):
         },
     )
 
+    # TODO: move magic strings/numbers
     escape_strategy: Literal["xml", "html", "latex", "yaml", "markdown", "none", "custom"] | None = field(
         default=None,
         metadata={

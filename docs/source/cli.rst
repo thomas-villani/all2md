@@ -621,6 +621,39 @@ Attachment Handling
       # Resolve relative URLs in HTML documents
       all2md webpage.html --attachment-mode download --attachment-base-url https://example.com
 
+Remote Input (HTTP/HTTPS)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``--remote-input-enabled``
+   Allow all2md to fetch documents directly from HTTP(S) URLs. Disabled by default to prevent SSRF-style attacks.
+
+   .. code-block:: bash
+
+      # Convert a remote PDF after enabling remote input and restricting hosts
+      all2md https://docs.example.com/guide.pdf \
+        --remote-input-enabled \
+        --remote-input-allowed-hosts docs.example.com
+
+``--remote-input-allowed-hosts``
+   Comma-separated allowlist of hostnames or CIDR ranges permitted when remote input is enabled. If omitted, every
+   host is allowed—explicitly listing trusted origins is strongly recommended.
+
+``--remote-input-allow-http``
+   Permit plain HTTP downloads. HTTPS remains mandatory unless this flag is supplied.
+
+``--remote-input-timeout``
+   Network timeout (seconds) for downloading remote inputs. Default: ``10``.
+
+``--remote-input-max-size-bytes``
+   Maximum size (in bytes) for a remote document. Default: ``20971520`` (20 MB). Requests exceeding the limit abort
+   before parsing to protect memory budgets.
+
+``--remote-input-user-agent``
+   Custom ``User-Agent`` header used for remote input requests. Defaults to ``all2md/<version>``.
+
+These options only affect the source document download. Per-format network controls (e.g. ``--html-network-*``) still
+apply to embedded resources fetched during conversion.
+
 Markdown Formatting
 ~~~~~~~~~~~~~~~~~~~
 
@@ -1128,6 +1161,17 @@ Configuration and Debugging
    .. note::
 
       Trace mode is primarily useful for performance debugging and optimization. For normal operation, use ``--log-level DEBUG`` or ``--verbose`` instead.
+
+``--strict-args``
+   Treat unknown command-line arguments as fatal errors. By default the CLI logs a warning and continues; enabling
+   ``--strict-args`` is useful in CI pipelines and scripts where typos must halt execution.
+
+   .. code-block:: bash
+
+      # Fail fast if any flag is misspelled
+      all2md report.pdf --strict-args --pdf-pages "1-3"
+
+   Configuration files may still contain extra keys; these produce validation warnings rather than aborting.
 
 ``--about``
    Display comprehensive system information including version, dependencies, and format availability.

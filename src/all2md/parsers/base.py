@@ -17,9 +17,10 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document, Node
-from all2md.exceptions import InvalidOptionsError
+from all2md.exceptions import InvalidOptionsError, ValidationError
 from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
+from all2md.utils.encoding import normalize_stream_to_bytes, normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import (
     append_attachment_footnotes as _append_attachment_footnotes_helper,
@@ -326,3 +327,66 @@ class BaseParser(ABC):
 
         """
         _append_attachment_footnotes_helper(children, attachment_footnotes, section_title)
+
+    @staticmethod
+    def _load_text_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
+        """Load content from various input types with encoding detection.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            Input data to load
+
+        Returns
+        -------
+        str
+            AsciiDoc content as string
+
+        """
+        if isinstance(input_data, bytes):
+            return read_text_with_encoding_detection(input_data)
+        elif isinstance(input_data, Path):
+            with open(input_data, "rb") as f:
+                return read_text_with_encoding_detection(f.read())
+        elif isinstance(input_data, str):
+            # Could be file path or content
+            path = Path(input_data)
+            if path.exists() and path.is_file():
+                with open(path, "rb") as f:
+                    return read_text_with_encoding_detection(f.read())
+            else:
+                # Assume it's content
+                return input_data
+        else:
+            # File-like object (handles both binary and text mode)
+            input_data.seek(0)
+            return normalize_stream_to_text(input_data)
+
+    @staticmethod
+    def _load_bytes_content(input_data: Union[str, Path, IO[bytes], bytes]) -> bytes:
+        """Load data as bytes from various input types.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            Input data to load
+
+        Returns
+        -------
+        bytes
+            Raw bytes
+
+        """
+        if isinstance(input_data, bytes):
+            return input_data
+        elif isinstance(input_data, (str, Path)):
+            path = Path(input_data)
+            return path.read_bytes()
+        elif hasattr(input_data, "read"):
+            return normalize_stream_to_bytes(input_data)
+        else:
+            raise ValidationError(
+                f"Unsupported input type: {type(input_data).__name__}",
+                parameter_name="input_data",
+                parameter_value=input_data,
+            )

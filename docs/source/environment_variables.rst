@@ -366,6 +366,27 @@ Pattern: ALL2MD_<OPTION_NAME>
    * - ``ALL2MD_OUTPUT_DIR``
      - ``--output-dir``
      - ``./converted``
+   * - ``ALL2MD_REMOTE_INPUT_ENABLED``
+     - ``--remote-input-enabled``
+     - ``true``
+   * - ``ALL2MD_REMOTE_INPUT_ALLOWED_HOSTS``
+     - ``--remote-input-allowed-hosts``
+     - ``docs.example.com,cdn.example.com``
+   * - ``ALL2MD_REMOTE_INPUT_ALLOW_HTTP``
+     - ``--remote-input-allow-http``
+     - ``true``
+   * - ``ALL2MD_REMOTE_INPUT_TIMEOUT``
+     - ``--remote-input-timeout``
+     - ``15``
+   * - ``ALL2MD_REMOTE_INPUT_MAX_SIZE_BYTES``
+     - ``--remote-input-max-size-bytes``
+     - ``10485760``
+   * - ``ALL2MD_REMOTE_INPUT_USER_AGENT``
+     - ``--remote-input-user-agent``
+     - ``MyCrawler/1.0``
+   * - ``ALL2MD_STRICT_ARGS``
+     - ``--strict-args``
+     - ``true``
    * - ``ALL2MD_FORMAT``
      - ``--format``
      - ``pdf``
@@ -445,6 +466,20 @@ Environment variable values are automatically converted to appropriate types:
 * **Integer**: Numeric strings (``"10"``)
 * **String**: Text values
 * **Lists**: Comma-separated (``"1,2,3"``)
+
+Remote Document Conversion Defaults
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the remote-input environment variables to allow trusted HTTP(S) sources without repeating CLI flags:
+
+.. code-block:: bash
+
+   export ALL2MD_REMOTE_INPUT_ENABLED=true
+   export ALL2MD_REMOTE_INPUT_ALLOWED_HOSTS="docs.example.com,cdn.example.com"
+   export ALL2MD_REMOTE_INPUT_TIMEOUT=15
+   export ALL2MD_REMOTE_INPUT_MAX_SIZE_BYTES=10485760  # 10 MiB
+
+   all2md https://docs.example.com/manual.pdf --output-dir ./manuals
 
 Practical Examples
 ------------------

@@ -72,7 +72,7 @@ OpenDocument Suite (ODT & ODP)
 - Uses ``odfpy`` to preserve structure, lists, tables, and embedded media
 - Parsers extract content while maintaining formatting and document structure
 - Renderers support Markdown-to-ODT/ODP conversion for round-trip workflows
-- Shares attachment controls and Markdown formatting via ``markdown_options``
+- Shares attachment controls and works with ``renderer_options=MarkdownRendererOptions(...)`` for unified formatting
 - Ideal companion for LibreOffice / OpenOffice pipelines and cross-format document workflows
 
 Rich Text Format (RTF)

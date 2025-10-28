@@ -62,7 +62,8 @@ Converting Directory of Mixed Documents
        md_options = MarkdownRendererOptions(
            emphasis_symbol="_",
            bullet_symbols="•◦▪",
-           extract_metadata=True
+           escape_special=False,
+           use_hash_headings=True,
        )
 
        # Define format-specific options
@@ -71,19 +72,16 @@ Converting Directory of Mixed Documents
                attachment_mode="download",
                attachment_output_dir="./extracted_media",
                detect_columns=True,
-               markdown_options=md_options
            ),
            'html': HtmlOptions(
                attachment_mode="download",
                attachment_output_dir="./extracted_media",
                strip_dangerous_elements=True,
-               markdown_options=md_options
            ),
            'pptx': PptxOptions(
                attachment_mode="download",
                attachment_output_dir="./extracted_media",
                include_slide_numbers=True,
-               markdown_options=md_options
            )
        }
 
@@ -94,7 +92,11 @@ Converting Directory of Mixed Documents
                options = options_map.get(ext)
 
                # Convert to markdown
-               markdown_content = to_markdown(file_path, parser_options=options)
+               markdown_content = to_markdown(
+                   file_path,
+                   parser_options=options,
+                   renderer_options=md_options,
+               )
 
                # Create output path preserving structure
                relative_path = file_path.relative_to(source_dir)
@@ -167,7 +169,6 @@ Creating Text-Only Archive from Website
            extract_title=True,
            strip_dangerous_elements=True,
            convert_nbsp=True,
-           markdown_options=md_options
        )
 
        html_files = list(Path(html_dir).glob('*.html'))
@@ -184,7 +185,11 @@ Creating Text-Only Archive from Website
        for i, html_file in enumerate(html_files, 1):
            try:
                # Convert HTML to markdown
-               markdown = to_markdown(html_file, parser_options=html_options)
+               markdown = to_markdown(
+                   html_file,
+                   parser_options=html_options,
+                   renderer_options=md_options,
+               )
 
                # Add page separator with metadata
                separator = "=" * 80
@@ -232,8 +237,6 @@ Document Processing for Fine-tuning
                emphasis_symbol="*",
                bullet_symbols="*-+",
                use_hash_headings=True,
-               page_separator="\\n---\\n",  # Clear page breaks
-               page_separator_template="\n---\n"  # Clear page breaks only
            )
 
            self.pdf_options = PdfOptions(
@@ -242,14 +245,12 @@ Document Processing for Fine-tuning
                detect_columns=True,
                merge_hyphenated_words=True,
                enable_table_fallback_detection=True,
-               markdown_options=self.md_options
            )
 
            self.docx_options = DocxOptions(
                attachment_mode="skip",
                preserve_tables=True,
                extract_metadata=True,
-               markdown_options=self.md_options
            )
 
        def process_document(self, file_path: Path) -> Dict:
@@ -264,7 +265,11 @@ Document Processing for Fine-tuning
                    options = None
 
                # Convert to markdown
-               content = to_markdown(file_path, parser_options=options)
+               content = to_markdown(
+                   file_path,
+                   parser_options=options,
+                   renderer_options=self.md_options,
+               )
 
                # Clean up content for training
                content = self.clean_content(content)
@@ -381,8 +386,7 @@ Web Application Integration
            self.pdf_options = PdfOptions(
                attachment_mode="skip",  # No file downloads in web context
                extract_metadata=False,  # Avoid potential metadata exploits
-               markdown_options=self.md_options
-           )
+            )
 
            # Secure HTML processing
            self.html_options = HtmlOptions(
@@ -391,14 +395,13 @@ Web Application Integration
                    allow_remote_fetch=False,  # Prevent SSRF attacks
                    require_https=True,
                    network_timeout=5.0,
-                   max_remote_asset_bytes=1024 * 1024  # 1MB image limit
-               ),
+                ),
                local_files=LocalFileAccessOptions(
                    allow_local_files=False   # Prevent local file access
                ),
                strip_dangerous_elements=True,  # Remove scripts/styles
-               markdown_options=self.md_options
-           )
+               max_asset_size_bytes=1024 * 1024,
+            )
 
        def validate_file(self, file_data: bytes, filename: str) -> bool:
            """Validate uploaded file before processing."""
@@ -440,7 +443,11 @@ Web Application Integration
 
                    try:
                        # Convert to markdown
-                       markdown_content = to_markdown(temp_file.name, parser_options=options)
+                       markdown_content = to_markdown(
+                           temp_file.name,
+                           parser_options=options,
+                           renderer_options=self.md_options,
+                       )
 
                        # Limit output size (prevent DoS)
                        max_output = 1024 * 1024  # 1MB markdown limit
@@ -536,7 +543,7 @@ Directory Processing with Progress Tracking
            self.max_workers = max_workers
 
            # Setup options
-           md_options = MarkdownRendererOptions(
+           self.md_options = MarkdownRendererOptions(
                emphasis_symbol="_",
                use_hash_headings=True
            )
@@ -545,12 +552,10 @@ Directory Processing with Progress Tracking
                '.pdf': PdfOptions(
                    attachment_mode="download",
                    attachment_output_dir=str(self.output_dir / "media"),
-                   markdown_options=md_options
                ),
                '.docx': DocxOptions(
                    attachment_mode="download",
                    attachment_output_dir=str(self.output_dir / "media"),
-                   markdown_options=md_options
                )
            }
 
@@ -564,7 +569,11 @@ Directory Processing with Progress Tracking
                options = self.options_map.get(ext)
 
                # Convert to markdown
-               content = to_markdown(file_path, parser_options=options)
+               content = to_markdown(
+                   file_path,
+                   parser_options=options,
+                   renderer_options=self.md_options,
+               )
 
                # Create output path
                relative_path = file_path.relative_to(file_path.parent)
@@ -716,16 +725,16 @@ Use the built-in progress callback system for fine-grained progress tracking:
                self.start_time = time.time()
                print(f"Starting: {event.message} (Total: {event.total} pages)")
 
-           elif event.event_type == "page_done":
-               self.pages_processed += 1
-               elapsed = time.time() - self.start_time
-               pct = event.current / event.total * 100 if event.total > 0 else 0
-               print(f"  Page {event.current}/{event.total} ({pct:.1f}%)")
+            elif event.event_type == "item_done" and event.metadata.get("item_type") == "page":
+                self.pages_processed += 1
+                elapsed = time.time() - self.start_time
+                pct = event.current / event.total * 100 if event.total > 0 else 0
+                print(f"  Page {event.current}/{event.total} ({pct:.1f}%)")
 
-           elif event.event_type == "table_detected":
-               count = event.metadata.get('table_count', 0)
-               self.tables_found += count
-               print(f"  Found {count} table(s) on page {event.current}")
+            elif event.event_type == "detected" and event.metadata.get('detected_type') == 'table':
+                count = event.metadata.get('table_count', 0)
+                self.tables_found += count
+                print(f"  Found {count} table(s) on page {event.current}")
 
            elif event.event_type == "finished":
                elapsed = time.time() - self.start_time
@@ -788,7 +797,6 @@ Email Chain Analysis
            self.md_options = MarkdownRendererOptions(
                use_hash_headings=True,
                escape_special=False,  # Keep email content readable
-               page_separator="\\n" + "="*80 + "\\n"
            )
 
            self.eml_options = EmlOptions(
@@ -799,7 +807,6 @@ Email Chain Analysis
                detect_reply_separators=True,
                clean_wrapped_urls=True,
                date_format_mode="iso8601",
-               markdown_options=self.md_options
            )
 
        def extract_email_metadata(self, markdown_content: str) -> Dict:
@@ -864,7 +871,11 @@ Email Chain Analysis
            for eml_file in eml_files:
                try:
                    # Convert email to markdown
-                   markdown_content = to_markdown(eml_file, parser_options=self.eml_options)
+                   markdown_content = to_markdown(
+                       eml_file,
+                       parser_options=self.eml_options,
+                       renderer_options=self.md_options,
+                   )
 
                    # Extract metadata
                    metadata = self.extract_email_metadata(markdown_content)
@@ -1159,7 +1170,6 @@ Text-Only Dataset Creation
            self.md_options = MarkdownRendererOptions(
                escape_special=False,  # Keep text readable
                use_hash_headings=True,
-               page_separator="\\n\\n---\\n\\n"  # Clear page breaks
            )
 
            self.pdf_options = PdfOptions(
@@ -1168,14 +1178,12 @@ Text-Only Dataset Creation
                detect_columns=True,
                merge_hyphenated_words=True,
                enable_table_fallback_detection=True,
-               markdown_options=self.md_options
            )
 
            self.docx_options = DocxOptions(
                attachment_mode="skip",
                preserve_tables=True,
                extract_metadata=False,
-               markdown_options=self.md_options
            )
 
        def clean_text(self, text: str) -> str:
@@ -1208,7 +1216,11 @@ Text-Only Dataset Creation
                    return {'success': False, 'error': 'Unsupported format'}
 
                # Convert to markdown
-               content = to_markdown(file_path, parser_options=options)
+               content = to_markdown(
+                   file_path,
+                   parser_options=options,
+                   renderer_options=self.md_options,
+               )
 
                # Clean content
                content = self.clean_text(content)

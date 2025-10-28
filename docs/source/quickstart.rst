@@ -134,9 +134,15 @@ Common Use Cases
        use_hash_headings=True
    )
 
-   # Nest MarkdownRendererOptions within format-specific options
-   options = PdfOptions(markdown_options=md_options)
-   markdown = to_markdown('document.pdf', parser_options=options)
+   pdf_options = PdfOptions(
+       attachment_mode='download',
+       attachment_output_dir='./pdf_images'
+   )
+   markdown = to_markdown(
+       'document.pdf',
+       parser_options=pdf_options,
+       renderer_options=md_options,
+   )
 
 .. code-block:: bash
 
@@ -182,13 +188,13 @@ For long-running conversions, use progress callbacks to track the conversion in 
    from all2md import to_markdown, ProgressEvent
 
    def show_progress(event: ProgressEvent):
-       if event.event_type == "page_done":
+       if event.event_type == "item_done" and event.metadata.get("item_type") == "page":
            print(f"Processed page {event.current}/{event.total}")
-       elif event.event_type == "table_detected":
+       elif event.event_type == "detected" and event.metadata.get("detected_type") == "table":
            count = event.metadata.get('table_count', 0)
            print(f"  Found {count} table(s)")
 
-   markdown = to_markdown('large_document.pdf', progress=show_progress)
+   markdown = to_markdown('large_document.pdf', progress_callback=show_progress)
 
 This is particularly useful for:
 

@@ -2,19 +2,95 @@
 .idea
 __pycache__/
 *.py[oc]
+*.pyd
+*.pyo
+*.so
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
 wheels/
-*.egg-info
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Virtual environments
-.venv
-wslvenv
+.venv/
+venv/
+ENV/
+env/
+wslvenv/
+
+# Testing and coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.hypothesis/
+*.cover
+.cache
+nosetests.xml
+coverage.xml
+*.log
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
 # Supplementary local files
 review/
 ideas/
-htmlcov
 
-.hypothesis
-.coverage
+# Development and debugging files
+AGENTS.md
+ORGPARSE_ANALYSIS.md
+pptx-comments-info.md
+renderer-comments-plan.md
+todo.md
+qa-*.txt
+helptxt*.txt
+orgmode.org
+out.txt
+
+# Documentation builds
+docs/_build/
+docs/build/
+docs/out.txt
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+.temp/
+temp/

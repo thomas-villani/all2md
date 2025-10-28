@@ -74,6 +74,8 @@ class LatexOptions(BaseParserOptions):
     strict_mode: bool = field(
         default=False, metadata={"help": "Raise errors on invalid LaTeX syntax", "importance": "advanced"}
     )
+
+    # TODO: move magic strings/numbers
     encoding: str = field(
         default="utf-8",
         metadata={"help": "Text encoding for reading LaTeX files", "type": str, "importance": "advanced"},
@@ -120,6 +122,7 @@ class LatexRendererOptions(BaseRendererOptions):
 
     """
 
+    # TODO: move magic strings/numbers
     document_class: str = field(
         default="article",
         metadata={"help": "LaTeX document class (article, report, book, etc.)", "type": str, "importance": "core"},

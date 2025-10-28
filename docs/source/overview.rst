@@ -348,31 +348,38 @@ Hierarchical Configuration
 
 Options are expressed as frozen dataclasses so configurations are explicit, type safe, and composable. Each converter builds on three layers:
 
-1. **``BaseParserOptions``** shared fields (attachment handling, metadata extraction, asset limits)
-2. **Nested security helpers** such as ``NetworkFetchOptions`` and ``LocalFileAccessOptions`` (used by HTML/MHTML/EPUB/CHM parsers)
-3. **Format-specific options** (``PdfOptions``, ``HtmlOptions``, ``OrgParserOptions``, ``ZipOptions``, etc.) that may embed **``MarkdownRendererOptions``** for renderer tweaks
+1. **``BaseParserOptions``** shared fields (metadata extraction, attachment limits)
+2. **Mixins and nested helpers** such as ``AttachmentOptionsMixin``, ``NetworkFetchOptions``, and ``LocalFileAccessOptions`` that add security controls for binary assets
+3. **Format-specific parser options** (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``…) paired with renderer configuration like ``MarkdownRendererOptions`` via the ``renderer_options`` argument
 
 .. code-block:: python
 
-   from all2md.options import (
-       MarkdownRendererOptions,
-       NetworkFetchOptions,
-       HtmlOptions,
-   )
-
-   markdown_defaults = MarkdownRendererOptions(emphasis_symbol="_")
+   from all2md import to_markdown
+   from all2md.options import HtmlOptions, MarkdownRendererOptions, NetworkFetchOptions
 
    html_network = NetworkFetchOptions(
        allow_remote_fetch=False,
        require_https=True,
-       allowed_hosts=["example.com"],
+       allowed_hosts=["docs.example.com"],
    )
 
    html_options = HtmlOptions(
        extract_title=True,
-       markdown_options=markdown_defaults.create_updated(flavor="gfm"),
        network=html_network,
    )
+
+   markdown_defaults = MarkdownRendererOptions(
+       emphasis_symbol="_",
+       flavor="gfm",
+   )
+
+   hardened_markdown = to_markdown(
+       "page.html",
+       parser_options=html_options,
+       renderer_options=markdown_defaults.create_updated(link_style="reference"),
+   )
+
+   secure_variant = html_options.create_updated(strip_dangerous_elements=True)
 
 All CLI flags are generated from these dataclasses (nesting included), so ``HtmlOptions.network.require_https`` maps to ``--html-network-require-https`` and also honours the ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS`` environment variable. See :doc:`options` for the full reference and :doc:`environment_variables` for naming rules.
 
@@ -415,12 +422,13 @@ PDF Processing
    from all2md.options import PdfOptions
 
    options = PdfOptions(
-       pages=[0, 1, 2],                    # Process specific pages
-       table_detection=True,               # Enable table parsing
-       header_detection=True,              # Detect document headers
-       column_detection=True,              # Handle multi-column layouts
+       pages="1-3",                        # Process specific pages
+       table_detection_mode="both",        # Use PyMuPDF + ruling detection
+       enable_table_fallback_detection=True,
+       detect_columns=True,
+       auto_trim_headers_footers=True,
        attachment_mode='download',         # Download images locally
-       attachment_output_dir='./images'    # Image output directory
+       attachment_output_dir='./images'
    )
 
 Word Documents (DOCX)
@@ -441,8 +449,8 @@ Word Documents (DOCX)
 
    options = DocxOptions(
        preserve_tables=True,               # Maintain table structure
-       extract_images=True,                # Process embedded images
-       style_mapping=True,                 # Map Word styles to Markdown
+       include_comments=True,              # Include review comments
+       include_footnotes=True,             # Keep footnotes/endnotes
        attachment_mode='base64'            # Embed images as base64
    )
 
@@ -647,10 +655,11 @@ Different event types provide different metadata:
            print(f"Starting: {event.message}")
 
        elif event.event_type == "item_done":
-           print(f"  Item {event.current}/{event.total} complete")
+           item = event.metadata.get('item_type', 'step')
+           print(f"  {item.title()} {event.current}/{event.total} complete")
 
        elif event.event_type == "detected":
-           detection_type = event.metadata.get('detection_type', 'structure')
+           detection_type = event.metadata.get('detected_type', 'structure')
            print(f"  Detected {detection_type}: {event.message}")
 
        elif event.event_type == "finished":
@@ -660,7 +669,7 @@ Different event types provide different metadata:
            error = event.metadata.get('error', 'Unknown')
            print(f"  ERROR: {error}")
 
-   markdown = to_markdown("large_document.pdf", progress=detailed_handler)
+   markdown = to_markdown("large_document.pdf", progress_callback=detailed_handler)
 
 GUI Integration
 ~~~~~~~~~~~~~~~
@@ -689,7 +698,7 @@ Progress callbacks are especially useful for GUI applications:
            self.root.update_idletasks()
 
        def convert(self, filepath):
-           return to_markdown(filepath, progress=self.progress_callback)
+           return to_markdown(filepath, progress_callback=self.progress_callback)
 
 Error Handling in Callbacks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -703,7 +712,7 @@ Progress callbacks are fail-safe - exceptions in the callback are caught and log
        risky_operation(event)
 
    # Conversion will complete successfully even if callback fails
-   markdown = to_markdown("document.pdf", progress=potentially_failing_callback)
+   markdown = to_markdown("document.pdf", progress_callback=potentially_failing_callback)
 
 API Support
 ~~~~~~~~~~~
@@ -919,10 +928,15 @@ New option classes inherit from ``BaseOptions``:
 
 .. code-block:: python
 
+   from all2md.options import BaseParserOptions, MarkdownRendererOptions
+
    @dataclass
-   class NewFormatOptions(BaseOptions):
+   class NewFormatOptions(BaseParserOptions):
        custom_setting: bool = True
-       markdown_options: Optional[MarkdownRendererOptions] = None
+
+   @dataclass
+   class NewFormatRendererOptions(MarkdownRendererOptions):
+       enable_custom_feature: bool = False
 
 Integration Patterns
 --------------------

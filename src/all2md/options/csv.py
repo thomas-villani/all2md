@@ -9,9 +9,30 @@ This module defines options for parsing CSV files with customizable dialects.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
-from all2md.constants import HeaderCaseOption
+from all2md.constants import (
+    DEFAULT_CSV_DELIMITER,
+    DEFAULT_CSV_DETECT_DIALECT,
+    DEFAULT_CSV_DIALECT_SAMPLE_SIZE,
+    DEFAULT_CSV_ESCAPE_CHAR,
+    DEFAULT_CSV_HAS_HEADER,
+    DEFAULT_CSV_INCLUDE_BOM,
+    DEFAULT_CSV_INCLUDE_TABLE_HEADINGS,
+    DEFAULT_CSV_LINE_TERMINATOR,
+    DEFAULT_CSV_MERGED_CELL_HANDLING,
+    DEFAULT_CSV_MULTI_TABLE_MODE,
+    DEFAULT_CSV_QUOTE_CHAR,
+    DEFAULT_CSV_QUOTING,
+    DEFAULT_CSV_SKIP_EMPTY_ROWS,
+    DEFAULT_CSV_STRIP_WHITESPACE,
+    DEFAULT_CSV_TABLE_INDEX,
+    DEFAULT_CSV_TABLE_SEPARATOR,
+    DEFAULT_CSV_TRUNCATION_INDICATOR,
+    CsvQuotingMode,
+    HeaderCaseOption,
+    MergedCellHandling,
+    MultiTableMode,
+)
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 
 
@@ -61,15 +82,16 @@ class CsvOptions(BaseParserOptions):
     """
 
     detect_csv_dialect: bool = field(
-        default=True,
+        default=DEFAULT_CSV_DETECT_DIALECT,
         metadata={
             "help": "Enable csv.Sniffer-based dialect detection (ignored if delimiter is set)",
             "cli_name": "no-detect-csv-dialect",
             "importance": "advanced",
         },
     )
+
     dialect_sample_size: int = field(
-        default=4096,
+        default=DEFAULT_CSV_DIALECT_SAMPLE_SIZE,
         metadata={"help": "Number of bytes to sample for dialect detection", "type": int, "importance": "advanced"},
     )
     delimiter: str | None = field(
@@ -89,7 +111,7 @@ class CsvOptions(BaseParserOptions):
         },
     )
     has_header: bool = field(
-        default=True,
+        default=DEFAULT_CSV_HAS_HEADER,
         metadata={
             "help": "Whether first row contains column headers",
             "cli_name": "no-has-header",
@@ -105,7 +127,8 @@ class CsvOptions(BaseParserOptions):
         metadata={"help": "Maximum columns per table (None = unlimited)", "type": int, "importance": "advanced"},
     )
     truncation_indicator: str = field(
-        default="...", metadata={"help": "Note appended when rows/columns are truncated", "importance": "advanced"}
+        default=DEFAULT_CSV_TRUNCATION_INDICATOR,
+        metadata={"help": "Note appended when rows/columns are truncated", "importance": "advanced"},
     )
 
     header_case: HeaderCaseOption = field(
@@ -117,11 +140,12 @@ class CsvOptions(BaseParserOptions):
         },
     )
     skip_empty_rows: bool = field(
-        default=True,
+        default=DEFAULT_CSV_SKIP_EMPTY_ROWS,
         metadata={"help": "Skip completely empty rows", "cli_name": "no-skip-empty-rows", "importance": "core"},
     )
     strip_whitespace: bool = field(
-        default=False, metadata={"help": "Strip leading/trailing whitespace from all cells", "importance": "core"}
+        default=DEFAULT_CSV_STRIP_WHITESPACE,
+        metadata={"help": "Strip leading/trailing whitespace from all cells", "importance": "core"},
     )
 
     def __post_init__(self) -> None:
@@ -216,7 +240,7 @@ class CsvRendererOptions(BaseRendererOptions):
     """
 
     table_index: int | None = field(
-        default=0,
+        default=DEFAULT_CSV_TABLE_INDEX,
         metadata={
             "help": "Which table to export (0-indexed, None = all tables)",
             "type": int,
@@ -230,24 +254,26 @@ class CsvRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
-    multi_table_mode: Literal["first", "all", "error"] = field(
-        default="first",
+
+    multi_table_mode: MultiTableMode = field(
+        default=DEFAULT_CSV_MULTI_TABLE_MODE,
         metadata={
             "help": "How to handle multiple tables: first, all, or error",
             "choices": ["first", "all", "error"],
             "importance": "core",
         },
     )
+
     table_separator: str = field(
-        default="\n\n",
+        default=DEFAULT_CSV_TABLE_SEPARATOR,
         metadata={"help": "Separator between tables when multi_table_mode='all'", "importance": "advanced"},
     )
     delimiter: str = field(
-        default=",",
+        default=DEFAULT_CSV_DELIMITER,
         metadata={"help": "CSV field delimiter (e.g., ',', '\\t', ';')", "importance": "core"},
     )
-    quoting: Literal["minimal", "all", "nonnumeric", "none"] = field(
-        default="minimal",
+    quoting: CsvQuotingMode = field(
+        default=DEFAULT_CSV_QUOTING,
         metadata={
             "help": "CSV quoting style",
             "choices": ["minimal", "all", "nonnumeric", "none"],
@@ -255,18 +281,18 @@ class CsvRendererOptions(BaseRendererOptions):
         },
     )
     include_table_headings: bool = field(
-        default=False,
+        default=DEFAULT_CSV_INCLUDE_TABLE_HEADINGS,
         metadata={
             "help": "Include heading comments before tables in multi-table mode",
             "importance": "advanced",
         },
     )
     line_terminator: str = field(
-        default="\n",
+        default=DEFAULT_CSV_LINE_TERMINATOR,
         metadata={"help": "Line ending style ('\\n' or '\\r\\n')", "importance": "advanced"},
     )
-    handle_merged_cells: Literal["repeat", "blank", "placeholder"] = field(
-        default="repeat",
+    handle_merged_cells: MergedCellHandling = field(
+        default=DEFAULT_CSV_MERGED_CELL_HANDLING,
         metadata={
             "help": "How to handle merged cells",
             "choices": ["repeat", "blank", "placeholder"],
@@ -274,15 +300,15 @@ class CsvRendererOptions(BaseRendererOptions):
         },
     )
     quote_char: str = field(
-        default='"',
+        default=DEFAULT_CSV_QUOTE_CHAR,
         metadata={"help": "Character used for quoting fields", "importance": "advanced"},
     )
     escape_char: str | None = field(
-        default=None,
+        default=DEFAULT_CSV_ESCAPE_CHAR,
         metadata={"help": "Character used for escaping (None uses doubling)", "importance": "advanced"},
     )
     include_bom: bool = field(
-        default=False,
+        default=DEFAULT_CSV_INCLUDE_BOM,
         metadata={"help": "Include UTF-8 BOM for Excel compatibility", "importance": "advanced"},
     )
 

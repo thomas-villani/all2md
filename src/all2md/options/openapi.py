@@ -90,6 +90,8 @@ class OpenApiParserOptions(BaseParserOptions):
             "importance": "core",
         },
     )
+
+    # TODO: move magic strings/numbers
     max_schema_depth: int = field(
         default=3,
         metadata={
@@ -109,7 +111,7 @@ class OpenApiParserOptions(BaseParserOptions):
     validate_spec: bool = field(
         default=False,
         metadata={
-            "help": "Validate OpenAPI spec using jsonschema (requires jsonschema package)",
+            "help": "Validate OpenAPI spec",
             "importance": "advanced",
         },
     )

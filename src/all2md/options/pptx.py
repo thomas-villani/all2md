@@ -4,14 +4,37 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
+    DEFAULT_PPTX_CHARTS_MODE,
     DEFAULT_PPTX_COMMENT_MODE,
+    DEFAULT_PPTX_DEFAULT_FONT,
+    DEFAULT_PPTX_DEFAULT_FONT_SIZE,
+    DEFAULT_PPTX_DEFAULT_LAYOUT,
+    DEFAULT_PPTX_FORCE_TEXTBOX_BULLETS,
+    DEFAULT_PPTX_IMAGE_LEFT,
+    DEFAULT_PPTX_IMAGE_TOP,
+    DEFAULT_PPTX_IMAGE_WIDTH,
+    DEFAULT_PPTX_INCLUDE_NOTES,
+    DEFAULT_PPTX_INCLUDE_TITLES_AS_H2,
+    DEFAULT_PPTX_LIST_INDENT_PER_LEVEL,
+    DEFAULT_PPTX_LIST_NUMBER_SPACING,
     DEFAULT_PPTX_PARSER_COMMENT_MODE,
+    DEFAULT_PPTX_SLIDE_SPLIT_HEADING_LEVEL,
+    DEFAULT_PPTX_SLIDE_SPLIT_MODE,
+    DEFAULT_PPTX_STRICT_LIST_DETECTION,
+    DEFAULT_PPTX_TABLE_HEIGHT_PER_ROW,
+    DEFAULT_PPTX_TABLE_LEFT,
+    DEFAULT_PPTX_TABLE_TOP,
+    DEFAULT_PPTX_TABLE_WIDTH,
+    DEFAULT_PPTX_TITLE_FONT_SIZE,
+    DEFAULT_PPTX_TITLE_SLIDE_LAYOUT,
+    DEFAULT_PPTX_USE_HEADING_AS_SLIDE_TITLE,
     DEFAULT_SLIDE_NUMBERS,
+    ChartsMode,
     PptxCommentMode,
     PptxParserCommentMode,
+    SlideSplitMode,
 )
 from all2md.options.base import BaseRendererOptions
 from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
@@ -110,10 +133,8 @@ class PptxRendererOptions(BaseRendererOptions):
 
     """
 
-    # TODO: move magic numbers/strings to constants.py
-
-    slide_split_mode: Literal["separator", "heading", "auto"] = field(
-        default="auto",
+    slide_split_mode: SlideSplitMode = field(
+        default=DEFAULT_PPTX_SLIDE_SPLIT_MODE,
         metadata={
             "help": "Slide splitting strategy: separator, heading, or auto",
             "choices": ["separator", "heading", "auto"],
@@ -121,17 +142,19 @@ class PptxRendererOptions(BaseRendererOptions):
         },
     )
     slide_split_heading_level: int = field(
-        default=2,
+        default=DEFAULT_PPTX_SLIDE_SPLIT_HEADING_LEVEL,
         metadata={"help": "Heading level for slide splits (H2 = level 2)", "type": int, "importance": "advanced"},
     )
     default_layout: str = field(
-        default="Title and Content", metadata={"help": "Default slide layout name", "importance": "advanced"}
+        default=DEFAULT_PPTX_DEFAULT_LAYOUT,
+        metadata={"help": "Default slide layout name", "importance": "advanced"},
     )
     title_slide_layout: str = field(
-        default="Title Slide", metadata={"help": "Layout for first slide", "importance": "advanced"}
+        default=DEFAULT_PPTX_TITLE_SLIDE_LAYOUT,
+        metadata={"help": "Layout for first slide", "importance": "advanced"},
     )
     use_heading_as_slide_title: bool = field(
-        default=True,
+        default=DEFAULT_PPTX_USE_HEADING_AS_SLIDE_TITLE,
         metadata={
             "help": "Use first heading as slide title",
             "cli_name": "no-use-heading-as-slide-title",
@@ -142,16 +165,19 @@ class PptxRendererOptions(BaseRendererOptions):
         default=None, metadata={"help": "Path to .pptx template file (None = default)", "importance": "core"}
     )
     default_font: str = field(
-        default="Calibri", metadata={"help": "Default font for slide content", "importance": "core"}
+        default=DEFAULT_PPTX_DEFAULT_FONT,
+        metadata={"help": "Default font for slide content", "importance": "core"},
     )
     default_font_size: int = field(
-        default=18, metadata={"help": "Default font size for body text", "type": int, "importance": "core"}
+        default=DEFAULT_PPTX_DEFAULT_FONT_SIZE,
+        metadata={"help": "Default font size for body text", "type": int, "importance": "core"},
     )
     title_font_size: int = field(
-        default=44, metadata={"help": "Font size for slide titles", "type": int, "importance": "advanced"}
+        default=DEFAULT_PPTX_TITLE_FONT_SIZE,
+        metadata={"help": "Font size for slide titles", "type": int, "importance": "advanced"},
     )
     list_number_spacing: int = field(
-        default=1,
+        default=DEFAULT_PPTX_LIST_NUMBER_SPACING,
         metadata={
             "help": "Number of spaces after number prefix in ordered lists",
             "type": int,
@@ -159,7 +185,7 @@ class PptxRendererOptions(BaseRendererOptions):
         },
     )
     list_indent_per_level: float = field(
-        default=0.5,
+        default=DEFAULT_PPTX_LIST_INDENT_PER_LEVEL,
         metadata={
             "help": "Indentation per nesting level for lists (in inches)",
             "type": float,
@@ -167,31 +193,38 @@ class PptxRendererOptions(BaseRendererOptions):
         },
     )
     table_left: float = field(
-        default=0.5, metadata={"help": "Left position for tables in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_TABLE_LEFT,
+        metadata={"help": "Left position for tables in inches", "type": float, "importance": "advanced"},
     )
     table_top: float = field(
-        default=2.0, metadata={"help": "Top position for tables in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_TABLE_TOP,
+        metadata={"help": "Top position for tables in inches", "type": float, "importance": "advanced"},
     )
     table_width: float = field(
-        default=9.0, metadata={"help": "Width for tables in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_TABLE_WIDTH,
+        metadata={"help": "Width for tables in inches", "type": float, "importance": "advanced"},
     )
     table_height_per_row: float = field(
-        default=0.5, metadata={"help": "Height per row for tables in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_TABLE_HEIGHT_PER_ROW,
+        metadata={"help": "Height per row for tables in inches", "type": float, "importance": "advanced"},
     )
     image_left: float = field(
-        default=1.0, metadata={"help": "Left position for images in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_IMAGE_LEFT,
+        metadata={"help": "Left position for images in inches", "type": float, "importance": "advanced"},
     )
     image_top: float = field(
-        default=2.5, metadata={"help": "Top position for images in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_IMAGE_TOP,
+        metadata={"help": "Top position for images in inches", "type": float, "importance": "advanced"},
     )
     image_width: float = field(
-        default=4.0, metadata={"help": "Width for images in inches", "type": float, "importance": "advanced"}
+        default=DEFAULT_PPTX_IMAGE_WIDTH,
+        metadata={"help": "Width for images in inches", "type": float, "importance": "advanced"},
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
     )
     include_notes: bool = field(
-        default=True,
+        default=DEFAULT_PPTX_INCLUDE_NOTES,
         metadata={
             "help": "Include speaker notes in rendered slides",
             "cli_name": "no-include-notes",
@@ -207,7 +240,7 @@ class PptxRendererOptions(BaseRendererOptions):
         },
     )
     force_textbox_bullets: bool = field(
-        default=True,
+        default=DEFAULT_PPTX_FORCE_TEXTBOX_BULLETS,
         metadata={
             "help": "Enable bullets via OOXML for text boxes (disable for strict templates)",
             "cli_name": "no-force-textbox-bullets",
@@ -324,8 +357,8 @@ class PptxOptions(PaginatedParserOptions):
         default=None,
         metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)", "importance": "core"},
     )
-    charts_mode: Literal["data", "mermaid", "both"] = field(
-        default="data",
+    charts_mode: ChartsMode = field(
+        default=DEFAULT_PPTX_CHARTS_MODE,
         metadata={
             "help": "Chart conversion mode: 'data' (default, tables only), "
             "'mermaid' (diagrams only), or 'both' (tables + diagrams)",
@@ -334,7 +367,7 @@ class PptxOptions(PaginatedParserOptions):
         },
     )
     include_titles_as_h2: bool = field(
-        default=True,
+        default=DEFAULT_PPTX_INCLUDE_TITLES_AS_H2,
         metadata={
             "help": "Include slide titles as H2 headings",
             "cli_name": "no-include-titles-as-h2",
@@ -342,7 +375,7 @@ class PptxOptions(PaginatedParserOptions):
         },
     )
     strict_list_detection: bool = field(
-        default=False,
+        default=DEFAULT_PPTX_STRICT_LIST_DETECTION,
         metadata={
             "help": "Use strict list detection (XML-only, no heuristics). "
             "When True, only paragraphs with explicit list formatting in XML are treated as lists. "

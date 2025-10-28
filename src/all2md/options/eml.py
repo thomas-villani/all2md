@@ -9,7 +9,6 @@ This module defines options for parsing email files and message chains.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
     DEFAULT_CLEAN_QUOTES,
@@ -18,10 +17,17 @@ from all2md.constants import (
     DEFAULT_DATE_FORMAT_MODE,
     DEFAULT_DATE_STRFTIME_PATTERN,
     DEFAULT_DETECT_REPLY_SEPARATORS,
+    DEFAULT_EMAIL_SORT_ORDER,
+    DEFAULT_EML_ATTACH_SECTION_TITLE,
+    DEFAULT_EML_INCLUDE_ATTACH_SECTION_HEADING,
+    DEFAULT_EML_INCLUDE_HTML_PARTS,
+    DEFAULT_EML_INCLUDE_PLAIN_PARTS,
+    DEFAULT_EML_SUBJECT_AS_H1,
     DEFAULT_NORMALIZE_HEADERS,
     DEFAULT_PRESERVE_RAW_HEADERS,
     DEFAULT_URL_WRAPPERS,
     DateFormatMode,
+    EmailSortOrder,
 )
 from all2md.options.base import BaseParserOptions
 from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
@@ -139,8 +145,8 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     # Advanced EML options
-    sort_order: Literal["asc", "desc"] = field(
-        default="asc",
+    sort_order: EmailSortOrder = field(
+        default=DEFAULT_EMAIL_SORT_ORDER,
         metadata={
             "help": "Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)",
             "choices": ["asc", "desc"],
@@ -148,7 +154,7 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     subject_as_h1: bool = field(
-        default=True,
+        default=DEFAULT_EML_SUBJECT_AS_H1,
         metadata={
             "help": "Include subject line as H1 heading",
             "cli_name": "no-subject-as-h1",
@@ -156,7 +162,7 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     include_attach_section_heading: bool = field(
-        default=True,
+        default=DEFAULT_EML_INCLUDE_ATTACH_SECTION_HEADING,
         metadata={
             "help": "Include heading before attachments section",
             "cli_name": "no-include-attach-section-heading",
@@ -164,10 +170,11 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     attach_section_title: str = field(
-        default="Attachments", metadata={"help": "Title for attachments section heading", "importance": "advanced"}
+        default=DEFAULT_EML_ATTACH_SECTION_TITLE,
+        metadata={"help": "Title for attachments section heading", "importance": "advanced"},
     )
     include_html_parts: bool = field(
-        default=True,
+        default=DEFAULT_EML_INCLUDE_HTML_PARTS,
         metadata={
             "help": "Include HTML content parts from emails",
             "cli_name": "no-include-html-parts",
@@ -175,7 +182,7 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     include_plain_parts: bool = field(
-        default=True,
+        default=DEFAULT_EML_INCLUDE_PLAIN_PARTS,
         metadata={
             "help": "Include plain text content parts from emails",
             "cli_name": "no-include-plain-parts",

@@ -15,9 +15,11 @@ from all2md.constants import (
     DEFAULT_DOKUWIKI_MONOSPACE_FENCE,
     DEFAULT_DOKUWIKI_PARSE_INTERWIKI,
     DEFAULT_DOKUWIKI_PARSE_PLUGINS,
+    DEFAULT_DOKUWIKI_RENDERER_HTML_PASSTHROUGH_MODE,
     DEFAULT_DOKUWIKI_STRIP_COMMENTS,
     DEFAULT_DOKUWIKI_USE_HTML_FOR_UNSUPPORTED,
     DEFAULT_HTML_PASSTHROUGH_MODE,
+    HTML_PASSTHROUGH_MODES,
     DokuWikiCommentMode,
     HtmlPassthroughMode,
 )
@@ -84,11 +86,12 @@ class DokuWikiOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
+
     html_passthrough_mode: HtmlPassthroughMode = field(
-        default="pass-through",
+        default=DEFAULT_DOKUWIKI_RENDERER_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle raw HTML content: pass-through, escape, drop, or sanitize",
-            "choices": ["pass-through", "escape", "drop", "sanitize"],
+            "choices": HTML_PASSTHROUGH_MODES,
             "importance": "security",
         },
     )
@@ -171,7 +174,7 @@ class DokuWikiParserOptions(BaseParserOptions):
         default=DEFAULT_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle inline HTML: pass-through, escape, drop, or sanitize",
-            "choices": ["pass-through", "escape", "drop", "sanitize"],
+            "choices": HTML_PASSTHROUGH_MODES,
             "importance": "security",
         },
     )

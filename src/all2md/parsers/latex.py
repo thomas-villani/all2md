@@ -47,7 +47,6 @@ from all2md.exceptions import ParsingError
 from all2md.options.latex import LatexOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.metadata import DocumentMetadata
 
 
@@ -153,7 +152,7 @@ class LatexParser(BaseParser):
 
         """
         # Load content
-        content = self._load_content(input_data)
+        content = self._load_text_content(input_data)
 
         # Reset parser state to prevent leakage across parse calls
         self.document_metadata = {}
@@ -207,38 +206,6 @@ class LatexParser(BaseParser):
         self._emit_progress("finished", "Parsing complete", current=100, total=100)
 
         return Document(children=children, metadata=metadata_dict)
-
-    def _load_content(self, input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load LaTeX content from various input types.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            Input data to load
-
-        Returns
-        -------
-        str
-            LaTeX content as string
-
-        """
-        if isinstance(input_data, bytes):
-            return input_data.decode(self.options.encoding, errors="replace")
-        elif isinstance(input_data, Path):
-            return input_data.read_text(encoding=self.options.encoding)
-        elif isinstance(input_data, str):
-            # Could be file path or content
-            path = Path(input_data)
-            if path.exists() and path.is_file():
-                return path.read_text(encoding=self.options.encoding)
-            else:
-                # Assume it's content
-                return input_data
-        else:
-            # File-like object (handles both binary and text mode)
-            input_data.seek(0)
-            content_bytes = normalize_stream_to_bytes(input_data)
-            return content_bytes.decode(self.options.encoding, errors="replace")
 
     def _extract_preamble_metadata(self, content: str) -> tuple[str, dict[str, Any]]:
         """Extract metadata from LaTeX preamble.

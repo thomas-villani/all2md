@@ -97,6 +97,48 @@ RstLineBreakMode = Literal["line_block", "raw"]
 # BBCode types
 BBCodeUnknownTagMode = Literal["preserve", "strip", "escape"]
 
+# Email types
+EmailSortOrder = Literal["asc", "desc"]
+
+# AsciiDoc types
+AttributeMissingPolicy = Literal["keep", "blank", "warn"]
+TableHeaderDetection = Literal["first-row", "attribute-based", "auto"]
+
+# CSV types
+MultiTableMode = Literal["first", "all", "error"]
+CsvQuotingMode = Literal["minimal", "all", "nonnumeric", "none"]
+MergedCellHandling = Literal["repeat", "blank", "placeholder"]
+
+# DOCX types
+DocxCommentsPosition = Literal["inline", "footnotes"]
+
+# AST JSON types
+AstJsonIndent = int | None
+
+# Archive types
+AttachmentOverwriteMode = Literal["unique", "overwrite", "skip"]
+
+# PPTX types
+SlideSplitMode = Literal["separator", "heading", "auto"]
+ChartsMode = Literal["data", "mermaid", "both"]
+
+# Spreadsheet types
+ChartMode = Literal["data", "skip"]
+MergedCellMode = Literal["spans", "flatten", "skip"]
+TrimEmptyMode = Literal["none", "leading", "trailing", "both"]
+
+# HTML renderer types
+CssStyle = Literal["inline", "embedded", "external", "none"]
+MathRenderer = Literal["mathjax", "katex", "none"]
+TemplateMode = Literal["inject", "replace", "jinja"]
+InjectionMode = Literal["append", "prepend", "replace"]
+
+# HTML parser types
+FiguresParsing = Literal["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"]
+DetailsParsing = Literal["blockquote", "paragraph", "html", "skip"]
+BrHandling = Literal["newline", "space"]
+HtmlParser = Literal["html.parser", "html5lib", "lxml"]
+
 # Auto-generated from converter registry.
 # To update: python scripts/update_document_formats.py --update
 # Used for type hints, CLI autocomplete, and API documentation
@@ -670,6 +712,14 @@ DEFAULT_URL_WRAPPERS = [
 # Header processing
 DEFAULT_PRESERVE_RAW_HEADERS = False
 
+# Email display options
+DEFAULT_EMAIL_SORT_ORDER: EmailSortOrder = "asc"
+DEFAULT_EML_SUBJECT_AS_H1 = True
+DEFAULT_EML_INCLUDE_ATTACH_SECTION_HEADING = True
+DEFAULT_EML_ATTACH_SECTION_TITLE = "Attachments"
+DEFAULT_EML_INCLUDE_HTML_PARTS = True
+DEFAULT_EML_INCLUDE_PLAIN_PARTS = True
+
 # =============================================================================
 # Format-Specific Constants - Email Archives (MBOX/Outlook)
 # =============================================================================
@@ -733,11 +783,69 @@ DEFAULT_DOCX_CODE_FONT = "Courier New"
 DEFAULT_DOCX_CODE_FONT_SIZE = 10
 DEFAULT_DOCX_TABLE_STYLE = "Light Grid Accent 1"
 
+# DOCX parser options
+DEFAULT_DOCX_COMMENTS_POSITION: DocxCommentsPosition = "footnotes"
+DEFAULT_DOCX_INCLUDE_FOOTNOTES = True
+DEFAULT_DOCX_INCLUDE_ENDNOTES = True
+DEFAULT_DOCX_INCLUDE_COMMENTS = False
+DEFAULT_DOCX_INCLUDE_IMAGE_CAPTIONS = True
+
+# =============================================================================
+# Format-Specific Constants - CSV
+# =============================================================================
+
+# CSV parser options
+DEFAULT_CSV_DETECT_DIALECT = True
+DEFAULT_CSV_DIALECT_SAMPLE_SIZE = 4096
+DEFAULT_CSV_HAS_HEADER = True
+DEFAULT_CSV_TRUNCATION_INDICATOR = "..."
+DEFAULT_CSV_SKIP_EMPTY_ROWS = True
+DEFAULT_CSV_STRIP_WHITESPACE = False
+
+# CSV renderer options
+DEFAULT_CSV_MULTI_TABLE_MODE: MultiTableMode = "first"
+DEFAULT_CSV_TABLE_INDEX = 0
+DEFAULT_CSV_TABLE_SEPARATOR = "\n\n"
+DEFAULT_CSV_DELIMITER = ","
+DEFAULT_CSV_QUOTING: CsvQuotingMode = "minimal"
+DEFAULT_CSV_INCLUDE_TABLE_HEADINGS = False
+DEFAULT_CSV_LINE_TERMINATOR = "\n"
+DEFAULT_CSV_MERGED_CELL_HANDLING: MergedCellHandling = "repeat"
+DEFAULT_CSV_QUOTE_CHAR = '"'
+DEFAULT_CSV_ESCAPE_CHAR = None
+DEFAULT_CSV_INCLUDE_BOM = False
+
 # =============================================================================
 # Format-Specific Constants - PowerPoint (PPTX)
 # =============================================================================
 
 DEFAULT_SLIDE_NUMBERS = False
+
+# PPTX renderer options
+DEFAULT_PPTX_SLIDE_SPLIT_MODE: SlideSplitMode = "auto"
+DEFAULT_PPTX_SLIDE_SPLIT_HEADING_LEVEL = 2
+DEFAULT_PPTX_DEFAULT_LAYOUT = "Title and Content"
+DEFAULT_PPTX_TITLE_SLIDE_LAYOUT = "Title Slide"
+DEFAULT_PPTX_USE_HEADING_AS_SLIDE_TITLE = True
+DEFAULT_PPTX_DEFAULT_FONT = "Calibri"
+DEFAULT_PPTX_DEFAULT_FONT_SIZE = 18
+DEFAULT_PPTX_TITLE_FONT_SIZE = 44
+DEFAULT_PPTX_LIST_NUMBER_SPACING = 1
+DEFAULT_PPTX_LIST_INDENT_PER_LEVEL = 0.5
+DEFAULT_PPTX_TABLE_LEFT = 0.5
+DEFAULT_PPTX_TABLE_TOP = 2.0
+DEFAULT_PPTX_TABLE_WIDTH = 9.0
+DEFAULT_PPTX_TABLE_HEIGHT_PER_ROW = 0.5
+DEFAULT_PPTX_IMAGE_LEFT = 1.0
+DEFAULT_PPTX_IMAGE_TOP = 2.5
+DEFAULT_PPTX_IMAGE_WIDTH = 4.0
+DEFAULT_PPTX_INCLUDE_NOTES = True
+DEFAULT_PPTX_FORCE_TEXTBOX_BULLETS = True
+
+# PPTX parser options
+DEFAULT_PPTX_CHARTS_MODE: ChartsMode = "data"
+DEFAULT_PPTX_INCLUDE_TITLES_AS_H2 = True
+DEFAULT_PPTX_STRICT_LIST_DETECTION = False
 
 # =============================================================================
 # Format-Specific Constants - reStructuredText (RST)
@@ -773,6 +881,9 @@ DEFAULT_MEDIAWIKI_STRIP_COMMENTS = True
 DEFAULT_DOKUWIKI_USE_HTML_FOR_UNSUPPORTED = True
 DEFAULT_DOKUWIKI_MONOSPACE_FENCE = False
 
+# DokuWiki renderer options (escape by default for security)
+DEFAULT_DOKUWIKI_RENDERER_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"
+
 # DokuWiki parser options
 DEFAULT_DOKUWIKI_PARSE_PLUGINS = False
 DEFAULT_DOKUWIKI_STRIP_COMMENTS = True
@@ -807,6 +918,96 @@ DEFAULT_BBCODE_UNKNOWN_TAG_MODE: BBCodeUnknownTagMode = "strip"
 DEFAULT_BBCODE_PARSE_COLOR_SIZE = True
 DEFAULT_BBCODE_PARSE_ALIGNMENT = True
 DEFAULT_BBCODE_STRICT_MODE = False
+
+# =============================================================================
+# Format-Specific Constants - AsciiDoc
+# =============================================================================
+
+# AsciiDoc parser options
+DEFAULT_ASCIIDOC_PARSE_ATTRIBUTES = True
+DEFAULT_ASCIIDOC_PARSE_ADMONITIONS = True
+DEFAULT_ASCIIDOC_PARSE_INCLUDES = False
+DEFAULT_ASCIIDOC_STRICT_MODE = False
+DEFAULT_ASCIIDOC_RESOLVE_ATTRIBUTE_REFS = True
+DEFAULT_ASCIIDOC_ATTRIBUTE_MISSING_POLICY: AttributeMissingPolicy = "keep"
+DEFAULT_ASCIIDOC_SUPPORT_UNCONSTRAINED_FORMATTING = True
+DEFAULT_ASCIIDOC_TABLE_HEADER_DETECTION: TableHeaderDetection = "attribute-based"
+DEFAULT_ASCIIDOC_HONOR_HARD_BREAKS = True
+DEFAULT_ASCIIDOC_PARSE_TABLE_SPANS = True
+DEFAULT_ASCIIDOC_STRIP_COMMENTS = False
+
+# AsciiDoc renderer options
+DEFAULT_ASCIIDOC_LIST_INDENT = 2
+DEFAULT_ASCIIDOC_USE_ATTRIBUTES = True
+DEFAULT_ASCIIDOC_LINE_LENGTH = 0
+
+# =============================================================================
+# Format-Specific Constants - HTML
+# =============================================================================
+
+# HTML parser options
+DEFAULT_HTML_EXTRACT_READABLE = False
+DEFAULT_HTML_BR_HANDLING: BrHandling = "newline"
+DEFAULT_HTML_STRIP_COMMENTS = True
+DEFAULT_HTML_COLLAPSE_WHITESPACE = True
+DEFAULT_HTML_FIGURES_PARSING: FiguresParsing = "blockquote"
+DEFAULT_HTML_DETAILS_PARSING: DetailsParsing = "blockquote"
+DEFAULT_HTML_EXTRACT_MICRODATA = True
+DEFAULT_HTML_PARSER: HtmlParser = "html.parser"
+
+# HTML renderer options
+DEFAULT_HTML_STANDALONE = True
+DEFAULT_HTML_CSS_STYLE: CssStyle = "embedded"
+DEFAULT_HTML_INCLUDE_TOC = False
+DEFAULT_HTML_SYNTAX_HIGHLIGHTING = True
+DEFAULT_HTML_ESCAPE_HTML = True
+DEFAULT_HTML_MATH_RENDERER: MathRenderer = "mathjax"
+DEFAULT_HTML_LANGUAGE = "en"
+DEFAULT_HTML_TEMPLATE_SELECTOR = "#content"
+DEFAULT_HTML_INJECTION_MODE: InjectionMode = "replace"
+DEFAULT_HTML_CONTENT_PLACEHOLDER = "{CONTENT}"
+
+# =============================================================================
+# Format-Specific Constants - Archive (TAR/7Z/RAR)
+# =============================================================================
+
+DEFAULT_ARCHIVE_CREATE_SECTION_HEADINGS = True
+DEFAULT_ARCHIVE_PRESERVE_DIRECTORY_STRUCTURE = True
+DEFAULT_ARCHIVE_EXTRACT_RESOURCE_FILES = True
+DEFAULT_ARCHIVE_SKIP_EMPTY_FILES = True
+DEFAULT_ARCHIVE_INCLUDE_RESOURCE_MANIFEST = True
+DEFAULT_ARCHIVE_ENABLE_PARALLEL_PROCESSING = False
+DEFAULT_ARCHIVE_PARALLEL_THRESHOLD = 10
+
+# =============================================================================
+# Format-Specific Constants - AST JSON
+# =============================================================================
+
+DEFAULT_AST_JSON_INDENT: AstJsonIndent = 2
+DEFAULT_AST_JSON_ENSURE_ASCII = False
+DEFAULT_AST_JSON_SORT_KEYS = False
+DEFAULT_AST_JSON_VALIDATE_SCHEMA = True
+DEFAULT_AST_JSON_STRICT_MODE = False
+
+# =============================================================================
+# Format-Specific Constants - Spreadsheets (XLSX/ODS)
+# =============================================================================
+
+DEFAULT_SPREADSHEET_INCLUDE_SHEET_TITLES = True
+DEFAULT_SPREADSHEET_RENDER_FORMULAS = True
+DEFAULT_SPREADSHEET_PRESERVE_NEWLINES_IN_CELLS = False
+DEFAULT_SPREADSHEET_TRIM_EMPTY: TrimEmptyMode = "trailing"
+DEFAULT_SPREADSHEET_CHART_MODE: ChartMode = "skip"
+DEFAULT_SPREADSHEET_MERGED_CELL_MODE: MergedCellMode = "flatten"
+
+# =============================================================================
+# Format-Specific Constants - Common (shared across formats)
+# =============================================================================
+
+DEFAULT_ATTACHMENT_FILENAME_TEMPLATE = "{stem}_{type}{seq}.{ext}"
+DEFAULT_ATTACHMENT_OVERWRITE: AttachmentOverwriteMode = "unique"
+DEFAULT_ATTACHMENT_DEDUPLICATE_BY_HASH = False
+DEFAULT_ATTACHMENTS_FOOTNOTES_SECTION = "Attachments"
 
 # =============================================================================
 # File Extensions and Format Detection

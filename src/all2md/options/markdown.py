@@ -81,6 +81,7 @@ class MarkdownParserOptions(BaseParserOptions):
 
     """
 
+    # TODO: move magic strings/numbers
     flavor: FlavorType = field(
         default=DEFAULT_FLAVOR,
         metadata={

@@ -47,7 +47,6 @@ from all2md.options.mediawiki import MediaWikiParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_html_content, sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -117,7 +116,7 @@ class MediaWikiParser(BaseParser):
 
         """
         # Load WikiText content from various input types
-        wikitext_content = self._load_wikitext_content(input_data)
+        wikitext_content = self._load_text_content(input_data)
 
         import mwparserfromhell
 
@@ -134,40 +133,6 @@ class MediaWikiParser(BaseParser):
         children = self._process_wikicode(wikicode)
 
         return Document(children=children, metadata=metadata.to_dict())
-
-    @staticmethod
-    def _load_wikitext_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load WikiText content from various input types with encoding detection.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            Input data to load
-
-        Returns
-        -------
-        str
-            WikiText content as string
-
-        """
-        if isinstance(input_data, bytes):
-            return read_text_with_encoding_detection(input_data)
-        elif isinstance(input_data, Path):
-            with open(input_data, "rb") as f:
-                return read_text_with_encoding_detection(f.read())
-        elif isinstance(input_data, str):
-            # Could be file path or WikiText content
-            path = Path(input_data)
-            if path.exists() and path.is_file():
-                with open(path, "rb") as f:
-                    return read_text_with_encoding_detection(f.read())
-            else:
-                # Assume it's WikiText content
-                return input_data
-        else:
-            # File-like object (handles both binary and text mode)
-            input_data.seek(0)
-            return normalize_stream_to_text(input_data)
 
     def _flush_inline_buffer(self, inline_buffer: list[Node], result: list[Node]) -> None:
         """Flush inline buffer to result as a paragraph.

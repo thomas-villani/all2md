@@ -104,6 +104,7 @@ class OdpRendererOptions(BaseRendererOptions):
 
     """
 
+    # TODO: move magic strings/numbers
     slide_split_mode: Literal["separator", "heading", "auto"] = field(
         default="auto",
         metadata={

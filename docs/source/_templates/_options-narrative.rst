@@ -12,14 +12,16 @@ The options stack is intentionally layered:
 1. :class:`~all2md.options.base.BaseParserOptions` — shared attachment policy, metadata extraction, asset limits
 2. Nested security helpers such as :class:`~all2md.options.common.NetworkFetchOptions` and
    :class:`~all2md.options.common.LocalFileAccessOptions`
-3. Format-specific options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) which may embed
-   :class:`~all2md.options.markdown.MarkdownRendererOptions` or renderer counterparts
+3. Format-specific parser options (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``, …) combined with
+   renderer counterparts (``MarkdownRendererOptions``, ``HtmlRendererOptions``) via the ``renderer_options``
+   parameter when rendering output
 
 Because every class inherits from ``CloneFrozenMixin`` you can derive safe variants without mutating originals:
 
 .. code-block:: python
 
-   from all2md.options import HtmlOptions, NetworkFetchOptions
+   from all2md import to_markdown
+   from all2md.options import HtmlOptions, MarkdownRendererOptions, NetworkFetchOptions
 
    hardened_network = NetworkFetchOptions(
        allow_remote_fetch=False,
@@ -32,9 +34,15 @@ Because every class inherits from ``CloneFrozenMixin`` you can derive safe varia
        network=hardened_network,
    )
 
-   secure_variant = html_options.create_updated(markdown_options=html_options.markdown_options.create_updated(
-       flavor="gfm",
-   ))
+   markdown_defaults = MarkdownRendererOptions(flavor="gfm")
+
+   secure_html = to_markdown(
+       "page.html",
+       parser_options=html_options,
+       renderer_options=markdown_defaults.create_updated(link_style="reference"),
+   )
+
+   hardened_html_options = html_options.create_updated(strip_dangerous_elements=True)
 
 CLI flag mapping follows the field path. For example ``HtmlOptions.network.require_https`` becomes
 ``--html-network-require-https`` (and the env var ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``). Nested collections such as
@@ -89,11 +97,11 @@ constructed automatically from matching kwargs.
 .. code-block:: python
 
    from all2md import to_markdown
-   from all2md.options import HtmlOptions
+   from all2md.options import HtmlOptions, MarkdownRendererOptions
 
    markdown = to_markdown(
        "page.html",
-       options=HtmlOptions(
+       parser_options=HtmlOptions(
            extract_title=True,
            network=dict(
                allow_remote_fetch=False,
@@ -101,12 +109,13 @@ constructed automatically from matching kwargs.
                require_https=True,
            ),
        ),
+       renderer_options=MarkdownRendererOptions(link_style="reference"),
    )
 
-   # Kwargs override existing settings
-   hardened = markdown = to_markdown(
+   # Kwargs override existing settings (nested dataclass fields are detected automatically)
+   hardened = to_markdown(
        "page.html",
-       options=HtmlOptions(),
+       parser_options=HtmlOptions(),
        allow_remote_fetch=False,
    )
 

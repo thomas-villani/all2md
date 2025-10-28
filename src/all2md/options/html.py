@@ -8,7 +8,6 @@ and security controls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from all2md.constants import (
     DEFAULT_ALLOW_REMOTE_SCRIPTS,
@@ -16,14 +15,40 @@ from all2md.constants import (
     DEFAULT_CSP_ENABLED,
     DEFAULT_CSP_POLICY,
     DEFAULT_EXTRACT_TITLE,
+    DEFAULT_HTML_BR_HANDLING,
+    DEFAULT_HTML_COLLAPSE_WHITESPACE,
     DEFAULT_HTML_COMMENT_MODE,
+    DEFAULT_HTML_CONTENT_PLACEHOLDER,
+    DEFAULT_HTML_CSS_STYLE,
+    DEFAULT_HTML_DETAILS_PARSING,
+    DEFAULT_HTML_ESCAPE_HTML,
+    DEFAULT_HTML_EXTRACT_MICRODATA,
+    DEFAULT_HTML_EXTRACT_READABLE,
+    DEFAULT_HTML_FIGURES_PARSING,
+    DEFAULT_HTML_INCLUDE_TOC,
+    DEFAULT_HTML_INJECTION_MODE,
+    DEFAULT_HTML_LANGUAGE,
+    DEFAULT_HTML_MATH_RENDERER,
+    DEFAULT_HTML_PARSER,
     DEFAULT_HTML_PASSTHROUGH_MODE,
+    DEFAULT_HTML_STANDALONE,
+    DEFAULT_HTML_STRIP_COMMENTS,
+    DEFAULT_HTML_SYNTAX_HIGHLIGHTING,
+    DEFAULT_HTML_TEMPLATE_SELECTOR,
     DEFAULT_STRIP_DANGEROUS_ELEMENTS,
     DEFAULT_STRIP_FRAMEWORK_ATTRIBUTES,
     DEFAULT_TABLE_ALIGNMENT_AUTO_DETECT,
     HTML_PASSTHROUGH_MODES,
+    BrHandling,
+    CssStyle,
+    DetailsParsing,
+    FiguresParsing,
     HtmlCommentMode,
+    HtmlParser,
     HtmlPassthroughMode,
+    InjectionMode,
+    MathRenderer,
+    TemplateMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin, LocalFileAccessOptions, NetworkFetchOptions
@@ -139,18 +164,16 @@ class HtmlRendererOptions(BaseRendererOptions):
 
     """
 
-    # TODO: move magic numbers/strings to constants.py
-
     standalone: bool = field(
-        default=True,
+        default=DEFAULT_HTML_STANDALONE,
         metadata={
             "help": "Generate complete HTML document (vs content fragment)",
             "cli_name": "no-standalone",
             "importance": "core",
         },
     )
-    css_style: Literal["inline", "embedded", "external", "none"] = field(
-        default="embedded",
+    css_style: CssStyle = field(
+        default=DEFAULT_HTML_CSS_STYLE,
         metadata={
             "help": "CSS inclusion method: inline, embedded, external, or none",
             "choices": ["inline", "embedded", "external", "none"],
@@ -162,10 +185,11 @@ class HtmlRendererOptions(BaseRendererOptions):
         metadata={"help": "Path to external CSS file (when css_style='external')", "importance": "advanced"},
     )
     include_toc: bool = field(
-        default=False, metadata={"help": "Generate table of contents from headings", "importance": "core"}
+        default=DEFAULT_HTML_INCLUDE_TOC,
+        metadata={"help": "Generate table of contents from headings", "importance": "core"},
     )
     syntax_highlighting: bool = field(
-        default=True,
+        default=DEFAULT_HTML_SYNTAX_HIGHLIGHTING,
         metadata={
             "help": "Add language classes for syntax highlighting",
             "cli_name": "no-syntax-highlighting",
@@ -173,15 +197,15 @@ class HtmlRendererOptions(BaseRendererOptions):
         },
     )
     escape_html: bool = field(
-        default=True,
+        default=DEFAULT_HTML_ESCAPE_HTML,
         metadata={
             "help": "Escape HTML special characters in text",
             "cli_name": "no-escape-html",
             "importance": "security",
         },
     )
-    math_renderer: Literal["mathjax", "katex", "none"] = field(
-        default="mathjax",
+    math_renderer: MathRenderer = field(
+        default=DEFAULT_HTML_MATH_RENDERER,
         metadata={
             "help": "Math rendering library: mathjax, katex, or none",
             "choices": ["mathjax", "katex", "none"],
@@ -197,10 +221,10 @@ class HtmlRendererOptions(BaseRendererOptions):
         },
     )
     language: str = field(
-        default="en",
+        default=DEFAULT_HTML_LANGUAGE,
         metadata={"help": "Document language code (ISO 639-1) for HTML lang attribute", "importance": "advanced"},
     )
-    template_mode: Literal["inject", "replace", "jinja"] | None = field(
+    template_mode: TemplateMode | None = field(
         default=None,
         metadata={
             "help": "Template mode: inject, replace, jinja, or none",
@@ -213,11 +237,11 @@ class HtmlRendererOptions(BaseRendererOptions):
         metadata={"help": "Path to template file (required when template_mode is set)", "importance": "advanced"},
     )
     template_selector: str = field(
-        default="#content",
+        default=DEFAULT_HTML_TEMPLATE_SELECTOR,
         metadata={"help": "CSS selector for injection target (template_mode='inject')", "importance": "advanced"},
     )
-    injection_mode: Literal["append", "prepend", "replace"] = field(
-        default="replace",
+    injection_mode: InjectionMode = field(
+        default=DEFAULT_HTML_INJECTION_MODE,
         metadata={
             "help": "How to inject content: append, prepend, or replace",
             "choices": ["append", "prepend", "replace"],
@@ -225,7 +249,7 @@ class HtmlRendererOptions(BaseRendererOptions):
         },
     )
     content_placeholder: str = field(
-        default="{CONTENT}",
+        default=DEFAULT_HTML_CONTENT_PLACEHOLDER,
         metadata={"help": "Placeholder to replace with content (template_mode='replace')", "importance": "advanced"},
     )
     css_class_map: dict[str, str | list[str]] | None = field(
@@ -405,7 +429,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
 
     # Advanced HTML processing options
     strip_comments: bool = field(
-        default=True,
+        default=DEFAULT_HTML_STRIP_COMMENTS,
         metadata={
             "help": "Remove HTML comments from output",
             "cli_name": "no-strip-comments",
@@ -413,7 +437,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     collapse_whitespace: bool = field(
-        default=True,
+        default=DEFAULT_HTML_COLLAPSE_WHITESPACE,
         metadata={
             "help": "Collapse multiple spaces/newlines into single spaces",
             "cli_name": "no-collapse-whitespace",
@@ -421,15 +445,15 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     extract_readable: bool = field(
-        default=False,
+        default=DEFAULT_HTML_EXTRACT_READABLE,
         metadata={
             "help": "Extract main article content by stripping navigation and other non-readable content "
             "using readability-lxml",
             "importance": "advanced",
         },
     )
-    br_handling: Literal["newline", "space"] = field(
-        default="newline",
+    br_handling: BrHandling = field(
+        default=DEFAULT_HTML_BR_HANDLING,
         metadata={
             "help": "How to handle <br> tags: 'newline' or 'space'",
             "choices": ["newline", "space"],
@@ -457,8 +481,8 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "security",
         },
     )
-    figures_parsing: Literal["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"] = field(
-        default="blockquote",
+    figures_parsing: FiguresParsing = field(
+        default=DEFAULT_HTML_FIGURES_PARSING,
         metadata={
             "help": (
                 "How to parse <figure> elements: blockquote, paragraph, image_with_caption, " "caption_only, html, skip"
@@ -467,8 +491,8 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
-    details_parsing: Literal["blockquote", "paragraph", "html", "skip"] = field(
-        default="blockquote",
+    details_parsing: DetailsParsing = field(
+        default=DEFAULT_HTML_DETAILS_PARSING,
         metadata={
             "help": "How to render <details>/<summary> elements: blockquote, html, skip",
             "choices": ["blockquote", "html", "skip"],
@@ -476,7 +500,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     extract_microdata: bool = field(
-        default=True,
+        default=DEFAULT_HTML_EXTRACT_MICRODATA,
         metadata={
             "help": "Extract microdata and structured data to metadata",
             "cli_name": "no-extract-microdata",
@@ -490,8 +514,8 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
-    html_parser: Literal["html.parser", "html5lib", "lxml"] = field(
-        default="html.parser",
+    html_parser: HtmlParser = field(
+        default=DEFAULT_HTML_PARSER,
         metadata={
             "help": (
                 "BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), "

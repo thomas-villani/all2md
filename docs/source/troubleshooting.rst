@@ -291,6 +291,7 @@ Word Document Issues
 
 .. code-block:: python
 
+   from all2md import to_markdown
    from all2md.options import DocxOptions, MarkdownRendererOptions
 
    # Ensure formatting is preserved
@@ -299,9 +300,10 @@ Word Document Issues
        escape_special=True
    )
 
-   options = DocxOptions(
-       preserve_tables=True,
-       markdown_options=md_options
+   markdown = to_markdown(
+       'document.docx',
+       parser_options=DocxOptions(preserve_tables=True),
+       renderer_options=md_options,
    )
 
 .. code-block:: bash

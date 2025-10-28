@@ -4,14 +4,30 @@ version = "0.1.0"
 description = "Rapid, lightweight conversion of various document formats to markdown for LLMs"
 readme = "README.md"
 authors = [
-    { name = "Thomas.Villani", email = "thomas.villani@gmail.com" }
+    { name = "Tom Villani, Ph.D.", email = "thomas.villani@gmail.com" }
 ]
-
+license = "MIT"
+keywords = [
+    "markdown",
+    "converter",
+    "pdf",
+    "docx",
+    "html",
+    "document-conversion",
+    "llm",
+    "ai",
+    "parsing",
+    "bidirectional",
+    "pptx",
+    "epub",
+    "pandoc-alternative"
+]
 
 requires-python = ">=3.12"
 
 classifiers = [
     "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
 
     "Intended Audience :: Developers",
 
@@ -33,6 +49,13 @@ dependencies = [
     "tomli-w>=1.0.0",  # For writing TOML config files (tomllib in stdlib is read-only)
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/thomas-villani/all2md"
+Repository = "https://github.com/thomas-villani/all2md"
+Documentation = "https://github.com/thomas-villani/all2md/tree/main/docs"
+Issues = "https://github.com/thomas-villani/all2md/issues"
+Changelog = "https://github.com/thomas-villani/all2md/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/all2md"]

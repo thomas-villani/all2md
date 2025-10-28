@@ -517,27 +517,34 @@ Options Hierarchy
 .. code-block:: text
 
    BaseParserOptions (universal)
-   ├── attachment_mode
-   ├── attachment_output_dir
-   ├── alt_text_mode
-   └── markdown_options (MarkdownRendererOptions)
+   └── extract_metadata
 
-   Format-Specific Options (inherit from BaseParserOptions)
-   ├── HtmlOptions
-   │   ├── strip_dangerous_elements
-   │   ├── preserve_tables
-   │   ├── network (NetworkFetchOptions)
-   │   └── local_files (LocalFileAccessOptions)
-   ├── PdfOptions
-   │   ├── pages
-   │   ├── extract_images
-   │   └── detect_columns
-   ├── DocxOptions
-   │   ├── include_comments
-   │   └── include_footnotes
-   ├── EmlOptions
-   │   ├── network (NetworkFetchOptions)
-   │   └── local_files (LocalFileAccessOptions)
+   AttachmentOptionsMixin (added to formats with binary assets)
+   ├── attachment_mode / attachment_output_dir
+   ├── alt_text_mode
+   ├── attachment_base_url
+   ├── max_asset_size_bytes
+   └── attachment_filename_template / overwrite strategy
+
+   PaginatedParserOptions (PDF, PPTX, ODP)
+   └── page_separator_template
+
+   HtmlOptions (inherits AttachmentOptionsMixin)
+   ├── extract_title / convert_nbsp
+   ├── strip_dangerous_elements / strip_framework_attributes
+   ├── network (NetworkFetchOptions)
+   └── local_files (LocalFileAccessOptions)
+
+   PdfOptions (inherits PaginatedParserOptions)
+   ├── pages / password
+   ├── detect_columns / use_column_clustering
+   ├── table_detection_mode / enable_table_fallback_detection
+   └── auto_trim_headers_footers / skip_image_extraction
+
+   DocxOptions
+   ├── preserve_tables / include_comments
+   ├── include_footnotes / include_endnotes
+   └── include_image_captions / comments_position
    └── (other format options...)
 
 **Nested Options:**

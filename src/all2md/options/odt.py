@@ -77,6 +77,7 @@ class OdtRendererOptions(BaseRendererOptions):
 
     """
 
+    # TODO: move magic strings/numbers
     default_font: str = field(
         default="Liberation Sans", metadata={"help": "Default font for body text", "importance": "core"}
     )

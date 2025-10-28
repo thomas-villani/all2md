@@ -51,7 +51,6 @@ from all2md.exceptions import ParsingError
 from all2md.options.bbcode import BBCodeParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
-from all2md.utils.encoding import normalize_stream_to_text, read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import sanitize_html_content, sanitize_url
 from all2md.utils.metadata import DocumentMetadata
 
@@ -170,7 +169,7 @@ class BBCodeParser(BaseParser):
         self._emit_progress("started", "Parsing BBCode", current=0, total=100)
 
         # Load BBCode content from various input types
-        bbcode_content = self._load_bbcode_content(input_data)
+        bbcode_content = self._load_text_content(input_data)
 
         self._emit_progress("item_done", "Loaded BBCode content", current=20, total=100, item_type="loading")
 
@@ -196,40 +195,6 @@ class BBCodeParser(BaseParser):
         self._emit_progress("finished", "Parsing complete", current=100, total=100)
 
         return doc
-
-    @staticmethod
-    def _load_bbcode_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
-        """Load BBCode content from various input types with encoding detection.
-
-        Parameters
-        ----------
-        input_data : str, Path, IO[bytes], or bytes
-            Input data to load
-
-        Returns
-        -------
-        str
-            BBCode content as string
-
-        """
-        if isinstance(input_data, bytes):
-            return read_text_with_encoding_detection(input_data)
-        elif isinstance(input_data, Path):
-            with open(input_data, "rb") as f:
-                return read_text_with_encoding_detection(f.read())
-        elif isinstance(input_data, str):
-            # Could be file path or BBCode content
-            path = Path(input_data)
-            if path.exists() and path.is_file():
-                with open(path, "rb") as f:
-                    return read_text_with_encoding_detection(f.read())
-            else:
-                # Assume it's BBCode content
-                return input_data
-        else:
-            # File-like object (handles both binary and text mode)
-            input_data.seek(0)
-            return normalize_stream_to_text(input_data)
 
     def _parse_content(self, bbcode: str) -> list[Node]:
         """Parse BBCode content into AST nodes.

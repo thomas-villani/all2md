@@ -91,14 +91,14 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **OpenDocument Text**         | `.odt`                                        |       ✅       |        ✅      | `odf`              |
 | **OpenDocument Presentation** | `.odp`                                        |       ✅       |        ✅      | `odf`              |
 | **OpenDocument Spreadsheet**  | `.ods`                                        |       ✅       |       (N/A)    | `odf`              |
-| **Excel Spreadsheet**         | `.xlsx`                                       |       ✅       |       (N/A)    | `spreadsheet`      |
+| **Excel Spreadsheet**         | `.xlsx`                                       |       ✅       |       (N/A)    | `xlsx`             |
 | **CSV / TSV**                 | `.csv`, `.tsv`                                |       ✅       |        ✅      | (built-in)         |
 | **Rich Text Format**          | `.rtf`                                        |       ✅       |        ✅      | `rtf`              |
 | **LaTeX**                     | `.tex`, `.latex`                              |       ✅       |        ✅      | `latex`            |
 | **AsciiDoc**                  | `.adoc`, `.asciidoc`, `.asc`                  |       ✅       |        ✅      | (built-in)         |
-| **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `markdown`         |
+| **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `rst`              |
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
-| **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `mediawiki`        |
+| **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `wiki`             |
 | **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
 | **OpenAPI/Swagger**           | `.yaml`, `.yml`, `.json`                      |       ✅       |       (N/A)    | `openapi`          |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
@@ -128,7 +128,7 @@ Install support for only the formats you need. You can combine multiple extras.
 pip install "all2md[pdf,docx,html]"
 
 # Install support for spreadsheets and ODF documents
-pip install "all2md[spreadsheet,odf]"
+pip install "all2md[xlsx,odf]"
 
 # Install PDF support with OCR for scanned documents
 pip install "all2md[pdf,ocr]"
