@@ -63,7 +63,10 @@ class LatexOptions(BaseParserOptions):
     parse_custom_commands: bool = field(
         default=False,
         metadata={
-            "help": "Parse custom LaTeX commands (SECURITY: disabled by default)",
+            "help": "Attempt to parse unknown/custom LaTeX commands by extracting their arguments. "
+            "When False (default), unknown commands are processed safely with minimal interpretation. "
+            "When True, parser attempts to extract content from custom command arguments. "
+            "(SECURITY: disabled by default to prevent unexpected behavior)",
             "cli_name": "parse-custom-commands",
             "importance": "security",
         },

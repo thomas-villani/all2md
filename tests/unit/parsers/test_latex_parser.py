@@ -683,3 +683,74 @@ class TestLatexOptions:
 
         assert r"\usepackage{geometry}" in latex
         assert r"\usepackage{fancyhdr}" in latex
+
+    def test_parse_math_disabled_inline(self) -> None:
+        """Test that parse_math=False skips inline math."""
+        parser = LatexParser(LatexOptions(parse_math=False))
+        doc = parser.parse(r"Equation $E = mc^2$ is famous")
+
+        # Should NOT find MathInline nodes when parse_math=False
+        def has_math_inline(nodes):
+            for node in nodes:
+                if isinstance(node, MathInline):
+                    return True
+                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, "content"):
+                    if has_math_inline(node.content):
+                        return True
+                if isinstance(node, (List, BlockQuote)) and hasattr(node, "children"):
+                    if has_math_inline(node.children):
+                        return True
+            return False
+
+        assert not has_math_inline(doc.children), "Math should not be parsed when parse_math=False"
+
+    def test_parse_math_disabled_block(self) -> None:
+        """Test that parse_math=False skips math blocks."""
+        parser = LatexParser(LatexOptions(parse_math=False))
+        doc = parser.parse(r"\begin{equation}x^2 + y^2 = z^2\end{equation}")
+
+        # Should NOT find MathBlock nodes when parse_math=False
+        math_blocks = [child for child in doc.children if isinstance(child, MathBlock)]
+        assert len(math_blocks) == 0, "Math blocks should not be parsed when parse_math=False"
+
+    def test_parse_math_enabled_default(self) -> None:
+        """Test that parse_math=True (default) parses math."""
+        parser = LatexParser(LatexOptions(parse_math=True))
+        doc = parser.parse(r"Equation $E = mc^2$ is famous")
+
+        # Should find MathInline nodes when parse_math=True
+        def has_math_inline(nodes):
+            for node in nodes:
+                if isinstance(node, MathInline):
+                    return True
+                if isinstance(node, (Paragraph, ListItem)) and hasattr(node, "content"):
+                    if has_math_inline(node.content):
+                        return True
+                if isinstance(node, (List, BlockQuote)) and hasattr(node, "children"):
+                    if has_math_inline(node.children):
+                        return True
+            return False
+
+        assert has_math_inline(doc.children), "Math should be parsed when parse_math=True"
+
+    def test_parse_custom_commands_disabled(self) -> None:
+        """Test that parse_custom_commands=False works without crashing."""
+        parser = LatexParser(LatexOptions(parse_custom_commands=False))
+        latex = r"Start \customcmd{custom content} End"
+        doc = parser.parse(latex)
+
+        # With parse_custom_commands=False, parser should handle unknown commands gracefully
+        # Main test: parser shouldn't crash
+        assert doc is not None
+        assert isinstance(doc, Document)
+
+    def test_parse_custom_commands_enabled(self) -> None:
+        """Test that parse_custom_commands=True works without crashing."""
+        parser = LatexParser(LatexOptions(parse_custom_commands=True))
+        latex = r"Start \customcmd{custom content} End"
+        doc = parser.parse(latex)
+
+        # With parse_custom_commands=True, parser should attempt to extract command arguments
+        # Main test: parser shouldn't crash
+        assert doc is not None
+        assert isinstance(doc, Document)

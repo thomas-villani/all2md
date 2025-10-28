@@ -20,19 +20,13 @@ class OdtOptions(BaseParserOptions, AttachmentOptionsMixin):
     """Configuration options for ODT-to-Markdown conversion.
 
     This dataclass contains settings specific to OpenDocument Text (ODT)
-    processing, including table preservation, footnotes, and comments.
-    Inherits attachment handling from AttachmentOptionsMixin for embedded images.
+    processing. Inherits attachment handling from AttachmentOptionsMixin
+    for embedded images.
 
     Parameters
     ----------
     preserve_tables : bool, default True
         Whether to preserve table formatting in Markdown.
-    preserve_comments : bool, default False
-        Whether to include document comments in output.
-    include_footnotes : bool, default True
-        Whether to include footnotes in output.
-    include_endnotes : bool, default True
-        Whether to include endnotes in output.
 
     """
 
@@ -43,17 +37,6 @@ class OdtOptions(BaseParserOptions, AttachmentOptionsMixin):
             "cli_name": "no-preserve-tables",
             "importance": "core",
         },
-    )
-    preserve_comments: bool = field(
-        default=False, metadata={"help": "Include document comments in output", "importance": "advanced"}
-    )
-    include_footnotes: bool = field(
-        default=True,
-        metadata={"help": "Include footnotes in output", "cli_name": "no-include-footnotes", "importance": "core"},
-    )
-    include_endnotes: bool = field(
-        default=True,
-        metadata={"help": "Include endnotes in output", "cli_name": "no-include-endnotes", "importance": "core"},
     )
 
 

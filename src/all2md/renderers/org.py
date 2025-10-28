@@ -84,6 +84,66 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         >>> print(org)
         * Title
 
+    Rendering enhanced Org features:
+
+        >>> from all2md import to_markdown
+        >>> from all2md.options.org import OrgParserOptions, OrgRendererOptions
+        >>> # Parse with enhanced features
+        >>> parser_opts = OrgParserOptions(
+        ...     parse_logbook=True,
+        ...     parse_clock=True,
+        ...     parse_closed=True,
+        ...     preserve_timestamp_metadata=True
+        ... )
+        >>> # Render with enhanced features
+        >>> renderer_opts = OrgRendererOptions(
+        ...     preserve_logbook=True,
+        ...     preserve_clock=True,
+        ...     preserve_closed=True
+        ... )
+        >>> # Round-trip conversion preserves these features
+        >>> markdown = to_markdown(
+        ...     "orgfile.org",
+        ...     source_format="org",
+        ...     parser_options=parser_opts
+        ... )
+
+    Notes
+    -----
+    **Enhanced Org-Mode Features:**
+
+    The renderer can output enhanced Org-mode metadata including:
+
+    - **CLOSED timestamps**: When tasks are completed (org_closed metadata)
+    - **SCHEDULED/DEADLINE**: With repeaters and time ranges (org_scheduled,
+      org_deadline metadata)
+    - **LOGBOOK drawer**: State changes and notes (org_logbook metadata)
+    - **CLOCK entries**: Time tracking entries (org_clock metadata)
+    - **Tags**: Heading tags (tags metadata)
+    - **TODO states**: Task states (todo_keyword metadata)
+
+    **Metadata Format Compatibility:**
+
+    The renderer handles both dictionary (new format) and string (legacy format)
+    metadata for backward compatibility:
+
+    - Dictionary format includes structured data (start date, repeater, etc.)
+    - String format is rendered directly
+    - This ensures existing AST structures continue to work
+
+    **orgparse Parser Limitations:**
+
+    When working with documents parsed by the OrgParser (which uses orgparse),
+    be aware that some metadata may be incomplete:
+
+    - LOGBOOK drawer content may be missing if SCHEDULED/DEADLINE are placed
+      after PROPERTIES drawer (orgparse strips it)
+    - CLOCK entries may be incomplete in nested sections
+    - The renderer handles these gracefully by checking for None/empty values
+
+    For best results when round-tripping Org-mode documents, use standard
+    Org-mode formatting (SCHEDULED/DEADLINE before PROPERTIES drawer).
+
     """
 
     def __init__(self, options: OrgRendererOptions | None = None):
@@ -201,7 +261,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if metadata:
             self._output.append("\n")
 
-    def visit_heading(self, node: Heading) -> None:
+    def visit_heading(self, node: Heading) -> None:  # noqa: C901
         """Render a Heading node.
 
         Parameters
@@ -246,6 +306,90 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 for key, value in properties.items():
                     self._output.append(f":{key}: {value}\n")
                 self._output.append(":END:")
+
+        # Render CLOSED timestamp if present and enabled
+        if self.options.preserve_closed and node.metadata:
+            closed = node.metadata.get("org_closed")
+            if closed:
+                # Handle both dict (full metadata) and string (legacy) formats
+                if isinstance(closed, dict):
+                    closed_str = closed.get("string", str(closed))
+                else:
+                    closed_str = str(closed)
+                self._output.append(f"\nCLOSED: {closed_str}")
+
+        # Render SCHEDULED timestamp if present
+        if node.metadata:
+            scheduled = node.metadata.get("org_scheduled")
+            if scheduled:
+                # Handle both dict (full metadata) and string (legacy) formats
+                if isinstance(scheduled, dict):
+                    scheduled_str = scheduled.get("string", str(scheduled))
+                else:
+                    scheduled_str = str(scheduled)
+                self._output.append(f"\nSCHEDULED: {scheduled_str}")
+
+        # Render DEADLINE timestamp if present
+        if node.metadata:
+            deadline = node.metadata.get("org_deadline")
+            if deadline:
+                # Handle both dict (full metadata) and string (legacy) formats
+                if isinstance(deadline, dict):
+                    deadline_str = deadline.get("string", str(deadline))
+                else:
+                    deadline_str = str(deadline)
+                self._output.append(f"\nDEADLINE: {deadline_str}")
+
+        # Render LOGBOOK drawer if present and enabled
+        if self.options.preserve_logbook and node.metadata:
+            logbook = node.metadata.get("org_logbook")
+            if logbook:
+                # Only render if there are entries
+                entries = logbook.get("entries", [])
+                if entries:
+                    self._output.append("\n:LOGBOOK:\n")
+
+                    # Render entries
+                    for entry in entries:
+                        entry_type = entry.get("type")
+
+                        if entry_type == "state_change":
+                            self._output.append(
+                                f"- State \"{entry['new_state']}\" "
+                                f"from \"{entry['old_state']}\" "
+                                f"[{entry['timestamp']}]\n"
+                            )
+                        elif entry_type == "clock":
+                            if entry.get("end"):
+                                clock_line = f"CLOCK: [{entry['start']}]--[{entry['end']}]"
+                                if entry.get("duration"):
+                                    clock_line += f" =>  {entry['duration']}"
+                                self._output.append(clock_line + "\n")
+                            else:
+                                self._output.append(f"CLOCK: [{entry['start']}]\n")
+                        elif entry_type == "note":
+                            self._output.append(f"- {entry['content']} [{entry['timestamp']}]\n")
+
+                    self._output.append(":END:")
+
+        # Render CLOCK entries if present and enabled (outside LOGBOOK)
+        # This handles clock entries that were extracted via node.clock
+        if self.options.preserve_clock and node.metadata:
+            clock_entries = node.metadata.get("org_clock")
+            if clock_entries:
+                # Only render if we haven't already rendered a LOGBOOK
+                # (to avoid duplication if clock entries were in LOGBOOK)
+                if not (self.options.preserve_logbook and node.metadata.get("org_logbook")):
+                    self._output.append("\n:LOGBOOK:\n")
+                    for clock in clock_entries:
+                        if clock.get("end"):
+                            clock_line = f"CLOCK: [{clock['start']}]--[{clock['end']}]"
+                            if clock.get("duration"):
+                                clock_line += f" =>  {clock['duration']}"
+                            self._output.append(clock_line + "\n")
+                        else:
+                            self._output.append(f"CLOCK: [{clock['start']}]\n")
+                    self._output.append(":END:")
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.

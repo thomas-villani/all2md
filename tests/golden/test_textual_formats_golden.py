@@ -16,6 +16,7 @@ from fixtures.generators.latex_fixtures import (
 )
 from fixtures.generators.org_fixtures import (
     create_org_agenda_document,
+    create_org_enhanced_features,
     org_bytes_io,
 )
 from fixtures.generators.plaintext_fixtures import (
@@ -103,6 +104,12 @@ class TestOrgGolden:
 
     def test_org_agenda_document(self, snapshot):
         stream = org_bytes_io(create_org_agenda_document())
+        result = to_markdown(stream, source_format="org")
+        assert result == snapshot
+
+    def test_org_enhanced_features(self, snapshot):
+        """Test Org-mode with enhanced features (timestamps, repeaters, etc.)."""
+        stream = org_bytes_io(create_org_enhanced_features())
         result = to_markdown(stream, source_format="org")
         assert result == snapshot
 

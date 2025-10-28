@@ -13,13 +13,18 @@ from dataclasses import dataclass, field
 from all2md.constants import (
     DEFAULT_ORG_COMMENT_MODE,
     DEFAULT_ORG_HEADING_STYLE,
-    DEFAULT_ORG_PARSE_DRAWERS,
+    DEFAULT_ORG_PARSE_CLOCK,
+    DEFAULT_ORG_PARSE_CLOSED,
+    DEFAULT_ORG_PARSE_LOGBOOK,
     DEFAULT_ORG_PARSE_PROPERTIES,
     DEFAULT_ORG_PARSE_SCHEDULING,
     DEFAULT_ORG_PARSE_TAGS,
-    DEFAULT_ORG_PRESERVE_DRAWERS,
+    DEFAULT_ORG_PRESERVE_CLOCK,
+    DEFAULT_ORG_PRESERVE_CLOSED,
+    DEFAULT_ORG_PRESERVE_LOGBOOK,
     DEFAULT_ORG_PRESERVE_PROPERTIES,
     DEFAULT_ORG_PRESERVE_TAGS,
+    DEFAULT_ORG_PRESERVE_TIMESTAMP_METADATA,
     DEFAULT_ORG_TODO_KEYWORDS,
     OrgCommentMode,
     OrgHeadingStyle,
@@ -36,10 +41,6 @@ class OrgParserOptions(BaseParserOptions):
 
     Parameters
     ----------
-    parse_drawers : bool, default True
-        Whether to parse Org drawers (e.g., :PROPERTIES:, :LOGBOOK:).
-        When True, drawer contents are preserved in metadata.
-        When False, drawers are ignored.
     parse_properties : bool, default True
         Whether to parse Org properties within drawers.
         When True, properties are extracted and stored in metadata.
@@ -67,14 +68,6 @@ class OrgParserOptions(BaseParserOptions):
 
     """
 
-    parse_drawers: bool = field(
-        default=DEFAULT_ORG_PARSE_DRAWERS,
-        metadata={
-            "help": "Parse Org drawers (e.g., :PROPERTIES:, :LOGBOOK:)",
-            "cli_name": "no-parse-drawers",
-            "importance": "core",
-        },
-    )
     parse_properties: bool = field(
         default=DEFAULT_ORG_PARSE_PROPERTIES,
         metadata={
@@ -103,6 +96,38 @@ class OrgParserOptions(BaseParserOptions):
         default_factory=lambda: list(DEFAULT_ORG_TODO_KEYWORDS),
         metadata={"help": "List of TODO keywords to recognize", "cli_name": "todo-keywords", "importance": "core"},
     )
+    parse_logbook: bool = field(
+        default=DEFAULT_ORG_PARSE_LOGBOOK,
+        metadata={
+            "help": "Parse LOGBOOK drawer entries into structured data",
+            "cli_name": "no-parse-logbook",
+            "importance": "core",
+        },
+    )
+    parse_clock: bool = field(
+        default=DEFAULT_ORG_PARSE_CLOCK,
+        metadata={
+            "help": "Parse CLOCK entries",
+            "cli_name": "no-parse-clock",
+            "importance": "core",
+        },
+    )
+    parse_closed: bool = field(
+        default=DEFAULT_ORG_PARSE_CLOSED,
+        metadata={
+            "help": "Parse CLOSED timestamps for completed tasks",
+            "cli_name": "no-parse-closed",
+            "importance": "core",
+        },
+    )
+    preserve_timestamp_metadata: bool = field(
+        default=DEFAULT_ORG_PRESERVE_TIMESTAMP_METADATA,
+        metadata={
+            "help": "Store full timestamp metadata (repeaters, warnings, time ranges)",
+            "cli_name": "no-preserve-timestamp-metadata",
+            "importance": "core",
+        },
+    )
 
 
 @dataclass(frozen=True)
@@ -117,9 +142,6 @@ class OrgRendererOptions(BaseRendererOptions):
     heading_style : {"stars"}, default "stars"
         Style for rendering headings. Currently only "stars" is supported
         (e.g., ``*`` Level 1, ``**`` Level 2, ``***`` Level 3).
-    preserve_drawers : bool, default False
-        Whether to preserve drawer content in rendered output.
-        When True, drawers stored in metadata are rendered back.
     preserve_properties : bool, default True
         Whether to preserve properties in rendered output.
         When True, properties stored in metadata are rendered in :PROPERTIES: drawer.
@@ -160,14 +182,6 @@ class OrgRendererOptions(BaseRendererOptions):
         default=DEFAULT_ORG_HEADING_STYLE,
         metadata={"help": "Style for rendering headings", "choices": ["stars"], "importance": "advanced"},
     )
-    preserve_drawers: bool = field(
-        default=DEFAULT_ORG_PRESERVE_DRAWERS,
-        metadata={
-            "help": "Preserve drawer content in rendered output",
-            "cli_name": "no-preserve-drawers",
-            "importance": "advanced",
-        },
-    )
     preserve_properties: bool = field(
         default=DEFAULT_ORG_PRESERVE_PROPERTIES,
         metadata={
@@ -195,6 +209,30 @@ class OrgRendererOptions(BaseRendererOptions):
             "comment (# comments), drawer (:COMMENT: drawer), "
             "ignore (skip comment nodes entirely). Controls presentation of source document comments.",
             "choices": ["comment", "drawer", "ignore"],
+            "importance": "core",
+        },
+    )
+    preserve_logbook: bool = field(
+        default=DEFAULT_ORG_PRESERVE_LOGBOOK,
+        metadata={
+            "help": "Render LOGBOOK drawer from metadata",
+            "cli_name": "no-preserve-logbook",
+            "importance": "core",
+        },
+    )
+    preserve_clock: bool = field(
+        default=DEFAULT_ORG_PRESERVE_CLOCK,
+        metadata={
+            "help": "Render CLOCK entries",
+            "cli_name": "no-preserve-clock",
+            "importance": "core",
+        },
+    )
+    preserve_closed: bool = field(
+        default=DEFAULT_ORG_PRESERVE_CLOSED,
+        metadata={
+            "help": "Render CLOSED timestamps",
+            "cli_name": "no-preserve-closed",
             "importance": "core",
         },
     )

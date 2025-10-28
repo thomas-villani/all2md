@@ -73,6 +73,35 @@ class OrgParser(BaseParser):
     options : OrgParserOptions or None, default = None
         Parser configuration options
 
+    Notes
+    -----
+    **orgparse Limitations:**
+
+    The parser relies on the orgparse library which has some known limitations:
+
+    - **LOGBOOK drawer content**: When SCHEDULED/DEADLINE lines are placed after
+      a PROPERTIES drawer (non-standard position), orgparse may strip the LOGBOOK
+      drawer content. This is an orgparse limitation, not a bug in all2md.
+
+    - **Drawer positioning**: Org-mode spec requires planning lines (SCHEDULED,
+      DEADLINE, CLOSED) to come right after the heading. Some documents place them
+      after PROPERTIES, which can cause parsing issues.
+
+    - **CLOCK entries**: CLOCK entries within LOGBOOK drawers may or may not be
+      available depending on document structure. The parser attempts to extract
+      them from both ``node.clock`` and LOGBOOK drawer content.
+
+    **What IS Supported:**
+
+    - ✓ SCHEDULED timestamps with time ranges and repeaters
+    - ✓ DEADLINE timestamps
+    - ✓ CLOSED timestamps (when properly positioned)
+    - ✓ Properties drawer (well-supported)
+    - ✓ Tags and TODO keywords
+    - ✓ LOGBOOK drawer (when content is available)
+    - ✓ CLOCK entries (via node.clock)
+    - ✓ Full timestamp metadata preservation
+
     Examples
     --------
     Basic parsing:
@@ -88,6 +117,20 @@ class OrgParser(BaseParser):
         ... )
         >>> parser = OrgParser(options)
         >>> doc = parser.parse(org_text)
+
+    Enhanced features:
+
+        >>> options = OrgParserOptions(
+        ...     parse_closed=True,
+        ...     parse_logbook=True,
+        ...     preserve_timestamp_metadata=True
+        ... )
+        >>> parser = OrgParser(options)
+        >>> doc = parser.parse(org_file)
+        >>> # Access enhanced metadata
+        >>> heading = doc.children[0]
+        >>> if "org_closed" in heading.metadata:
+        ...     print(f"Closed: {heading.metadata['org_closed']}")
 
     """
 
@@ -148,8 +191,19 @@ class OrgParser(BaseParser):
             else (root.body.strip() if root.body else "")
         )
         if root_body:
-            body_nodes = self._process_body(root_body)
-            children.extend(body_nodes)
+            # Filter out file-level properties (#+TITLE:, #+AUTHOR:, etc.)
+            # These are already extracted as metadata and should not be in body
+            filtered_lines = []
+            for line in root_body.split("\n"):
+                # Skip lines that start with #+KEYWORD: (file-level properties)
+                if line.strip().startswith("#+"):
+                    continue
+                filtered_lines.append(line)
+            filtered_body = "\n".join(filtered_lines).strip()
+
+            if filtered_body:
+                body_nodes = self._process_body(filtered_body)
+                children.extend(body_nodes)
 
         # Process child nodes (headings and their content)
         for node in root.children:
@@ -239,7 +293,127 @@ class OrgParser(BaseParser):
 
         return result if result else None
 
-    def _process_headline(self, node: Any) -> Heading | None:
+    def _extract_timestamp_metadata(self, timestamp_obj: Any) -> dict[str, Any] | None:
+        """Extract full timestamp metadata from orgparse timestamp object.
+
+        Parameters
+        ----------
+        timestamp_obj : orgparse timestamp object
+            Timestamp object from orgparse (OrgDate, OrgDateScheduled, etc.)
+
+        Returns
+        -------
+        dict or None
+            Dictionary with timestamp metadata or None if no timestamp
+
+        """
+        if not timestamp_obj:
+            return None
+
+        metadata: dict[str, Any] = {}
+
+        # Always store the string representation
+        try:
+            metadata["string"] = str(timestamp_obj)
+        except Exception:
+            # Handle orgparse bug where str() fails on some timestamps
+            metadata["string"] = repr(timestamp_obj)
+
+        # Store start date/time
+        if hasattr(timestamp_obj, "start") and timestamp_obj.start:
+            metadata["start"] = str(timestamp_obj.start)
+
+        # Store end date/time (for time ranges)
+        if hasattr(timestamp_obj, "end") and timestamp_obj.end:
+            metadata["end"] = str(timestamp_obj.end)
+
+        # Store active/inactive status
+        if hasattr(timestamp_obj, "_active"):
+            metadata["active"] = timestamp_obj._active
+
+        # Store repeater information
+        if hasattr(timestamp_obj, "_repeater") and timestamp_obj._repeater:
+            rep_type, amount, unit = timestamp_obj._repeater
+            metadata["repeater"] = {
+                "type": rep_type,
+                "amount": amount,
+                "unit": unit,
+                "string": f"{rep_type}{amount}{unit}",
+            }
+
+        # Store warning information
+        if hasattr(timestamp_obj, "_warning") and timestamp_obj._warning:
+            metadata["warning"] = timestamp_obj._warning
+
+        return metadata
+
+    def _parse_logbook_drawer(self, body_text: str) -> dict[str, Any] | None:
+        """Parse LOGBOOK drawer from body text.
+
+        Parameters
+        ----------
+        body_text : str
+            Body text that may contain LOGBOOK drawer
+
+        Returns
+        -------
+        dict or None
+            Dictionary with logbook entries and raw content, or None if no logbook
+
+        """
+        # Match :LOGBOOK: ... :END:
+        pattern = r":LOGBOOK:\s*\n(.*?)\n:END:"
+        match = re.search(pattern, body_text, re.DOTALL)
+
+        if not match:
+            return None
+
+        logbook_content = match.group(1).strip()
+        entries: list[dict[str, Any]] = []
+
+        for line in logbook_content.split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Parse state changes: - State "NEW" from "OLD" [timestamp]
+            state_match = re.match(r'-\s+State\s+"([^"]+)"\s+from\s+"([^"]+)"\s+\[(.+?)\]', line)
+            if state_match:
+                entries.append(
+                    {
+                        "type": "state_change",
+                        "new_state": state_match.group(1),
+                        "old_state": state_match.group(2),
+                        "timestamp": state_match.group(3),
+                    }
+                )
+                continue
+
+            # Parse CLOCK entries: CLOCK: [start]--[end] => duration
+            clock_match = re.match(r"CLOCK:\s+\[(.+?)\](?:--\[(.+?)\])?\s*(?:=>\s+(.+))?", line)
+            if clock_match:
+                entries.append(
+                    {
+                        "type": "clock",
+                        "start": clock_match.group(1),
+                        "end": clock_match.group(2) if clock_match.group(2) else None,
+                        "duration": clock_match.group(3) if clock_match.group(3) else None,
+                    }
+                )
+                continue
+
+            # Parse notes: - Note text [timestamp]
+            note_match = re.match(r"-\s+(.+?)\s+\[(.+?)\]", line)
+            if note_match:
+                entries.append({"type": "note", "content": note_match.group(1), "timestamp": note_match.group(2)})
+                continue
+
+        if not entries:
+            return None
+
+        return {"entries": entries, "raw": logbook_content}
+
+    def _process_headline(self, node: Any) -> Heading | None:  # noqa: C901
         """Process an orgparse headline node.
 
         Parameters
@@ -307,9 +481,72 @@ class OrgParser(BaseParser):
         # Extract scheduling information if enabled (SCHEDULED/DEADLINE)
         if self.options.parse_scheduling:
             if hasattr(node, "scheduled") and node.scheduled:
-                heading_metadata["org_scheduled"] = str(node.scheduled)
+                if self.options.preserve_timestamp_metadata:
+                    sched_metadata = self._extract_timestamp_metadata(node.scheduled)
+                    if sched_metadata:
+                        heading_metadata["org_scheduled"] = sched_metadata
+                else:
+                    # Legacy: just store string
+                    try:
+                        heading_metadata["org_scheduled"] = str(node.scheduled)
+                    except Exception:
+                        # Handle orgparse bug
+                        heading_metadata["org_scheduled"] = repr(node.scheduled)
+
             if hasattr(node, "deadline") and node.deadline:
-                heading_metadata["org_deadline"] = str(node.deadline)
+                if self.options.preserve_timestamp_metadata:
+                    deadline_metadata = self._extract_timestamp_metadata(node.deadline)
+                    if deadline_metadata:
+                        heading_metadata["org_deadline"] = deadline_metadata
+                else:
+                    # Legacy: just store string
+                    try:
+                        heading_metadata["org_deadline"] = str(node.deadline)
+                    except Exception:
+                        # Handle orgparse bug
+                        heading_metadata["org_deadline"] = repr(node.deadline)
+
+        # Extract CLOSED timestamp if enabled
+        if self.options.parse_closed and hasattr(node, "closed") and node.closed:
+            if self.options.preserve_timestamp_metadata:
+                closed_metadata = self._extract_timestamp_metadata(node.closed)
+                if closed_metadata:
+                    heading_metadata["org_closed"] = closed_metadata
+            else:
+                # Legacy: just store string
+                try:
+                    heading_metadata["org_closed"] = str(node.closed)
+                except Exception:
+                    heading_metadata["org_closed"] = repr(node.closed)
+
+        # Extract CLOCK entries if enabled
+        if self.options.parse_clock and hasattr(node, "clock") and node.clock:
+            clock_entries = []
+            for clock in node.clock:
+                entry: dict[str, Any] = {}
+                if hasattr(clock, "start") and clock.start:
+                    entry["start"] = str(clock.start)
+                if hasattr(clock, "end") and clock.end:
+                    entry["end"] = str(clock.end)
+                # Try to get duration if available
+                if hasattr(clock, "duration"):
+                    try:
+                        entry["duration"] = str(clock.duration)
+                    except Exception:
+                        pass
+                if entry:
+                    clock_entries.append(entry)
+            if clock_entries:
+                heading_metadata["org_clock"] = clock_entries
+
+        # Extract LOGBOOK drawer if enabled
+        if self.options.parse_logbook:
+            # Get body text
+            body_text = node.get_body(format="raw") if hasattr(node, "get_body") else (node.body if node.body else "")
+            if body_text:
+                logbook_data = self._parse_logbook_drawer(body_text)
+                if logbook_data:
+                    heading_metadata["org_logbook"] = logbook_data
 
         return Heading(level=level, content=content, metadata=heading_metadata)
 
@@ -325,6 +562,11 @@ class OrgParser(BaseParser):
         -------
         list[Node]
             List of AST nodes (paragraphs, code blocks, lists, tables, etc.)
+
+        Notes
+        -----
+        Drawer content (e.g., :LOGBOOK:, :CLOCK:) is not supported as the orgparse
+        library strips this content before we can access it.
 
         """
         result: list[Node] = []

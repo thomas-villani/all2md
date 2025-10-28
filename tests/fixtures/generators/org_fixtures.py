@@ -26,6 +26,50 @@ def create_org_agenda_document() -> str:
     )
 
 
+def create_org_enhanced_features() -> str:
+    """Return an Org-mode document showcasing enhanced parsing features.
+
+    This includes:
+    - SCHEDULED timestamps with time ranges
+    - Repeating tasks
+    - CLOSED timestamps
+    - Properties drawer
+    - Tags
+    - LOGBOOK drawer with state changes (when properly positioned)
+    """
+    return (
+        "#+TITLE: Enhanced Org Features\n"
+        "#+AUTHOR: Test User\n"
+        "#+DATE: 2025-10-27\n\n"
+        "* TODO Weekly meeting :work:team:\n"
+        "  :PROPERTIES:\n"
+        "  :ID: meeting-001\n"
+        "  :LOCATION: Conference Room A\n"
+        "  :END:\n"
+        "  SCHEDULED: <2025-11-04 Mon 10:00-11:00>\n\n"
+        "  Meeting agenda items.\n\n"
+        "* TODO Recurring task :personal:\n"
+        "  SCHEDULED: <2025-11-02 Sun +1w>\n\n"
+        "  Weekly review task that repeats.\n\n"
+        "* DONE Completed project :work:archived:\n"
+        "  :PROPERTIES:\n"
+        "  :ID: project-123\n"
+        "  :END:\n"
+        "  CLOSED: [2024-12-01 Sun]\n"
+        "  SCHEDULED: <2024-11-15 Fri>\n"
+        "  DEADLINE: <2024-12-01 Sun>\n\n"
+        "  Final deliverables completed.\n\n"
+        "* TODO Task with notes :work:\n"
+        "  :PROPERTIES:\n"
+        "  :CREATED: [2025-10-27 Mon]\n"
+        "  :END:\n"
+        "  :LOGBOOK:\n"
+        '  - Note "Started work" [2025-10-27 Mon 14:30]\n'
+        "  :END:\n\n"
+        "  Task with detailed notes.\n"
+    )
+
+
 def org_to_bytes(text: str, encoding: str = "utf-8") -> bytes:
     """Encode Org-mode content to bytes."""
     return text.encode(encoding)

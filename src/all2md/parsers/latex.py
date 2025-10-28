@@ -316,7 +316,9 @@ class LatexParser(BaseParser):
         elif isinstance(node, LatexGroupNode):
             return self._convert_group_node(node)
         elif isinstance(node, LatexMathNode):
-            return self._convert_math_node(node)
+            if self.options.parse_math:
+                return self._convert_math_node(node)
+            return None
         elif isinstance(node, LatexCommentNode):
             if self.options.preserve_comments:
                 # Create CommentInline node with LaTeX comment content
@@ -385,22 +387,24 @@ class LatexParser(BaseParser):
             return None
 
         # Itemize/enumerate handled in environment
-        # Unknown macro
+        # Unknown/custom macro
         else:
-            # Try to extract argument text
-            if node.nodeargd and hasattr(node.nodeargd, "argnlist"):
-                arg_nodes = []
-                for arg in node.nodeargd.argnlist:
-                    if arg and hasattr(arg, "nodelist"):
-                        for child in arg.nodelist:
-                            converted = self._convert_node(child)
-                            if converted:
-                                if isinstance(converted, list):
-                                    arg_nodes.extend(converted)
-                                else:
-                                    arg_nodes.append(converted)
-                if arg_nodes:
-                    return arg_nodes
+            # Handle unknown commands based on parse_custom_commands option
+            if self.options.parse_custom_commands:
+                # Try to extract argument text from custom commands
+                if node.nodeargd and hasattr(node.nodeargd, "argnlist"):
+                    arg_nodes = []
+                    for arg in node.nodeargd.argnlist:
+                        if arg and hasattr(arg, "nodelist"):
+                            for child in arg.nodelist:
+                                converted = self._convert_node(child)
+                                if converted:
+                                    if isinstance(converted, list):
+                                        arg_nodes.extend(converted)
+                                    else:
+                                        arg_nodes.append(converted)
+                    if arg_nodes:
+                        return arg_nodes
 
             # If no argument nodes extracted and we're in strict mode,
             # preserve the original LaTeX as text for debugging
@@ -582,7 +586,9 @@ class LatexParser(BaseParser):
 
         # Math environments
         if env_name in ("equation", "align", "displaymath", "eqnarray"):
-            return self._convert_math_environment(node)
+            if self.options.parse_math:
+                return self._convert_math_environment(node)
+            return None
 
         # Lists
         elif env_name == "itemize":
