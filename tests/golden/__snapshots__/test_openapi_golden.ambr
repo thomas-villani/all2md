@@ -2,41 +2,41 @@
 # name: TestOpenApiGolden.test_complex_openapi
   '''
   # E-Commerce API
-
+  
   A comprehensive e-commerce API
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 2.0.0 |
   | Contact | API Team |
   | Email | api@example.com |
   | License | Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0.html) |
-
+  
   ## Servers
-
+  
   | URL | Description |
   |:---|:---|
   | https://api.shop.com/v2 | Production |
   | https://sandbox.shop.com/v2 | Sandbox |
-
+  
   ## API Endpoints
-
+  
   ### orders
-
+  
   #### POST /orders - Create order
-
+  
   **Request Body:**
-
+  
   Content-Type: application/json
-
+  
   ```json
   {
     "$ref": "#/components/schemas/Order"
   }
   ```
-
+  
   Example:
-
+  
   ```json
   {
     "items": [
@@ -47,48 +47,48 @@
     ]
   }
   ```
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 201 | Order created |  |
   | 400 | Invalid request |  |
-
+  
   ### products
-
+  
   #### GET /products - List products
-
+  
   **Parameters:**
-
+  
   | Name | Location | Type | Required | Description |
   |:---|:---|:---|:---:|:---|
   | category | query | string | No |  |
   | limit | query | integer | No |  |
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Product list | array\[Product\] |
-
+  
   ## Schemas
-
+  
   ### Order
-
+  
   | Property | Type | Required | Description |
   |:---|:---|:---:|:---|
   | items | array\[OrderItem\] | Yes |  |
-
+  
   ### OrderItem
-
+  
   | Property | Type | Required | Description |
   |:---|:---|:---:|:---|
   | productId | integer | No |  |
   | quantity | integer | No |  |
-
+  
   ### Product
-
+  
   | Property | Type | Required | Description |
   |:---|:---|:---:|:---|
   | id | integer(int64) | Yes |  |
@@ -100,27 +100,27 @@
 # name: TestOpenApiGolden.test_openapi_with_parameters
   '''
   # Parameters API
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 1.0.0 |
-
+  
   ## API Endpoints
-
+  
   ### Other
-
+  
   #### GET /users/\{userId\} - Get user by ID
-
+  
   **Parameters:**
-
+  
   | Name | Location | Type | Required | Description |
   |:---|:---|:---|:---:|:---|
   | userId | path | integer | Yes |  |
   | fields | query | string | No | Fields to include |
   | X-API-Key | header | string | Yes |  |
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | User found |  |
@@ -129,27 +129,27 @@
 # name: TestOpenApiGolden.test_openapi_with_schemas
   '''
   # Schemas API
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 1.0.0 |
-
+  
   ## API Endpoints
-
+  
   ### Other
-
+  
   #### GET /users
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Users | array\[User\] |
-
+  
   ## Schemas
-
+  
   ### User
-
+  
   | Property | Type | Required | Description |
   |:---|:---|:---:|:---|
   | id | integer(int64) | Yes | User ID |
@@ -161,26 +161,26 @@
 # name: TestOpenApiGolden.test_openapi_with_servers
   '''
   # API with Servers
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 1.0.0 |
-
+  
   ## Servers
-
+  
   | URL | Description |
   |:---|:---|
   | https://api.example.com/v1 | Production server |
   | https://staging.example.com/v1 | Staging server |
-
+  
   ## API Endpoints
-
+  
   ### Other
-
+  
   #### GET /test - Test endpoint
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Success |  |
@@ -189,29 +189,29 @@
 # name: TestOpenApiGolden.test_openapi_with_tags
   '''
   # Tagged API
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 1.0.0 |
-
+  
   ## API Endpoints
-
+  
   ### products
-
+  
   #### GET /products - List products
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Success |  |
-
+  
   ### users
-
+  
   #### GET /users - List users
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Success |  |
@@ -220,19 +220,19 @@
 # name: TestOpenApiGolden.test_simple_openapi
   '''
   # Simple API
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 1.0.0 |
-
+  
   ## API Endpoints
-
+  
   ### Other
-
+  
   #### GET /items - Get items
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Success |  |
@@ -241,31 +241,31 @@
 # name: TestOpenApiGolden.test_swagger_2_spec
   '''
   # Swagger 2.0 API
-
+  
   | Field | Value |
   |:---|:---|
   | Version | 1.0.0 |
-
+  
   ## Base URL
-
+  
   https://api.example.com/v1
-
+  
   ## API Endpoints
-
+  
   ### Other
-
+  
   #### GET /items - Get items
-
+  
   **Responses:**
-
+  
   | Status | Description | Schema |
   |:---:|:---|:---|
   | 200 | Success | array\[Item\] |
-
+  
   ## Schemas
-
+  
   ### Item
-
+  
   | Property | Type | Required | Description |
   |:---|:---|:---:|:---|
   | id | integer | No |  |
