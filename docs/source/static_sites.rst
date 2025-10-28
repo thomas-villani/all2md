@@ -251,7 +251,7 @@ Hugo Frontmatter
 
 By default, Hugo uses TOML frontmatter with ``+++`` delimiters:
 
-.. code-block:: toml
+.. code-block:: text
 
    +++
    title = "Getting Started with all2md"
@@ -459,7 +459,7 @@ You can use TOML frontmatter with Jekyll by specifying the format:
 
 Result:
 
-.. code-block:: toml
+.. code-block:: text
 
    +++
    title = "Getting Started with all2md"
@@ -572,7 +572,7 @@ The command intelligently extracts metadata from source documents and maps it to
 
 **Resulting Hugo Frontmatter (TOML):**
 
-.. code-block:: toml
+.. code-block:: text
 
    +++
    title = "Advanced Python Techniques"
@@ -628,7 +628,7 @@ Advantages:
 
 **TOML Format (``+++`` delimiters):**
 
-.. code-block:: toml
+.. code-block:: text
 
    +++
    title = "My Article"

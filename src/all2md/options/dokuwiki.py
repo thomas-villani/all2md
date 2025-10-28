@@ -42,7 +42,7 @@ class DokuWikiOptions(BaseRendererOptions):
     monospace_fence : bool, default False
         Whether to use fence syntax for monospace text.
         When True, inline code uses <code>text</code>.
-        When False, inline code uses ''text'' (DokuWiki native).
+        When False, inline code uses double single quotes (DokuWiki native).
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
         How to handle HTMLBlock and HTMLInline nodes:
         - "pass-through": Pass through unchanged (use only with trusted content)

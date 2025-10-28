@@ -361,7 +361,7 @@ class AsciiDocParser(BaseParser):
     - Links: link:url[text] and auto-links (http://...)
     - Images: image::url[alt] and image:url[alt]
     - Cross-references: <<id>> and <<id,text>>
-    - Attribute references: ``{name}``
+    - Attribute references in braces
     - Block attributes: [#id], [.role], [source,python], [options="header"]
     - Anchors: [[anchor-id]]
     - Thematic breaks (''', ---, \***, ___, or 3+ of same char)

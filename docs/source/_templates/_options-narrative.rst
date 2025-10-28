@@ -103,7 +103,7 @@ constructed automatically from matching kwargs.
        "page.html",
        parser_options=HtmlOptions(
            extract_title=True,
-           network=dict(
+           network=NetworkFetchOptions(
                allow_remote_fetch=False,
                allowed_hosts=["docs.example.com"],
                require_https=True,

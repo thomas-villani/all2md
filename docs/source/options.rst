@@ -103,7 +103,7 @@ constructed automatically from matching kwargs.
        "page.html",
        parser_options=HtmlOptions(
            extract_title=True,
-           network=dict(
+           network=NetworkFetchOptions(
                allow_remote_fetch=False,
                allowed_hosts=["docs.example.com"],
                require_https=True,
@@ -3230,15 +3230,21 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
 
 **truncate_long_outputs**
 
+   Maximum number of lines for text outputs before truncating
+
    :Type: ``int | None``
    :CLI flag: ``--ipynb-truncate-long-outputs``
    :Default: ``None``
+   :Importance: advanced
 
 **truncate_output_message**
+
+   Message to indicate truncated output
 
    :Type: ``str | None``
    :CLI flag: ``--ipynb-truncate-output-message``
    :Default: ``'\n... (output truncated) ...\n'``
+   :Importance: advanced
 
 IPYNB Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -3456,7 +3462,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
    Default escaping strategy for output format
 
-   :Type: ``Literal['xml', 'html', 'latex', 'yaml', 'markdown', 'none', 'custom'] | None``
+   :Type: ``JinjaEscapeStrategy | None``
    :CLI flag: ``--jinja-renderer-escape-strategy``
    :Default: ``None``
    :Choices: ``xml``, ``html``, ``latex``, ``yaml``, ``markdown``, ``none``, ``custom``
@@ -3511,7 +3517,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
    Default format for |render filter
 
-   :Type: ``Literal['markdown', 'plain', 'html']``
+   :Type: ``JinjaRenderFormat``
    :CLI flag: ``--jinja-renderer-default-render-format``
    :Default: ``'markdown'``
    :Choices: ``markdown``, ``plain``, ``html``
@@ -3676,7 +3682,7 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
 
    Preferred math rendering mode
 
-   :Type: ``Literal['inline', 'display']``
+   :Type: ``LatexMathRenderMode``
    :CLI flag: ``--latex-renderer-math-mode``
    :Default: ``'display'``
    :Choices: ``inline``, ``display``
@@ -3983,7 +3989,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000021A4D070A70>``
+   :Default: ``<object object at 0x0000021835050A70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3993,7 +3999,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000021A4D070A70>``
+   :Default: ``<object object at 0x0000021835050A70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -5091,7 +5097,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Slide splitting strategy: separator, heading, or auto
 
-   :Type: ``Literal['separator', 'heading', 'auto']``
+   :Type: ``SlideSplitMode``
    :CLI flag: ``--odp-renderer-slide-split-mode``
    :Default: ``'auto'``
    :Choices: ``separator``, ``heading``, ``auto``
@@ -7899,7 +7905,7 @@ Configuration options for rendering AST documents to RTF.
 
    Base font family for the entire RTF document
 
-   :Type: ``Literal['roman', 'swiss']``
+   :Type: ``RtfFontFamily``
    :CLI flag: ``--rtf-renderer-font-family``
    :Default: ``'roman'``
    :Choices: ``roman``, ``swiss``
@@ -8999,7 +9005,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000021A4D070A70>``
+   :Default: ``<object object at 0x0000021835050A70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9009,7 +9015,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000021A4D070A70>``
+   :Default: ``<object object at 0x0000021835050A70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

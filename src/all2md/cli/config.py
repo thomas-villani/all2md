@@ -125,11 +125,15 @@ def discover_config_file() -> Optional[Path]:
     """Discover configuration file in standard locations.
 
     Searches for configuration files in the following order:
+
     1. Parent directory search (from cwd up to filesystem root):
+
        - .all2md.toml (highest priority)
        - .all2md.json
        - pyproject.toml with [tool.all2md] section
+
     2. User home directory:
+
        - .all2md.toml
        - .all2md.json
 

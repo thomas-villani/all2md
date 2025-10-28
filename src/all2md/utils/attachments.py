@@ -92,7 +92,7 @@ def sanitize_attachment_filename(
     By default, this function is conservative and may be lossy:
     - Converts to lowercase (unless preserve_case=True)
     - Removes non-ASCII characters (unless allow_unicode=True)
-    - Removes special characters except [a-zA-Z0-9_.-]
+    - Removes special characters except alphanumeric, underscore, dot, and hyphen
 
     Parameters
     ----------

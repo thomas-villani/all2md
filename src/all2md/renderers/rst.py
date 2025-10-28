@@ -682,9 +682,9 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         -----
         RST does not have a direct equivalent to hard line breaks within paragraphs.
 
-        **line_block mode (default)**: Uses line block syntax (``\| ``) which is the
-        idiomatic RST approach for preserving explicit line breaks. May change
-        semantic structure in complex containers like lists.
+        **line_block mode (default)**: Uses line block syntax with pipe prefix,
+        which is the idiomatic RST approach for preserving explicit line breaks.
+        May change semantic structure in complex containers like lists.
 
         **raw mode**: Uses plain newlines. Less faithful to RST but simpler in
         complex containers. May not preserve visual breaks in all RST processors.

@@ -772,7 +772,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Notes
         -----
         Supports multiple rendering modes via comment_mode option:
-        - "html": Use C-style comment syntax /* */ (default)
+        - "html": Use C-style comment syntax (default)
         - "visible": Render as visible bracketed text
         - "ignore": Skip comment entirely
 

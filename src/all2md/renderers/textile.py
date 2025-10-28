@@ -282,8 +282,8 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
 
-        Textile uses |cell| notation for tables.
-        Headers use |_.header| notation.
+        Textile uses pipe-cell-pipe notation for tables.
+        Headers use pipe-underscore-dot-header-pipe notation.
 
         Parameters
         ----------

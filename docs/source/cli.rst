@@ -506,7 +506,7 @@ The command automatically generates frontmatter from document metadata:
 
 **Example frontmatter output (Hugo/TOML):**
 
-.. code-block:: toml
+.. code-block:: text
 
    +++
    title = "Getting Started Guide"

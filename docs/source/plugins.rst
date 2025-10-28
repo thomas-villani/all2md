@@ -274,7 +274,7 @@ The ``ConverterMetadata`` object is the key to plugin discovery:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/__init__.py
    :language: python
-   :lines: 43-108
+   :lines: 43-104
    :linenos:
    :emphasize-lines: 1-3,5-7,17-23,25-27,51-53
    :caption: CONVERTER_METADATA - Plugin registration

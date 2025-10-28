@@ -1016,8 +1016,8 @@ def validate_user_regex_pattern(pattern: str) -> None:
     - Multiple nested groups: ((a+)
     - Greedy wildcards with quantifiers: .*+, .+*
 
-    For more information on ReDoS attacks, see:
-    https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS
+    For more information on ReDoS attacks, see the OWASP documentation on
+    Regular Expression Denial of Service attacks.
 
     """
     from all2md.constants import DANGEROUS_REGEX_PATTERNS, MAX_REGEX_PATTERN_LENGTH

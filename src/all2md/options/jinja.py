@@ -64,7 +64,7 @@ class JinjaRendererOptions(BaseRendererOptions):
         uses the escape_strategy for automatic escaping. Default is False
         to give templates full control.
     enable_render_filter : bool, default True
-        Enable the |render filter for rendering nodes with default logic.
+        Enable the render filter for rendering nodes with default logic.
         When enabled, templates can use {{ node|render }} for convenience.
     enable_escape_filters : bool, default True
         Enable format-specific escape filters (escape_xml, escape_latex, etc.).
@@ -73,7 +73,7 @@ class JinjaRendererOptions(BaseRendererOptions):
         Enable AST traversal helper functions (get_headings, get_links, etc.).
         When enabled, templates can use {{ get_headings(document) }}.
     default_render_format : {"markdown", "plain", "html"}, default "markdown"
-        Default format for the |render filter when no escape_strategy is set.
+        Default format for the render filter when no escape_strategy is set.
         Determines how nodes are rendered when using {{ node|render }}.
     extra_context : dict[str, Any] or None, default None
         Additional context variables to make available in templates.
@@ -133,14 +133,14 @@ class JinjaRendererOptions(BaseRendererOptions):
     - Any keys from extra_context
 
     Available filters (if enabled):
-    - render: Render a node with default logic
-    - render_inline: Render inline content
-    - to_dict: Convert Node to dictionary
-    - escape_xml, escape_html: XML/HTML escaping
-    - escape_latex: LaTeX escaping
-    - escape_yaml: YAML escaping
-    - escape_markdown: Markdown escaping
-    - node_type: Get node type name as string
+      - render: Render a node with default logic
+      - render_inline: Render inline content
+      - to_dict: Convert Node to dictionary
+      - escape_xml, escape_html: XML/HTML escaping
+      - escape_latex: LaTeX escaping
+      - escape_yaml: YAML escaping
+      - escape_markdown: Markdown escaping
+      - node_type: Get node type name as string
 
     Available functions (if enabled):
     - get_headings(doc): Extract all heading nodes
