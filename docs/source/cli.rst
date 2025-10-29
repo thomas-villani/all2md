@@ -582,6 +582,10 @@ Output Control
 Attachment Handling
 ~~~~~~~~~~~~~~~~~~~
 
+These top-level attachment flags apply to every parser that supports embedded assets (PDF, DOCX, HTML,
+etc.). Formats without attachment handling simply ignore them, and format-prefixed switches such as
+``--pdf-attachment-mode`` override the global value when you need per-format exceptions.
+
 ``--attachment-mode``
    How to handle images and attachments in documents.
 
@@ -1920,7 +1924,8 @@ When processing multiple formats in a single batch, you can use format-specific 
 
 **How It Works:**
 
-1. Global flags (``--attachment-mode``, ``--attachment-output-dir``, etc.) apply to ALL formats
+1. Global flags (``--attachment-mode``, ``--attachment-output-dir``, etc.) apply to every format that
+   supports attachments; text-only converters ignore them
 2. Format-specific flags (``--pdf-attachment-mode``, ``--docx-attachment-mode``, etc.) override global settings for that format
 3. Format-specific flags always take precedence over global flags
 
@@ -2849,7 +2854,7 @@ Environment variables use the pattern ``ALL2MD_<OPTION_NAME>`` where ``<OPTION_N
 
 .. code-block:: bash
 
-   # Universal attachment options
+   # Global attachment options (applies to attachment-capable formats)
    export ALL2MD_ATTACHMENT_MODE="download"
    export ALL2MD_ATTACHMENT_OUTPUT_DIR="./attachments"
 

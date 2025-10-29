@@ -85,6 +85,74 @@
   * Third item
   '''
 # ---
+# name: TestOutlookGolden.test_outlook_html_body_conversion
+  '''
+  # Newsletter - June 2024
+  
+  From: marketing@company.com
+  To: subscribers@company.com
+  Date: 06/01/24 09:00
+  
+  View the newsletter in your email client.
+  
+  ---
+  '''
+# ---
+# name: TestOutlookGolden.test_outlook_simple_message
+  '''
+  # Important Project Update
+  
+  From: alice@company.com
+  To: bob@company.com
+  Date: 05/15/24 14:30
+  
+  Hi Bob,
+  
+  Just wanted to update you on the project status.
+  We're on track for the Q2 release.
+  
+  Key accomplishments:
+  - Completed user testing
+  - Fixed all critical bugs
+  - Updated documentation
+  
+  Let me know if you have any questions.
+  
+  Best regards,
+  Alice
+  
+  ---
+  '''
+# ---
+# name: TestOutlookGolden.test_outlook_with_attachments
+  '''
+  # Q2 Report - Please Review
+  
+  From: finance@company.com
+  To: executives@company.com
+  CC: managers@company.com
+  Date: 06/30/24 16:00
+  
+  Dear Executives,
+  
+  Please find attached the Q2 financial report.
+  
+  Highlights:
+  - Revenue: $5.2M (+15% YoY)
+  - Profit: $1.8M (+20% YoY)
+  - Customer growth: 2,500 new customers
+  
+  Please review and let us know if you have questions.
+  
+  Finance Team
+  
+  \## Attachments
+  
+  \[q2-report.png\]
+  
+  ---
+  '''
+# ---
 # name: TestZipGolden.test_simple_zip
   '''
   ## README.txt

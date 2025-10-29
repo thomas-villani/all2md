@@ -59,20 +59,14 @@ from all2md.constants import (
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import (
     DependencyError,
-    FileAccessError,
-    MalformedFileError,
     NetworkSecurityError,
-    ParsingError,
-    ValidationError,
 )
 from all2md.options.html import HtmlOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.encoding import read_text_with_encoding_detection
 from all2md.utils.html_sanitizer import is_element_safe, sanitize_html_string
-from all2md.utils.inputs import is_path_like, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.network_security import fetch_image_securely, is_network_disabled
 from all2md.utils.parser_helpers import attachment_result_to_image_node
@@ -228,57 +222,7 @@ class HtmlToAstConverter(BaseParser):
             pass
 
         # Determine if input_data is HTML content or a file path/object
-        html_content = ""
-        if isinstance(input_data, str):
-            # Check if it's a file path or HTML content
-            if is_path_like(input_data) and os.path.exists(str(input_data)):
-                # It's a file path - read the file with encoding detection
-                try:
-                    with open(input_data, "rb") as f:
-                        html_content = read_text_with_encoding_detection(f.read())
-                except Exception as e:
-                    raise FileAccessError(
-                        file_path=str(input_data), message=f"Failed to read HTML file: {e!r}", original_error=e
-                    ) from e
-            else:
-                # It's HTML content as a string
-                html_content = input_data
-        elif isinstance(input_data, bytes):
-            # Decode bytes with encoding detection
-            try:
-                html_content = read_text_with_encoding_detection(input_data)
-            except Exception as e:
-                raise MalformedFileError(f"Failed to decode HTML bytes: {e!r}", file_path=None, original_error=e) from e
-        else:
-            # Use validate_and_convert_input for other types (file-like objects)
-            # Note: str and bytes are already handled above, so only path-like/file-like reach here
-            try:
-                doc_input, input_type = validate_and_convert_input(
-                    input_data, supported_types=["path-like", "file-like"]
-                )
-
-                if input_type == "path":
-                    # Read from file path with encoding detection
-                    with open(doc_input, "rb") as f:
-                        html_content = read_text_with_encoding_detection(f.read())
-                elif input_type == "file":
-                    # Read from file-like object
-                    html_content = doc_input.read()
-                    if isinstance(html_content, bytes):
-                        html_content = read_text_with_encoding_detection(html_content)
-                else:
-                    raise ValidationError(
-                        f"Unsupported input type for HTML conversion: {type(input_data).__name__}",
-                        parameter_name="input_data",
-                        parameter_value=input_data,
-                    )
-            except Exception as e:
-                if isinstance(e, (FileAccessError, MalformedFileError, ParsingError, ValidationError)):
-                    raise
-                else:
-                    raise MalformedFileError(
-                        f"Failed to process HTML input: {e!r}", file_path=None, original_error=e
-                    ) from e
+        html_content = self._load_text_content(input_data)
 
         # Convert the HTML content to AST
         return self.convert_to_ast(html_content)

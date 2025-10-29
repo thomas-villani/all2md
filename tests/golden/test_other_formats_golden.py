@@ -9,6 +9,8 @@ from io import BytesIO
 import pytest
 from fixtures.generators.markdown_fixtures import (
     create_markdown_with_code_and_lists,
+    create_markdown_with_definition_lists,
+    create_markdown_with_math_blocks,
     create_markdown_with_tables,
     markdown_bytes_io,
 )
@@ -65,6 +67,20 @@ class TestMarkdownRoundtripGolden:
     def test_markdown_roundtrip_with_table(self, snapshot):
         """Test markdown with table round-trip matches snapshot."""
         markdown_stream = markdown_bytes_io(create_markdown_with_tables())
+
+        result = to_markdown(markdown_stream, source_format="markdown")
+        assert result == snapshot
+
+    def test_markdown_roundtrip_with_math(self, snapshot):
+        """Test markdown containing math blocks survives round-trip."""
+        markdown_stream = markdown_bytes_io(create_markdown_with_math_blocks())
+
+        result = to_markdown(markdown_stream, source_format="markdown")
+        assert result == snapshot
+
+    def test_markdown_roundtrip_with_definition_lists(self, snapshot):
+        """Test markdown definition lists round-trip matches snapshot."""
+        markdown_stream = markdown_bytes_io(create_markdown_with_definition_lists())
 
         result = to_markdown(markdown_stream, source_format="markdown")
         assert result == snapshot

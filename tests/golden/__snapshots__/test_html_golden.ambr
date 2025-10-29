@@ -82,7 +82,15 @@
   '''
 # ---
 # name: TestHTMLGolden.test_html_with_nested_elements
-  '# Main Title## SubsectionParagraph in subsection with **nested *formatting***.> A quote within the subsection.'
+  '''
+  # Main Title
+  
+  ## Subsection
+  
+  Paragraph in subsection with **nested *formatting***.
+  
+  > A quote within the subsection.
+  '''
 # ---
 # name: TestHTMLGolden.test_html_with_table
   '''

@@ -71,9 +71,7 @@ ideas/
 
 # Development and debugging files
 AGENTS.md
-ORGPARSE_ANALYSIS.md
-pptx-comments-info.md
-renderer-comments-plan.md
+CLAUDE.md
 todo.md
 qa-*.txt
 helptxt*.txt

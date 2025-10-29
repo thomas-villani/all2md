@@ -14,7 +14,7 @@ from email.message import EmailMessage
 from email.utils import format_datetime
 from typing import Iterable
 
-from tests.utils import MINIMAL_PNG_BYTES
+from utils import MINIMAL_PNG_BYTES
 
 
 def create_simple_msg_data() -> dict:
