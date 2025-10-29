@@ -99,6 +99,90 @@ class HtmlToAstConverter(BaseParser):
 
     """
 
+    # Block-level HTML elements that should create block nodes in AST
+    BLOCK_ELEMENTS = frozenset(
+        {
+            "div",
+            "p",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "section",
+            "article",
+            "header",
+            "footer",
+            "nav",
+            "aside",
+            "main",
+            "ul",
+            "ol",
+            "li",
+            "dl",
+            "dt",
+            "dd",
+            "blockquote",
+            "pre",
+            "hr",
+            "table",
+            "caption",
+            "thead",
+            "tbody",
+            "tfoot",
+            "tr",
+            "th",
+            "td",
+            "figure",
+            "figcaption",
+            "details",
+            "summary",
+            "address",
+            "form",
+            "fieldset",
+            "legend",
+            "hgroup",
+            "dialog",  # Additional semantic HTML5 elements
+        }
+    )
+
+    # Inline HTML elements
+    INLINE_ELEMENTS = frozenset(
+        {
+            "a",
+            "span",
+            "em",
+            "strong",
+            "i",
+            "b",
+            "u",
+            "s",
+            "del",
+            "ins",
+            "sub",
+            "sup",
+            "code",
+            "br",
+            "img",
+            "svg",
+            "abbr",
+            "cite",
+            "dfn",
+            "kbd",
+            "mark",
+            "q",
+            "samp",
+            "small",
+            "time",
+            "var",
+            "wbr",
+            "bdi",
+            "bdo",
+            "data",  # Bidirectional text and data elements
+        }
+    )
+
     def __init__(self, options: HtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the HTML parser with options and progress callback."""
         BaseParser._validate_options_type(options, HtmlOptions, "html")
@@ -858,11 +942,110 @@ class HtmlToAstConverter(BaseParser):
             handler = getattr(self, handler_name)
             return handler(node)
 
-        # For unknown elements, process children
-        return self._process_children_to_inline(node)
+        # For unknown elements, route based on whether they're block or inline
+        if self._is_block_element(node):
+            # Unknown block element (e.g., <header>, <footer>, <nav>, <section>)
+            # Process as block container to properly handle block children
+            return self._process_block_to_ast(node)
+        else:
+            # Unknown inline element - process children as inline
+            return self._process_children_to_inline(node)
 
-    def _process_block_to_ast(self, node: Any) -> Paragraph | None:
-        """Process block element (p, div) to Paragraph node.
+    def _is_block_element(self, node: Any) -> bool:
+        """Check if HTML element is block-level.
+
+        Parameters
+        ----------
+        node : Any
+            HTML element node
+
+        Returns
+        -------
+        bool
+            True if element is block-level, False otherwise
+
+        """
+        if not hasattr(node, "name") or not isinstance(node.name, str):
+            return False
+        return node.name in self.BLOCK_ELEMENTS
+
+    def _has_block_children(self, node: Any) -> bool:
+        """Check if node has any block-level children.
+
+        Parameters
+        ----------
+        node : Any
+            HTML element node
+
+        Returns
+        -------
+        bool
+            True if node contains block-level children, False otherwise
+
+        """
+        if not hasattr(node, "children"):
+            return False
+        for child in node.children:
+            if self._is_block_element(child):
+                return True
+        return False
+
+    def _process_block_container(self, node: Any) -> list[Node]:
+        """Process a block container element (div, section, etc.).
+
+        Extracts and returns direct block children, properly handling
+        mixed inline/block content. When inline content is encountered
+        between blocks, it is wrapped in a Paragraph node.
+
+        Parameters
+        ----------
+        node : Any
+            Block container element
+
+        Returns
+        -------
+        list of Node
+            List of block nodes (Paragraph, Heading, List, etc.)
+
+        """
+        children: list[Node] = []
+        inline_buffer: list[Node] = []
+
+        for child in node.children:
+            if self._is_block_element(child):
+                # Block element: flush inline buffer first
+                if inline_buffer:
+                    children.append(Paragraph(content=inline_buffer))
+                    inline_buffer = []
+
+                # Process block element
+                block_node = self._process_node_to_ast(child)
+                if block_node:
+                    if isinstance(block_node, list):
+                        children.extend(block_node)
+                    else:
+                        children.append(block_node)
+            else:
+                # Inline element or text: add to buffer
+                inline_nodes = self._process_node_to_ast(child)
+                if inline_nodes:
+                    if isinstance(inline_nodes, list):
+                        inline_buffer.extend(inline_nodes)
+                    else:
+                        inline_buffer.append(inline_nodes)
+
+        # Flush remaining inline content
+        if inline_buffer:
+            children.append(Paragraph(content=inline_buffer))
+
+        return children
+
+    def _process_block_to_ast(self, node: Any) -> Paragraph | list[Node] | None:
+        """Process block element (p, div) to Paragraph or list of block nodes.
+
+        For <div> and other block containers: if they contain block children,
+        returns a list of block nodes. If they only contain inline content,
+        wraps it in a Paragraph.
 
         Parameters
         ----------
@@ -871,14 +1054,22 @@ class HtmlToAstConverter(BaseParser):
 
         Returns
         -------
-        Paragraph or None
-            Paragraph node if content exists
+        Paragraph, list of Node, or None
+            - List of block nodes if element contains blocks (e.g., nested divs)
+            - Paragraph node if element only contains inline content
+            - None if element is empty
 
         """
-        content = self._process_children_to_inline(node)
-        if content:
-            return Paragraph(content=content)
-        return None
+        # Check if this container has block-level children
+        if self._has_block_children(node):
+            # Process as block container - extract and flatten block children
+            return self._process_block_container(node)
+        else:
+            # Only inline content - wrap in paragraph
+            content = self._process_children_to_inline(node)
+            if content:
+                return Paragraph(content=content)
+            return None
 
     def _process_heading_to_ast(self, node: Any) -> Heading:
         """Process heading element to Heading node.
@@ -1687,10 +1878,13 @@ class HtmlToAstConverter(BaseParser):
         return ""
 
     def _process_children_to_inline(self, node: Any) -> list[Node]:
-        """Process node children to inline nodes.
+        """Process node children to inline nodes ONLY.
 
         Handles consecutive BR tags by ensuring proper spacing when inline
         text follows multiple line breaks.
+
+        If block elements are encountered, logs a warning and skips them.
+        This should not happen with proper block/inline separation.
 
         Parameters
         ----------
@@ -1700,13 +1894,21 @@ class HtmlToAstConverter(BaseParser):
         Returns
         -------
         list of Node
-            List of inline nodes
+            List of inline nodes (no block nodes)
 
         """
         result: list[Node] = []
         consecutive_breaks = 0
 
         for child in node.children:
+            # Skip block elements - they shouldn't be here with proper separation
+            if self._is_block_element(child):
+                logger.debug(
+                    f"Block element <{child.name}> found in inline context - skipping. "
+                    f"This indicates the element should be processed as a block container."
+                )
+                continue
+
             ast_nodes = self._process_node_to_ast(child)
             if ast_nodes:
                 if isinstance(ast_nodes, list):
