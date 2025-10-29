@@ -317,7 +317,6 @@ class TestLinks:
 class TestImages:
     """Tests for image parsing."""
 
-    @pytest.mark.skip(reason="orgparse strips [[file:...]] syntax, losing image reference")
     def test_image_link(self) -> None:
         """Test parsing an image link.
 

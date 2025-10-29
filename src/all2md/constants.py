@@ -170,8 +170,10 @@ DocumentFormat = Literal[
     "epub",
     "fb2",
     "html",
+    "ini",
     "ipynb",
     "jinja",
+    "json",
     "latex",
     "markdown",
     "mbox",
@@ -190,8 +192,10 @@ DocumentFormat = Literal[
     "rtf",
     "sourcecode",
     "textile",
+    "toml",
     "webarchive",
     "xlsx",
+    "yaml",
     "zip",
 ]
 

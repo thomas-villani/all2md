@@ -41,8 +41,8 @@ def create_markdown_with_math_blocks() -> str:
         "# Math Showcase\n\n"
         "Einstein noted that $E = mc^2$ while Euler loved $e^{i\\pi} + 1 = 0$.\n\n"
         "Here is a displayed equation:\n\n"
-        "$$\\int_0^1 x^2\\,dx = \frac{1}{3}$$\n\n"
-        "We also mention inline Greek letters like $\alpha$ and $\beta$ for completeness.\n"
+        "$$\\int_0^1 x^2\\,dx = \\frac{1}{3}$$\n\n"
+        "We also mention inline Greek letters like $\\alpha$ and $\\beta$ for completeness.\n"
     )
 
 

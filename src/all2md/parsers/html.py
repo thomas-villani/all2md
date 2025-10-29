@@ -138,6 +138,7 @@ class HtmlToAstConverter(BaseParser):
             "legend",
             "hgroup",
             "dialog",  # Additional semantic HTML5 elements
+            "en-note",  # Evernote ENEX note container
         }
     )
 
@@ -1299,7 +1300,7 @@ class HtmlToAstConverter(BaseParser):
                 header_cells = []
                 first_header_tr = thead_rows[0]
                 for th in first_header_tr.find_all(["th", "td"]):
-                    content = self._process_children_to_inline(th)
+                    content = self._process_table_cell_content(th)
                     alignment = self._get_alignment(th)
                     alignments.append(alignment)
                     header_cells.append(TableCell(content=content))
@@ -1311,7 +1312,7 @@ class HtmlToAstConverter(BaseParser):
                 for header_tr in thead_rows[1:]:
                     row_cells = []
                     for td in header_tr.find_all(["td", "th"]):
-                        content = self._process_children_to_inline(td)
+                        content = self._process_table_cell_content(td)
                         row_cells.append(TableCell(content=content))
                     rows.append(TableRow(cells=row_cells))
 
@@ -1331,7 +1332,7 @@ class HtmlToAstConverter(BaseParser):
                 # This is a header row
                 header_cells = []
                 for th in tr.find_all(["th", "td"]):
-                    content = self._process_children_to_inline(th)
+                    content = self._process_table_cell_content(th)
                     alignment = self._get_alignment(th)
                     alignments.append(alignment)
                     header_cells.append(TableCell(content=content))
@@ -1340,7 +1341,7 @@ class HtmlToAstConverter(BaseParser):
                 # This is a data row
                 row_cells = []
                 for td in tr.find_all(["td", "th"]):
-                    content = self._process_children_to_inline(td)
+                    content = self._process_table_cell_content(td)
                     row_cells.append(TableCell(content=content))
                 rows.append(TableRow(cells=row_cells))
 
@@ -1350,7 +1351,7 @@ class HtmlToAstConverter(BaseParser):
             for tr in tfoot.find_all("tr", recursive=False):
                 row_cells = []
                 for td in tr.find_all(["td", "th"]):
-                    content = self._process_children_to_inline(td)
+                    content = self._process_table_cell_content(td)
                     row_cells.append(TableCell(content=content))
                 rows.append(TableRow(cells=row_cells))
 
@@ -1882,6 +1883,127 @@ class HtmlToAstConverter(BaseParser):
                                 result.append(Text(content=" "))
                         result.append(ast_nodes)
                         consecutive_breaks = 0
+
+        return result
+
+    def _process_table_cell_content(self, cell_node: Any) -> list[Node]:
+        """Process table cell content, handling both inline and block elements.
+
+        Table cells can contain complex nested content including lists, paragraphs,
+        and code blocks. This method flattens block content into an inline
+        representation suitable for table cells while preserving inline formatting.
+
+        Parameters
+        ----------
+        cell_node : Any
+            Table cell node (td or th)
+
+        Returns
+        -------
+        list of Node
+            List of inline nodes representing the cell content
+
+        """
+        # Check if cell contains only inline content
+        if not self._has_block_children(cell_node):
+            # Simple case: only inline content
+            return self._process_children_to_inline(cell_node)
+
+        # Complex case: cell has block-level children
+        # We need to flatten them into inline format while preserving inline formatting
+        result: list[Node] = []
+
+        for child in cell_node.children:
+            from bs4.element import NavigableString
+
+            # Handle text nodes directly
+            if isinstance(child, NavigableString):
+                text = self._decode_entities(str(child))
+                if self.options.collapse_whitespace:
+                    text = re.sub(r"\s+", " ", text)
+                if text.strip():
+                    result.append(Text(content=text))
+                continue
+
+            # Skip non-element nodes
+            if not hasattr(child, "name"):
+                continue
+
+            # Process block elements by recursively extracting inline content
+            if self._is_block_element(child):
+                # Recursively extract inline nodes from within the block element
+                block_inline_content = self._extract_inline_from_block(child)
+                if block_inline_content:
+                    # Add space before if we have prior content
+                    if result and not (isinstance(result[-1], Text) and result[-1].content.endswith(" ")):
+                        result.append(Text(content=" "))
+                    result.extend(block_inline_content)
+            else:
+                # Process inline elements normally
+                ast_nodes = self._process_node_to_ast(child)
+                if ast_nodes:
+                    if isinstance(ast_nodes, list):
+                        result.extend(ast_nodes)
+                    else:
+                        result.append(ast_nodes)
+
+        return result
+
+    def _extract_inline_from_block(self, block_node: Any) -> list[Node]:
+        """Extract inline content from a block element, flattening the structure.
+
+        This is used for table cells and other contexts where block elements
+        need to be represented inline.
+
+        Parameters
+        ----------
+        block_node : Any
+            Block element node
+
+        Returns
+        -------
+        list of Node
+            List of inline nodes extracted from the block
+
+        """
+        result: list[Node] = []
+
+        for child in block_node.children:
+            from bs4.element import NavigableString
+
+            # Handle text nodes
+            if isinstance(child, NavigableString):
+                text = self._decode_entities(str(child))
+                if self.options.collapse_whitespace:
+                    text = re.sub(r"\s+", " ", text)
+                if text.strip():
+                    result.append(Text(content=text))
+                continue
+
+            # Skip non-element nodes
+            if not hasattr(child, "name"):
+                continue
+
+            # Skip script/style nodes
+            if child.name in ("script", "style"):
+                continue
+
+            # If we encounter another block element, recurse
+            if self._is_block_element(child):
+                nested_inline = self._extract_inline_from_block(child)
+                if nested_inline:
+                    # Add space separator between block elements
+                    if result and not (isinstance(result[-1], Text) and result[-1].content.endswith(" ")):
+                        result.append(Text(content=" "))
+                    result.extend(nested_inline)
+            else:
+                # Process inline elements normally
+                ast_nodes = self._process_node_to_ast(child)
+                if ast_nodes:
+                    if isinstance(ast_nodes, list):
+                        result.extend(ast_nodes)
+                    else:
+                        result.append(ast_nodes)
 
         return result
 
