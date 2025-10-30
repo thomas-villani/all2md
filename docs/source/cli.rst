@@ -570,6 +570,7 @@ Output Control
 ``--format``
    Force a parser instead of using auto-detection (``auto`` remains the default). Accepted values line up with
    ``all2md list-formats`` (e.g. ``pdf``, ``docx``, ``markdown``, ``asciidoc``, ``pptx``, ``zip``, ``ast`` …).
+   Alias: ``--input-type`` (useful when migrating Pandoc-flavoured scripts).
 
    .. code-block:: bash
 
@@ -710,6 +711,9 @@ Rich Terminal Output
 
 ``--rich-word-wrap``
    Apply word-wrapping to long lines in the Rich renderer.
+
+``--rich-no-word-wrap``
+   Disable Rich's automatic line wrapping when you need wide tables or preformatted output to stay on a single line.
 
 ``--no-rich-hyperlinks``
    Disable clickable hyperlinks (maps to ``ALL2MD_RICH_HYPERLINKS=false`` in env vars).
@@ -1844,6 +1848,15 @@ all2md supports processing multiple files with parallel execution and rich outpu
       # Convert with directory structure preservation
       all2md ./documents --recursive --output-dir ./markdown --preserve-structure
 
+``--output-extension``
+   Override the written file extension when saving to ``--output-dir`` or when using ``--watch``. Useful for publishing
+   Markdown previews with ``.txt`` suffixes or forcing HTML to use legacy extensions.
+
+   .. code-block:: bash
+
+      # Render Markdown but store files as .txt
+      all2md *.md --output-dir ./preview --output-extension .txt
+
 ``--recursive``, ``-r``
    Process directories recursively.
 
@@ -1937,6 +1950,37 @@ When processing multiple formats in a single batch, you can use format-specific 
 * **Selective processing** - Skip attachments except where needed
 
 For a complete list of format-specific flags, see :doc:`attachments` or run ``all2md help <format>``.
+
+Batch from List
+~~~~~~~~~~~~~~~
+
+Process each entry from a plain text list file as a standalone conversion. Unlike ``--merge-from-list``, every item is
+rendered separately using the normal multi-file pipeline so per-file outputs, summaries, and progress reporting stay
+intact.
+
+``--batch-from-list``
+   Read file paths (one per line) from a list file or ``-`` (stdin). Lines beginning with ``#`` and blank lines are
+   ignored, and relative paths are resolved relative to the list file itself (or the current directory when streaming via
+   stdin). Paths must exist; nonexistent entries trigger a validation error before processing begins.
+
+   .. code-block:: text
+
+      # docs_to_convert.txt
+      ./reports/q1.docx
+      ./reports/q2.docx
+      # Relative paths resolve from the list location
+      ../shared/summary.pdf
+
+   .. code-block:: bash
+
+      # Convert every listed file into the output directory
+      all2md --batch-from-list docs_to_convert.txt --output-dir ./converted
+
+      # Feed a dynamically generated list from stdin
+      find ./incoming -name '*.pptx' -print | all2md --batch-from-list - --output-dir ./slides
+
+   ``--batch-from-list`` cannot be combined with ``--merge-from-list``. When you provide an explicit list file, stdin
+   inputs (``-``) are ignored; use ``--batch-from-list -`` if you need to stream the list over stdin.
 
 Merge from List
 ~~~~~~~~~~~~~~~

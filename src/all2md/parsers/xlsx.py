@@ -63,11 +63,25 @@ def _format_link_or_text(cell: Any, text: str, preserve_newlines: bool = False) 
     Returns
     -------
     str
-        Cell text (hyperlinks not yet supported in AST path)
+        Cell text with hyperlinks formatted as markdown links if present
 
     """
-    # TODO: Support hyperlinks in table cells via Link nodes
-    # For now, just return sanitized text
+    # Check if cell has a hyperlink
+    if hasattr(cell, "hyperlink") and cell.hyperlink:
+        # Extract the URL from the hyperlink
+        url = None
+        if hasattr(cell.hyperlink, "target") and cell.hyperlink.target:
+            url = cell.hyperlink.target
+        elif hasattr(cell.hyperlink, "location") and cell.hyperlink.location:
+            # Internal link (cell reference)
+            url = f"#{cell.hyperlink.location}"
+
+        if url:
+            # Format as markdown link: [text](url)
+            sanitized_text = sanitize_cell_text(text, preserve_newlines)
+            return f"[{sanitized_text}]({url})"
+
+    # No hyperlink, return sanitized text
     return sanitize_cell_text(text, preserve_newlines)
 
 
