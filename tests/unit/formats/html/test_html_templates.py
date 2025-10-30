@@ -103,7 +103,8 @@ class TestReplaceTemplateMode:
         renderer = HtmlRenderer(options)
         result = renderer.render_to_string(doc)
 
-        assert "<nav><ul>" in result
+        assert '<nav id="table-of-contents">' in result
+        assert "<ul>" in result
         assert "Chapter 1" in result
         assert "{TOC}" not in result
 

@@ -867,13 +867,34 @@ hr {
         css_class = self._get_custom_css_class("ListItem")
         self._output.append(f"<li{css_class}>")
 
-        # Handle task lists
+        # Handle task lists - insert checkbox into first paragraph
         if node.task_status:
-            checked = " checked" if node.task_status == "checked" else ""
-            self._output.append(f'<input type="checkbox"{checked} disabled> ')
+            checkbox = "&#9745; " if node.task_status == "checked" else "&#9744; "
 
-        for child in node.children:
-            child.accept(self)
+            # If first child is a Paragraph, insert checkbox at the beginning
+            if node.children and node.children[0].__class__.__name__ == "Paragraph":
+                first_para = node.children[0]
+                para_css_class = self._get_custom_css_class("Paragraph")
+                self._output.append(f"<p{para_css_class}>{checkbox}")
+
+                # Render paragraph content
+                for content_node in first_para.content:
+                    content_node.accept(self)
+
+                self._output.append("</p>\n")
+
+                # Render remaining children
+                for child in node.children[1:]:
+                    child.accept(self)
+            else:
+                # Fallback: just prepend checkbox
+                self._output.append(checkbox)
+                for child in node.children:
+                    child.accept(self)
+        else:
+            # Non-task list item
+            for child in node.children:
+                child.accept(self)
 
         self._output.append("</li>\n")
 
