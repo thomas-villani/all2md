@@ -121,6 +121,7 @@ Guides & References
 
    cli
    options
+   python_api
    attachments
    transforms
    ast_guide
@@ -130,7 +131,6 @@ Guides & References
    :caption: Advanced Topics
 
    architecture
-   bidirectional
    templates
    static_sites
    security

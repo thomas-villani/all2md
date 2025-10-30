@@ -49,7 +49,7 @@ Word Documents (DOCX)
 
 - Preserves paragraph, list, and table structure; handles nested styles and runs
 - Extracts images or embeds them inline according to ``attachment_mode``
-- Renderer supports bidirectional workflows (:doc:`bidirectional`)
+- Renderer supports bidirectional workflows (:doc:`python_api`)
 
 Common options: ``DocxOptions`` (tables, style normalisation, image handling) and ``DocxRendererOptions``
 (default fonts, style mapping, template overrides).
@@ -138,7 +138,7 @@ Markdown
 *Parser & Renderer:* ``MarkdownToAstConverter`` / ``MarkdownRenderer``
 
 - Supports flavour-specific parsing and rendering (GFM, CommonMark, Markdown Plus, etc.)
-- Enables bidirectional conversion to DOCX/HTML/PDF (see :doc:`bidirectional`)
+- Enables bidirectional conversion to DOCX/HTML/PDF (see :doc:`python_api`)
 - Works with ``MarkdownParserOptions`` and ``MarkdownRendererOptions`` for fine control of tables, code fences, and math
 
 AsciiDoc

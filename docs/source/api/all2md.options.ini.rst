@@ -1,7 +1,7 @@
-all2md.mcp.schemas
+all2md.options.ini
 ==================
 
-.. automodule:: all2md.mcp.schemas
+.. automodule:: all2md.options.ini
    :members:
    :show-inheritance:
    :undoc-members:

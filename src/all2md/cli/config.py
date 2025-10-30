@@ -13,7 +13,9 @@ import tomllib
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-CONFIG_FILENAMES = [".all2md.toml", ".all2md.json", "pyproject.toml"]
+import yaml
+
+CONFIG_FILENAMES = [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json", "pyproject.toml"]
 
 
 def _load_pyproject_all2md_section(pyproject_path: Path) -> Dict[str, Any]:
@@ -92,8 +94,8 @@ def find_config_in_parents(start_dir: Optional[Path] = None) -> Optional[Path]:
 
     # Walk up directory tree to root
     while True:
-        # Check for dedicated config files first (.all2md.toml, .all2md.json)
-        for filename in [".all2md.toml", ".all2md.json"]:
+        # Check for dedicated config files first (.all2md.toml, .all2md.yaml, .all2md.yml, .all2md.json)
+        for filename in [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json"]:
             config_path = current / filename
             if config_path.exists() and config_path.is_file():
                 return config_path
@@ -129,12 +131,16 @@ def discover_config_file() -> Optional[Path]:
     1. Parent directory search (from cwd up to filesystem root):
 
        - .all2md.toml (highest priority)
+       - .all2md.yaml
+       - .all2md.yml
        - .all2md.json
        - pyproject.toml with [tool.all2md] section
 
     2. User home directory:
 
        - .all2md.toml
+       - .all2md.yaml
+       - .all2md.yml
        - .all2md.json
 
     Returns the first configuration file found.
@@ -158,7 +164,7 @@ def discover_config_file() -> Optional[Path]:
 
     # Fall back to user home directory
     home = Path.home()
-    for filename in [".all2md.toml", ".all2md.json"]:
+    for filename in [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json"]:
         config_path = home / filename
         if config_path.exists() and config_path.is_file():
             return config_path
@@ -167,11 +173,12 @@ def discover_config_file() -> Optional[Path]:
 
 
 def load_config_file(config_path: Path | str) -> Dict[str, Any]:
-    """Load configuration from JSON, TOML, or pyproject.toml file.
+    """Load configuration from JSON, TOML, YAML, or pyproject.toml file.
 
     Auto-detects format based on file extension and name:
     - .json files: Loaded as JSON
     - .toml files: Loaded as TOML
+    - .yaml/.yml files: Loaded as YAML
     - pyproject.toml: Extracts [tool.all2md] section
 
     Parameters
@@ -218,10 +225,12 @@ def load_config_file(config_path: Path | str) -> Dict[str, Any]:
             return _load_pyproject_all2md_section(config_path)
         elif ext == ".toml":
             return _load_toml_config(config_path)
+        elif ext in (".yaml", ".yml"):
+            return _load_yaml_config(config_path)
         elif ext == ".json":
             return _load_json_config(config_path)
         else:
-            raise argparse.ArgumentTypeError(f"Unsupported config file format: {ext}. Use .json or .toml")
+            raise argparse.ArgumentTypeError(f"Unsupported config file format: {ext}. Use .json, .toml, or .yaml")
     except argparse.ArgumentTypeError:
         raise
     except Exception as e:
@@ -296,6 +305,40 @@ def _load_json_config(config_path: Path) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Invalid JSON in config file {config_path}: {e}") from e
     except Exception as e:
         raise argparse.ArgumentTypeError(f"Error reading JSON config {config_path}: {e}") from e
+
+
+def _load_yaml_config(config_path: Path) -> Dict[str, Any]:
+    """Load configuration from YAML file.
+
+    Parameters
+    ----------
+    config_path : Path
+        Path to YAML configuration file
+
+    Returns
+    -------
+    dict
+        Configuration dictionary
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If YAML file cannot be parsed
+
+    """
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+
+        if not isinstance(config, dict):
+            raise argparse.ArgumentTypeError(f"YAML config file must contain a mapping, got {type(config).__name__}")
+
+        return config
+
+    except yaml.YAMLError as e:
+        raise argparse.ArgumentTypeError(f"Invalid YAML in config file {config_path}: {e}") from e
+    except Exception as e:
+        raise argparse.ArgumentTypeError(f"Error reading YAML config {config_path}: {e}") from e
 
 
 def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -409,10 +452,14 @@ def get_config_search_paths() -> list[Path]:
     >>> for path in paths:
     ...     print(path)
     /current/working/dir/.all2md.toml
+    /current/working/dir/.all2md.yaml
+    /current/working/dir/.all2md.yml
     /current/working/dir/.all2md.json
     /current/working/dir/pyproject.toml
     (... continues up parent directories to root ...)
     ~/.all2md.toml
+    ~/.all2md.yaml
+    ~/.all2md.yml
     ~/.all2md.json
 
     """
@@ -421,12 +468,12 @@ def get_config_search_paths() -> list[Path]:
     # Show current working directory as example
     # (actual search walks up to root checking each parent)
     cwd = Path.cwd()
-    for filename in [".all2md.toml", ".all2md.json", "pyproject.toml"]:
+    for filename in [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json", "pyproject.toml"]:
         paths.append(cwd / filename)
 
     # Home directory (fallback after parent search)
     home = Path.home()
-    for filename in [".all2md.toml", ".all2md.json"]:
+    for filename in [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json"]:
         paths.append(home / filename)
 
     return paths

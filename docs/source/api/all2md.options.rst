@@ -29,8 +29,10 @@ Submodules
    all2md.options.epub
    all2md.options.fb2
    all2md.options.html
+   all2md.options.ini
    all2md.options.ipynb
    all2md.options.jinja
+   all2md.options.json
    all2md.options.latex
    all2md.options.markdown
    all2md.options.mbox
@@ -49,6 +51,8 @@ Submodules
    all2md.options.rtf
    all2md.options.sourcecode
    all2md.options.textile
+   all2md.options.toml
    all2md.options.webarchive
    all2md.options.xlsx
+   all2md.options.yaml
    all2md.options.zip

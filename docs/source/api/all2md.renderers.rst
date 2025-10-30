@@ -22,8 +22,10 @@ Submodules
    all2md.renderers.dokuwiki
    all2md.renderers.epub
    all2md.renderers.html
+   all2md.renderers.ini
    all2md.renderers.ipynb
    all2md.renderers.jinja
+   all2md.renderers.json
    all2md.renderers.latex
    all2md.renderers.markdown
    all2md.renderers.mediawiki
@@ -36,3 +38,5 @@ Submodules
    all2md.renderers.restructuredtext
    all2md.renderers.rtf
    all2md.renderers.textile
+   all2md.renderers.toml
+   all2md.renderers.yaml

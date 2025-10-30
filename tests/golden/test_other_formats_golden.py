@@ -7,6 +7,7 @@ output remains consistent across code changes.
 from io import BytesIO
 
 import pytest
+from fixtures import FIXTURES_PATH
 from fixtures.generators.markdown_fixtures import (
     create_markdown_with_code_and_lists,
     create_markdown_with_definition_lists,
@@ -93,7 +94,7 @@ class TestFileFormatGoldenFromFiles:
 
     def test_basic_html_file(self, snapshot):
         """Test basic HTML file matches snapshot."""
-        fixture_path = "tests/fixtures/documents/basic.html"
+        fixture_path = FIXTURES_PATH / "documents" / "basic.html"
 
         try:
             with open(fixture_path, "rb") as f:
@@ -104,7 +105,7 @@ class TestFileFormatGoldenFromFiles:
 
     def test_basic_pptx_file(self, snapshot):
         """Test basic PPTX file matches snapshot."""
-        fixture_path = "tests/fixtures/documents/basic.pptx"
+        fixture_path = FIXTURES_PATH / "documents" / "basic.pptx"
 
         try:
             with open(fixture_path, "rb") as f:
@@ -115,7 +116,7 @@ class TestFileFormatGoldenFromFiles:
 
     def test_basic_odt_file(self, snapshot):
         """Test basic ODT file matches snapshot."""
-        fixture_path = "tests/fixtures/documents/basic.odt"
+        fixture_path = FIXTURES_PATH / "documents" / "basic.odt"
 
         try:
             with open(fixture_path, "rb") as f:
@@ -126,7 +127,7 @@ class TestFileFormatGoldenFromFiles:
 
     def test_basic_xlsx_file(self, snapshot):
         """Test basic XLSX file matches snapshot."""
-        fixture_path = "tests/fixtures/documents/basic.xlsx"
+        fixture_path = FIXTURES_PATH / "documents" / "basic.xlsx"
 
         try:
             with open(fixture_path, "rb") as f:

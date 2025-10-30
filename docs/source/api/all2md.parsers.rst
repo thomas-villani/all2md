@@ -28,7 +28,9 @@ Submodules
    all2md.parsers.epub
    all2md.parsers.fb2
    all2md.parsers.html
+   all2md.parsers.ini
    all2md.parsers.ipynb
+   all2md.parsers.json
    all2md.parsers.latex
    all2md.parsers.markdown
    all2md.parsers.mbox
@@ -47,6 +49,8 @@ Submodules
    all2md.parsers.rtf
    all2md.parsers.sourcecode
    all2md.parsers.textile
+   all2md.parsers.toml
    all2md.parsers.webarchive
    all2md.parsers.xlsx
+   all2md.parsers.yaml
    all2md.parsers.zip

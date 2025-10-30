@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote, urlparse
 
+import yaml
+
 from all2md.cli.builder import (
     EXIT_ERROR,
     EXIT_FILE_ERROR,
@@ -262,6 +264,31 @@ def _format_config_as_toml(config: Dict[str, Any]) -> str:
         lines.extend(_emit_toml_section(key, config[key]))
 
     return "\n".join(lines)
+
+
+def _format_config_as_yaml(config: Dict[str, Any]) -> str:
+    """Format configuration dictionary as YAML string.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary to format
+
+    Returns
+    -------
+    str
+        YAML-formatted configuration string
+
+    """
+    header = (
+        "# all2md configuration file\n"
+        "# Generated from current converter defaults\n"
+        "# Edit values as needed and remove sections you do not use.\n\n"
+    )
+
+    yaml_content = yaml.dump(config, default_flow_style=False, sort_keys=True, allow_unicode=True, indent=2)
+
+    return header + yaml_content
 
 
 def _get_version() -> str:
@@ -1361,7 +1388,7 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("toml", "json"),
+        choices=("toml", "json", "yaml"),
         default="toml",
         help="Output format for the generated configuration (default: toml).",
     )
@@ -1380,6 +1407,8 @@ def handle_config_generate_command(args: list[str] | None = None) -> int:
 
     if parsed_args.format == "toml":
         output_text = _format_config_as_toml(config_data)
+    elif parsed_args.format == "yaml":
+        output_text = _format_config_as_yaml(config_data)
     else:
         output_text = json.dumps(config_data, indent=2, ensure_ascii=False, sort_keys=True)
 
@@ -1406,7 +1435,7 @@ def handle_config_show_command(args: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("toml", "json"),
+        choices=("toml", "json", "yaml"),
         default="toml",
         help="Output format for the configuration (default: toml).",
     )
@@ -1458,6 +1487,8 @@ def handle_config_show_command(args: list[str] | None = None) -> int:
         import tomli_w
 
         output_text = tomli_w.dumps(config)
+    elif parsed_args.format == "yaml":
+        output_text = yaml.dump(config, default_flow_style=False, sort_keys=True, allow_unicode=True, indent=2)
     else:
         output_text = json.dumps(config, indent=2, ensure_ascii=False)
 

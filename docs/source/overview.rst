@@ -164,7 +164,7 @@ For conversions between any supported formats (not just to Markdown), use the ``
 * **Flexible I/O**: Supports file paths, file objects, and bytes
 * **Return behavior**: Returns str/bytes if no output specified, None if output written to file
 
-See :doc:`bidirectional` for detailed examples of Markdown-to-DOCX/HTML/PDF conversions.
+See :doc:`python_api` for detailed examples of Markdown-to-DOCX/HTML/PDF conversions.
 
 Format Detection Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -254,7 +254,7 @@ all2md includes a powerful Abstract Syntax Tree (AST) module that separates docu
 * **Flavors**: Render to CommonMark, GFM, or custom dialects
 * **Bidirectional conversion**: Render AST to DOCX, HTML, or PDF
 
-For complete AST documentation, see :doc:`ast_guide`. For bidirectional conversion examples (Markdown to DOCX/HTML/PDF), see :doc:`bidirectional`.
+For complete AST documentation, see :doc:`ast_guide`. For bidirectional conversion examples (Markdown to DOCX/HTML/PDF), see :doc:`python_api`.
 
 Converter Architecture
 ~~~~~~~~~~~~~~~~~~~~~~

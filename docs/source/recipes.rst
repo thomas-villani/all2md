@@ -2184,7 +2184,7 @@ See the ``examples/jinja-templates/`` directory for production-ready templates:
 **See Also:**
 
 * :doc:`templates` - Complete template reference
-* :doc:`bidirectional` - Custom formats section
+* :doc:`python_api` - Custom formats section
 * ``examples/jinja-templates/README.md`` - Template usage examples
 
 

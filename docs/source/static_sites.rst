@@ -1385,7 +1385,7 @@ HTML Renderer with Templates
 For HTML templating documentation, see:
 
 - :doc:`api/all2md.renderers.html` - HTML Renderer API
-- :doc:`bidirectional` - Markdown to HTML conversion
+- :doc:`python_api` - Markdown to HTML conversion
 
 Best Practices
 --------------
@@ -1569,7 +1569,7 @@ See Also
 **Related Documentation:**
 
 - :doc:`cli` - Complete CLI reference with all global options
-- :doc:`bidirectional` - Markdown to HTML and other formats
+- :doc:`python_api` - Markdown to HTML and other formats
 - :doc:`options` - Document conversion options
 - :doc:`transforms` - Document transformation guide
 - :doc:`attachments` - Attachment handling strategies
