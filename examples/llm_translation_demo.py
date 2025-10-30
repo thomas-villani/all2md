@@ -12,7 +12,10 @@ the AST. The workflow is:
 This works with any format supported by all2md, making it format-agnostic.
 """
 from typing import Callable
+import os
+import argparse
 
+from all2md.api import from_ast, to_ast
 from all2md.ast import Text
 from all2md.ast.transforms import NodeTransformer
 
@@ -135,9 +138,6 @@ def translate_document(input_path: str, output_path: str, target_language: str, 
         LLM translation function. Uses mock if not provided.
 
     """
-    import os
-
-    from all2md import from_ast, to_ast
 
     # Use mock LLM if no client provided
     if llm_client is None:
@@ -190,7 +190,6 @@ def openai_translate(text: str, target_language: str) -> str:
         Translated text
 
     """
-    import os
 
     from openai import OpenAI
 
@@ -234,7 +233,6 @@ def anthropic_translate(text: str, target_language: str) -> str:
         Translated text
 
     """
-    import os
 
     from anthropic import Anthropic
 
@@ -260,8 +258,6 @@ def anthropic_translate(text: str, target_language: str) -> str:
 
 def main():
     """Run the translation demo."""
-    import argparse
-    import sys
 
     parser = argparse.ArgumentParser(description="Translate documents using LLM while preserving format")
     parser.add_argument("input", help="Input document path")

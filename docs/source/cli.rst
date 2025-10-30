@@ -552,6 +552,371 @@ See Also
 - :doc:`cli` - Complete CLI reference
 - ``all2md --help`` - Built-in help
 
+Document Viewing
+----------------
+
+The ``all2md view`` command provides a quick way to preview any supported document format by converting it to HTML and opening it in your default web browser. This is especially useful for rapid document inspection during development or when reviewing document conversions.
+
+.. code-block:: bash
+
+   all2md view FILE [OPTIONS]
+
+Basic Usage
+~~~~~~~~~~~
+
+Convert and view a document with the default minimal theme:
+
+.. code-block:: bash
+
+   # View any supported document format
+   all2md view document.pdf
+   all2md view report.docx
+   all2md view slides.pptx
+   all2md view README.md
+
+The command will:
+
+1. Convert the document to HTML using the AST
+2. Apply a clean, responsive theme
+3. Open the result in your default browser
+4. Wait for you to press Enter
+5. Clean up the temporary HTML file (unless ``--keep`` is used)
+
+Arguments
+~~~~~~~~~
+
+**Required Arguments:**
+
+``FILE``
+   Path to the document to view. Supports all formats that all2md can convert (PDF, DOCX, PPTX, HTML, Markdown, etc.).
+
+**Optional Arguments:**
+
+``--keep [PATH]``
+   Keep the HTML file instead of deleting it after viewing. Can optionally specify an output path.
+
+   * Without an argument: Keep the temporary file in the system temp directory
+   * With a path: Save directly to the specified file (no temp file, no cleanup prompt)
+
+   .. code-block:: bash
+
+      # Keep the temporary file
+      all2md view document.pdf --keep
+
+      # Save to specific file
+      all2md view document.pdf --keep output.html
+
+      # Save to subdirectory (created automatically)
+      all2md view document.pdf --keep docs/preview.html
+
+``--toc``
+   Include an automatically generated table of contents in the HTML output. The TOC is automatically placed based on the theme:
+
+   * For most themes: TOC appears after the first heading in the content
+   * For ``sidebar`` theme: TOC appears in the left sidebar
+
+   .. code-block:: bash
+
+      # Add table of contents
+      all2md view long-document.pdf --toc
+
+      # Use sidebar theme with TOC
+      all2md view document.pdf --toc --theme sidebar
+
+``--dark``
+   Use the dark mode theme with a dark background and light text. Quick shortcut for ``--theme dark``.
+
+   .. code-block:: bash
+
+      # View in dark mode
+      all2md view document.pdf --dark
+
+``--theme THEME``
+   Specify a theme for the HTML output. Can be either a built-in theme name or a path to a custom HTML template file.
+
+   **Built-in themes:**
+
+   * ``minimal`` (default) - Clean, centered layout with simple typography
+   * ``dark`` - Dark mode with VS Code-inspired color scheme
+   * ``newspaper`` - Classic newspaper style with serif fonts and justified text
+   * ``docs`` - GitHub-style documentation layout with technical styling
+   * ``sidebar`` - Two-column layout with sticky TOC sidebar (requires ``--toc``)
+
+   .. code-block:: bash
+
+      # Use built-in newspaper theme
+      all2md view article.md --theme newspaper
+
+      # Use built-in docs theme
+      all2md view technical-spec.pdf --theme docs
+
+      # Use sidebar theme with TOC
+      all2md view long-document.pdf --toc --theme sidebar
+
+      # Use custom theme template
+      all2md view document.pdf --theme /path/to/custom-theme.html
+
+Built-in Themes
+~~~~~~~~~~~~~~~
+
+**minimal** (default)
+
+   Clean, modern design with a centered layout (800px max-width). Uses system fonts with excellent readability. Features subtle borders and shading for code blocks and tables.
+
+   * **Best for:** General documents, reports, articles
+   * **Typography:** Sans-serif system fonts
+   * **Layout:** Single-column, centered
+   * **Colors:** Light background with dark text
+
+**dark**
+
+   Dark mode theme with a VS Code-inspired color palette. Reduces eye strain for extended viewing sessions. Syntax highlighting colors for code elements.
+
+   * **Best for:** Late-night reading, code-heavy documents
+   * **Typography:** Sans-serif system fonts
+   * **Layout:** Single-column, centered (900px max-width)
+   * **Colors:** Dark gray background (#1e1e1e) with light text (#d4d4d4)
+   * **Accents:** Blue headings (#569cd6), teal links (#4ec9b0)
+
+**newspaper**
+
+   Classic newspaper layout with serif typography and justified text. Features a distinctive drop cap on the first paragraph and traditional styling.
+
+   * **Best for:** Long-form content, articles, essays
+   * **Typography:** Georgia/Times New Roman serif fonts
+   * **Layout:** Single-column with wider max-width (1000px)
+   * **Colors:** Off-white background (#f9f7f3) with black text
+   * **Special:** Drop cap on first paragraph, quote styling
+
+**docs**
+
+   GitHub-inspired technical documentation style. Clean, professional appearance with excellent code formatting and technical elements.
+
+   * **Best for:** Technical documentation, API docs, README files
+   * **Typography:** System fonts with monospace for code
+   * **Layout:** Single-column (1200px max-width)
+   * **Colors:** Light gray background (#f6f8fa) with dark text
+   * **Special:** Hash symbols on headings, enhanced code blocks
+
+**sidebar**
+
+   Two-column layout with a fixed sidebar for the table of contents. The TOC stays visible while scrolling through long documents. Responsive design collapses to single column on mobile.
+
+   * **Best for:** Long documents, reference materials, technical guides
+   * **Typography:** Clean system fonts
+   * **Layout:** Two-column (280px sidebar + flexible content area)
+   * **Colors:** White background with light gray sidebar
+   * **Special:** Sticky TOC navigation, smooth scrolling, mobile-responsive
+   * **Requires:** Must be used with ``--toc`` flag for meaningful layout
+
+Custom Themes
+~~~~~~~~~~~~~
+
+You can create custom HTML themes using placeholder replacement. Themes are standard HTML files with placeholders that will be replaced with the converted content.
+
+**Available Placeholders:**
+
+* ``{CONTENT}`` - The converted document content (required)
+* ``{TOC}`` - Table of contents (optional, only used when ``--toc`` is specified)
+* ``{TITLE}`` - Document title from metadata
+* ``{AUTHOR}`` - Document author from metadata
+* ``{DATE}`` - Document date from metadata
+* ``{DESCRIPTION}`` - Document description from metadata
+
+**Basic Custom Theme Structure:**
+
+.. code-block:: html
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>Document Viewer</title>
+       <style>
+           /* Your custom CSS here */
+           body {
+               font-family: Arial, sans-serif;
+               max-width: 900px;
+               margin: 0 auto;
+               padding: 2rem;
+           }
+           /* Add more styles as needed */
+       </style>
+   </head>
+   <body>
+       {CONTENT}
+   </body>
+   </html>
+
+**Custom Theme with Sidebar TOC:**
+
+.. code-block:: html
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <title>{TITLE}</title>
+       <style>
+           body { display: flex; }
+           aside { width: 250px; padding: 1rem; }
+           main { flex: 1; padding: 2rem; }
+       </style>
+   </head>
+   <body>
+       <aside>{TOC}</aside>
+       <main>{CONTENT}</main>
+   </body>
+   </html>
+
+**Using Custom Themes:**
+
+.. code-block:: bash
+
+   # Save your custom theme as my-theme.html
+   all2md view document.pdf --theme ./my-theme.html
+
+   # Use custom theme with TOC
+   all2md view document.pdf --theme ./my-theme.html --toc
+
+The HTML renderer will replace all placeholders with the appropriate content while preserving all your custom styling and structure.
+
+Examples
+~~~~~~~~
+
+**Basic Viewing:**
+
+.. code-block:: bash
+
+   # View a PDF with default theme
+   all2md view report.pdf
+
+   # View a Word document with dark theme
+   all2md view document.docx --dark
+
+   # View a Markdown file with table of contents
+   all2md view README.md --toc
+
+**Theme Selection:**
+
+.. code-block:: bash
+
+   # Use newspaper theme for an article
+   all2md view article.md --theme newspaper
+
+   # Use docs theme for technical documentation
+   all2md view api-spec.pdf --theme docs
+
+   # Use custom theme
+   all2md view report.docx --theme ./company-theme.html
+
+**Saving Output Files:**
+
+.. code-block:: bash
+
+   # Keep the temporary file for later inspection
+   all2md view document.pdf --keep --dark
+   # Temporary file: /tmp/all2md-view-abc123.html
+   # Kept temporary file: /tmp/all2md-view-abc123.html
+
+   # Save directly to a specific file
+   all2md view document.pdf --keep output.html
+   # Saved to: /path/to/output.html
+
+   # Save to subdirectory (created automatically)
+   all2md view report.docx --keep previews/report-preview.html --dark
+   # Saved to: /path/to/previews/report-preview.html
+
+**Combined Options:**
+
+.. code-block:: bash
+
+   # View with all options
+   all2md view long-document.pdf --theme docs --toc --keep
+
+   # Dark mode with table of contents
+   all2md view technical-manual.docx --dark --toc
+
+   # Newspaper theme without cleanup
+   all2md view essay.md --theme newspaper --keep
+
+Use Cases
+~~~~~~~~~
+
+**Quick Document Preview:**
+
+   View converted documents before committing to a full conversion pipeline:
+
+   .. code-block:: bash
+
+      # Preview how a PDF will convert
+      all2md view input.pdf
+
+      # Try different themes to find the best look
+      all2md view document.pdf --theme minimal
+      all2md view document.pdf --theme newspaper
+      all2md view document.pdf --theme docs
+
+**Development and Testing:**
+
+   During converter development or debugging:
+
+   .. code-block:: bash
+
+      # Quickly view conversion results
+      all2md view test-document.pdf --keep
+
+      # Save test output for comparison
+      all2md view test-document.pdf --keep test-outputs/current.html
+
+      # Check table of contents generation
+      all2md view long-doc.pdf --toc
+
+      # Generate HTML artifacts for CI/CD
+      all2md view report.pdf --keep artifacts/report.html --theme docs
+
+**Documentation Review:**
+
+   Preview documentation files with appropriate themes:
+
+   .. code-block:: bash
+
+      # View README with docs theme
+      all2md view README.md --theme docs
+
+      # View API docs with TOC
+      all2md view api-reference.pdf --theme docs --toc
+
+**Presentation Review:**
+
+   Quickly preview PowerPoint slides:
+
+   .. code-block:: bash
+
+      # View presentation slides
+      all2md view presentation.pptx
+
+      # Dark mode for better visibility
+      all2md view slides.pptx --dark
+
+Notes
+~~~~~
+
+* The temporary HTML file is created in your system's temp directory (``/tmp`` on Unix, ``%TEMP%`` on Windows)
+* The file is automatically opened in your default web browser
+* Cleanup happens after you press Enter, ensuring the browser has time to load the file
+* With ``--keep``, the temporary file path is displayed for easy access
+* All standard all2md conversion options are applied during the HTML generation
+* The command supports all document formats that all2md can process
+
+See Also
+~~~~~~~~
+
+- :doc:`python_api` - For programmatic HTML generation
+- :doc:`options` - For HTML rendering options
+- ``all2md --help`` - Built-in help
+
 Global Options
 --------------
 

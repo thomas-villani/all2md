@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{TITLE}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Georgia, "Times New Roman", Times, serif;
+            line-height: 1.8;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            color: #1a1a1a;
+            background: #f9f7f3;
+        }
+
+        main#content {
+            background: #ffffff;
+            padding: 3rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            line-height: 1.2;
+            border-bottom: 3px double #1a1a1a;
+            padding-bottom: 0.5rem;
+            font-family: "Times New Roman", Times, serif;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 0.25rem;
+        }
+
+        h3 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-style: italic;
+        }
+
+        h4, h5, h6 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p {
+            margin: 1rem 0;
+            text-align: justify;
+            hyphens: auto;
+        }
+
+        p:first-letter {
+            font-size: 3em;
+            line-height: 0.8;
+            float: left;
+            margin: 0.1em 0.1em 0 0;
+            font-weight: bold;
+        }
+
+        p ~ p:first-letter {
+            font-size: 1em;
+            line-height: inherit;
+            float: none;
+            margin: 0;
+            font-weight: normal;
+        }
+
+        code {
+            background-color: #f5f5f5;
+            padding: 0.2em 0.4em;
+            border-radius: 2px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.85em;
+            color: #333;
+        }
+
+        pre {
+            background-color: #f5f5f5;
+            padding: 1rem;
+            border-left: 3px solid #1a1a1a;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        blockquote {
+            border-left: 4px solid #1a1a1a;
+            padding-left: 1.5rem;
+            margin: 1.5rem 0;
+            font-style: italic;
+            color: #444;
+            font-size: 1.1em;
+        }
+
+        blockquote::before {
+            content: '"';
+            font-size: 3em;
+            line-height: 0;
+            vertical-align: -0.4em;
+            margin-right: 0.1em;
+            color: #999;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1.5rem 0;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            border: 1px solid #1a1a1a;
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.05em;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 1.5rem auto;
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+            background: #fff;
+        }
+
+        a {
+            color: #1a1a1a;
+            text-decoration: underline;
+            text-decoration-color: #999;
+        }
+
+        a:hover {
+            text-decoration-color: #1a1a1a;
+        }
+
+        ul, ol {
+            padding-left: 2rem;
+            margin: 1rem 0;
+        }
+
+        li {
+            margin: 0.5rem 0;
+        }
+
+        hr {
+            border: none;
+            border-top: 2px solid #1a1a1a;
+            margin: 2rem 0;
+        }
+
+        #table-of-contents {
+            background-color: #f5f5f5;
+            border: 2px solid #1a1a1a;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        #table-of-contents h2 {
+            margin-top: 0;
+            font-size: 1.3rem;
+            border: none;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        #footnotes {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #1a1a1a;
+            font-size: 0.85em;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            main#content {
+                padding: 1.5rem;
+            }
+
+            p {
+                text-align: left;
+                hyphens: none;
+            }
+
+            p:first-letter {
+                font-size: 1em;
+                line-height: inherit;
+                float: none;
+                margin: 0;
+                font-weight: normal;
+            }
+        }
+    </style>
+</head>
+<body>
+    {CONTENT}
+</body>
+</html>

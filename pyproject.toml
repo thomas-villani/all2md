@@ -66,6 +66,7 @@ include = ["src/**", "pyproject.toml", "README.md", "LICENSE"]
 [tool.hatch.metadata]
 include = [
     "src/all2md/_plaintext-exts.json",
+    "src/all2md/cli/templates/*.html"
 ]
 
 [project.optional-dependencies]

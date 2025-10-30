@@ -354,11 +354,6 @@ def _determine_syntax_language(target_format: str) -> str:
     """
     # Explicit mappings where format name != lexer name
     lookup = {
-        "html": "html",
-        "asciidoc": "asciidoc",
-        "markdown": "markdown",
-        "rst": "rst",
-        "org": "org",
         "txt": "text",
         "sourcecode": "text",
         "json": "json",

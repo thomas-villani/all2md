@@ -107,6 +107,10 @@ class HtmlRendererOptions(BaseRendererOptions):
         Path to template file (required when template_mode is not None).
     template_selector : str, default "#content"
         CSS selector for injection target (used with template_mode="inject").
+    toc_selector : str or None, default None
+        CSS selector for separate TOC injection point (used with template_mode="inject").
+        If not set, TOC is included with content at template_selector.
+        Allows placing TOC in a different location like a sidebar or header.
     injection_mode : {"append", "prepend", "replace"}, default "replace"
         How to inject content at selector (used with template_mode="inject"):
         - "append": Add content after existing content
@@ -239,6 +243,14 @@ class HtmlRendererOptions(BaseRendererOptions):
     template_selector: str = field(
         default=DEFAULT_HTML_TEMPLATE_SELECTOR,
         metadata={"help": "CSS selector for injection target (template_mode='inject')", "importance": "advanced"},
+    )
+    toc_selector: str | None = field(
+        default=None,
+        metadata={
+            "help": "CSS selector for separate TOC injection point (template_mode='inject'). "
+            "If not set, TOC is included with content at template_selector.",
+            "importance": "advanced",
+        },
     )
     injection_mode: InjectionMode = field(
         default=DEFAULT_HTML_INJECTION_MODE,

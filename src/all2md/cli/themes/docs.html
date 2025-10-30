@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{TITLE}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.7;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            color: #24292f;
+            background: #f6f8fa;
+        }
+
+        main#content {
+            background: #ffffff;
+            padding: 2rem 3rem;
+            border-radius: 6px;
+            border: 1px solid #d0d7de;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            line-height: 1.25;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 2em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #d0d7de;
+        }
+
+        h1::before {
+            content: "#";
+            color: #0969da;
+            margin-right: 0.5rem;
+            font-weight: 400;
+        }
+
+        h2 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid #d0d7de;
+        }
+
+        h2::before {
+            content: "##";
+            color: #0969da;
+            margin-right: 0.5rem;
+            font-weight: 400;
+            font-size: 0.85em;
+        }
+
+        h3 {
+            font-size: 1.25em;
+        }
+
+        h3::before {
+            content: "\2022";
+            color: #0969da;
+            margin-right: 0.5rem;
+        }
+
+        h4 { font-size: 1em; }
+        h5 { font-size: 0.875em; }
+        h6 { font-size: 0.85em; color: #57606a; }
+
+        p {
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        code {
+            background-color: rgba(175, 184, 193, 0.2);
+            padding: 0.2em 0.4em;
+            border-radius: 6px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 85%;
+            color: #1f2328;
+        }
+
+        pre {
+            background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #d0d7de;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 85%;
+            line-height: 1.45;
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            color: #1f2328;
+        }
+
+        blockquote {
+            padding: 0 1em;
+            color: #57606a;
+            border-left: 0.25em solid #d0d7de;
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        blockquote > :first-child {
+            margin-top: 0;
+        }
+
+        blockquote > :last-child {
+            margin-bottom: 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        th, td {
+            padding: 6px 13px;
+            border: 1px solid #d0d7de;
+        }
+
+        th {
+            font-weight: 600;
+            background-color: #f6f8fa;
+        }
+
+        tr {
+            background-color: #ffffff;
+            border-top: 1px solid #d0d7de;
+        }
+
+        tr:nth-child(2n) {
+            background-color: #f6f8fa;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            background-color: #ffffff;
+            border-radius: 6px;
+        }
+
+        a {
+            color: #0969da;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        a code {
+            color: #0969da;
+        }
+
+        ul, ol {
+            padding-left: 2em;
+            margin-top: 0;
+            margin-bottom: 16px;
+        }
+
+        li {
+            margin: 0.25em 0;
+        }
+
+        li > p {
+            margin-top: 16px;
+        }
+
+        li + li {
+            margin-top: 0.25em;
+        }
+
+        ul ul,
+        ul ol,
+        ol ol,
+        ol ul {
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+
+        hr {
+            height: 0.25em;
+            padding: 0;
+            margin: 24px 0;
+            background-color: #d0d7de;
+            border: 0;
+        }
+
+        #table-of-contents {
+            background-color: #f6f8fa;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        #table-of-contents h2 {
+            margin-top: 0;
+            font-size: 1.2em;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        #table-of-contents h2::before {
+            content: "\1F4D1";
+            margin-right: 0.5rem;
+        }
+
+        #table-of-contents ul {
+            margin-bottom: 0;
+        }
+
+        #table-of-contents a {
+            color: #1f2328;
+        }
+
+        #table-of-contents a:hover {
+            color: #0969da;
+        }
+
+        #footnotes {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid #d0d7de;
+            font-size: 0.9em;
+        }
+
+        kbd {
+            display: inline-block;
+            padding: 3px 5px;
+            font: 11px "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            line-height: 10px;
+            color: #1f2328;
+            vertical-align: middle;
+            background-color: #f6f8fa;
+            border: solid 1px rgba(175, 184, 193, 0.4);
+            border-bottom-color: rgba(175, 184, 193, 0.4);
+            border-radius: 6px;
+            box-shadow: inset 0 -1px 0 rgba(175, 184, 193, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            main#content {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    {CONTENT}
+</body>
+</html>

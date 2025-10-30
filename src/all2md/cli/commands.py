@@ -15,6 +15,8 @@ import logging
 import os
 import platform
 import sys
+import tempfile
+import webbrowser
 from dataclasses import fields, is_dataclass
 from importlib.metadata import version
 from pathlib import Path
@@ -23,6 +25,7 @@ from urllib.parse import unquote, urlparse
 
 import yaml
 
+from all2md.api import from_ast, to_ast
 from all2md.cli.builder import (
     EXIT_ERROR,
     EXIT_FILE_ERROR,
@@ -43,6 +46,7 @@ from all2md.cli.validation import (
 from all2md.converter_registry import registry
 from all2md.dependencies import main as deps_main
 from all2md.logging_utils import configure_logging as configure_root_logging
+from all2md.options.html import HtmlRendererOptions
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.transforms import transform_registry as transform_registry
 from all2md.utils.attachments import ensure_unique_attachment_path
@@ -1764,6 +1768,149 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
     return EXIT_SUCCESS if error_count == 0 else EXIT_ERROR
 
 
+def handle_view_command(args: list[str] | None = None) -> int:
+    """Handle view command to display document in browser.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'view')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    parser = argparse.ArgumentParser(
+        prog="all2md view",
+        description="Convert and view document in browser with HTML themes.",
+    )
+    parser.add_argument("input", help="File to view")
+    parser.add_argument(
+        "--keep",
+        nargs="?",
+        const=True,
+        default=False,
+        help="Keep HTML file. Optionally specify output path (default: keep temp file)",
+    )
+    parser.add_argument("--toc", action="store_true", help="Include table of contents")
+    parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
+    parser.add_argument(
+        "--theme",
+        help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
+    )
+
+    try:
+        parsed = parser.parse_args(args or [])
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else EXIT_ERROR
+
+    # Validate input file exists
+    input_path = Path(parsed.input)
+    if not input_path.exists():
+        print(f"Error: Input file not found: {parsed.input}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    # Select theme template
+    if parsed.theme:
+        # Check if it's a built-in theme name or a custom path
+        theme_path = Path(parsed.theme)
+        # First check if it's a valid HTML file path
+        if theme_path.exists() and theme_path.is_file() and theme_path.suffix == ".html":
+            # Use the provided file path
+            pass
+        else:
+            # Try as built-in theme name
+            builtin_theme = Path(__file__).parent / "themes" / f"{parsed.theme}.html"
+            if builtin_theme.exists():
+                theme_path = builtin_theme
+            else:
+                print(f"Error: Theme not found: {parsed.theme}", file=sys.stderr)
+                print("Available built-in themes: minimal, dark, newspaper, docs, sidebar", file=sys.stderr)
+                return EXIT_FILE_ERROR
+    elif parsed.dark:
+        theme_path = Path(__file__).parent / "themes" / "dark.html"
+    else:
+        theme_path = Path(__file__).parent / "themes" / "minimal.html"
+
+    # Verify theme template exists
+    if not theme_path.exists():
+        print(f"Error: Theme template not found: {theme_path}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    # Print status
+    print(f"Converting {input_path.name}...")
+
+    try:
+        # Convert to AST
+        doc = to_ast(parsed.input)
+
+        # Set custom title for web preview
+        doc.metadata["title"] = f"{input_path.name} - all2md Web Preview"
+
+        # Render with replace mode
+        html_opts = HtmlRendererOptions(
+            template_mode="replace",
+            template_file=str(theme_path),
+            include_toc=parsed.toc,
+        )
+        html_result = from_ast(doc, "html", renderer_options=html_opts)
+
+        # from_ast with string format returns str, not bytes or None
+        if not isinstance(html_result, str):
+            raise RuntimeError("Expected string result from HTML rendering")
+        html_content = html_result
+
+        # Determine output path
+        if isinstance(parsed.keep, str):
+            # User provided a specific output path
+            output_path = Path(parsed.keep).resolve()  # Convert to absolute path
+            # Ensure parent directory exists
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            # Write directly to the specified file
+            output_path.write_text(html_content, encoding="utf-8")
+            print(f"Saved to: {output_path}")
+            use_temp = False
+        else:
+            # Use temporary file
+            fd, temp_path = tempfile.mkstemp(suffix=".html", prefix="all2md-view-")
+            try:
+                os.write(fd, html_content.encode("utf-8"))
+            finally:
+                os.close(fd)
+            output_path = Path(temp_path).resolve()  # Convert to absolute path
+            use_temp = True
+
+        # Open in browser with absolute path
+        print("Opening in browser...")
+        webbrowser.open(f"file://{output_path}")
+
+        # Wait for user (only if using temp file)
+        if use_temp:
+            print(f"\nTemporary file: {output_path}")
+            try:
+                input("Press Enter to clean up and exit...")
+            except (KeyboardInterrupt, EOFError):
+                print()  # New line after interrupt
+
+            # Cleanup if not keeping temp file
+            if not parsed.keep:
+                try:
+                    os.unlink(str(output_path))
+                    print("Temporary file cleaned up.")
+                except Exception as e:
+                    print(f"Warning: Could not delete temporary file: {e}", file=sys.stderr)
+            else:
+                print(f"Kept temporary file: {output_path}")
+
+        return EXIT_SUCCESS
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return EXIT_ERROR
+
+
 def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
@@ -1787,6 +1934,10 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     # Check for config command
     if args[0] == "config":
         return handle_config_command(args)
+
+    # Check for view command
+    if args[0] == "view":
+        return handle_view_command(args[1:])
 
     # Check for generate-site command
     if args[0] == "generate-site":

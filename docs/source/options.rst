@@ -85,6 +85,22 @@ The table below shows where to look for the most commonly tuned converters.
      - ``MarkdownRendererOptions`` / ``MarkdownParserOptions``
      - Flavour defaults (GFM/CommonMark/etc), table handling, HTML passthrough policy
 
+Additional Parser Metadata
+-----------------------------
+
+Certain format options surface extra metadata that renderers and transforms can consume for advanced workflows:
+
+* **DOCX review comments** — enabling ``DocxOptions.include_comments`` populates :class:`~all2md.ast.nodes.CommentInline`
+  nodes with ``metadata`` that includes ``comment_type='docx_review'`` plus the review ``identifier``, ``label``,
+  ``author``, and ``date``. ``DocxOptions.comments_position`` controls whether those nodes stay inline or are emitted as
+  trailing footnotes.
+* **PPTX speaker notes** — when ``PptxOptions.comment_mode='comment'`` the converter emits
+  :class:`~all2md.ast.nodes.Comment` nodes tagged with ``comment_type='pptx_speaker_notes'`` and the originating
+  ``slide_number``. ``comment_mode='content'`` keeps the legacy behaviour of heading + paragraph content.
+* **PDF page separators** — enabling ``PdfOptions.include_page_numbers`` inserts :class:`~all2md.ast.nodes.Comment` nodes
+  carrying ``comment_type='page_separator'``. The comment text is rendered from ``PdfOptions.page_separator_template`` with
+  ``{page_num}`` / ``{total_pages}`` placeholders already resolved.
+
 Using Options
 -------------
 
@@ -4135,34 +4151,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    :Default: ``True``
    :Importance: core
 
-**strict_parsing**
-
-   Raise errors on invalid markdown syntax (vs. graceful recovery)
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-strict-parsing``
-   :Default: ``False``
-   :Importance: advanced
-
-**preserve_html**
-
-   Preserve raw HTML in AST (HTMLBlock/HTMLInline nodes)
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-no-preserve-html``
-   :Default: ``True``
-   :Importance: security
-
-**html_handling**
-
-   How to handle HTML when preserve_html=False: drop (remove entirely), sanitize (clean dangerous content)
-
-   :Type: ``str``
-   :CLI flag: ``--markdown-html-handling``
-   :Default: ``'drop'``
-   :Choices: ``drop``, ``sanitize``
-   :Importance: security
-
 **parse_frontmatter**
 
    Parse YAML/TOML/JSON frontmatter at document start
@@ -4314,7 +4302,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000022AF4290A70>``
+   :Default: ``<object object at 0x0000021A0FD10A70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4324,7 +4312,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000022AF4290A70>``
+   :Default: ``<object object at 0x0000021A0FD10A70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4469,12 +4457,12 @@ modules to ensure consistent Markdown generation.
    :Choices: ``yaml``, ``toml``, ``json``
    :Importance: advanced
 
-**html_sanitization**
+**html_passthrough_mode**
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
    :Type: ``HtmlPassthroughMode``
-   :CLI flag: ``--markdown-renderer-html-sanitization``
+   :CLI flag: ``--markdown-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
@@ -9700,7 +9688,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000022AF4290A70>``
+   :Default: ``<object object at 0x0000021A0FD10A70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9710,7 +9698,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000022AF4290A70>``
+   :Default: ``<object object at 0x0000021A0FD10A70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -9855,12 +9843,12 @@ modules to ensure consistent Markdown generation.
    :Choices: ``yaml``, ``toml``, ``json``
    :Importance: advanced
 
-**html_sanitization**
+**html_passthrough_mode**
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
    :Type: ``HtmlPassthroughMode``
-   :CLI flag: ``--markdown-html-sanitization``
+   :CLI flag: ``--markdown-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
