@@ -26,6 +26,7 @@ from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.markdown import markdown_to_ast
 from all2md.progress import ProgressCallback
+from all2md.transforms.builtin import RemoveNodesTransform
 from all2md.utils.attachments import process_attachment
 from all2md.utils.encoding import normalize_stream_to_bytes
 from all2md.utils.metadata import DocumentMetadata
@@ -477,7 +478,8 @@ class IpynbToAstConverter(BaseParser):
 
         This method avoids using HTMLInline which bypasses renderer sanitization.
         Instead, it parses the markdown content using the markdown parser to
-        get proper AST nodes.
+        get proper AST nodes. When strip_html_from_markdown is True (default),
+        HTML elements are removed from the parsed AST for security.
 
         Parameters
         ----------
@@ -500,6 +502,14 @@ class IpynbToAstConverter(BaseParser):
                 parse_math=True,
             )
             doc = markdown_to_ast(source, options=options)
+
+            # Strip HTML nodes for security if configured
+            if self.options.strip_html_from_markdown:
+                html_stripper = RemoveNodesTransform(node_types=["html_inline", "html_block"])
+                doc = html_stripper.transform(doc)
+                if doc is None:
+                    # Should not happen since we don't remove document nodes
+                    doc = Document(children=[])
 
             # If the markdown parser returns empty document, it likely stripped all HTML
             # In this case, we should still preserve the content as plain text

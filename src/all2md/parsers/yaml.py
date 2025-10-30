@@ -538,10 +538,42 @@ def _detect_yaml_content(content: bytes) -> bool:
         if not content_str:
             return False
 
-        # Try to parse as YAML
+        # Check for YAML-specific patterns before attempting to parse
+        # This prevents false positives for content that happens to be valid YAML
+        # but isn't actually intended as YAML (e.g., CSV, plain text)
+        lines = [line.rstrip() for line in content_str.split("\n") if line.strip()]
+
+        if not lines:
+            return False
+
+        # Look for YAML-specific syntax patterns
+        yaml_indicators = 0
+
+        for line in lines:
+            stripped = line.lstrip()
+            # Key-value pairs with colon (e.g., "key: value")
+            if ": " in line or line.endswith(":"):
+                yaml_indicators += 1
+            # List items (e.g., "- item")
+            elif stripped.startswith("- "):
+                yaml_indicators += 1
+            # YAML document markers
+            elif stripped in ("---", "..."):
+                yaml_indicators += 2
+
+        # Require at least 2 YAML indicators or 1 if it's a document marker
+        if yaml_indicators < 2:
+            return False
+
+        # Now try to parse as YAML to validate structure
         import yaml
 
-        yaml.safe_load(content_str)
+        result = yaml.safe_load(content_str)
+        # Reject if result is just a plain string or number
+        # (indicates content is not structured YAML)
+        if isinstance(result, (str, int, float, bool)) or result is None:
+            return False
+
         return True
     except (yaml.YAMLError, UnicodeDecodeError):
         return False
@@ -566,5 +598,5 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_options_class=YamlParserOptions,
     renderer_options_class="all2md.options.yaml.YamlRendererOptions",
     description="Convert YAML structures to/from readable documents with tables and lists",
-    priority=10,
+    priority=5,
 )

@@ -1882,17 +1882,23 @@ def handle_view_command(args: list[str] | None = None) -> int:
             output_path = Path(temp_path).resolve()  # Convert to absolute path
             use_temp = True
 
-        # Open in browser with absolute path
-        print("Opening in browser...")
-        webbrowser.open(f"file://{output_path}")
+        # Open in browser with absolute path (unless testing)
+        if not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+            print("Opening in browser...")
+            webbrowser.open(f"file://{output_path}")
+        else:
+            print("Skipping browser launch (test mode)")
 
-        # Wait for user (only if using temp file)
+        # Wait for user (only if using temp file and not in test mode)
         if use_temp:
             print(f"\nTemporary file: {output_path}")
-            try:
-                input("Press Enter to clean up and exit...")
-            except (KeyboardInterrupt, EOFError):
-                print()  # New line after interrupt
+
+            # Skip interactive prompt in test mode
+            if not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+                try:
+                    input("Press Enter to clean up and exit...")
+                except (KeyboardInterrupt, EOFError):
+                    print()  # New line after interrupt
 
             # Cleanup if not keeping temp file
             if not parsed.keep:
