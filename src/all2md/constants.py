@@ -296,7 +296,7 @@ DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "force"
 DEFAULT_MATH_MODE: MathMode = "latex"
 DEFAULT_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"
 HTML_PASSTHROUGH_MODES = ["pass-through", "escape", "drop", "sanitize"]
-DEFAULT_MARKDOWN_HTML_SANITIZATION: HtmlPassthroughMode = "escape"  # Secure by default
+DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"  # Secure by default
 
 # Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
 DEFAULT_BOILERPLATE_PATTERNS = [

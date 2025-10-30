@@ -498,7 +498,6 @@ class IpynbToAstConverter(BaseParser):
                 parse_tables=True,
                 parse_footnotes=True,
                 parse_math=True,
-                preserve_html=False,  # Important: don't preserve HTML for security
             )
             doc = markdown_to_ast(source, options=options)
 

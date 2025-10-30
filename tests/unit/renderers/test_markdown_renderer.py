@@ -663,7 +663,7 @@ class TestHTMLNodes:
         result = renderer.render_to_string(doc)
         assert result == "&lt;div&gt;Custom HTML&lt;/div&gt;"
 
-        renderer = MarkdownRenderer(MarkdownRendererOptions(html_sanitization="pass-through"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="pass-through"))
         result = renderer.render_to_string(doc)
         assert result == "<div>Custom HTML</div>"
 
@@ -684,7 +684,7 @@ class TestHTMLNodes:
         result = renderer.render_to_string(doc)
         assert result == "Text with &lt;span&gt;HTML&lt;/span&gt; inline"
 
-        renderer = MarkdownRenderer(MarkdownRendererOptions(html_sanitization="pass-through"))
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="pass-through"))
         result = renderer.render_to_string(doc)
         assert result == "Text with <span>HTML</span> inline"
 
@@ -871,7 +871,7 @@ class TestHTMLSanitization:
     def test_html_sanitization_pass_through_mode(self):
         """Test HTML pass-through mode (allows raw HTML)."""
         doc = Document(children=[HTMLBlock(content="<div class='custom'>Content</div>")])
-        options = MarkdownRendererOptions(html_sanitization="pass-through")
+        options = MarkdownRendererOptions(html_passthrough_mode="pass-through")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Should pass through unchanged
@@ -880,7 +880,7 @@ class TestHTMLSanitization:
     def test_html_sanitization_escape_mode(self):
         """Test HTML escape mode (shows HTML as text)."""
         doc = Document(children=[HTMLBlock(content="<script>dangerous()</script>")])
-        options = MarkdownRendererOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_passthrough_mode="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Should be HTML-escaped
@@ -896,7 +896,7 @@ class TestHTMLSanitization:
                 Paragraph(content=[Text(content="After")]),
             ]
         )
-        options = MarkdownRendererOptions(html_sanitization="drop")
+        options = MarkdownRendererOptions(html_passthrough_mode="drop")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # HTML content should be removed
@@ -909,7 +909,7 @@ class TestHTMLSanitization:
     def test_html_sanitization_sanitize_mode(self):
         """Test HTML sanitize mode (removes dangerous elements)."""
         doc = Document(children=[HTMLBlock(content="<p>Safe paragraph</p><script>alert('bad')</script>")])
-        options = MarkdownRendererOptions(html_sanitization="sanitize")
+        options = MarkdownRendererOptions(html_passthrough_mode="sanitize")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Safe HTML should be preserved
@@ -924,7 +924,7 @@ class TestHTMLSanitization:
 
         # Escape mode
         doc_escape = Document(children=[Paragraph(content=[HTMLInline(content=html_content)])])
-        options_escape = MarkdownRendererOptions(html_sanitization="escape")
+        options_escape = MarkdownRendererOptions(html_passthrough_mode="escape")
         renderer_escape = MarkdownRenderer(options_escape)
         result_escape = renderer_escape.render_to_string(doc_escape)
         assert "&lt;span" in result_escape
@@ -935,7 +935,7 @@ class TestHTMLSanitization:
                 Paragraph(content=[Text(content="Before "), HTMLInline(content=html_content), Text(content=" After")])
             ]
         )
-        options_drop = MarkdownRendererOptions(html_sanitization="drop")
+        options_drop = MarkdownRendererOptions(html_passthrough_mode="drop")
         renderer_drop = MarkdownRenderer(options_drop)
         result_drop = renderer_drop.render_to_string(doc_drop)
         assert "Before  After" in result_drop or "Before After" in result_drop
@@ -945,7 +945,7 @@ class TestHTMLSanitization:
         """Test that HTML sanitization does NOT affect code blocks."""
         doc = Document(children=[CodeBlock(content="<script>alert('This is code')</script>", language="html")])
         # Even with escape mode, code blocks should render their content unchanged
-        options = MarkdownRendererOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_passthrough_mode="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Code block should contain the raw HTML (not escaped)
@@ -955,7 +955,7 @@ class TestHTMLSanitization:
         """Test that HTML sanitization does NOT affect inline code."""
         doc = Document(children=[Paragraph(content=[Text(content="Example: "), Code(content="<div>code</div>")])])
         # Even with escape mode, inline code should render their content unchanged
-        options = MarkdownRendererOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_passthrough_mode="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Inline code should contain the raw HTML (not escaped)
@@ -970,7 +970,7 @@ class TestHTMLSanitization:
                 HTMLBlock(content="<script>evil()</script>"),
             ]
         )
-        options = MarkdownRendererOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_passthrough_mode="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Both HTML blocks should be escaped
@@ -988,7 +988,7 @@ class TestHTMLSanitization:
                 Paragraph(content=[Text(content="After")]),
             ]
         )
-        options = MarkdownRendererOptions(html_sanitization="escape")
+        options = MarkdownRendererOptions(html_passthrough_mode="escape")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         # Should not produce errors

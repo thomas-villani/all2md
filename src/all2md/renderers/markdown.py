@@ -405,10 +405,10 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Returns
         -------
         str
-            Processed HTML content based on html_sanitization option
+            Processed HTML content based on html_passthrough_mode option
 
         """
-        mode = self.options.html_sanitization
+        mode = self.options.html_passthrough_mode
 
         if mode == "pass-through":
             # Pass HTML through unchanged (use only with trusted content)
