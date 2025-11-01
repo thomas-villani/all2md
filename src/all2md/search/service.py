@@ -1,0 +1,563 @@
+"""High-level orchestration for indexing and querying documents."""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Iterable, Mapping, MutableMapping, Sequence
+
+from all2md.api import to_ast
+from all2md.constants import DocumentFormat
+from all2md.options.search import SearchOptions
+from all2md.progress import ProgressCallback, ProgressEvent
+from all2md.search.bm25 import BM25Index, KeywordIndexConfig
+from all2md.search.chunking import ChunkingContext, chunk_document
+from all2md.search.hybrid import blend_results
+from all2md.search.types import Chunk, SearchMode, SearchQuery, SearchResult
+from all2md.search.vector import VectorIndex, VectorIndexConfig
+
+
+@dataclass(frozen=True)
+class SearchDocumentInput:
+    """Represents a document scheduled for indexing."""
+
+    source: str | Path
+    document_id: str | None = None
+    source_format: DocumentFormat | str | None = "auto"
+    metadata: Mapping[str, object] | None = None
+
+
+@dataclass
+class SearchIndexState:
+    """Container for the active index backends."""
+
+    chunks: list[Chunk]
+    keyword_index: BM25Index | None = None
+    vector_index: VectorIndex | None = None
+
+    def available_modes(self) -> set[SearchMode]:
+        """Get available modes of search."""
+        modes: set[SearchMode] = set()
+        if self.chunks:
+            modes.add(SearchMode.GREP)
+        if self.keyword_index:
+            modes.add(SearchMode.KEYWORD)
+        if self.vector_index:
+            modes.add(SearchMode.VECTOR)
+        if self.keyword_index and self.vector_index:
+            modes.add(SearchMode.HYBRID)
+        return modes
+
+    @property
+    def chunk_count(self) -> int:
+        """Return number of cached chunks."""
+        return len(self.chunks)
+
+
+class SearchService:
+    """Service object coordinating indexing and search execution."""
+
+    def __init__(self, options: SearchOptions | None = None) -> None:
+        """Initialise the service with optional search configuration overrides."""
+        self.options = options or SearchOptions()
+        self._state = SearchIndexState(chunks=[])
+
+    @property
+    def state(self) -> SearchIndexState:
+        """Return the current in-memory search index state."""
+        return self._state
+
+    def build_indexes(
+        self,
+        documents: Sequence[SearchDocumentInput],
+        *,
+        modes: Iterable[SearchMode] | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> SearchIndexState:
+        """Convert sources into chunks and materialise requested indexes."""
+        requested_modes = set(modes or {self._default_mode()})
+        if SearchMode.HYBRID in requested_modes:
+            requested_modes.update({SearchMode.KEYWORD, SearchMode.VECTOR})
+
+        if progress_callback:
+            progress_callback(
+                ProgressEvent(
+                    event_type="started",
+                    message="Indexing documents",
+                    current=0,
+                    total=len(documents),
+                    metadata={"item_type": "indexing"},
+                )
+            )
+
+        all_chunks: list[Chunk] = []
+        for idx, doc_input in enumerate(documents, start=1):
+            document_id = doc_input.document_id or _derive_document_id(doc_input.source)
+            document_path = Path(doc_input.source) if isinstance(doc_input.source, (str, Path)) else None
+            ast_doc = to_ast(
+                doc_input.source,
+                source_format=doc_input.source_format or "auto",
+                progress_callback=progress_callback,
+            )
+            context_metadata: MutableMapping[str, object] = {"document_index": idx}
+            if doc_input.metadata:
+                context_metadata.update(doc_input.metadata)
+            if doc_input.source_format and doc_input.source_format != "auto":
+                context_metadata["source_format"] = str(doc_input.source_format)
+
+            chunk_context = ChunkingContext(
+                document_id=document_id,
+                document_path=document_path,
+                metadata=context_metadata,
+            )
+            chunks = chunk_document(
+                ast_doc,
+                context=chunk_context,
+                chunk_size_tokens=self.options.chunk_size_tokens,
+                chunk_overlap_tokens=self.options.chunk_overlap_tokens,
+                min_chunk_tokens=self.options.min_chunk_tokens,
+                include_preamble=self.options.include_preamble,
+                heading_merge=self.options.heading_merge,
+                max_heading_level=self.options.max_heading_level,
+                progress_callback=progress_callback,
+            )
+            all_chunks.extend(chunks)
+            if progress_callback:
+                progress_callback(
+                    ProgressEvent(
+                        event_type="item_done",
+                        message=f"Indexed document {document_id}",
+                        current=idx,
+                        total=len(documents),
+                        metadata={"item_type": "document", "chunks": len(chunks)},
+                    )
+                )
+
+        keyword_index: BM25Index | None = None
+        vector_index: VectorIndex | None = None
+
+        if SearchMode.KEYWORD in requested_modes and all_chunks:
+            keyword_index = BM25Index(
+                config=KeywordIndexConfig(k1=self.options.bm25_k1, b=self.options.bm25_b),
+                options_snapshot=_options_snapshot(self.options),
+            )
+            keyword_index.add_chunks(all_chunks, progress_callback=progress_callback)
+
+        if SearchMode.VECTOR in requested_modes and all_chunks:
+            vector_index = VectorIndex(
+                config=VectorIndexConfig(
+                    model_name=self.options.vector_model_name,
+                    batch_size=self.options.vector_batch_size,
+                    device=self.options.vector_device,
+                    normalize_embeddings=self.options.vector_normalize_embeddings,
+                ),
+                options_snapshot=_options_snapshot(self.options),
+            )
+            vector_index.add_chunks(all_chunks, progress_callback=progress_callback)
+
+        self._state = SearchIndexState(chunks=all_chunks, keyword_index=keyword_index, vector_index=vector_index)
+
+        if progress_callback:
+            progress_callback(
+                ProgressEvent(
+                    event_type="finished",
+                    message="Indexing completed",
+                    current=len(documents),
+                    total=len(documents),
+                    metadata={"chunks": len(all_chunks)},
+                )
+            )
+
+        return self._state
+
+    def save(self, directory: Path) -> None:
+        """Persist all active indexes to disk."""
+        directory.mkdir(parents=True, exist_ok=True)
+        chunk_path = directory / "chunks.jsonl"
+        _write_chunks(chunk_path, self._state.chunks)
+
+        if self._state.keyword_index:
+            self._state.keyword_index.save(directory / "keyword")
+        if self._state.vector_index:
+            self._state.vector_index.save(directory / "vector")
+
+    @classmethod
+    def load(cls, directory: Path, options: SearchOptions | None = None) -> "SearchService":
+        """Rehydrate indexes from disk."""
+        service = cls(options=options)
+        chunks: list[Chunk] = []
+        keyword_index: BM25Index | None = None
+        vector_index: VectorIndex | None = None
+
+        chunk_file = directory / "chunks.jsonl"
+        if chunk_file.exists():
+            chunks = _read_chunks(chunk_file)
+
+        keyword_dir = directory / "keyword"
+        if keyword_dir.exists():
+            keyword_index = BM25Index.load(keyword_dir)
+            if not chunks:
+                chunks = list(keyword_index.iter_chunks())
+
+        vector_dir = directory / "vector"
+        if vector_dir.exists():
+            vector_index = VectorIndex.load(vector_dir)
+            if not chunks:
+                chunks = list(vector_index.iter_chunks())
+
+        service._state = SearchIndexState(chunks=chunks, keyword_index=keyword_index, vector_index=vector_index)
+        return service
+
+    def search(
+        self,
+        query: str,
+        *,
+        mode: SearchMode | str | None = None,
+        top_k: int = 10,
+        progress_callback: ProgressCallback | None = None,
+    ) -> list[SearchResult]:
+        """Execute a query using the configured index backends."""
+        resolved_mode = self._resolve_mode(mode)
+        if progress_callback:
+            progress_callback(
+                ProgressEvent(
+                    event_type="started",
+                    message=f"Searching ({resolved_mode.name.lower()})",
+                    current=0,
+                    total=1,
+                    metadata={"item_type": "search"},
+                )
+            )
+
+        results: list[SearchResult]
+        if resolved_mode is SearchMode.GREP:
+            results = self._grep_search(
+                query,
+                top_k=top_k,
+                context_before=self.options.grep_context_before,
+                context_after=self.options.grep_context_after,
+                regex=self.options.grep_regex,
+            )
+        elif resolved_mode is SearchMode.KEYWORD:
+            if not self._state.keyword_index:
+                raise RuntimeError("Keyword index not available. Build indexes with keyword mode first.")
+            results = self._keyword_search(query, top_k=top_k)
+        elif resolved_mode is SearchMode.VECTOR:
+            if not self._state.vector_index:
+                raise RuntimeError("Vector index not available. Build indexes with vector mode first.")
+            results = self._state.vector_index.search(SearchQuery(raw_text=query), top_k=top_k)
+        else:
+            if not (self._state.keyword_index and self._state.vector_index):
+                raise RuntimeError("Hybrid search requires both keyword and vector indexes.")
+            keyword_results = self._state.keyword_index.search(SearchQuery(raw_text=query), top_k=top_k)
+            vector_results = self._state.vector_index.search(SearchQuery(raw_text=query), top_k=top_k)
+            kw_weight, vec_weight = _normalized_weights(
+                self.options.hybrid_keyword_weight, self.options.hybrid_vector_weight
+            )
+            results = blend_results(
+                keyword_results,
+                vector_results,
+                keyword_weight=kw_weight,
+                vector_weight=vec_weight,
+                top_k=top_k,
+            )
+
+        if progress_callback:
+            progress_callback(
+                ProgressEvent(
+                    event_type="finished",
+                    message="Search completed",
+                    current=len(results),
+                    total=len(results),
+                    metadata={"results": len(results)},
+                )
+            )
+
+        return results
+
+    def _grep_search(
+        self,
+        query: str,
+        *,
+        top_k: int,
+        context_before: int,
+        context_after: int,
+        regex: bool,
+    ) -> list[SearchResult]:
+        return _match_lines(
+            self._state.chunks,
+            query,
+            backend="grep",
+            top_k=top_k,
+            context_before=context_before,
+            context_after=context_after,
+            regex=regex,
+        )
+
+    def _keyword_search(self, query: str, *, top_k: int) -> list[SearchResult]:
+        assert self._state.keyword_index is not None
+        base_results = self._state.keyword_index.search(SearchQuery(raw_text=query), top_k=top_k)
+        if not base_results:
+            return []
+
+        merged: list[SearchResult] = []
+        for result in base_results:
+            snippets = _build_snippets(result.chunk.text, query, max_fragments=3)
+            if not snippets:
+                continue
+            chunk = Chunk(chunk_id=result.chunk.chunk_id, text=" … ".join(snippets), metadata=result.chunk.metadata)
+            metadata = {**result.metadata, "backend": "keyword", "occurrences": len(snippets)}
+            merged.append(SearchResult(chunk=chunk, score=result.score, metadata=metadata))
+            if len(merged) >= top_k:
+                break
+        return merged
+
+    def _resolve_mode(self, mode: SearchMode | str | None) -> SearchMode:
+        if mode is None:
+            return self._default_mode()
+        if isinstance(mode, SearchMode):
+            return mode
+        normalized = mode.strip().lower()
+        mapping = {
+            "grep": SearchMode.GREP,
+            "keyword": SearchMode.KEYWORD,
+            "bm25": SearchMode.KEYWORD,
+            "vector": SearchMode.VECTOR,
+            "faiss": SearchMode.VECTOR,
+            "hybrid": SearchMode.HYBRID,
+        }
+        if normalized not in mapping:
+            raise ValueError(f"Unknown search mode: {mode}")
+        return mapping[normalized]
+
+    def _default_mode(self) -> SearchMode:
+        return self._resolve_mode(self.options.default_mode)
+
+
+def _derive_document_id(source: str | Path) -> str:
+    path = Path(source)
+    return path.stem if path.name else str(path)
+
+
+def _normalized_weights(keyword_weight: float, vector_weight: float) -> tuple[float, float]:
+    total = keyword_weight + vector_weight
+    if total <= 0:
+        return (0.5, 0.5)
+    return (keyword_weight / total, vector_weight / total)
+
+
+def _options_snapshot(options: SearchOptions) -> Mapping[str, object]:
+    return asdict(options)
+
+
+def _match_slices(
+    chunks: Sequence[Chunk],
+    query: str,
+    *,
+    backend: str,
+    top_k: int,
+) -> list[SearchResult]:
+    matches: list[SearchResult] = []
+
+    for chunk in chunks:
+        fragments = _build_snippets(chunk.text, query, max_fragments=max(1, top_k))
+        if not fragments:
+            continue
+
+        snippet_text = " … ".join(fragments)
+        matches.append(
+            SearchResult(
+                chunk=Chunk(chunk_id=chunk.chunk_id, text=snippet_text, metadata=chunk.metadata),
+                score=float(len(fragments)),
+                metadata={"backend": backend, "occurrences": len(fragments)},
+            )
+        )
+
+    matches.sort(key=lambda result: result.score, reverse=True)
+    return matches[:top_k]
+
+
+def _build_snippets(text: str, query: str, *, max_fragments: int, fallback: bool = True) -> list[str]:
+    lowered_text = text.lower()
+    lowered_query = query.lower()
+    fragments: list[str] = []
+    cursor = 0
+    query_len = len(query)
+
+    while len(fragments) < max_fragments:
+        idx = lowered_text.find(lowered_query, cursor)
+        if idx == -1:
+            break
+        snippet = _highlight_fragment(text, idx, idx + query_len)
+        fragments.append(snippet)
+        cursor = idx + query_len
+
+    if fragments or not fallback:
+        return fragments
+
+    tokens = [token for token in query.split() if len(token.strip()) > 2]
+    for token in tokens:
+        token_matches = _build_snippets(text, token.strip(), max_fragments=max_fragments, fallback=False)
+        if token_matches:
+            return token_matches
+
+    return fragments
+
+
+def _highlight_fragment(text: str, start: int, end: int, *, radius: int = 80) -> str:
+    begin = max(0, start - radius)
+    finish = min(len(text), end + radius)
+    prefix = "…" if begin > 0 else ""
+    suffix = "…" if finish < len(text) else ""
+    highlighted = f"<<{text[start:end]}>>"
+    fragment = text[begin:start] + highlighted + text[end:finish]
+    return prefix + fragment + suffix
+
+
+def _match_lines(
+    chunks: Sequence[Chunk],
+    query: str,
+    *,
+    backend: str,
+    top_k: int,
+    context_before: int,
+    context_after: int,
+    regex: bool,
+) -> list[SearchResult]:
+    matches: list[SearchResult] = []
+    pattern = re.compile(query, re.IGNORECASE) if regex else None
+    lowered_query = query.lower()
+
+    for chunk in chunks:
+        lines = chunk.text.splitlines()
+        if not lines:
+            continue
+
+        line_spans: dict[int, list[tuple[int, int]]] = {}
+        for idx, line in enumerate(lines):
+            spans = _find_spans(line, query, lowered_query, pattern)
+            if spans:
+                line_spans[idx] = spans
+
+        if not line_spans:
+            continue
+
+        matched_indices = sorted(line_spans.keys())
+        fragment_lines: list[str] = []
+        included: set[int] = set()
+        for idx in matched_indices:
+            start = max(0, idx - context_before)
+            end = min(len(lines), idx + context_after + 1)
+            for line_idx in range(start, end):
+                if line_idx in included:
+                    continue
+                prefix = ">" if line_idx in line_spans else " "
+                highlighted = _highlight_line(lines[line_idx], line_spans.get(line_idx))
+                fragment_lines.append(f"{line_idx + 1:04d}: {prefix} {highlighted}")
+                included.add(line_idx)
+
+        snippet = "\n".join(fragment_lines)
+        matches.append(
+            SearchResult(
+                chunk=Chunk(chunk_id=chunk.chunk_id, text=snippet, metadata=chunk.metadata),
+                score=float(len(matched_indices)),
+                metadata={
+                    "backend": backend,
+                    "occurrences": len(matched_indices),
+                    "lines": [idx + 1 for idx in matched_indices],
+                },
+            )
+        )
+
+    matches.sort(key=lambda result: result.score, reverse=True)
+    return matches[:top_k]
+
+
+def _find_spans(
+    line: str,
+    query: str,
+    lowered_query: str,
+    pattern: re.Pattern[str] | None,
+) -> list[tuple[int, int]]:
+    if pattern is not None:
+        spans: list[tuple[int, int]] = []
+        for match in pattern.finditer(line):
+            start, end = match.span()
+            if start == end:
+                continue
+            spans.append((start, end))
+        return spans
+
+    lowered_line = line.lower()
+    spans: list[tuple[int, int]] = []
+    cursor = 0
+    qlen = len(query)
+    if qlen == 0:
+        return spans
+
+    while True:
+        idx = lowered_line.find(lowered_query, cursor)
+        if idx == -1:
+            break
+        spans.append((idx, idx + qlen))
+        cursor = idx + qlen
+    return spans
+
+
+def _highlight_line(line: str, spans: list[tuple[int, int]] | None) -> str:
+    if not spans:
+        return line
+
+    result: list[str] = []
+    cursor = 0
+    for start, end in sorted(spans):
+        result.append(line[cursor:start])
+        result.append(f"<<{line[start:end]}>>")
+        cursor = end
+    result.append(line[cursor:])
+    return "".join(result)
+
+
+def _serialize_metadata(metadata: Mapping[str, object]) -> dict[str, object]:
+    serialized: dict[str, object] = {}
+    for key, value in metadata.items():
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            serialized[key] = value
+        elif isinstance(value, Path):
+            serialized[key] = str(value)
+        else:
+            serialized[key] = str(value)
+    return serialized
+
+
+def _write_chunks(path: Path, chunks: Sequence[Chunk]) -> None:
+    if not chunks:
+        if path.exists():
+            path.unlink()
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for chunk in chunks:
+            payload = {
+                "chunk_id": chunk.chunk_id,
+                "text": chunk.text,
+                "metadata": _serialize_metadata(chunk.metadata),
+            }
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+def _read_chunks(path: Path) -> list[Chunk]:
+    results: list[Chunk] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            raw = json.loads(line)
+            metadata = raw.get("metadata") or {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            results.append(Chunk(chunk_id=raw["chunk_id"], text=raw["text"], metadata=metadata))
+    return results

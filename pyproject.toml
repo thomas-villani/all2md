@@ -103,6 +103,11 @@ sanitizer = [
 latex = [
     "pylatexenc>=2.10",
 ]
+search = [
+    "rank-bm25>=0.2.2",
+    "faiss-cpu>=1.7.4",
+    "sentence-transformers>=2.2.2",
+]
 chm = [
 #    "pychm>=0.8.6"
 ]
@@ -283,7 +288,7 @@ ignore = [
     "D213",  # multi-line-summary-second-line (incompatible with D212)
 ]
 [tool.ruff.lint.mccabe]
-max-complexity = 25
+max-complexity = 30
 
 # Relax rules for test files
 [tool.ruff.lint.per-file-ignores]

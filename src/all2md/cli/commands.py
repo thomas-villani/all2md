@@ -15,13 +15,15 @@ import logging
 import os
 import platform
 import sys
+import textwrap
 from dataclasses import fields, is_dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 from urllib.parse import unquote, urlparse
 
 from all2md.cli.builder import (
+    EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
     EXIT_FILE_ERROR,
     EXIT_SUCCESS,
@@ -40,8 +42,11 @@ from all2md.cli.validation import (
 )
 from all2md.converter_registry import registry
 from all2md.dependencies import main as deps_main
+from all2md.exceptions import DependencyError
 from all2md.logging_utils import configure_logging as configure_root_logging
+from all2md.options.search import SearchOptions
 from all2md.renderers.markdown import MarkdownRenderer
+from all2md.search import SearchDocumentInput, SearchMode, SearchResult, SearchService
 from all2md.transforms import transform_registry as transform_registry
 from all2md.utils.attachments import ensure_unique_attachment_path
 from all2md.utils.packages import check_version_requirement, get_package_version
@@ -207,6 +212,8 @@ def _build_default_config_data() -> Dict[str, Any]:
         defaults = _collect_defaults_from_options_class(options_map.get(key))
         if defaults:
             config[key] = defaults
+
+    config["search"] = _serialize_config_value(SearchOptions())
 
     return config
 
@@ -1733,6 +1740,466 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
     return EXIT_SUCCESS if error_count == 0 else EXIT_ERROR
 
 
+def handle_search_command(args: list[str] | None = None) -> int:
+    """Handle ``all2md search`` for keyword/vector/hybrid queries."""
+    parser = argparse.ArgumentParser(
+        prog="all2md search",
+        description="Search documents using keyword, vector, or hybrid retrieval.",
+    )
+    parser.add_argument("query", help="Search query text")
+    parser.add_argument(
+        "inputs",
+        nargs="*",
+        help="Files, directories, or globs to index. Omit when reusing persisted index.",
+    )
+    parser.add_argument("--config", help="Optional configuration file overriding defaults")
+    parser.add_argument("--index-dir", help="Directory containing or storing persisted index data")
+    parser.add_argument("--persist", action="store_true", help="Persist index state to --index-dir")
+    parser.add_argument("--rebuild", action="store_true", help="Force rebuild even if cached index exists")
+    parser.add_argument("--top-k", type=int, default=10, help="Maximum number of results to return")
+    parser.add_argument("--json", action="store_true", help="Emit search results as JSON")
+    parser.add_argument("--progress", action="store_true", help="Print progress updates during indexing/search")
+    parser.add_argument("--recursive", action="store_true", help="Recurse into directories when indexing inputs")
+    parser.add_argument("--exclude", action="append", help="Glob pattern to exclude (repeatable)")
+    parser.add_argument("--rich", action="store_true", help="Enable rich-style output formatting when printing")
+    parser.add_argument(
+        "-A",
+        "--after-context",
+        dest="grep_context_after",
+        type=int,
+        help="Print NUM lines of trailing context (grep mode)",
+    )
+    parser.add_argument(
+        "-B",
+        "--before-context",
+        dest="grep_context_before",
+        type=int,
+        help="Print NUM lines of leading context (grep mode)",
+    )
+    parser.add_argument(
+        "-C",
+        "--context",
+        dest="grep_context",
+        type=int,
+        help="Print NUM lines of leading and trailing context (equivalent to -A NUM -B NUM)",
+    )
+    parser.add_argument(
+        "-e",
+        "--regex",
+        dest="grep_regex",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Interpret query as a regular expression when using grep mode",
+    )
+
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--mode",
+        dest="mode",
+        choices=["grep", "keyword", "vector", "hybrid"],
+        help="Explicit search mode to execute",
+    )
+    mode_group.add_argument("--grep", dest="mode", action="store_const", const="grep", help="Shortcut for --mode grep")
+    mode_group.add_argument(
+        "--keyword", dest="mode", action="store_const", const="keyword", help="Shortcut for --mode keyword"
+    )
+    mode_group.add_argument(
+        "--vector", dest="mode", action="store_const", const="vector", help="Shortcut for --mode vector"
+    )
+    mode_group.add_argument(
+        "--hybrid", dest="mode", action="store_const", const="hybrid", help="Shortcut for --mode hybrid"
+    )
+
+    parser.add_argument("--chunk-size", dest="chunk_size_tokens", type=int, help="Maximum tokens per chunk")
+    parser.add_argument("--chunk-overlap", dest="chunk_overlap_tokens", type=int, help="Token overlap per chunk")
+    parser.add_argument("--min-chunk-tokens", dest="min_chunk_tokens", type=int, help="Minimum chunk size")
+    parser.add_argument(
+        "--include-preamble",
+        dest="include_preamble",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Include content that appears before the first heading",
+    )
+    parser.add_argument(
+        "--max-heading-level",
+        dest="max_heading_level",
+        type=int,
+        help="Limit chunking to headings at or below this level",
+    )
+    parser.add_argument("--bm25-k1", dest="bm25_k1", type=float, help="BM25 k1 parameter")
+    parser.add_argument("--bm25-b", dest="bm25_b", type=float, help="BM25 b parameter")
+    parser.add_argument(
+        "--vector-model",
+        dest="vector_model_name",
+        help="Sentence-transformers model used for embedding generation",
+    )
+    parser.add_argument(
+        "--vector-batch-size",
+        dest="vector_batch_size",
+        type=int,
+        help="Batch size for embedding generation",
+    )
+    parser.add_argument("--vector-device", dest="vector_device", help="Torch device string for embeddings")
+    parser.add_argument(
+        "--vector-normalize",
+        dest="vector_normalize_embeddings",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Normalize embeddings before FAISS indexing",
+    )
+    parser.add_argument(
+        "--hybrid-keyword-weight",
+        dest="hybrid_keyword_weight",
+        type=float,
+        help="Keyword contribution in hybrid mode",
+    )
+    parser.add_argument(
+        "--hybrid-vector-weight",
+        dest="hybrid_vector_weight",
+        type=float,
+        help="Vector contribution in hybrid mode",
+    )
+    parser.add_argument(
+        "--default-mode",
+        dest="default_mode",
+        choices=["grep", "keyword", "vector", "hybrid"],
+        help="Update the default mode recorded with persisted indexes",
+    )
+
+    try:
+        parsed = parser.parse_args(args or [])
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 0
+
+    if parsed.persist and not parsed.index_dir:
+        parser.error("--persist requires --index-dir")
+
+    if getattr(parsed, "grep_context", None) is not None:
+        if parsed.grep_context_before is None:
+            parsed.grep_context_before = parsed.grep_context
+        if parsed.grep_context_after is None:
+            parsed.grep_context_after = parsed.grep_context
+
+    if parsed.grep_context_before is not None and parsed.grep_context_before < 0:
+        parser.error("--before-context must be non-negative")
+    if parsed.grep_context_after is not None and parsed.grep_context_after < 0:
+        parser.error("--after-context must be non-negative")
+
+    if parsed.top_k <= 0:
+        parser.error("--top-k must be a positive integer")
+
+    env_config_path = os.environ.get("ALL2MD_CONFIG")
+    try:
+        config_data = load_config_with_priority(explicit_path=parsed.config, env_var_path=env_config_path)
+    except argparse.ArgumentTypeError as exc:
+        print(f"Error loading configuration: {exc}", file=sys.stderr)
+        return EXIT_VALIDATION_ERROR
+
+    search_section = {}
+    if config_data and isinstance(config_data, dict):
+        search_section = config_data.get("search", {}) or {}
+
+    options = _apply_search_config(SearchOptions(), search_section)
+    overrides = _collect_search_overrides(parsed)
+    if overrides:
+        try:
+            options = options.create_updated(**overrides)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return EXIT_VALIDATION_ERROR
+
+    try:
+        resolved_mode = _parse_search_mode(parsed.mode, options)
+    except argparse.ArgumentTypeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_VALIDATION_ERROR
+
+    index_path = Path(parsed.index_dir).expanduser() if parsed.index_dir else None
+
+    service: SearchService | None = None
+    using_existing = False
+    if index_path and index_path.exists() and not parsed.rebuild:
+        try:
+            service = SearchService.load(index_path, options=options)
+            using_existing = True
+        except FileNotFoundError:
+            using_existing = False
+
+    if using_existing and parsed.inputs:
+        print(
+            "Error: Cannot specify inputs when reusing an existing index. Use --rebuild to regenerate it.",
+            file=sys.stderr,
+        )
+        return EXIT_VALIDATION_ERROR
+
+    items: List[CLIInputItem] = []
+    if parsed.inputs:
+        items = collect_input_files(parsed.inputs, recursive=parsed.recursive, exclude_patterns=parsed.exclude)
+        if not items and not using_existing:
+            print("Error: No valid input files found", file=sys.stderr)
+            return EXIT_FILE_ERROR
+
+    progress_callback = _make_search_progress_callback(parsed.progress)
+    service = service or SearchService(options=options)
+
+    if not using_existing:
+        documents = _create_search_documents(items)
+        if not documents:
+            print("Error: No input documents available for indexing", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        try:
+            service.build_indexes(documents, modes={resolved_mode}, progress_callback=progress_callback)
+        except DependencyError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return EXIT_DEPENDENCY_ERROR
+        except Exception as exc:
+            print(f"Error building index: {exc}", file=sys.stderr)
+            return EXIT_ERROR
+
+        if index_path and parsed.persist:
+            try:
+                service.save(index_path)
+            except Exception as exc:
+                print(f"Error saving index: {exc}", file=sys.stderr)
+                return EXIT_ERROR
+
+    try:
+        results = service.search(
+            parsed.query, mode=resolved_mode, top_k=parsed.top_k, progress_callback=progress_callback
+        )
+    except DependencyError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_DEPENDENCY_ERROR
+    except Exception as exc:
+        print(f"Error executing search: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    if parsed.json:
+        print(json.dumps([_result_to_dict(result) for result in results], indent=2, ensure_ascii=False))
+    else:
+        _render_search_results(results, use_rich=parsed.rich)
+
+    return EXIT_SUCCESS
+
+
+def _apply_search_config(options: SearchOptions, config_section: Mapping[str, object]) -> SearchOptions:
+    if not config_section:
+        return options
+    valid_fields = {field.name for field in fields(SearchOptions)}
+    filtered = {key: value for key, value in config_section.items() if key in valid_fields}
+    if not filtered:
+        return options
+    return options.create_updated(**filtered)
+
+
+def _collect_search_overrides(parsed: argparse.Namespace) -> Dict[str, object]:
+    overrides: Dict[str, object] = {}
+    for field_name in (
+        "chunk_size_tokens",
+        "chunk_overlap_tokens",
+        "min_chunk_tokens",
+        "include_preamble",
+        "max_heading_level",
+        "bm25_k1",
+        "bm25_b",
+        "vector_model_name",
+        "vector_batch_size",
+        "vector_device",
+        "vector_normalize_embeddings",
+        "hybrid_keyword_weight",
+        "hybrid_vector_weight",
+        "default_mode",
+        "grep_context_before",
+        "grep_context_after",
+        "grep_regex",
+    ):
+        if hasattr(parsed, field_name):
+            value = getattr(parsed, field_name)
+            if value is not None:
+                overrides[field_name] = value
+    return overrides
+
+
+def _parse_search_mode(mode_value: str | None, options: SearchOptions) -> SearchMode:
+    mapping = {
+        "grep": SearchMode.GREP,
+        "keyword": SearchMode.KEYWORD,
+        "bm25": SearchMode.KEYWORD,
+        "vector": SearchMode.VECTOR,
+        "hybrid": SearchMode.HYBRID,
+    }
+    selected = mode_value or options.default_mode
+    normalized = selected.strip().lower()
+    if normalized not in mapping:
+        raise argparse.ArgumentTypeError(f"Unknown search mode: {selected}")
+    return mapping[normalized]
+
+
+def _create_search_documents(items: List[CLIInputItem]) -> list[SearchDocumentInput]:
+    documents: list[SearchDocumentInput] = []
+    for index, item in enumerate(items, start=1):
+        metadata = {
+            "display_name": item.display_name,
+            "input_index": index,
+        }
+        metadata.update(item.metadata)
+        if item.path_hint:
+            metadata["path_hint"] = str(item.path_hint)
+        documents.append(
+            SearchDocumentInput(
+                source=item.raw_input,
+                document_id=item.stem,
+                source_format="auto",
+                metadata=metadata,
+            )
+        )
+    return documents
+
+
+def _result_to_dict(result: SearchResult) -> Dict[str, object]:
+    return {
+        "score": result.score,
+        "chunk_id": result.chunk.chunk_id,
+        "text": result.chunk.text,
+        "chunk_metadata": dict(result.chunk.metadata),
+        "result_metadata": dict(result.metadata),
+    }
+
+
+def _render_search_results(results: List[SearchResult], *, use_rich: bool) -> None:
+    if not results:
+        print("No results found.")
+        return
+
+    console = None
+    if use_rich:
+        try:
+            from rich.console import Console
+
+            console = Console()
+        except ImportError:
+            print("Rich output requested but `rich` is not installed. Falling back to plain output.")
+            use_rich = False
+
+    for rank, result in enumerate(results, start=1):
+        metadata = result.chunk.metadata
+        doc_label = metadata.get("document_path") or metadata.get("path_hint") or metadata.get("document_id")
+        heading = metadata.get("section_heading") or ""
+        backend = str(result.metadata.get("backend", "")) if isinstance(result.metadata, Mapping) else ""
+        occurrences = result.metadata.get("occurrences") if isinstance(result.metadata, Mapping) else None
+        lines = result.metadata.get("lines") if isinstance(result.metadata, Mapping) else None
+        show_score = backend != "grep"
+
+        if use_rich and console is not None:
+            from rich.text import Text
+
+            header = Text(f"{rank:>2}. ", style="bold cyan")
+            if show_score:
+                header.append(f"score={result.score:.4f} ", style="green")
+            if backend:
+                header.append(f"[{backend}] ")
+            if doc_label:
+                header.append(str(doc_label))
+            console.print(header)
+
+            if heading:
+                console.print(Text(f"  Heading: {heading}", style="bold"))
+            if lines:
+                console.print(Text(f"  Lines: {', '.join(str(line) for line in lines)}", style="dim"))
+            if occurrences and backend == "grep":
+                console.print(Text(f"  Matches: {occurrences}", style="dim"))
+
+            snippet_text = _rich_snippet(result.chunk.text)
+            if snippet_text:
+                snippet_lines = snippet_text.wrap(console, width=console.width - 15)
+                for line in snippet_lines:
+                    line.pad_left(4)
+                console.print(snippet_lines)
+
+            console.print()
+            continue
+
+        line = f"{rank:>2}."
+        if show_score:
+            line += f" score={result.score:.4f}"
+        if backend:
+            line += f" [{backend}]"
+        if doc_label:
+            line += f" {doc_label}"
+        print(line)
+        if heading:
+            print(f"    Heading: {heading}")
+        if lines:
+            print(f"    Lines: {', '.join(str(line) for line in lines)}")
+        if occurrences and backend == "grep":
+            print(f"    Matches: {occurrences}")
+        snippet = result.chunk.text
+        if snippet:
+            for line in _format_plain_snippet(snippet):
+                print(line)
+
+
+def _rich_snippet(snippet: str):
+    if not snippet:
+        return None
+    from rich.text import Text
+
+    text = Text()
+    cursor = 0
+    while cursor < len(snippet):
+        start = snippet.find("<<", cursor)
+        if start == -1:
+            text.append(snippet[cursor:])
+            break
+        text.append(snippet[cursor:start])
+        end = snippet.find(">>", start)
+        if end == -1:
+            text.append(snippet[start:])
+            break
+        text.append(snippet[start + 2 : end], style="bold yellow")
+        cursor = end + 2
+    return text
+
+
+def _format_plain_snippet(snippet: str, width: int = 100, indent: str = "      ") -> list[str]:
+    formatted: list[str] = []
+    for raw_line in snippet.splitlines():
+        if not raw_line:
+            formatted.append(indent)
+            continue
+        wrapped = textwrap.wrap(
+            raw_line,
+            width=width,
+            initial_indent=indent,
+            subsequent_indent=indent,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        if wrapped:
+            formatted.extend(wrapped)
+        else:
+            formatted.append(indent + raw_line)
+    return formatted
+
+
+def _make_search_progress_callback(enabled: bool):
+    if not enabled:
+        return None
+
+    def callback(event) -> None:
+        if getattr(event, "event_type", None) == "error":
+            print(f"[ERROR] {event.message}", file=sys.stderr)
+            return
+        if getattr(event, "event_type", None) == "item_done" and event.metadata.get("item_type") not in {
+            "document",
+            "search",
+        }:
+            return
+        print(f"[{event.event_type.upper()}] {event.message}", file=sys.stderr)
+
+    return callback
+
+
 def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
@@ -1760,6 +2227,9 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     # Check for generate-site command
     if args[0] == "generate-site":
         return handle_generate_site_command(args[1:])
+
+    if args[0] == "search":
+        return handle_search_command(args[1:])
 
     # Check for list-formats command
     if args[0] in ("list-formats", "formats"):

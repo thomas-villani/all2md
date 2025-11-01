@@ -4,6 +4,8 @@ This module tests the CLI as a subprocess, simulating real-world usage patterns
 and testing the complete pipeline from command-line to file output.
 """
 
+import importlib
+import json
 import os
 import subprocess
 import sys
@@ -194,6 +196,68 @@ def example_function():
         assert result.returncode == 0
         # Should contain debug information
         assert "DEBUG:" in result.stderr
+
+    @pytest.mark.search
+    def test_search_cli_grep(self):
+        """Test search CLI with grep mode and JSON output."""
+        doc = self.temp_dir / "notes.md"
+        doc.write_text(
+            "# Notes\n\nThis document mentions serendipity twice.\n\nSerendipity is great!", encoding="utf-8"
+        )
+
+        result = self._run_cli(["search", "Serendip.*ty", str(doc), "--grep", "--regex", "-C", "1", "--json"])
+
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data
+        assert any("serendipity" in entry["text"].lower() for entry in data)
+        assert any("<<" in entry["text"] for entry in data)
+        assert data[0]["result_metadata"].get("lines")
+
+    @pytest.mark.search
+    @pytest.mark.skipif(importlib.util.find_spec("rank_bm25") is None, reason="rank_bm25 not installed")
+    def test_search_cli_keyword(self):
+        """Test search CLI keyword mode with persistence."""
+        doc = self.temp_dir / "doc.md"
+        doc.write_text("Keyword search ensures ranked results.", encoding="utf-8")
+        index_dir = self.temp_dir / "index"
+
+        build = self._run_cli(["search", "keyword", str(doc), "--keyword", "--index-dir", str(index_dir), "--persist"])
+        assert build.returncode == 0, build.stderr
+
+        reuse = self._run_cli(["search", "keyword", "--index-dir", str(index_dir), "--keyword", "--json"])
+        assert reuse.returncode == 0, reuse.stderr
+        data = json.loads(reuse.stdout)
+        assert data
+        assert any("<<" in entry["text"] for entry in data)
+
+    @pytest.mark.search
+    @pytest.mark.skipif(
+        importlib.util.find_spec("sentence_transformers") is None, reason="sentence_transformers not installed"
+    )
+    def test_search_cli_vector(self):
+        """Test vector search CLI with persisted index."""
+        doc = self.temp_dir / "vector.md"
+        doc.write_text("Vector retrieval finds semantic matches.", encoding="utf-8")
+        index_dir = self.temp_dir / "vector-index"
+
+        build = self._run_cli(
+            [
+                "search",
+                "semantic",
+                str(doc),
+                "--vector",
+                "--index-dir",
+                str(index_dir),
+                "--persist",
+            ]
+        )
+        assert build.returncode == 0, build.stderr
+
+        reuse = self._run_cli(["search", "semantic", "--vector", "--index-dir", str(index_dir), "--json"])
+        assert reuse.returncode == 0, reuse.stderr
+        data = json.loads(reuse.stdout)
+        assert data
 
     def test_markdown_formatting_options(self):
         """Test Markdown formatting options."""

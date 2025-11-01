@@ -136,9 +136,46 @@ Example output:
 
    Transform: HeadingOffsetTransform
      Module: all2md.transforms.builtin
-     Description: Adjust heading levels by a specified offset
+   Description: Adjust heading levels by a specified offset
      Status: Available
      Options: offset (int)
+
+Search Command
+--------------
+
+``all2md search`` builds a lightweight index over one or more documents and executes
+keyword (BM25), vector (FAISS), hybrid, or simple grep searches. The command works
+with any format supported by the core converters and can reuse or persist indexes for
+faster follow-up queries.
+
+.. code-block:: bash
+
+   # Keyword search across a directory (ephemeral index)
+   all2md search "contract termination" contracts/*.pdf --keyword
+
+   # Hybrid search with persisted index (requires extras: pip install all2md[search])
+   all2md search "macroeconomic outlook" reports/ --hybrid --index-dir ./index --persist
+
+   # Reuse an existing index without reprocessing inputs
+   all2md search "incident response" --index-dir ./index
+
+Common grep-style flags are supported:
+
+* ``-A/-B/-C`` to control trailing/leading context lines (e.g. ``-C 1`` for one line around each match)
+* ``--regex``/``--no-regex`` to treat the query as a case-insensitive regular expression
+* ``--rich`` to enable colorized output (requires ``rich``)
+
+Key options:
+
+* ``--mode`` / ``--grep`` / ``--keyword`` / ``--vector`` / ``--hybrid`` – select search strategy
+* ``--index-dir`` – directory to load or store the index
+* ``--persist`` – write the generated index to disk for later reuse
+* ``--chunk-size`` / ``--chunk-overlap`` – control chunking granularity
+* ``--vector-model`` – sentence-transformers model (vector or hybrid modes)
+
+``all2md search`` honours configuration defaults under the ``[search]`` section in
+``.all2md.toml``. Install the optional extras ``all2md[search]`` to enable BM25 and
+vector search backends.
 
 Configuration Management
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2011,8 +2048,8 @@ Create structured multi-document outputs by merging files listed in a TSV file. 
 
    .. code-block:: bash
 
-      # Use pipe separator instead of tab
-      all2md --merge-from-list chapters.txt --list-separator "|" --out book.md
+      # Use comma separator instead of tab
+      all2md --merge-from-list chapters.csv --list-separator "," --out book.md
 
 ``--no-section-titles``
    Disable automatic section title headers when merging.
