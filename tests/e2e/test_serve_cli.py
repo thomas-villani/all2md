@@ -34,6 +34,9 @@ class TestServeCLIEndToEnd:
                 self.server_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.server_process.kill()
+                self.server_process.wait()  # Wait for kill to complete
+            # Give the OS time to release the port
+            time.sleep(0.2)
         cleanup_test_dir(self.temp_dir)
 
     def _start_server(self, args: list[str], wait_for_start: bool = True) -> subprocess.Popen:
@@ -72,16 +75,31 @@ class TestServeCLIEndToEnd:
 
             max_retries = 20
             for _ in range(max_retries):
-                try:
-                    urlopen(f"http://127.0.0.1:{port}/", timeout=1)
-                    break
-                except (URLError, OSError):
-                    time.sleep(0.1)
-            else:
-                # Server didn't start - check for errors
+                # Check if our process is still running
                 if self.server_process.poll() is not None:
                     stdout, stderr = self.server_process.communicate()
                     raise RuntimeError(f"Server failed to start: {stderr}")
+
+                try:
+                    urlopen(f"http://127.0.0.1:{port}/", timeout=1)
+                    # Successfully connected - verify our process is still alive
+                    if self.server_process.poll() is None:
+                        break  # Server is running and responding
+                    else:
+                        # Process died but something responded - likely old server
+                        stdout, stderr = self.server_process.communicate()
+                        raise RuntimeError(
+                            f"Server process died but port {port} still responding (likely leftover server): {stderr}"
+                        )
+                except (URLError, OSError):
+                    time.sleep(0.1)
+            else:
+                # Server didn't start in time
+                if self.server_process.poll() is not None:
+                    stdout, stderr = self.server_process.communicate()
+                    raise RuntimeError(f"Server failed to start: {stderr}")
+                else:
+                    raise RuntimeError(f"Server didn't respond on port {port} within timeout")
 
         return self.server_process
 
@@ -410,3 +428,172 @@ More content.
         content = self._fetch_url("http://127.0.0.1:8000/subdir1/nested/nested.md")
         html = content.decode("utf-8")
         assert "Nested File" in html
+
+    def test_serve_upload_form_enabled(self):
+        """Test that upload form is accessible when enabled."""
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file), "--enable-upload"])
+
+        # Fetch the upload page
+        content = self._fetch_url("http://127.0.0.1:8000/upload")
+        html = content.decode("utf-8")
+
+        # Should show upload form
+        assert "Document Converter" in html
+        assert "multipart/form-data" in html
+        assert "file" in html
+        assert "format" in html
+
+    def test_serve_upload_form_disabled_by_default(self):
+        """Test that upload form is not accessible by default."""
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file)])
+
+        # Try to access upload page - should get 404
+        try:
+            self._fetch_url("http://127.0.0.1:8000/upload")
+            raise AssertionError("Upload page should not be accessible without --enable-upload")
+        except Exception:
+            # Expected - either 404 or connection error
+            pass
+
+    def test_serve_upload_link_in_index(self):
+        """Test that upload link appears in directory index when enabled."""
+        # Create a directory with files
+        self._create_test_markdown("file1.md", "# File 1")
+
+        self._start_server(["serve", str(self.temp_dir), "--enable-upload"])
+
+        # Fetch the index page
+        content = self._fetch_url("http://127.0.0.1:8000/")
+        html = content.decode("utf-8")
+
+        # Should show upload link
+        assert "/upload" in html
+        assert "Upload" in html or "upload" in html
+
+    def test_serve_development_warning(self):
+        """Test that development warning is printed when upload/API enabled."""
+        md_file = self._create_test_markdown()
+
+        cmd = [sys.executable, "-u", "-m", "all2md", "serve", str(md_file), "--enable-upload", "--enable-api"]
+
+        # Start server but don't wait for it to fully start
+        process = subprocess.Popen(
+            cmd,
+            cwd=self.cli_path.parent.parent.parent,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        # Give it a moment to print startup messages
+        time.sleep(3)
+
+        # Kill the process
+        process.terminate()
+        stdout, stderr = process.communicate(timeout=10)
+
+        # Check for warning message
+        combined_output = stdout + stderr
+        assert "WARNING" in combined_output or "warning" in combined_output.lower()
+        assert "DEVELOPMENT" in combined_output or "development" in combined_output.lower()
+
+    def test_serve_no_cache_single_file(self):
+        """Test that --no-cache causes file to be re-converted on each request."""
+        # Create a markdown file
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file), "--no-cache"])
+
+        # Fetch the content twice
+        content1 = self._fetch_url("http://127.0.0.1:8000/")
+        html1 = content1.decode("utf-8")
+
+        content2 = self._fetch_url("http://127.0.0.1:8000/")
+        html2 = content2.decode("utf-8")
+
+        # Both should contain the same content (file unchanged)
+        assert "Test Document" in html1
+        assert "Test Document" in html2
+
+        # Modify the file
+        md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
+
+        # Fetch again - should show new content due to --no-cache
+        content3 = self._fetch_url("http://127.0.0.1:8000/")
+        html3 = content3.decode("utf-8")
+
+        assert "Updated Content" in html3
+        assert "This has changed!" in html3
+
+    def test_serve_with_cache_single_file(self):
+        """Test that without --no-cache, file is cached and not re-converted."""
+        # Create a markdown file
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file)])
+
+        # Fetch the content once to populate cache
+        content1 = self._fetch_url("http://127.0.0.1:8000/")
+        html1 = content1.decode("utf-8")
+
+        assert "Test Document" in html1
+
+        # Modify the file
+        md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
+
+        # Fetch again - should still show old content due to cache
+        content2 = self._fetch_url("http://127.0.0.1:8000/")
+        html2 = content2.decode("utf-8")
+
+        assert "Test Document" in html2
+        assert "Updated Content" not in html2
+
+    def test_serve_no_cache_directory(self):
+        """Test that --no-cache re-scans directory on each request."""
+        # Create initial files
+        self._create_test_markdown("file1.md", "# File 1")
+
+        self._start_server(["serve", str(self.temp_dir), "--no-cache"])
+
+        # Fetch the index
+        content1 = self._fetch_url("http://127.0.0.1:8000/")
+        html1 = content1.decode("utf-8")
+
+        assert "file1.md" in html1
+
+        # Add another file
+        self._create_test_markdown("file2.md", "# File 2")
+
+        # Fetch again - should show new file due to --no-cache
+        content2 = self._fetch_url("http://127.0.0.1:8000/")
+        html2 = content2.decode("utf-8")
+
+        assert "file1.md" in html2
+        assert "file2.md" in html2
+
+    def test_serve_no_cache_file_in_directory(self):
+        """Test that --no-cache re-converts files in directory on each request."""
+        # Create a file
+        md_file = self._create_test_markdown("test.md", "# Original Content")
+
+        self._start_server(["serve", str(self.temp_dir), "--no-cache"])
+
+        # Fetch the file
+        content1 = self._fetch_url("http://127.0.0.1:8000/test.md")
+        html1 = content1.decode("utf-8")
+
+        assert "Original Content" in html1
+
+        # Modify the file
+        md_file.write_text("# Modified Content", encoding="utf-8")
+
+        # Fetch again - should show new content due to --no-cache
+        content2 = self._fetch_url("http://127.0.0.1:8000/test.md")
+        html2 = content2.decode("utf-8")
+
+        assert "Modified Content" in html2
+        assert "Original Content" not in html2

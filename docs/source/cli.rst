@@ -1035,6 +1035,57 @@ Arguments
       # Use custom theme
       all2md serve ./docs --theme /path/to/theme.html
 
+``--enable-upload``
+   Enable file upload form at ``/upload`` route. This provides a web interface for uploading and converting documents. **For development use only - do not expose to untrusted networks.**
+
+   .. code-block:: bash
+
+      # Enable upload form
+      all2md serve ./docs --enable-upload
+
+   When enabled, a link to the upload page appears in the directory index.
+
+``--enable-api``
+   Enable REST API endpoint at ``/api/convert``. Accepts document uploads and returns converted output in the requested format. **For development use only - do not expose to untrusted networks.**
+
+   .. code-block:: bash
+
+      # Enable REST API
+      all2md serve ./docs --enable-api
+
+      # Enable both upload form and API
+      all2md serve ./docs --enable-upload --enable-api
+
+``--max-upload-size SIZE``
+   Maximum upload file size in megabytes. Default: ``50`` MB. Only applies when ``--enable-upload`` or ``--enable-api`` is enabled.
+
+   .. code-block:: bash
+
+      # Allow uploads up to 100MB
+      all2md serve ./docs --enable-upload --max-upload-size 100
+
+      # Restrict to 10MB
+      all2md serve . --enable-api --max-upload-size 10
+
+``--no-cache``
+   Disable caching and always render fresh content on every request. Useful for live editing when you want to see changes without restarting the server.
+
+   .. code-block:: bash
+
+      # Serve with live reload (no caching)
+      all2md serve document.md --no-cache
+
+      # Serve directory with live updates
+      all2md serve ./docs --no-cache --recursive
+
+   **When to use:**
+
+   * **Live editing**: See document changes immediately without restarting
+   * **Development**: Watch for file additions/removals in directories
+   * **Testing**: Verify conversion behavior with frequently changing inputs
+
+   **Performance note**: Disabling cache means documents are re-converted on every request, which may be slower for large files or complex conversions.
+
 Examples
 ~~~~~~~~
 
@@ -1073,6 +1124,38 @@ Examples
 
    # Then access from other devices at http://YOUR_IP:8000
 
+**Development Features:**
+
+.. code-block:: bash
+
+   # Enable upload form for testing conversions
+   all2md serve . --enable-upload
+
+   # Enable REST API for integration testing
+   all2md serve . --enable-api --max-upload-size 100
+
+   # Enable both with custom theme
+   all2md serve ./test-docs --enable-upload --enable-api --theme docs
+
+   # Development server with all features
+   all2md serve . --enable-upload --enable-api --recursive --toc --dark
+
+**Live Editing (No Cache):**
+
+.. code-block:: bash
+
+   # Edit and see changes immediately
+   all2md serve README.md --no-cache
+
+   # Watch directory for new files and changes
+   all2md serve ./docs --no-cache --recursive
+
+   # Live editing with dark theme and TOC
+   all2md serve ./documentation --no-cache --dark --toc
+
+   # Development workflow with live reload
+   all2md serve . --no-cache --theme docs --recursive
+
 Performance
 ~~~~~~~~~~~
 
@@ -1084,6 +1167,15 @@ The serve command uses lazy loading for optimal performance:
 * **Memory:** Efficient - only caches accessed documents
 
 This makes it practical to serve directories with hundreds or thousands of documents.
+
+**With ``--no-cache`` flag:**
+
+* **Every request:** Re-converts document from source
+* **Directory index:** Re-scans for new/removed files
+* **Memory:** Minimal - no caching
+* **Use case:** Live editing and development
+
+The ``--no-cache`` mode trades performance for live updates, making it ideal for active development but slower for large files or frequent requests.
 
 Use Cases
 ~~~~~~~~~
@@ -1113,8 +1205,105 @@ Use Cases
 
 .. code-block:: bash
 
-   # Live preview while editing documents
+   # Live preview while editing documents (cached)
    all2md serve . --dark
+
+   # Live editing with instant updates (no cache)
+   all2md serve . --no-cache --dark
+
+**Live Editing Workflow:**
+
+.. code-block:: bash
+
+   # Edit documentation and see changes immediately
+   all2md serve ./docs --no-cache --recursive --theme docs
+
+   # Watch for new files in directory
+   all2md serve ./drafts --no-cache
+
+Development Features
+~~~~~~~~~~~~~~~~~~~~
+
+The serve command includes optional file upload and REST API capabilities for development and testing. These features are **disabled by default** and should only be enabled in trusted environments.
+
+.. warning::
+
+   The upload and API features are for **development use only**. Do not expose them to untrusted networks or use in production environments. When enabled, a security warning is displayed at server startup.
+
+**File Upload Form**
+
+Enable the web-based upload form at ``http://127.0.0.1:8000/upload``:
+
+.. code-block:: bash
+
+   # Enable upload form
+   all2md serve ./docs --enable-upload
+
+   # With custom upload size limit
+   all2md serve . --enable-upload --max-upload-size 100
+
+The upload form provides:
+
+* Web interface matching the selected theme
+* Support for all input formats (PDF, DOCX, HTML, etc.)
+* Conversion to any supported output format (Markdown, HTML, PDF, etc.)
+* Immediate download of converted documents
+* File size validation before processing
+
+**REST API**
+
+Enable the REST API endpoint at ``http://127.0.0.1:8000/api/convert``:
+
+.. code-block:: bash
+
+   # Enable REST API
+   all2md serve . --enable-api
+
+   # Enable both features
+   all2md serve . --enable-upload --enable-api --max-upload-size 50
+
+**API Usage Examples:**
+
+Using curl with multipart/form-data:
+
+.. code-block:: bash
+
+   # Convert PDF to Markdown
+   curl -X POST http://127.0.0.1:8000/api/convert \
+     -F "file=@document.pdf" \
+     -F "format=markdown" \
+     -o output.md
+
+   # Convert DOCX to HTML
+   curl -X POST http://127.0.0.1:8000/api/convert \
+     -F "file=@report.docx" \
+     -F "format=html" \
+     -o output.html
+
+Using curl with JSON (base64):
+
+.. code-block:: bash
+
+   # Prepare base64-encoded file
+   base64_content=$(base64 -w 0 document.pdf)
+
+   # Send request
+   curl -X POST http://127.0.0.1:8000/api/convert \
+     -H "Content-Type: application/json" \
+     -d "{\"file\": \"$base64_content\", \"format\": \"markdown\"}" \
+     -o output.md
+
+**Supported Output Formats:**
+
+The API supports conversion to: ``html``, ``markdown``, ``pdf``, ``docx``, ``epub``, ``odt``, ``rtf``, ``latex``, ``asciidoc``, ``rst``, ``org``, ``mediawiki``, ``dokuwiki``, ``textile``, ``json``, ``yaml``, ``toml``, ``ini``, ``csv``, ``plaintext``, and more.
+
+**Security Considerations:**
+
+* Only enable in trusted development environments
+* Use ``--host 127.0.0.1`` (default) to restrict to localhost
+* Set appropriate ``--max-upload-size`` limits
+* Monitor server output for suspicious activity
+* Never expose to public networks or production environments
 
 Notes
 ~~~~~
