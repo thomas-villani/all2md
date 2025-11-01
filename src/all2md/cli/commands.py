@@ -406,12 +406,12 @@ System Information:
   Platform:      {os_info}
   Architecture:  {architecture}
 
-Installed Dependencies ({len([d for d in all_deps.values() if d['status'] == 'installed'])}/{len(all_deps)}):
+Installed Dependencies ({len([d for d in all_deps.values() if d["status"] == "installed"])}/{len(all_deps)}):
 {dependencies_report}
 
 Available Formats ({available_count}/{total_formats} ready):
-  Ready:   {', '.join(sorted(available_formats))}
-  Missing: {', '.join(sorted(unavailable_formats)) if unavailable_formats else '(none)'}
+  Ready:   {", ".join(sorted(available_formats))}
+  Missing: {", ".join(sorted(unavailable_formats)) if unavailable_formats else "(none)"}
 
 Features:
   • Advanced PDF parsing with table detection
@@ -813,7 +813,7 @@ def parse_batch_list(list_path: Path | str) -> List[str]:
             # Validate file exists
             if not file_path.exists():
                 raise argparse.ArgumentTypeError(
-                    f"File not found in batch list (line {line_num}): {file_path_str}\n" f"Resolved path: {file_path}"
+                    f"File not found in batch list (line {line_num}): {file_path_str}\nResolved path: {file_path}"
                 )
 
             # Add to list as string (collect_input_files expects strings)
@@ -1917,6 +1917,363 @@ def handle_view_command(args: list[str] | None = None) -> int:
         return EXIT_ERROR
 
 
+def _scan_directory_for_documents(directory: Path, recursive: bool) -> List[Path]:
+    """Scan directory for supported document files.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory to scan
+    recursive : bool
+        Whether to scan subdirectories recursively
+
+    Returns
+    -------
+    list[Path]
+        List of supported document file paths
+
+    """
+    from all2md.converter_registry import registry
+
+    # Get all files in directory (recursive or not based on flag)
+    if recursive:
+        files = [f for f in directory.rglob("*") if f.is_file()]
+    else:
+        files = [f for f in directory.iterdir() if f.is_file()]
+
+    # Filter to only supported formats by checking if they can be parsed
+    supported_files = []
+    for file in files:
+        try:
+            registry.detect_format(str(file))
+            supported_files.append(file)
+        except Exception:
+            # Skip unsupported files
+            pass
+
+    return supported_files
+
+
+def handle_serve_command(args: list[str] | None = None) -> int:
+    """Handle serve command to serve documents via HTTP server.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'serve')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    import http.server
+    import socketserver
+    from urllib.parse import quote
+
+    parser = argparse.ArgumentParser(
+        prog="all2md serve",
+        description="Serve document(s) as HTML via HTTP server with theme support.",
+    )
+    parser.add_argument("input", help="File or directory to serve")
+    parser.add_argument("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
+    parser.add_argument("--host", default="127.0.0.1", help="Host to serve on (default: 127.0.0.1)")
+    parser.add_argument(
+        "-r", "--recursive", action="store_true", help="Recursively serve subdirectories (for directory input)"
+    )
+    parser.add_argument("--toc", action="store_true", help="Include table of contents")
+    parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
+    parser.add_argument(
+        "--theme",
+        help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
+    )
+
+    try:
+        parsed = parser.parse_args(args or [])
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else EXIT_ERROR
+
+    # Validate input exists
+    input_path = Path(parsed.input)
+    if not input_path.exists():
+        print(f"Error: Input path not found: {parsed.input}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    # Select theme template
+    if parsed.theme:
+        # Check if it's a built-in theme name or a custom path
+        theme_path = Path(parsed.theme)
+        # First check if it's a valid HTML file path
+        if theme_path.exists() and theme_path.is_file() and theme_path.suffix == ".html":
+            # Use the provided file path
+            pass
+        else:
+            # Try as built-in theme name
+            builtin_theme = Path(__file__).parent / "themes" / f"{parsed.theme}.html"
+            if builtin_theme.exists():
+                theme_path = builtin_theme
+            else:
+                print(f"Error: Theme not found: {parsed.theme}", file=sys.stderr)
+                print("Available built-in themes: minimal, dark, newspaper, docs, sidebar", file=sys.stderr)
+                return EXIT_FILE_ERROR
+    elif parsed.dark:
+        theme_path = Path(__file__).parent / "themes" / "dark.html"
+    else:
+        theme_path = Path(__file__).parent / "themes" / "minimal.html"
+
+    # Verify theme template exists
+    if not theme_path.exists():
+        print(f"Error: Theme template not found: {theme_path}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    # Determine if input is file or directory
+    is_directory = input_path.is_dir()
+
+    # Content cache: maps URL path to HTML content
+    content_cache: Dict[str, str] = {}
+    # File mapping: maps URL path to actual file path (for lazy loading)
+    file_mapping: Dict[str, Path] = {}
+
+    # Setup based on input type
+    if is_directory:
+        print(f"Preparing directory: {input_path.name}")
+
+        # Scan directory for supported documents
+        supported_files = _scan_directory_for_documents(input_path, parsed.recursive)
+
+        if not supported_files:
+            print(f"Error: No supported document files found in {input_path}", file=sys.stderr)
+            return EXIT_ERROR
+
+        mode_str = "recursively" if parsed.recursive else "in directory"
+        print(f"Found {len(supported_files)} document(s) {mode_str} - will convert on demand")
+
+        # Generate directory index page (only pre-cached content)
+        index_html = _generate_directory_index(supported_files, input_path.name, theme_path, input_path)
+        content_cache["/"] = index_html
+
+        # Create file mapping for lazy loading (using relative paths)
+        for file in supported_files:
+            # Get relative path from base directory
+            rel_path = file.relative_to(input_path)
+            # Convert to URL path (using forward slashes)
+            url_path = "/" + quote(str(rel_path).replace("\\", "/"))
+            file_mapping[url_path] = file
+    else:
+        print(f"Converting {input_path.name}...")
+        try:
+            doc = to_ast(str(input_path))
+            doc.metadata["title"] = f"{input_path.name} - all2md"
+
+            html_opts = HtmlRendererOptions(
+                template_mode="replace",
+                template_file=str(theme_path),
+                include_toc=parsed.toc,
+            )
+            html_content = from_ast(doc, "html", renderer_options=html_opts)
+
+            if not isinstance(html_content, str):
+                raise RuntimeError("Expected string result from HTML rendering")
+
+            content_cache["/"] = html_content
+        except Exception as e:
+            print(f"Error: Could not convert {input_path.name}: {e}", file=sys.stderr)
+            return EXIT_ERROR
+
+    # Create custom request handler
+    class ServeHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            # Remove query string if present
+            path = self.path.split("?")[0]
+
+            # Check if already cached
+            if path in content_cache:
+                self.send_response(200)
+                self.send_header("Content-type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(content_cache[path].encode("utf-8"))
+                return
+
+            # Check if we can lazy-load this file
+            if path in file_mapping:
+                file_path = file_mapping[path]
+                print(f"Converting {file_path.name}...")
+
+                try:
+                    # Convert document on demand
+                    doc = to_ast(str(file_path))
+                    doc.metadata["title"] = f"{file_path.name} - all2md"
+
+                    html_opts = HtmlRendererOptions(
+                        template_mode="replace",
+                        template_file=str(theme_path),
+                        include_toc=parsed.toc,
+                    )
+                    html_content = from_ast(doc, "html", renderer_options=html_opts)
+
+                    if not isinstance(html_content, str):
+                        raise RuntimeError("Expected string result from HTML rendering")
+
+                    # Cache for future requests
+                    content_cache[path] = html_content
+
+                    # Serve the converted content
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(html_content.encode("utf-8"))
+                    return
+
+                except Exception as e:
+                    # Conversion error - send 500
+                    print(f"Error converting {file_path.name}: {e}", file=sys.stderr)
+                    self.send_response(500)
+                    self.send_header("Content-type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    error_html = (
+                        f"<html><body><h1>500 Internal Server Error</h1>"
+                        f"<p>Error converting document: {e}</p></body></html>"
+                    )
+                    self.wfile.write(error_html.encode("utf-8"))
+                    return
+
+            # Not found
+            self.send_response(404)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            error_html = "<html><body><h1>404 Not Found</h1><p>The requested document was not found.</p></body></html>"
+            self.wfile.write(error_html.encode("utf-8"))
+
+        def log_message(self, format: str, *args: Any) -> None:
+            # Custom logging format
+            print(f"[{self.log_date_time_string()}] {format % args}")
+
+    # Start server
+    try:
+        with socketserver.TCPServer((parsed.host, parsed.port), ServeHandler) as httpd:
+            url = f"http://{parsed.host}:{parsed.port}/"
+            print(f"\nServing at {url}")
+            print("Press Ctrl+C to stop")
+
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                print("\n\nShutting down server...")
+                return EXIT_SUCCESS
+
+            # If serve_forever exits normally (shouldn't happen), exit successfully
+            return EXIT_SUCCESS
+    except OSError as e:
+        if e.errno == 98 or "Address already in use" in str(e):
+            print(f"Error: Port {parsed.port} is already in use", file=sys.stderr)
+        else:
+            print(f"Error: Could not start server: {e}", file=sys.stderr)
+        return EXIT_ERROR
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return EXIT_ERROR
+
+
+def _generate_directory_index(files: List[Path], directory_name: str, theme_path: Path, base_dir: Path) -> str:
+    """Generate HTML index page for directory listing.
+
+    Parameters
+    ----------
+    files : list[Path]
+        List of file paths to include in index
+    directory_name : str
+        Name of the directory being served
+    theme_path : Path
+        Path to the theme template file
+    base_dir : Path
+        Base directory path for computing relative paths
+
+    Returns
+    -------
+    str
+        HTML content for the index page
+
+    """
+    from urllib.parse import quote
+
+    # Read theme template
+    theme_content = theme_path.read_text(encoding="utf-8")
+
+    # Group files by directory
+    files_by_dir: Dict[str, List[Path]] = {}
+    for file in files:
+        rel_path = file.relative_to(base_dir)
+        parent = str(rel_path.parent) if rel_path.parent != Path(".") else ""
+        if parent not in files_by_dir:
+            files_by_dir[parent] = []
+        files_by_dir[parent].append(file)
+
+    # Generate file list HTML with directory structure
+    file_list_html = "<div style='font-family: monospace;'>"
+
+    # Sort directories (root first, then alphabetically)
+    sorted_dirs = sorted(files_by_dir.keys(), key=lambda d: ("" if d == "" else "z" + d))
+
+    for dir_path in sorted_dirs:
+        dir_files = files_by_dir[dir_path]
+
+        # Show directory header if not root
+        if dir_path:
+            file_list_html += "<div style='margin-top: 20px; margin-bottom: 10px;'>"
+            file_list_html += f"<strong style='font-size: 1.1em;'>{dir_path}/</strong>"
+            file_list_html += "</div>"
+
+        # List files in this directory
+        file_list_html += "<ul style='list-style: none; padding-left: 20px;'>"
+        for file in sorted(dir_files, key=lambda f: f.name.lower()):
+            rel_path = file.relative_to(base_dir)
+            url = quote(str(rel_path).replace("\\", "/"))
+            file_size = file.stat().st_size
+            size_str = _format_file_size(file_size)
+            file_list_html += "<li style='margin: 5px 0;'>"
+            file_list_html += f"<a href='/{url}' style='text-decoration: none; font-size: 1.0em;'>{file.name}</a>"
+            file_list_html += f" <span style='color: #888; font-size: 0.9em;'>({size_str})</span>"
+            file_list_html += "</li>"
+        file_list_html += "</ul>"
+
+    file_list_html += "</div>"
+
+    # Content with file list
+    content = f"<h1>Document Directory: {directory_name}</h1>"
+    content += f"<p>Found {len(files)} document(s) - click to view:</p>"
+    content += file_list_html
+
+    # Apply theme template
+    title = f"Directory: {directory_name}"
+    html = theme_content.replace("{TITLE}", title)
+    html = html.replace("{CONTENT}", content)
+
+    return html
+
+
+def _format_file_size(size_bytes: int) -> str:
+    """Format file size in human-readable format.
+
+    Parameters
+    ----------
+    size_bytes : int
+        File size in bytes
+
+    Returns
+    -------
+    str
+        Formatted file size string
+
+    """
+    size: float = float(size_bytes)
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} TB"
+
+
 def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
@@ -1944,6 +2301,10 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     # Check for view command
     if args[0] == "view":
         return handle_view_command(args[1:])
+
+    # Check for serve command
+    if args[0] == "serve":
+        return handle_serve_command(args[1:])
 
     # Check for generate-site command
     if args[0] == "generate-site":

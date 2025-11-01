@@ -917,6 +917,222 @@ See Also
 - :doc:`options` - For HTML rendering options
 - ``all2md --help`` - Built-in help
 
+Document Serving
+----------------
+
+The ``all2md serve`` command provides an HTTP server for browsing documents locally with instant on-demand conversion. This is useful for exploring large document collections, sharing documents on a local network, or developing with live document preview.
+
+.. code-block:: bash
+
+   all2md serve FILE_OR_DIRECTORY [OPTIONS]
+
+Basic Usage
+~~~~~~~~~~~
+
+Serve a single document:
+
+.. code-block:: bash
+
+   # Serve a PDF file
+   all2md serve document.pdf
+
+   # Serve a Markdown file
+   all2md serve README.md
+
+Serve all documents in a directory:
+
+.. code-block:: bash
+
+   # Serve all documents in current directory
+   all2md serve .
+
+   # Serve documents in docs folder
+   all2md serve ./docs
+
+   # Serve documents recursively (includes subdirectories)
+   all2md serve ./docs --recursive
+
+The command will:
+
+1. Scan the directory for supported document formats
+2. Generate an index page with links to all documents
+3. Start an HTTP server (default: http://127.0.0.1:8000/)
+4. Convert documents on-demand when requested (lazy loading)
+5. Cache converted HTML for faster subsequent requests
+
+Arguments
+~~~~~~~~~
+
+**Required Arguments:**
+
+``FILE_OR_DIRECTORY``
+   Path to a file or directory to serve. When serving a directory, creates an index page with all supported documents. Supports all formats that all2md can convert.
+
+**Optional Arguments:**
+
+``--port PORT``
+   Port to serve on. Default: ``8000``.
+
+   .. code-block:: bash
+
+      # Serve on port 9000
+      all2md serve ./docs --port 9000
+
+``--host HOST``
+   Host address to bind to. Default: ``127.0.0.1`` (localhost only).
+
+   .. code-block:: bash
+
+      # Allow access from local network
+      all2md serve ./docs --host 0.0.0.0
+
+      # Localhost only (default)
+      all2md serve ./docs --host 127.0.0.1
+
+``-r``, ``--recursive``
+   Recursively serve subdirectories. When enabled, scans all nested folders for documents and organizes them hierarchically in the index.
+
+   .. code-block:: bash
+
+      # Serve only immediate directory
+      all2md serve ./docs
+
+      # Serve all subdirectories recursively
+      all2md serve ./docs --recursive
+
+``--toc``
+   Include an automatically generated table of contents in converted documents.
+
+   .. code-block:: bash
+
+      # Serve with table of contents
+      all2md serve ./docs --toc
+
+``--dark``
+   Use the dark mode theme. Quick shortcut for ``--theme dark``.
+
+   .. code-block:: bash
+
+      # Serve with dark theme
+      all2md serve ./docs --dark
+
+``--theme THEME``
+   Specify a theme for HTML output. Can be a built-in theme name or path to custom template.
+
+   **Built-in themes:**
+
+   * ``minimal`` (default) - Clean, centered layout
+   * ``dark`` - Dark mode with VS Code colors
+   * ``newspaper`` - Classic newspaper style
+   * ``docs`` - GitHub-style documentation
+   * ``sidebar`` - Two-column layout with TOC
+
+   .. code-block:: bash
+
+      # Use newspaper theme
+      all2md serve ./articles --theme newspaper
+
+      # Use custom theme
+      all2md serve ./docs --theme /path/to/theme.html
+
+Examples
+~~~~~~~~
+
+**Basic Serving:**
+
+.. code-block:: bash
+
+   # Serve current directory on default port
+   all2md serve .
+
+   # Serve specific directory with dark theme
+   all2md serve ./documents --dark
+
+   # Serve on custom port
+   all2md serve ./docs --port 8080
+
+**Recursive Directory Serving:**
+
+.. code-block:: bash
+
+   # Serve entire documentation tree
+   all2md serve ./docs --recursive --toc
+
+   # Serve with sidebar theme
+   all2md serve ./manual --recursive --theme sidebar --toc
+
+   # Serve on local network with custom port
+   all2md serve ./shared-docs --recursive --host 0.0.0.0 --port 9000
+
+**Network Sharing:**
+
+.. code-block:: bash
+
+   # Share on local network (accessible to other devices)
+   all2md serve ./team-docs --host 0.0.0.0 --port 8000
+
+   # Then access from other devices at http://YOUR_IP:8000
+
+Performance
+~~~~~~~~~~~
+
+The serve command uses lazy loading for optimal performance:
+
+* **Startup:** Instant - only scans filenames and creates index
+* **First request:** Converts document on-demand
+* **Subsequent requests:** Served from in-memory cache (instant)
+* **Memory:** Efficient - only caches accessed documents
+
+This makes it practical to serve directories with hundreds or thousands of documents.
+
+Use Cases
+~~~~~~~~~
+
+**Local Documentation Server:**
+
+.. code-block:: bash
+
+   # Serve your project's documentation
+   all2md serve ./docs --recursive --theme docs --toc
+
+**Document Collection Browser:**
+
+.. code-block:: bash
+
+   # Browse a collection of PDFs, Word docs, etc.
+   all2md serve ~/Documents/reports --recursive
+
+**Team Document Sharing:**
+
+.. code-block:: bash
+
+   # Share documents on local network
+   all2md serve ./shared --host 0.0.0.0 --recursive
+
+**Development Preview:**
+
+.. code-block:: bash
+
+   # Live preview while editing documents
+   all2md serve . --dark
+
+Notes
+~~~~~
+
+* Documents are converted on first access and cached in memory
+* The server runs until interrupted with Ctrl+C
+* Unsupported file types are automatically excluded from the index
+* Directory index shows file sizes and organizes by subdirectory
+* All conversion errors are shown in the console and as HTTP 500 responses
+* The server is single-threaded but suitable for local use and small teams
+
+See Also
+~~~~~~~~
+
+- :doc:`python_api` - For programmatic HTTP server integration
+- ``all2md view`` - For single-file browser preview
+- ``all2md --help`` - Built-in help
+
 Global Options
 --------------
 
