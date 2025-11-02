@@ -2200,6 +2200,376 @@ def _make_search_progress_callback(enabled: bool):
     return callback
 
 
+def _validate_similarity_threshold(value: str) -> float:
+    """Validate similarity threshold is in [0.0, 1.0] range.
+
+    Parameters
+    ----------
+    value : str
+        Threshold value as string
+
+    Returns
+    -------
+    float
+        Validated threshold value
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If value is not in valid range
+
+    """
+    try:
+        fvalue = float(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"similarity threshold must be a number, got '{value}'") from e
+
+    if not 0.0 <= fvalue <= 1.0:
+        raise argparse.ArgumentTypeError(f"similarity threshold must be between 0.0 and 1.0, got {fvalue}")
+
+    return fvalue
+
+
+def _validate_context_lines(value: str) -> int:
+    """Validate context lines is a positive integer.
+
+    Parameters
+    ----------
+    value : str
+        Context lines value as string
+
+    Returns
+    -------
+    int
+        Validated context lines value
+
+    Raises
+    ------
+    argparse.ArgumentTypeError
+        If value is not a positive integer
+
+    """
+    try:
+        ivalue = int(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"context lines must be an integer, got '{value}'") from e
+
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError(f"context lines must be non-negative, got {ivalue}")
+
+    return ivalue
+
+
+def _colorize_diff_output(text: str) -> str:
+    """Add rich markup to colorize diff output.
+
+    Parameters
+    ----------
+    text : str
+        Plain text diff output
+
+    Returns
+    -------
+    str
+        Text with rich markup for colors
+
+    """
+    lines = text.split("\n")
+    colored_lines = []
+
+    for line in lines:
+        if line.startswith("+ "):
+            # Added lines - green
+            colored_lines.append(f"[green]{line}[/green]")
+        elif line.startswith("- "):
+            # Deleted lines - red
+            colored_lines.append(f"[red]{line}[/red]")
+        elif line.startswith("~ "):
+            # Modified lines - yellow
+            colored_lines.append(f"[yellow]{line}[/yellow]")
+        elif line.startswith("> "):
+            # Moved lines - blue
+            colored_lines.append(f"[blue]{line}[/blue]")
+        elif line.startswith("  "):
+            # Context lines - dim
+            colored_lines.append(f"[dim]{line}[/dim]")
+        else:
+            # Headers and other content - keep as is
+            colored_lines.append(line)
+
+    return "\n".join(colored_lines)
+
+
+def _colorize_unified_diff(text: str, use_ansi: bool = True) -> str:
+    """Add ANSI color codes to unified diff output.
+
+    Parameters
+    ----------
+    text : str
+        Plain unified diff output
+    use_ansi : bool, default = True
+        If True, use ANSI escape codes; if False, use rich markup
+
+    Returns
+    -------
+    str
+        Colorized diff output
+
+    """
+    if use_ansi:
+        # ANSI color codes
+        RED = "\033[31m"
+        GREEN = "\033[32m"
+        CYAN = "\033[36m"
+        BOLD = "\033[1m"
+        RESET = "\033[0m"
+    else:
+        # Rich markup (for when rich is available)
+        RED = "[red]"
+        GREEN = "[green]"
+        CYAN = "[cyan]"
+        BOLD = "[bold]"
+        RESET = "[/red][/green][/cyan][/bold]"
+
+    lines = text.split("\n")
+    colored_lines = []
+
+    for line in lines:
+        if line.startswith("+++") or line.startswith("---"):
+            # File headers - bold
+            if use_ansi:
+                colored_lines.append(f"{BOLD}{line}{RESET}")
+            else:
+                colored_lines.append(f"{BOLD}{line}{RESET}")
+        elif line.startswith("@@"):
+            # Hunk headers - cyan
+            if use_ansi:
+                colored_lines.append(f"{CYAN}{line}{RESET}")
+            else:
+                colored_lines.append(f"{CYAN}{line}{RESET}")
+        elif line.startswith("+"):
+            # Added lines - green
+            if use_ansi:
+                colored_lines.append(f"{GREEN}{line}{RESET}")
+            else:
+                colored_lines.append(f"{GREEN}{line}{RESET}")
+        elif line.startswith("-"):
+            # Deleted lines - red
+            if use_ansi:
+                colored_lines.append(f"{RED}{line}{RESET}")
+            else:
+                colored_lines.append(f"{RED}{line}{RESET}")
+        else:
+            # Context lines - no color
+            colored_lines.append(line)
+
+    return "\n".join(colored_lines)
+
+
+def _create_diff_parser() -> argparse.ArgumentParser:
+    """Create argparse parser for diff command.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured parser for diff command
+
+    """
+    parser = argparse.ArgumentParser(
+        prog="all2md diff",
+        description="Compare two documents and generate a unified diff (like diff but for any document format)",
+        add_help=True,
+    )
+
+    # Positional arguments
+    parser.add_argument("source1", help="First document (any supported format)")
+    parser.add_argument("source2", help="Second document (any supported format)")
+
+    # Output options
+    parser.add_argument(
+        "--format",
+        "-f",
+        choices=["unified", "html", "json"],
+        default="unified",
+        help="Output format: unified (default, like diff -u), html (visual), json (structured)",
+    )
+    parser.add_argument("--output", "-o", help="Write diff to file (default: stdout)")
+    parser.add_argument(
+        "--color",
+        "--colour",
+        dest="color",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help="Colorize output: auto (default, if terminal), always, never",
+    )
+
+    # Comparison options
+    parser.add_argument(
+        "--ignore-whitespace",
+        "-w",
+        action="store_true",
+        help="Ignore whitespace changes (like diff -w)",
+    )
+    parser.add_argument(
+        "--context",
+        "-C",
+        type=_validate_context_lines,
+        default=3,
+        help="Number of context lines (default: 3, like diff -C)",
+    )
+
+    # HTML-specific options
+    parser.add_argument(
+        "--no-context",
+        dest="show_context",
+        action="store_false",
+        default=True,
+        help="Hide context lines in HTML output",
+    )
+
+    return parser
+
+
+def handle_diff_command(args: list[str] | None = None) -> int:
+    """Handle diff command to compare two documents.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'diff')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    from pathlib import Path
+
+    from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR
+    from all2md.diff.renderers.html import HtmlDiffRenderer
+    from all2md.diff.renderers.json import JsonDiffRenderer
+    from all2md.diff.renderers.unified import UnifiedDiffRenderer
+    from all2md.diff.text_diff import compare_files
+
+    # Parse arguments
+    parser = _create_diff_parser()
+    try:
+        parsed = parser.parse_args(args or [])
+    except SystemExit as e:
+        return e.code if isinstance(e.code, int) else 0
+
+    # Validate source files
+    source1_path = Path(parsed.source1)
+    source2_path = Path(parsed.source2)
+
+    if not source1_path.exists():
+        print(f"Error: Source file not found: {parsed.source1}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    if not source2_path.exists():
+        print(f"Error: Source file not found: {parsed.source2}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    try:
+        # Compare documents using simple text-based diff
+        print(f"Comparing {source1_path.name} and {source2_path.name}...", file=sys.stderr)
+        diff_lines = compare_files(
+            source1_path,
+            source2_path,
+            old_label=str(source1_path),
+            new_label=str(source2_path),
+            context_lines=parsed.context,
+            ignore_whitespace=parsed.ignore_whitespace,
+        )
+
+        # Convert iterator to list for multiple passes (needed for some renderers)
+        diff_lines_list = list(diff_lines)
+
+        # Check if there are any changes
+        has_changes = any(
+            line.startswith("+") or line.startswith("-")
+            for line in diff_lines_list
+            if not line.startswith("+++") and not line.startswith("---")
+        )
+
+        if not has_changes:
+            print("No differences found.", file=sys.stderr)
+            # Still output empty diff in requested format
+            if parsed.output:
+                output_path = Path(parsed.output)
+                if parsed.format == "html":
+                    output = HtmlDiffRenderer(show_context=parsed.show_context).render(iter(diff_lines_list))
+                elif parsed.format == "json":
+                    output = JsonDiffRenderer().render(iter(diff_lines_list))
+                else:
+                    output = "\n".join(diff_lines_list)
+                output_path.write_text(output, encoding="utf-8")
+            return 0
+
+        # Render diff based on format
+        if parsed.format == "html":
+            renderer = HtmlDiffRenderer(show_context=parsed.show_context)
+            output = renderer.render(iter(diff_lines_list))
+
+            # Write HTML output
+            if parsed.output:
+                output_path = Path(parsed.output)
+                print(f"Writing HTML diff to {output_path}...", file=sys.stderr)
+                output_path.write_text(output, encoding="utf-8")
+                print(f"Diff written to: {output_path}", file=sys.stderr)
+            else:
+                print(output)
+
+        elif parsed.format == "json":
+            renderer = JsonDiffRenderer()
+            output = renderer.render(iter(diff_lines_list))
+
+            # Write JSON output
+            if parsed.output:
+                output_path = Path(parsed.output)
+                print(f"Writing JSON diff to {output_path}...", file=sys.stderr)
+                output_path.write_text(output, encoding="utf-8")
+                print(f"Diff written to: {output_path}", file=sys.stderr)
+            else:
+                print(output)
+
+        else:  # unified format (default)
+            # Determine if we should use colors
+            use_colors = False
+            if parsed.color == "always":
+                use_colors = True
+            elif parsed.color == "auto" and not parsed.output:
+                # Auto-detect: use colors if stdout is a TTY
+                use_colors = sys.stdout.isatty()
+
+            # Render with optional colors
+            renderer = UnifiedDiffRenderer(use_color=use_colors)
+            colored_lines = list(renderer.render(iter(diff_lines_list)))
+
+            # Write output
+            if parsed.output:
+                output_path = Path(parsed.output)
+                print(f"Writing unified diff to {output_path}...", file=sys.stderr)
+                # Don't use colors when writing to file
+                plain_renderer = UnifiedDiffRenderer(use_color=False)
+                plain_lines = list(plain_renderer.render(iter(diff_lines_list)))
+                output_path.write_text("\n".join(plain_lines), encoding="utf-8")
+                print(f"Diff written to: {output_path}", file=sys.stderr)
+            else:
+                for line in colored_lines:
+                    print(line)
+
+        return 0
+
+    except Exception as e:
+        print(f"Error comparing documents: {e}", file=sys.stderr)
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        return EXIT_ERROR
+
+
 def handle_dependency_commands(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
@@ -2230,6 +2600,10 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
 
     if args[0] == "search":
         return handle_search_command(args[1:])
+
+    # Check for diff command
+    if args[0] == "diff":
+        return handle_diff_command(args[1:])
 
     # Check for list-formats command
     if args[0] in ("list-formats", "formats"):

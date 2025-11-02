@@ -27,6 +27,7 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 
 -   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages.
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
+-   **Document Comparison**: Built-in `diff` command that works like Unix `diff` but for any document format. Compare PDFs, Word docs, or mixed formats with text-based, symmetric comparison.
 -   **Custom Template Rendering**: Use Jinja2 templates to create any text-based output format (DocBook XML, YAML, ANSI terminal, custom markup) without writing Python code.
 -   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.

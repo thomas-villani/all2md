@@ -177,6 +177,176 @@ Key options:
 ``.all2md.toml``. Install the optional extras ``all2md[search]`` to enable BM25 and
 vector search backends.
 
+Diff Command
+------------
+
+``all2md diff`` compares two documents and generates a unified diff, similar to the Unix
+``diff`` command but supporting any document format (PDF, DOCX, HTML, etc.). The comparison
+is text-based and guaranteed symmetric: comparing A to B produces the exact opposite of
+comparing B to A (with +/- swapped).
+
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Compare two documents (unified diff output by default)
+   all2md diff report_v1.pdf report_v2.pdf
+
+   # Compare documents of different formats
+   all2md diff contract.docx contract.pdf
+
+   # Save diff to file
+   all2md diff doc1.md doc2.md --output changes.diff
+
+Common Options
+~~~~~~~~~~~~~~
+
+Output Formats
+^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # Unified diff (default, like diff -u)
+   all2md diff doc1.pdf doc2.pdf
+
+   # HTML visual diff (GitHub-style inline highlighting)
+   all2md diff doc1.pdf doc2.pdf --format html --output diff.html
+
+   # JSON structured diff (for programmatic access)
+   all2md diff doc1.pdf doc2.pdf --format json
+
+Comparison Options
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # Ignore whitespace changes (like diff -w)
+   all2md diff doc1.md doc2.md --ignore-whitespace
+   all2md diff doc1.md doc2.md -w
+
+   # Custom context lines (default: 3, like diff -C)
+   all2md diff doc1.pdf doc2.pdf --context 5
+   all2md diff doc1.pdf doc2.pdf -C 5
+
+Color Output
+^^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # Colorize output automatically if terminal
+   all2md diff doc1.md doc2.md --color auto  # (default)
+
+   # Always colorize (even when piped)
+   all2md diff doc1.md doc2.md --color always
+
+   # Never colorize
+   all2md diff doc1.md doc2.md --color never
+
+Examples
+~~~~~~~~
+
+**Compare PDF Reports:**
+
+.. code-block:: bash
+
+   # Compare two versions of a report
+   all2md diff quarterly_report_q1.pdf quarterly_report_q2.pdf
+
+   # Generate visual HTML diff
+   all2md diff report_draft.pdf report_final.pdf \
+       --format html --output report_changes.html
+
+**Compare Word Documents:**
+
+.. code-block:: bash
+
+   # Compare contract versions, ignoring whitespace
+   all2md diff contract_v1.docx contract_v2.docx -w
+
+   # Save unified diff to file
+   all2md diff proposal_old.docx proposal_new.docx -o changes.diff
+
+**Cross-Format Comparison:**
+
+.. code-block:: bash
+
+   # Compare different formats of the same document
+   all2md diff document.md document.pdf
+
+   # Compare web page to markdown
+   all2md diff page.html page.md --ignore-whitespace
+
+**Symmetric Comparison:**
+
+.. code-block:: bash
+
+   # These produce opposite results (+ becomes -, - becomes +)
+   all2md diff doc1.pdf doc2.pdf
+   all2md diff doc2.pdf doc1.pdf
+
+Output Formats
+~~~~~~~~~~~~~~
+
+Unified Diff (Default)
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Standard unified diff format compatible with ``patch``, ``git diff``, and other tools:
+
+.. code-block:: diff
+
+   --- report_v1.pdf
+   +++ report_v2.pdf
+   @@ -1,5 +1,6 @@
+    # Executive Summary
+
+    This report covers Q1 performance.
+   +Key findings include revenue growth.
+
+   -## Challenges
+   +## Opportunities
+    We identified several growth areas.
+
+HTML Visual Diff
+^^^^^^^^^^^^^^^^^
+
+GitHub-style inline highlighting with additions in green, deletions in red with
+strikethrough, and context in normal text. Ideal for viewing in a browser.
+
+.. code-block:: bash
+
+   all2md diff doc1.pdf doc2.pdf --format html -o changes.html
+   # Open in browser: open changes.html
+
+JSON Structured Diff
+^^^^^^^^^^^^^^^^^^^^^
+
+Machine-readable format for programmatic processing:
+
+.. code-block:: json
+
+   {
+     "type": "unified_diff",
+     "old_file": "doc1.pdf",
+     "new_file": "doc2.pdf",
+     "statistics": {
+       "lines_added": 3,
+       "lines_deleted": 2,
+       "lines_context": 15,
+       "total_changes": 5
+     },
+     "hunks": [
+       {
+         "header": "@@ -1,5 +1,6 @@",
+         "changes": [
+           {"type": "context", "content": "# Executive Summary"},
+           {"type": "added", "content": "Key findings..."},
+           {"type": "deleted", "content": "Old text..."}
+         ]
+       }
+     ]
+   }
+
 Configuration Management
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
