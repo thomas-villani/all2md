@@ -2663,6 +2663,12 @@ def _create_diff_parser() -> argparse.ArgumentParser:
         default=3,
         help="Number of context lines (default: 3, like diff -C)",
     )
+    parser.add_argument(
+        "--granularity",
+        choices=["block", "sentence", "word"],
+        default="block",
+        help="Diff granularity: block (default), sentence, or word",
+    )
 
     # HTML-specific options
     parser.add_argument(
@@ -2720,24 +2726,17 @@ def handle_diff_command(args: list[str] | None = None) -> int:
     try:
         # Compare documents using simple text-based diff
         print(f"Comparing {source1_path.name} and {source2_path.name}...", file=sys.stderr)
-        diff_lines = compare_files(
+        diff_result = compare_files(
             source1_path,
             source2_path,
             old_label=str(source1_path),
             new_label=str(source2_path),
             context_lines=parsed.context,
             ignore_whitespace=parsed.ignore_whitespace,
+            granularity=parsed.granularity,
         )
 
-        # Convert iterator to list for multiple passes (needed for some renderers)
-        diff_lines_list = list(diff_lines)
-
-        # Check if there are any changes
-        has_changes = any(
-            line.startswith("+") or line.startswith("-")
-            for line in diff_lines_list
-            if not line.startswith("+++") and not line.startswith("---")
-        )
+        has_changes = any(op.tag != "equal" for op in diff_result.iter_operations())
 
         if not has_changes:
             print("No differences found.", file=sys.stderr)
@@ -2745,18 +2744,18 @@ def handle_diff_command(args: list[str] | None = None) -> int:
             if parsed.output:
                 output_path = Path(parsed.output)
                 if parsed.format == "html":
-                    output = HtmlDiffRenderer(show_context=parsed.show_context).render(iter(diff_lines_list))
+                    output = HtmlDiffRenderer(show_context=parsed.show_context).render(diff_result)
                 elif parsed.format == "json":
-                    output = JsonDiffRenderer().render(iter(diff_lines_list))
+                    output = JsonDiffRenderer().render(diff_result)
                 else:
-                    output = "\n".join(diff_lines_list)
+                    output = "\n".join(diff_result.iter_unified_diff())
                 output_path.write_text(output, encoding="utf-8")
             return 0
 
         # Render diff based on format
         if parsed.format == "html":
             renderer = HtmlDiffRenderer(show_context=parsed.show_context)
-            output = renderer.render(iter(diff_lines_list))
+            output = renderer.render(diff_result)
 
             # Write HTML output
             if parsed.output:
@@ -2769,7 +2768,7 @@ def handle_diff_command(args: list[str] | None = None) -> int:
 
         elif parsed.format == "json":
             renderer = JsonDiffRenderer()
-            output = renderer.render(iter(diff_lines_list))
+            output = renderer.render(diff_result)
 
             # Write JSON output
             if parsed.output:
@@ -2791,28 +2790,23 @@ def handle_diff_command(args: list[str] | None = None) -> int:
 
             # Render with optional colors
             renderer = UnifiedDiffRenderer(use_color=use_colors)
-            colored_lines = list(renderer.render(iter(diff_lines_list)))
 
             # Write output
             if parsed.output:
                 output_path = Path(parsed.output)
                 print(f"Writing unified diff to {output_path}...", file=sys.stderr)
                 # Don't use colors when writing to file
-                plain_renderer = UnifiedDiffRenderer(use_color=False)
-                plain_lines = list(plain_renderer.render(iter(diff_lines_list)))
+                plain_lines = diff_result.iter_unified_diff()
                 output_path.write_text("\n".join(plain_lines), encoding="utf-8")
                 print(f"Diff written to: {output_path}", file=sys.stderr)
             else:
-                for line in colored_lines:
+                for line in renderer.render(diff_result.iter_unified_diff()):
                     print(line)
 
         return 0
 
     except Exception as e:
         print(f"Error comparing documents: {e}", file=sys.stderr)
-        import traceback
-
-        traceback.print_exc(file=sys.stderr)
         return EXIT_ERROR
 
 

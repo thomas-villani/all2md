@@ -34,9 +34,10 @@ Render as HTML:
 
 """
 
-from all2md.diff.text_diff import compare_documents, compare_files
+from all2md.diff.text_diff import DiffResult, compare_documents, compare_files
 
 __all__ = [
+    "DiffResult",
     "compare_documents",
     "compare_files",
 ]

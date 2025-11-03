@@ -1,33 +1,38 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 # src/all2md/diff/renderers/html.py
-"""HTML diff renderer with visual color coding.
+"""HTML diff renderer with full-document visualization.
 
-This renderer produces visual HTML output with color-coded changes,
-suitable for viewing in a web browser. It parses unified diff format
-and renders it with GitHub-style inline highlighting.
+The renderer highlights additions, deletions, and unchanged context
+across the entire document. When provided with a :class:`DiffResult`
+it produces a rich HTML page with summary statistics, collapsible
+context blocks, and line numbers. It falls back to the legacy
+inline-view when called with raw unified diff lines.
 """
 
 from __future__ import annotations
 
 from html import escape
 from io import StringIO
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Sequence, Tuple
+
+from all2md.diff.text_diff import DiffResult
 
 
 class HtmlDiffRenderer:
-    """Render unified diff as visual HTML with color coding.
+    """Render document diffs as visual HTML.
 
-    This renderer produces styled HTML output with:
-    - Green highlighting for additions
-    - Red highlighting for deletions (with strikethrough)
-    - Context lines shown in normal text
-    - GitHub-style inline rendering
+    When supplied with a :class:`DiffResult`, the renderer emits a
+    full-document view that preserves ordering, adds line numbers, and
+    highlights additions/deletions with GitHub-style colors. Unchanged
+    sections can optionally be collapsed when ``show_context`` is
+    ``False``. Passing an iterator of unified diff lines is still
+    supported for compatibility, using the legacy inline view.
 
     Parameters
     ----------
     show_context : bool, default = True
-        If True, show context lines around changes
+        If True, show unchanged sections; when False they are collapsible
     inline_styles : bool, default = True
         If True, include CSS styles in the output
 
@@ -36,9 +41,9 @@ class HtmlDiffRenderer:
     Render diff as HTML:
         >>> from all2md.diff import compare_files
         >>> from all2md.diff.renderers import HtmlDiffRenderer
-        >>> diff_lines = compare_files("old.docx", "new.docx")
+        >>> diff_result = compare_files("old.docx", "new.docx")
         >>> renderer = HtmlDiffRenderer()
-        >>> html = renderer.render(diff_lines)
+        >>> html = renderer.render(diff_result)
         >>> with open("diff.html", "w") as f:
         ...     f.write(html)
 
@@ -53,13 +58,13 @@ class HtmlDiffRenderer:
         self.show_context = show_context
         self.inline_styles = inline_styles
 
-    def render(self, diff_lines: Iterator[str]) -> str:
-        """Render unified diff to HTML string.
+    def render(self, diff: DiffResult | Iterator[str]) -> str:
+        """Render diff output to HTML string.
 
         Parameters
         ----------
-        diff_lines : Iterator[str]
-            Lines of unified diff output
+        diff : DiffResult or iterator of str
+            Structured diff result or unified diff lines
 
         Returns
         -------
@@ -68,8 +73,18 @@ class HtmlDiffRenderer:
 
         """
         output = StringIO()
+        self._write_html_prefix(output)
 
-        # HTML document structure
+        if isinstance(diff, DiffResult):
+            self._render_full_document(diff, output)
+        else:
+            self._render_legacy_inline(diff, output)
+
+        self._write_html_suffix(output)
+        return output.getvalue()
+
+    def _write_html_prefix(self, output: StringIO) -> None:
+        """Write the static HTML prefix and container."""
         output.write("<!DOCTYPE html>\n")
         output.write("<html lang='en'>\n")
         output.write("<head>\n")
@@ -86,17 +101,14 @@ class HtmlDiffRenderer:
         output.write("<body>\n")
         output.write("  <div class='container'>\n")
         output.write("    <h1>Document Diff</h1>\n")
-
-        # Parse and render diff content
         output.write("    <div class='diff-content'>\n")
-        self._render_diff(diff_lines, output)
-        output.write("    </div>\n")
 
+    def _write_html_suffix(self, output: StringIO) -> None:
+        """Write the closing HTML tags."""
+        output.write("    </div>\n")
         output.write("  </div>\n")
         output.write("</body>\n")
         output.write("</html>\n")
-
-        return output.getvalue()
 
     def _get_css(self) -> str:
         """Get CSS styles for the HTML output."""
@@ -126,49 +138,61 @@ class HtmlDiffRenderer:
             font-family: 'Courier New', Courier, monospace;
             font-size: 14px;
         }
-        .diff-header {
-            padding: 8px 12px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            margin: 15px 0 5px 0;
-            font-weight: bold;
-            color: #666;
+        .diff-summary {
+            background-color: #f0f4ff;
+            border: 1px solid #cbd7f7;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
         }
-        .diff-hunk-header {
-            padding: 6px 12px;
-            background-color: #e9ecef;
-            border-radius: 4px;
-            margin: 10px 0 5px 0;
-            color: #0969da;
-            font-weight: bold;
+        .diff-summary h2 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #1d3c78;
         }
-        .diff-line {
-            padding: 2px 12px;
+        .diff-summary dl {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 4px 16px;
             margin: 0;
-            white-space: pre-wrap;
-            word-wrap: break-word;
         }
-        .diff-context {
-            background-color: transparent;
-        }
-        .diff-added {
-            background-color: #e6ffed;
-            color: #116329;
-        }
-        .diff-deleted {
-            background-color: #ffeef0;
-            color: #82071e;
-            text-decoration: line-through;
+        .diff-summary dt {
+            font-weight: 600;
+            color: #51658a;
         }
         .inline-view {
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 6px;
             overflow: hidden;
         }
         .inline-line {
+            display: grid;
+            grid-template-columns: 70px 70px 1fr;
+            gap: 12px;
             padding: 4px 12px;
             margin: 0;
             border-left: 4px solid transparent;
+            align-items: baseline;
+        }
+        .inline-line + .inline-line {
+            border-top: 1px solid #f1f3f5;
+        }
+        .line-number {
+            color: #7a8699;
+            font-size: 12px;
+            text-align: right;
+        }
+        .line-number::before {
+            content: attr(data-label);
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #b0b8bf;
+            letter-spacing: 0.04em;
+        }
+        .line-text {
+            white-space: pre-wrap;
+            word-break: break-word;
         }
         .inline-added {
             background-color: #e6ffed;
@@ -183,6 +207,18 @@ class HtmlDiffRenderer:
         }
         .inline-context {
             background-color: #ffffff;
+        }
+        details.diff-context-collapsed {
+            margin: 8px 0;
+            background-color: #fafbfc;
+            border: 1px dashed #d0d7de;
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+        details.diff-context-collapsed summary {
+            cursor: pointer;
+            font-size: 13px;
+            color: #5b6b7f;
         }
         """
 
@@ -215,8 +251,8 @@ class HtmlDiffRenderer:
 
         return parsed_lines
 
-    def _render_diff(self, diff_lines: Iterator[str], output: StringIO) -> None:
-        """Render diff content as HTML."""
+    def _render_legacy_inline(self, diff_lines: Iterator[str], output: StringIO) -> None:
+        """Render legacy inline diff (fallback for iterators)."""
         # Parse diff lines
         parsed_lines = self._parse_diff_lines(diff_lines)
 
@@ -247,22 +283,160 @@ class HtmlDiffRenderer:
 
         output.write("      </div>\n")
 
+    def _render_full_document(self, diff: DiffResult, output: StringIO) -> None:
+        """Render the complete document using structured diff operations."""
+        operations = list(diff.iter_operations())
+        if not operations:
+            output.write("      <p><em>No differences found.</em></p>\n")
+            return
 
-def render_to_file(diff_lines: Iterator[str], output_path: str, **kwargs) -> None:
-    """Render unified diff to HTML file.
+        stats = self._compute_statistics(diff)
+        self._render_summary(diff, stats, output)
+
+        output.write("      <div class='inline-view'>\n")
+
+        for op in operations:
+            if op.tag == "equal":
+                self._render_equal_block(op, output)
+            elif op.tag == "insert":
+                self._render_line_block(
+                    op.new_slice,
+                    "inline-added",
+                    output,
+                    new_start=op.new_range[0],
+                )
+            elif op.tag == "delete":
+                self._render_line_block(
+                    op.old_slice,
+                    "inline-deleted",
+                    output,
+                    old_start=op.old_range[0],
+                )
+            elif op.tag == "replace":
+                self._render_line_block(
+                    op.old_slice,
+                    "inline-deleted",
+                    output,
+                    old_start=op.old_range[0],
+                )
+                self._render_line_block(
+                    op.new_slice,
+                    "inline-added",
+                    output,
+                    new_start=op.new_range[0],
+                )
+
+        output.write("      </div>\n")
+
+    def _render_summary(self, diff: DiffResult, stats: dict[str, int], output: StringIO) -> None:
+        """Render diff metadata and statistics."""
+        output.write("      <div class='diff-summary'>\n")
+        output.write("        <h2>Summary</h2>\n")
+        output.write("        <dl>\n")
+        output.write(f"          <dt>Old file</dt><dd>{escape(diff.old_label)}</dd>\n")
+        output.write(f"          <dt>New file</dt><dd>{escape(diff.new_label)}</dd>\n")
+        output.write(f"          <dt>Granularity</dt><dd>{escape(diff.granularity)}</dd>\n")
+        output.write(f"          <dt>Context lines</dt><dd>{diff.context_lines}</dd>\n")
+        output.write(f"          <dt>Lines added</dt><dd>{stats['lines_added']}</dd>\n")
+        output.write(f"          <dt>Lines deleted</dt><dd>{stats['lines_deleted']}</dd>\n")
+        output.write(f"          <dt>Total changes</dt><dd>{stats['total_changes']}</dd>\n")
+        output.write("        </dl>\n")
+        output.write("      </div>\n")
+
+    def _render_equal_block(self, op, output: StringIO) -> None:
+        """Render an unchanged block, collapsing if context is hidden."""
+        if not op.new_slice:
+            return
+
+        line_count = len(op.new_slice)
+        if not self.show_context:
+            summary = f"{line_count} unchanged line{'s' if line_count != 1 else ''}"
+            output.write("        <details class='diff-context-collapsed'>\n")
+            output.write(f"          <summary>{escape(summary)}</summary>\n")
+            self._render_line_block(
+                op.new_slice,
+                "inline-context",
+                output,
+                old_start=op.old_range[0],
+                new_start=op.new_range[0],
+                indent="          ",
+            )
+            output.write("        </details>\n")
+        else:
+            self._render_line_block(
+                op.new_slice,
+                "inline-context",
+                output,
+                old_start=op.old_range[0],
+                new_start=op.new_range[0],
+            )
+
+    def _render_line_block(
+        self,
+        lines: Sequence[str],
+        line_class: str,
+        output: StringIO,
+        *,
+        old_start: int | None = None,
+        new_start: int | None = None,
+        indent: str = "        ",
+    ) -> None:
+        """Render a sequence of lines with provided styling."""
+        old_index = old_start + 1 if old_start is not None else None
+        new_index = new_start + 1 if new_start is not None else None
+
+        for line in lines:
+            old_display = str(old_index) if old_index is not None else ""
+            new_display = str(new_index) if new_index is not None else ""
+            text = escape(line) if line else "&nbsp;"
+
+            output.write(f"{indent}<div class='inline-line {line_class}'>\n")
+            output.write(f"{indent}  <span class='line-number' data-label='old'>{old_display or '&nbsp;'}</span>\n")
+            output.write(f"{indent}  <span class='line-number' data-label='new'>{new_display or '&nbsp;'}</span>\n")
+            output.write(f"{indent}  <span class='line-text'>{text}</span>\n")
+            output.write(f"{indent}</div>\n")
+
+            if old_index is not None:
+                old_index += 1
+            if new_index is not None:
+                new_index += 1
+
+    def _compute_statistics(self, diff: DiffResult) -> dict[str, int]:
+        """Compute diff statistics for the summary block."""
+        lines_added = 0
+        lines_deleted = 0
+
+        for op in diff.iter_operations():
+            if op.tag == "insert":
+                lines_added += len(op.new_slice)
+            elif op.tag == "delete":
+                lines_deleted += len(op.old_slice)
+            elif op.tag == "replace":
+                lines_added += len(op.new_slice)
+                lines_deleted += len(op.old_slice)
+
+        return {
+            "lines_added": lines_added,
+            "lines_deleted": lines_deleted,
+            "total_changes": lines_added + lines_deleted,
+        }
+
+
+def render_to_file(diff: DiffResult | Iterator[str], output_path: str, **kwargs) -> None:
+    """Render unified diff to an HTML file.
 
     Parameters
     ----------
-    diff_lines : Iterator[str]
-        Lines of unified diff output
+    diff : DiffResult or iterator of str
+        Diff payload to render (structured result or raw unified diff lines).
     output_path : str
-        Path to write HTML file
+        Destination path for the generated HTML file.
     **kwargs
-        Additional arguments passed to HtmlDiffRenderer
+        Additional keyword arguments forwarded to :class:`HtmlDiffRenderer`.
 
     """
     renderer = HtmlDiffRenderer(**kwargs)
-    html = renderer.render(diff_lines)
+    html = renderer.render(diff)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html)

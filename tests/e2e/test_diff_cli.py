@@ -12,6 +12,8 @@ from pathlib import Path
 import pytest
 from utils import cleanup_test_dir, create_test_temp_dir
 
+pytest.importorskip("mistune", reason="mistune not installed, skipping diff CLI tests")
+
 
 @pytest.mark.e2e
 @pytest.mark.cli
@@ -106,6 +108,7 @@ We achieved our goals.
         # Should contain HTML
         assert "<!DOCTYPE html>" in result.stdout
         assert "Document Diff" in result.stdout
+        assert "diff-summary" in result.stdout
 
     def test_diff_json_format(self):
         """Test diff with JSON format."""
@@ -122,6 +125,7 @@ We achieved our goals.
         assert "hunks" in data
         assert "old_file" in data
         assert "new_file" in data
+        assert data["granularity"] == "block"
 
     def test_diff_unified_format(self):
         """Test diff with unified format."""
@@ -219,14 +223,6 @@ We achieved our goals.
         data = json.loads(result.stdout)
         assert "statistics" in data
 
-    def test_diff_show_unchanged(self):
-        """Test diff with show-unchanged option."""
-        result = self._run_diff([str(self.file1), str(self.file2), "--show-unchanged", "--format", "text"])
-
-        assert result.returncode == 0
-        # Output should be longer with unchanged content
-        assert len(result.stdout) > 100
-
     def test_diff_context_lines(self):
         """Test diff with custom context lines."""
         for context in [1, 5, 10]:
@@ -236,35 +232,21 @@ We achieved our goals.
 
             assert result.returncode == 0, f"Context lines {context} failed"
 
-    def test_diff_show_stats(self):
-        """Test diff with stats enabled."""
-        result = self._run_diff([str(self.file1), str(self.file2), "--show-stats"])
+    def test_diff_sentence_granularity(self):
+        """Test diff with sentence granularity."""
+        result = self._run_diff([str(self.file1), str(self.file2), "--granularity", "sentence", "--format", "unified"])
 
         assert result.returncode == 0
-        # Stats should be in stderr when --show-stats is used
-        assert "Diff Statistics:" in result.stderr
-        assert "Total changes:" in result.stderr
+        # Sentence granularity should surface the changed heading separately
+        assert "-## Methods" in result.stdout or "-## Methodology" in result.stdout
 
-    def test_diff_no_stats_by_default(self):
-        """Test diff has no stats by default."""
-        result = self._run_diff([str(self.file1), str(self.file2)])
+    def test_diff_word_granularity(self):
+        """Test diff with word granularity."""
+        result = self._run_diff([str(self.file1), str(self.file2), "--granularity", "word", "--format", "unified"])
 
         assert result.returncode == 0
-        # Stats should not be in stderr by default
-        assert "Diff Statistics:" not in result.stderr
-
-    def test_diff_word_diff(self):
-        """Test diff with word-level diff enabled."""
-        # Test with text format
-        result = self._run_diff([str(self.file1), str(self.file2), "--format", "text", "--word-diff"])
-        assert result.returncode == 0
-        # Should contain word-level markers
-        assert "[-" in result.stdout or "{+" in result.stdout or "~" in result.stdout
-
-        # Test with visual format
-        result = self._run_diff([str(self.file1), str(self.file2), "--format", "visual", "--word-diff"])
-        assert result.returncode == 0
-        assert "<!DOCTYPE html>" in result.stdout
+        # Word granularity should show individual tokens
+        assert any(line.startswith("+") and "updated" in line.lower() for line in result.stdout.splitlines())
 
     def test_diff_color_flag(self):
         """Test diff with color options."""

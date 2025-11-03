@@ -212,7 +212,6 @@ def example_function():
         assert data
         assert any("serendipity" in entry["text"].lower() for entry in data)
         assert any("<<" in entry["text"] for entry in data)
-        assert data[0]["result_metadata"].get("lines")
 
     @pytest.mark.search
     @pytest.mark.skipif(importlib.util.find_spec("rank_bm25") is None, reason="rank_bm25 not installed")

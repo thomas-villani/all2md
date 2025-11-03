@@ -1,6 +1,22 @@
 """Unit tests for simplified text-based diff functionality."""
 
-from all2md.ast.nodes import CodeBlock, Document, Heading, List, ListItem, Paragraph, Table, TableCell, TableRow, Text
+import importlib.util
+
+import pytest
+
+from all2md.ast.nodes import (
+    BlockQuote,
+    CodeBlock,
+    Document,
+    Heading,
+    List,
+    ListItem,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+)
 from all2md.diff.text_diff import (
     compare_documents,
     compare_files,
@@ -151,6 +167,19 @@ class TestExtractDocumentLines:
             "2. Second",
         ]
 
+    def test_extract_with_blockquote(self):
+        """Block quotes should preserve the > prefix."""
+        doc = Document(
+            children=[
+                BlockQuote(
+                    children=[Paragraph(content=[Text("Quoted line")])],
+                )
+            ]
+        )
+
+        lines = extract_document_lines(doc)
+        assert lines == ["> Quoted line"]
+
     def test_extract_with_table(self):
         """Test extracting tables."""
         doc = Document(
@@ -178,6 +207,20 @@ class TestExtractDocumentLines:
 
         lines = extract_document_lines(doc, ignore_whitespace=True)
         assert lines == ["Hello world"]
+
+    def test_extract_with_sentence_granularity(self):
+        """Sentence granularity should split paragraphs."""
+        doc = Document(children=[Paragraph(content=[Text("First sentence. Second sentence!")])])
+
+        lines = extract_document_lines(doc, granularity="sentence")
+        assert lines == ["First sentence.", "Second sentence!"]
+
+    def test_extract_with_word_granularity(self):
+        """Word granularity should emit individual tokens."""
+        doc = Document(children=[Paragraph(content=[Text("Alpha beta")])])
+
+        lines = extract_document_lines(doc, granularity="word")
+        assert lines == ["Alpha", "beta"]
 
     def test_extract_empty_document(self):
         """Test extracting from empty document."""
@@ -321,12 +364,44 @@ class TestCompareDocuments:
         reverse_dels = [line[1:] for line in reverse_changes if line.startswith("-")]
         assert set(forward_adds) == set(reverse_dels)
 
+    def test_compare_sentence_granularity(self):
+        """Granularity='sentence' should split diff output."""
+        doc1 = Document(children=[Paragraph(content=[Text("One. Two.")])])
+        doc2 = Document(children=[Paragraph(content=[Text("One. Changed.")])])
+
+        result = compare_documents(doc1, doc2, granularity="sentence")
+        diff_lines = list(result)
+
+        assert any(line.startswith("-Two") for line in diff_lines)
+        assert any(line.startswith("+Changed") for line in diff_lines)
+        assert result.granularity == "sentence"
+
+    def test_diff_result_operations(self):
+        """DiffResult exposes structured operations."""
+        doc1 = Document(children=[Paragraph(content=[Text("Alpha")])])
+        doc2 = Document(children=[Paragraph(content=[Text("Beta")])])
+
+        result = compare_documents(doc1, doc2)
+        ops = list(result.iter_operations())
+
+        assert ops, "Expected at least one diff operation"
+        tags = {op.tag for op in ops}
+        assert tags <= {"delete", "insert", "replace"}
+        if "replace" in tags:
+            assert len(ops) == 1
+            assert ops[0].old_slice == ["Alpha"]
+            assert ops[0].new_slice == ["Beta"]
+        else:
+            assert tags == {"delete", "insert"}
+
 
 class TestCompareFiles:
     """Tests for compare_files function."""
 
     def test_compare_markdown_files(self, tmp_path):
         """Test comparing two markdown files."""
+        if importlib.util.find_spec("mistune") is None:
+            pytest.skip("mistune not installed, skipping file comparison test")
         file1 = tmp_path / "doc1.md"
         file1.write_text("# Title\n\nFirst paragraph.", encoding="utf-8")
 
@@ -344,6 +419,8 @@ class TestCompareFiles:
 
     def test_compare_with_custom_labels(self, tmp_path):
         """Test comparison with custom file labels."""
+        if importlib.util.find_spec("mistune") is None:
+            pytest.skip("mistune not installed, skipping file comparison test")
         file1 = tmp_path / "doc1.md"
         file1.write_text("# Content A", encoding="utf-8")
 

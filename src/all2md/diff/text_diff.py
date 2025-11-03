@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import difflib
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Union
+from typing import Iterable, Iterator, Literal, Sequence, Union
 
 from all2md import to_ast
 from all2md.ast.nodes import (
@@ -31,6 +32,101 @@ from all2md.ast.nodes import (
     get_node_children,
 )
 
+Granularity = Literal["block", "sentence", "word"]
+
+
+@dataclass(slots=True)
+class DiffOp:
+    """Structured diff operation between two sequences."""
+
+    tag: Literal["replace", "delete", "insert", "equal"]
+    old_slice: Sequence[str]
+    new_slice: Sequence[str]
+    old_range: tuple[int, int]
+    new_range: tuple[int, int]
+
+
+class DiffResult:
+    """Bundle diff sequences for multiple renderers.
+
+    Instances behave like an iterator over unified diff lines so existing
+    callers can continue to iterate directly, while renderers that need
+    richer structure (HTML/JSON) can introspect operations or raw sequences.
+    """
+
+    def __init__(
+        self,
+        old_lines: list[str],
+        new_lines: list[str],
+        *,
+        old_label: str,
+        new_label: str,
+        context_lines: int,
+        granularity: Granularity,
+    ) -> None:
+        """Store the precomputed diff sequences and metadata.
+
+        Parameters
+        ----------
+        old_lines : list of str
+            Extracted text lines from the original document.
+        new_lines : list of str
+            Extracted text lines from the updated document.
+        old_label : str
+            Label that should appear in the diff header for the original file.
+        new_label : str
+            Label that should appear in the diff header for the updated file.
+        context_lines : int
+            Number of context lines to include when rendering unified diffs.
+        granularity : Granularity
+            Tokenisation level used to build ``old_lines`` and ``new_lines``.
+
+        """
+        self.old_lines = old_lines
+        self.new_lines = new_lines
+        self.old_label = old_label
+        self.new_label = new_label
+        self.context_lines = context_lines
+        self.granularity = granularity
+        self._ops: list[DiffOp] | None = None
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over the unified diff output."""
+        yield from self.iter_unified_diff()
+
+    def iter_unified_diff(self, context_lines: int | None = None) -> Iterator[str]:
+        """Yield unified diff lines using the cached sequences."""
+        n = self.context_lines if context_lines is None else context_lines
+        yield from difflib.unified_diff(
+            self.old_lines,
+            self.new_lines,
+            fromfile=self.old_label,
+            tofile=self.new_label,
+            n=n,
+            lineterm="",
+        )
+
+    def iter_operations(self) -> Iterator[DiffOp]:
+        """Yield SequenceMatcher operations for structured renderers."""
+        if self._ops is None:
+            matcher = difflib.SequenceMatcher(
+                None,
+                self.old_lines,
+                self.new_lines,
+                autojunk=False,
+            )
+            self._ops = [
+                DiffOp(
+                    tag,
+                    self.old_lines[i1:i2],
+                    self.new_lines[j1:j2],
+                    (i1, i2),
+                    (j1, j2),
+                )
+                for tag, i1, i2, j1, j2 in matcher.get_opcodes()
+            ]
+        yield from self._ops
+
 
 def extract_text_content(node: Node) -> str:
     """Extract all text content from a node and its children.
@@ -46,18 +142,16 @@ def extract_text_content(node: Node) -> str:
         All text content concatenated
 
     """
-    if isinstance(node, Text):
-        return node.content
-    elif isinstance(node, CodeBlock):
+    if isinstance(node, (Text, CodeBlock)):
         return node.content
 
-    # Recursively extract from children
-    text_parts: list[str] = []
-    children = get_node_children(node)
-    for child in children:
-        text_parts.append(extract_text_content(child))
+    parts: list[str] = []
+    for child in get_node_children(node):
+        child_text = extract_text_content(child)
+        if child_text:
+            parts.append(child_text)
 
-    return " ".join(text_parts)
+    return " ".join(parts)
 
 
 def normalize_whitespace(text: str) -> str:
@@ -80,7 +174,247 @@ def normalize_whitespace(text: str) -> str:
     return normalized.strip()
 
 
-def extract_document_lines(doc: Document, ignore_whitespace: bool = False) -> list[str]:
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_WORD_SPLIT_RE = re.compile(r"\S+")
+
+
+def _tokenize_text(text: str, granularity: Granularity) -> list[str]:
+    """Split text according to requested granularity."""
+    if not text:
+        return []
+
+    if granularity == "block":
+        return [text]
+
+    if granularity == "sentence":
+        sentences = [segment.strip() for segment in _SENTENCE_SPLIT_RE.split(text) if segment.strip()]
+        return sentences or [text.strip()]
+
+    if granularity == "word":
+        return _WORD_SPLIT_RE.findall(text)
+
+    raise ValueError(f"Unsupported granularity: {granularity}")
+
+
+def _prepare_text(
+    text: str,
+    *,
+    ignore_whitespace: bool,
+    treat_as_code: bool,
+) -> str:
+    """Apply whitespace normalisation rules for the current node."""
+    if not ignore_whitespace:
+        return text
+
+    if treat_as_code:
+        # Preserve indentation but remove trailing whitespace inconsistencies
+        return text.rstrip()
+
+    return normalize_whitespace(text)
+
+
+class _DocumentLineExtractor:
+    """Walk an AST and emit text lines suitable for diffing."""
+
+    def __init__(self, ignore_whitespace: bool, granularity: Granularity) -> None:
+        self.ignore_whitespace = ignore_whitespace
+        self.granularity = granularity
+        self.lines: list[str] = []
+
+    def extract(self, doc: Document) -> list[str]:
+        """Convert a document AST into a flat list of text lines."""
+        self.lines.clear()
+        for node in doc.children:
+            self._process_node(node, prefix="")
+        return self.lines
+
+    def _process_node(self, node: Node, prefix: str) -> None:
+        if isinstance(node, Heading):
+            self._handle_heading(node, prefix)
+        elif isinstance(node, Paragraph):
+            self._handle_paragraph(node, prefix)
+        elif isinstance(node, CodeBlock):
+            self._handle_code_block(node, prefix)
+        elif isinstance(node, BlockQuote):
+            for child in node.children:
+                self._process_node(child, prefix=prefix + "> ")
+        elif isinstance(node, ThematicBreak):
+            self._emit_tokens(["---"], prefix=prefix)
+        elif isinstance(node, List):
+            self._handle_list(node, prefix)
+        elif isinstance(node, Table):
+            self._handle_table(node, prefix)
+        else:
+            for child in get_node_children(node):
+                self._process_node(child, prefix=prefix)
+
+    def _handle_heading(self, node: Heading, prefix: str) -> None:
+        text = _prepare_text(
+            extract_text_content(node),
+            ignore_whitespace=self.ignore_whitespace,
+            treat_as_code=False,
+        )
+        tokens = self._tokenize(text)
+        if tokens:
+            marker = "#" * node.level
+            self._emit_tokens(tokens, prefix=prefix, leading_marker=marker)
+
+    def _handle_paragraph(self, node: Paragraph, prefix: str) -> None:
+        text = _prepare_text(
+            extract_text_content(node),
+            ignore_whitespace=self.ignore_whitespace,
+            treat_as_code=False,
+        )
+        tokens = self._tokenize(text)
+        if tokens:
+            continuation = self._continuation_prefix(prefix)
+            self._emit_tokens(tokens, prefix=prefix, continuation_prefix=continuation)
+
+    def _handle_code_block(self, node: CodeBlock, prefix: str) -> None:
+        lang = node.language or ""
+        continuation = self._continuation_prefix(prefix)
+
+        self._emit_tokens([f"```{lang}"], prefix=prefix)
+
+        content = node.content
+        if self.ignore_whitespace:
+            code_lines = [
+                _prepare_text(line, ignore_whitespace=True, treat_as_code=True) for line in content.split("\n")
+            ]
+        else:
+            code_lines = content.split("\n")
+
+        self._emit_tokens(
+            code_lines,
+            prefix=prefix,
+            continuation_prefix=continuation if prefix else "",
+        )
+        self._emit_tokens(["```"], prefix=prefix)
+
+    def _handle_list(self, node: List, prefix: str) -> None:
+        for index, item in enumerate(node.items):
+            if node.ordered:
+                number = index + (node.start or 1)
+                item_prefix = f"{prefix}{number}. "
+            else:
+                if item.task_status == "unchecked":
+                    bullet = "- [ ] "
+                elif item.task_status == "checked":
+                    bullet = "- [x] "
+                else:
+                    bullet = "- "
+                item_prefix = f"{prefix}{bullet}"
+            self._process_list_item(item, item_prefix)
+
+    def _handle_table(self, node: Table, prefix: str) -> None:
+        header_cells = list(node.header.cells) if node.header else []
+        header_text = [
+            _prepare_text(
+                extract_text_content(cell),
+                ignore_whitespace=self.ignore_whitespace,
+                treat_as_code=False,
+            )
+            for cell in header_cells
+        ]
+
+        if header_text:
+            header_line = " | ".join(header_text)
+            self._emit_tokens([f"| {header_line} |"], prefix=prefix)
+
+            alignment_cells: list[str] = []
+            for alignment in node.alignments or []:
+                if alignment == "left":
+                    alignment_cells.append(":---")
+                elif alignment == "center":
+                    alignment_cells.append(":---:")
+                elif alignment == "right":
+                    alignment_cells.append("---:")
+                else:
+                    alignment_cells.append("---")
+            while len(alignment_cells) < len(header_text):
+                alignment_cells.append("---")
+            separator = "| " + " | ".join(alignment_cells[: len(header_text)]) + " |"
+            self._emit_tokens([separator], prefix=prefix)
+
+        for row in node.rows:
+            cell_texts = [
+                _prepare_text(
+                    extract_text_content(cell),
+                    ignore_whitespace=self.ignore_whitespace,
+                    treat_as_code=False,
+                )
+                for cell in row.cells
+            ]
+            row_line = "| " + " | ".join(cell_texts) + " |"
+            self._emit_tokens([row_line], prefix=prefix)
+
+    def _process_list_item(self, item: ListItem, prefix: str) -> None:
+        text_parts: list[str] = []
+        for child in item.children:
+            if isinstance(child, List):
+                continue
+            text = extract_text_content(child)
+            if text:
+                prepared = _prepare_text(
+                    text,
+                    ignore_whitespace=self.ignore_whitespace,
+                    treat_as_code=False,
+                )
+                text_parts.extend(self._tokenize(prepared))
+
+        if text_parts:
+            self._emit_tokens(
+                text_parts,
+                prefix=prefix,
+                continuation_prefix=" " * len(prefix),
+            )
+
+        for child in item.children:
+            if isinstance(child, List):
+                nested_prefix = " " * len(prefix)
+                self._process_node(child, prefix=nested_prefix)
+
+    def _emit_tokens(
+        self,
+        tokens: Iterable[str],
+        *,
+        prefix: str,
+        continuation_prefix: str | None = None,
+        leading_marker: str | None = None,
+    ) -> None:
+        if continuation_prefix is None:
+            continuation_prefix = prefix
+
+        for index, token in enumerate(tokens):
+            current_prefix = prefix if index == 0 else continuation_prefix
+            line_content = token
+            if leading_marker is not None and index == 0:
+                line_content = f"{leading_marker} {line_content}" if line_content else leading_marker
+            if current_prefix:
+                self.lines.append(f"{current_prefix}{line_content}")
+            else:
+                self.lines.append(line_content)
+
+    def _continuation_prefix(self, prefix: str) -> str:
+        clean_prefix = prefix.strip()
+        if not prefix:
+            return prefix
+        if clean_prefix.startswith(("-", "*", "+", "[")) or (
+            clean_prefix.endswith(".") and clean_prefix[:-1].isdigit()
+        ):
+            return " " * len(prefix)
+        return prefix
+
+    def _tokenize(self, text: str) -> list[str]:
+        return _tokenize_text(text, self.granularity)
+
+
+def extract_document_lines(
+    doc: Document,
+    *,
+    ignore_whitespace: bool = False,
+    granularity: Granularity = "block",
+) -> list[str]:
     """Extract plain text lines from a document AST.
 
     This function converts the document structure into a list of text lines,
@@ -93,6 +427,8 @@ def extract_document_lines(doc: Document, ignore_whitespace: bool = False) -> li
         Document AST to extract lines from
     ignore_whitespace : bool, default = False
         If True, normalize whitespace in each line
+    granularity : {'block', 'sentence', 'word'}, default = 'block'
+        Tokenisation level used when splitting paragraph content into lines.
 
     Returns
     -------
@@ -100,98 +436,8 @@ def extract_document_lines(doc: Document, ignore_whitespace: bool = False) -> li
         Lines of text, one per structural element
 
     """
-    lines: list[str] = []
-
-    def process_node(node: Node, prefix: str = "") -> None:
-        """Process a single node and add its text to lines."""
-        if isinstance(node, Heading):
-            # Extract heading text with level indicator
-            text = extract_text_content(node)
-            if ignore_whitespace:
-                text = normalize_whitespace(text)
-            marker = "#" * node.level
-            lines.append(f"{marker} {text}")
-
-        elif isinstance(node, Paragraph):
-            # Extract paragraph text
-            text = extract_text_content(node)
-            if ignore_whitespace:
-                text = normalize_whitespace(text)
-            if text:  # Skip empty paragraphs
-                lines.append(text)
-
-        elif isinstance(node, CodeBlock):
-            # Code blocks: add language line, then content lines
-            lang = node.language or ""
-            lines.append(f"```{lang}")
-            content = node.content
-            if ignore_whitespace:
-                # For code, only normalize blank lines
-                code_lines = content.split("\n")
-                code_lines = [line if line.strip() else "" for line in code_lines]
-                content = "\n".join(code_lines)
-            for line in content.split("\n"):
-                lines.append(line)
-            lines.append("```")
-
-        elif isinstance(node, BlockQuote):
-            # Block quotes: add content with > prefix
-            for child in node.content:
-                process_node(child, prefix="> ")
-
-        elif isinstance(node, ThematicBreak):
-            lines.append("---")
-
-        elif isinstance(node, List):
-            # Lists: process each item
-            for i, item in enumerate(node.items):
-                if node.ordered:
-                    item_prefix = f"{prefix}{i + 1}. "
-                else:
-                    item_prefix = f"{prefix}- "
-                process_list_item(item, item_prefix)
-
-        elif isinstance(node, Table):
-            # Tables: add header row, separator, then data rows
-            if node.header:
-                header_text = " | ".join(extract_text_content(cell) for cell in node.header.cells)
-                if ignore_whitespace:
-                    header_text = normalize_whitespace(header_text)
-                lines.append(f"| {header_text} |")
-                lines.append("|" + " --- |" * len(node.header.cells))
-
-            for row in node.rows:
-                row_text = " | ".join(extract_text_content(cell) for cell in row.cells)
-                if ignore_whitespace:
-                    row_text = normalize_whitespace(row_text)
-                lines.append(f"| {row_text} |")
-
-        else:
-            # For other container nodes, process children
-            children = get_node_children(node)
-            for child in children:
-                process_node(child, prefix)
-
-    def process_list_item(item: ListItem, prefix: str) -> None:
-        """Process a list item with given prefix."""
-        # Extract list item content
-        text = extract_text_content(item)
-        if ignore_whitespace:
-            text = normalize_whitespace(text)
-        if text:
-            lines.append(f"{prefix}{text}")
-
-        # Process nested lists
-        if item.children:
-            for child in item.children:
-                if isinstance(child, List):
-                    process_node(child, prefix=prefix + "  ")
-
-    # Process all top-level nodes in the document
-    for node in doc.children:
-        process_node(node)
-
-    return lines
+    extractor = _DocumentLineExtractor(ignore_whitespace, granularity)
+    return extractor.extract(doc)
 
 
 def compare_documents(
@@ -201,7 +447,8 @@ def compare_documents(
     new_label: str = "new",
     context_lines: int = 3,
     ignore_whitespace: bool = False,
-) -> Iterator[str]:
+    granularity: Granularity = "block",
+) -> DiffResult:
     """Compare two document ASTs and generate unified diff.
 
     This function extracts plain text lines from both documents and uses
@@ -223,28 +470,36 @@ def compare_documents(
         Number of context lines to show around changes
     ignore_whitespace : bool, default = False
         If True, normalize whitespace before comparison
+    granularity : {'block', 'sentence', 'word'}, default = 'block'
+        Tokenisation level used when extracting text from each document.
+    granularity : {'block', 'sentence', 'word'}, default = 'block'
+        Tokenisation level used when extracting lines from the documents.
 
     Returns
     -------
-    Iterator[str]
-        Lines of unified diff output
+    DiffResult
+        Diff result encapsulating sequences and render helpers
 
     """
-    # Extract lines from both documents
-    old_lines = extract_document_lines(old_doc, ignore_whitespace=ignore_whitespace)
-    new_lines = extract_document_lines(new_doc, ignore_whitespace=ignore_whitespace)
-
-    # Use difflib.unified_diff for symmetric comparison
-    diff_lines = difflib.unified_diff(
-        old_lines,
-        new_lines,
-        fromfile=old_label,
-        tofile=new_label,
-        n=context_lines,
-        lineterm="",
+    old_lines = extract_document_lines(
+        old_doc,
+        ignore_whitespace=ignore_whitespace,
+        granularity=granularity,
+    )
+    new_lines = extract_document_lines(
+        new_doc,
+        ignore_whitespace=ignore_whitespace,
+        granularity=granularity,
     )
 
-    return diff_lines
+    return DiffResult(
+        old_lines,
+        new_lines,
+        old_label=old_label,
+        new_label=new_label,
+        context_lines=context_lines,
+        granularity=granularity,
+    )
 
 
 def compare_files(
@@ -254,7 +509,8 @@ def compare_files(
     new_label: str | None = None,
     context_lines: int = 3,
     ignore_whitespace: bool = False,
-) -> Iterator[str]:
+    granularity: Granularity = "block",
+) -> DiffResult:
     """Compare two document files and generate unified diff.
 
     This is a convenience wrapper that loads documents from files,
@@ -274,11 +530,13 @@ def compare_files(
         Number of context lines to show around changes
     ignore_whitespace : bool, default = False
         If True, normalize whitespace before comparison
+    granularity : Granularity, default = 'block'
+        The level of granularity of details.
 
     Returns
     -------
-    Iterator[str]
-        Lines of unified diff output
+    DiffResult
+        Diff result encapsulating sequences and render helpers
 
     """
     # Convert paths to Path objects
@@ -303,4 +561,5 @@ def compare_files(
         new_label=new_label,
         context_lines=context_lines,
         ignore_whitespace=ignore_whitespace,
+        granularity=granularity,
     )

@@ -7,6 +7,79 @@ all2md provides a comprehensive command-line interface for converting documents 
    :local:
    :depth: 2
 
+Diff Command
+------------
+
+The ``all2md diff`` subcommand compares any two supported documents and emits a
+unified diff (plain text, HTML, or JSON). It is designed to feel like classic
+``diff`` while understanding binary formats (DOCX, PDF, HTML, etc.) via the
+all2md AST pipeline.
+
+.. code-block:: bash
+
+   # Basic comparison with unified diff output
+   all2md diff old.docx new.docx
+
+   # Visual HTML report (opens nicely in a browser)
+   all2md diff old.pdf new.pdf --format html --output diff.html
+
+   # Machine-readable JSON for tooling
+   all2md diff v1.docx v2.docx --format json --output diff.json
+
+Granularity
+~~~~~~~~~~~
+
+Paragraph-level replacements can be noisy when a document has long blocks of
+text. Use ``--granularity`` to control how the diff tokenises prose before
+feeding it to ``difflib``:
+
+``block`` (default)
+   Treat each structural block as a single line (typical unified diff output).
+``sentence``
+   Split paragraphs into sentences, making inline edits easier to spot.
+``word``
+   Break content into whitespace-delimited tokens for the highest resolution.
+
+.. code-block:: bash
+
+   # Highlight sentence-level edits without expanding entire paragraphs
+   all2md diff draft.docx final.docx --granularity sentence
+
+   # Inspect word-level tweaks (e.g., legal language changes)
+   all2md diff nda_v1.docx nda_v2.docx --granularity word
+
+Whitespace control
+~~~~~~~~~~~~~~~~~~
+
+Pass ``--ignore-whitespace`` (alias ``-w``) to normalise whitespace within
+paragraphs before comparison. This keeps indentation in code blocks but collapses
+extraneous spaces in prose.
+
+Output formats
+~~~~~~~~~~~~~~
+
+``unified`` (default)
+   Classic unified diff lines with optional ANSI colours (``--color``).
+``html``
+   Full-document visual report with summary statistics, line numbers, and
+   collapsible unchanged sections.
+``json``
+   Structured output listing files, hunks, individual additions/deletions, and
+   aggregate change counts (ideal for automation).
+
+HTML output always includes the entire document structure. Unchanged sections can
+be hidden via ``--no-context`` when generating the report.
+
+JSON output now carries ``granularity`` and ``context_lines`` metadata alongside
+change statistics.
+
+Streaming and large files
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The CLI streams diff results; even large documents are processed without loading
+all output into memory multiple times. Coloured terminal output is enabled by
+default when stdout is a TTY or forced with ``--color always``.
+
 Basic Usage
 -----------
 

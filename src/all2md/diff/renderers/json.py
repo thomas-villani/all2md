@@ -10,7 +10,9 @@ JSON output for programmatic processing.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Iterator
+from typing import Any, Dict, Iterator, Union
+
+from all2md.diff.text_diff import DiffResult
 
 
 class JsonDiffRenderer:
@@ -46,13 +48,13 @@ class JsonDiffRenderer:
         self.pretty_print = pretty_print
         self.indent = indent
 
-    def render(self, diff_lines: Iterator[str]) -> str:
+    def render(self, diff: Union[DiffResult, Iterator[str]]) -> str:
         """Render unified diff to JSON string.
 
         Parameters
         ----------
-        diff_lines : Iterator[str]
-            Lines of unified diff output
+        diff : DiffResult or iterator of str
+            Diff result or lines of unified diff output
 
         Returns
         -------
@@ -60,8 +62,13 @@ class JsonDiffRenderer:
             JSON-formatted diff output
 
         """
-        # Parse diff into structured format
-        data = self._parse_diff(diff_lines)
+        if isinstance(diff, DiffResult):
+            data = self._parse_diff(diff.iter_unified_diff())
+            self._attach_statistics_from_result(diff, data)
+            data["granularity"] = diff.granularity
+            data["context_lines"] = diff.context_lines
+        else:
+            data = self._parse_diff(diff)
 
         if self.pretty_print:
             return json.dumps(data, indent=self.indent, ensure_ascii=False)
@@ -147,22 +154,47 @@ class JsonDiffRenderer:
 
         return result
 
+    def _attach_statistics_from_result(self, diff: DiffResult, result: Dict[str, Any]) -> None:
+        """Attach statistics computed from the structured diff result."""
+        lines_added = 0
+        lines_deleted = 0
+        lines_context = 0
 
-def render_to_file(diff_lines: Iterator[str], output_path: str, **kwargs) -> None:
-    """Render unified diff to JSON file.
+        for op in diff.iter_operations():
+            if op.tag == "insert":
+                lines_added += len(op.new_slice)
+            elif op.tag == "delete":
+                lines_deleted += len(op.old_slice)
+            elif op.tag == "replace":
+                lines_added += len(op.new_slice)
+                lines_deleted += len(op.old_slice)
+            else:  # equal
+                lines_context += len(op.old_slice)
+
+        total_changes = lines_added + lines_deleted
+        result["statistics"] = {
+            "lines_added": lines_added,
+            "lines_deleted": lines_deleted,
+            "lines_context": lines_context,
+            "total_changes": total_changes,
+        }
+
+
+def render_to_file(diff: DiffResult | Iterator[str], output_path: str, **kwargs) -> None:
+    """Render unified diff to a JSON file.
 
     Parameters
     ----------
-    diff_lines : Iterator[str]
-        Lines of unified diff output
+    diff : DiffResult or iterator of str
+        Diff payload to serialise (structured result or raw unified diff lines).
     output_path : str
-        Path to write JSON file
+        Destination path for the generated JSON file.
     **kwargs
-        Additional arguments passed to JsonDiffRenderer
+        Additional keyword arguments forwarded to :class:`JsonDiffRenderer`.
 
     """
     renderer = JsonDiffRenderer(**kwargs)
-    json_output = renderer.render(diff_lines)
+    json_output = renderer.render(diff)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(json_output)
