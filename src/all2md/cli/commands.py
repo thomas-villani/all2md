@@ -629,7 +629,7 @@ def _deduplicate_and_create_items(
         CLIInputItem(
             raw_input=path,
             kind="local_file",
-            display_name=str(path),
+            display_name=path.as_posix(),
             path_hint=path,
             original_argument=str(path),
         )
@@ -2190,7 +2190,7 @@ def _create_search_documents(items: List[CLIInputItem]) -> list[SearchDocumentIn
         }
         metadata.update(item.metadata)
         if item.path_hint:
-            metadata["path_hint"] = str(item.path_hint)
+            metadata["path_hint"] = item.path_hint.as_posix()
         documents.append(
             SearchDocumentInput(
                 source=item.raw_input,

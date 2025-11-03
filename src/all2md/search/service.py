@@ -560,7 +560,7 @@ def _grep_ast_documents(
     lowered_query = query.lower() if ignore_case else query
 
     for doc, doc_input in documents:
-        document_path = str(doc_input.source)
+        document_path = doc_input.source.as_posix() if isinstance(doc_input.source, Path) else str(doc_input.source)
         document_id = doc_input.document_id or document_path
 
         # Process preamble (content before first heading)

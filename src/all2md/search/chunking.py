@@ -66,7 +66,7 @@ def chunk_document(
                 chunk_id = f"{context.document_id}::preamble-{chunk_index}"
                 chunk_metadata = {
                     "document_id": context.document_id,
-                    "document_path": str(context.document_path) if context.document_path else None,
+                    "document_path": context.document_path.as_posix() if context.document_path else None,
                     "section_heading": None,
                     "section_level": None,
                     "section_index": -1,
@@ -105,7 +105,7 @@ def chunk_document(
             chunk_id = f"{context.document_id}::s{section_index}-c{chunk_in_section}"
             chunk_metadata = {
                 "document_id": context.document_id,
-                "document_path": str(context.document_path) if context.document_path else None,
+                "document_path": context.document_path.as_posix() if context.document_path else None,
                 "section_heading": heading_text,
                 "section_level": section.level,
                 "section_index": section_index,
