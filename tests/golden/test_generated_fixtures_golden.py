@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fixtures import FIXTURES_PATH
 
 from all2md import to_markdown
 from all2md.exceptions import DependencyError
 
-GENERATED_ROOT = Path("tests/fixtures/documents/generated")
+GENERATED_ROOT = FIXTURES_PATH / "documents" / "generated"
 
 
 def _case(source_format: str, filename: str, *marks: pytest.MarkDecorator) -> pytest.ParameterSet:

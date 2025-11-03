@@ -872,6 +872,776 @@ See Also
 - :doc:`cli` - Complete CLI reference
 - ``all2md --help`` - Built-in help
 
+Document Viewing
+----------------
+
+The ``all2md view`` command provides a quick way to preview any supported document format by converting it to HTML and opening it in your default web browser. This is especially useful for rapid document inspection during development or when reviewing document conversions.
+
+.. code-block:: bash
+
+   all2md view FILE [OPTIONS]
+
+Basic Usage
+~~~~~~~~~~~
+
+Convert and view a document with the default minimal theme:
+
+.. code-block:: bash
+
+   # View any supported document format
+   all2md view document.pdf
+   all2md view report.docx
+   all2md view slides.pptx
+   all2md view README.md
+
+The command will:
+
+1. Convert the document to HTML using the AST
+2. Apply a clean, responsive theme
+3. Open the result in your default browser
+4. Wait for you to press Enter
+5. Clean up the temporary HTML file (unless ``--keep`` is used)
+
+Arguments
+~~~~~~~~~
+
+**Required Arguments:**
+
+``FILE``
+   Path to the document to view. Supports all formats that all2md can convert (PDF, DOCX, PPTX, HTML, Markdown, etc.).
+
+**Optional Arguments:**
+
+``--keep [PATH]``
+   Keep the HTML file instead of deleting it after viewing. Can optionally specify an output path.
+
+   * Without an argument: Keep the temporary file in the system temp directory
+   * With a path: Save directly to the specified file (no temp file, no cleanup prompt)
+
+   .. code-block:: bash
+
+      # Keep the temporary file
+      all2md view document.pdf --keep
+
+      # Save to specific file
+      all2md view document.pdf --keep output.html
+
+      # Save to subdirectory (created automatically)
+      all2md view document.pdf --keep docs/preview.html
+
+``--toc``
+   Include an automatically generated table of contents in the HTML output. The TOC is automatically placed based on the theme:
+
+   * For most themes: TOC appears after the first heading in the content
+   * For ``sidebar`` theme: TOC appears in the left sidebar
+
+   .. code-block:: bash
+
+      # Add table of contents
+      all2md view long-document.pdf --toc
+
+      # Use sidebar theme with TOC
+      all2md view document.pdf --toc --theme sidebar
+
+``--dark``
+   Use the dark mode theme with a dark background and light text. Quick shortcut for ``--theme dark``.
+
+   .. code-block:: bash
+
+      # View in dark mode
+      all2md view document.pdf --dark
+
+``--theme THEME``
+   Specify a theme for the HTML output. Can be either a built-in theme name or a path to a custom HTML template file.
+
+   **Built-in themes:**
+
+   * ``minimal`` (default) - Clean, centered layout with simple typography
+   * ``dark`` - Dark mode with VS Code-inspired color scheme
+   * ``newspaper`` - Classic newspaper style with serif fonts and justified text
+   * ``docs`` - GitHub-style documentation layout with technical styling
+   * ``sidebar`` - Two-column layout with sticky TOC sidebar (requires ``--toc``)
+
+   .. code-block:: bash
+
+      # Use built-in newspaper theme
+      all2md view article.md --theme newspaper
+
+      # Use built-in docs theme
+      all2md view technical-spec.pdf --theme docs
+
+      # Use sidebar theme with TOC
+      all2md view long-document.pdf --toc --theme sidebar
+
+      # Use custom theme template
+      all2md view document.pdf --theme /path/to/custom-theme.html
+
+Built-in Themes
+~~~~~~~~~~~~~~~
+
+**minimal** (default)
+
+   Clean, modern design with a centered layout (800px max-width). Uses system fonts with excellent readability. Features subtle borders and shading for code blocks and tables.
+
+   * **Best for:** General documents, reports, articles
+   * **Typography:** Sans-serif system fonts
+   * **Layout:** Single-column, centered
+   * **Colors:** Light background with dark text
+
+**dark**
+
+   Dark mode theme with a VS Code-inspired color palette. Reduces eye strain for extended viewing sessions. Syntax highlighting colors for code elements.
+
+   * **Best for:** Late-night reading, code-heavy documents
+   * **Typography:** Sans-serif system fonts
+   * **Layout:** Single-column, centered (900px max-width)
+   * **Colors:** Dark gray background (#1e1e1e) with light text (#d4d4d4)
+   * **Accents:** Blue headings (#569cd6), teal links (#4ec9b0)
+
+**newspaper**
+
+   Classic newspaper layout with serif typography and justified text. Features a distinctive drop cap on the first paragraph and traditional styling.
+
+   * **Best for:** Long-form content, articles, essays
+   * **Typography:** Georgia/Times New Roman serif fonts
+   * **Layout:** Single-column with wider max-width (1000px)
+   * **Colors:** Off-white background (#f9f7f3) with black text
+   * **Special:** Drop cap on first paragraph, quote styling
+
+**docs**
+
+   GitHub-inspired technical documentation style. Clean, professional appearance with excellent code formatting and technical elements.
+
+   * **Best for:** Technical documentation, API docs, README files
+   * **Typography:** System fonts with monospace for code
+   * **Layout:** Single-column (1200px max-width)
+   * **Colors:** Light gray background (#f6f8fa) with dark text
+   * **Special:** Hash symbols on headings, enhanced code blocks
+
+**sidebar**
+
+   Two-column layout with a fixed sidebar for the table of contents. The TOC stays visible while scrolling through long documents. Responsive design collapses to single column on mobile.
+
+   * **Best for:** Long documents, reference materials, technical guides
+   * **Typography:** Clean system fonts
+   * **Layout:** Two-column (280px sidebar + flexible content area)
+   * **Colors:** White background with light gray sidebar
+   * **Special:** Sticky TOC navigation, smooth scrolling, mobile-responsive
+   * **Requires:** Must be used with ``--toc`` flag for meaningful layout
+
+Custom Themes
+~~~~~~~~~~~~~
+
+You can create custom HTML themes using placeholder replacement. Themes are standard HTML files with placeholders that will be replaced with the converted content.
+
+**Available Placeholders:**
+
+* ``{CONTENT}`` - The converted document content (required)
+* ``{TOC}`` - Table of contents (optional, only used when ``--toc`` is specified)
+* ``{TITLE}`` - Document title from metadata
+* ``{AUTHOR}`` - Document author from metadata
+* ``{DATE}`` - Document date from metadata
+* ``{DESCRIPTION}`` - Document description from metadata
+
+**Basic Custom Theme Structure:**
+
+.. code-block:: html
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+       <title>Document Viewer</title>
+       <style>
+           /* Your custom CSS here */
+           body {
+               font-family: Arial, sans-serif;
+               max-width: 900px;
+               margin: 0 auto;
+               padding: 2rem;
+           }
+           /* Add more styles as needed */
+       </style>
+   </head>
+   <body>
+       {CONTENT}
+   </body>
+   </html>
+
+**Custom Theme with Sidebar TOC:**
+
+.. code-block:: html
+
+   <!DOCTYPE html>
+   <html lang="en">
+   <head>
+       <meta charset="UTF-8">
+       <title>{TITLE}</title>
+       <style>
+           body { display: flex; }
+           aside { width: 250px; padding: 1rem; }
+           main { flex: 1; padding: 2rem; }
+       </style>
+   </head>
+   <body>
+       <aside>{TOC}</aside>
+       <main>{CONTENT}</main>
+   </body>
+   </html>
+
+**Using Custom Themes:**
+
+.. code-block:: bash
+
+   # Save your custom theme as my-theme.html
+   all2md view document.pdf --theme ./my-theme.html
+
+   # Use custom theme with TOC
+   all2md view document.pdf --theme ./my-theme.html --toc
+
+The HTML renderer will replace all placeholders with the appropriate content while preserving all your custom styling and structure.
+
+Examples
+~~~~~~~~
+
+**Basic Viewing:**
+
+.. code-block:: bash
+
+   # View a PDF with default theme
+   all2md view report.pdf
+
+   # View a Word document with dark theme
+   all2md view document.docx --dark
+
+   # View a Markdown file with table of contents
+   all2md view README.md --toc
+
+**Theme Selection:**
+
+.. code-block:: bash
+
+   # Use newspaper theme for an article
+   all2md view article.md --theme newspaper
+
+   # Use docs theme for technical documentation
+   all2md view api-spec.pdf --theme docs
+
+   # Use custom theme
+   all2md view report.docx --theme ./company-theme.html
+
+**Saving Output Files:**
+
+.. code-block:: bash
+
+   # Keep the temporary file for later inspection
+   all2md view document.pdf --keep --dark
+   # Temporary file: /tmp/all2md-view-abc123.html
+   # Kept temporary file: /tmp/all2md-view-abc123.html
+
+   # Save directly to a specific file
+   all2md view document.pdf --keep output.html
+   # Saved to: /path/to/output.html
+
+   # Save to subdirectory (created automatically)
+   all2md view report.docx --keep previews/report-preview.html --dark
+   # Saved to: /path/to/previews/report-preview.html
+
+**Combined Options:**
+
+.. code-block:: bash
+
+   # View with all options
+   all2md view long-document.pdf --theme docs --toc --keep
+
+   # Dark mode with table of contents
+   all2md view technical-manual.docx --dark --toc
+
+   # Newspaper theme without cleanup
+   all2md view essay.md --theme newspaper --keep
+
+Use Cases
+~~~~~~~~~
+
+**Quick Document Preview:**
+
+   View converted documents before committing to a full conversion pipeline:
+
+   .. code-block:: bash
+
+      # Preview how a PDF will convert
+      all2md view input.pdf
+
+      # Try different themes to find the best look
+      all2md view document.pdf --theme minimal
+      all2md view document.pdf --theme newspaper
+      all2md view document.pdf --theme docs
+
+**Development and Testing:**
+
+   During converter development or debugging:
+
+   .. code-block:: bash
+
+      # Quickly view conversion results
+      all2md view test-document.pdf --keep
+
+      # Save test output for comparison
+      all2md view test-document.pdf --keep test-outputs/current.html
+
+      # Check table of contents generation
+      all2md view long-doc.pdf --toc
+
+      # Generate HTML artifacts for CI/CD
+      all2md view report.pdf --keep artifacts/report.html --theme docs
+
+**Documentation Review:**
+
+   Preview documentation files with appropriate themes:
+
+   .. code-block:: bash
+
+      # View README with docs theme
+      all2md view README.md --theme docs
+
+      # View API docs with TOC
+      all2md view api-reference.pdf --theme docs --toc
+
+**Presentation Review:**
+
+   Quickly preview PowerPoint slides:
+
+   .. code-block:: bash
+
+      # View presentation slides
+      all2md view presentation.pptx
+
+      # Dark mode for better visibility
+      all2md view slides.pptx --dark
+
+Notes
+~~~~~
+
+* The temporary HTML file is created in your system's temp directory (``/tmp`` on Unix, ``%TEMP%`` on Windows)
+* The file is automatically opened in your default web browser
+* Cleanup happens after you press Enter, ensuring the browser has time to load the file
+* With ``--keep``, the temporary file path is displayed for easy access
+* All standard all2md conversion options are applied during the HTML generation
+* The command supports all document formats that all2md can process
+
+See Also
+~~~~~~~~
+
+- :doc:`python_api` - For programmatic HTML generation
+- :doc:`options` - For HTML rendering options
+- ``all2md --help`` - Built-in help
+
+Document Serving
+----------------
+
+The ``all2md serve`` command provides an HTTP server for browsing documents locally with instant on-demand conversion. This is useful for exploring large document collections, sharing documents on a local network, or developing with live document preview.
+
+.. code-block:: bash
+
+   all2md serve FILE_OR_DIRECTORY [OPTIONS]
+
+Basic Usage
+~~~~~~~~~~~
+
+Serve a single document:
+
+.. code-block:: bash
+
+   # Serve a PDF file
+   all2md serve document.pdf
+
+   # Serve a Markdown file
+   all2md serve README.md
+
+Serve all documents in a directory:
+
+.. code-block:: bash
+
+   # Serve all documents in current directory
+   all2md serve .
+
+   # Serve documents in docs folder
+   all2md serve ./docs
+
+   # Serve documents recursively (includes subdirectories)
+   all2md serve ./docs --recursive
+
+The command will:
+
+1. Scan the directory for supported document formats
+2. Generate an index page with links to all documents
+3. Start an HTTP server (default: http://127.0.0.1:8000/)
+4. Convert documents on-demand when requested (lazy loading)
+5. Cache converted HTML for faster subsequent requests
+
+Arguments
+~~~~~~~~~
+
+**Required Arguments:**
+
+``FILE_OR_DIRECTORY``
+   Path to a file or directory to serve. When serving a directory, creates an index page with all supported documents. Supports all formats that all2md can convert.
+
+**Optional Arguments:**
+
+``--port PORT``
+   Port to serve on. Default: ``8000``.
+
+   .. code-block:: bash
+
+      # Serve on port 9000
+      all2md serve ./docs --port 9000
+
+``--host HOST``
+   Host address to bind to. Default: ``127.0.0.1`` (localhost only).
+
+   .. code-block:: bash
+
+      # Allow access from local network
+      all2md serve ./docs --host 0.0.0.0
+
+      # Localhost only (default)
+      all2md serve ./docs --host 127.0.0.1
+
+``-r``, ``--recursive``
+   Recursively serve subdirectories. When enabled, scans all nested folders for documents and organizes them hierarchically in the index.
+
+   .. code-block:: bash
+
+      # Serve only immediate directory
+      all2md serve ./docs
+
+      # Serve all subdirectories recursively
+      all2md serve ./docs --recursive
+
+``--toc``
+   Include an automatically generated table of contents in converted documents.
+
+   .. code-block:: bash
+
+      # Serve with table of contents
+      all2md serve ./docs --toc
+
+``--dark``
+   Use the dark mode theme. Quick shortcut for ``--theme dark``.
+
+   .. code-block:: bash
+
+      # Serve with dark theme
+      all2md serve ./docs --dark
+
+``--theme THEME``
+   Specify a theme for HTML output. Can be a built-in theme name or path to custom template.
+
+   **Built-in themes:**
+
+   * ``minimal`` (default) - Clean, centered layout
+   * ``dark`` - Dark mode with VS Code colors
+   * ``newspaper`` - Classic newspaper style
+   * ``docs`` - GitHub-style documentation
+   * ``sidebar`` - Two-column layout with TOC
+
+   .. code-block:: bash
+
+      # Use newspaper theme
+      all2md serve ./articles --theme newspaper
+
+      # Use custom theme
+      all2md serve ./docs --theme /path/to/theme.html
+
+``--enable-upload``
+   Enable file upload form at ``/upload`` route. This provides a web interface for uploading and converting documents. **For development use only - do not expose to untrusted networks.**
+
+   .. code-block:: bash
+
+      # Enable upload form
+      all2md serve ./docs --enable-upload
+
+   When enabled, a link to the upload page appears in the directory index.
+
+``--enable-api``
+   Enable REST API endpoint at ``/api/convert``. Accepts document uploads and returns converted output in the requested format. **For development use only - do not expose to untrusted networks.**
+
+   .. code-block:: bash
+
+      # Enable REST API
+      all2md serve ./docs --enable-api
+
+      # Enable both upload form and API
+      all2md serve ./docs --enable-upload --enable-api
+
+``--max-upload-size SIZE``
+   Maximum upload file size in megabytes. Default: ``50`` MB. Only applies when ``--enable-upload`` or ``--enable-api`` is enabled.
+
+   .. code-block:: bash
+
+      # Allow uploads up to 100MB
+      all2md serve ./docs --enable-upload --max-upload-size 100
+
+      # Restrict to 10MB
+      all2md serve . --enable-api --max-upload-size 10
+
+``--no-cache``
+   Disable caching and always render fresh content on every request. Useful for live editing when you want to see changes without restarting the server.
+
+   .. code-block:: bash
+
+      # Serve with live reload (no caching)
+      all2md serve document.md --no-cache
+
+      # Serve directory with live updates
+      all2md serve ./docs --no-cache --recursive
+
+   **When to use:**
+
+   * **Live editing**: See document changes immediately without restarting
+   * **Development**: Watch for file additions/removals in directories
+   * **Testing**: Verify conversion behavior with frequently changing inputs
+
+   **Performance note**: Disabling cache means documents are re-converted on every request, which may be slower for large files or complex conversions.
+
+Examples
+~~~~~~~~
+
+**Basic Serving:**
+
+.. code-block:: bash
+
+   # Serve current directory on default port
+   all2md serve .
+
+   # Serve specific directory with dark theme
+   all2md serve ./documents --dark
+
+   # Serve on custom port
+   all2md serve ./docs --port 8080
+
+**Recursive Directory Serving:**
+
+.. code-block:: bash
+
+   # Serve entire documentation tree
+   all2md serve ./docs --recursive --toc
+
+   # Serve with sidebar theme
+   all2md serve ./manual --recursive --theme sidebar --toc
+
+   # Serve on local network with custom port
+   all2md serve ./shared-docs --recursive --host 0.0.0.0 --port 9000
+
+**Network Sharing:**
+
+.. code-block:: bash
+
+   # Share on local network (accessible to other devices)
+   all2md serve ./team-docs --host 0.0.0.0 --port 8000
+
+   # Then access from other devices at http://YOUR_IP:8000
+
+**Development Features:**
+
+.. code-block:: bash
+
+   # Enable upload form for testing conversions
+   all2md serve . --enable-upload
+
+   # Enable REST API for integration testing
+   all2md serve . --enable-api --max-upload-size 100
+
+   # Enable both with custom theme
+   all2md serve ./test-docs --enable-upload --enable-api --theme docs
+
+   # Development server with all features
+   all2md serve . --enable-upload --enable-api --recursive --toc --dark
+
+**Live Editing (No Cache):**
+
+.. code-block:: bash
+
+   # Edit and see changes immediately
+   all2md serve README.md --no-cache
+
+   # Watch directory for new files and changes
+   all2md serve ./docs --no-cache --recursive
+
+   # Live editing with dark theme and TOC
+   all2md serve ./documentation --no-cache --dark --toc
+
+   # Development workflow with live reload
+   all2md serve . --no-cache --theme docs --recursive
+
+Performance
+~~~~~~~~~~~
+
+The serve command uses lazy loading for optimal performance:
+
+* **Startup:** Instant - only scans filenames and creates index
+* **First request:** Converts document on-demand
+* **Subsequent requests:** Served from in-memory cache (instant)
+* **Memory:** Efficient - only caches accessed documents
+
+This makes it practical to serve directories with hundreds or thousands of documents.
+
+**With ``--no-cache`` flag:**
+
+* **Every request:** Re-converts document from source
+* **Directory index:** Re-scans for new/removed files
+* **Memory:** Minimal - no caching
+* **Use case:** Live editing and development
+
+The ``--no-cache`` mode trades performance for live updates, making it ideal for active development but slower for large files or frequent requests.
+
+Use Cases
+~~~~~~~~~
+
+**Local Documentation Server:**
+
+.. code-block:: bash
+
+   # Serve your project's documentation
+   all2md serve ./docs --recursive --theme docs --toc
+
+**Document Collection Browser:**
+
+.. code-block:: bash
+
+   # Browse a collection of PDFs, Word docs, etc.
+   all2md serve ~/Documents/reports --recursive
+
+**Team Document Sharing:**
+
+.. code-block:: bash
+
+   # Share documents on local network
+   all2md serve ./shared --host 0.0.0.0 --recursive
+
+**Development Preview:**
+
+.. code-block:: bash
+
+   # Live preview while editing documents (cached)
+   all2md serve . --dark
+
+   # Live editing with instant updates (no cache)
+   all2md serve . --no-cache --dark
+
+**Live Editing Workflow:**
+
+.. code-block:: bash
+
+   # Edit documentation and see changes immediately
+   all2md serve ./docs --no-cache --recursive --theme docs
+
+   # Watch for new files in directory
+   all2md serve ./drafts --no-cache
+
+Development Features
+~~~~~~~~~~~~~~~~~~~~
+
+The serve command includes optional file upload and REST API capabilities for development and testing. These features are **disabled by default** and should only be enabled in trusted environments.
+
+.. warning::
+
+   The upload and API features are for **development use only**. Do not expose them to untrusted networks or use in production environments. When enabled, a security warning is displayed at server startup.
+
+**File Upload Form**
+
+Enable the web-based upload form at ``http://127.0.0.1:8000/upload``:
+
+.. code-block:: bash
+
+   # Enable upload form
+   all2md serve ./docs --enable-upload
+
+   # With custom upload size limit
+   all2md serve . --enable-upload --max-upload-size 100
+
+The upload form provides:
+
+* Web interface matching the selected theme
+* Support for all input formats (PDF, DOCX, HTML, etc.)
+* Conversion to any supported output format (Markdown, HTML, PDF, etc.)
+* Immediate download of converted documents
+* File size validation before processing
+
+**REST API**
+
+Enable the REST API endpoint at ``http://127.0.0.1:8000/api/convert``:
+
+.. code-block:: bash
+
+   # Enable REST API
+   all2md serve . --enable-api
+
+   # Enable both features
+   all2md serve . --enable-upload --enable-api --max-upload-size 50
+
+**API Usage Examples:**
+
+Using curl with multipart/form-data:
+
+.. code-block:: bash
+
+   # Convert PDF to Markdown
+   curl -X POST http://127.0.0.1:8000/api/convert \
+     -F "file=@document.pdf" \
+     -F "format=markdown" \
+     -o output.md
+
+   # Convert DOCX to HTML
+   curl -X POST http://127.0.0.1:8000/api/convert \
+     -F "file=@report.docx" \
+     -F "format=html" \
+     -o output.html
+
+Using curl with JSON (base64):
+
+.. code-block:: bash
+
+   # Prepare base64-encoded file
+   base64_content=$(base64 -w 0 document.pdf)
+
+   # Send request
+   curl -X POST http://127.0.0.1:8000/api/convert \
+     -H "Content-Type: application/json" \
+     -d "{\"file\": \"$base64_content\", \"format\": \"markdown\"}" \
+     -o output.md
+
+**Supported Output Formats:**
+
+The API supports conversion to: ``html``, ``markdown``, ``pdf``, ``docx``, ``epub``, ``odt``, ``rtf``, ``latex``, ``asciidoc``, ``rst``, ``org``, ``mediawiki``, ``dokuwiki``, ``textile``, ``json``, ``yaml``, ``toml``, ``ini``, ``csv``, ``plaintext``, and more.
+
+**Security Considerations:**
+
+* Only enable in trusted development environments
+* Use ``--host 127.0.0.1`` (default) to restrict to localhost
+* Set appropriate ``--max-upload-size`` limits
+* Monitor server output for suspicious activity
+* Never expose to public networks or production environments
+
+Notes
+~~~~~
+
+* Documents are converted on first access and cached in memory
+* The server runs until interrupted with Ctrl+C
+* Unsupported file types are automatically excluded from the index
+* Directory index shows file sizes and organizes by subdirectory
+* All conversion errors are shown in the console and as HTTP 500 responses
+* The server is single-threaded but suitable for local use and small teams
+
+See Also
+~~~~~~~~
+
+- :doc:`python_api` - For programmatic HTTP server integration
+- ``all2md view`` - For single-file browser preview
+- ``all2md --help`` - Built-in help
+
 Global Options
 --------------
 
@@ -890,6 +1660,7 @@ Output Control
 ``--format``
    Force a parser instead of using auto-detection (``auto`` remains the default). Accepted values line up with
    ``all2md list-formats`` (e.g. ``pdf``, ``docx``, ``markdown``, ``asciidoc``, ``pptx``, ``zip``, ``ast`` …).
+   Alias: ``--input-type`` (useful when migrating Pandoc-flavoured scripts).
 
    .. code-block:: bash
 
@@ -901,6 +1672,10 @@ Output Control
 
 Attachment Handling
 ~~~~~~~~~~~~~~~~~~~
+
+These top-level attachment flags apply to every parser that supports embedded assets (PDF, DOCX, HTML,
+etc.). Formats without attachment handling simply ignore them, and format-prefixed switches such as
+``--pdf-attachment-mode`` override the global value when you need per-format exceptions.
 
 ``--attachment-mode``
    How to handle images and attachments in documents.
@@ -1026,6 +1801,9 @@ Rich Terminal Output
 
 ``--rich-word-wrap``
    Apply word-wrapping to long lines in the Rich renderer.
+
+``--rich-no-word-wrap``
+   Disable Rich's automatic line wrapping when you need wide tables or preformatted output to stay on a single line.
 
 ``--no-rich-hyperlinks``
    Disable clickable hyperlinks (maps to ``ALL2MD_RICH_HYPERLINKS=false`` in env vars).
@@ -2160,6 +2938,15 @@ all2md supports processing multiple files with parallel execution and rich outpu
       # Convert with directory structure preservation
       all2md ./documents --recursive --output-dir ./markdown --preserve-structure
 
+``--output-extension``
+   Override the written file extension when saving to ``--output-dir`` or when using ``--watch``. Useful for publishing
+   Markdown previews with ``.txt`` suffixes or forcing HTML to use legacy extensions.
+
+   .. code-block:: bash
+
+      # Render Markdown but store files as .txt
+      all2md *.md --output-dir ./preview --output-extension .txt
+
 ``--recursive``, ``-r``
    Process directories recursively.
 
@@ -2240,7 +3027,8 @@ When processing multiple formats in a single batch, you can use format-specific 
 
 **How It Works:**
 
-1. Global flags (``--attachment-mode``, ``--attachment-output-dir``, etc.) apply to ALL formats
+1. Global flags (``--attachment-mode``, ``--attachment-output-dir``, etc.) apply to every format that
+   supports attachments; text-only converters ignore them
 2. Format-specific flags (``--pdf-attachment-mode``, ``--docx-attachment-mode``, etc.) override global settings for that format
 3. Format-specific flags always take precedence over global flags
 
@@ -2252,6 +3040,37 @@ When processing multiple formats in a single batch, you can use format-specific 
 * **Selective processing** - Skip attachments except where needed
 
 For a complete list of format-specific flags, see :doc:`attachments` or run ``all2md help <format>``.
+
+Batch from List
+~~~~~~~~~~~~~~~
+
+Process each entry from a plain text list file as a standalone conversion. Unlike ``--merge-from-list``, every item is
+rendered separately using the normal multi-file pipeline so per-file outputs, summaries, and progress reporting stay
+intact.
+
+``--batch-from-list``
+   Read file paths (one per line) from a list file or ``-`` (stdin). Lines beginning with ``#`` and blank lines are
+   ignored, and relative paths are resolved relative to the list file itself (or the current directory when streaming via
+   stdin). Paths must exist; nonexistent entries trigger a validation error before processing begins.
+
+   .. code-block:: text
+
+      # docs_to_convert.txt
+      ./reports/q1.docx
+      ./reports/q2.docx
+      # Relative paths resolve from the list location
+      ../shared/summary.pdf
+
+   .. code-block:: bash
+
+      # Convert every listed file into the output directory
+      all2md --batch-from-list docs_to_convert.txt --output-dir ./converted
+
+      # Feed a dynamically generated list from stdin
+      find ./incoming -name '*.pptx' -print | all2md --batch-from-list - --output-dir ./slides
+
+   ``--batch-from-list`` cannot be combined with ``--merge-from-list``. When you provide an explicit list file, stdin
+   inputs (``-``) are ignored; use ``--batch-from-list -`` if you need to stream the list over stdin.
 
 Merge from List
 ~~~~~~~~~~~~~~~
@@ -3169,7 +3988,7 @@ Environment variables use the pattern ``ALL2MD_<OPTION_NAME>`` where ``<OPTION_N
 
 .. code-block:: bash
 
-   # Universal attachment options
+   # Global attachment options (applies to attachment-capable formats)
    export ALL2MD_ATTACHMENT_MODE="download"
    export ALL2MD_ATTACHMENT_OUTPUT_DIR="./attachments"
 

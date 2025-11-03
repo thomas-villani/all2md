@@ -199,6 +199,30 @@
   ```
   '''
 # ---
+# name: TestMarkdownRoundtripGolden.test_markdown_roundtrip_with_definition_lists
+  '''
+  # Project Roles
+  
+  Developer: Implements core features and fixes bugs.
+  
+  Designer: Crafts the user experience, visuals, and accessibility guidance.
+  
+  QA Engineer:: - Creates regression suites: - Automates smoke checks: - Reports findings to the team
+  '''
+# ---
+# name: TestMarkdownRoundtripGolden.test_markdown_roundtrip_with_math
+  '''
+  # Math Showcase
+  
+  Einstein noted that $E = mc^2$ while Euler loved $e^{i\pi} + 1 = 0$.
+  
+  Here is a displayed equation:
+  
+  $$\int_0^1 x^2\,dx = \frac{1}{3}$$
+  
+  We also mention inline Greek letters like $\alpha$ and $\beta$ for completeness.
+  '''
+# ---
 # name: TestMarkdownRoundtripGolden.test_markdown_roundtrip_with_table
   '''
   # Quarterly Results

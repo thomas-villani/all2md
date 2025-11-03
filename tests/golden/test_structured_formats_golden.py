@@ -23,6 +23,7 @@ from fixtures.generators.odf_fixtures import (
     create_ods_with_sheet,
     create_odt_with_formatting,
     create_odt_with_lists,
+    create_odt_with_tables,
     save_odp_to_bytes,
     save_ods_to_bytes,
     save_odt_to_bytes,
@@ -171,6 +172,15 @@ class TestOdfGolden:
             pytest.skip("odfpy not installed")
 
         odt_doc = create_odt_with_lists()
+        odt_bytes = save_odt_to_bytes(odt_doc)
+        result = to_markdown(BytesIO(odt_bytes), source_format="odt")
+        assert result == snapshot
+
+    def test_odt_with_tables(self, snapshot):
+        if not HAS_ODFPY:
+            pytest.skip("odfpy not installed")
+
+        odt_doc = create_odt_with_tables()
         odt_bytes = save_odt_to_bytes(odt_doc)
         result = to_markdown(BytesIO(odt_bytes), source_format="odt")
         assert result == snapshot

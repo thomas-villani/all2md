@@ -779,7 +779,6 @@ def extract_page_images(
                     extension=img_extension,
                 )
             else:
-
                 img_filename = generate_attachment_filename(
                     base_stem=base_filename,
                     format_type="pdf",
@@ -1071,7 +1070,7 @@ class IdentifyHeaders:
                 for b in blocks
                 for line in b["lines"]
                 for s in line["spans"]
-                if not SPACES.issuperset(s["text"]) and line["dir"] == (1, 0)
+                if not SPACES.issuperset(s["text"]) and line.get("dir") == (1, 0)
             ]:
                 fontsz = round(span["size"])
                 text = span["text"].strip()
@@ -1353,7 +1352,7 @@ def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions)
         # Check text threshold
         text_length = len(extracted_text.strip())
         if text_length < ocr_opts.text_threshold:
-            logger.debug(f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), " f"triggering OCR")
+            logger.debug(f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), triggering OCR")
             return True
 
         # Check image coverage threshold
@@ -1583,8 +1582,7 @@ class PdfToAstConverter(BaseParser):
                     # Authentication failed (return code 0)
                     raise PasswordProtectedError(
                         message=(
-                            "Failed to authenticate PDF with provided password. "
-                            "Please check the password is correct."
+                            "Failed to authenticate PDF with provided password. Please check the password is correct."
                         ),
                         filename=filename,
                     )
@@ -1594,7 +1592,7 @@ class PdfToAstConverter(BaseParser):
                 # Document is encrypted but no password provided
                 raise PasswordProtectedError(
                     message=(
-                        "PDF document is password-protected. " "Please provide a password using the 'password' option."
+                        "PDF document is password-protected. Please provide a password using the 'password' option."
                     ),
                     filename=filename,
                 )
@@ -2195,6 +2193,7 @@ class PdfToAstConverter(BaseParser):
                         {
                             "spans": [{"text": ocr_text, "font": "OCR", "size": 11, "flags": 0, "color": 0}],
                             "bbox": page.rect,
+                            "dir": (1, 0),  # Horizontal text direction
                         }
                     ],
                 }
@@ -2211,6 +2210,7 @@ class PdfToAstConverter(BaseParser):
                             {
                                 "spans": [{"text": ocr_text, "font": "OCR", "size": 11, "flags": 0, "color": 0}],
                                 "bbox": page.rect,
+                                "dir": (1, 0),  # Horizontal text direction
                             }
                         ],
                     }
@@ -2523,7 +2523,7 @@ class PdfToAstConverter(BaseParser):
 
             for line in block["lines"]:  # Iterate lines in block
                 # Handle rotated text if enabled, otherwise skip non-horizontal lines
-                if line["dir"][1] != 0:  # Non-horizontal lines
+                if line.get("dir", (0, 0))[1] != 0:  # Non-horizontal lines
                     if self.options.handle_rotated_text:
                         rotated_text = handle_rotated_text(line, None)
                         if rotated_text.strip():
@@ -2735,6 +2735,100 @@ class PdfToAstConverter(BaseParser):
 
         return result
 
+    def _calculate_paragraph_break_threshold(self, block: dict) -> float:
+        """Calculate adaptive paragraph break threshold based on line heights.
+
+        Parameters
+        ----------
+        block : dict
+            Text block from PyMuPDF
+
+        Returns
+        -------
+        float
+            Paragraph break threshold in points
+
+        """
+        line_heights_in_block = []
+        for line in block["lines"]:
+            if "bbox" in line and "dir" in line and line["dir"][1] == 0:  # Only horizontal lines
+                line_height = line["bbox"][3] - line["bbox"][1]
+                if line_height > 0:
+                    line_heights_in_block.append(line_height)
+
+        # Use median line height for robustness (less affected by outliers)
+        if line_heights_in_block:
+            sorted_heights = sorted(line_heights_in_block)
+            median_height = sorted_heights[len(sorted_heights) // 2]
+            # Paragraph break threshold: 50% of typical line height
+            return median_height * 0.5
+        else:
+            # Fallback to fixed threshold if we can't calculate
+            return 5.0
+
+    def _build_paragraph_metadata(
+        self,
+        paragraph_bbox: tuple[float, float, float, float] | None,
+        paragraph_is_list: bool,
+        paragraph_list_type: str | None,
+    ) -> dict:
+        """Build metadata dict including bbox and list marker info.
+
+        Parameters
+        ----------
+        paragraph_bbox : tuple or None
+            Bounding box of paragraph
+        paragraph_is_list : bool
+            Whether paragraph is a list item
+        paragraph_list_type : str or None
+            Type of list marker
+
+        Returns
+        -------
+        dict
+            Metadata dictionary
+
+        """
+        metadata = {"bbox": paragraph_bbox} if paragraph_bbox else {}
+        if paragraph_is_list:
+            metadata["is_list_item"] = True
+            metadata["list_type"] = paragraph_list_type
+            if paragraph_bbox:
+                metadata["marker_x"] = paragraph_bbox[0]
+        return metadata
+
+    def _flush_paragraph(
+        self,
+        paragraph_content: list[Node],
+        paragraph_bbox: tuple[float, float, float, float] | None,
+        paragraph_is_list: bool,
+        paragraph_list_type: str | None,
+        page_num: int,
+        nodes: list[Node],
+    ) -> None:
+        """Flush accumulated paragraph content to nodes list.
+
+        Parameters
+        ----------
+        paragraph_content : list of Node
+            Accumulated inline nodes for paragraph
+        paragraph_bbox : tuple or None
+            Bounding box of paragraph
+        paragraph_is_list : bool
+            Whether paragraph is a list item
+        paragraph_list_type : str or None
+            Type of list marker
+        page_num : int
+            Page number for source tracking
+        nodes : list of Node
+            Output nodes list to append to
+
+        """
+        if paragraph_content:
+            metadata = self._build_paragraph_metadata(paragraph_bbox, paragraph_is_list, paragraph_list_type)
+            source_loc = SourceLocation(format="pdf", page=page_num + 1, metadata=metadata)
+            nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
+
     def _process_single_block_to_ast(
         self, block: dict, links: list[dict], page_num: int, average_line_height: float | None = None
     ) -> list[Node]:
@@ -2769,6 +2863,11 @@ class PdfToAstConverter(BaseParser):
         # Track accumulated paragraph content
         paragraph_content: list[Node] = []
         paragraph_bbox: tuple[float, float, float, float] | None = None  # (x0, y0, x1, y1)
+        paragraph_is_list: bool = False  # Track if paragraph starts with list marker
+        paragraph_list_type: str | None = None
+
+        # Calculate adaptive paragraph break threshold based on line heights in this block
+        paragraph_break_threshold = self._calculate_paragraph_break_threshold(block)
 
         for line in block["lines"]:
             # Handle rotated text if enabled, otherwise skip non-horizontal lines
@@ -2777,15 +2876,13 @@ class PdfToAstConverter(BaseParser):
                     rotated_text = handle_rotated_text(line, None)
                     if rotated_text.strip():
                         # Flush any accumulated paragraph first
-                        if paragraph_content:
-                            source_loc = SourceLocation(
-                                format="pdf",
-                                page=page_num + 1,
-                                metadata={"bbox": paragraph_bbox} if paragraph_bbox else {},
-                            )
-                            nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
-                            paragraph_content = []
-                            paragraph_bbox = None
+                        self._flush_paragraph(
+                            paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
+                        )
+                        paragraph_content = []
+                        paragraph_bbox = None
+                        paragraph_is_list = False
+                        paragraph_list_type = None
                         nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
                 continue
 
@@ -2809,13 +2906,13 @@ class PdfToAstConverter(BaseParser):
             # Handle monospace text (code blocks)
             if all_mono:
                 # Flush accumulated paragraph before starting code block
-                if paragraph_content:
-                    source_loc = SourceLocation(
-                        format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
-                    )
-                    nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
-                    paragraph_content = []
-                    paragraph_bbox = None
+                self._flush_paragraph(
+                    paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
+                )
+                paragraph_content = []
+                paragraph_bbox = None
+                paragraph_is_list = False
+                paragraph_list_type = None
 
                 if not in_code_block:
                     in_code_block = True
@@ -2847,13 +2944,13 @@ class PdfToAstConverter(BaseParser):
 
             if header_level > 0:
                 # Flush accumulated paragraph before adding heading
-                if paragraph_content:
-                    source_loc = SourceLocation(
-                        format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
-                    )
-                    nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
-                    paragraph_content = []
-                    paragraph_bbox = None
+                self._flush_paragraph(
+                    paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
+                )
+                paragraph_content = []
+                paragraph_bbox = None
+                paragraph_is_list = False
+                paragraph_list_type = None
 
                 # This is a heading
                 inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
@@ -2867,15 +2964,17 @@ class PdfToAstConverter(BaseParser):
                     )
             else:
                 # Regular text - check if we should start a new paragraph
-                # Large vertical gap (> 5 points) indicates paragraph break
-                if vertical_gap > 5 and paragraph_content:
-                    # Flush previous paragraph
-                    source_loc = SourceLocation(
-                        format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
+                # Large vertical gap (adaptive threshold based on line height) indicates paragraph break
+                # BUT: Don't break list items - they may span multiple lines
+                if vertical_gap > paragraph_break_threshold and paragraph_content and not paragraph_is_list:
+                    # Flush previous paragraph (unless it's a list item)
+                    self._flush_paragraph(
+                        paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
                     )
-                    nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
                     paragraph_content = []
                     paragraph_bbox = None
+                    paragraph_is_list = False
+                    paragraph_list_type = None
 
                 # Accumulate inline content
                 inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
@@ -2884,8 +2983,16 @@ class PdfToAstConverter(BaseParser):
                     if paragraph_content:
                         paragraph_content.append(Text(content=" "))
                     else:
-                        # Starting new paragraph - initialize bbox
+                        # Starting new paragraph - initialize bbox and check for list marker
                         paragraph_bbox = line["bbox"]
+                        # Detect list markers at the start of paragraph
+                        first_text = ""
+                        for node in inline_content:
+                            if isinstance(node, Text):
+                                first_text = node.content
+                                break
+                        paragraph_is_list, paragraph_list_type = self._is_valid_list_marker(first_text)
+
                     paragraph_content.extend(inline_content)
                     # Expand bbox to include this line
                     if paragraph_bbox:
@@ -2898,11 +3005,9 @@ class PdfToAstConverter(BaseParser):
                         )
 
         # Flush any remaining paragraph content
-        if paragraph_content:
-            source_loc = SourceLocation(
-                format="pdf", page=page_num + 1, metadata={"bbox": paragraph_bbox} if paragraph_bbox else {}
-            )
-            nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
+        self._flush_paragraph(
+            paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
+        )
 
         # Finalize any remaining code block
         if in_code_block and code_block_lines:
@@ -3360,20 +3465,8 @@ class PdfToAstConverter(BaseParser):
             return "".join(text_parts)
 
         full_text = extract_text(paragraph.content)
-        if not full_text:
-            return False
-
-        stripped_text = full_text.lstrip()
-        if not stripped_text:
-            return False
-
-        if stripped_text[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
-            return True
-
-        if re.match(r"^\d+[\.\)]\s", stripped_text):
-            return True
-
-        return False
+        is_list, _ = self._is_valid_list_marker(full_text)
+        return is_list
 
     def _determine_list_level_from_x(self, x_coord: float, x_levels: dict[int, float]) -> int:
         """Determine the nesting level of a list item based on its x-coordinate.
@@ -3438,6 +3531,8 @@ class PdfToAstConverter(BaseParser):
         is_list_item: bool,
         last_was_list_item: bool,
         merge_threshold: float,
+        current_metadata: dict | None = None,
+        last_metadata: dict | None = None,
     ) -> bool:
         """Determine if current paragraph should merge with accumulated content.
 
@@ -3455,6 +3550,10 @@ class PdfToAstConverter(BaseParser):
             Whether last paragraph was a list item
         merge_threshold : float
             Threshold for vertical gap merging
+        current_metadata : dict or None, optional
+            Metadata from current paragraph's source location
+        last_metadata : dict or None, optional
+            Metadata from last paragraph's source location
 
         Returns
         -------
@@ -3462,8 +3561,12 @@ class PdfToAstConverter(BaseParser):
             True if should merge
 
         """
+        # Check metadata for list markers first (more reliable than text-based detection)
+        current_is_list = (current_metadata and current_metadata.get("is_list_item", False)) or is_list_item
+        last_is_list = (last_metadata and last_metadata.get("is_list_item", False)) or last_was_list_item
+
         # Don't merge list items with anything
-        if is_list_item or last_was_list_item:
+        if current_is_list or last_is_list:
             return False
 
         # If bbox information is missing, don't merge to be safe
@@ -3520,13 +3623,16 @@ class PdfToAstConverter(BaseParser):
         last_source_location: SourceLocation | None = None
         last_bbox_bottom: float | None = None
         last_was_list_item: bool = False
+        last_metadata: dict | None = None
         first_list_item_x: float | None = None
 
         for node in nodes:
             if isinstance(node, AstParagraph):
                 current_bbox = None
+                current_metadata = None
                 if node.source_location and node.source_location.metadata:
                     current_bbox = node.source_location.metadata.get("bbox")
+                    current_metadata = node.source_location.metadata
 
                 is_list_item = self._is_list_item_paragraph(node)
 
@@ -3544,6 +3650,8 @@ class PdfToAstConverter(BaseParser):
                     is_list_item,
                     last_was_list_item,
                     MERGE_THRESHOLD,
+                    current_metadata,
+                    last_metadata,
                 )
 
                 if should_merge:
@@ -3556,6 +3664,7 @@ class PdfToAstConverter(BaseParser):
                     if current_bbox:
                         last_bbox_bottom = current_bbox[3]
                     last_was_list_item = is_list_item
+                    last_metadata = current_metadata
                 else:
                     # Don't merge: flush accumulated content
                     if accumulated_content:
@@ -3564,6 +3673,7 @@ class PdfToAstConverter(BaseParser):
                     last_source_location = node.source_location
                     last_bbox_bottom = current_bbox[3] if current_bbox else None
                     last_was_list_item = is_list_item
+                    last_metadata = current_metadata
                     if not is_list_item:
                         first_list_item_x = None
             else:
@@ -3574,6 +3684,7 @@ class PdfToAstConverter(BaseParser):
                     last_source_location = None
                     last_bbox_bottom = None
                     last_was_list_item = False
+                    last_metadata = None
                     first_list_item_x = None
                 merged.append(node)
 
@@ -3582,6 +3693,57 @@ class PdfToAstConverter(BaseParser):
             merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
 
         return merged
+
+    @staticmethod
+    def _is_valid_list_marker(text: str) -> tuple[bool, str | None]:
+        """Check if text starts with a valid list marker.
+
+        Parameters
+        ----------
+        text : str
+            Text to check for list markers
+
+        Returns
+        -------
+        tuple[bool, str | None]
+            (is_list_item, list_type) where list_type is "ordered", "unordered", or None
+
+        Notes
+        -----
+        This function is more conservative about detecting list markers to avoid false positives:
+        - Letter "o" must be followed by a space to be treated as a marker (avoids "office", "online", etc.)
+        - Numbered markers must be followed by space (avoids dates like "2024")
+
+        """
+        if not text:
+            return False, None
+
+        stripped = text.lstrip()
+        if not stripped:
+            return False, None
+
+        first_char = stripped[0]
+
+        # Check for bullet markers - but be careful with "o"
+        # Include EN DASH (–, U+2013) and EM DASH (—, U+2014) which are commonly used in PDFs
+        if first_char in ("-", "\u2013", "\u2014", "*", "+", "•", "◦", "▪", "▫"):
+            return True, "unordered"
+
+        # Special handling for lowercase "o" - only treat as marker if followed by space
+        if first_char == "o":
+            # Must have at least 2 characters and second must be space
+            if len(stripped) >= 2 and stripped[1] == " ":
+                return True, "unordered"
+            else:
+                return False, None
+
+        # Check for numbered list markers (1. or 1) followed by space)
+        # More robust: require space after marker to avoid matching dates/numbers
+        match = re.match(r"^\s*(\d+)[\.\)]\s", text)
+        if match:
+            return True, "ordered"
+
+        return False, None
 
     def _detect_list_marker(self, para: AstParagraph) -> tuple[bool, str | None]:
         """Detect if a paragraph is a list item and return its type.
@@ -3604,14 +3766,7 @@ class PdfToAstConverter(BaseParser):
                 full_text = node.content
                 break
 
-        stripped = full_text.lstrip()
-
-        if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
-            return True, "unordered"
-        elif re.match(r"^\s*\d+[\.\)]\s", full_text):
-            return True, "ordered"
-        else:
-            return False, None
+        return self._is_valid_list_marker(full_text)
 
     def _extract_list_item_x_coord(self, node: AstParagraph) -> float | None:
         """Extract x-coordinate from a paragraph's bbox metadata.
@@ -3653,18 +3808,28 @@ class PdfToAstConverter(BaseParser):
                 full_text = node.content
                 break
 
+        # Use the robust marker detection to validate this is actually a list item
+        is_list, list_type = self._is_valid_list_marker(full_text)
+        if not is_list:
+            # Not a valid list marker, return content as-is
+            return list(para.content)
+
         # Determine marker and strip it
         stripped = full_text.lstrip()
         marker_end = 0
 
-        if stripped and stripped[0] in ("-", "*", "+", "o", "•", "◦", "▪", "▫"):
+        if list_type == "unordered":
             # Bullet marker - find where it ends (marker + space)
-            marker_end = full_text.index(stripped[0]) + 1
+            marker_char = stripped[0]
+            marker_end = full_text.index(marker_char) + 1
+            # Skip following space if present
             if marker_end < len(full_text) and full_text[marker_end] == " ":
                 marker_end += 1
-        elif match := re.match(r"^(\s*)(\d+[\.\)])\s", full_text):
-            # Numbered marker
-            marker_end = match.end()
+        elif list_type == "ordered":
+            # Numbered marker - use regex to find end
+            match = re.match(r"^(\s*)(\d+[\.\)])\s", full_text)
+            if match:
+                marker_end = match.end()
 
         # Create new content without the marker
         new_content: list[Node] = []
@@ -3918,7 +4083,7 @@ CONVERTER_METADATA = ConverterMetadata(
         ("pytesseract", "pytesseract"),
         ("Pillow", "PIL"),
     ],
-    import_error_message=("PDF conversion requires 'PyMuPDF'. " "Install with: pip install pymupdf"),
+    import_error_message=("PDF conversion requires 'PyMuPDF'. Install with: pip install pymupdf"),
     parser_options_class=PdfOptions,
     renderer_options_class="all2md.options.pdf.PdfRendererOptions",
     description="Convert PDF documents to/from AST with table detection and optional OCR support",

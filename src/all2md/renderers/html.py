@@ -104,6 +104,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._headings: list[tuple[int, str, str]] = []  # (level, id, text)
         self._heading_id_counter: int = 0
         self._footnote_definitions: list[FootnoteDefinition] = []
+        self._toc_insert_position: int | None = None  # Position to insert TOC in inject mode
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to HTML string.
@@ -123,9 +124,26 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._headings = []
         self._heading_id_counter = 0
         self._footnote_definitions = []
+        self._toc_insert_position = None
 
-        # Render content
+        # Render content (TOC position will be tracked during heading rendering)
         document.accept(self)
+
+        # Determine whether to insert TOC into content or handle separately
+        # For inject mode with toc_selector, TOC is handled separately in template application
+        # For replace mode with {TOC} placeholder, TOC is replaced in template
+        if (
+            self.options.include_toc
+            and self._headings
+            and self._toc_insert_position is not None
+            and self._should_insert_toc_in_content()
+        ):
+            toc_html = '<nav id="table-of-contents">\n'
+            toc_html += "<h2>Table of Contents</h2>\n"
+            toc_html += self._generate_toc()
+            toc_html += "\n</nav>\n"
+            # Insert TOC at the tracked position
+            self._output.insert(self._toc_insert_position, toc_html)
 
         content = "".join(self._output)
 
@@ -384,6 +402,26 @@ hr {
 }
 """
 
+    def _should_insert_toc_in_content(self) -> bool:
+        """Determine if TOC should be inserted in content.
+
+        Returns
+        -------
+        bool
+            True if TOC should be inserted in content, False otherwise
+
+        """
+        if self.options.template_mode == "inject" and not self.options.toc_selector:
+            # Inject mode without separate toc_selector: insert in content
+            return True
+        if self.options.template_mode == "replace" and self.options.template_file:
+            # Replace mode: check if template has {TOC} placeholder
+            template_path = Path(self.options.template_file)
+            template_content = template_path.read_text(encoding="utf-8")
+            # If no {TOC} placeholder, insert in content (fallback behavior)
+            return "{TOC}" not in template_content
+        return False
+
     def _generate_toc(self) -> str:
         """Generate table of contents HTML from collected headings.
 
@@ -467,6 +505,14 @@ hr {
         template_path = Path(self.options.template_file)
         template = template_path.read_text(encoding="utf-8")
 
+        # Build TOC HTML if needed
+        toc_html = ""
+        if self.options.include_toc and self._headings:
+            toc_html = '<nav id="table-of-contents">\n'
+            toc_html += "<h2>Table of Contents</h2>\n"
+            toc_html += self._generate_toc()
+            toc_html += "\n</nav>\n"
+
         # Build replacement map
         replacements = {
             self.options.content_placeholder: content,
@@ -476,7 +522,7 @@ hr {
             "{DESCRIPTION}": escape_html(
                 str(document.metadata.get("description", "")), enabled=self.options.escape_html
             ),
-            "{TOC}": self._generate_toc() if self.options.include_toc else "",
+            "{TOC}": toc_html,
         }
 
         # Replace all placeholders
@@ -520,7 +566,7 @@ hr {
         # Parse with BeautifulSoup
         soup = BeautifulSoup(template_html, "html.parser")
 
-        # Find target element
+        # Find target element for content
         target = soup.select_one(self.options.template_selector)
         if not target:
             raise ValueError(
@@ -541,6 +587,27 @@ hr {
         elif self.options.injection_mode == "prepend":
             for child in reversed(list(content_soup.children)):
                 target.insert(0, child)
+
+        # Handle separate TOC injection if toc_selector is specified
+        if self.options.toc_selector and self.options.include_toc and self._headings:
+            toc_target = soup.select_one(self.options.toc_selector)
+            if not toc_target:
+                logger.warning(
+                    f"TOC selector '{self.options.toc_selector}' not found in template {self.options.template_file}. "
+                    "TOC will not be included."
+                )
+            else:
+                # Generate TOC HTML
+                toc_html = '<nav id="table-of-contents">\n'
+                toc_html += "<h2>Table of Contents</h2>\n"
+                toc_html += self._generate_toc()
+                toc_html += "\n</nav>\n"
+
+                # Inject TOC at toc_selector (always use replace mode for TOC)
+                toc_soup = BeautifulSoup(toc_html, "html.parser")
+                toc_target.clear()
+                for child in toc_soup.children:
+                    toc_target.append(child)
 
         return str(soup)
 
@@ -627,6 +694,40 @@ hr {
 
         return f' class="{class_str}"' if class_str else ""
 
+    def _slugify_heading(self, text: str) -> str:
+        """Create a URL-friendly slug from heading text.
+
+        Parameters
+        ----------
+        text : str
+            Heading text to slugify
+
+        Returns
+        -------
+        str
+            Slugified text suitable for HTML IDs
+
+        """
+        import re
+
+        # Convert to lowercase
+        slug = text.lower()
+        # Remove HTML tags if any
+        slug = strip_html_tags(slug)
+        # Replace spaces and underscores with hyphens
+        slug = re.sub(r"[\s_]+", "-", slug)
+        # Remove non-alphanumeric characters except hyphens
+        slug = re.sub(r"[^\w\-]", "", slug)
+        # Remove leading/trailing hyphens and collapse multiple hyphens
+        slug = re.sub(r"-+", "-", slug).strip("-")
+        # Limit length to 50 characters for readability
+        if len(slug) > 50:
+            slug = slug[:50].rstrip("-")
+        # Fallback to generic if empty after slugification
+        if not slug:
+            slug = "heading"
+        return slug
+
     def visit_document(self, node: Document) -> None:
         """Render a Document node.
 
@@ -651,17 +752,30 @@ hr {
         level = min(6, max(1, node.level))
         content = self._render_inline_content(node.content)
 
-        # Generate heading ID for TOC
-        heading_id = f"heading-{self._heading_id_counter}"
-        self._heading_id_counter += 1
-
         # Store for TOC (extract plain text to avoid HTML tags in TOC entries)
         plain_text_content = strip_html_tags(content)
+
+        # Generate semantic heading ID from content with counter for uniqueness
+        slug = self._slugify_heading(plain_text_content)
+        self._heading_id_counter += 1
+        heading_id = f"{slug}-{self._heading_id_counter}"
+
         self._headings.append((level, heading_id, plain_text_content))
 
         # Add custom CSS class if configured
         css_class = self._get_custom_css_class("Heading")
         self._output.append(f'<h{level} id="{heading_id}"{css_class}>{content}</h{level}>\n')
+
+        # Track position for TOC insertion in inject and replace modes (after first h1)
+        # (jinja mode handles TOC through template variables)
+        if (
+            self.options.template_mode in ("inject", "replace")
+            and self.options.include_toc
+            and self._toc_insert_position is None
+            and level == 1
+        ):
+            # Mark position after this heading for TOC insertion
+            self._toc_insert_position = len(self._output)
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.
@@ -753,13 +867,34 @@ hr {
         css_class = self._get_custom_css_class("ListItem")
         self._output.append(f"<li{css_class}>")
 
-        # Handle task lists
+        # Handle task lists - insert checkbox into first paragraph
         if node.task_status:
-            checked = " checked" if node.task_status == "checked" else ""
-            self._output.append(f'<input type="checkbox"{checked} disabled> ')
+            checkbox = "&#9745; " if node.task_status == "checked" else "&#9744; "
 
-        for child in node.children:
-            child.accept(self)
+            # If first child is a Paragraph, insert checkbox at the beginning
+            if node.children and node.children[0].__class__.__name__ == "Paragraph":
+                first_para = node.children[0]
+                para_css_class = self._get_custom_css_class("Paragraph")
+                self._output.append(f"<p{para_css_class}>{checkbox}")
+
+                # Render paragraph content
+                for content_node in first_para.content:
+                    content_node.accept(self)
+
+                self._output.append("</p>\n")
+
+                # Render remaining children
+                for child in node.children[1:]:
+                    child.accept(self)
+            else:
+                # Fallback: just prepend checkbox
+                self._output.append(checkbox)
+                for child in node.children:
+                    child.accept(self)
+        else:
+            # Non-task list item
+            for child in node.children:
+                child.accept(self)
 
         self._output.append("</li>\n")
 

@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 try:
     import tomli_w
@@ -135,11 +136,13 @@ class TestConfigDiscovery:
         """Test getting list of config search paths."""
         paths = get_config_search_paths()
 
-        assert len(paths) == 5  # 3 in cwd + 2 in home
+        assert len(paths) == 9  # 5 in cwd + 4 in home
 
         # Should contain dedicated configs and pyproject.toml
         path_names = [p.name for p in paths]
         assert ".all2md.toml" in path_names
+        assert ".all2md.yaml" in path_names
+        assert ".all2md.yml" in path_names
         assert ".all2md.json" in path_names
         assert "pyproject.toml" in path_names
 
@@ -440,6 +443,20 @@ class TestConfigGenerateDefaults:
         if "attachment_mode" in data.get("archive", {}):
             assert data["archive"]["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
 
+    def test_generate_config_yaml_defaults(self, capsys):
+        exit_code = handle_config_generate_command(["--format", "yaml"])
+        assert exit_code == 0
+
+        output = capsys.readouterr().out
+        data = yaml.safe_load(output)
+
+        # Check for format sections
+        assert "pdf" in data and "detect_columns" in data["pdf"]
+        assert "archive" in data
+        # Attachment mode is per-format now
+        if "attachment_mode" in data.get("archive", {}):
+            assert data["archive"]["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
+
     def test_load_config_invalid_file_raises_error(self):
         """Test that loading non-existent file raises error."""
         import argparse
@@ -449,20 +466,24 @@ class TestConfigGenerateDefaults:
 
         assert "does not exist" in str(exc_info.value)
 
-    def test_load_config_unsupported_format_raises_error(self):
-        """Test that unsupported file format raises error."""
-        import argparse
-
+    def test_load_yaml_config(self):
+        """Test loading configuration from YAML file."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
             config_file = temp_path / "config.yaml"
-            config_file.write_text("test: value")
+            config_data = {
+                "attachment_mode": "base64",
+                "pdf": {"detect_columns": True},
+            }
 
-            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
-                load_config_file(config_file)
+            with open(config_file, "w") as f:
+                yaml.dump(config_data, f)
 
-            assert "Unsupported config file format" in str(exc_info.value)
+            loaded = load_config_file(config_file)
+
+            assert loaded["attachment_mode"] == "base64"
+            assert loaded["pdf"]["detect_columns"] is True
 
     def test_load_config_invalid_toml_raises_error(self):
         """Test that invalid TOML syntax raises error."""
@@ -493,6 +514,21 @@ class TestConfigGenerateDefaults:
                 load_config_file(config_file)
 
             assert "Invalid JSON" in str(exc_info.value)
+
+    def test_load_config_invalid_yaml_raises_error(self):
+        """Test that invalid YAML syntax raises error."""
+        import argparse
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            config_file = temp_path / "config.yaml"
+            config_file.write_text("invalid: yaml: [[[")
+
+            with pytest.raises(argparse.ArgumentTypeError) as exc_info:
+                load_config_file(config_file)
+
+            assert "Invalid YAML" in str(exc_info.value)
 
     def test_load_config_non_dict_raises_error(self):
         """Test that non-dict config raises error."""

@@ -25,12 +25,13 @@ from all2md.constants import (
     DEFAULT_INCLUDE_METADATA_FRONTMATTER,
     DEFAULT_LINK_STYLE,
     DEFAULT_LIST_INDENT_WIDTH,
-    DEFAULT_MARKDOWN_HTML_SANITIZATION,
+    DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE,
     DEFAULT_MATH_MODE,
     DEFAULT_METADATA_FORMAT,
     DEFAULT_REFERENCE_LINK_PLACEMENT,
     DEFAULT_TABLE_PIPE_ESCAPE,
     DEFAULT_USE_HASH_HEADINGS,
+    HTML_PASSTHROUGH_MODES,
     CodeFenceChar,
     CommentMode,
     EmphasisSymbol,
@@ -72,16 +73,9 @@ class MarkdownParserOptions(BaseParserOptions):
         Whether to parse definition lists (term : definition).
     parse_strikethrough : bool, default True
         Whether to parse strikethrough syntax (~~text~~).
-    strict_parsing : bool, default False
-        Whether to raise errors on invalid/ambiguous markdown syntax.
-        When False, attempts to recover gracefully.
-    preserve_html : bool, default True
-        Whether to preserve raw HTML in the AST (HTMLBlock/HTMLInline nodes).
-        When False, HTML is stripped.
 
     """
 
-    # TODO: move magic strings/numbers
     flavor: FlavorType = field(
         default=DEFAULT_FLAVOR,
         metadata={
@@ -132,29 +126,6 @@ class MarkdownParserOptions(BaseParserOptions):
             "help": "Parse strikethrough syntax (~~text~~)",
             "cli_name": "no-parse-strikethrough",
             "importance": "core",
-        },
-    )
-    strict_parsing: bool = field(
-        default=False,
-        metadata={"help": "Raise errors on invalid markdown syntax (vs. graceful recovery)", "importance": "advanced"},
-    )
-    preserve_html: bool = field(
-        default=True,
-        metadata={
-            "help": "Preserve raw HTML in AST (HTMLBlock/HTMLInline nodes)",
-            "cli_name": "no-preserve-html",
-            "importance": "security",
-        },
-    )
-    html_handling: str = field(
-        default="drop",
-        metadata={
-            "help": (
-                "How to handle HTML when preserve_html=False: drop (remove entirely), "
-                "sanitize (clean dangerous content)"
-            ),
-            "choices": ["drop", "sanitize"],
-            "importance": "security",
         },
     )
     parse_frontmatter: bool = field(
@@ -254,7 +225,7 @@ class MarkdownRendererOptions(BaseRendererOptions):
         requested representation is unavailable on a node, the renderer falls
         back to any available representation while preserving flavor
         constraints.
-    html_sanitization : {"pass-through", "escape", "drop", "sanitize"}, default "escape"
+    html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "escape"
         How to handle raw HTML content in markdown (HTMLBlock and HTMLInline nodes):
         - "pass-through": Pass HTML through unchanged (use only with trusted content)
         - "escape": HTML-escape the content to show as text (secure default)
@@ -460,14 +431,14 @@ class MarkdownRendererOptions(BaseRendererOptions):
             "importance": "advanced",
         },
     )
-    html_sanitization: HtmlPassthroughMode = field(
-        default=DEFAULT_MARKDOWN_HTML_SANITIZATION,
+    html_passthrough_mode: HtmlPassthroughMode = field(
+        default=DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE,
         metadata={
             "help": "How to handle raw HTML content in markdown: "
             "pass-through (allow HTML as-is), escape (show as text), "
             "drop (remove entirely), sanitize (remove dangerous elements). "
             "Default is 'escape' for security. Does not affect code blocks.",
-            "choices": ["pass-through", "escape", "drop", "sanitize"],
+            "choices": HTML_PASSTHROUGH_MODES,
             "importance": "security",
         },
     )

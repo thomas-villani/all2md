@@ -96,7 +96,7 @@ class TestStaticSiteGeneration:
         assert "<!DOCTYPE html>" in result
         assert "<title>Understanding HTML Templates</title>" in result
         assert "By Jane Doe | 2025-01-15" in result
-        assert '<h2 id="heading-0">Introduction</h2>' in result
+        assert '<h2 id="introduction-1">Introduction</h2>' in result
         assert "language-python" in result
         assert "Table of Contents" in result
 
@@ -153,8 +153,8 @@ class TestStaticSiteGeneration:
         assert '<main id="content">' in result
 
         # Verify content is injected
-        assert '<h1 id="heading-0">API Reference</h1>' in result
-        assert '<h2 id="heading-1">Classes</h2>' in result
+        assert '<h1 id="api-reference-1">API Reference</h1>' in result
+        assert '<h2 id="classes-2">Classes</h2>' in result
 
     def test_article_with_custom_styling(self, tmp_path):
         """Test generating article with custom CSS classes."""

@@ -56,7 +56,6 @@ from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.html_sanitizer import sanitize_html_content
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
 
@@ -705,15 +704,6 @@ class MarkdownToAstConverter(BaseParser):
             comment_text = self._extract_comment_text(content)
             return Comment(content=comment_text)
 
-        if not self.options.preserve_html:
-            # When preserve_html is False, use html_handling option
-            if self.options.html_handling == "sanitize":
-                # Sanitize HTML content
-                sanitized = sanitize_html_content(content)
-                return HTMLBlock(content=sanitized)
-            else:  # "drop"
-                return None
-
         # preserve_html is True, keep raw content
         return HTMLBlock(content=content)
 
@@ -905,15 +895,6 @@ class MarkdownToAstConverter(BaseParser):
             comment_text = self._extract_comment_text(content)
             return CommentInline(content=comment_text)
 
-        if not self.options.preserve_html:
-            # When preserve_html is False, use html_handling option
-            if self.options.html_handling == "sanitize":
-                sanitized = sanitize_html_content(content)
-                return HTMLInline(content=sanitized)
-            else:  # "drop"
-                return None
-
-        # preserve_html is True, keep raw content
         return HTMLInline(content=content)
 
     def _handle_inline_math_token(self, token: dict[str, Any]) -> MathInline:

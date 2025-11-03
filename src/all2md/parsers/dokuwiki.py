@@ -48,6 +48,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.ast.utils import extract_text
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.dokuwiki import DokuWikiParserOptions
@@ -1202,9 +1203,14 @@ class DokuWikiParser(BaseParser):
                             title_parts.append(node.content)
                     title = "".join(title_parts)
                     break
+
+            # Calculate word count from document text
+            all_text = extract_text(content, joiner=" ")
+            word_count = len(all_text.split()) if all_text else 0
+
             return DocumentMetadata(
                 title=title,
-                word_count=0,  # TODO: Implement word count
+                word_count=word_count,
             )
 
         # String content - try to find first heading

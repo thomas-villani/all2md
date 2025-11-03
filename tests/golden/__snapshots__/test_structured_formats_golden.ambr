@@ -202,6 +202,26 @@
   * Parent item 2
   '''
 # ---
+# name: TestOdfGolden.test_odt_with_tables
+  '''
+  # Table Test Document
+  
+  Here is a simple table:
+  
+  |  |  |  |
+  |:---|:---|:---|
+  |  |  |  |
+  |  |  |  |
+  |  |  |  |
+  
+  Table with some formatting:
+  
+  |  |  |
+  |:---|:---|
+  |  |  |
+  |  |  |
+  '''
+# ---
 # name: TestXlsxGolden.test_xlsx_basic_table
   '''
   ## Employees

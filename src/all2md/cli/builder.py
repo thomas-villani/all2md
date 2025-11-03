@@ -1014,8 +1014,8 @@ class DynamicCLIBuilder:
         # Create argument group for global attachment options
         attachment_group = parser.add_argument_group(
             "Global attachment options",
-            "Apply to all formats unless format-specific overrides are provided. "
-            "These options work consistently across PDF, DOCX, HTML, and all other formats.",
+            "Apply to every parser that supports attachments (PDF, DOCX, HTML, etc.). "
+            "Text-only formats ignore these flags, and format-specific overrides still take precedence.",
         )
 
         # Iterate over AttachmentOptionsMixin fields

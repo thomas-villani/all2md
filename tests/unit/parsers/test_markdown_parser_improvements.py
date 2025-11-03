@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown parser improvements."""
 
-from all2md.ast import HTMLBlock, HTMLInline, Paragraph
 from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.markdown import MarkdownToAstConverter
 
@@ -155,90 +154,3 @@ Content"""
 
         # Description stays as "description" field
         assert doc.metadata.get("description") == "This is a test document"
-
-
-class TestMarkdownHtmlSanitization:
-    """Tests for HTML sanitization option when preserve_html=False."""
-
-    def test_html_drop_mode(self) -> None:
-        """Test html_handling='drop' removes HTML entirely."""
-        markdown = """<div>HTML block</div>
-
-Paragraph with <span>inline HTML</span>."""
-
-        options = MarkdownParserOptions(preserve_html=False, html_handling="drop")
-        parser = MarkdownToAstConverter(options=options)
-        doc = parser.parse(markdown)
-
-        # HTML blocks and inline HTML should be dropped
-        # Check that no HTMLBlock or HTMLInline nodes exist
-        def has_html_nodes(nodes):
-            for node in nodes:
-                if isinstance(node, (HTMLBlock, HTMLInline)):
-                    return True
-                if hasattr(node, "content") and isinstance(node.content, list):
-                    if has_html_nodes(node.content):
-                        return True
-                if hasattr(node, "children") and isinstance(node.children, list):
-                    if has_html_nodes(node.children):
-                        return True
-            return False
-
-        assert not has_html_nodes(doc.children)
-
-    def test_html_sanitize_mode(self) -> None:
-        """Test html_handling='sanitize' cleans dangerous HTML."""
-        markdown = """<script>alert('xss')</script>
-
-<p>Safe paragraph</p>"""
-
-        options = MarkdownParserOptions(preserve_html=False, html_handling="sanitize")
-        parser = MarkdownToAstConverter(options=options)
-        _ = parser.parse(markdown)
-
-        # Should have HTMLBlock nodes with sanitized content
-        # Script tags should be removed, but p tags might be kept
-        # The exact behavior depends on the sanitizer implementation
-
-    def test_preserve_html_true_ignores_handling(self) -> None:
-        """Test that preserve_html=True preserves HTML regardless of html_handling."""
-        markdown = """<div>HTML content</div>"""
-
-        options = MarkdownParserOptions(preserve_html=True, html_handling="drop")
-        parser = MarkdownToAstConverter(options=options)
-        doc = parser.parse(markdown)
-
-        # HTML should still be preserved
-        has_html = False
-        for child in doc.children:
-            if isinstance(child, HTMLBlock):
-                has_html = True
-                assert "<div>" in child.content
-        assert has_html
-
-    def test_inline_html_drop(self) -> None:
-        """Test inline HTML is dropped with html_handling='drop'."""
-        markdown = "Text with <strong>HTML</strong> inline."
-
-        options = MarkdownParserOptions(preserve_html=False, html_handling="drop")
-        parser = MarkdownToAstConverter(options=options)
-        doc = parser.parse(markdown)
-
-        # Should have a paragraph without HTMLInline nodes
-        para = doc.children[0]
-        assert isinstance(para, Paragraph)
-
-        # Check no HTMLInline in content
-        has_html_inline = any(isinstance(node, HTMLInline) for node in para.content)
-        assert not has_html_inline
-
-    def test_inline_html_sanitize(self) -> None:
-        """Test inline HTML is sanitized with html_handling='sanitize'."""
-        markdown = "Text with <script>evil</script> inline."
-
-        options = MarkdownParserOptions(preserve_html=False, html_handling="sanitize")
-        parser = MarkdownToAstConverter(options=options)
-        _ = parser.parse(markdown)
-
-        # Script should be removed or escaped
-        # The paragraph should exist but script should be sanitized

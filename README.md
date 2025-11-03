@@ -2,12 +2,37 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/all2md.svg)](https://pypi.org/project/all2md/)
 [![CI](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://all2md.readthedocs.io/)
 [![License](https://img.shields.io/pypi/l/all2md.svg)](https://opensource.org/licenses/MIT)
 [![Python Versions](https://img.shields.io/pypi/pyversions/all2md.svg)](https://pypi.org/project/all2md/)
 
 **Rapid, lightweight conversion of various document formats to and from markdown for LLMs.**
 
 all2md is a universal document converter that transforms PDFs, Office files, HTML, email, code snippets, and more into consistent Markdown — and back again. It powers cleaning, inspection, and round-tripping of documents for human workflows and AI assistants alike.
+
+📖 **[Read the Documentation](https://all2md.readthedocs.io/)** | 🚀 **[Quick Start](#quick-start)** | 🎯 **[Use Cases](#use-case-scenarios)**
+
+## Quick Start
+
+Get started with all2md in less than 30 seconds:
+
+```bash
+# Install with PDF support
+pip install "all2md[pdf]"
+
+# Convert any document to Markdown
+all2md document.pdf
+
+# Convert to a file
+all2md report.docx -o report.md
+
+# Use in Python
+python -c "from all2md import to_markdown; print(to_markdown('document.pdf'))"
+```
+
+That's it! For more formats, install the dependencies you need: `all2md[docx,html,xlsx]` or `all2md[all]` for everything.
+
+**Want to integrate with AI assistants?** See the [MCP Server](#mcp-server-for-ai-assistants) section below.
 
 ## The Problem
 
@@ -23,6 +48,26 @@ LLMs excel at processing and generating structured text, with Markdown being a n
 
 This approach makes Markdown the universal intermediate format, simplifying document processing workflows for AI applications.
 
+## Why all2md?
+
+While tools like Pandoc excel at document conversion, all2md is designed specifically for Python developers, AI/LLM workflows, and programmatic document processing. Here's when to use all2md:
+
+**Choose all2md when you need:**
+- **Python-Native Integration** - First-class Python API designed for embedding in applications, not just CLI usage
+- **AI Assistant Integration** - Built-in MCP server for direct Claude Desktop, ChatGPT, and other AI model integration
+- **AST-Based Transforms** - Powerful document manipulation pipeline for cleaning, modifying, and analyzing content programmatically
+- **Lightweight Dependencies** - Install only what you need;
+- **Extensibility** - Simple plugin system using Python entry points to add custom formats and transforms
+- **Modern Python** - Built for Python 3.12+ with type hints, dataclasses, and contemporary patterns
+
+**Choose Pandoc when you need:**
+- Maximum format support (100+ formats)
+- Scholarly document features (citations, bibliographies)
+- Standalone binary with no runtime dependencies
+- Battle-tested stability (15+ years of development)
+
+**Use both together:** all2md complements Pandoc in Python projects. Use all2md for LLM preprocessing, programmatic workflows, and AI integration, then hand off to Pandoc for specialized academic formats if needed.
+
 ## Key Features
 
 -   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages.
@@ -37,6 +82,59 @@ This approach makes Markdown the universal intermediate format, simplifying docu
 -   **Highly Configurable**: Fine-tune every aspect of the conversion process using clean, type-safe `dataclass` options for each format.
 -   **Security-Conscious**: Built-in protections against Server-Side Request Forgery (SSRF) when fetching remote resources and security validation for archives like ZIP, DOCX, and EPUB.
 -   **Smart Dependency Management**: Core library is dependency-free. Install support for formats only as you need them.
+all2md is built around four core strengths that make it ideal for modern document processing workflows:
+
+### 1. MCP Server for AI Integration
+
+Built-in Model Context Protocol (MCP) server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
+
+- Direct document reading in Claude Desktop and other MCP-compatible AI tools
+- Smart auto-detection of file paths, data URIs, base64, and plain text
+- Section extraction for targeted reading
+- Vision model support with embedded images
+- Security-first design with file allowlists and network controls
+
+See [MCP Server for AI Assistants](#mcp-server-for-ai-assistants) section below for setup.
+
+### 2. Powerful CLI Features
+
+Beyond basic conversion, the CLI includes advanced features for production workflows:
+
+- **Watch Mode** - Automatically convert files as they change
+- **Parallel Processing** - Multi-worker processing for large document sets
+- **Static Site Generation** - Built-in SSG with 5 themes (dark, docs, minimal, newspaper, sidebar)
+- **Quick Preview** - `all2md view` command for instant HTML preview
+- **Config Management** - Generate, validate, and manage conversion configs
+- **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
+
+### 3. Production-Ready Python API
+
+Designed for embedding in applications, not just CLI usage:
+
+- Clean, typed API with comprehensive options classes for every format
+- Progress callbacks for long-running conversions
+- Bidirectional conversion between any supported formats
+- AST manipulation for advanced document processing
+- Transform pipeline for systematic document modification
+- Extensive documentation with examples for every format
+
+### 4. AST-Based Architecture
+
+Unlike direct format-to-format converters, all2md uses an intermediate Abstract Syntax Tree:
+
+- Consistent document representation across all formats
+- Enables powerful transforms (remove images, offset headings, rewrite links, etc.)
+- Makes bidirectional conversion possible and reliable
+- Allows custom output formats via Jinja2 templates (DocBook XML, YAML, ANSI terminal, etc.)
+- Facilitates complex document analysis and manipulation
+
+### Additional Strengths
+
+-   **Comprehensive Format Support** - 40+ input formats and 25+ output formats including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages
+-   **Advanced PDF Parsing** - Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, powered by PyMuPDF
+-   **Highly Configurable** - Fine-tune every aspect of conversion using clean, type-safe dataclass options for each format
+-   **Security-Conscious** - Built-in SSRF protection, archive validation (ZIP bombs, path traversal), and sandboxed HTML rendering
+-   **Smart Dependency Management** - Core library has no dependencies; install only what you need
 
 ## MCP Server for AI Assistants
 
@@ -69,7 +167,7 @@ Configure in Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-See the [MCP documentation](docs/source/mcp.rst) for full details.
+See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) for full details.
 
 ## Supported Formats
 
@@ -108,7 +206,7 @@ See the [MCP documentation](docs/source/mcp.rst) for full details.
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 | **Jinja2 Templates (Custom)** | User-defined (`.jinja2`, `.j2`)               |       ❌       |        ✅      | `jinja2`           |
 
-> **💡 New!** Create custom output formats using Jinja2 templates without writing Python code. See [Template Guide](docs/source/templates.rst) and [examples/jinja-templates/](examples/jinja-templates/) for DocBook XML, YAML, ANSI terminal, and more.
+> **💡 New!** Create custom output formats using Jinja2 templates without writing Python code. See [Template Guide](https://all2md.readthedocs.io/en/latest/templates.html) and [examples/jinja-templates/](examples/jinja-templates/) for DocBook XML, YAML, ANSI terminal, and more.
 
 ## Installation
 
@@ -236,6 +334,47 @@ all2md chapter.docx -t "heading-offset --offset 1"
 # List all available transforms
 all2md list-transforms
 ```
+
+**Additional CLI Commands**
+
+The CLI includes several utility commands for discovery and productivity:
+
+```bash
+# List all supported formats with their dependencies
+all2md list-formats
+
+# Check which optional dependencies are installed
+all2md check-deps
+
+# Quick HTML preview with themes (dark, docs, minimal, newspaper, sidebar)
+all2md document.pdf view --theme docs
+
+# Generate a static website from markdown files
+all2md generate-site ./content --output ./site --theme newspaper
+
+# Config management - generate, show, or validate config files
+all2md config generate > all2md.toml
+all2md config show
+all2md config validate all2md.toml
+```
+
+**Static Site Generation**
+
+all2md includes a built-in static site generator for creating documentation sites and blogs from Markdown:
+
+```bash
+# Generate a site from markdown files with frontmatter support
+all2md generate-site ./content --output ./public --theme docs
+
+# The generator supports:
+# - Markdown with YAML frontmatter (title, date, author, etc.)
+# - Multiple built-in themes
+# - Automatic navigation generation
+# - Blog-style post listings
+# - Custom styling via CSS
+```
+
+See [examples/flask_markdown_site.py](examples/flask_markdown_site.py) for a complete Flask integration example.
 
 ## Python API Usage
 
@@ -372,9 +511,184 @@ markdown_output = render(
 -   **Custom Converters**: Create a parser for a new file format by defining a `ConverterMetadata` object and registering it under the `all2md.converters` entry point.
 -   **Custom Transforms**: Create new AST manipulations by subclassing `NodeTransformer`, defining a `TransformMetadata` object, and registering it under the `all2md.transforms` entry point.
 
+See [examples/simpledoc-plugin/](examples/simpledoc-plugin/) for a complete plugin example and [examples/watermark-plugin/](examples/watermark-plugin/) for a transform plugin.
+
+## Use Case Scenarios
+
+all2md is designed to serve multiple audiences with different needs:
+
+### For Python Developers
+
+**Scenario:** You're building a documentation system, content management tool, or data pipeline that needs to handle multiple document formats.
+
+```python
+from all2md import to_markdown, convert
+from all2md.transforms import render, RemoveImagesTransform
+
+# Convert uploaded documents to markdown for storage
+def process_upload(file_path):
+    markdown = to_markdown(file_path)
+    # Store in database or file system
+    return markdown
+
+# Build a document converter API
+def convert_document(input_path, output_format):
+    convert(input_path, f"output.{output_format}", target_format=output_format)
+
+# Clean documents for display
+def clean_for_web(doc_path):
+    from all2md import to_ast
+    doc = to_ast(doc_path)
+    return render(doc, transforms=["remove-images", "sanitize-html"])
+```
+
+**Examples:** [batch_converter.py](examples/batch_converter.py), [document_sanitizer.py](examples/document_sanitizer.py)
+
+### For AI/LLM Developers
+
+**Scenario:** You're building LLM applications that need to ingest documents, process them, and generate new documents.
+
+```python
+# Setup MCP server for Claude Desktop integration
+# Add to claude_desktop_config.json:
+{
+  "mcpServers": {
+    "all2md": {
+      "command": "all2md-mcp",
+      "args": ["--temp", "--enable-from-md"]
+    }
+  }
+}
+
+# Or use programmatically in your LLM pipeline
+from all2md import to_markdown, convert
+
+# 1. Ingest: Convert documents to markdown for LLM processing
+document_text = to_markdown("research_paper.pdf")
+
+# 2. Process: Send to LLM, get markdown response
+llm_response = your_llm_call(document_text)
+
+# 3. Generate: Convert LLM output back to rich format
+with open("output.md", "w") as f:
+    f.write(llm_response)
+convert("output.md", "final_report.docx", target_format="docx")
+```
+
+**Examples:** [llm_translation_demo.py](examples/llm_translation_demo.py), [study_guide_generator.py](examples/study_guide_generator.py)
+
+### For CLI Users & DevOps
+
+**Scenario:** You need to batch process documents, integrate conversions into scripts, or monitor directories for new documents.
+
+```bash
+# Watch a directory and convert new documents automatically
+all2md ./incoming -r -o ./processed --watch
+
+# Batch process with parallel workers
+all2md ./documents/*.pdf -o ./markdown --parallel 8
+
+# Integrate into CI/CD pipeline
+for doc in ./docs/*.docx; do
+  all2md "$doc" -o "./output/$(basename "$doc" .docx).md"
+done
+
+# Generate documentation site from markdown files
+all2md generate-site ./docs --output ./public --theme docs
+
+# Quick preview before committing
+all2md README.md view --theme minimal
+```
+
+**Examples:** [vcs-converter/](examples/vcs-converter/) (Git pre-commit hook integration)
+
+### For Data Scientists
+
+**Scenario:** You're extracting data from PDFs, spreadsheets, and documents for analysis or feeding into ML pipelines.
+
+```python
+from all2md import to_markdown, to_ast
+from all2md.ast import Document, Table
+
+# Extract tables from PDFs for analysis
+def extract_tables(pdf_path):
+    doc = to_ast(pdf_path)
+    tables = [node for node in doc.walk() if isinstance(node, Table)]
+    return tables
+
+# Process email archives for NLP
+def process_email_archive(mbox_path):
+    from all2md.options.mbox import MboxOptions
+    opts = MboxOptions(
+        output_structure="flat",
+        extract_metadata=True
+    )
+    emails = to_markdown(mbox_path, parser_options=opts)
+    return emails
+
+# Extract code examples from documentation
+def extract_code_blocks(doc_path):
+    doc = to_ast(doc_path)
+    from all2md.ast import CodeBlock
+    code_blocks = [node for node in doc.walk() if isinstance(node, CodeBlock)]
+    return code_blocks
+```
+
+**Examples:** [api_doc_extractor.py](examples/api_doc_extractor.py), [code_example_generator.py](examples/code_example_generator.py)
+
+## Frequently Asked Questions
+
+**Q: How is all2md different from Pandoc?**
+
+A: all2md is Python-native with a focus on programmatic use, LLM integration, and extensibility. Pandoc is more comprehensive for scholarly documents but is Haskell-based and CLI-focused. Use all2md for Python projects and AI workflows; use Pandoc for academic publishing. They complement each other well.
+
+**Q: Can I convert back from Markdown to Word/PDF?**
+
+A: Yes! all2md supports bidirectional conversion. Use `convert("input.md", "output.docx", target_format="docx")` or the CLI: `all2md input.md -o output.pdf --to pdf`.
+
+**Q: What's the best format for feeding documents to LLMs?**
+
+A: Markdown with the `gfm` (GitHub Flavored Markdown) flavor. It's structured, consistent, and well-understood by LLMs. Use `to_markdown(file, flavor="gfm")`.
+
+**Q: How do I add support for a new file format?**
+
+A: Create a parser class, define a `ConverterMetadata` object, and register it via `all2md.converters` entry point in your `pyproject.toml`. See [examples/simpledoc-plugin/](examples/simpledoc-plugin/) for a complete example.
+
+**Q: Does all2md work with scanned PDFs?**
+
+A: Yes! Install with OCR support: `pip install "all2md[pdf,ocr]"` and use `--ocr-enabled` flag or `OCROptions(enabled=True)` in Python. Requires Tesseract to be installed on your system.
+
+**Q: Can I customize the output format beyond Markdown?**
+
+A: Yes! Use Jinja2 templates to create any text-based output format. See [examples/jinja-templates/](examples/jinja-templates/) for examples of DocBook XML, YAML, ANSI terminal output, and more.
+
+**Q: Is all2md production-ready?**
+
+A: Yes! Version 1.0.0 is stable and production-ready. The library includes comprehensive tests, extensive documentation, and is actively maintained.
+
+**Q: How do I handle large document batches efficiently?**
+
+A: Use parallel processing: `all2md ./docs -r -o ./output --parallel 8` or in Python use multiprocessing with `to_markdown()` calls. For very large batches, consider the watch mode for incremental processing.
+
+## Getting Help
+
+- **Documentation:** [Read the full documentation on ReadTheDocs](https://all2md.readthedocs.io/)
+- **Examples:** Browse [15+ examples](examples/) organized by complexity and use case
+- **Issues:** Report bugs or request features on [GitHub Issues](https://github.com/thomas-villani/all2md/issues)
+- **Discussions:** Ask questions on [GitHub Discussions](https://github.com/thomas-villani/all2md/discussions)
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request, open an issue, or suggest new features.
+Contributions are welcome! We appreciate bug reports, feature requests, documentation improvements, and code contributions.
+
+**Ways to contribute:**
+- Report bugs or suggest features via [GitHub Issues](https://github.com/thomas-villani/all2md/issues)
+- Improve documentation or add examples
+- Add support for new file formats via the plugin system
+- Create new AST transforms
+- Fix bugs or improve existing converters
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
 ## License
 

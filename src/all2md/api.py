@@ -364,7 +364,7 @@ def _split_kwargs_for_parser_and_renderer(
 
 
 def to_markdown(
-    source: Union[str, Path, IO[bytes], bytes],
+    source: Union[str, Path, IO[bytes], bytes, Document],
     *,
     parser_options: Optional[BaseParserOptions] = None,
     renderer_options: Optional[MarkdownRendererOptions] = None,
@@ -384,8 +384,9 @@ def to_markdown(
 
     Parameters
     ----------
-    source : str, Path, IO[bytes|str], or bytes
-        Source document data, which can be a file path, a file-like object, or raw bytes.
+    source : str, Path, IO[bytes|str], bytes, or Document
+        Source document data, which can be a file path, a file-like object, raw bytes,
+        or an AST Document object (for cases where you already have a parsed AST).
     parser_options : BaseParserOptions, optional
         Pre-configured parser options for format-specific parsing settings
         (e.g., PdfOptions, DocxOptions, HtmlOptions).
@@ -458,7 +459,66 @@ def to_markdown(
     With transforms:
         >>> markdown = to_markdown("doc.pdf", transforms=["remove-images"])
 
+    From AST Document:
+        >>> ast_doc = to_ast("document.pdf")
+        >>> # Apply custom processing to ast_doc...
+        >>> markdown = to_markdown(ast_doc)
+
     """
+    # If source is already a Document AST, skip parsing and go directly to rendering
+    if isinstance(source, Document):
+        ast_doc = source
+
+        # Prepare renderer options (handle flavor shorthand)
+        if flavor:
+            kwargs["flavor"] = flavor
+
+        # Split kwargs for renderer (parser kwargs are irrelevant for AST input)
+        _, renderer_kwargs = _split_kwargs_for_parser_and_renderer("markdown", "markdown", kwargs)
+
+        final_renderer_options: MarkdownRendererOptions
+        if renderer_kwargs and renderer_options:
+            final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+        elif renderer_kwargs:
+            result = _create_renderer_options_from_kwargs("markdown", **renderer_kwargs)
+            assert result is None or isinstance(result, MarkdownRendererOptions)
+            final_renderer_options = result if result else MarkdownRendererOptions()
+        elif renderer_options:
+            final_renderer_options = renderer_options
+        else:
+            # Default to GFM flavor
+            final_renderer_options = MarkdownRendererOptions()
+
+        # Apply transforms and render using pipeline
+        if logger.isEnabledFor(logging.DEBUG):
+            start_time = time.perf_counter()
+            render_result = transforms_module.render(
+                ast_doc,
+                transforms=transforms or [],
+                hooks=hooks or {},
+                renderer="markdown",
+                options=final_renderer_options,
+                progress_callback=progress_callback,
+            )
+            render_time = time.perf_counter() - start_time
+            logger.debug(f"Rendering (markdown from AST) completed in {render_time:.2f}s")
+            assert isinstance(render_result, str), "Markdown renderer should return str"
+            content = render_result
+        else:
+            render_result = transforms_module.render(
+                ast_doc,
+                transforms=transforms or [],
+                hooks=hooks or {},
+                renderer="markdown",
+                options=final_renderer_options,
+                progress_callback=progress_callback,
+            )
+            assert isinstance(render_result, str), "Markdown renderer should return str"
+            content = render_result
+
+        return content.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Standard path: parse source document to AST
     resolved_source = _resolve_document_source(source, remote_input_options, progress_callback)
     detection_input = resolved_source.payload
 
@@ -488,7 +548,6 @@ def to_markdown(
     if flavor:
         renderer_kwargs["flavor"] = flavor
 
-    final_renderer_options: MarkdownRendererOptions
     if renderer_kwargs and renderer_options:
         final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
     elif renderer_kwargs:
@@ -537,7 +596,6 @@ def to_markdown(
         raise
 
     # Apply transforms and render using pipeline
-    content: str
     if logger.isEnabledFor(logging.DEBUG):
         start_time = time.perf_counter()
         render_result = transforms_module.render(

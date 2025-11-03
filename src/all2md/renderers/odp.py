@@ -780,9 +780,8 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         # Render content with bold
         for child in node.content:
             if isinstance(child, Text):
-                span = Span()
+                span = Span(stylename="Bold")
                 span.addText(child.content)
-                # TODO: Apply bold style
                 self._current_paragraph.addElement(span)
             else:
                 child.accept(self)
@@ -804,9 +803,8 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         # Render content with italic
         for child in node.content:
             if isinstance(child, Text):
-                span = Span()
+                span = Span(stylename="Italic")
                 span.addText(child.content)
-                # TODO: Apply italic style
                 self._current_paragraph.addElement(span)
             else:
                 child.accept(self)
@@ -825,9 +823,8 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         if not self._current_paragraph:
             return
 
-        span = Span()
+        span = Span(stylename="Code")
         span.addText(node.content)
-        # TODO: Apply code font style
         self._current_paragraph.addElement(span)
 
     def visit_code_block(self, node: CodeBlock) -> None:
@@ -844,9 +841,12 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         if not self._current_frame:
             return
 
+        from odf.text import Span
+
         p = P()
-        p.addText(node.content)
-        # TODO: Apply code style
+        span = Span(stylename="Code")
+        span.addText(node.content)
+        p.addElement(span)
         self._current_frame.addElement(p)
 
     def visit_list(self, node: List) -> None:

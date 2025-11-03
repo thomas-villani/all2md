@@ -105,21 +105,21 @@ class TestHeadingRendering:
         doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<h1 id="heading-0">Title</h1>' in result
+        assert '<h1 id="title-1">Title</h1>' in result
 
     def test_heading_level_2(self):
         """Test rendering h2."""
         doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<h2 id="heading-0">Subtitle</h2>' in result
+        assert '<h2 id="subtitle-1">Subtitle</h2>' in result
 
     def test_heading_level_6(self):
         """Test rendering h6."""
         doc = Document(children=[Heading(level=6, content=[Text(content="Small heading")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<h6 id="heading-0">Small heading</h6>' in result
+        assert '<h6 id="small-heading-1">Small heading</h6>' in result
 
     def test_heading_with_formatting(self):
         """Test heading with inline formatting."""
@@ -314,8 +314,9 @@ class TestListRendering:
         )
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<input type="checkbox" checked disabled>' in result
-        assert '<input type="checkbox" disabled>' in result
+        # Verify Unicode checkbox characters for task lists
+        assert "&#9745; " in result  # checked checkbox
+        assert "&#9744; " in result  # unchecked checkbox
 
 
 @pytest.mark.unit

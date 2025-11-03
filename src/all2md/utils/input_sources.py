@@ -222,9 +222,16 @@ class DocumentSourceLoader:
         )
 
 
-# TODO: allow file:// urls?
+# Note: file:// URLs are not currently supported. Use direct filesystem paths instead.
 class LocalPathRetriever(DocumentSourceRetriever):
-    """Resolver for local filesystem paths."""
+    """Resolver for local filesystem paths.
+
+    Note:
+    ----
+    file:// URL scheme is not currently supported. Use direct filesystem paths
+    (e.g., "/path/to/file" instead of "file:///path/to/file").
+
+    """
 
     priority = 100
 

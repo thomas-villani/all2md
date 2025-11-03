@@ -1,7 +1,7 @@
 Attachment Handling
 ===================
 
-all2md provides a unified attachment handling system for managing images, embedded files, and other linked resources across all document formats. This guide explains how the attachment system works, the available modes, and format-specific behaviors.
+all2md provides a unified attachment handling system for managing images, embedded files, and other linked resources across all attachment-capable document formats. This guide explains how the attachment system works, the available modes, and format-specific behaviors.
 
 What Are Attachments?
 ---------------------
@@ -24,7 +24,7 @@ Different document formats handle attachments in different ways:
 Attachment Modes
 ----------------
 
-all2md supports four attachment handling modes that work consistently across all formats:
+all2md supports four attachment handling modes that work consistently across all attachment-capable formats:
 
 skip
 ~~~~

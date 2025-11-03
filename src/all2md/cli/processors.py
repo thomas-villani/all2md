@@ -334,15 +334,26 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
         return markdown_content, False
 
 
-# TODO: we can do better than this, I think we have better utils in another module
 def _determine_syntax_language(target_format: str) -> str:
-    """Return the Rich/Pygments lexer name for a given renderer target."""
+    """Map output format name to Pygments lexer name for syntax highlighting.
+
+    This function provides explicit mappings for formats where the format
+    name differs from the Pygments lexer name, and falls back to using
+    the format name directly for other formats.
+
+    Parameters
+    ----------
+    target_format : str
+        The output format name (e.g., "html", "markdown", "rst")
+
+    Returns
+    -------
+    str
+        The Pygments lexer name for syntax highlighting with Rich
+
+    """
+    # Explicit mappings where format name != lexer name
     lookup = {
-        "html": "html",
-        "asciidoc": "asciidoc",
-        "markdown": "markdown",
-        "rst": "rst",
-        "org": "org",
         "txt": "text",
         "sourcecode": "text",
         "json": "json",

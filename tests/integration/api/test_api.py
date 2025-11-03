@@ -1404,3 +1404,129 @@ class TestNewAPI:
             assert isinstance(result, str)
         except Exception:
             pass  # Expected for invalid format data
+
+
+@pytest.mark.integration
+class TestToMarkdownWithASTInput:
+    """Test to_markdown function accepting Document AST as input."""
+
+    def test_to_markdown_from_ast_basic(self):
+        """Test basic conversion of AST Document to markdown."""
+        doc = create_sample_ast_document()
+        result = to_markdown(doc)
+
+        assert isinstance(result, str)
+        assert "# Main Title" in result
+        assert "**bold**" in result
+        assert "*italic*" in result
+        assert "* First item" in result
+        assert "```python" in result
+        assert "| Name" in result
+        assert "> A quoted passage" in result
+
+    def test_to_markdown_from_ast_with_renderer_options(self):
+        """Test AST to markdown with renderer options."""
+        doc = create_sample_ast_document()
+        md_opts = MarkdownRendererOptions(emphasis_symbol="_", use_hash_headings=True)
+
+        result = to_markdown(doc, renderer_options=md_opts)
+
+        assert isinstance(result, str)
+        assert "# Main Title" in result
+        assert "_italic_" in result
+
+    def test_to_markdown_from_ast_with_flavor(self):
+        """Test AST to markdown with flavor shorthand."""
+        doc = create_sample_ast_document()
+
+        result = to_markdown(doc, flavor="commonmark")
+
+        assert isinstance(result, str)
+        assert "Main Title" in result
+
+    def test_to_markdown_from_ast_with_transforms(self):
+        """Test AST to markdown with transforms applied."""
+        doc = create_sample_ast_document()
+
+        result = to_markdown(doc, transforms=["heading-offset"])
+
+        assert isinstance(result, str)
+        # After heading offset, h1 becomes h2
+        assert "## Main Title" in result
+
+    def test_to_markdown_from_ast_with_kwargs_override(self):
+        """Test AST to markdown with kwargs overriding renderer options."""
+        doc = create_sample_ast_document()
+        base_options = MarkdownRendererOptions(emphasis_symbol="*")
+
+        result = to_markdown(doc, renderer_options=base_options, emphasis_symbol="_")
+
+        assert isinstance(result, str)
+        assert "_italic_" in result
+
+    def test_to_markdown_from_ast_with_hooks(self):
+        """Test AST to markdown with hooks applied."""
+        doc = create_sample_ast_document()
+        hook_called = []
+
+        def test_hook(document, context):
+            hook_called.append(True)
+            return document
+
+        hooks = {"pre_render": [test_hook]}
+
+        result = to_markdown(doc, hooks=hooks)
+
+        assert isinstance(result, str)
+        assert "Main Title" in result
+        assert len(hook_called) > 0
+
+    def test_to_markdown_from_ast_empty_document(self):
+        """Test AST to markdown with empty document."""
+        doc = Document()
+
+        result = to_markdown(doc)
+
+        assert isinstance(result, str)
+        assert result == ""
+
+    def test_to_markdown_from_ast_with_progress_callback(self):
+        """Test AST to markdown with progress callback."""
+        doc = create_sample_ast_document()
+        events = []
+
+        def progress_handler(event):
+            events.append(event)
+
+        result = to_markdown(doc, progress_callback=progress_handler)
+
+        assert isinstance(result, str)
+        assert "Main Title" in result
+        # Should have received progress events
+        assert len(events) > 0
+
+    def test_to_markdown_ast_vs_file_consistency(self, tmp_path):
+        """Test that to_markdown(ast) equals to_markdown(file)."""
+        html_file = tmp_path / "test.html"
+        html_file.write_text("<html><body><h1>Title</h1><p>Content with <strong>bold</strong>.</p></body></html>")
+
+        # Direct conversion from file
+        direct_result = to_markdown(str(html_file))
+
+        # Via AST
+        ast_doc = to_ast(str(html_file))
+        ast_result = to_markdown(ast_doc)
+
+        # Should be identical
+        assert isinstance(ast_result, str)
+        assert direct_result == ast_result
+
+    def test_to_markdown_from_ast_parser_options_ignored(self):
+        """Test that parser_options are ignored when source is AST."""
+        doc = create_sample_ast_document()
+
+        # parser_options should be ignored since we're not parsing
+        result = to_markdown(doc, parser_options=HtmlOptions(convert_nbsp=True))
+
+        assert isinstance(result, str)
+        assert "Main Title" in result

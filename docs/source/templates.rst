@@ -615,7 +615,7 @@ All template options are available from the command line:
 See Also
 --------
 
-- :doc:`bidirectional` - Overview of bidirectional conversion including templates
+- :doc:`python_api` - Overview of bidirectional conversion including templates
 - :doc:`recipes` - Step-by-step template creation tutorial
 - :doc:`ast_guide` - Understanding the AST structure for template authoring
 - ``examples/jinja-templates/`` - Gallery of example templates

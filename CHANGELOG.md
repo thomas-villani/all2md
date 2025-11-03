@@ -19,7 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduced grep line truncation context from 80 to 40 characters for more concise output
 - Updated `all2md search` command to support `-i/--ignore-case` flag in grep mode
 
-## [0.1.0] - 2025-10-28
+### Fixed
+
+## [1.0.0] - 2025-10-29
 
 ### Added
 
@@ -138,4 +140,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[0.1.0]: https://github.com/thomas-villani/all2md/releases/tag/v0.1.0
+[1.0.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.0

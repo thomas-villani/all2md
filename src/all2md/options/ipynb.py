@@ -64,6 +64,11 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
         If None, outputs are not truncated.
     truncate_output_message : str or None, default DEFAULT_TRUNCATE_OUTPUT_MESSAGE
         The message to place to indicate truncated output.
+    strip_html_from_markdown : bool, default True
+        Whether to strip HTML elements (HTMLInline and HTMLBlock nodes) from
+        markdown cells for security. When True, HTML in markdown cells is removed
+        to prevent XSS attacks. When False, HTML is preserved as-is (use only
+        with trusted notebooks).
 
     """
 
@@ -112,6 +117,14 @@ class IpynbOptions(BaseParserOptions, AttachmentOptionsMixin):
     truncate_output_message: str | None = field(
         default=DEFAULT_TRUNCATE_OUTPUT_MESSAGE,
         metadata={"help": "Message to indicate truncated output", "importance": "advanced"},
+    )
+    strip_html_from_markdown: bool = field(
+        default=True,
+        metadata={
+            "help": "Strip HTML elements from markdown cells for security (prevents XSS)",
+            "cli_name": "no-strip-html-from-markdown",
+            "importance": "security",
+        },
     )
 
     def __post_init__(self) -> None:
