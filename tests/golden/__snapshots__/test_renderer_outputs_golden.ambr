@@ -1,0 +1,134 @@
+# serializer version: 1
+# name: TestAsciiDocRendererGolden.test_asciidoc_renderer_complex_document
+  '''
+  :title: Renderer Sample
+  :author: Golden Bot
+  :date: 2025-01-01
+  
+  // HTML by Reviewer (2025-01-01): Reviewer note: ensure consistent tone across sections.
+  
+  == Renderer Showcase
+  
+  Inline math such as stem:[E = mc^2] pairs with *bold emphasis* and a link to link:https://example.com[Example].<!-- DOCX_REVIEW by Reviewer: Consider expanding this introduction. -->
+  
+  [stem]
+  ++++
+  \int_0^1 x^2\,dx = \frac{1}{3}
+  ++++
+  
+  Pipeline::
+  Processes sources into a shared AST for rendering.
+  Renderer::
+  Produces target format while honoring *comments* and math.
+  
+  .Key Metrics
+  |===
+  |Metric |Value |
+  |Velocity |22.5 m/s |
+  |Acceleration |9.8 m/s^2 |
+  |===
+  
+  '''
+# ---
+# name: TestLatexRendererGolden.test_latex_renderer_complex_document
+  '''
+  \documentclass{article}
+  
+  \usepackage{amsmath}
+  \usepackage{graphicx}
+  \usepackage{hyperref}
+  
+  \title{Renderer Sample}
+  \author{Golden Bot}
+  \date{2025-01-01}
+  
+  \begin{document}
+  
+  \maketitle
+  
+  % HTML by Reviewer (2025-01-01)
+  % Reviewer note: ensure consistent tone across sections.
+  
+  \section{Renderer Showcase}
+  
+  Inline math such as $E = mc^2$ pairs with \textbf{bold emphasis} and a link to \href{https://example.com}{Example}.% DOCX_REVIEW by Reviewer: Consider expanding this introduction.
+  
+  \begin{equation}
+  \int_0^1 x^2\,dx = \frac{1}{3}
+  \end{equation}
+  
+  \begin{description}
+  \item[Pipeline] Processes sources into a shared AST for rendering.
+  \item[Renderer] Produces target format while honoring \textbf{comments} and math.
+  \end{description}
+  
+  \begin{tabular}{|l|l|}
+  \hline
+  Metric & Value \\
+  \hline
+  Velocity & 22.5 m/s \\
+  Acceleration & 9.8 m/s\textasciicircum{}2 \\
+  \hline
+  \end{tabular}
+  
+  \end{document}
+  
+  '''
+# ---
+# name: TestMarkdownRendererGolden.test_markdown_renderer_complex_document
+  '''
+  > *Comment by Reviewer (2025-01-01)*
+  > 
+  > Reviewer note: ensure consistent tone across sections.
+  
+  # Renderer Showcase
+  
+  Inline math such as $E = mc^2$ pairs with **bold emphasis** and a link to [Example](https://example.com "Example Site").[Comment by Reviewer: Consider expanding this introduction.]
+  
+  $$
+  \int_0^1 x^2\,dx = \frac{1}{3}
+  $$
+  
+  <dl>
+    <dt>Pipeline</dt>
+    <dd>Processes sources into a shared AST for rendering.</dd>
+    <dt>Renderer</dt>
+    <dd>Produces target format while honoring **comments** and math.</dd>
+  </dl>
+  
+  *Key Metrics*
+  
+  | Metric | Value |
+  |---|---|
+  | Velocity | 22.5 m/s |
+  | Acceleration | 9.8 m/s^2 |
+  '''
+# ---
+# name: TestMediaWikiRendererGolden.test_mediawiki_renderer_complex_document
+  '''
+  <!-- Comment by Reviewer (2025-01-01): Reviewer note: ensure consistent tone across sections. -->
+  
+  = Renderer Showcase =
+  
+  Inline math such as <math>E = mc^2</math> pairs with '''bold emphasis''' and a link to [https://example.com Example].<!-- [Comment by Reviewer: Consider expanding this introduction.] -->
+  
+  <math display="block">
+  \int_0^1 x^2\,dx = \frac{1}{3}
+  </math>
+  
+  ; Pipeline
+  : Processes sources into a shared AST for rendering.
+  ; Renderer
+  : Produces target format while honoring '''comments''' and math.
+  
+  {| class="wikitable"
+  |+ Key Metrics
+  ! Metric !! Value
+  |-
+  | Velocity || 22.5 m/s
+  |-
+  | Acceleration || 9.8 m/s^2
+  |}
+  
+  '''
+# ---
