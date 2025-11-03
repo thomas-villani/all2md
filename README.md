@@ -135,6 +135,59 @@ Unlike direct format-to-format converters, all2md uses an intermediate Abstract 
 -   **Highly Configurable** - Fine-tune every aspect of conversion using clean, type-safe dataclass options for each format
 -   **Security-Conscious** - Built-in SSRF protection, archive validation (ZIP bombs, path traversal), and sandboxed HTML rendering
 -   **Smart Dependency Management** - Core library has no dependencies; install only what you need
+all2md is built around four core strengths that make it ideal for modern document processing workflows:
+
+### 1. MCP Server for AI Integration
+
+Built-in Model Context Protocol (MCP) server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
+
+- Direct document reading in Claude Desktop and other MCP-compatible AI tools
+- Smart auto-detection of file paths, data URIs, base64, and plain text
+- Section extraction for targeted reading
+- Vision model support with embedded images
+- Security-first design with file allowlists and network controls
+
+See [MCP Server for AI Assistants](#mcp-server-for-ai-assistants) section below for setup.
+
+### 2. Powerful CLI Features
+
+Beyond basic conversion, the CLI includes advanced features for production workflows:
+
+- **Watch Mode** - Automatically convert files as they change
+- **Parallel Processing** - Multi-worker processing for large document sets
+- **Static Site Generation** - Built-in SSG with 5 themes (dark, docs, minimal, newspaper, sidebar)
+- **Quick Preview** - `all2md view` command for instant HTML preview
+- **Config Management** - Generate, validate, and manage conversion configs
+- **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
+
+### 3. Production-Ready Python API
+
+Designed for embedding in applications, not just CLI usage:
+
+- Clean, typed API with comprehensive options classes for every format
+- Progress callbacks for long-running conversions
+- Bidirectional conversion between any supported formats
+- AST manipulation for advanced document processing
+- Transform pipeline for systematic document modification
+- Extensive documentation with examples for every format
+
+### 4. AST-Based Architecture
+
+Unlike direct format-to-format converters, all2md uses an intermediate Abstract Syntax Tree:
+
+- Consistent document representation across all formats
+- Enables powerful transforms (remove images, offset headings, rewrite links, etc.)
+- Makes bidirectional conversion possible and reliable
+- Allows custom output formats via Jinja2 templates (DocBook XML, YAML, ANSI terminal, etc.)
+- Facilitates complex document analysis and manipulation
+
+### Additional Strengths
+
+-   **Comprehensive Format Support** - 40+ input formats and 25+ output formats including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages
+-   **Advanced PDF Parsing** - Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, powered by PyMuPDF
+-   **Highly Configurable** - Fine-tune every aspect of conversion using clean, type-safe dataclass options for each format
+-   **Security-Conscious** - Built-in SSRF protection, archive validation (ZIP bombs, path traversal), and sandboxed HTML rendering
+-   **Smart Dependency Management** - Core library has no dependencies; install only what you need
 
 ## MCP Server for AI Assistants
 
