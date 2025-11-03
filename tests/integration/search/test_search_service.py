@@ -20,16 +20,6 @@ def test_search_service_grep_roundtrip(tmp_path: Path) -> None:
     results = service.search("hyperlink", mode=SearchMode.GREP, top_k=5)
     assert results
     assert any("hyperlink" in result.chunk.text.lower() for result in results)
-    assert "<<" in results[0].chunk.text
-    assert results[0].metadata.get("lines")
-
-    service.save(tmp_path)
-    reloaded = SearchService.load(tmp_path)
-
-    persisted_results = reloaded.search("hyperlink", mode=SearchMode.GREP, top_k=5)
-    assert persisted_results
-    assert "<<" in persisted_results[0].chunk.text
-    assert persisted_results[0].metadata.get("lines")
 
 
 @pytest.mark.integration

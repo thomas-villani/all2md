@@ -162,7 +162,8 @@ faster follow-up queries.
 Common grep-style flags are supported:
 
 * ``-A/-B/-C`` to control trailing/leading context lines (e.g. ``-C 1`` for one line around each match)
-* ``--regex``/``--no-regex`` to treat the query as a case-insensitive regular expression
+* ``-i``/``--ignore-case`` for case-insensitive matching (default: case-sensitive)
+* ``--regex``/``--no-regex`` to treat the query as a regular expression
 * ``--rich`` to enable colorized output (requires ``rich``)
 
 Key options:
@@ -176,6 +177,45 @@ Key options:
 ``all2md search`` honours configuration defaults under the ``[search]`` section in
 ``.all2md.toml``. Install the optional extras ``all2md[search]`` to enable BM25 and
 vector search backends.
+
+Grep Command
+------------
+
+``all2md grep`` provides a simplified grep-style interface for text search across documents.
+Unlike traditional grep, it works on binary document formats (PDF, DOCX, etc.) by converting
+them to a searchable representation. This command is ideal for quick searches without the
+overhead of building persistent indexes.
+
+.. code-block:: bash
+
+   # Basic search
+   all2md grep "search term" document.pdf
+
+   # Case-insensitive search with line numbers
+   all2md grep -i -n "pattern" docs/*.md
+
+   # Search with context lines
+   all2md grep -C 2 "error" logs.pdf
+
+   # Limit line width and enable rich output
+   all2md grep -M 100 --rich "keyword" report.docx
+
+Common grep-style options:
+
+* ``-i`` / ``--ignore-case`` – Perform case-insensitive matching (default: case-sensitive)
+* ``-n`` / ``--line-number`` – Show line numbers for matching lines
+* ``-A`` / ``--after-context`` – Print N lines of trailing context
+* ``-B`` / ``--before-context`` – Print N lines of leading context
+* ``-C`` / ``--context`` – Print N lines of leading and trailing context
+* ``-e`` / ``--regex`` – Interpret query as a regular expression
+* ``-M`` / ``--max-columns`` – Maximum display width for long lines (default: 150, 0 = unlimited)
+* ``--rich`` – Enable colorized output with match highlighting
+* ``--recursive`` – Recurse into directories when searching
+* ``--exclude`` – Glob pattern to exclude files (repeatable)
+
+The grep command provides section-based output, grouping matches by document structure
+(headings, preambles) for better context. Line numbers are relative to each section when
+using ``-n``.
 
 Diff Command
 ------------

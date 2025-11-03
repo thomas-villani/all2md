@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `all2md grep` command improvements:
+  - `-i/--ignore-case` flag for case-insensitive matching (default: case-sensitive)
+  - `-n/--line-number` flag to show line numbers for matching lines
+  - `-M/--max-columns` option to control maximum display width for long lines (default: 150)
+  - Intelligent line truncation that shows context around first match when lines are too long
+  - Clean plain text output with highlighting markers removed (only shown in `--rich` mode)
+
+### Changed
+- Reduced grep line truncation context from 80 to 40 characters for more concise output
+- Updated `all2md search` command to support `-i/--ignore-case` flag in grep mode
+
 ## [0.1.0] - 2025-10-28
 
 ### Added

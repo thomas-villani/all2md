@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Iterable, Mapping, MutableMapping, Sequence
 
 from all2md.api import to_ast
+from all2md.ast.document_utils import get_all_sections, get_preamble
+from all2md.ast.nodes import Document
+from all2md.ast.utils import extract_text
 from all2md.constants import DocumentFormat
 from all2md.options.search import SearchOptions
 from all2md.progress import ProgressCallback, ProgressEvent
@@ -34,6 +37,7 @@ class SearchIndexState:
     """Container for the active index backends."""
 
     chunks: list[Chunk]
+    documents: list[tuple[Document, SearchDocumentInput]] | None = None
     keyword_index: BM25Index | None = None
     vector_index: VectorIndex | None = None
 
@@ -93,6 +97,7 @@ class SearchService:
             )
 
         all_chunks: list[Chunk] = []
+        parsed_documents: list[tuple[Document, SearchDocumentInput]] = []
         for idx, doc_input in enumerate(documents, start=1):
             document_id = doc_input.document_id or _derive_document_id(doc_input.source)
             document_path = Path(doc_input.source) if isinstance(doc_input.source, (str, Path)) else None
@@ -101,6 +106,8 @@ class SearchService:
                 source_format=doc_input.source_format or "auto",
                 progress_callback=progress_callback,
             )
+            parsed_documents.append((ast_doc, doc_input))
+
             context_metadata: MutableMapping[str, object] = {"document_index": idx}
             if doc_input.metadata:
                 context_metadata.update(doc_input.metadata)
@@ -157,7 +164,9 @@ class SearchService:
             )
             vector_index.add_chunks(all_chunks, progress_callback=progress_callback)
 
-        self._state = SearchIndexState(chunks=all_chunks, keyword_index=keyword_index, vector_index=vector_index)
+        self._state = SearchIndexState(
+            chunks=all_chunks, documents=parsed_documents, keyword_index=keyword_index, vector_index=vector_index
+        )
 
         if progress_callback:
             progress_callback(
@@ -286,6 +295,19 @@ class SearchService:
         context_after: int,
         regex: bool,
     ) -> list[SearchResult]:
+        # Use AST-based grep if documents are available (preferred)
+        if self._state.documents:
+            return _grep_ast_documents(
+                self._state.documents,
+                query,
+                regex=regex,
+                context_before=context_before,
+                context_after=context_after,
+                ignore_case=self.options.grep_ignore_case,
+                show_line_numbers=self.options.grep_show_line_numbers,
+                max_columns=self.options.grep_max_columns,
+            )
+        # Fallback to chunk-based grep for backward compatibility
         return _match_lines(
             self._state.chunks,
             query,
@@ -416,6 +438,298 @@ def _highlight_fragment(text: str, start: int, end: int, *, radius: int = 80) ->
     return prefix + fragment + suffix
 
 
+def _truncate_to_match(
+    line: str, spans: list[tuple[int, int]], context: int = 40, max_length: int = 0
+) -> tuple[str, list[tuple[int, int]]]:
+    """Truncate a long line to show context around matches.
+
+    Parameters
+    ----------
+    line : str
+        The full line text
+    spans : list[tuple[int, int]]
+        List of (start, end) positions of matches in the line
+    context : int
+        Number of characters to show before/after matches
+    max_length : int
+        Maximum output length (0 = unlimited). If the natural truncation
+        exceeds this, only show context around the first match.
+
+    Returns
+    -------
+    tuple[str, list[tuple[int, int]]]
+        Truncated line with ellipsis and adjusted span positions
+
+    """
+    if not spans:
+        max_len = max_length if max_length > 0 else 197
+        return line[:max_len] + "...", []
+
+    # Find the span of all matches
+    first_match_start = min(s[0] for s in spans)
+    first_match_end = spans[0][1]  # End of first match
+    last_match_end = max(s[1] for s in spans)
+
+    # Calculate natural window (all matches)
+    start = max(0, first_match_start - context)
+    end = min(len(line), last_match_end + context)
+
+    # Account for ellipsis in length calculation
+    ellipsis_len = 3 if start > 0 else 0
+    ellipsis_len += 3 if end < len(line) else 0
+    natural_length = (end - start) + ellipsis_len
+
+    # If output would exceed max_length, only show first match
+    if max_length > 0 and natural_length > max_length:
+        # Show context only around first match
+        start = max(0, first_match_start - context)
+        end = min(len(line), first_match_end + context)
+
+        # If still too long, reduce context symmetrically
+        if (end - start) + ellipsis_len > max_length:
+            available = max_length - ellipsis_len - (first_match_end - first_match_start)
+            half_context = available // 2
+            start = max(0, first_match_start - half_context)
+            end = min(len(line), first_match_end + half_context)
+
+        # Only include spans that fall within the truncated range
+        adjusted_spans = []
+        for s_start, s_end in spans:
+            if s_start >= start and s_end <= end:
+                offset = 3 if start > 0 else 0
+                adjusted_spans.append((s_start - start + offset, s_end - start + offset))
+    else:
+        # Use natural window with all matches
+        offset = 3 if start > 0 else 0
+        adjusted_spans = [(s[0] - start + offset, s[1] - start + offset) for s in spans]
+
+    # Build truncated string
+    result = ""
+    if start > 0:
+        result += "..."
+    result += line[start:end]
+    if end < len(line):
+        result += "..."
+
+    return result, adjusted_spans
+
+
+def _grep_ast_documents(
+    documents: Sequence[tuple[Document, SearchDocumentInput]],
+    query: str,
+    *,
+    regex: bool,
+    context_before: int = 0,
+    context_after: int = 0,
+    ignore_case: bool = False,
+    show_line_numbers: bool = False,
+    max_columns: int = 0,
+) -> list[SearchResult]:
+    """Search directly through AST documents for grep-style matching.
+
+    This function bypasses chunking and searches the AST structure directly,
+    providing clean section-based results.
+
+    Parameters
+    ----------
+    documents : Sequence[tuple[Document, SearchDocumentInput]]
+        Documents and their metadata to search
+    query : str
+        Search query text or regex pattern
+    regex : bool
+        Whether to interpret query as regex
+    context_before : int, default = 0
+        Lines of context before matches
+    context_after : int, default = 0
+        Lines of context after matches
+    ignore_case : bool, default = False
+        Whether to perform case-insensitive matching
+    show_line_numbers : bool, default = False
+        Whether to show line numbers for matching lines
+    max_columns : int, default = 0
+        Maximum display width for long lines (0 = unlimited)
+
+    Returns
+    -------
+    list[SearchResult]
+        Search results with section-based grouping
+
+    """
+    matches: list[SearchResult] = []
+    pattern = re.compile(query, re.IGNORECASE if ignore_case else 0) if regex else None
+    lowered_query = query.lower() if ignore_case else query
+
+    for doc, doc_input in documents:
+        document_path = str(doc_input.source)
+        document_id = doc_input.document_id or document_path
+
+        # Process preamble (content before first heading)
+        preamble_nodes = get_preamble(doc)
+        if preamble_nodes:
+            preamble_text = extract_text(preamble_nodes)
+            section_matches = _search_text_block(
+                text=preamble_text,
+                query=query,
+                lowered_query=lowered_query,
+                pattern=pattern,
+                section_heading=None,
+                document_path=document_path,
+                document_id=document_id,
+                context_before=context_before,
+                context_after=context_after,
+                ignore_case=ignore_case,
+                show_line_numbers=show_line_numbers,
+                max_columns=max_columns,
+            )
+            matches.extend(section_matches)
+
+        # Process each section
+        sections = get_all_sections(doc)
+        for section in sections:
+            heading_text = section.get_heading_text()
+            body_text = extract_text(list(section.content))
+
+            section_matches = _search_text_block(
+                text=body_text,
+                query=query,
+                lowered_query=lowered_query,
+                pattern=pattern,
+                section_heading=heading_text,
+                document_path=document_path,
+                document_id=document_id,
+                context_before=context_before,
+                context_after=context_after,
+                ignore_case=ignore_case,
+                show_line_numbers=show_line_numbers,
+                max_columns=max_columns,
+            )
+            matches.extend(section_matches)
+
+    return matches
+
+
+def _search_text_block(
+    text: str,
+    query: str,
+    lowered_query: str,
+    pattern: re.Pattern[str] | None,
+    section_heading: str | None,
+    document_path: str,
+    document_id: str,
+    context_before: int,
+    context_after: int,
+    ignore_case: bool,
+    show_line_numbers: bool,
+    max_columns: int,
+) -> list[SearchResult]:
+    """Search a text block and return matches with context.
+
+    Parameters
+    ----------
+    text : str
+        Text to search
+    query : str
+        Search query
+    lowered_query : str
+        Lowercase version of query for case-insensitive search
+    pattern : re.Pattern or None
+        Compiled regex pattern if regex mode is enabled
+    section_heading : str or None
+        Section heading for context
+    document_path : str
+        Path to document
+    document_id : str
+        Document identifier
+    context_before : int
+        Lines of context before matches
+    context_after : int
+        Lines of context after matches
+    ignore_case : bool
+        Whether to perform case-insensitive matching
+    show_line_numbers : bool
+        Whether to show line numbers for matching lines
+    max_columns : int
+        Maximum display width for long lines (0 = unlimited)
+
+    Returns
+    -------
+    list[SearchResult]
+        Matches found in this text block
+
+    """
+    lines = text.splitlines()
+    if not lines:
+        return []
+
+    # Find all matching lines
+    line_spans: dict[int, list[tuple[int, int]]] = {}
+    for idx, line in enumerate(lines):
+        spans = _find_spans(line, query, lowered_query, pattern, ignore_case)
+        if spans:
+            line_spans[idx] = spans
+
+    if not line_spans:
+        return []
+
+    # Build result with context
+    matched_indices = sorted(line_spans.keys())
+    fragment_lines: list[str] = []
+    included: set[int] = set()
+
+    for idx in matched_indices:
+        start = max(0, idx - context_before)
+        end = min(len(lines), idx + context_after + 1)
+        for line_idx in range(start, end):
+            if line_idx in included:
+                continue
+            is_match = line_idx in line_spans
+            line_text = lines[line_idx]
+            line_spans_to_use = line_spans.get(line_idx) if is_match else None
+
+            # Truncate long lines
+            truncate_threshold = max_columns if max_columns > 0 else 200
+            if len(line_text) > truncate_threshold and is_match:
+                line_text, line_spans_to_use = _truncate_to_match(
+                    line_text, line_spans[line_idx], max_length=max_columns
+                )
+            elif len(line_text) > truncate_threshold:
+                max_len = max_columns if max_columns > 0 else 197
+                line_text = line_text[:max_len] + "..."
+
+            highlighted = _highlight_line(line_text, line_spans_to_use)
+
+            # Add line numbers if requested
+            if show_line_numbers:
+                highlighted = f"{line_idx + 1}: {highlighted}"
+
+            fragment_lines.append(highlighted)
+            included.add(line_idx)
+
+    snippet = "\n".join(fragment_lines)
+
+    # Create chunk metadata for compatibility
+    chunk_metadata = {
+        "document_id": document_id,
+        "document_path": document_path,
+        "section_heading": section_heading,
+    }
+
+    # Create a pseudo-chunk for the result
+    chunk_id = f"{document_id}::{section_heading or 'preamble'}"
+    chunk = Chunk(chunk_id=chunk_id, text=snippet, metadata=chunk_metadata)
+
+    return [
+        SearchResult(
+            chunk=chunk,
+            score=float(len(matched_indices)),
+            metadata={
+                "backend": "grep",
+                "occurrences": len(matched_indices),
+            },
+        )
+    ]
+
+
 def _match_lines(
     chunks: Sequence[Chunk],
     query: str,
@@ -437,12 +751,16 @@ def _match_lines(
 
         line_spans: dict[int, list[tuple[int, int]]] = {}
         for idx, line in enumerate(lines):
-            spans = _find_spans(line, query, lowered_query, pattern)
+            spans = _find_spans(line, query, lowered_query, pattern, ignore_case=True)
             if spans:
                 line_spans[idx] = spans
 
         if not line_spans:
             continue
+
+        # Get section info from chunk metadata for better context
+        section_heading = chunk.metadata.get("section_heading")
+        chunk_index = chunk.metadata.get("chunk_index", 0)
 
         matched_indices = sorted(line_spans.keys())
         fragment_lines: list[str] = []
@@ -453,9 +771,26 @@ def _match_lines(
             for line_idx in range(start, end):
                 if line_idx in included:
                     continue
-                prefix = ">" if line_idx in line_spans else " "
-                highlighted = _highlight_line(lines[line_idx], line_spans.get(line_idx))
-                fragment_lines.append(f"{line_idx + 1:04d}: {prefix} {highlighted}")
+                is_match = line_idx in line_spans
+                line_text = lines[line_idx]
+                line_spans_to_use = line_spans.get(line_idx) if is_match else None
+
+                # Truncate long lines to show context around matches
+                if len(line_text) > 200 and is_match:
+                    line_text, line_spans_to_use = _truncate_to_match(line_text, line_spans[line_idx])
+                elif len(line_text) > 200:
+                    # For context lines, just truncate
+                    line_text = line_text[:197] + "..."
+
+                highlighted = _highlight_line(line_text, line_spans_to_use)
+
+                # Format line number to show chunk context
+                if section_heading:
+                    line_num = f"{chunk_index}:{line_idx + 1}"
+                else:
+                    line_num = f"{line_idx + 1}"
+
+                fragment_lines.append(f"{line_num}: {highlighted}")
                 included.add(line_idx)
 
         snippet = "\n".join(fragment_lines)
@@ -472,6 +807,9 @@ def _match_lines(
         )
 
     matches.sort(key=lambda result: result.score, reverse=True)
+    # For grep mode, return all matches; otherwise limit to top_k
+    if backend == "grep":
+        return matches
     return matches[:top_k]
 
 
@@ -480,6 +818,7 @@ def _find_spans(
     query: str,
     lowered_query: str,
     pattern: re.Pattern[str] | None,
+    ignore_case: bool,
 ) -> list[tuple[int, int]]:
     if pattern is not None:
         spans: list[tuple[int, int]] = []
@@ -490,7 +829,9 @@ def _find_spans(
             spans.append((start, end))
         return spans
 
-    lowered_line = line.lower()
+    # For non-regex searches, use case-sensitive or case-insensitive comparison
+    search_line = line.lower() if ignore_case else line
+    search_query = lowered_query if ignore_case else query
     spans: list[tuple[int, int]] = []
     cursor = 0
     qlen = len(query)
@@ -498,7 +839,7 @@ def _find_spans(
         return spans
 
     while True:
-        idx = lowered_line.find(lowered_query, cursor)
+        idx = search_line.find(search_query, cursor)
         if idx == -1:
             break
         spans.append((idx, idx + qlen))

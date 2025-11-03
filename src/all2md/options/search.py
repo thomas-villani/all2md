@@ -145,7 +145,29 @@ class SearchOptions(CloneFrozenMixin):
     grep_regex: bool = field(
         default=False,
         metadata={
-            "help": "Interpret grep queries as regular expressions (case-insensitive)",
+            "help": "Interpret grep queries as regular expressions",
+            "importance": "advanced",
+        },
+    )
+    grep_ignore_case: bool = field(
+        default=False,
+        metadata={
+            "help": "Perform case-insensitive matching in grep mode",
+            "importance": "advanced",
+        },
+    )
+    grep_show_line_numbers: bool = field(
+        default=False,
+        metadata={
+            "help": "Show line numbers for matching lines in grep mode",
+            "importance": "advanced",
+        },
+    )
+    grep_max_columns: int = field(
+        default=150,
+        metadata={
+            "help": "Maximum display width for long lines in grep output (0 = unlimited)",
+            "type": int,
             "importance": "advanced",
         },
     )
@@ -171,6 +193,8 @@ class SearchOptions(CloneFrozenMixin):
             raise ValueError("Hybrid weights must sum to a positive value")
         if self.grep_context_before < 0 or self.grep_context_after < 0:
             raise ValueError("Grep context values must be non-negative")
+        if self.grep_max_columns < 0:
+            raise ValueError("grep_max_columns must be non-negative (0 = unlimited)")
 
 
 __all__ = ["SearchOptions"]

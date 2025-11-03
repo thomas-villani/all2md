@@ -1745,6 +1745,7 @@ def handle_search_command(args: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="all2md search",
         description="Search documents using keyword, vector, or hybrid retrieval.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("query", help="Search query text")
     parser.add_argument(
@@ -1918,7 +1919,8 @@ def handle_search_command(args: list[str] | None = None) -> int:
 
     service: SearchService | None = None
     using_existing = False
-    if index_path and index_path.exists() and not parsed.rebuild:
+    # Skip index persistence for grep mode (grep doesn't need indexing)
+    if index_path and index_path.exists() and not parsed.rebuild and resolved_mode != "grep":
         try:
             service = SearchService.load(index_path, options=options)
             using_existing = True
@@ -1939,7 +1941,9 @@ def handle_search_command(args: list[str] | None = None) -> int:
             print("Error: No valid input files found", file=sys.stderr)
             return EXIT_FILE_ERROR
 
-    progress_callback = _make_search_progress_callback(parsed.progress)
+    # Enable progress by default for vector search (which is typically slow)
+    enable_progress = parsed.progress or resolved_mode == "vector"
+    progress_callback = _make_search_progress_callback(enable_progress)
     service = service or SearchService(options=options)
 
     if not using_existing:
@@ -1956,7 +1960,8 @@ def handle_search_command(args: list[str] | None = None) -> int:
             print(f"Error building index: {exc}", file=sys.stderr)
             return EXIT_ERROR
 
-        if index_path and parsed.persist:
+        # Skip saving index for grep mode (grep doesn't need indexing)
+        if index_path and parsed.persist and resolved_mode != "grep":
             try:
                 service.save(index_path)
             except Exception as exc:
@@ -1979,6 +1984,147 @@ def handle_search_command(args: list[str] | None = None) -> int:
     else:
         _render_search_results(results, use_rich=parsed.rich)
 
+    return EXIT_SUCCESS
+
+
+def handle_grep_command(args: list[str] | None = None) -> int:
+    """Handle ``all2md grep`` for simple text search in documents.
+
+    This is a simplified interface to the search system that only uses grep mode,
+    making it work like traditional grep but for binary document formats.
+    """
+    parser = argparse.ArgumentParser(
+        prog="all2md grep",
+        description="Search for text patterns in documents (works on binary formats too).",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("query", help="Search query text or pattern")
+    parser.add_argument(
+        "inputs",
+        nargs="+",
+        help="Files, directories, or globs to search",
+    )
+    parser.add_argument(
+        "-e",
+        "--regex",
+        dest="grep_regex",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Interpret query as a regular expression",
+    )
+    parser.add_argument(
+        "-A",
+        "--after-context",
+        dest="grep_context_after",
+        type=int,
+        help="Print NUM lines of trailing context",
+    )
+    parser.add_argument(
+        "-B",
+        "--before-context",
+        dest="grep_context_before",
+        type=int,
+        help="Print NUM lines of leading context",
+    )
+    parser.add_argument(
+        "-C",
+        "--context",
+        dest="grep_context",
+        type=int,
+        help="Print NUM lines of leading and trailing context (equivalent to -A NUM -B NUM)",
+    )
+    parser.add_argument(
+        "-n",
+        "--line-number",
+        dest="grep_show_line_numbers",
+        action="store_true",
+        help="Show line numbers for matching lines",
+    )
+    parser.add_argument(
+        "-i",
+        "--ignore-case",
+        dest="grep_ignore_case",
+        action="store_true",
+        help="Perform case-insensitive matching",
+    )
+    parser.add_argument(
+        "-M",
+        "--max-columns",
+        dest="grep_max_columns",
+        type=int,
+        help="Maximum display width for long lines (default: 150, 0 = unlimited)",
+    )
+    parser.add_argument("--recursive", action="store_true", help="Recurse into directories when searching")
+    parser.add_argument("--exclude", action="append", help="Glob pattern to exclude (repeatable)")
+    parser.add_argument("--rich", action="store_true", help="Enable rich-style output formatting")
+
+    parsed = parser.parse_args(args)
+
+    # Apply context shortcuts
+    if parsed.grep_context is not None:
+        if parsed.grep_context_before is None:
+            parsed.grep_context_before = parsed.grep_context
+        if parsed.grep_context_after is None:
+            parsed.grep_context_after = parsed.grep_context
+
+    # Create search options with grep-specific settings
+    options = SearchOptions()
+    overrides = {}
+    if parsed.grep_context_before is not None:
+        overrides["grep_context_before"] = parsed.grep_context_before
+    if parsed.grep_context_after is not None:
+        overrides["grep_context_after"] = parsed.grep_context_after
+    if parsed.grep_regex is not None:
+        overrides["grep_regex"] = parsed.grep_regex
+    if parsed.grep_show_line_numbers:
+        overrides["grep_show_line_numbers"] = parsed.grep_show_line_numbers
+    if parsed.grep_ignore_case:
+        overrides["grep_ignore_case"] = parsed.grep_ignore_case
+    if parsed.grep_max_columns is not None:
+        overrides["grep_max_columns"] = parsed.grep_max_columns
+
+    if overrides:
+        try:
+            options = options.create_updated(**overrides)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return EXIT_VALIDATION_ERROR
+
+    # Collect input files
+    items = collect_input_files(parsed.inputs, recursive=parsed.recursive, exclude_patterns=parsed.exclude)
+    if not items:
+        print("Error: No valid input files found", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    # Create documents
+    documents = _create_search_documents(items)
+    if not documents:
+        print("Error: No input documents available for searching", file=sys.stderr)
+        return EXIT_FILE_ERROR
+
+    # Build index and search (grep mode, no persistence)
+    service = SearchService(options=options)
+    try:
+        service.build_indexes(documents, modes={"grep"})
+    except DependencyError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_DEPENDENCY_ERROR
+    except Exception as exc:
+        print(f"Error building index: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    try:
+        # Grep mode returns all results (no top_k limit)
+        results = service.search(parsed.query, mode="grep", top_k=999999)
+    except DependencyError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_DEPENDENCY_ERROR
+    except Exception as exc:
+        print(f"Error during search: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    # Render results
+    _render_search_results(results, use_rich=parsed.rich)
     return EXIT_SUCCESS
 
 
@@ -2066,9 +2212,109 @@ def _result_to_dict(result: SearchResult) -> Dict[str, object]:
     }
 
 
+def _render_grep_results(results: List[SearchResult], *, use_rich: bool) -> None:
+    """Render grep results in ripgrep-style format.
+
+    Groups matches by file, showing file path as a header followed by
+    matching lines with line numbers.
+
+    Parameters
+    ----------
+    results : List[SearchResult]
+        Search results from grep mode
+    use_rich : bool
+        Whether to use rich formatting
+
+    """
+    console = None
+    if use_rich:
+        try:
+            from rich.console import Console
+
+            console = Console()
+        except ImportError:
+            use_rich = False
+
+    # Group results by document path and section
+    grouped: dict[str, dict[str, list[SearchResult]]] = {}
+    for result in results:
+        metadata = result.chunk.metadata
+        doc_label = (
+            metadata.get("document_path") or metadata.get("path_hint") or metadata.get("document_id") or "unknown"
+        )
+        section = metadata.get("section_heading") or "(preamble)"
+
+        if doc_label not in grouped:
+            grouped[doc_label] = {}
+        if section not in grouped[doc_label]:
+            grouped[doc_label][section] = []
+        grouped[doc_label][section].append(result)
+
+    # Render each file and its sections
+    for doc_path, sections in grouped.items():
+        if use_rich and console is not None:
+            from rich.text import Text
+
+            # File header
+            header = Text(str(doc_path), style="bold magenta")
+            console.print(header)
+            console.print()
+
+            # Print each section
+            for section_name, section_results in sections.items():
+                # Section heading
+                console.print(Text(section_name, style="bold cyan"))
+
+                # Print matches for this section
+                for result in section_results:
+                    snippet = result.chunk.text
+                    if snippet:
+                        # Indent each line
+                        for line in snippet.splitlines():
+                            snippet_text = _rich_snippet(line)
+                            if snippet_text:
+                                console.print(Text("  ") + snippet_text)
+                            else:
+                                console.print(f"  {line}")
+
+                console.print()
+
+        else:
+            # Plain text output
+            print(str(doc_path))
+            print()
+
+            # Print each section
+            for section_name, section_results in sections.items():
+                # Section heading
+                print(section_name)
+
+                # Print matches for this section
+                for result in section_results:
+                    snippet = result.chunk.text
+                    if snippet:
+                        # Indent each line of the snippet
+                        for line in snippet.splitlines():
+                            # Strip highlighting markers in plain mode
+                            plain_line = line.replace("<<", "").replace(">>", "")
+                            print(f"  {plain_line}")
+
+                print()
+
+
 def _render_search_results(results: List[SearchResult], *, use_rich: bool) -> None:
     if not results:
         print("No results found.")
+        return
+
+    # Check if this is grep mode
+    is_grep = False
+    if results:
+        first_backend = results[0].metadata.get("backend", "") if isinstance(results[0].metadata, Mapping) else ""
+        is_grep = first_backend == "grep"
+
+    if is_grep:
+        _render_grep_results(results, use_rich=use_rich)
         return
 
     console = None
@@ -2600,6 +2846,10 @@ def handle_dependency_commands(args: list[str] | None = None) -> int | None:
 
     if args[0] == "search":
         return handle_search_command(args[1:])
+
+    # Check for grep command
+    if args[0] == "grep":
+        return handle_grep_command(args[1:])
 
     # Check for diff command
     if args[0] == "diff":
