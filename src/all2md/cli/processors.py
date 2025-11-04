@@ -46,6 +46,139 @@ from all2md.utils.packages import check_version_requirement
 logger = logging.getLogger(__name__)
 
 
+def extract_sections_from_document(doc: Document, extract_spec: str) -> Document:
+    """Extract specific sections from a document based on extraction specification.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document to extract sections from
+    extract_spec : str
+        Extraction specification:
+        - Name pattern: "Introduction", "Intro*", "*Results*" (uses fnmatch)
+        - Single index: "#:1" (1-based)
+        - Range: "#:1-3" (1-based, inclusive)
+        - Multiple: "#:1,3,5" (1-based)
+        - Open-ended: "#:3-" (from 3 to end)
+
+    Returns
+    -------
+    Document
+        New document containing only extracted sections, with ThematicBreak separators
+
+    Raises
+    ------
+    ValueError
+        If extraction spec is invalid or no matching sections found
+
+    Examples
+    --------
+    >>> doc = Document(children=[...])
+    >>> extracted = extract_sections_from_document(doc, "Introduction")
+    >>> extracted = extract_sections_from_document(doc, "#:1-3")
+    >>> extracted = extract_sections_from_document(doc, "Chapter*")
+
+    """
+    import fnmatch
+
+    from all2md.ast.document_utils import get_all_sections, parse_section_ranges
+
+    # Get all sections from document
+    sections = get_all_sections(doc)
+
+    if not sections:
+        raise ValueError("Document contains no sections (headings)")
+
+    # Determine if this is an index spec or name pattern
+    if extract_spec.startswith("#:"):
+        # Index-based extraction
+        index_spec = extract_spec[2:]  # Remove "#:" prefix
+
+        try:
+            # Parse section indices (returns 0-based)
+            section_indices = parse_section_ranges(index_spec, len(sections))
+
+            if not section_indices:
+                raise ValueError(f"No valid sections in range: {extract_spec}")
+
+            # Extract sections by index
+            extracted_sections = [sections[i] for i in section_indices]
+
+        except (ValueError, IndexError) as e:
+            raise ValueError(f"Invalid section index specification '{extract_spec}': {e}") from e
+    else:
+        # Name pattern-based extraction (use fnmatch for wildcards)
+        pattern = extract_spec
+        extracted_sections = []
+
+        # Collect all heading texts for potential fuzzy matching
+        all_heading_texts = []
+        for section in sections:
+            # Get the heading text from the section
+            heading_node = section.heading
+            if heading_node and heading_node.content:
+                # Extract text from heading content nodes
+                heading_text = ""
+                for node in heading_node.content:
+                    if hasattr(node, "content") and isinstance(node.content, str):
+                        heading_text += node.content
+
+                all_heading_texts.append(heading_text)
+
+                # Match against pattern (case-insensitive fnmatch)
+                if fnmatch.fnmatch(heading_text.lower(), pattern.lower()):
+                    extracted_sections.append(section)
+
+        if not extracted_sections:
+            # Check if wildcards were used in the pattern
+            has_wildcards = "*" in pattern or "?" in pattern
+
+            # If no wildcards, try fuzzy matching to provide helpful suggestions
+            if not has_wildcards and all_heading_texts:
+                import difflib
+
+                # Find close matches (case-insensitive comparison)
+                suggestions = difflib.get_close_matches(
+                    pattern.lower(), [h.lower() for h in all_heading_texts], n=3, cutoff=0.6
+                )
+
+                # Map back to original case
+                if suggestions:
+                    original_suggestions = []
+                    for suggestion in suggestions:
+                        for original in all_heading_texts:
+                            if original.lower() == suggestion:
+                                original_suggestions.append(original)
+                                break
+
+                    error_msg = (
+                        f"No sections match pattern: {pattern}\nDid you mean: {', '.join(original_suggestions)}?"
+                    )
+                    raise ValueError(error_msg)
+
+            # Fallback to simple error message
+            raise ValueError(f"No sections match pattern: {pattern}")
+
+    # Build new document with extracted sections separated by ThematicBreak
+    merged_children: list[Node] = []
+
+    for i, section in enumerate(extracted_sections):
+        # Add section heading
+        merged_children.append(section.heading)
+
+        # Add section content
+        merged_children.extend(section.content)
+
+        # Add separator between sections (but not after the last one)
+        if i < len(extracted_sections) - 1:
+            merged_children.append(ThematicBreak())
+
+    # Create new document with extracted content
+    extracted_doc = Document(children=merged_children, metadata=doc.metadata.copy())
+
+    return extracted_doc
+
+
 def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
     """Return the shared base directory for local inputs when preserving structure."""
     if not preserve_structure:
@@ -2054,6 +2187,7 @@ def convert_single_file(
     target_format: str = "markdown",
     transform_specs: Optional[list[TransformSpec]] = None,
     progress_callback: Optional[Any] = None,
+    extract_spec: Optional[str] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2077,6 +2211,8 @@ def convert_single_file(
         Serializable transform specifications to rebuild in worker processes
     progress_callback : ProgressCallback, optional
         Optional callback for progress updates
+    extract_spec : str, optional
+        Section extraction specification (e.g., "Introduction", "#:1-3")
 
     Returns
     -------
@@ -2112,6 +2248,46 @@ def convert_single_file(
             renderer_hint,
         )
 
+        # If extraction is requested, use AST pipeline
+        if extract_spec:
+            # Parse to AST
+            doc = to_ast(
+                source_value,
+                source_format=cast(DocumentFormat, format_arg),
+                progress_callback=progress_callback,
+                **effective_options,
+            )
+
+            # Extract sections
+            doc = extract_sections_from_document(doc, extract_spec)
+
+            # Apply transforms
+            if local_transforms:
+                for transform in local_transforms:
+                    doc = transform.transform(doc)
+
+            # Render from AST
+            render_target = target_format if target_format != "auto" else "markdown"
+            result = from_ast(
+                doc,
+                target_format=cast(DocumentFormat, render_target),
+                output=output_path,
+                **effective_options,
+            )
+
+            if output_path:
+                return EXIT_SUCCESS, input_item.display_name, None
+
+            # Handle stdout output
+            if isinstance(result, bytes):
+                sys.stdout.buffer.write(result)
+                sys.stdout.buffer.flush()
+            elif isinstance(result, str):
+                print(result)
+
+            return EXIT_SUCCESS, input_item.display_name, None
+
+        # Normal conversion path (no extraction)
         if output_path:
             convert(
                 source_value,
@@ -2227,6 +2403,9 @@ def process_files_unified(
     failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
     max_exit_code = EXIT_SUCCESS
 
+    # Get extract_spec from args if present
+    extract_spec = getattr(args, "extract", None)
+
     use_parallel = (
         hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
     ) or (isinstance(args.parallel, int) and args.parallel != 1)
@@ -2247,6 +2426,8 @@ def process_files_unified(
                         False,
                         target_format,
                         transform_specs_for_workers,
+                        None,  # progress_callback (not supported in parallel mode)
+                        extract_spec,
                     ): (item, output_path)
                     for item, output_path, target_format, _ in planned_tasks
                 }
@@ -2287,6 +2468,7 @@ def process_files_unified(
                     target_format,
                     transform_specs_for_workers,
                     progress_callback,
+                    extract_spec,
                 )
 
                 if exit_code == EXIT_SUCCESS:
@@ -2337,13 +2519,37 @@ def _render_single_item_to_stdout(
             render_target,
         )
 
+        # Check if extraction is requested
+        extract_spec = getattr(args, "extract", None)
+
         if render_target == "markdown":
-            markdown_content = to_markdown(
-                item.raw_input,
-                source_format=cast(DocumentFormat, format_arg),
-                transforms=transforms,
-                **effective_options,
-            )
+            # Handle extraction using AST pipeline
+            if extract_spec:
+                # Parse to AST
+                doc = to_ast(
+                    item.raw_input,
+                    source_format=cast(DocumentFormat, format_arg),
+                    **effective_options,
+                )
+
+                # Extract sections
+                doc = extract_sections_from_document(doc, extract_spec)
+
+                # Apply transforms
+                if transforms:
+                    for transform in transforms:
+                        doc = transform.transform(doc)
+
+                # Render to markdown
+                markdown_content = from_ast(doc, "markdown", **effective_options)
+            else:
+                # Normal markdown conversion
+                markdown_content = to_markdown(
+                    item.raw_input,
+                    source_format=cast(DocumentFormat, format_arg),
+                    transforms=transforms,
+                    **effective_options,
+                )
 
             # Apply rich formatting if requested
             if should_use_rich:
@@ -2360,14 +2566,35 @@ def _render_single_item_to_stdout(
 
             return EXIT_SUCCESS
         else:
-            result = convert(
-                item.raw_input,
-                output=None,
-                source_format=cast(DocumentFormat, format_arg),
-                target_format=cast(DocumentFormat, render_target),
-                transforms=transforms,
-                **effective_options,
-            )
+            # Handle extraction for non-markdown formats
+            if extract_spec:
+                # Parse to AST
+                doc = to_ast(
+                    item.raw_input,
+                    source_format=cast(DocumentFormat, format_arg),
+                    **effective_options,
+                )
+
+                # Extract sections
+                doc = extract_sections_from_document(doc, extract_spec)
+
+                # Apply transforms
+                if transforms:
+                    for transform in transforms:
+                        doc = transform.transform(doc)
+
+                # Render to target format
+                result = from_ast(doc, cast(DocumentFormat, render_target), **effective_options)
+            else:
+                # Normal conversion
+                result = convert(
+                    item.raw_input,
+                    output=None,
+                    source_format=cast(DocumentFormat, format_arg),
+                    target_format=cast(DocumentFormat, render_target),
+                    transforms=transforms,
+                    **effective_options,
+                )
 
             if isinstance(result, bytes):
                 sys.stdout.buffer.write(result)

@@ -15,7 +15,7 @@ from all2md.ast.transforms import NodeTransformer
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
     collect_input_files,
-    handle_dependency_commands,
+    dispatch_command,
 )
 from all2md.cli.commands.config import save_config_to_file
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
@@ -990,15 +990,15 @@ class TestNewEnhancedCLIFeatures:
     def test_dependency_commands_parsing(self):
         """Test parsing of dependency management commands."""
         # Test check-deps command
-        result = handle_dependency_commands(["check-deps"])
+        result = dispatch_command(["check-deps"])
         assert result is not None  # Should return exit code
 
         # Test check-deps with format
-        result = handle_dependency_commands(["check-deps", "pdf"])
+        result = dispatch_command(["check-deps", "pdf"])
         assert result is not None
 
         # Test non-dependency command
-        result = handle_dependency_commands(["test.pdf"])
+        result = dispatch_command(["test.pdf"])
         assert result is None
 
     def test_save_config_flag_parsing(self):

@@ -1227,6 +1227,87 @@ def find_heading(
     return None
 
 
+def parse_section_ranges(section_spec: str, total_sections: int) -> list[int]:
+    """Parse section range specification into list of 0-based section indices.
+
+    Supports various formats (all 1-indexed input):
+    - "1-3" -> [0, 1, 2]
+    - "5" -> [4]
+    - "10-" -> [9, 10, ..., total_sections-1]
+    - "1-3,5,10-" -> combined ranges
+    - "5-3" -> [2, 3, 4] (automatically swaps to "3-5")
+
+    Reversed ranges (where start > end) are automatically corrected by swapping
+    the values. For example, "10-5" is treated as "5-10".
+
+    Parameters
+    ----------
+    section_spec : str
+        Section range specification (1-based section numbers)
+    total_sections : int
+        Total number of sections in document
+
+    Returns
+    -------
+    list of int
+        Sorted list of 0-based section indices
+
+    Examples
+    --------
+    >>> parse_section_ranges("1-3,5", 10)
+    [0, 1, 2, 4]
+    >>> parse_section_ranges("8-", 10)
+    [7, 8, 9]
+    >>> parse_section_ranges("10-5", 10)
+    [4, 5, 6, 7, 8, 9]
+
+    """
+    sections = set()
+
+    # Split by comma to handle multiple ranges
+    parts = section_spec.split(",")
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # Handle range (e.g., "1-3" or "10-")
+        if "-" in part:
+            range_parts = part.split("-", 1)
+            start_str = range_parts[0].strip()
+            end_str = range_parts[1].strip()
+
+            # Parse start (1-based to 0-based)
+            if start_str:
+                start = int(start_str) - 1
+            else:
+                start = 0
+
+            # Parse end (1-based to 0-based, or use total_sections if empty)
+            if end_str:
+                end = int(end_str) - 1
+            else:
+                end = total_sections - 1
+
+            # Swap if reversed range (e.g., "10-5" becomes "5-10")
+            if start > end:
+                start, end = end, start
+
+            # Add all sections in range
+            for s in range(start, end + 1):
+                if 0 <= s < total_sections:
+                    sections.add(s)
+        else:
+            # Single section (1-based to 0-based)
+            section = int(part) - 1
+            if 0 <= section < total_sections:
+                sections.add(section)
+
+    # Return sorted list
+    return sorted(sections)
+
+
 __all__ = [
     "Section",
     "get_all_sections",
@@ -1245,4 +1326,5 @@ __all__ = [
     "get_preamble",
     "count_sections",
     "find_heading",
+    "parse_section_ranges",
 ]

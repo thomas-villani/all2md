@@ -25,8 +25,7 @@ from all2md.dependencies import main as deps_main
 logger = logging.getLogger(__name__)
 
 
-# TODO: this is really a command dispatcher, not just for the dependency commands, should rename.
-def handle_dependency_commands(args: list[str] | None = None) -> int | None:
+def dispatch_command(args: list[str] | None = None) -> int | None:
     """Handle dependency management commands.
 
     Parameters

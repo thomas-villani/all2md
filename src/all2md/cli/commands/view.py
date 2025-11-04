@@ -51,6 +51,16 @@ def handle_view_command(args: list[str] | None = None) -> int:
         "--theme",
         help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
     )
+    parser.add_argument(
+        "--extract",
+        type=str,
+        metavar="SPEC",
+        help="Extract specific section(s) from document. "
+        "Supports: name pattern ('Introduction', 'Chapter*'), "
+        "single index ('#:1'), range ('#:1-3'), "
+        "multiple ('#:1,3,5'), or open-ended ('#:3-'). "
+        "Sections are 1-indexed.",
+    )
 
     try:
         parsed = parser.parse_args(args or [])
@@ -96,6 +106,16 @@ def handle_view_command(args: list[str] | None = None) -> int:
     try:
         # Convert to AST
         doc = to_ast(parsed.input)
+
+        # Apply section extraction if requested
+        if parsed.extract:
+            from all2md.cli.processors import extract_sections_from_document
+
+            try:
+                doc = extract_sections_from_document(doc, parsed.extract)
+            except ValueError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                return EXIT_ERROR
 
         # Set custom title for web preview
         doc.metadata["title"] = f"{input_path.name} - all2md Web Preview"

@@ -287,6 +287,90 @@ def _format_file_size(size_bytes: int) -> str:
     return f"{size:.1f} TB"
 
 
+def _parse_multipart_form_data(body: bytes, content_type: str) -> Dict[str, Any]:
+    """Parse multipart/form-data without using deprecated cgi module.
+
+    Parameters
+    ----------
+    body : bytes
+        Raw request body
+    content_type : str
+        Content-Type header value
+
+    Returns
+    -------
+    dict
+        Dictionary mapping field names to their values or file data.
+        File fields return dict with 'filename' and 'data' keys.
+
+    Raises
+    ------
+    ValueError
+        If no boundary found in Content-Type header
+
+    """
+    # Extract boundary from content type
+    boundary = None
+    for ct_part in content_type.split(";"):
+        ct_part = ct_part.strip()
+        if ct_part.startswith("boundary="):
+            boundary = ct_part.split("=", 1)[1]
+            # Remove quotes if present
+            boundary = boundary.strip('"')
+            break
+
+    if not boundary:
+        raise ValueError("No boundary found in Content-Type")
+
+    # Split by boundary markers
+    boundary_bytes = ("--" + boundary).encode("utf-8")
+    parts = body.split(boundary_bytes)
+
+    result: Dict[str, Any] = {}
+
+    for part_bytes in parts:
+        # Skip empty parts and end marker
+        part_bytes = part_bytes.strip()
+        if not part_bytes or part_bytes == b"--":
+            continue
+
+        # Split headers from content
+        headers_section: bytes
+        content: bytes
+        if b"\r\n\r\n" in part_bytes:
+            headers_section, content = part_bytes.split(b"\r\n\r\n", 1)
+        elif b"\n\n" in part_bytes:
+            headers_section, content = part_bytes.split(b"\n\n", 1)
+        else:
+            continue
+
+        # Parse Content-Disposition header
+        headers = headers_section.decode("utf-8", errors="ignore")
+        field_name = None
+        filename = None
+
+        for line in headers.split("\n"):
+            line = line.strip()
+            if line.lower().startswith("content-disposition:"):
+                # Parse field name and filename
+                for param in line.split(";"):
+                    param = param.strip()
+                    if "name=" in param:
+                        field_name = param.split("=", 1)[1].strip('"')
+                    elif "filename=" in param:
+                        filename = param.split("=", 1)[1].strip('"')
+
+        if field_name:
+            if filename:
+                # File field
+                result[field_name] = {"filename": filename, "data": content.rstrip(b"\r\n")}
+            else:
+                # Text field
+                result[field_name] = content.rstrip(b"\r\n").decode("utf-8", errors="ignore")
+
+    return result
+
+
 def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     """Handle serve command to serve documents via HTTP server.
 
@@ -574,9 +658,6 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
         def _handle_upload(self) -> None:
             """Handle file upload from web form."""
-            # TODO: wtf is this?
-            import cgi
-
             try:
                 # Parse multipart form data
                 content_type = self.headers.get("Content-Type", "")
@@ -603,15 +684,12 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                     self.wfile.write(error_html.encode("utf-8"))
                     return
 
-                # Parse form data
-                form = cgi.FieldStorage(
-                    fp=self.rfile,  # type: ignore[arg-type]
-                    headers=self.headers,
-                    environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": content_type},
-                )
+                # Read and parse form data
+                body = self.rfile.read(content_length)
+                form_data = _parse_multipart_form_data(body, content_type)
 
                 # Get file and format
-                if "file" not in form:
+                if "file" not in form_data:
                     self.send_response(400)
                     self.send_header("Content-type", "text/html; charset=utf-8")
                     self.end_headers()
@@ -619,14 +697,14 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                     self.wfile.write(error_html.encode("utf-8"))
                     return
 
-                file_item = form["file"]
-                target_format = form.getvalue("format", "html")
+                file_item = form_data["file"]
+                target_format = form_data.get("format", "html")
 
-                # Read file data
-                if hasattr(file_item, "file"):
-                    file_data = file_item.file.read()
+                # Extract file data
+                if isinstance(file_item, dict) and "data" in file_item:
+                    file_data = file_item["data"]
                 else:
-                    file_data = file_item.value
+                    file_data = file_item
 
                 # Convert document
                 print(f"Converting uploaded file to {target_format}...")
@@ -656,8 +734,6 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
         def _handle_api_convert(self) -> None:
             """Handle API conversion request."""
-            import cgi
-
             try:
                 # Parse multipart form data or JSON
                 content_type = self.headers.get("Content-Type", "")
@@ -678,14 +754,11 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                         self.wfile.write(json.dumps(error).encode("utf-8"))
                         return
 
-                    # Parse form data
-                    form = cgi.FieldStorage(
-                        fp=self.rfile,  # type: ignore[arg-type]
-                        headers=self.headers,
-                        environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": content_type},
-                    )
+                    # Read and parse form data
+                    body = self.rfile.read(content_length)
+                    form_data = _parse_multipart_form_data(body, content_type)
 
-                    if "file" not in form:
+                    if "file" not in form_data:
                         self.send_response(400)
                         self.send_header("Content-type", "application/json")
                         self.end_headers()
@@ -693,14 +766,14 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                         self.wfile.write(json.dumps(error).encode("utf-8"))
                         return
 
-                    file_item = form["file"]
-                    target_format = form.getvalue("format", "html")
+                    file_item = form_data["file"]
+                    target_format = form_data.get("format", "html")
 
-                    # Read file data
-                    if hasattr(file_item, "file"):
-                        file_data = file_item.file.read()
+                    # Extract file data
+                    if isinstance(file_item, dict) and "data" in file_item:
+                        file_data = file_item["data"]
                     else:
-                        file_data = file_item.value
+                        file_data = file_item
 
                 else:
                     # Assume JSON with base64-encoded file

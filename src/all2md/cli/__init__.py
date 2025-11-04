@@ -63,7 +63,7 @@ from typing import cast
 
 from all2md.cli.builder import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR, DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
-    handle_dependency_commands,
+    dispatch_command,
 )
 from all2md.cli.commands.config import save_config_to_file
 from all2md.cli.commands.help import handle_help_command
@@ -254,7 +254,7 @@ def main(args: list[str] | None = None) -> int:
     if help_result is not None:
         return help_result
 
-    deps_result = handle_dependency_commands(args)
+    deps_result = dispatch_command(args)
     if deps_result is not None:
         return deps_result
 

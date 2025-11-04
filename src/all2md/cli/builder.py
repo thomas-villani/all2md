@@ -1111,6 +1111,18 @@ Examples:
         parser.add_argument("input", nargs="*", help="Input file(s) or directory(ies) to convert (use '-' for stdin)")
         parser.add_argument("--out", "-o", help="Output file path (default: print to stdout)")
 
+        # Section extraction option
+        parser.add_argument(
+            "--extract",
+            type=str,
+            metavar="SPEC",
+            help="Extract specific section(s) from document. "
+            "Supports: name pattern ('Introduction', 'Chapter*'), "
+            "single index ('#:1'), range ('#:1-3'), "
+            "multiple ('#:1,3,5'), or open-ended ('#:3-'). "
+            "Sections are 1-indexed. Pattern matching is case-insensitive with wildcard support.",
+        )
+
         # Format override option
         # Use registry.list_formats() directly for most up-to-date format list
         # Including "auto" as the first choice for format detection
