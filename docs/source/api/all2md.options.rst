@@ -49,6 +49,7 @@ Submodules
    all2md.options.pptx
    all2md.options.restructuredtext
    all2md.options.rtf
+   all2md.options.search
    all2md.options.sourcecode
    all2md.options.textile
    all2md.options.toml

@@ -16,10 +16,12 @@ Subpackages
 
    all2md.ast
    all2md.cli
+   all2md.diff
    all2md.mcp
    all2md.options
    all2md.parsers
    all2md.renderers
+   all2md.search
    all2md.transforms
    all2md.utils
 

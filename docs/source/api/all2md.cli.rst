@@ -8,6 +8,14 @@ all2md.cli
    :imported-members: False
    :noindex:
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   all2md.cli.commands
+
 Submodules
 ----------
 
@@ -15,7 +23,6 @@ Submodules
    :maxdepth: 4
 
    all2md.cli.builder
-   all2md.cli.commands
    all2md.cli.config
    all2md.cli.custom_actions
    all2md.cli.help_formatter

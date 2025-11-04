@@ -85,6 +85,22 @@ The table below shows where to look for the most commonly tuned converters.
      - ``MarkdownRendererOptions`` / ``MarkdownParserOptions``
      - Flavour defaults (GFM/CommonMark/etc), table handling, HTML passthrough policy
 
+Additional Parser Metadata
+-----------------------------
+
+Certain format options surface extra metadata that renderers and transforms can consume for advanced workflows:
+
+* **DOCX review comments** — enabling ``DocxOptions.include_comments`` populates :class:`~all2md.ast.nodes.CommentInline`
+  nodes with ``metadata`` that includes ``comment_type='docx_review'`` plus the review ``identifier``, ``label``,
+  ``author``, and ``date``. ``DocxOptions.comments_position`` controls whether those nodes stay inline or are emitted as
+  trailing footnotes.
+* **PPTX speaker notes** — when ``PptxOptions.comment_mode='comment'`` the converter emits
+  :class:`~all2md.ast.nodes.Comment` nodes tagged with ``comment_type='pptx_speaker_notes'`` and the originating
+  ``slide_number``. ``comment_mode='content'`` keeps the legacy behaviour of heading + paragraph content.
+* **PDF page separators** — enabling ``PdfOptions.include_page_numbers`` inserts :class:`~all2md.ast.nodes.Comment` nodes
+  carrying ``comment_type='page_separator'``. The comment text is rendered from ``PdfOptions.page_separator_template`` with
+  ``{page_num}`` / ``{total_pages}`` placeholders already resolved.
+
 Using Options
 -------------
 
@@ -3011,6 +3027,15 @@ including document structure, styling, templating, and feature toggles.
    :Default: ``'#content'``
    :Importance: advanced
 
+**toc_selector**
+
+   CSS selector for separate TOC injection point (template_mode='inject'). If not set, TOC is included with content at template_selector.
+
+   :Type: ``str | None``
+   :CLI flag: ``--html-renderer-toc-selector``
+   :Default: ``None``
+   :Importance: advanced
+
 **injection_mode**
 
    How to inject content: append, prepend, or replace
@@ -3075,6 +3100,137 @@ including document structure, styling, templating, and feature toggles.
    :Default: ``'native'``
    :Choices: ``native``, ``visible``, ``ignore``
    :Importance: core
+
+INI Options
+~~~~~~~~~~~
+
+
+INI Parser Options
+^^^^^^^^^^^^^^^^^^
+
+Configuration options for INI to AST parsing.
+
+The parser converts INI structures into human-readable document format:
+- Sections become headings
+- Key-value pairs become definition lists (bullet lists with bold keys)
+- Comments are preserved
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**literal_block**
+
+   Render as code block instead of structured document
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-literal-block``
+   :Default: ``False``
+   :Importance: core
+
+**pretty_format_numbers**
+
+   Format large numbers with thousand separators
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-no-pretty-format-numbers``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_case**
+
+   Preserve case of section names and keys
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-no-preserve-case``
+   :Default: ``True``
+   :Importance: advanced
+
+**allow_no_value**
+
+   Allow keys without values
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-allow-no-value``
+   :Default: ``False``
+   :Importance: advanced
+
+INI Renderer Options
+^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST to INI rendering.
+
+The renderer extracts section-based data from markdown documents and
+converts it to INI format. Since INI is flat (no nesting), only top-level
+sections with key-value pairs are extracted.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--ini-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--ini-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**type_inference**
+
+   Auto-detect types (numbers, booleans)
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-renderer-type-inference``
+   :Default: ``True``
+   :Importance: core
+
+**section_from_headings**
+
+   Use level-1 headings as section names
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-renderer-section-from-headings``
+   :Default: ``True``
+   :Importance: core
+
+**preserve_case**
+
+   Preserve case of section names and keys
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-renderer-preserve-case``
+   :Default: ``True``
+   :Importance: advanced
+
+**allow_no_value**
+
+   Allow keys without values
+
+   :Type: ``bool``
+   :CLI flag: ``--ini-renderer-allow-no-value``
+   :Default: ``False``
+   :Importance: advanced
 
 IPYNB Options
 ~~~~~~~~~~~~~
@@ -3245,6 +3401,15 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
    :CLI flag: ``--ipynb-truncate-output-message``
    :Default: ``'\n... (output truncated) ...\n'``
    :Importance: advanced
+
+**strip_html_from_markdown**
+
+   Strip HTML elements from markdown cells for security (prevents XSS)
+
+   :Type: ``bool``
+   :CLI flag: ``--ipynb-no-strip-html-from-markdown``
+   :Default: ``True``
+   :Importance: security
 
 IPYNB Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -3541,6 +3706,200 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
    :Default: ``True``
    :Importance: core
 
+JSON Options
+~~~~~~~~~~~~
+
+
+JSON Parser Options
+^^^^^^^^^^^^^^^^^^^
+
+Configuration options for JSON to AST parsing.
+
+The parser converts JSON structures into human-readable document format:
+- Objects/dicts become heading hierarchies
+- Arrays of objects become tables
+- Arrays of primitives become lists
+- Nested structures become subsections
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--json-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**literal_block**
+
+   Render as code block instead of structured document
+
+   :Type: ``bool``
+   :CLI flag: ``--json-literal-block``
+   :Default: ``False``
+   :Importance: core
+
+**max_heading_depth**
+
+   Maximum nesting depth for headings
+
+   :Type: ``int``
+   :CLI flag: ``--json-max-heading-depth``
+   :Default: ``6``
+   :Importance: advanced
+
+**array_as_table_threshold**
+
+   Minimum items in array to render as table
+
+   :Type: ``int``
+   :CLI flag: ``--json-array-as-table-threshold``
+   :Default: ``1``
+   :Importance: advanced
+
+**flatten_single_keys**
+
+   Flatten objects with single keys
+
+   :Type: ``bool``
+   :CLI flag: ``--json-no-flatten-single-keys``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_type_hints**
+
+   Add metadata hints about original JSON types
+
+   :Type: ``bool``
+   :CLI flag: ``--json-include-type-hints``
+   :Default: ``False``
+   :Importance: advanced
+
+**pretty_format_numbers**
+
+   Format large numbers with thousand separators
+
+   :Type: ``bool``
+   :CLI flag: ``--json-no-pretty-format-numbers``
+   :Default: ``True``
+   :Importance: core
+
+**sort_keys**
+
+   Sort object keys alphabetically
+
+   :Type: ``bool``
+   :CLI flag: ``--json-sort-keys``
+   :Default: ``False``
+   :Importance: core
+
+JSON Renderer Options
+^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST to JSON rendering.
+
+The renderer extracts structured data from markdown documents, primarily
+focusing on tables but optionally including lists and other elements.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--json-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--json-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**extract_mode**
+
+   What to extract: tables, lists, or both
+
+   :Type: ``Literal['tables', 'lists', 'both']``
+   :CLI flag: ``--json-renderer-extract-mode``
+   :Default: ``'tables'``
+   :Importance: core
+
+**type_inference**
+
+   Auto-detect types (numbers, booleans, null)
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-type-inference``
+   :Default: ``True``
+   :Importance: core
+
+**table_heading_keys**
+
+   Use preceding heading as key for each table
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-table-heading-keys``
+   :Default: ``True``
+   :Importance: core
+
+**flatten_single_table**
+
+   Return array directly if only one table found
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-flatten-single-table``
+   :Default: ``False``
+   :Importance: advanced
+
+**include_table_metadata**
+
+   Include metadata about table position and source
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-include-table-metadata``
+   :Default: ``False``
+   :Importance: advanced
+
+**indent**
+
+   Number of spaces for JSON indentation (None for compact)
+
+   :Type: ``int | None``
+   :CLI flag: ``--json-renderer-indent``
+   :Default: ``2``
+   :Importance: core
+
+**ensure_ascii**
+
+   Escape non-ASCII characters in output
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-ensure-ascii``
+   :Default: ``False``
+   :Importance: advanced
+
+**sort_keys**
+
+   Sort keys in output JSON
+
+   :Type: ``bool``
+   :CLI flag: ``--json-renderer-sort-keys``
+   :Default: ``False``
+   :Importance: core
+
 LATEX Options
 ~~~~~~~~~~~~~
 
@@ -3810,34 +4169,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    :Default: ``True``
    :Importance: core
 
-**strict_parsing**
-
-   Raise errors on invalid markdown syntax (vs. graceful recovery)
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-strict-parsing``
-   :Default: ``False``
-   :Importance: advanced
-
-**preserve_html**
-
-   Preserve raw HTML in AST (HTMLBlock/HTMLInline nodes)
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-no-preserve-html``
-   :Default: ``True``
-   :Importance: security
-
-**html_handling**
-
-   How to handle HTML when preserve_html=False: drop (remove entirely), sanitize (clean dangerous content)
-
-   :Type: ``str``
-   :CLI flag: ``--markdown-html-handling``
-   :Default: ``'drop'``
-   :Choices: ``drop``, ``sanitize``
-   :Importance: security
-
 **parse_frontmatter**
 
    Parse YAML/TOML/JSON frontmatter at document start
@@ -3989,7 +4320,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x7f011716c5e0>``
+   :Default: ``<object object at 0x000001DFDF7E4A90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -3999,7 +4330,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x7f011716c5e0>``
+   :Default: ``<object object at 0x000001DFDF7E4A90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4144,12 +4475,12 @@ modules to ensure consistent Markdown generation.
    :Choices: ``yaml``, ``toml``, ``json``
    :Importance: advanced
 
-**html_sanitization**
+**html_passthrough_mode**
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
    :Type: ``HtmlPassthroughMode``
-   :CLI flag: ``--markdown-renderer-html-sanitization``
+   :CLI flag: ``--markdown-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
@@ -8091,6 +8422,182 @@ Textile markup output.
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
 
+TOML Options
+~~~~~~~~~~~~
+
+
+TOML Parser Options
+^^^^^^^^^^^^^^^^^^^
+
+Configuration options for TOML to AST parsing.
+
+The parser converts TOML structures into human-readable document format:
+- Sections/tables become heading hierarchies
+- Arrays of tables become markdown tables
+- Arrays of primitives become lists
+- Nested structures become subsections
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**literal_block**
+
+   Render as code block instead of structured document
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-literal-block``
+   :Default: ``False``
+   :Importance: core
+
+**max_heading_depth**
+
+   Maximum nesting depth for headings
+
+   :Type: ``int``
+   :CLI flag: ``--toml-max-heading-depth``
+   :Default: ``6``
+   :Importance: advanced
+
+**array_as_table_threshold**
+
+   Minimum items in array to render as table
+
+   :Type: ``int``
+   :CLI flag: ``--toml-array-as-table-threshold``
+   :Default: ``1``
+   :Importance: advanced
+
+**flatten_single_keys**
+
+   Flatten objects with single keys
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-no-flatten-single-keys``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_type_hints**
+
+   Add metadata hints about original TOML types
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-include-type-hints``
+   :Default: ``False``
+   :Importance: advanced
+
+**pretty_format_numbers**
+
+   Format large numbers with thousand separators
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-no-pretty-format-numbers``
+   :Default: ``True``
+   :Importance: core
+
+**sort_keys**
+
+   Sort object keys alphabetically
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-sort-keys``
+   :Default: ``False``
+   :Importance: core
+
+TOML Renderer Options
+^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST to TOML rendering.
+
+The renderer extracts structured data from markdown documents, primarily
+focusing on tables but optionally including lists and other elements.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--toml-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--toml-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**extract_mode**
+
+   What to extract: tables, lists, or both
+
+   :Type: ``Literal['tables', 'lists', 'both']``
+   :CLI flag: ``--toml-renderer-extract-mode``
+   :Default: ``'tables'``
+   :Importance: core
+
+**type_inference**
+
+   Auto-detect types (numbers, booleans)
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-renderer-type-inference``
+   :Default: ``True``
+   :Importance: core
+
+**table_heading_keys**
+
+   Use preceding heading as key for each table
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-renderer-table-heading-keys``
+   :Default: ``True``
+   :Importance: core
+
+**flatten_single_table**
+
+   Return array directly if only one table found
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-renderer-flatten-single-table``
+   :Default: ``False``
+   :Importance: advanced
+
+**include_table_metadata**
+
+   Include metadata about table position and source
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-renderer-include-table-metadata``
+   :Default: ``False``
+   :Importance: advanced
+
+**sort_keys**
+
+   Sort keys in output TOML
+
+   :Type: ``bool``
+   :CLI flag: ``--toml-renderer-sort-keys``
+   :Default: ``False``
+   :Importance: core
+
 WEBARCHIVE Options
 ~~~~~~~~~~~~~~~~~~
 
@@ -8589,6 +9096,200 @@ See SpreadsheetParserOptions for complete documentation of available options.
    :Choices: ``spans``, ``flatten``, ``skip``
    :Importance: advanced
 
+YAML Options
+~~~~~~~~~~~~
+
+
+YAML Parser Options
+^^^^^^^^^^^^^^^^^^^
+
+Configuration options for YAML to AST parsing.
+
+The parser converts YAML structures into human-readable document format:
+- Objects/dicts become heading hierarchies
+- Arrays of objects become tables
+- Arrays of primitives become lists
+- Nested structures become subsections
+
+**extract_metadata**
+
+   Extract document metadata as YAML front matter
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-extract-metadata``
+   :Default: ``False``
+   :Importance: core
+
+**literal_block**
+
+   Render as code block instead of structured document
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-literal-block``
+   :Default: ``False``
+   :Importance: core
+
+**max_heading_depth**
+
+   Maximum nesting depth for headings
+
+   :Type: ``int``
+   :CLI flag: ``--yaml-max-heading-depth``
+   :Default: ``6``
+   :Importance: advanced
+
+**array_as_table_threshold**
+
+   Minimum items in array to render as table
+
+   :Type: ``int``
+   :CLI flag: ``--yaml-array-as-table-threshold``
+   :Default: ``1``
+   :Importance: advanced
+
+**flatten_single_keys**
+
+   Flatten objects with single keys
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-no-flatten-single-keys``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_type_hints**
+
+   Add metadata hints about original YAML types
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-include-type-hints``
+   :Default: ``False``
+   :Importance: advanced
+
+**pretty_format_numbers**
+
+   Format large numbers with thousand separators
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-no-pretty-format-numbers``
+   :Default: ``True``
+   :Importance: core
+
+**sort_keys**
+
+   Sort object keys alphabetically
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-sort-keys``
+   :Default: ``False``
+   :Importance: core
+
+YAML Renderer Options
+^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST to YAML rendering.
+
+The renderer extracts structured data from markdown documents, primarily
+focusing on tables but optionally including lists and other elements.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--yaml-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--yaml-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**extract_mode**
+
+   What to extract: tables, lists, or both
+
+   :Type: ``Literal['tables', 'lists', 'both']``
+   :CLI flag: ``--yaml-renderer-extract-mode``
+   :Default: ``'tables'``
+   :Importance: core
+
+**type_inference**
+
+   Auto-detect types (numbers, booleans, null)
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-renderer-type-inference``
+   :Default: ``True``
+   :Importance: core
+
+**table_heading_keys**
+
+   Use preceding heading as key for each table
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-renderer-table-heading-keys``
+   :Default: ``True``
+   :Importance: core
+
+**flatten_single_table**
+
+   Return array directly if only one table found
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-renderer-flatten-single-table``
+   :Default: ``False``
+   :Importance: advanced
+
+**include_table_metadata**
+
+   Include metadata about table position and source
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-renderer-include-table-metadata``
+   :Default: ``False``
+   :Importance: advanced
+
+**indent**
+
+   Number of spaces for YAML indentation (None for default)
+
+   :Type: ``int | None``
+   :CLI flag: ``--yaml-renderer-indent``
+   :Default: ``2``
+   :Importance: core
+
+**default_flow_style**
+
+   YAML flow style (False=block, True=flow, None=auto)
+
+   :Type: ``bool | None``
+   :CLI flag: ``--yaml-renderer-default-flow-style``
+   :Default: ``False``
+   :Importance: advanced
+
+**sort_keys**
+
+   Sort keys in output YAML
+
+   :Type: ``bool``
+   :CLI flag: ``--yaml-renderer-sort-keys``
+   :Default: ``False``
+   :Importance: core
+
 ZIP Options
 ~~~~~~~~~~~
 
@@ -9005,7 +9706,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x7f011716c5e0>``
+   :Default: ``<object object at 0x000001DFDF7E4A90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9015,7 +9716,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x7f011716c5e0>``
+   :Default: ``<object object at 0x000001DFDF7E4A90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -9160,12 +9861,12 @@ modules to ensure consistent Markdown generation.
    :Choices: ``yaml``, ``toml``, ``json``
    :Importance: advanced
 
-**html_sanitization**
+**html_passthrough_mode**
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
    :Type: ``HtmlPassthroughMode``
-   :CLI flag: ``--markdown-html-sanitization``
+   :CLI flag: ``--markdown-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
