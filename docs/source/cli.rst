@@ -4255,3 +4255,75 @@ The CLI exposes a tiered help system that mirrors the dynamic options generated 
 * ``--rich`` is available on the help subcommand to colourise headings, flags, defaults, and metadata when the `rich` library is installed.
 
 The same formatting and grouping logic is used by the generated CLI output and this reference documentation, ensuring that new options surface automatically as dataclass metadata evolves.
+
+Shell Completion
+----------------
+
+all2md supports intelligent shell completion for Bash, Zsh, and PowerShell. The completion scripts are context-aware and will suggest relevant options based on the current command line state.
+
+Generate Completion Scripts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the ``all2md completion`` subcommand to generate completion scripts for your shell:
+
+.. code-block:: bash
+
+   # Generate bash completion script
+   all2md completion bash
+
+   # Generate zsh completion script
+   all2md completion zsh
+
+   # Generate PowerShell completion script
+   all2md completion powershell
+
+Installation
+~~~~~~~~~~~~
+
+**Bash:**
+
+.. code-block:: bash
+
+   # Save to system completion directory
+   all2md completion bash > ~/.local/share/bash-completion/completions/all2md
+
+   # Or source directly in your .bashrc
+   echo 'source <(all2md completion bash)' >> ~/.bashrc
+
+**Zsh:**
+
+.. code-block:: bash
+
+   # Create completion directory if needed
+   mkdir -p ~/.zsh/completions
+
+   # Save completion script
+   all2md completion zsh > ~/.zsh/completions/_all2md
+
+   # Add to .zshrc (if not already present)
+   echo 'fpath=(~/.zsh/completions $fpath)' >> ~/.zshrc
+   echo 'autoload -U compinit && compinit' >> ~/.zshrc
+
+**PowerShell:**
+
+.. code-block:: powershell
+
+   # Add to your PowerShell profile
+   all2md completion powershell >> $PROFILE
+
+   # Or for current session only
+   all2md completion powershell | Out-String | Invoke-Expression
+
+Completion Features
+~~~~~~~~~~~~~~~~~~~
+
+The generated completion scripts provide:
+
+* **Subcommand completion** - Complete all available subcommands (help, config, diff, etc.)
+* **Global option completion** - Complete universal options like ``--out``, ``--format``, ``--verbose``
+* **Format-aware completion** - When ``--format pdf`` is present, suggest PDF-specific options
+* **File extension detection** - Automatically detect format from input file extension
+* **Renderer context** - Suggest renderer options when ``--output-type`` is specified
+* **Choice completion** - Complete valid values for options with predefined choices
+
+The completion scripts are static and self-contained, requiring no runtime calls to ``all2md``. If you add new formats via plugins, regenerate the completion script to include the new options.

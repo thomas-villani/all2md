@@ -145,6 +145,7 @@ class HelpCatalog:
 _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("help", "Show tiered CLI help (all2md help [section])"),
     ("config", "Configuration utilities (generate/show/validate)"),
+    ("completion", "Generate shell completion scripts (bash/zsh/powershell)"),
     ("list-formats", "List available input formats"),
     ("list-transforms", "List registered AST transforms"),
     ("check-deps", "Check optional dependencies for converters"),
@@ -352,6 +353,78 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
         format_sections=format_sections,
         subcommands=_SUBCOMMAND_SUMMARIES,
     )
+
+
+def _serialize_catalog_for_completion(catalog: HelpCatalog) -> dict[str, Any]:
+    """Serialize help catalog to a dict suitable for shell completion generation.
+
+    This is an internal helper used by the completion command generators.
+    It extracts option metadata and organizes it for easy consumption by
+    shell-specific completion script templates.
+
+    Parameters
+    ----------
+    catalog : HelpCatalog
+        The help catalog to serialize.
+
+    Returns
+    -------
+    dict[str, Any]
+        A dictionary with keys:
+        - global: List of global option dicts
+        - parsers: Dict of format -> list of parser option dicts
+        - renderers: Dict of format -> list of renderer option dicts
+        - subcommands: List of subcommand names
+        - formats: List of available format names
+        - transforms: List of available transform names
+
+    """
+    global_options: list[dict[str, Any]] = []
+    parser_options: dict[str, list[dict[str, Any]]] = {}
+    renderer_options: dict[str, list[dict[str, Any]]] = {}
+
+    for section in catalog.sections:
+        options_list: list[dict[str, Any]] = []
+
+        for option in section.options:
+            option_dict = {
+                "flags": list(option.option_strings),
+                "dest": option.dest,
+                "help": option.help_text,
+                "metavar": option.metavar,
+                "is_flag": option.is_flag,
+            }
+
+            if option.choices:
+                option_dict["choices"] = [str(c) for c in option.choices]
+
+            options_list.append(option_dict)
+
+        if section.category == "global":
+            global_options.extend(options_list)
+        elif section.category == "parser" and section.format_name:
+            parser_options.setdefault(section.format_name, []).extend(options_list)
+        elif section.category == "renderer" and section.format_name:
+            renderer_options.setdefault(section.format_name, []).extend(options_list)
+
+    # Get dynamic lists of formats and transforms
+    from all2md.converter_registry import registry
+    from all2md.transforms.registry import transform_registry
+
+    registry.auto_discover()
+    available_formats = sorted(registry.list_formats())
+    available_transforms = sorted(transform_registry.list_transforms())
+
+    subcommand_names = [name for name, _ in catalog.subcommands]
+
+    return {
+        "global": global_options,
+        "parsers": parser_options,
+        "renderers": renderer_options,
+        "subcommands": subcommand_names,
+        "formats": available_formats,
+        "transforms": available_transforms,
+    }
 
 
 class HelpRenderer:

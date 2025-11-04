@@ -12,12 +12,14 @@ and system diagnostics.
 import logging
 import sys
 
+from all2md.cli.commands.completion import handle_completion_command
 from all2md.cli.commands.config import handle_config_command
 from all2md.cli.commands.diff import handle_diff_command
 from all2md.cli.commands.formats import handle_list_formats_command
 from all2md.cli.commands.generate_site import handle_generate_site_command
 from all2md.cli.commands.search import handle_grep_command, handle_search_command
 from all2md.cli.commands.server import handle_serve_command
+from all2md.cli.commands.shared import collect_input_files as collect_input_files
 from all2md.cli.commands.transforms import handle_list_transforms_command
 from all2md.cli.commands.view import handle_view_command
 from all2md.dependencies import main as deps_main
@@ -44,6 +46,10 @@ def dispatch_command(args: list[str] | None = None) -> int | None:
 
     if not args:
         return None
+
+    # Check for completion command
+    if args[0] == "completion":
+        return handle_completion_command(args)
 
     # Check for config command
     if args[0] == "config":
