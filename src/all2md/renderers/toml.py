@@ -10,23 +10,30 @@ extracting tables from markdown documentation as TOML structures.
 Examples
 --------
 Extract tables from markdown:
-    Input markdown:
-        # Users
-        | name | age | active |
-        |------|-----|--------|
-        | Alice | 30 | true |
-        | Bob | 25 | false |
 
-    Output TOML:
-        [[Users]]
-        name = "Alice"
-        age = 30
-        active = true
+Input markdown:
 
-        [[Users]]
-        name = "Bob"
-        age = 25
-        active = false
+.. code-block:: markdown
+
+    # Users
+    | name | age | active |
+    |------|-----|--------|
+    | Alice | 30 | true |
+    | Bob | 25 | false |
+
+Output TOML:
+
+.. code-block:: toml
+
+    [[Users]]
+    name = "Alice"
+    age = 30
+    active = true
+
+    [[Users]]
+    name = "Bob"
+    age = 25
+    active = false
 
 """
 

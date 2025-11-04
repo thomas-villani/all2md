@@ -354,9 +354,9 @@ class AsciiDocParser(BaseParser):
     - Block quotes (____)
     - Sidebar blocks (\****) rendered as block quotes with role='sidebar'
     - Example blocks (====) rendered as block quotes with role='example'
-    - Tables (|===) with:
+    - Tables (\|===) with:
       - Attribute-based header detection
-      - Escaped pipes (\|) in cells
+      - Escaped pipes (\\|) in cells
       - Basic cell formatting
     - Links: link:url[text] and auto-links (http://...)
     - Images: image::url[alt] and image:url[alt]

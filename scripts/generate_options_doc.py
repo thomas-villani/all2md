@@ -191,6 +191,20 @@ def compute_cli_flag(
     return f"--{name_component}"
 
 
+def escape_rst_inline(text: str) -> str:
+    """Escape RST special characters in inline text.
+
+    This function escapes characters that have special meaning in reStructuredText
+    to prevent them from being interpreted as markup when used in descriptions.
+    """
+    # Escape asterisks (bold/italic markers)
+    text = text.replace("**", "\\*\\*")
+    text = text.replace("*", "\\*")
+    # Escape pipe (substitution reference marker)
+    text = text.replace("|", "\\|")
+    return text
+
+
 def heading(text: str, level: int) -> str:
     """Return an RST heading string at the requested level."""
     underline_map = {1: "=", 2: "-", 3: "~", 4: "^", 5: "+", 6: "`"}
@@ -335,7 +349,8 @@ class OptionsRenderer:
 
         description = metadata.get("help")
         if description:
-            lines.append(f"   {description}")
+            escaped_description = escape_rst_inline(description)
+            lines.append(f"   {escaped_description}")
             lines.append("")
 
         type_repr = format_type(resolved_type)

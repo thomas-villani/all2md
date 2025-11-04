@@ -10,21 +10,28 @@ extracting tables from markdown documentation as YAML structures.
 Examples
 --------
 Extract tables from markdown:
-    Input markdown:
-        # Users
-        | name | age | active |
-        |------|-----|--------|
-        | Alice | 30 | true |
-        | Bob | 25 | false |
 
-    Output YAML:
-        Users:
-          - name: Alice
-            age: 30
-            active: true
-          - name: Bob
-            age: 25
-            active: false
+Input markdown:
+
+.. code-block:: markdown
+
+    # Users
+    | name | age | active |
+    |------|-----|--------|
+    | Alice | 30 | true |
+    | Bob | 25 | false |
+
+Output YAML:
+
+.. code-block:: yaml
+
+    Users:
+      - name: Alice
+        age: 30
+        active: true
+      - name: Bob
+        age: 25
+        active: false
 
 """
 

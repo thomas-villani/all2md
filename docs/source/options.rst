@@ -523,7 +523,7 @@ into AST representation using a custom parser.
 
 **support_unconstrained_formatting**
 
-   Support unconstrained formatting (e.g., **b**old for mid-word)
+   Support unconstrained formatting (e.g., \\*\\*b\\*\\*old for mid-word)
 
    :Type: ``bool``
    :CLI flag: ``--asciidoc-no-unconstrained-formatting``
@@ -551,7 +551,7 @@ into AST representation using a custom parser.
 
 **parse_table_spans**
 
-   Parse table colspan/rowspan syntax (e.g., 2+|cell)
+   Parse table colspan/rowspan syntax (e.g., 2+\|cell)
 
    :Type: ``bool``
    :CLI flag: ``--asciidoc-no-parse-table-spans``
@@ -984,7 +984,7 @@ file processing, including dialect detection and data limits.
 
 **delimiter**
 
-   Override CSV/TSV delimiter (e.g., ',', '\t', ';', '|')
+   Override CSV/TSV delimiter (e.g., ',', '\t', ';', '\|')
 
    :Type: ``UnionType[str, NoneType]``
    :CLI flag: ``--csv-delimiter``
@@ -2743,7 +2743,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
 **strip_framework_attributes**
 
-   Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+   Remove JavaScript framework attributes (x-\*, v-\*, ng-\*, hx-\*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
 
    :Type: ``bool``
    :CLI flag: ``--html-strip-framework-attributes``
@@ -3653,7 +3653,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
 **enable_render_filter**
 
-   Enable |render filter for nodes
+   Enable \|render filter for nodes
 
    :Type: ``bool``
    :CLI flag: ``--jinja-renderer-no-enable-render-filter``
@@ -3680,7 +3680,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
 **default_render_format**
 
-   Default format for |render filter
+   Default format for \|render filter
 
    :Type: ``JinjaRenderFormat``
    :CLI flag: ``--jinja-renderer-default-render-format``
@@ -4320,7 +4320,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001DFDF7E4A90>``
+   :Default: ``<object object at 0x0000011940FB4A90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4330,7 +4330,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001DFDF7E4A90>``
+   :Default: ``<object object at 0x0000011940FB4A90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -5102,7 +5102,7 @@ primarily for handling embedded assets like images and local file security.
 
 **strip_framework_attributes**
 
-   Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+   Remove JavaScript framework attributes (x-\*, v-\*, ng-\*, hx-\*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
 
    :Type: ``bool``
    :CLI flag: ``--mhtml-strip-framework-attributes``
@@ -8067,7 +8067,7 @@ reStructuredText output.
 
 **hard_line_break_mode**
 
-   Hard line break rendering mode: line_block (use | syntax) or raw (plain newline)
+   Hard line break rendering mode: line_block (use \| syntax) or raw (plain newline)
 
    :Type: ``RstLineBreakMode``
    :CLI flag: ``--rst-renderer-hard-line-break-mode``
@@ -8732,7 +8732,7 @@ including options for handling embedded resources and nested frames.
 
 **strip_framework_attributes**
 
-   Remove JavaScript framework attributes (x-*, v-*, ng-*, hx-*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+   Remove JavaScript framework attributes (x-\*, v-\*, ng-\*, hx-\*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
 
    :Type: ``bool``
    :CLI flag: ``--webarchive-strip-framework-attributes``
@@ -9706,7 +9706,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001DFDF7E4A90>``
+   :Default: ``<object object at 0x0000011940FB4A90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9716,7 +9716,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001DFDF7E4A90>``
+   :Default: ``<object object at 0x0000011940FB4A90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

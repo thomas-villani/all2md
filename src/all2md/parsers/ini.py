@@ -12,7 +12,8 @@ Examples
 --------
 **Smart Conversion (default):**
 
-Input INI:
+Input INI::
+
     [server]
     host = localhost
     port = 8080
@@ -22,6 +23,9 @@ Input INI:
     timeout = 30
 
 Output (as markdown):
+
+.. code-block:: markdown
+
     # server
     * **host**: localhost
     * **port**: 8,080
@@ -32,10 +36,12 @@ Output (as markdown):
 
 **Literal Block Mode:**
 
-Input INI: (same as above)
+Input INI (same as above)
 
 Output (as markdown):
-    ```ini
+
+.. code-block:: ini
+
     [server]
     host = localhost
     port = 8080
@@ -43,7 +49,6 @@ Output (as markdown):
     [database]
     name = mydb
     timeout = 30
-    ```
 
 """
 

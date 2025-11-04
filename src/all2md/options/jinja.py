@@ -55,7 +55,7 @@ class JinjaRendererOptions(BaseRendererOptions):
         - "none": No escaping
         - "custom": Use custom_escape_function
         - None: No default strategy (templates must handle escaping explicitly)
-        This affects the default |render filter behavior.
+        This affects the default ``|render`` filter behavior.
     custom_escape_function : Callable[[str], str] or None, default None
         Custom escape function when escape_strategy="custom".
         Function signature: (text: str) -> str
@@ -65,16 +65,16 @@ class JinjaRendererOptions(BaseRendererOptions):
         to give templates full control.
     enable_render_filter : bool, default True
         Enable the render filter for rendering nodes with default logic.
-        When enabled, templates can use {{ node|render }} for convenience.
+        When enabled, templates can use ``{{ node|render }}`` for convenience.
     enable_escape_filters : bool, default True
         Enable format-specific escape filters (escape_xml, escape_latex, etc.).
-        When enabled, templates can use {{ text|escape_xml }}.
+        When enabled, templates can use ``{{ text|escape_xml }}``.
     enable_traversal_helpers : bool, default True
         Enable AST traversal helper functions (get_headings, get_links, etc.).
-        When enabled, templates can use {{ get_headings(document) }}.
+        When enabled, templates can use ``{{ get_headings(document) }}``.
     default_render_format : {"markdown", "plain", "html"}, default "markdown"
         Default format for the render filter when no escape_strategy is set.
-        Determines how nodes are rendered when using {{ node|render }}.
+        Determines how nodes are rendered when using ``{{ node|render }}``.
     extra_context : dict[str, Any] or None, default None
         Additional context variables to make available in templates.
         These will be merged into the template context.
@@ -94,9 +94,9 @@ class JinjaRendererOptions(BaseRendererOptions):
     Render using an inline template string:
         >>> template = '''
         ... <doc>
-        ... {% for node in document.children %}
+        ... {% for node in document.children -%}
         ...   {{ node|render }}
-        ... {% endfor %}
+        ... {%- endfor %}
         ... </doc>
         ... '''
         >>> options = JinjaRendererOptions(

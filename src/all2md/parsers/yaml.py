@@ -12,7 +12,8 @@ Examples
 --------
 **Smart Conversion (default):**
 
-Input YAML:
+Input YAML::
+
     server:
       host: localhost
       port: 8080
@@ -23,6 +24,9 @@ Input YAML:
         role: user
 
 Output (as markdown):
+
+.. code-block:: markdown
+
     # server
     * **host**: localhost
     * **port**: 8,080
@@ -35,10 +39,12 @@ Output (as markdown):
 
 **Literal Block Mode:**
 
-Input YAML: (same as above)
+Input YAML (same as above)
 
 Output (as markdown):
-    ```yaml
+
+.. code-block:: yaml
+
     server:
       host: localhost
       port: 8080
@@ -47,7 +53,6 @@ Output (as markdown):
         role: admin
       - name: Bob
         role: user
-    ```
 
 """
 

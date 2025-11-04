@@ -10,20 +10,27 @@ extracting tables from markdown documentation as JSON arrays.
 Examples
 --------
 Extract tables from markdown:
-    Input markdown:
-        # Users
-        | name | age | active |
-        |------|-----|--------|
-        | Alice | 30 | true |
-        | Bob | 25 | false |
 
-    Output JSON:
-        {
-          "Users": [
-            {"name": "Alice", "age": 30, "active": true},
-            {"name": "Bob", "age": 25, "active": false}
-          ]
-        }
+Input markdown:
+
+.. code-block:: markdown
+
+    # Users
+    | name | age | active |
+    |------|-----|--------|
+    | Alice | 30 | true |
+    | Bob | 25 | false |
+
+Output JSON:
+
+.. code-block:: json
+
+    {
+      "Users": [
+        {"name": "Alice", "age": 30, "active": true},
+        {"name": "Bob", "age": 25, "active": false}
+      ]
+    }
 
 """
 

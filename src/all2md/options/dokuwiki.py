@@ -37,11 +37,11 @@ class DokuWikiOptions(BaseRendererOptions):
     ----------
     use_html_for_unsupported : bool, default True
         Whether to use HTML tags as fallback for unsupported elements.
-        When True, unsupported formatting uses HTML tags (e.g., <del>strikethrough</del>).
+        When True, unsupported formatting uses HTML tags (e.g., ``<del>strikethrough</del>``).
         When False, unsupported formatting is stripped.
     monospace_fence : bool, default False
         Whether to use fence syntax for monospace text.
-        When True, inline code uses <code>text</code>.
+        When True, inline code uses ``<code>text</code>``.
         When False, inline code uses double single quotes (DokuWiki native).
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
         How to handle HTMLBlock and HTMLInline nodes:
@@ -115,16 +115,16 @@ class DokuWikiParserOptions(BaseParserOptions):
     Parameters
     ----------
     parse_plugins : bool, default False
-        Whether to parse plugin syntax (e.g., <WRAP>, <button>) or strip them.
+        Whether to parse plugin syntax (e.g., ``<WRAP>``, ``<button>``) or strip them.
         When True, plugin tags are converted to HTMLInline/HTMLBlock nodes.
         When False, plugin tags are completely removed from the output.
     strip_comments : bool, default True
         Whether to strip comments from the output.
-        Strips both C-style (/* ... */) and HTML (<!-- ... -->) comments.
+        Strips both C-style (``/* ... */``) and HTML (``<!-- ... -->``) comments.
         When True, comments are removed completely.
         When False, comments are preserved as HTMLInline nodes.
     parse_interwiki : bool, default True
-        Whether to parse interwiki links (e.g., [[wp>Article]]).
+        Whether to parse interwiki links (e.g., ``[[wp>Article]]``).
         When True, interwiki links are preserved in Link nodes.
         When False, interwiki syntax is treated as regular internal links.
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "escape"

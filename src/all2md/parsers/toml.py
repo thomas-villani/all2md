@@ -12,7 +12,8 @@ Examples
 --------
 **Smart Conversion (default):**
 
-Input TOML:
+Input TOML::
+
     [server]
     host = "localhost"
     port = 8080
@@ -26,6 +27,9 @@ Input TOML:
     role = "user"
 
 Output (as markdown):
+
+.. code-block:: markdown
+
     # server
     * **host**: localhost
     * **port**: 8,080
@@ -38,10 +42,12 @@ Output (as markdown):
 
 **Literal Block Mode:**
 
-Input TOML: (same as above)
+Input TOML (same as above)
 
 Output (as markdown):
-    ```toml
+
+.. code-block:: toml
+
     [server]
     host = "localhost"
     port = 8080
@@ -53,7 +59,6 @@ Output (as markdown):
     [[users]]
     name = "Bob"
     role = "user"
-    ```
 
 """
 

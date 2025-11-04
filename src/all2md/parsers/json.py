@@ -12,7 +12,8 @@ Examples
 --------
 **Smart Conversion (default):**
 
-Input JSON:
+Input JSON::
+
     {
       "server": {"host": "localhost", "port": 8080},
       "users": [
@@ -22,6 +23,9 @@ Input JSON:
     }
 
 Output (as markdown):
+
+.. code-block:: markdown
+
     # server
     * **host**: localhost
     * **port**: 8,080
@@ -34,10 +38,12 @@ Output (as markdown):
 
 **Literal Block Mode:**
 
-Input JSON: (same as above)
+Input JSON (same as above)
 
 Output (as markdown):
-    ```json
+
+.. code-block:: json
+
     {
       "server": {
         "host": "localhost",
@@ -48,7 +54,6 @@ Output (as markdown):
         {"name": "Bob", "role": "user"}
       ]
     }
-    ```
 
 """
 
