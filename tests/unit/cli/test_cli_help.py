@@ -2,8 +2,7 @@
 
 import pytest
 
-from all2md.cli import create_parser
-from all2md.cli.commands import handle_help_command
+from all2md.cli import create_parser, handle_help_command
 
 
 def test_tiered_help_action_quick(capsys):

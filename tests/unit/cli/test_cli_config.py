@@ -24,7 +24,7 @@ def require_tomli_w() -> None:
         pytest.skip("tomli_w is required for this test")
 
 
-from all2md.cli.commands import handle_config_generate_command, handle_config_show_command
+from all2md.cli.commands.config import handle_config_generate_command, handle_config_show_command
 from all2md.cli.config import (
     _load_pyproject_all2md_section,
     discover_config_file,
@@ -724,8 +724,8 @@ class TestConfigCommands:
         monkeypatch.delenv("ALL2MD_CONFIG", raising=False)
 
         with (
-            patch("all2md.cli.commands.load_config_with_priority", return_value={"pdf": {"pages": [1]}}),
-            patch("all2md.cli.commands.get_config_search_paths", return_value=[]),
+            patch("all2md.cli.commands.config.load_config_with_priority", return_value={"pdf": {"pages": [1]}}),
+            patch("all2md.cli.commands.config.get_config_search_paths", return_value=[]),
         ):
             exit_code = handle_config_show_command(["--format", "json", "--no-source"])
 

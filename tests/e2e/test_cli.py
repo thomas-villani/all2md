@@ -342,8 +342,9 @@ def example_function():
         assert output_file.exists()
         assert "# Test Content" in output_file.read_text()
 
+        html_file_fixed = html_file.as_posix()
         # File output should show conversion message in stderr (status messages)
-        assert f"[OK] {html_file} -> {output_file}" in result_file.stderr
+        assert f"[OK] {html_file_fixed} -> {output_file}" in result_file.stderr
 
     @pytest.mark.slow
     def test_large_html_file_performance(self):

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.cli.commands import parse_batch_list
+from all2md.cli import parse_batch_list
 
 
 @pytest.mark.unit

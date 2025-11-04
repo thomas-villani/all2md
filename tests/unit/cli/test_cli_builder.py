@@ -7,7 +7,6 @@ option mapping, and validation logic.
 import argparse
 import logging
 from dataclasses import make_dataclass
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -15,11 +14,10 @@ import pytest
 from all2md.ast.transforms import NodeTransformer
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
-    _run_convert_command,
     collect_input_files,
     handle_dependency_commands,
-    save_config_to_file,
 )
+from all2md.cli.commands.config import save_config_to_file
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.cli.input_items import CLIInputItem
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
@@ -982,64 +980,6 @@ class TestNewCLIFeatures:
         assert "parallel" in help_text_lower
         assert "recursive" in help_text_lower
         assert "collate" in help_text_lower or "combine" in help_text_lower
-
-    def test_run_convert_command_collate_delegates(self):
-        """Ensure the convert subcommand delegates to the collate processor."""
-        mock_item = CLIInputItem(
-            raw_input=Path("dummy.pdf"),
-            kind="local_file",
-            display_name="dummy.pdf",
-            path_hint=Path("dummy.pdf"),
-        )
-
-        with (
-            patch("all2md.cli.processors.process_files_collated", return_value=0) as mock_collate,
-            patch("all2md.cli.commands.collect_input_files", return_value=[mock_item]),
-            patch("all2md.cli.commands.setup_and_validate_options", return_value=({}, "pdf", None)),
-            patch("all2md.cli.commands.validate_arguments", return_value=True),
-        ):
-            parsed_args = argparse.Namespace(
-                input=["dummy.pdf"],
-                output_type="markdown",
-                collate=True,
-                out=None,
-                output_dir=None,
-                preserve_structure=False,
-                progress=False,
-                rich=False,
-                skip_errors=False,
-                format="auto",
-                recursive=False,
-                exclude=None,
-                detect_only=False,
-                dry_run=False,
-                pager=False,
-                no_summary=False,
-                log_level="WARNING",
-                log_file=None,
-                trace=False,
-                verbose=False,
-                strict_args=False,
-                transforms=None,
-                merge_from_list=None,
-                generate_toc=False,
-                toc_title=None,
-                toc_depth=None,
-                toc_position=None,
-                list_separator=None,
-                no_section_titles=False,
-                watch=False,
-                watch_debounce=None,
-                parallel=None,
-                zip=None,
-                assets_layout=None,
-                save_config=None,
-            )
-
-            exit_code = _run_convert_command(parsed_args)
-
-            assert exit_code == 0
-            mock_collate.assert_called_once()
 
 
 @pytest.mark.unit

@@ -138,7 +138,7 @@ class TestCLIIntegration:
             mock_convert.return_value = "Test"
 
             # Patch where the function is used in __init__.py, not in commands
-            with patch("all2md.cli._configure_logging") as mock_logging:
+            with patch("all2md.cli.configure_logging") as mock_logging:
                 result = main([str(html_file), "--log-level", "DEBUG"])
 
                 assert result == 0

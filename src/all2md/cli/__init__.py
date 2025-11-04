@@ -63,13 +63,11 @@ from typing import cast
 
 from all2md.cli.builder import EXIT_FILE_ERROR, EXIT_VALIDATION_ERROR, DynamicCLIBuilder, create_parser
 from all2md.cli.commands import (
-    _configure_logging,
-    _get_about_info,
-    collect_input_files,
     handle_dependency_commands,
-    handle_help_command,
-    save_config_to_file,
 )
+from all2md.cli.commands.config import save_config_to_file
+from all2md.cli.commands.help import handle_help_command
+from all2md.cli.commands.shared import collect_input_files, get_about_info, parse_batch_list
 from all2md.cli.processors import (
     convert_single_file,
     generate_output_path,
@@ -85,6 +83,7 @@ from all2md.cli.validation import (
     validate_arguments,
 )
 from all2md.constants import DocumentFormat
+from all2md.logging_utils import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +119,7 @@ def _setup_logging_level(parsed_args: argparse.Namespace) -> None:
     else:
         log_level = getattr(logging, parsed_args.log_level.upper())
 
-    _configure_logging(log_level, log_file=parsed_args.log_file, trace_mode=parsed_args.trace)
+    configure_logging(log_level, log_file=parsed_args.log_file, trace_mode=parsed_args.trace)
 
 
 def _handle_batch_list_expansion(parsed_args: argparse.Namespace) -> int | None:
@@ -139,7 +138,6 @@ def _handle_batch_list_expansion(parsed_args: argparse.Namespace) -> int | None:
     """
     if hasattr(parsed_args, "batch_from_list") and parsed_args.batch_from_list:
         try:
-            from all2md.cli.commands import parse_batch_list
 
             batch_paths = parse_batch_list(parsed_args.batch_from_list)
             parsed_args.input.extend(batch_paths)
@@ -272,7 +270,7 @@ def main(args: list[str] | None = None) -> int:
 
     # Handle special flags
     if parsed_args.about:
-        print(_get_about_info())
+        print(get_about_info())
         return 0
 
     if parsed_args.save_config:

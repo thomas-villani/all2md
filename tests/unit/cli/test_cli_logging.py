@@ -15,13 +15,13 @@ class TestLoggingConfiguration:
 
     def test_configure_logging_basic(self):
         """Test basic logging configuration."""
-        from all2md.cli import _configure_logging
+        from all2md.logging_utils import configure_logging
 
         with patch("logging.getLogger") as mock_get_logger:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
-            _configure_logging(logging.INFO)
+            configure_logging(logging.INFO)
 
             mock_logger.setLevel.assert_called_once_with(logging.INFO)
             # Check handlers were added
@@ -29,7 +29,7 @@ class TestLoggingConfiguration:
 
     def test_configure_logging_with_file(self, tmp_path):
         """Test logging configuration with file output."""
-        from all2md.cli import _configure_logging
+        from all2md.logging_utils import configure_logging
 
         log_file = tmp_path / "test.log"
 
@@ -37,20 +37,20 @@ class TestLoggingConfiguration:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
-            _configure_logging(logging.DEBUG, log_file=str(log_file))
+            configure_logging(logging.DEBUG, log_file=str(log_file))
 
             # Should add both console and file handlers
             assert mock_logger.addHandler.call_count == 2
 
     def test_configure_logging_trace_mode(self):
         """Test trace mode uses detailed format."""
-        from all2md.cli import _configure_logging
+        from all2md.logging_utils import configure_logging
 
         with patch("logging.getLogger") as mock_get_logger, patch("logging.Formatter") as mock_formatter:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
-            _configure_logging(logging.DEBUG, trace_mode=True)
+            configure_logging(logging.DEBUG, trace_mode=True)
 
             # Check that formatter was called with timestamp format
             formatter_calls = mock_formatter.call_args_list
@@ -62,13 +62,13 @@ class TestLoggingConfiguration:
 
     def test_configure_logging_normal_mode(self):
         """Test normal mode uses simple format."""
-        from all2md.cli import _configure_logging
+        from all2md.logging_utils import configure_logging
 
         with patch("logging.getLogger") as mock_get_logger, patch("logging.Formatter") as mock_formatter:
             mock_logger = MagicMock()
             mock_get_logger.return_value = mock_logger
 
-            _configure_logging(logging.INFO, trace_mode=False)
+            configure_logging(logging.INFO, trace_mode=False)
 
             # Check that formatter was called with simple format
             formatter_calls = mock_formatter.call_args_list
@@ -81,13 +81,13 @@ class TestLoggingConfiguration:
 
     def test_configure_logging_invalid_file_path(self, capsys):
         """Test logging configuration with invalid file path."""
-        from all2md.cli import _configure_logging
+        from all2md.logging_utils import configure_logging
 
         # Try to write to a directory that doesn't exist and can't be created
         invalid_path = "/invalid/path/that/does/not/exist/test.log"
 
         # Should not raise, but should print warning
-        _configure_logging(logging.INFO, log_file=invalid_path)
+        configure_logging(logging.INFO, log_file=invalid_path)
 
         captured = capsys.readouterr()
         assert "Warning:" in captured.err or "Could not create log file" in captured.err
@@ -96,10 +96,10 @@ class TestLoggingConfiguration:
 class TestLogFileCLIFlag:
     """Test --log-file CLI flag."""
 
-    @patch("all2md.cli._configure_logging")
+    @patch("all2md.cli.configure_logging")
     @patch("all2md.cli.processors.process_multi_file")
     def test_log_file_flag_calls_configure(self, mock_process, mock_config, tmp_path):
-        """Test that --log-file flag calls _configure_logging."""
+        """Test that --log-file flag calls configure_logging."""
         from all2md.cli import main
 
         # Create a test file
@@ -119,7 +119,7 @@ class TestLogFileCLIFlag:
         call_kwargs = mock_config.call_args[1]
         assert call_kwargs["log_file"] == str(log_file)
 
-    @patch("all2md.cli._configure_logging")
+    @patch("all2md.cli.configure_logging")
     @patch("all2md.cli.processors.process_multi_file")
     def test_trace_flag_sets_debug_level(self, mock_process, mock_config, tmp_path):
         """Test that --trace flag sets DEBUG log level."""
@@ -139,7 +139,7 @@ class TestLogFileCLIFlag:
         assert call_args[0][0] == logging.DEBUG  # First positional arg is log_level
         assert call_args[1]["trace_mode"] is True
 
-    @patch("all2md.cli._configure_logging")
+    @patch("all2md.cli.configure_logging")
     @patch("all2md.cli.processors.process_multi_file")
     def test_log_level_precedence(self, mock_process, mock_config, tmp_path):
         """Test log level precedence: --trace > --verbose > --log-level."""
