@@ -1237,6 +1237,209 @@ See Also
 - :doc:`options` - For HTML rendering options
 - ``all2md --help`` - Built-in help
 
+Document Outline
+----------------
+
+The ``--outline`` flag provides a quick way to view the structure of any document by extracting and displaying all headings as a table of contents. This is useful for understanding document organization, navigating large documents, or quickly assessing document structure before processing.
+
+Basic Usage
+~~~~~~~~~~~
+
+Extract and display the document outline:
+
+.. code-block:: bash
+
+   # View outline of any document
+   all2md document.pdf --outline
+   all2md report.docx --outline
+   all2md README.md --outline
+
+The outline is displayed as a markdown-formatted list with proper indentation showing the heading hierarchy:
+
+.. code-block:: text
+
+   * Introduction
+     * Background
+       * Historical Context
+     * Objectives
+   * Methods
+     * Experimental Design
+     * Data Collection
+   * Results
+     * Findings
+
+Options
+~~~~~~~
+
+``--outline``
+   Output the document outline (table of contents) instead of full content. Shows all headings in markdown list format with indentation reflecting the heading hierarchy.
+
+   .. code-block:: bash
+
+      # Extract outline from PDF
+      all2md document.pdf --outline
+
+      # Extract outline from Word document
+      all2md report.docx --outline
+
+``--outline-max-level LEVEL``
+   Limit the depth of headings included in the outline (1-6, default: 6). This is useful for getting a high-level overview of deeply nested documents.
+
+   .. code-block:: bash
+
+      # Show only top 2 heading levels
+      all2md document.pdf --outline --outline-max-level 2
+
+      # Show only top-level headings
+      all2md report.docx --outline --outline-max-level 1
+
+Output Options
+~~~~~~~~~~~~~~
+
+The outline can be output to stdout (default) or saved to a file:
+
+.. code-block:: bash
+
+   # Output to stdout
+   all2md document.pdf --outline
+
+   # Save to file
+   all2md document.pdf --outline --out outline.txt
+   all2md document.pdf --outline -o structure.md
+
+Rich Formatting
+~~~~~~~~~~~~~~~
+
+When the ``rich`` library is installed, you can enable rich formatting for enhanced terminal output:
+
+.. code-block:: bash
+
+   # Enable rich formatting with colors and styling
+   all2md document.pdf --outline --rich
+
+   # Rich formatting with pager for long outlines
+   all2md document.pdf --outline --rich --pager
+
+The rich formatting applies markdown styling to the outline, making headings more visually distinct in the terminal.
+
+Examples
+~~~~~~~~
+
+**Quick Document Overview:**
+
+.. code-block:: bash
+
+   # Check structure before processing
+   all2md large-document.pdf --outline
+
+   # Compare structures of two documents
+   all2md version1.docx --outline > v1-outline.txt
+   all2md version2.docx --outline > v2-outline.txt
+   diff v1-outline.txt v2-outline.txt
+
+**Depth Control:**
+
+.. code-block:: bash
+
+   # High-level overview (chapters only)
+   all2md book.pdf --outline --outline-max-level 1
+
+   # Two-level structure (chapters and sections)
+   all2md thesis.docx --outline --outline-max-level 2
+
+   # Full detailed structure
+   all2md technical-spec.pdf --outline --outline-max-level 6
+
+**Integration with Other Tools:**
+
+.. code-block:: bash
+
+   # Generate navigation structure for documentation site
+   all2md docs/*.md --outline --output-dir outlines/
+
+   # Extract outline and search for specific sections
+   all2md document.pdf --outline | grep -i "methodology"
+
+   # Create outline index for multiple documents
+   for file in *.pdf; do
+       echo "=== $file ===" >> outlines.txt
+       all2md "$file" --outline >> outlines.txt
+       echo "" >> outlines.txt
+   done
+
+Restrictions
+~~~~~~~~~~~~
+
+* The ``--outline`` flag cannot be used together with ``--extract``. Use ``--outline`` to view document structure or ``--extract`` to extract specific sections.
+
+.. code-block:: bash
+
+   # This will produce an error:
+   all2md document.pdf --outline --extract "Introduction"
+
+   # Instead, use them separately:
+   all2md document.pdf --outline          # View structure
+   all2md document.pdf --extract "Introduction"  # Extract section
+
+Use Cases
+~~~~~~~~~
+
+**Document Assessment:**
+
+   Quickly understand the structure of unfamiliar documents before committing to full processing:
+
+   .. code-block:: bash
+
+      # Check if document has expected sections
+      all2md contract.pdf --outline
+
+      # Verify documentation structure
+      all2md api-docs.docx --outline --outline-max-level 2
+
+**Navigation Aid:**
+
+   Generate a roadmap for navigating large documents:
+
+   .. code-block:: bash
+
+      # Create quick reference for long manual
+      all2md user-manual.pdf --outline --out manual-toc.md
+
+      # Share document structure with team
+      all2md specification.docx --outline --rich --out spec-outline.txt
+
+**Batch Analysis:**
+
+   Analyze structure across multiple documents:
+
+   .. code-block:: bash
+
+      # Generate outlines for all PDFs in directory
+      for pdf in reports/*.pdf; do
+          all2md "$pdf" --outline --out "outlines/$(basename "$pdf" .pdf).txt"
+      done
+
+      # Compare document structures
+      all2md doc1.pdf --outline > structure1.txt
+      all2md doc2.pdf --outline > structure2.txt
+      diff -u structure1.txt structure2.txt
+
+Notes
+~~~~~
+
+* The outline extraction works with any document format that all2md can parse
+* Heading levels are automatically detected from the document structure
+* The markdown list format uses 2-space indentation per heading level
+* Empty documents or documents without headings will show "No headings found in document"
+* The ``--outline-max-level`` parameter only applies when ``--outline`` is used
+
+See Also
+~~~~~~~~
+
+- ``--extract`` - Extract specific sections from documents
+- ``all2md view --toc`` - View document with visual table of contents
+- :doc:`python_api` - For programmatic outline extraction using ``get_all_sections()``
+
 Document Serving
 ----------------
 

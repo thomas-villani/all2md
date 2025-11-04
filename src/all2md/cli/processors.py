@@ -179,6 +179,56 @@ def extract_sections_from_document(doc: Document, extract_spec: str) -> Document
     return extracted_doc
 
 
+def generate_outline_from_document(doc: Document, max_level: int = 6) -> str:
+    """Generate a markdown-formatted outline from document headings.
+
+    Parameters
+    ----------
+    doc : Document
+        Source document to extract outline from
+    max_level : int
+        Maximum heading level to include (1-6, default: 6)
+
+    Returns
+    -------
+    str
+        Markdown-formatted outline with nested list structure
+
+    Examples
+    --------
+    >>> doc = Document(children=[...])
+    >>> outline = generate_outline_from_document(doc, max_level=3)
+    >>> print(outline)
+    * Introduction
+      * Background
+        * Related Work
+    * Methods
+      * Data Collection
+
+    """
+    from all2md.ast.document_utils import get_all_sections
+
+    # Get all sections from document
+    sections = get_all_sections(doc, min_level=1, max_level=max_level)
+
+    if not sections:
+        return "No headings found in document"
+
+    # Build markdown list with proper indentation
+    lines = []
+    for section in sections:
+        # Calculate indentation: 2 spaces per level beyond first
+        indent = "  " * (section.level - 1)
+
+        # Get heading text
+        heading_text = section.get_heading_text()
+
+        # Format as markdown list item
+        lines.append(f"{indent}* {heading_text}")
+
+    return "\n".join(lines)
+
+
 def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
     """Return the shared base directory for local inputs when preserving structure."""
     if not preserve_structure:
@@ -2188,6 +2238,8 @@ def convert_single_file(
     transform_specs: Optional[list[TransformSpec]] = None,
     progress_callback: Optional[Any] = None,
     extract_spec: Optional[str] = None,
+    outline: bool = False,
+    outline_max_level: int = 6,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2213,6 +2265,10 @@ def convert_single_file(
         Optional callback for progress updates
     extract_spec : str, optional
         Section extraction specification (e.g., "Introduction", "#:1-3")
+    outline : bool, default False
+        Whether to output document outline instead of full content
+    outline_max_level : int, default 6
+        Maximum heading level to include in outline (1-6)
 
     Returns
     -------
@@ -2247,6 +2303,28 @@ def convert_single_file(
             format_arg,
             renderer_hint,
         )
+
+        # If outline is requested, generate and output outline
+        if outline:
+            # Parse to AST
+            doc = to_ast(
+                source_value,
+                source_format=cast(DocumentFormat, format_arg),
+                progress_callback=progress_callback,
+                **effective_options,
+            )
+
+            # Generate outline
+            outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
+
+            # Output outline
+            if output_path:
+                output_path.write_text(outline_text, encoding="utf-8")
+                return EXIT_SUCCESS, input_item.display_name, None
+
+            # Print to stdout
+            print(outline_text)
+            return EXIT_SUCCESS, input_item.display_name, None
 
         # If extraction is requested, use AST pipeline
         if extract_spec:
@@ -2406,6 +2484,10 @@ def process_files_unified(
     # Get extract_spec from args if present
     extract_spec = getattr(args, "extract", None)
 
+    # Get outline parameters from args if present
+    outline = getattr(args, "outline", False)
+    outline_max_level = getattr(args, "outline_max_level", 6)
+
     use_parallel = (
         hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
     ) or (isinstance(args.parallel, int) and args.parallel != 1)
@@ -2428,6 +2510,8 @@ def process_files_unified(
                         transform_specs_for_workers,
                         None,  # progress_callback (not supported in parallel mode)
                         extract_spec,
+                        outline,
+                        outline_max_level,
                     ): (item, output_path)
                     for item, output_path, target_format, _ in planned_tasks
                 }
@@ -2469,6 +2553,8 @@ def process_files_unified(
                     transform_specs_for_workers,
                     progress_callback,
                     extract_spec,
+                    outline,
+                    outline_max_level,
                 )
 
                 if exit_code == EXIT_SUCCESS:
@@ -2521,6 +2607,37 @@ def _render_single_item_to_stdout(
 
         # Check if extraction is requested
         extract_spec = getattr(args, "extract", None)
+
+        # Check if outline is requested
+        outline = getattr(args, "outline", False)
+        outline_max_level = getattr(args, "outline_max_level", 6)
+
+        # Handle outline mode
+        if outline:
+            # Parse to AST
+            doc = to_ast(
+                item.raw_input,
+                source_format=cast(DocumentFormat, format_arg),
+                **effective_options,
+            )
+
+            # Generate outline
+            outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
+
+            # Apply rich formatting if requested
+            if should_use_rich:
+                content_to_output, is_rich = _apply_rich_formatting(outline_text, args)
+            else:
+                content_to_output, is_rich = outline_text, False
+
+            # Apply paging if requested
+            if args.pager:
+                if not _page_content(content_to_output, is_rich=is_rich):
+                    print(content_to_output)
+            else:
+                print(content_to_output)
+
+            return EXIT_SUCCESS
 
         if render_target == "markdown":
             # Handle extraction using AST pipeline

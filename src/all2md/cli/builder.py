@@ -1123,6 +1123,23 @@ Examples:
             "Sections are 1-indexed. Pattern matching is case-insensitive with wildcard support.",
         )
 
+        # Outline extraction option
+        parser.add_argument(
+            "--outline",
+            action="store_true",
+            help="Output document outline (table of contents) instead of full content. "
+            "Shows all headings in markdown list format. Cannot be used with --extract.",
+        )
+
+        parser.add_argument(
+            "--outline-max-level",
+            type=int,
+            metavar="LEVEL",
+            default=6,
+            help="Maximum heading level to include in outline (1-6, default: 6). "
+            "Only applies when --outline is used.",
+        )
+
         # Format override option
         # Use registry.list_formats() directly for most up-to-date format list
         # Including "auto" as the first choice for format detection
@@ -1698,6 +1715,10 @@ Examples:
             "no_section_titles",
             # Batch-from-list arguments
             "batch_from_list",
+            # Section extraction and outline arguments
+            "extract",
+            "outline",
+            "outline_max_level",
         } | global_attachment_fields  # Union with global attachment fields
 
         # Process each argument

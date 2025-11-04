@@ -374,3 +374,224 @@ def test_apply_rich_formatting_import_error(monkeypatch: pytest.MonkeyPatch, cap
     # Check warning was printed
     captured = capsys.readouterr()
     assert "Rich library not installed" in captured.err
+
+
+@pytest.mark.unit
+def test_generate_outline_from_document() -> None:
+    """Test generate_outline_from_document produces correct markdown list."""
+    from all2md.ast.nodes import Document, Heading, Text
+    from all2md.cli.processors import generate_outline_from_document
+
+    # Create document with nested headings
+    doc = Document(
+        children=[
+            Heading(level=1, content=[Text(content="Introduction")]),
+            Heading(level=2, content=[Text(content="Background")]),
+            Heading(level=3, content=[Text(content="Related Work")]),
+            Heading(level=2, content=[Text(content="Motivation")]),
+            Heading(level=1, content=[Text(content="Methods")]),
+            Heading(level=2, content=[Text(content="Data Collection")]),
+        ],
+        metadata={},
+    )
+
+    outline = generate_outline_from_document(doc, max_level=6)
+
+    expected = """* Introduction
+  * Background
+    * Related Work
+  * Motivation
+* Methods
+  * Data Collection"""
+
+    assert outline == expected
+
+
+@pytest.mark.unit
+def test_generate_outline_from_document_with_max_level() -> None:
+    """Test generate_outline_from_document respects max_level parameter."""
+    from all2md.ast.nodes import Document, Heading, Text
+    from all2md.cli.processors import generate_outline_from_document
+
+    doc = Document(
+        children=[
+            Heading(level=1, content=[Text(content="Chapter 1")]),
+            Heading(level=2, content=[Text(content="Section 1.1")]),
+            Heading(level=3, content=[Text(content="Subsection 1.1.1")]),
+            Heading(level=1, content=[Text(content="Chapter 2")]),
+        ],
+        metadata={},
+    )
+
+    # Only include up to level 2
+    outline = generate_outline_from_document(doc, max_level=2)
+
+    expected = """* Chapter 1
+  * Section 1.1
+* Chapter 2"""
+
+    assert outline == expected
+
+
+@pytest.mark.unit
+def test_generate_outline_from_empty_document() -> None:
+    """Test generate_outline_from_document handles documents with no headings."""
+    from all2md.ast.nodes import Document, Paragraph, Text
+    from all2md.cli.processors import generate_outline_from_document
+
+    doc = Document(
+        children=[
+            Paragraph(content=[Text(content="Just a paragraph, no headings")]),
+        ],
+        metadata={},
+    )
+
+    outline = generate_outline_from_document(doc, max_level=6)
+
+    assert outline == "No headings found in document"
+
+
+@pytest.mark.unit
+def test_validation_outline_and_extract_mutually_exclusive() -> None:
+    """Test validation catches when both --outline and --extract are used."""
+    from all2md.cli.validation import ValidationSeverity, collect_argument_problems
+
+    args = argparse.Namespace(outline=True, extract="#:1")
+
+    problems = collect_argument_problems(args)
+
+    assert len(problems) == 1
+    assert problems[0].severity == ValidationSeverity.ERROR
+    assert "--outline and --extract cannot be used together" in problems[0].message
+
+
+@pytest.mark.unit
+def test_validation_outline_only_no_error() -> None:
+    """Test validation allows --outline when used alone."""
+    from all2md.cli.validation import collect_argument_problems
+
+    args = argparse.Namespace(outline=True, extract=None)
+
+    problems = collect_argument_problems(args)
+
+    # Filter to only outline/extract related problems
+    outline_problems = [p for p in problems if "outline" in p.message.lower()]
+    assert len(outline_problems) == 0
+
+
+@pytest.mark.unit
+def test_convert_single_file_with_outline(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test convert_single_file handles outline mode correctly."""
+    from all2md.ast.nodes import Document, Heading, Text
+    from all2md.cli.input_items import CLIInputItem
+
+    def fake_to_ast(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="Subtitle")]),
+            ],
+            metadata={},
+        )
+
+    monkeypatch.setattr(processors, "to_ast", fake_to_ast)
+    monkeypatch.setattr(processors, "prepare_options_for_execution", lambda *args, **kwargs: {})
+
+    input_path = tmp_path / "sample.md"
+    input_path.write_text("# Title\n## Subtitle\n")
+
+    input_item = CLIInputItem(
+        raw_input=input_path,
+        kind="local_file",
+        display_name=input_path.name,
+        path_hint=input_path,
+    )
+
+    exit_code, _, error = convert_single_file(
+        input_item,
+        output_path=None,
+        options={},
+        format_arg="markdown",
+        transforms=None,
+        show_progress=False,
+        target_format="markdown",
+        transform_specs=None,
+        outline=True,
+        outline_max_level=6,
+    )
+
+    assert exit_code == EXIT_SUCCESS
+    assert error is None
+
+    std = capsys.readouterr()
+    assert "* Title" in std.out
+    assert "  * Subtitle" in std.out
+
+
+@pytest.mark.unit
+def test_render_single_item_outline_with_rich(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test _render_single_item_to_stdout applies rich formatting to outline when requested."""
+    pytest.importorskip("rich")
+
+    from all2md.ast.nodes import Document, Heading, Text
+    from all2md.cli.input_items import CLIInputItem
+
+    def fake_to_ast(*args, **kwargs):  # type: ignore[no-untyped-def]
+        return Document(
+            children=[
+                Heading(level=1, content=[Text(content="Main Title")]),
+                Heading(level=2, content=[Text(content="Subsection")]),
+            ],
+            metadata={},
+        )
+
+    def fake_apply_rich_formatting(text: str, args: argparse.Namespace) -> tuple[str, bool]:
+        # Simulate rich formatting by wrapping text
+        return f"[RICH]{text}[/RICH]", True
+
+    monkeypatch.setattr(processors, "to_ast", fake_to_ast)
+    monkeypatch.setattr(processors, "prepare_options_for_execution", lambda *args, **kwargs: {})
+    monkeypatch.setattr(processors, "_apply_rich_formatting", fake_apply_rich_formatting)
+
+    input_path = tmp_path / "sample.md"
+    input_path.write_text("# Main Title\n## Subsection\n")
+
+    item = CLIInputItem(
+        raw_input=input_path,
+        kind="local_file",
+        display_name=input_path.name,
+        path_hint=input_path,
+    )
+
+    args = argparse.Namespace(
+        outline=True,
+        outline_max_level=6,
+        pager=False,
+    )
+
+    exit_code = processors._render_single_item_to_stdout(
+        item,
+        args,
+        options={},
+        format_arg="markdown",
+        transforms=None,
+        should_use_rich=True,
+        target_format="markdown",
+    )
+
+    assert exit_code == EXIT_SUCCESS
+
+    std = capsys.readouterr()
+    # Should contain rich-formatted content
+    assert "[RICH]" in std.out
+    assert "[/RICH]" in std.out
+    assert "* Main Title" in std.out
+    assert "  * Subsection" in std.out

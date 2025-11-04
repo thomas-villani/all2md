@@ -96,6 +96,19 @@ def collect_argument_problems(
             )
         )
 
+    # Check for conflicting outline and extract options
+    outline = getattr(parsed_args, "outline", False)
+    extract = getattr(parsed_args, "extract", None)
+
+    if outline and extract:
+        problems.append(
+            ValidationProblem(
+                "--outline and --extract cannot be used together. "
+                "Use --outline to view document structure or --extract to extract specific sections.",
+                ValidationSeverity.ERROR,
+            )
+        )
+
     return problems
 
 
