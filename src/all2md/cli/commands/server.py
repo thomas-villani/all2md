@@ -791,8 +791,8 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                         self.wfile.write(json.dumps(error).encode("utf-8"))
                         return
 
-                    body = self.rfile.read(content_length).decode("utf-8")
-                    data = json.loads(body)
+                    json_body = self.rfile.read(content_length).decode("utf-8")
+                    data = json.loads(json_body)
 
                     if "file" not in data:
                         self.send_response(400)

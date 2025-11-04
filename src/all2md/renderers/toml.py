@@ -174,10 +174,10 @@ class TomlRenderer(BaseRenderer):
         extractor = DataExtractor(self.options)
         result = extractor.extract(doc)
 
-        # TOML requires a top-level dict, not a list
-        if isinstance(result, list):
+        # TOML requires a top-level dict, not a list (defensive check)
+        if isinstance(result, list):  # type: ignore[unreachable]
             # Wrap in a dict with a default key
-            return {"data": result}
+            return {"data": result}  # type: ignore[unreachable]
 
         return result
 

@@ -112,11 +112,11 @@ class JsonRenderer(BaseRenderer):
                 f.write(json_str)
         elif hasattr(output, "write"):
             if hasattr(output, "mode") and "b" in getattr(output, "mode", ""):
-                # Binary mode
-                output.write(json_str.encode("utf-8"))
+                # Binary mode - encode to bytes
+                output.write(json_str.encode("utf-8"))  # type: ignore[arg-type]
             else:
                 # Text mode
-                output.write(json_str)
+                output.write(json_str)  # type: ignore[call-overload]
         else:
             raise RenderingError(f"Unsupported output type: {type(output)}")
 

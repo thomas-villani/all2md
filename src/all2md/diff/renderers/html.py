@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from html import escape
 from io import StringIO
-from typing import Iterator, List, Sequence, Tuple
+from typing import Any, Iterator, List, Sequence, Tuple
 
-from all2md.diff.text_diff import DiffResult
+from all2md.diff.text_diff import DiffOp, DiffResult
 
 
 class HtmlDiffRenderer:
@@ -343,7 +343,7 @@ class HtmlDiffRenderer:
         output.write("        </dl>\n")
         output.write("      </div>\n")
 
-    def _render_equal_block(self, op, output: StringIO) -> None:
+    def _render_equal_block(self, op: DiffOp, output: StringIO) -> None:
         """Render an unchanged block, collapsing if context is hidden."""
         if not op.new_slice:
             return
@@ -422,7 +422,7 @@ class HtmlDiffRenderer:
         }
 
 
-def render_to_file(diff: DiffResult | Iterator[str], output_path: str, **kwargs) -> None:
+def render_to_file(diff: DiffResult | Iterator[str], output_path: str, **kwargs: Any) -> None:
     """Render unified diff to an HTML file.
 
     Parameters

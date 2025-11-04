@@ -506,10 +506,12 @@ class IpynbToAstConverter(BaseParser):
             # Strip HTML nodes for security if configured
             if self.options.strip_html_from_markdown:
                 html_stripper = RemoveNodesTransform(node_types=["html_inline", "html_block"])
-                doc = html_stripper.transform(doc)
-                if doc is None:
+                transformed = html_stripper.transform(doc)
+                if transformed is None:
                     # Should not happen since we don't remove document nodes
                     doc = Document(children=[])
+                else:
+                    doc = transformed  # type: ignore[assignment]
 
             # If the markdown parser returns empty document, it likely stripped all HTML
             # In this case, we should still preserve the content as plain text

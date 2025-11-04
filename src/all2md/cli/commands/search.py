@@ -15,7 +15,7 @@ import sys
 import textwrap
 from dataclasses import fields
 from pathlib import Path
-from typing import Dict, List, Mapping
+from typing import Any, Dict, List, Mapping
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import collect_input_files
@@ -23,14 +23,15 @@ from all2md.cli.config import load_config_with_priority
 from all2md.cli.input_items import CLIInputItem
 from all2md.exceptions import DependencyError
 from all2md.options.search import SearchOptions
+from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.search.service import SearchDocumentInput, SearchMode, SearchResult, SearchService
 
 
-def _make_search_progress_callback(enabled: bool):
+def _make_search_progress_callback(enabled: bool) -> ProgressCallback | None:
     if not enabled:
         return None
 
-    def callback(event) -> None:
+    def callback(event: ProgressEvent) -> None:
         if getattr(event, "event_type", None) == "error":
             print(f"[ERROR] {event.message}", file=sys.stderr)
             return
@@ -44,7 +45,7 @@ def _make_search_progress_callback(enabled: bool):
     return callback
 
 
-def _rich_snippet(snippet: str):
+def _rich_snippet(snippet: str) -> Any:
     if not snippet:
         return None
     from rich.text import Text
@@ -416,7 +417,7 @@ def handle_search_command(args: list[str] | None = None) -> int:
         print(f"Error loading configuration: {exc}", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
-    search_section = {}
+    search_section: dict[str, Any] = {}
     if config_data and isinstance(config_data, dict):
         search_section = config_data.get("search", {}) or {}
 
@@ -625,7 +626,7 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     # Build index and search (grep mode, no persistence)
     service = SearchService(options=options)
     try:
-        service.build_indexes(documents, modes={"grep"})
+        service.build_indexes(documents, modes={SearchMode.GREP})
     except DependencyError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR
@@ -711,9 +712,18 @@ def _create_search_documents(items: List[CLIInputItem]) -> list[SearchDocumentIn
         metadata.update(item.metadata)
         if item.path_hint:
             metadata["path_hint"] = item.path_hint.as_posix()
+
+        # SearchDocumentInput expects str | Path, handle bytes case
+        source_input: str | Path
+        if isinstance(item.raw_input, bytes):
+            # Skip bytes input for search (search works on file paths)
+            continue
+        else:
+            source_input = item.raw_input
+
         documents.append(
             SearchDocumentInput(
-                source=item.raw_input,
+                source=source_input,
                 document_id=item.stem,
                 source_format="auto",
                 metadata=metadata,
@@ -730,93 +740,3 @@ def _result_to_dict(result: SearchResult) -> Dict[str, object]:
         "chunk_metadata": dict(result.chunk.metadata),
         "result_metadata": dict(result.metadata),
     }
-
-
-def _render_grep_results(results: List[SearchResult], *, use_rich: bool) -> None:
-    """Render grep results in ripgrep-style format.
-
-    Groups matches by file, showing file path as a header followed by
-    matching lines with line numbers.
-
-    Parameters
-    ----------
-    results : List[SearchResult]
-        Search results from grep mode
-    use_rich : bool
-        Whether to use rich formatting
-
-    """
-    console = None
-    if use_rich:
-        try:
-            from rich.console import Console
-
-            console = Console()
-        except ImportError:
-            use_rich = False
-
-    # Group results by document path and section
-    grouped: dict[str, dict[str, list[SearchResult]]] = {}
-    for result in results:
-        metadata = result.chunk.metadata
-        doc_label = (
-            metadata.get("document_path") or metadata.get("path_hint") or metadata.get("document_id") or "unknown"
-        )
-        section = metadata.get("section_heading") or "(preamble)"
-
-        if doc_label not in grouped:
-            grouped[doc_label] = {}
-        if section not in grouped[doc_label]:
-            grouped[doc_label][section] = []
-        grouped[doc_label][section].append(result)
-
-    # Render each file and its sections
-    for doc_path, sections in grouped.items():
-        if use_rich and console is not None:
-            from rich.text import Text
-
-            # File header
-            header = Text(str(doc_path), style="bold magenta")
-            console.print(header)
-            console.print()
-
-            # Print each section
-            for section_name, section_results in sections.items():
-                # Section heading
-                console.print(Text(section_name, style="bold cyan"))
-
-                # Print matches for this section
-                for result in section_results:
-                    snippet = result.chunk.text
-                    if snippet:
-                        # Indent each line
-                        for line in snippet.splitlines():
-                            snippet_text = _rich_snippet(line)
-                            if snippet_text:
-                                console.print(Text("  ") + snippet_text)
-                            else:
-                                console.print(f"  {line}")
-
-                console.print()
-
-        else:
-            # Plain text output
-            print(str(doc_path))
-            print()
-
-            # Print each section
-            for section_name, section_results in sections.items():
-                # Section heading
-                print(section_name)
-
-                # Print matches for this section
-                for result in section_results:
-                    snippet = result.chunk.text
-                    if snippet:
-                        # Indent each line of the snippet
-                        for line in snippet.splitlines():
-                            # Strip highlighting markers in plain mode
-                            plain_line = line.replace("<<", "").replace(">>", "")
-                            print(f"  {plain_line}")
-
-                print()

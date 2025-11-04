@@ -707,6 +707,7 @@ def to_ast(
 
     # Detect format
     # Type narrow to exclude IO[str] for detect_format
+    actual_format: DocumentFormat
     if source_format != "auto":
         actual_format = source_format
     else:
@@ -716,7 +717,8 @@ def to_ast(
         elif hasattr(resolved_payload, "read") and hasattr(resolved_payload, "seek"):
             # Binary stream (has read+seek) - let registry.detect_format handle it
             # This includes BytesIO, NamedBytesIO, and file objects
-            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))
+            # Type ignore: resolved_payload could be IO[str] but we assume IO[bytes] for auto-detection
+            actual_format = cast(DocumentFormat, registry.detect_format(resolved_payload))  # type: ignore[arg-type]
         else:
             raise ValueError(
                 "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."
@@ -1055,20 +1057,18 @@ def convert(
 
     # Detect source format
     # Type narrow to exclude IO[str] for detect_format
+    actual_source_format: str
     if source_format != "auto":
         actual_source_format = source_format
     else:
         # Accept: str, Path, bytes, BytesIO, NamedBytesIO, or any binary stream
         if isinstance(resolved_payload, (str, Path, bytes)):
-            actual_source_format = cast(
-                DocumentFormat, registry.detect_format(resolved_payload)
-            )  # type: ignore[assignment]
+            actual_source_format = registry.detect_format(resolved_payload)
         elif hasattr(resolved_payload, "read") and hasattr(resolved_payload, "seek"):
             # Binary stream (has read+seek) - let registry.detect_format handle it
             # This includes BytesIO, NamedBytesIO, and file objects
-            actual_source_format = cast(
-                DocumentFormat, registry.detect_format(resolved_payload)
-            )  # type: ignore[arg-type, assignment]
+            # Type ignore: resolved_payload could be IO[str] but we assume IO[bytes] for auto-detection
+            actual_source_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
         else:
             raise ValueError(
                 "Cannot auto-detect format from text-mode stream. Please specify source_format explicitly."
@@ -1088,7 +1088,7 @@ def convert(
 
     # Split kwargs between parser and renderer
     parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
-        actual_source_format,
+        cast(DocumentFormat, actual_source_format),
         cast(DocumentFormat, actual_target_format),
         kwargs,
     )

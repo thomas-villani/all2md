@@ -2789,7 +2789,7 @@ class PdfToAstConverter(BaseParser):
             Metadata dictionary
 
         """
-        metadata = {"bbox": paragraph_bbox} if paragraph_bbox else {}
+        metadata: dict[str, Any] = {"bbox": paragraph_bbox} if paragraph_bbox else {}
         if paragraph_is_list:
             metadata["is_list_item"] = True
             metadata["list_type"] = paragraph_list_type

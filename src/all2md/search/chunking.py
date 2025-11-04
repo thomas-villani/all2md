@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 from all2md.ast.document_utils import Section, get_all_sections, get_preamble
 from all2md.ast.nodes import Document
@@ -64,7 +64,7 @@ def chunk_document(
                 _split_text(text, chunk_size_tokens, chunk_overlap_tokens, min_chunk_tokens), start=1
             ):
                 chunk_id = f"{context.document_id}::preamble-{chunk_index}"
-                chunk_metadata = {
+                chunk_metadata: dict[str, Any] = {
                     "document_id": context.document_id,
                     "document_path": context.document_path.as_posix() if context.document_path else None,
                     "section_heading": None,
@@ -73,7 +73,7 @@ def chunk_document(
                     "chunk_index": running_index,
                     "chunk_in_section": chunk_index,
                 }
-                chunk_metadata.update(context.metadata)
+                chunk_metadata.update(cast(dict[str, Any], context.metadata))
                 chunks.append(Chunk(chunk_id=chunk_id, text=text_window, metadata=chunk_metadata))
                 running_index += 1
 
@@ -103,7 +103,7 @@ def chunk_document(
 
         for chunk_in_section, text_window in enumerate(text_windows, start=1):
             chunk_id = f"{context.document_id}::s{section_index}-c{chunk_in_section}"
-            chunk_metadata = {
+            section_chunk_metadata: dict[str, Any] = {
                 "document_id": context.document_id,
                 "document_path": context.document_path.as_posix() if context.document_path else None,
                 "section_heading": heading_text,
@@ -112,8 +112,8 @@ def chunk_document(
                 "chunk_index": running_index,
                 "chunk_in_section": chunk_in_section,
             }
-            chunk_metadata.update(context.metadata)
-            chunks.append(Chunk(chunk_id=chunk_id, text=text_window, metadata=chunk_metadata))
+            section_chunk_metadata.update(cast(dict[str, Any], context.metadata))
+            chunks.append(Chunk(chunk_id=chunk_id, text=text_window, metadata=section_chunk_metadata))
             running_index += 1
 
         if progress_callback:

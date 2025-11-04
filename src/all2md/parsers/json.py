@@ -295,17 +295,16 @@ class JsonParser(BaseParser):
                 # Format: **key**: value
                 value_nodes = self._convert_value(value, depth + 1, key)
                 # Create list item with bold key
-                item_content: list[Node] = [
-                    Paragraph(
-                        content=[
-                            Strong(content=[Text(content=key)]),
-                            Text(content=": "),
-                        ]
-                    )
-                ]
+                paragraph = Paragraph(
+                    content=[
+                        Strong(content=[Text(content=key)]),
+                        Text(content=": "),
+                    ]
+                )
+                item_content: list[Node] = [paragraph]
                 # Add value inline if it's a paragraph
                 if value_nodes and isinstance(value_nodes[0], Paragraph):
-                    item_content[0].content.extend(value_nodes[0].content)
+                    paragraph.content.extend(value_nodes[0].content)
                 else:
                     item_content.extend(value_nodes)
 
@@ -327,20 +326,19 @@ class JsonParser(BaseParser):
             else:
                 # Too deep for headings - use bold key style in a list
                 value_nodes = self._convert_value(value, depth + 1, key)
-                item_content: list[Node] = [
-                    Paragraph(
-                        content=[
-                            Strong(content=[Text(content=key)]),
-                            Text(content=": "),
-                        ]
-                    )
-                ]
+                paragraph = Paragraph(
+                    content=[
+                        Strong(content=[Text(content=key)]),
+                        Text(content=": "),
+                    ]
+                )
+                nested_item_content: list[Node] = [paragraph]
                 if value_nodes and isinstance(value_nodes[0], Paragraph):
-                    item_content[0].content.extend(value_nodes[0].content)
+                    paragraph.content.extend(value_nodes[0].content)
                 else:
-                    item_content.extend(value_nodes)
+                    nested_item_content.extend(value_nodes)
 
-                nodes.append(ListItem(children=item_content))
+                nodes.append(ListItem(children=nested_item_content))
 
         return nodes
 

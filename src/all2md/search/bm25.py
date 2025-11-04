@@ -63,7 +63,7 @@ class BM25Index(BaseIndex):
         if self._bm25_constructor is None:
             return
 
-        self._tokenized_corpus = [list(self._tokenizer(chunk.text)) for chunk in self._chunks]
+        self._tokenized_corpus = [list(self._tokenizer(chunk.text)) for chunk in self._chunks]  # type: ignore[unreachable]
         if not self._tokenized_corpus:
             self._backend = None
             return
@@ -75,7 +75,7 @@ class BM25Index(BaseIndex):
         if self._backend is None:
             return []
 
-        tokens = list(self._tokenizer(query.raw_text))
+        tokens = list(self._tokenizer(query.raw_text))  # type: ignore[unreachable]
         if not tokens:
             return []
 

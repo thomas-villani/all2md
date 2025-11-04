@@ -2551,6 +2551,9 @@ def _render_single_item_to_stdout(
                     **effective_options,
                 )
 
+            # Ensure markdown_content is a string (markdown renderer always returns str when output=None)
+            assert isinstance(markdown_content, str), "Markdown renderer should return str"
+
             # Apply rich formatting if requested
             if should_use_rich:
                 content_to_output, is_rich = _apply_rich_formatting(markdown_content, args)

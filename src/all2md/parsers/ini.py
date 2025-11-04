@@ -163,6 +163,7 @@ class IniParser(BaseParser):
             # Parse INI
             try:
                 # Create parser with appropriate options
+                parser: RawConfigParser | configparser.ConfigParser
                 if self.options.preserve_case:
                     parser = RawConfigParser(allow_no_value=self.options.allow_no_value)
                 else:
@@ -239,12 +240,12 @@ class IniParser(BaseParser):
         except Exception as e:
             raise ParsingError(f"Failed to parse INI: {e}") from e
 
-    def extract_metadata(self, parser: configparser.ConfigParser) -> DocumentMetadata:
+    def extract_metadata(self, parser: RawConfigParser | configparser.ConfigParser) -> DocumentMetadata:
         """Extract metadata from INI structure.
 
         Parameters
         ----------
-        parser : ConfigParser
+        parser : RawConfigParser or ConfigParser
             Parsed INI configuration
 
         Returns

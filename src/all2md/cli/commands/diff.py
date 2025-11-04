@@ -183,8 +183,8 @@ def handle_diff_command(args: list[str] | None = None) -> int:
 
         # Render diff based on format
         if parsed.format == "html":
-            renderer = HtmlDiffRenderer(show_context=parsed.show_context)
-            output = renderer.render(diff_result)
+            html_renderer = HtmlDiffRenderer(show_context=parsed.show_context)
+            output = html_renderer.render(diff_result)
 
             # Write HTML output
             if parsed.output:
@@ -196,8 +196,8 @@ def handle_diff_command(args: list[str] | None = None) -> int:
                 print(output)
 
         elif parsed.format == "json":
-            renderer = JsonDiffRenderer()
-            output = renderer.render(diff_result)
+            json_renderer = JsonDiffRenderer()
+            output = json_renderer.render(diff_result)
 
             # Write JSON output
             if parsed.output:
@@ -218,7 +218,7 @@ def handle_diff_command(args: list[str] | None = None) -> int:
                 use_colors = sys.stdout.isatty()
 
             # Render with optional colors
-            renderer = UnifiedDiffRenderer(use_color=use_colors)
+            unified_renderer = UnifiedDiffRenderer(use_color=use_colors)
 
             # Write output
             if parsed.output:
@@ -229,7 +229,7 @@ def handle_diff_command(args: list[str] | None = None) -> int:
                 output_path.write_text("\n".join(plain_lines), encoding="utf-8")
                 print(f"Diff written to: {output_path}", file=sys.stderr)
             else:
-                for line in renderer.render(diff_result.iter_unified_diff()):
+                for line in unified_renderer.render(diff_result.iter_unified_diff()):
                     print(line)
 
         return 0

@@ -113,11 +113,11 @@ class IniRenderer(BaseRenderer):
                 f.write(ini_str)
         elif hasattr(output, "write"):
             if hasattr(output, "mode") and "b" in getattr(output, "mode", ""):
-                # Binary mode
-                output.write(ini_str.encode("utf-8"))
+                # Binary mode - encode to bytes
+                output.write(ini_str.encode("utf-8"))  # type: ignore[arg-type]
             else:
                 # Text mode
-                output.write(ini_str)
+                output.write(ini_str)  # type: ignore[call-overload]
         else:
             raise RenderingError(f"Unsupported output type: {type(output)}")
 
@@ -140,6 +140,7 @@ class IniRenderer(BaseRenderer):
             data = self._extract_data(doc)
 
             # Convert to INI using configparser
+            config: RawConfigParser | configparser.ConfigParser
             if self.options.preserve_case:
                 config = RawConfigParser(allow_no_value=self.options.allow_no_value)
             else:

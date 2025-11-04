@@ -6,7 +6,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping, Sequence
+from typing import Iterable, Mapping, MutableMapping, Sequence, cast
 
 from all2md.api import to_ast
 from all2md.ast.document_utils import get_all_sections, get_preamble
@@ -101,9 +101,10 @@ class SearchService:
         for idx, doc_input in enumerate(documents, start=1):
             document_id = doc_input.document_id or _derive_document_id(doc_input.source)
             document_path = Path(doc_input.source) if isinstance(doc_input.source, (str, Path)) else None
+            source_fmt: DocumentFormat = cast(DocumentFormat, doc_input.source_format or "auto")
             ast_doc = to_ast(
                 doc_input.source,
-                source_format=doc_input.source_format or "auto",
+                source_format=source_fmt,
                 progress_callback=progress_callback,
             )
             parsed_documents.append((ast_doc, doc_input))
@@ -832,19 +833,19 @@ def _find_spans(
     # For non-regex searches, use case-sensitive or case-insensitive comparison
     search_line = line.lower() if ignore_case else line
     search_query = lowered_query if ignore_case else query
-    spans: list[tuple[int, int]] = []
+    text_spans: list[tuple[int, int]] = []
     cursor = 0
     qlen = len(query)
     if qlen == 0:
-        return spans
+        return text_spans
 
     while True:
         idx = search_line.find(search_query, cursor)
         if idx == -1:
             break
-        spans.append((idx, idx + qlen))
+        text_spans.append((idx, idx + qlen))
         cursor = idx + qlen
-    return spans
+    return text_spans
 
 
 def _highlight_line(line: str, spans: list[tuple[int, int]] | None) -> str:

@@ -136,9 +136,9 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self.options.include_toc
             and self._headings
             and self._toc_insert_position is not None
-            and self._should_insert_toc_in_content()
+            and self._should_insert_toc_in_content()  # type: ignore[unreachable]
         ):
-            toc_html = '<nav id="table-of-contents">\n'
+            toc_html = '<nav id="table-of-contents">\n'  # type: ignore[unreachable]
             toc_html += "<h2>Table of Contents</h2>\n"
             toc_html += self._generate_toc()
             toc_html += "\n</nav>\n"
@@ -872,7 +872,7 @@ hr {
             checkbox = "&#9745; " if node.task_status == "checked" else "&#9744; "
 
             # If first child is a Paragraph, insert checkbox at the beginning
-            if node.children and node.children[0].__class__.__name__ == "Paragraph":
+            if node.children and isinstance(node.children[0], Paragraph):
                 first_para = node.children[0]
                 para_css_class = self._get_custom_css_class("Paragraph")
                 self._output.append(f"<p{para_css_class}>{checkbox}")

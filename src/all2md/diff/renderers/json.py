@@ -180,7 +180,7 @@ class JsonDiffRenderer:
         }
 
 
-def render_to_file(diff: DiffResult | Iterator[str], output_path: str, **kwargs) -> None:
+def render_to_file(diff: DiffResult | Iterator[str], output_path: str, **kwargs: Any) -> None:
     """Render unified diff to a JSON file.
 
     Parameters
