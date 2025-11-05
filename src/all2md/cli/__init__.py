@@ -68,15 +68,9 @@ from all2md.cli.commands import (
 from all2md.cli.commands.config import save_config_to_file
 from all2md.cli.commands.help import handle_help_command
 from all2md.cli.commands.shared import collect_input_files, get_about_info, parse_batch_list
-from all2md.cli.processors import (
-    convert_single_file,
-    generate_output_path,
-    merge_exclusion_patterns_from_json,
-    process_detect_only,
-    process_dry_run,
-    process_multi_file,
-    setup_and_validate_options,
-)
+
+# Note: processors imports are lazy-loaded to avoid loading AST and transforms
+# for simple commands like --help
 from all2md.cli.validation import (
     collect_argument_problems,
     report_validation_problems,
@@ -91,11 +85,6 @@ __all__ = [
     "main",
     "DynamicCLIBuilder",
     "create_parser",
-    "convert_single_file",
-    "generate_output_path",
-    "process_detect_only",
-    "process_dry_run",
-    "process_multi_file",
     "collect_argument_problems",
     "report_validation_problems",
     "validate_arguments",
@@ -177,6 +166,7 @@ def _collect_and_filter_inputs(parsed_args: argparse.Namespace, has_merge_list: 
     if parsed_args.config:
         try:
             from all2md.cli.config import load_config_file
+            from all2md.cli.processors import merge_exclusion_patterns_from_json
 
             config_options = load_config_file(parsed_args.config)
             updated_patterns = merge_exclusion_patterns_from_json(parsed_args, config_options)
@@ -261,6 +251,12 @@ def main(args: list[str] | None = None) -> int:
     # Parse arguments
     parser = create_parser()
     parsed_args = parser.parse_args(args)
+
+    # Lazy import processors to avoid loading AST/transforms for --help
+    from all2md.cli.processors import (
+        process_multi_file,
+        setup_and_validate_options,
+    )
 
     # Check for config from environment
     if not parsed_args.config:

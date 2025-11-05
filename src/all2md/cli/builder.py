@@ -39,8 +39,10 @@ from all2md.exceptions import (
 from all2md.options import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownRendererOptions
-from all2md.transforms.registry import transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
+
+# Note: transform_registry is imported lazily in functions that need it
+# to avoid loading the entire transforms system during CLI module initialization
 
 # Module logger for consistent warning/error reporting
 logger = logging.getLogger(__name__)
@@ -956,6 +958,9 @@ class DynamicCLIBuilder:
             Parser to add transform arguments to
 
         """
+        # Lazy import to avoid loading transforms module at CLI startup
+        from all2md.transforms.registry import transform_registry
+
         # Add --transform flag (repeatable, ordered) with tracking
         parser.add_argument(
             "--transform",

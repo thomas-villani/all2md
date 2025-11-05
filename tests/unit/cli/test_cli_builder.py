@@ -13,11 +13,9 @@ import pytest
 
 from all2md.ast.transforms import NodeTransformer
 from all2md.cli.builder import DynamicCLIBuilder, create_parser
-from all2md.cli.commands import (
-    collect_input_files,
-    dispatch_command,
-)
+from all2md.cli.commands import dispatch_command
 from all2md.cli.commands.config import save_config_to_file
+from all2md.cli.commands.shared import collect_input_files
 from all2md.cli.custom_actions import TrackingStoreFalseAction, TrackingStoreTrueAction
 from all2md.cli.input_items import CLIInputItem
 from all2md.cli.processors import generate_output_path, parse_merge_list, process_dry_run
@@ -1115,7 +1113,7 @@ class TestNewEnhancedCLIFeatures:
         import tempfile
         from pathlib import Path
 
-        from all2md.cli import collect_input_files
+        from all2md.cli.commands.shared import collect_input_files
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1228,7 +1226,7 @@ class TestNewEnhancedCLIFeatures:
         from pathlib import Path
         from unittest.mock import Mock, patch
 
-        from all2md.cli import process_dry_run
+        from all2md.cli.processors import process_dry_run
 
         pytest.importorskip("rich.console")
 
@@ -1317,7 +1315,7 @@ class TestNewEnhancedCLIFeatures:
         import tempfile
         from pathlib import Path
 
-        from all2md.cli import collect_input_files
+        from all2md.cli.commands.shared import collect_input_files
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1688,7 +1686,7 @@ class TestTransformParameterExposure:
                 return metadata
 
         # Patch where the builder uses it, not where it's defined
-        monkeypatch.setattr("all2md.cli.builder.transform_registry", StubRegistry())
+        monkeypatch.setattr("all2md.transforms.registry.transform_registry", StubRegistry())
 
     def test_exposed_parameter_without_cli_flag_adds_argument(self, monkeypatch):
         metadata = TransformMetadata(

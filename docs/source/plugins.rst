@@ -60,9 +60,9 @@ A parser converts your format into the all2md AST (Abstract Syntax Tree). Here's
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
-   :lines: 51-93
+   :lines: 49-98
    :linenos:
-   :emphasize-lines: 20-22,24-25,31-33,35-36,38-39,41-43
+   :emphasize-lines: 22-24,26-27,33-35,37-38,40-41,43-45
    :caption: SimpleDocParser.parse() - Main parsing entry point
 
 Key parser patterns demonstrated:
@@ -79,9 +79,9 @@ The parser must handle multiple input types uniformly:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
-   :lines: 102-134
+   :lines: 100-132
    :linenos:
-   :emphasize-lines: 15-16,18-20,23,26-28
+   :emphasize-lines: 17-18,20-22,25,28-30
    :caption: SimpleDocParser._read_content() - Multi-format input handling
 
 Content Parsing
@@ -91,9 +91,9 @@ The core parsing logic uses a line-by-line state machine approach:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
-   :lines: 213-272
+   :lines: 211-270
    :linenos:
-   :emphasize-lines: 15-16,29-30,32-34,39-40,47-48,54
+   :emphasize-lines: 17-18,31-32,34-36,41-42,49-50,56
    :caption: SimpleDocParser._parse_content() - State machine parser
 
 The parser demonstrates:
@@ -110,9 +110,9 @@ Metadata can be extracted separately from full parsing:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
-   :lines: 136-211
+   :lines: 134-209
    :linenos:
-   :emphasize-lines: 17-18,21-22,26-29,34-39,44-49,56-66
+   :emphasize-lines: 19-20,23-24,28-31,36-41,46-51,58-68
    :caption: SimpleDocParser._extract_frontmatter() - Metadata parsing
 
 Renderer Implementation
@@ -262,9 +262,9 @@ Key patterns:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/options.py
    :language: python
-   :lines: 131-158
+   :lines: 134-158
    :linenos:
-   :emphasize-lines: 1-3,13-14,16-21,23-28
+   :emphasize-lines: 1-3,10-11,13-18,20-25
    :caption: __post_init__ validation pattern
 
 Metadata Registration
@@ -274,9 +274,9 @@ The ``ConverterMetadata`` object is the key to plugin discovery:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/__init__.py
    :language: python
-   :lines: 43-104
+   :lines: 46-96
    :linenos:
-   :emphasize-lines: 1-3,5-7,17-23,25-27,51-53
+   :emphasize-lines: 1-3,5-7,14-20,22-24,48-50
    :caption: CONVERTER_METADATA - Plugin registration
 
 Key fields:
@@ -297,7 +297,7 @@ Register your plugin via entry points in ``pyproject.toml``:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/pyproject.toml
    :language: toml
-   :lines: 1-38
+   :lines: 1-39
    :linenos:
    :emphasize-lines: 1-3,5-14,24-26,33-35
    :caption: pyproject.toml - Package configuration with entry point

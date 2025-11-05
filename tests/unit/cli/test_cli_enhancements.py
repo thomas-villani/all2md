@@ -13,10 +13,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from all2md.cli import create_parser, process_detect_only, process_dry_run
+from all2md.cli import create_parser
 from all2md.cli.builder import DynamicCLIBuilder
-from all2md.cli.commands import handle_list_formats_command
-from all2md.cli.processors import apply_security_preset, prepare_options_for_execution
+from all2md.cli.commands.formats import handle_list_formats_command
+from all2md.cli.processors import (
+    apply_security_preset,
+    prepare_options_for_execution,
+    process_detect_only,
+    process_dry_run,
+)
 from all2md.exceptions import DependencyError
 from all2md.utils.input_sources import RemoteInputOptions
 
