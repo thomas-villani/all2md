@@ -144,11 +144,17 @@ class HelpCatalog:
 
 _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("help", "Show tiered CLI help (all2md help [section])"),
-    ("config", "Configuration utilities (generate/show/validate)"),
-    ("completion", "Generate shell completion scripts (bash/zsh/powershell)"),
     ("list-formats", "List available input formats"),
     ("list-transforms", "List registered AST transforms"),
     ("check-deps", "Check optional dependencies for converters"),
+    ("config", "Configuration utilities (generate/show/validate)"),
+    ("completion", "Generate shell completion scripts (bash/zsh/powershell)"),
+    ("view", "Convert and view document in browser with HTML themes"),
+    ("diff", "Compare two documents and generate diff output (unified/HTML/JSON)"),
+    ("serve", "Serve documents via HTTP server with on-demand conversion"),
+    ("search", "Search documents using keyword, vector, or hybrid retrieval"),
+    ("grep", "Search for text patterns in documents (like grep for any format)"),
+    ("generate-site", "Generate Hugo or Jekyll static site from documents"),
 )
 
 
@@ -375,6 +381,7 @@ def _serialize_catalog_for_completion(catalog: HelpCatalog) -> dict[str, Any]:
         - parsers: Dict of format -> list of parser option dicts
         - renderers: Dict of format -> list of renderer option dicts
         - subcommands: List of subcommand names
+        - subcommand_data: List of dicts with 'name' and 'description' keys
         - formats: List of available format names
         - transforms: List of available transform names
 
@@ -416,12 +423,14 @@ def _serialize_catalog_for_completion(catalog: HelpCatalog) -> dict[str, Any]:
     available_transforms = sorted(transform_registry.list_transforms())
 
     subcommand_names = [name for name, _ in catalog.subcommands]
+    subcommand_data = [{"name": name, "description": desc} for name, desc in catalog.subcommands]
 
     return {
         "global": global_options,
         "parsers": parser_options,
         "renderers": renderer_options,
         "subcommands": subcommand_names,
+        "subcommand_data": subcommand_data,
         "formats": available_formats,
         "transforms": available_transforms,
     }
@@ -499,18 +508,23 @@ class HelpRenderer:
             lines.append(f"  {name:<15} {summary}")
 
         lines.append("")
-        lines.append("Core options:")
-        for category in self.CATEGORY_ORDER:
-            cat_sections = [s for s in self.catalog.sections if s.category == category]
-            rendered = self._render_sections(cat_sections, core_only=True)
-            if rendered:
-                lines.append("")
-                lines.append(f"{self.CATEGORY_LABELS[category]}:")
-                lines.extend(rendered)
+        lines.append("Global options:")
+        # Only show global options in quick help, skip parser/renderer options
+        global_sections = [
+            s
+            for s in self.catalog.sections
+            if s.category == "global" and s.title not in {"Transform options", "Rich output customization"}
+        ]
+        rendered = self._render_sections(global_sections, core_only=True)
+        if rendered:
+            lines.extend(rendered)
 
         lines.append(
-            "\nNote: showing only core options. Most parsers/renderers have advanced/security options as well."
-            "\nRun 'all2md help full' for every option or 'all2md help <section>' for a specific format."
+            "\nNote: showing only global options."
+            "\nRun 'all2md help full' for all options including format-specific parser/renderer options,"
+            "\n'all2md help transform' for transform options,"
+            "\n'all2md help rich-output-customization' for rich formatting options,"
+            "\nor 'all2md help <format>' to see options for a specific format (e.g., 'all2md help pdf')."
         )
 
         if self.catalog.epilog:

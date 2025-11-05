@@ -119,9 +119,9 @@ Guides & References
    :maxdepth: 2
    :caption: Core Workflows
 
+   python_api
    cli
    options
-   python_api
    attachments
    transforms
    ast_guide

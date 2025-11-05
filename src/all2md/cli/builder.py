@@ -1096,6 +1096,30 @@ Examples:
   # Using options from config file
   all2md document.pdf --config config.toml
   all2md document.docx --config config.json --out custom.md
+
+  # Viewing a document in a browser
+  all2md view document.pdf
+  all2md view document.pdf --toc --dark --theme sidebar
+
+  # Compare documents
+  all2md diff document-v1.docx document-v2.docx
+  all2md diff document-v1.docx document-v2.docx --format html --output difference.html --granularity sentence
+
+  # Search documents
+  # grep-style
+  all2md grep "search string" documents/*.pdf
+  all2md grep "search str.*g" documents/*.pdf --regex --recursive --context 3 -n --rich
+
+  # BM25 keyword search
+  all2md search "keywords to search" documents/*.pdf --keyword
+  all2md search "keywords to search" documents/*.pdf --keyword --persist --index-dir index/ --rich
+
+  # Vector search
+  all2md search "vector search query" documents/ --vector
+  all2md search "vector search query" documents/ --vector --chunk-size 150 --vector-model all-mpnet-base-v2
+
+  # Hybrid keyword/vector search
+  all2md search "vector search query" documents/ --hybrid --hybrid-keyword-weight 50
         """,
         )
 

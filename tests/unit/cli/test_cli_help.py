@@ -18,12 +18,14 @@ def test_tiered_help_action_quick(capsys):
     assert "Subcommands:" in captured.out
     assert "Run 'all2md help full'" in captured.out
     assert "Global options:" in captured.out
-    assert "Parser options:" in captured.out
-    assert "Renderer options:" in captured.out
-    assert "  Universal parser options:" in captured.out
+    # Quick help should NOT show parser/renderer options
+    assert "Parser options:" not in captured.out
+    assert "Renderer options:" not in captured.out
+    # Global options should still appear
     assert "    --out" in captured.out
     assert "      Output file path" in captured.out
-    assert "  DOCX renderer options:" in captured.out
+    # Should guide users to format-specific help
+    assert "help <format>" in captured.out
     assert captured.err == ""
 
 

@@ -119,7 +119,7 @@ class SearchOptions(CloneFrozenMixin):
         },
     )
     default_mode: str = field(
-        default="hybrid",
+        default="keyword",
         metadata={
             "help": "Default search mode (grep, keyword, vector, hybrid)",
             "choices": ["grep", "keyword", "vector", "hybrid"],

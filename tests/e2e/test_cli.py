@@ -134,8 +134,11 @@ def example_function():
         assert "--format" in help_output
         assert "--log-level" in help_output
         assert "--attachment-mode" in help_output
-        assert "PDF options:" in help_output
-        assert "HTML options:" in help_output
+        # Quick help should NOT show parser/renderer options
+        assert "PDF options:" not in help_output
+        assert "HTML options:" not in help_output
+        # But should guide users to format-specific help
+        assert "help <format>" in help_output or "'all2md help pdf'" in help_output
 
     def test_format_override_txt(self):
         """Test format override to treat HTML as source code."""

@@ -79,7 +79,6 @@ def _create_diff_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", "-o", help="Write diff to file (default: stdout)")
     parser.add_argument(
         "--color",
-        "--colour",
         dest="color",
         choices=["auto", "always", "never"],
         default="auto",

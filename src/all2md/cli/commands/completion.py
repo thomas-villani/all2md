@@ -243,16 +243,10 @@ def generate_zsh_completion(catalog: dict[str, Any]) -> str:
 
     """
     subcommands = catalog["subcommands"]
+    subcommand_data = catalog.get("subcommand_data", [])
 
-    # Subcommand descriptions for zsh completion
-    subcommand_descriptions = [
-        "Show help",
-        "Config utilities",
-        "Generate completions",
-        "List formats",
-        "List transforms",
-        "Check dependencies",
-    ]
+    # Extract descriptions from catalog data
+    subcommand_descriptions = [item["description"] for item in subcommand_data]
 
     # Build option specifications for _arguments
     option_specs: list[str] = []
