@@ -6,7 +6,7 @@ import logging
 import time
 from dataclasses import fields, is_dataclass
 from pathlib import Path
-from typing import IO, Any, Optional, Union, cast, get_type_hints
+from typing import IO, Any, Optional, TypeVar, Union, cast, get_type_hints
 
 import all2md.transforms as transforms_module
 from all2md.ast.nodes import Document
@@ -25,6 +25,9 @@ from all2md.utils.input_sources import (
 from all2md.utils.io_utils import write_content
 
 logger = logging.getLogger(__name__)
+
+# TypeVar for generic options creation
+OptionsT = TypeVar("OptionsT", BaseParserOptions, BaseRendererOptions)
 
 
 def _resolve_document_source(
@@ -178,23 +181,28 @@ def _collect_nested_dataclass_kwargs(
     return {"nested": nested_kwargs, "remaining": remaining_kwargs}
 
 
-def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) -> BaseParserOptions | None:
-    """Create format-specific parser options object from keyword arguments.
+def _create_options_from_kwargs(
+    options_class: type[OptionsT] | None,
+    options_type_name: str,
+    **kwargs: Any,
+) -> OptionsT | None:
+    """Create format-specific options object from keyword arguments.
 
     Parameters
     ----------
-    format : DocumentFormat
-        The document format to create parser options for.
+    options_class : type[OptionsT] | None
+        The options class to instantiate, or None if no options class exists.
+    options_type_name : str
+        Name of the options type for logging (e.g., "parser" or "renderer").
     **kwargs
-        Keyword arguments to use for parser options creation.
+        Keyword arguments to use for options creation.
 
     Returns
     -------
-    BaseParserOptions | None
-        Parser options instance or None for formats that don't use parser options.
+    OptionsT | None
+        Options instance or None if options_class is None.
 
     """
-    options_class = _get_parser_options_class_for_format(format)
     if not options_class:
         return None
 
@@ -236,8 +244,28 @@ def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) ->
     valid_kwargs = {k: v for k, v in flat_kwargs.items() if k in option_names}
     missing = [k for k in flat_kwargs if k not in valid_kwargs]
     if missing:
-        logger.debug(f"Skipping unknown parser options: {missing}")
+        logger.debug(f"Skipping unknown {options_type_name} options: {missing}")
     return options_class(**valid_kwargs)
+
+
+def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) -> BaseParserOptions | None:
+    """Create format-specific parser options object from keyword arguments.
+
+    Parameters
+    ----------
+    format : DocumentFormat
+        The document format to create parser options for.
+    **kwargs
+        Keyword arguments to use for parser options creation.
+
+    Returns
+    -------
+    BaseParserOptions | None
+        Parser options instance or None for formats that don't use parser options.
+
+    """
+    options_class = _get_parser_options_class_for_format(format)
+    return _create_options_from_kwargs(options_class, "parser", **kwargs)
 
 
 def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) -> BaseRendererOptions | None:
@@ -257,49 +285,7 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) 
 
     """
     options_class = _get_renderer_options_class_for_format(format)
-    if not options_class:
-        return None
-
-    # Collect nested dataclass kwargs
-    nested_info = _collect_nested_dataclass_kwargs(options_class, kwargs)
-    nested_dataclass_kwargs = nested_info["nested"]
-    flat_kwargs = nested_info["remaining"]
-
-    try:
-        type_hints = get_type_hints(options_class)
-    except Exception:
-        type_hints = {}
-
-    # Create instances of nested dataclasses
-    for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():
-        field_type = type_hints.get(nested_field_name)
-        if not field_type:
-            for field in fields(options_class):
-                if field.name == nested_field_name:
-                    field_type = field.type
-                    break
-
-        if field_type:
-            nested_class = None
-            if hasattr(field_type, "__origin__"):
-                if hasattr(field_type, "__args__"):
-                    for arg in field_type.__args__:
-                        if arg is not type(None) and is_dataclass(arg):
-                            nested_class = arg
-                            break
-            elif is_dataclass(field_type):
-                nested_class = field_type
-
-            if nested_class:
-                flat_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
-
-    # Filter to only valid top-level kwargs
-    option_names = [field.name for field in fields(options_class)]
-    valid_kwargs = {k: v for k, v in flat_kwargs.items() if k in option_names}
-    missing = [k for k in flat_kwargs if k not in valid_kwargs]
-    if missing:
-        logger.debug(f"Skipping unknown renderer options: {missing}")
-    return options_class(**valid_kwargs)
+    return _create_options_from_kwargs(options_class, "renderer", **kwargs)
 
 
 def _split_kwargs_for_parser_and_renderer(
