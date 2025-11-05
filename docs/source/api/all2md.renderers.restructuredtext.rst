@@ -1,5 +1,5 @@
-all2md.renderers.rst
-====================
+all2md.renderers.rst module
+===========================
 
 .. automodule:: all2md.renderers.rst
    :members:
