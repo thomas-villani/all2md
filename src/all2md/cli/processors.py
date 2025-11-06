@@ -916,6 +916,10 @@ def process_multi_file(
     if parsed_args.merge_from_list:
         return process_merge_from_list(parsed_args, options, format_arg, transforms)
 
+    # Check for document splitting mode
+    if getattr(parsed_args, "split_by", None):
+        return process_files_with_splitting(items, parsed_args, options, format_arg, transforms)
+
     # Otherwise, process files normally to disk
     if parsed_args.collate:
         exit_code = process_files_collated(items, parsed_args, options, format_arg, transforms)
@@ -2169,6 +2173,243 @@ def process_files_collated(
         return max(code for _, _, code in failures)
 
     return EXIT_SUCCESS
+
+
+def _determine_split_base_name(item: CLIInputItem, args: argparse.Namespace) -> str:
+    """Determine base name for split files.
+
+    Parameters
+    ----------
+    item : CLIInputItem
+        Input item being processed
+    args : argparse.Namespace
+        CLI arguments
+
+    Returns
+    -------
+    str
+        Base name to use for split files
+
+    """
+    if args.out:
+        return Path(args.out).stem
+    else:
+        if hasattr(item, "stem") and item.stem:
+            return item.stem
+        elif hasattr(item, "name") and item.name:
+            return Path(item.name).stem
+        else:
+            return "output"
+
+
+def _determine_split_output_dir(args: argparse.Namespace) -> Path:
+    """Determine output directory for split files.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        CLI arguments
+
+    Returns
+    -------
+    Path
+        Directory path for split files
+
+    """
+    if args.out:
+        out_path = Path(args.out)
+        return out_path.parent if out_path.parent != Path(".") else Path.cwd()
+    elif args.output_dir:
+        return Path(args.output_dir)
+    else:
+        return Path.cwd()
+
+
+def _generate_split_filename(
+    base_name: str,
+    split_result: Any,
+    target_format: str,
+    naming_style: str = "numeric",
+    digits: int = 3,
+) -> str:
+    """Generate filename for a split document.
+
+    Parameters
+    ----------
+    base_name : str
+        Base filename (without extension)
+    split_result : SplitResult
+        Split result containing index and title
+    target_format : str
+        Target output format (determines extension)
+    naming_style : str
+        Naming style: 'numeric' or 'title'
+    digits : int
+        Number of digits for padding
+
+    Returns
+    -------
+    str
+        Generated filename with extension
+
+    """
+    from all2md.converter_registry import registry
+
+    extension = registry.get_default_extension_for_format(target_format)
+    index_str = str(split_result.index).zfill(digits)
+
+    if naming_style == "title" and split_result.title:
+        slug = split_result.get_filename_slug()
+        if slug:
+            return f"{base_name}_{index_str}_{slug}{extension}"
+
+    return f"{base_name}_{index_str}{extension}"
+
+
+def process_files_with_splitting(
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
+) -> int:
+    """Process files with document splitting into multiple output files.
+
+    Parameters
+    ----------
+    items : List[CLIInputItem]
+        Input items to process
+    args : argparse.Namespace
+        CLI arguments including split_by specification
+    options : Dict[str, Any]
+        Conversion options
+    format_arg : str
+        Source format specification
+    transforms : list, optional
+        AST transforms to apply
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    from all2md.ast.document_splitter import DocumentSplitter, parse_split_spec
+
+    try:
+        strategy, param = parse_split_spec(args.split_by)
+    except ValueError as e:
+        print(f"Error: Invalid split specification: {e}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+
+    splitter = DocumentSplitter()
+    max_exit_code = EXIT_SUCCESS
+
+    use_rich = args.rich
+    show_progress = args.progress or args.rich or len(items) > 1
+
+    for item in items:
+        with ProgressContext(use_rich, show_progress, 1, f"Processing {item.name}") as progress:
+            progress_callback = create_progress_context_callback(progress) if show_progress else None
+
+            try:
+                effective_options = prepare_options_for_execution(
+                    options,
+                    item.best_path(),
+                    format_arg,
+                )
+
+                doc = to_ast(
+                    item.raw_input,
+                    source_format=cast(DocumentFormat, format_arg),
+                    progress_callback=progress_callback,
+                    **effective_options,
+                )
+
+                if transforms:
+                    for transform in transforms:
+                        transformed = transform.transform(doc)
+                        assert isinstance(transformed, Document), "Transform should return Document"
+                        doc = transformed
+
+                if strategy == "heading":
+                    splits = splitter.split_by_heading_level(doc, level=param)
+                elif strategy == "length":
+                    splits = splitter.split_by_word_count(doc, target_words=param)
+                elif strategy == "parts":
+                    splits = splitter.split_by_parts(doc, num_parts=param)
+                elif strategy == "break":
+                    splits = splitter.split_by_break(doc)
+                elif strategy == "delimiter":
+                    splits = splitter.split_by_delimiter(doc, delimiter=param)
+                elif strategy == "auto":
+                    splits = splitter.split_auto(doc)
+                elif strategy in ("page", "chapter"):
+                    print(
+                        f"Warning: {strategy} splitting not yet implemented, using h1 fallback",
+                        file=sys.stderr,
+                    )
+                    splits = splitter.split_by_heading_level(doc, level=1)
+                else:
+                    print(f"Error: Unknown split strategy: {strategy}", file=sys.stderr)
+                    return EXIT_INPUT_ERROR
+
+                base_name = _determine_split_base_name(item, args)
+                output_dir = _determine_split_output_dir(args)
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+                target_format = getattr(args, "output_format", "markdown")
+                if target_format == "auto":
+                    target_format = "markdown"
+
+                naming_style = getattr(args, "split_by_naming", "numeric")
+                digits = getattr(args, "split_by_digits", 3)
+
+                render_options = prepare_options_for_execution(
+                    options,
+                    None,
+                    format_arg,
+                    target_format,
+                )
+                render_options.pop("remote_input_options", None)
+
+                for split_result in splits:
+                    filename = _generate_split_filename(
+                        base_name,
+                        split_result,
+                        target_format,
+                        naming_style,
+                        digits,
+                    )
+                    output_path = output_dir / filename
+
+                    from_ast(
+                        split_result.document,
+                        target_format=cast(DocumentFormat, target_format),
+                        output=output_path,
+                        **render_options,
+                    )
+
+                    progress.log(
+                        f"Created: {output_path} ({split_result.word_count} words)",
+                        level="success",
+                    )
+
+                print(
+                    f"Successfully split {item.display_name} into {len(splits)} file(s) in {output_dir}",
+                    file=sys.stderr,
+                )
+
+            except Exception as e:
+                exit_code = get_exit_code_for_exception(e)
+                print(f"Error processing {item.display_name}: {e}", file=sys.stderr)
+                max_exit_code = max(max_exit_code, exit_code)
+                if not args.skip_errors:
+                    return exit_code
+
+            progress.update()
+
+    return max_exit_code
 
 
 def generate_output_path(

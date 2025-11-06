@@ -109,6 +109,51 @@ def collect_argument_problems(
             )
         )
 
+    # Check for document splitting conflicts
+    split_by = getattr(parsed_args, "split_by", None)
+
+    if split_by:
+        # Require output location for splitting
+        out = getattr(parsed_args, "out", None)
+        output_dir = getattr(parsed_args, "output_dir", None)
+
+        if not out and not output_dir:
+            problems.append(
+                ValidationProblem(
+                    "--split-by requires either --out or --output-dir to specify output location for split files.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+
+        # Check conflicts with other options
+        collate = getattr(parsed_args, "collate", False)
+        if collate:
+            problems.append(
+                ValidationProblem(
+                    "--split-by and --collate cannot be used together. "
+                    "Choose either splitting (one input to many outputs) or collating (many inputs to one output).",
+                    ValidationSeverity.ERROR,
+                )
+            )
+
+        if extract:
+            problems.append(
+                ValidationProblem(
+                    "--split-by and --extract cannot be used together. "
+                    "Choose either splitting the full document or extracting specific sections.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+
+        if outline:
+            problems.append(
+                ValidationProblem(
+                    "--split-by and --outline cannot be used together. "
+                    "Use --outline to view document structure or --split-by to split the document.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+
     return problems
 
 

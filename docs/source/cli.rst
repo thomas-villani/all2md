@@ -2633,6 +2633,82 @@ Processing and Output Control
       # Collate to stdout
       all2md *.md --collate
 
+``--split-by``
+   Split a large document into multiple output files based on various strategies. This is the inverse operation of ``--collate``.
+
+   Requires either ``--out`` or ``--output-dir`` to specify the output location for split files.
+
+   **Cannot be used with:** ``--collate``, ``--extract``, or ``--outline``
+
+   **Strategies:**
+
+   * **Heading Level** (``h1``, ``h2``, ``h3``, ``h4``, ``h5``, ``h6``) - Split at every heading of the specified level
+   * **Word Count** (``length=N``) - Split by approximate word count, maintaining section boundaries
+   * **Thematic Breaks** (``break``) - Split at horizontal rules (``---``, ``***``, ``___``)
+   * **Delimiter** (``delimiter=TEXT``) - Split at custom text markers (e.g., ``\n***\n``, ``<!-- split -->``)
+   * **Equal Parts** (``parts=N``) - Split document into N roughly equal parts
+   * **Page/Chapter** (``page``, ``chapter``) - Reserved for PDF pages or EPUB chapters (currently falls back to h1)
+   * **Auto-detect** (``auto``) - Automatically determine the best split strategy based on document structure
+
+   .. code-block:: bash
+
+      # Split by H1 headings
+      all2md book.pdf --split-by h1 --out book.md
+
+      # Split by H2 headings (more granular)
+      all2md report.docx --split-by h2 --out report.md
+
+      # Split by word count (~500 words per file)
+      all2md long_document.md --split-by length=500 --out doc.md
+
+      # Split at horizontal rules (simple and convenient)
+      all2md article.md --split-by break --out article.md
+
+      # Split at custom delimiters with escape sequences
+      all2md notes.txt --split-by delimiter="\n***\n" --out notes.md
+
+      # Split into 5 equal parts
+      all2md thesis.pdf --split-by parts=5 --out thesis.md
+
+      # Auto-detect best split strategy
+      all2md manual.html --split-by auto --out manual.md
+
+   **Output files** are named with numeric suffixes: ``book_001.md``, ``book_002.md``, etc.
+
+   .. note::
+      **About delimiter strategies:**
+
+      - Use ``break`` for the simple case of splitting at horizontal rules (``---``, ``***``, ``___``). This works automatically with Markdown thematic breaks.
+      - Use ``delimiter=TEXT`` for custom text markers like ``<!-- split -->`` or when you need escape sequences like ``\n***\n``.
+      - Splitting respects semantic boundaries and will never split in the middle of a section.
+      - For word count splitting, sections are combined until the target word count is reached.
+
+``--split-by-naming``
+   Control file naming for split documents. Used with ``--split-by``.
+
+   **Options:**
+
+   * ``numeric`` (default) - Use numeric suffixes only: ``output_001.md``, ``output_002.md``
+   * ``title`` - Include heading text in filenames: ``output_001_introduction.md``, ``output_002_methods.md``
+
+   .. code-block:: bash
+
+      # Use title-based naming
+      all2md document.pdf --split-by h1 --split-by-naming title --out doc.md
+
+      # Output: doc_001_introduction.md, doc_002_methods.md, etc.
+
+``--split-by-digits``
+   Number of digits to use for split file numbering (default: 3).
+
+   .. code-block:: bash
+
+      # Use 2-digit numbering (01, 02, ...)
+      all2md book.pdf --split-by h1 --split-by-digits 2 --out book.md
+
+      # Use 4-digit numbering (0001, 0002, ...)
+      all2md large_book.pdf --split-by h1 --split-by-digits 4 --out book.md
+
 ``--no-summary``
    Disable summary output after processing multiple files.
 
@@ -3930,6 +4006,37 @@ Web Content Processing
 
    # Process saved web page with images
    all2md saved_page.html --attachment-mode download --attachment-base-url "https://example.com"
+
+Document Splitting
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Split large book by chapters (H1 headings)
+   all2md book.pdf --split-by h1 --out book.md
+   # Creates: book_001.md, book_002.md, book_003.md, ...
+
+   # Split technical report by sections (H2 headings) with title-based naming
+   all2md report.docx --split-by h2 --split-by-naming title --out report.md
+   # Creates: report_001_introduction.md, report_002_methodology.md, ...
+
+   # Split long document by word count (~500 words per file)
+   all2md thesis.pdf --split-by length=500 --out thesis.md
+
+   # Split at horizontal rules (---, ***, ___)
+   all2md article.md --split-by break --out article.md
+
+   # Split at custom text delimiters
+   all2md notes.txt --split-by delimiter="\n***\n" --out notes.md
+
+   # Split presentation into roughly 5 equal parts
+   all2md slides.pptx --split-by parts=5 --out slides.md
+
+   # Let all2md automatically determine the best split strategy
+   all2md manual.html --split-by auto --out manual.md
+
+   # Split with custom digit padding (2 digits: 01, 02, ...)
+   all2md chapters.pdf --split-by h1 --split-by-digits 2 --out ch.md
 
 Advanced Multi-File Processing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1094,6 +1094,10 @@ Examples:
   cat document.pdf | all2md -
   curl -s https://example.com/doc.pdf | all2md - --out output.md
 
+  # Extract a section by name or index
+  all2md document.pdf --extract "Materials and Methods"
+  all2md document.pdf --extract "#:3"
+
   # Image handling
   all2md document.html --attachment-mode download --attachment-output-dir ./images
   all2md book.epub --attachment-mode base64
@@ -1167,6 +1171,40 @@ Examples:
             default=6,
             help="Maximum heading level to include in outline (1-6, default: 6). "
             "Only applies when --outline is used.",
+        )
+
+        # Document splitting options
+        parser.add_argument(
+            "--split-by",
+            type=str,
+            metavar="STRATEGY",
+            help="Split document into multiple output files. Strategies: "
+            "h1/h2/h3/h4/h5/h6 (by heading level), "
+            "length=N (by word count), "
+            "break (at horizontal rules/thematic breaks), "
+            "delimiter=TEXT (split at custom text markers like '\\n***\\n'), "
+            "page (by PDF pages), chapter (by EPUB chapters), "
+            "parts=N (into N equal parts), "
+            "auto (automatic detection). "
+            "Requires --out or --output-dir for output location. "
+            "Cannot be used with --collate or --extract.",
+        )
+
+        parser.add_argument(
+            "--split-by-naming",
+            type=str,
+            choices=["numeric", "title"],
+            default="numeric",
+            help="File naming strategy for splits: 'numeric' (001, 002, ...) or "
+            "'title' (include heading text in filename). Default: numeric",
+        )
+
+        parser.add_argument(
+            "--split-by-digits",
+            type=int,
+            default=3,
+            metavar="N",
+            help="Number of digits for split numbering (default: 3, produces 001, 002, etc.)",
         )
 
         # Format override option
@@ -1977,11 +2015,142 @@ def create_parser() -> argparse.ArgumentParser:
     # Add global attachment arguments that apply to all formats
     builder.add_global_attachment_arguments(parser)
 
-    # Add new CLI options for enhanced features
+    # Multi-file processing options
+    parser.add_argument("--recursive", "-r", action=TrackingStoreTrueAction, help="Process directories recursively")
+
+    parser.add_argument(
+        "--parallel",
+        "-p",
+        action=TrackingPositiveIntAction,
+        nargs="?",
+        const=None,
+        default=1,
+        help="Process files in parallel (optionally specify number of workers, must be positive)",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        action=TrackingStoreAction,
+        type=str,
+        help="Directory to save converted files (for multi-file processing)",
+    )
+
+    parser.add_argument(
+        "--output-extension",
+        action=TrackingStoreAction,
+        type=str,
+        metavar="EXT",
+        help="Custom output file extension (e.g., .htm). Overrides default extension from --output-format. "
+        "Primarily useful with --watch or --output-dir for batch conversions.",
+    )
+
+    parser.add_argument(
+        "--preserve-structure", action=TrackingStoreTrueAction, help="Preserve directory structure in output directory"
+    )
+
+    parser.add_argument(
+        "--skip-errors", action=TrackingStoreTrueAction, help="Continue processing remaining files if one fails"
+    )
+
+    parser.add_argument(
+        "--exclude",
+        action=TrackingAppendAction,
+        metavar="PATTERN",
+        help="Exclude files matching this glob pattern (can be specified multiple times)",
+    )
+
+    # File merging and collation options
+    parser.add_argument(
+        "--collate", action=TrackingStoreTrueAction, help="Combine multiple files into a single output (stdout or file)"
+    )
+
+    parser.add_argument(
+        "--merge-from-list",
+        action=TrackingStoreAction,
+        type=str,
+        metavar="PATH",
+        help="Merge files from a list file (TSV format: path[<tab>section_title])",
+    )
+
+    parser.add_argument(
+        "--batch-from-list",
+        action=TrackingStoreAction,
+        type=str,
+        metavar="PATH",
+        help="Process files from a list file (one path per line, # for comments). "
+        'Use "-" to read from stdin. Paths are processed individually unlike --merge-from-list.',
+    )
+
+    parser.add_argument(
+        "--list-separator",
+        action=TrackingStoreAction,
+        type=str,
+        default="\t",
+        metavar="SEP",
+        help="Separator character for list file (default: tab)",
+    )
+
+    parser.add_argument(
+        "--generate-toc", action=TrackingStoreTrueAction, help="Generate table of contents when using --merge-from-list"
+    )
+
+    parser.add_argument(
+        "--toc-title",
+        action=TrackingStoreAction,
+        type=str,
+        default="Table of Contents",
+        metavar="TITLE",
+        help='Title for the table of contents (default: "Table of Contents")',
+    )
+
+    parser.add_argument(
+        "--toc-depth",
+        action=TrackingStoreAction,
+        type=int,
+        default=3,
+        metavar="DEPTH",
+        help="Maximum heading level to include in TOC (1-6, default: 3)",
+    )
+
+    parser.add_argument(
+        "--toc-position",
+        action=TrackingStoreAction,
+        type=str,
+        choices=["top", "bottom"],
+        default="top",
+        help="Position of the table of contents (default: top)",
+    )
+
+    parser.add_argument(
+        "--no-section-titles",
+        action=TrackingStoreTrueAction,
+        help="Disable section title headers when merging from list",
+    )
+
+    # Configuration save option
+    parser.add_argument("--save-config", type=str, help="Save current CLI arguments to a JSON configuration file")
+
+    # Output display options
     parser.add_argument(
         "--rich",
         action=TrackingStoreTrueAction,
         help="Enable rich terminal output with formatting (automatically disabled when output is piped)",
+    )
+
+    parser.add_argument(
+        "--pager",
+        action=TrackingStoreTrueAction,
+        help="Display output using system pager for long documents (stdout only)",
+    )
+
+    parser.add_argument(
+        "--progress",
+        action=TrackingStoreTrueAction,
+        help="Show progress bar for file conversions (automatically enabled for multiple files)",
+    )
+
+    parser.add_argument(
+        "--no-summary", action=TrackingStoreTrueAction, help="Disable summary output after processing multiple files"
     )
 
     # Create Rich output options group
@@ -2035,54 +2204,7 @@ def create_parser() -> argparse.ArgumentParser:
         "is automatically disabled when output is piped to preserve clean parseable content.",
     )
 
-    parser.add_argument(
-        "--pager",
-        action=TrackingStoreTrueAction,
-        help="Display output using system pager for long documents (stdout only)",
-    )
-
-    parser.add_argument(
-        "--progress",
-        action=TrackingStoreTrueAction,
-        help="Show progress bar for file conversions (automatically enabled for multiple files)",
-    )
-
-    parser.add_argument(
-        "--output-dir",
-        action=TrackingStoreAction,
-        type=str,
-        help="Directory to save converted files (for multi-file processing)",
-    )
-
-    parser.add_argument(
-        "--output-extension",
-        action=TrackingStoreAction,
-        type=str,
-        metavar="EXT",
-        help="Custom output file extension (e.g., .htm). Overrides default extension from --output-format. "
-        "Primarily useful with --watch or --output-dir for batch conversions.",
-    )
-
-    parser.add_argument("--recursive", "-r", action=TrackingStoreTrueAction, help="Process directories recursively")
-
-    parser.add_argument(
-        "--parallel",
-        "-p",
-        action=TrackingPositiveIntAction,
-        nargs="?",
-        const=None,
-        default=1,
-        help="Process files in parallel (optionally specify number of workers, must be positive)",
-    )
-
-    parser.add_argument(
-        "--skip-errors", action=TrackingStoreTrueAction, help="Continue processing remaining files if one fails"
-    )
-
-    parser.add_argument(
-        "--preserve-structure", action=TrackingStoreTrueAction, help="Preserve directory structure in output directory"
-    )
-
+    # Output packaging options
     parser.add_argument(
         "--zip",
         action=TrackingStoreAction,
@@ -2100,6 +2222,7 @@ def create_parser() -> argparse.ArgumentParser:
         help="Asset organization: flat (single assets/ dir), by-stem (assets/{doc}/), structured (preserve structure)",
     )
 
+    # Watch mode options
     parser.add_argument(
         "--watch",
         action=TrackingStoreTrueAction,
@@ -2113,98 +2236,6 @@ def create_parser() -> argparse.ArgumentParser:
         default=1.0,
         metavar="SECONDS",
         help="Debounce delay for watch mode in seconds (default: 1.0)",
-    )
-
-    parser.add_argument(
-        "--collate", action=TrackingStoreTrueAction, help="Combine multiple files into a single output (stdout or file)"
-    )
-
-    parser.add_argument(
-        "--merge-from-list",
-        action=TrackingStoreAction,
-        type=str,
-        metavar="PATH",
-        help="Merge files from a list file (TSV format: path[<tab>section_title])",
-    )
-
-    parser.add_argument(
-        "--batch-from-list",
-        action=TrackingStoreAction,
-        type=str,
-        metavar="PATH",
-        help="Process files from a list file (one path per line, # for comments). "
-        'Use "-" to read from stdin. Paths are processed individually unlike --merge-from-list.',
-    )
-
-    parser.add_argument(
-        "--generate-toc", action=TrackingStoreTrueAction, help="Generate table of contents when using --merge-from-list"
-    )
-
-    parser.add_argument(
-        "--toc-title",
-        action=TrackingStoreAction,
-        type=str,
-        default="Table of Contents",
-        metavar="TITLE",
-        help='Title for the table of contents (default: "Table of Contents")',
-    )
-
-    parser.add_argument(
-        "--toc-depth",
-        action=TrackingStoreAction,
-        type=int,
-        default=3,
-        metavar="DEPTH",
-        help="Maximum heading level to include in TOC (1-6, default: 3)",
-    )
-
-    parser.add_argument(
-        "--toc-position",
-        action=TrackingStoreAction,
-        type=str,
-        choices=["top", "bottom"],
-        default="top",
-        help="Position of the table of contents (default: top)",
-    )
-
-    parser.add_argument(
-        "--list-separator",
-        action=TrackingStoreAction,
-        type=str,
-        default="\t",
-        metavar="SEP",
-        help="Separator character for list file (default: tab)",
-    )
-
-    parser.add_argument(
-        "--no-section-titles",
-        action=TrackingStoreTrueAction,
-        help="Disable section title headers when merging from list",
-    )
-
-    parser.add_argument(
-        "--no-summary", action=TrackingStoreTrueAction, help="Disable summary output after processing multiple files"
-    )
-
-    parser.add_argument("--save-config", type=str, help="Save current CLI arguments to a JSON configuration file")
-
-    parser.add_argument(
-        "--dry-run",
-        action=TrackingStoreTrueAction,
-        help="Show what would be converted without actually processing files",
-    )
-
-    parser.add_argument(
-        "--detect-only",
-        action=TrackingStoreTrueAction,
-        help="Show format detection results without conversion (useful for debugging batch inputs)",
-    )
-
-    parser.add_argument(
-        "--exclude",
-        action=TrackingAppendAction,
-        metavar="PATTERN",
-        help="Exclude files matching this glob pattern (can be specified multiple times)",
     )
 
     # Security preset flags
@@ -2223,6 +2254,19 @@ def create_parser() -> argparse.ArgumentParser:
         "--paranoid-mode",
         action=TrackingStoreTrueAction,
         help="Maximum security settings (strict restrictions, reduced size limits)",
+    )
+
+    # Debugging and validation options
+    parser.add_argument(
+        "--dry-run",
+        action=TrackingStoreTrueAction,
+        help="Show what would be converted without actually processing files",
+    )
+
+    parser.add_argument(
+        "--detect-only",
+        action=TrackingStoreTrueAction,
+        help="Show format detection results without conversion (useful for debugging batch inputs)",
     )
 
     return parser

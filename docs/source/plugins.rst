@@ -62,7 +62,7 @@ A parser converts your format into the all2md AST (Abstract Syntax Tree). Here's
    :language: python
    :lines: 49-98
    :linenos:
-   :emphasize-lines: 22-24,26-27,33-35,37-38,40-41,43-45
+   :emphasize-lines: 22,25-28,33,36,39,43,45-50
    :caption: SimpleDocParser.parse() - Main parsing entry point
 
 Key parser patterns demonstrated:
@@ -81,7 +81,7 @@ The parser must handle multiple input types uniformly:
    :language: python
    :lines: 100-132
    :linenos:
-   :emphasize-lines: 17-18,20-22,25,28-30
+   :emphasize-lines: 17,20-21,22,25
    :caption: SimpleDocParser._read_content() - Multi-format input handling
 
 Content Parsing
@@ -93,7 +93,7 @@ The core parsing logic uses a line-by-line state machine approach:
    :language: python
    :lines: 211-270
    :linenos:
-   :emphasize-lines: 17-18,31-32,34-36,41-42,49-50,56
+   :emphasize-lines: 17-18,33,40,49,55
    :caption: SimpleDocParser._parse_content() - State machine parser
 
 The parser demonstrates:
@@ -112,7 +112,7 @@ Metadata can be extracted separately from full parsing:
    :language: python
    :lines: 134-209
    :linenos:
-   :emphasize-lines: 19-20,23-24,28-31,36-41,46-51,58-68
+   :emphasize-lines: 18-19,23-24,30-31,35-42,46,52,58-66
    :caption: SimpleDocParser._extract_frontmatter() - Metadata parsing
 
 Renderer Implementation
@@ -124,7 +124,7 @@ A renderer converts the all2md AST back into your format. The SimpleDoc renderer
    :language: python
    :lines: 52-105
    :linenos:
-   :emphasize-lines: 24-26,29-30,47-54
+   :emphasize-lines: 24-26,29-30,51
    :caption: SimpleDocRenderer - Core rendering structure
 
 Visitor Pattern Basics
@@ -136,7 +136,7 @@ The renderer implements ``visit_*()`` methods for each AST node type:
    :language: python
    :lines: 121-141
    :linenos:
-   :emphasize-lines: 10-12,14-16,18-21
+   :emphasize-lines: 14-16
    :caption: SimpleDocRenderer.visit_document() - Visitor pattern dispatch
 
 Inline Content Rendering
@@ -148,7 +148,7 @@ Use the ``InlineContentMixin`` helper for inline nodes:
    :language: python
    :lines: 181-194
    :linenos:
-   :emphasize-lines: 10-14
+   :emphasize-lines: 12
    :caption: SimpleDocRenderer.visit_heading() - Inline content extraction
 
 Renderer Implementation Patterns
@@ -165,7 +165,7 @@ For nodes that represent formatting your format doesn't support (bold, italic, s
    :language: python
    :lines: 343-358
    :linenos:
-   :emphasize-lines: 12-16
+   :emphasize-lines: 15
    :caption: Handling unsupported formatting - Extract text content
 
 This preserves the text content even if the formatting is lost. Apply this pattern to:
@@ -187,14 +187,14 @@ For elements that have some meaningful equivalent, provide a simplified represen
    :language: python
    :lines: 387-403
    :linenos:
-   :emphasize-lines: 13-17
+   :emphasize-lines: 17
    :caption: Handling links - Include URL in plain text
 
 .. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 284-319
    :linenos:
-   :emphasize-lines: 13-14,17-26,28-36
+   :emphasize-lines: 13-14,20-25,31-35
    :caption: Handling tables - Simplified text representation
 
 This approach preserves information even if not in ideal format. Apply this pattern to:
@@ -251,7 +251,7 @@ Define custom options for parser and renderer configuration:
    :language: python
    :lines: 15-70
    :linenos:
-   :emphasize-lines: 1-3,25-28,29-35
+   :emphasize-lines: 4,25-28,29-35
    :caption: SimpleDocOptions - Parser configuration with CLI integration
 
 Key patterns:
@@ -264,7 +264,7 @@ Key patterns:
    :language: python
    :lines: 134-158
    :linenos:
-   :emphasize-lines: 1-3,10-11,13-18,20-25
+   :emphasize-lines: 10-11,13,20
    :caption: __post_init__ validation pattern
 
 Metadata Registration
@@ -276,7 +276,7 @@ The ``ConverterMetadata`` object is the key to plugin discovery:
    :language: python
    :lines: 46-96
    :linenos:
-   :emphasize-lines: 1-3,5-7,14-20,22-24,48-50
+   :emphasize-lines: 1,4,7,10,14-17,20,23,30-31,50
    :caption: CONVERTER_METADATA - Plugin registration
 
 Key fields:
@@ -297,9 +297,9 @@ Register your plugin via entry points in ``pyproject.toml``:
 
 .. literalinclude:: ../../examples/simpledoc-plugin/pyproject.toml
    :language: toml
-   :lines: 1-39
+   :lines: 1-38
    :linenos:
-   :emphasize-lines: 1-3,5-14,24-26,33-35
+   :emphasize-lines: 6-7,24-26,33-35
    :caption: pyproject.toml - Package configuration with entry point
 
 The critical element is the entry point:

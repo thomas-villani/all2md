@@ -55,16 +55,41 @@ def _rich_snippet(snippet: str) -> Any:
     while cursor < len(snippet):
         start = snippet.find("<<", cursor)
         if start == -1:
-            text.append(snippet[cursor:])
+            # Process remaining text for ellipses
+            _append_with_dim_ellipses(text, snippet[cursor:])
             break
-        text.append(snippet[cursor:start])
+        # Process text before highlight marker for ellipses
+        _append_with_dim_ellipses(text, snippet[cursor:start])
         end = snippet.find(">>", start)
         if end == -1:
-            text.append(snippet[start:])
+            _append_with_dim_ellipses(text, snippet[start:])
             break
         text.append(snippet[start + 2 : end], style="bold yellow")
         cursor = end + 2
     return text
+
+
+def _append_with_dim_ellipses(text: Any, content: str) -> None:
+    """Append content to Text object, styling ellipses as dim.
+
+    Parameters
+    ----------
+    text : rich.text.Text
+        The Text object to append to
+    content : str
+        Content that may contain ellipses
+
+    """
+    if not content:
+        return
+
+    # Split on ellipses and append with appropriate styling
+    parts = content.split("...")
+    for i, part in enumerate(parts):
+        if part:
+            text.append(part)
+        if i < len(parts) - 1:
+            text.append("...", style="dim")
 
 
 def _format_plain_snippet(snippet: str, width: int = 100, indent: str = "      ") -> list[str]:
@@ -88,30 +113,20 @@ def _format_plain_snippet(snippet: str, width: int = 100, indent: str = "      "
     return formatted
 
 
-def _render_grep_results(results: List[SearchResult], *, use_rich: bool) -> None:
-    """Render grep results in ripgrep-style format.
-
-    Groups matches by file, showing file path as a header followed by
-    matching lines with line numbers.
+def _group_results_by_doc_and_section(results: List[SearchResult]) -> dict[str, dict[str, list[SearchResult]]]:
+    """Group search results by document path and section.
 
     Parameters
     ----------
     results : List[SearchResult]
-        Search results from grep mode
-    use_rich : bool
-        Whether to use rich formatting
+        Search results to group
+
+    Returns
+    -------
+    dict[str, dict[str, list[SearchResult]]]
+        Nested dictionary with structure: {doc_label: {section: [results]}}
 
     """
-    console = None
-    if use_rich:
-        try:
-            from rich.console import Console
-
-            console = Console()
-        except ImportError:
-            use_rich = False
-
-    # Group results by document path and section
     grouped: dict[str, dict[str, list[SearchResult]]] = {}
     for result in results:
         metadata = result.chunk.metadata
@@ -125,60 +140,248 @@ def _render_grep_results(results: List[SearchResult], *, use_rich: bool) -> None
         if section not in grouped[doc_label]:
             grouped[doc_label][section] = []
         grouped[doc_label][section].append(result)
+    return grouped
 
-    # Render each file and its sections
+
+def _parse_line_number_if_present(line: str, show_line_numbers: bool) -> tuple[str | None, str]:
+    """Parse line number from grep output if present.
+
+    Parameters
+    ----------
+    line : str
+        Line that may contain line number in format "123: content"
+    show_line_numbers : bool
+        Whether line numbers are expected in output
+
+    Returns
+    -------
+    tuple[str | None, str]
+        Tuple of (line_number, content). line_number is None if not found.
+
+    """
+    if not show_line_numbers or ": " not in line:
+        return None, line
+
+    parts = line.split(": ", 1)
+    if parts[0].isdigit():
+        return parts[0], parts[1]
+    return None, line
+
+
+def _render_compact_rich(
+    grouped: dict[str, dict[str, list[SearchResult]]], console: Any, show_line_numbers: bool
+) -> None:
+    """Render grep results in compact format using rich.
+
+    Parameters
+    ----------
+    grouped : dict[str, dict[str, list[SearchResult]]]
+        Results grouped by document and section
+    console : rich.console.Console
+        Rich console for output
+    show_line_numbers : bool
+        Whether to show line numbers
+
+    """
+    from rich.text import Text
+
     for doc_path, sections in grouped.items():
-        if use_rich and console is not None:
-            from rich.text import Text
+        # File header
+        header = Text(str(doc_path), style="bold magenta")
+        console.print(header)
 
-            # File header
-            header = Text(str(doc_path), style="bold magenta")
-            console.print(header)
+        # Print each match in compact format
+        for section_name, section_results in sections.items():
+            for result in section_results:
+                snippet = result.chunk.text
+                if snippet:
+                    for line in snippet.splitlines():
+                        line_number, content = _parse_line_number_if_present(line, show_line_numbers)
+
+                        # Build the output line with 2-space indent
+                        output = Text("  ")
+                        output.append(section_name, style="bold cyan")
+                        output.append(":")
+                        if line_number:
+                            output.append(line_number, style="green")
+                            output.append(":")
+                        snippet_text = _rich_snippet(content)
+                        if snippet_text:
+                            output.append(snippet_text)
+                        else:
+                            output.append(content)
+                        console.print(output)
+
+
+def _render_compact_plain(grouped: dict[str, dict[str, list[SearchResult]]], show_line_numbers: bool) -> None:
+    """Render grep results in compact format using plain text.
+
+    Parameters
+    ----------
+    grouped : dict[str, dict[str, list[SearchResult]]]
+        Results grouped by document and section
+    show_line_numbers : bool
+        Whether to show line numbers
+
+    """
+    for doc_path, sections in grouped.items():
+        # File header
+        print(str(doc_path))
+
+        # Print each match in compact format
+        for section_name, section_results in sections.items():
+            for result in section_results:
+                snippet = result.chunk.text
+                if snippet:
+                    for line in snippet.splitlines():
+                        line_number, content = _parse_line_number_if_present(line, show_line_numbers)
+
+                        # Strip highlighting markers in plain mode
+                        plain_content = content.replace("<<", "").replace(">>", "")
+
+                        # Build the output line with 2-space indent
+                        if line_number:
+                            print(f"  {section_name}:{line_number}:{plain_content}")
+                        else:
+                            print(f"  {section_name}:{plain_content}")
+
+
+def _render_grouped_rich(grouped: dict[str, dict[str, list[SearchResult]]], console: Any) -> None:
+    """Render grep results in grouped format using rich.
+
+    Parameters
+    ----------
+    grouped : dict[str, dict[str, list[SearchResult]]]
+        Results grouped by document and section
+    console : rich.console.Console
+        Rich console for output
+
+    """
+    from rich.text import Text
+
+    for doc_path, sections in grouped.items():
+        # File header
+        header = Text(str(doc_path), style="bold magenta")
+        console.print(header)
+        console.print()
+
+        # Print each section
+        for section_name, section_results in sections.items():
+            # Section heading
+            console.print(Text(section_name, style="bold cyan"))
+
+            # Print matches for this section
+            for result in section_results:
+                snippet = result.chunk.text
+                if snippet:
+                    # Indent each line
+                    for line in snippet.splitlines():
+                        snippet_text = _rich_snippet(line)
+                        if snippet_text:
+                            console.print(Text("  ") + snippet_text)
+                        else:
+                            console.print(f"  {line}")
+
             console.print()
 
-            # Print each section
-            for section_name, section_results in sections.items():
-                # Section heading
-                console.print(Text(section_name, style="bold cyan"))
 
-                # Print matches for this section
-                for result in section_results:
-                    snippet = result.chunk.text
-                    if snippet:
-                        # Indent each line
-                        for line in snippet.splitlines():
-                            snippet_text = _rich_snippet(line)
-                            if snippet_text:
-                                console.print(Text("  ") + snippet_text)
-                            else:
-                                console.print(f"  {line}")
+def _render_grouped_plain(grouped: dict[str, dict[str, list[SearchResult]]]) -> None:
+    """Render grep results in grouped format using plain text.
 
-                console.print()
+    Parameters
+    ----------
+    grouped : dict[str, dict[str, list[SearchResult]]]
+        Results grouped by document and section
 
-        else:
-            # Plain text output
-            print(str(doc_path))
+    """
+    for doc_path, sections in grouped.items():
+        # File header
+        print(str(doc_path))
+        print()
+
+        # Print each section
+        for section_name, section_results in sections.items():
+            # Section heading
+            print(section_name)
+
+            # Print matches for this section
+            for result in section_results:
+                snippet = result.chunk.text
+                if snippet:
+                    # Indent each line of the snippet
+                    for line in snippet.splitlines():
+                        # Strip highlighting markers in plain mode
+                        plain_line = line.replace("<<", "").replace(">>", "")
+                        print(f"  {plain_line}")
+
             print()
 
-            # Print each section
-            for section_name, section_results in sections.items():
-                # Section heading
-                print(section_name)
 
-                # Print matches for this section
-                for result in section_results:
-                    snippet = result.chunk.text
-                    if snippet:
-                        # Indent each line of the snippet
-                        for line in snippet.splitlines():
-                            # Strip highlighting markers in plain mode
-                            plain_line = line.replace("<<", "").replace(">>", "")
-                            print(f"  {plain_line}")
+def _render_grep_results(
+    results: List[SearchResult],
+    *,
+    use_rich: bool,
+    context_before: int = 0,
+    context_after: int = 0,
+    show_line_numbers: bool = False,
+) -> None:
+    """Render grep results in ripgrep-style format.
 
-                print()
+    Groups matches by file, showing file path as a header followed by
+    matching lines with line numbers.
+
+    Parameters
+    ----------
+    results : List[SearchResult]
+        Search results from grep mode
+    use_rich : bool
+        Whether to use rich formatting
+    context_before : int, default = 0
+        Number of lines of context before matches
+    context_after : int, default = 0
+        Number of lines of context after matches
+    show_line_numbers : bool, default = False
+        Whether line numbers are shown in the output
+
+    """
+    console = None
+    if use_rich:
+        try:
+            from rich.console import Console
+
+            console = Console()
+        except ImportError:
+            use_rich = False
+
+    # Determine if we should use compact format (no context lines)
+    use_compact_format = context_before == 0 and context_after == 0
+
+    # Group results by document path and section
+    grouped = _group_results_by_doc_and_section(results)
+
+    # Render in compact format when no context lines
+    if use_compact_format:
+        if use_rich and console is not None:
+            _render_compact_rich(grouped, console, show_line_numbers)
+        else:
+            _render_compact_plain(grouped, show_line_numbers)
+        return
+
+    # Render in grouped format when context lines are present
+    if use_rich and console is not None:
+        _render_grouped_rich(grouped, console)
+    else:
+        _render_grouped_plain(grouped)
 
 
-def _render_search_results(results: List[SearchResult], *, use_rich: bool) -> None:
+def _render_search_results(
+    results: List[SearchResult],
+    *,
+    use_rich: bool,
+    grep_context_before: int = 0,
+    grep_context_after: int = 0,
+    grep_show_line_numbers: bool = False,
+) -> None:
     if not results:
         print("No results found.")
         return
@@ -190,7 +393,13 @@ def _render_search_results(results: List[SearchResult], *, use_rich: bool) -> No
         is_grep = first_backend == "grep"
 
     if is_grep:
-        _render_grep_results(results, use_rich=use_rich)
+        _render_grep_results(
+            results,
+            use_rich=use_rich,
+            context_before=grep_context_before,
+            context_after=grep_context_after,
+            show_line_numbers=grep_show_line_numbers,
+        )
         return
 
     console = None
@@ -503,7 +712,13 @@ def handle_search_command(args: list[str] | None = None) -> int:
     if parsed.json:
         print(json.dumps([_result_to_dict(result) for result in results], indent=2, ensure_ascii=False))
     else:
-        _render_search_results(results, use_rich=parsed.rich)
+        _render_search_results(
+            results,
+            use_rich=parsed.rich,
+            grep_context_before=options.grep_context_before,
+            grep_context_after=options.grep_context_after,
+            grep_show_line_numbers=options.grep_show_line_numbers,
+        )
 
     return EXIT_SUCCESS
 
@@ -645,7 +860,13 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         return EXIT_ERROR
 
     # Render results
-    _render_search_results(results, use_rich=parsed.rich)
+    _render_search_results(
+        results,
+        use_rich=parsed.rich,
+        grep_context_before=options.grep_context_before,
+        grep_context_after=options.grep_context_after,
+        grep_show_line_numbers=options.grep_show_line_numbers,
+    )
     return EXIT_SUCCESS
 
 

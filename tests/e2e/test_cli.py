@@ -237,6 +237,7 @@ def example_function():
     @pytest.mark.skipif(
         importlib.util.find_spec("sentence_transformers") is None, reason="sentence_transformers not installed"
     )
+    @pytest.mark.slow
     def test_search_cli_vector(self):
         """Test vector search CLI with persisted index."""
         doc = self.temp_dir / "vector.md"
@@ -461,6 +462,7 @@ def example_function():
         assert "Lists" in content
         assert "Tables" in content
 
+    @pytest.mark.slow
     def test_odf_table_options(self):
         """Test ODT table handling options."""
         from fixtures.generators.odf_fixtures import HAS_ODFPY, create_odt_with_tables, save_odt_to_file
@@ -515,6 +517,7 @@ def example_function():
         # Should process lists without errors
         assert len(content.strip()) > 0
 
+    @pytest.mark.slow
     @pytest.mark.odf
     def test_odp_presentation_conversion(self):
         """Test ODP presentation file conversion."""
@@ -658,6 +661,7 @@ def example_function():
 
     @pytest.mark.e2e
     @pytest.mark.ipynb
+    @pytest.mark.slow
     def test_ipynb_with_output_file_e2e(self):
         """Test end-to-end Jupyter Notebook conversion with output file."""
         from fixtures.generators.ipynb_fixtures import create_simple_notebook, save_notebook_to_file
@@ -764,6 +768,7 @@ def example_function():
 
     @pytest.mark.e2e
     @pytest.mark.ipynb
+    @pytest.mark.slow
     def test_ipynb_nonexistent_file_e2e(self):
         """Test error handling for nonexistent ipynb file."""
         nonexistent_file = self.temp_dir / "does_not_exist.ipynb"
@@ -838,6 +843,7 @@ class TestEpubCLIEndToEnd:
             text=True,  # Run from project root
         )
 
+    @pytest.mark.slow
     def test_epub_basic_conversion(self):
         """Test basic EPUB conversion via CLI."""
         # Skip if ebooklib not available
@@ -1042,6 +1048,7 @@ class TestMhtmlCLIEndToEnd:
         assert "*italic*" in output or "<em>" in output
         assert "example.com" in output
 
+    @pytest.mark.slow
     def test_mhtml_with_output_file(self):
         """Test MHTML conversion to output file."""
         from fixtures.generators.mhtml_fixtures import create_simple_mhtml
@@ -1111,6 +1118,7 @@ class TestMhtmlCLIEndToEnd:
         content = output_file.read_text(encoding="utf-8")
         assert "Test MHTML with Image" in content
 
+    @pytest.mark.slow
     def test_mhtml_ms_word_artifacts(self):
         """Test MHTML conversion with MS Word artifacts."""
         from fixtures.generators.mhtml_fixtures import create_mhtml_with_ms_word_artifacts
