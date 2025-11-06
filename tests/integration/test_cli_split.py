@@ -149,9 +149,11 @@ class TestSplitCLIE2E:
 
         Creates a temporary directory for test files and locates the CLI module.
         """
-        self.temp_dir = Path("tests/tmp_split_e2e")
+        # Get the project root (3 levels up from this test file: tests/integration/test_cli_split.py)
+        project_root = Path(__file__).parent.parent.parent
+        self.temp_dir = project_root / "tmp_split_e2e"
         self.temp_dir.mkdir(exist_ok=True)
-        self.cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
+        self.cli_path = project_root / "src" / "all2md" / "cli" / "__init__.py"
 
     def teardown_method(self):
         """Clean up test environment.
@@ -177,10 +179,12 @@ class TestSplitCLIE2E:
             Result of the subprocess execution
 
         """
+        # Get project root (3 parents up from src/all2md/cli/__init__.py)
+        project_root = self.cli_path.parent.parent.parent
         cmd = [sys.executable, "-m", "all2md"] + args
         return subprocess.run(
             cmd,
-            cwd=self.cli_path.parent.parent.parent,
+            cwd=project_root,
             capture_output=True,
             text=True,
         )

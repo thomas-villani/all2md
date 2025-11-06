@@ -478,28 +478,76 @@ More content.
         """Test that development warning is printed when upload/API enabled."""
         md_file = self._create_test_markdown()
 
-        cmd = [sys.executable, "-u", "-m", "all2md", "serve", str(md_file), "--enable-upload", "--enable-api"]
+        # Use a unique port to avoid conflicts with other tests
+        port = 8889
 
-        # Start server but don't wait for it to fully start
-        process = subprocess.Popen(
-            cmd,
-            cwd=self.cli_path.parent.parent.parent,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        # Create temp files for output capture
+        stdout_file = self.temp_dir / "stdout.txt"
+        stderr_file = self.temp_dir / "stderr.txt"
 
-        # Give it a moment to print startup messages
-        time.sleep(3)
+        # Start server with output redirected to files
+        cmd = [
+            sys.executable,
+            "-u",
+            "-m",
+            "all2md",
+            "serve",
+            str(md_file),
+            "--port",
+            str(port),
+            "--enable-upload",
+            "--enable-api",
+        ]
 
-        # Kill the process
-        process.terminate()
-        stdout, stderr = process.communicate(timeout=10)
+        with open(stdout_file, "w", encoding="utf-8") as stdout_f, open(stderr_file, "w", encoding="utf-8") as stderr_f:
+            self.server_process = subprocess.Popen(
+                cmd,
+                cwd=self.cli_path.parent.parent.parent,
+                stdout=stdout_f,
+                stderr=stderr_f,
+                text=True,
+            )
 
-        # Check for warning message
-        combined_output = stdout + stderr
-        assert "WARNING" in combined_output or "warning" in combined_output.lower()
-        assert "DEVELOPMENT" in combined_output or "development" in combined_output.lower()
+            # Wait for server to start
+            max_retries = 50
+            server_started = False
+            for _ in range(max_retries):
+                if self.server_process.poll() is not None:
+                    # Server failed to start
+                    break
+
+                try:
+                    urlopen(f"http://127.0.0.1:{port}/", timeout=1)
+                    server_started = True
+                    # Give it a moment to finish printing all startup messages
+                    time.sleep(1)
+                    break
+                except (URLError, OSError):
+                    time.sleep(0.1)
+
+            # Terminate the server
+            self.server_process.terminate()
+            try:
+                self.server_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.server_process.kill()
+                self.server_process.wait()
+
+        # Read output from files
+        stdout_content = stdout_file.read_text(encoding="utf-8") if stdout_file.exists() else ""
+        stderr_content = stderr_file.read_text(encoding="utf-8") if stderr_file.exists() else ""
+        combined_output = stdout_content + stderr_content
+
+        # Check that server actually started
+        assert server_started, f"Server failed to start. Output:\n{combined_output}"
+
+        # Check for warning message in output
+        assert (
+            "WARNING" in combined_output or "warning" in combined_output.lower()
+        ), f"Expected WARNING in output, got: {combined_output[:500]}"
+        assert (
+            "DEVELOPMENT" in combined_output or "development" in combined_output.lower()
+        ), f"Expected DEVELOPMENT in output, got: {combined_output[:500]}"
 
     def test_serve_no_cache_single_file(self):
         """Test that --no-cache causes file to be re-converted on each request."""

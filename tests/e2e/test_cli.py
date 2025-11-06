@@ -1333,6 +1333,7 @@ class TestAdvancedCLIFeaturesE2E:
         # Should use environment variable for output directory
         # (Note: exact behavior depends on implementation)
 
+    @pytest.mark.slow
     def test_parallel_processing_e2e(self):
         """Test parallel processing end-to-end."""
         # Create multiple HTML files
@@ -1382,6 +1383,7 @@ class TestAdvancedCLIFeaturesE2E:
         good_output = output_dir / "good.md"
         assert good_output.exists()
 
+    @pytest.mark.slow
     def test_complex_feature_combination_e2e(self):
         """Test complex combination of features end-to-end."""
         # Create multiple HTML files
@@ -1511,6 +1513,7 @@ class TestAdvancedCLIFeaturesE2E:
             content = output_file.read_text()
             assert "Test Image" in content
 
+    @pytest.mark.slow
     def test_markdown_formatting_options_e2e(self):
         """Test Markdown formatting options across multiple files."""
         # Create HTML files with various formatting
@@ -1575,6 +1578,7 @@ class TestAdvancedCLIFeaturesE2E:
             # Note: Actual formatting depends on HTML converter implementation
             assert "Formatting Test" in content
 
+    @pytest.mark.slow
     def test_backward_compatibility_e2e(self):
         """Test that new features don't break existing usage patterns."""
         html_file = self.temp_dir / "backward_compat.html"
@@ -1598,6 +1602,7 @@ class TestAdvancedCLIFeaturesE2E:
             result = self._run_cli(args)
             assert result.returncode == 0, f"Test case {i} failed: {result.stderr}"
 
+    @pytest.mark.slow
     def test_help_includes_new_features_e2e(self):
         """Test that help output includes all new features."""
         result = self._run_cli(["--help"])

@@ -202,6 +202,7 @@ class TestCompletionCLI:
         assert result.returncode == 0
         assert "completion" in result.stdout.lower()
 
+    @pytest.mark.slow
     def test_completion_bash_output_structure(self):
         """Test that bash completion output has proper structure."""
         result = self._run_cli(["completion", "bash"])
@@ -257,6 +258,7 @@ class TestCompletionCLI:
         commands_found = sum(1 for cmd in commands if cmd in output)
         assert commands_found >= 2, f"Expected at least 2 commands in completion, found {commands_found}"
 
+    @pytest.mark.slow
     def test_completion_script_idempotent(self):
         """Test that running completion twice produces same output."""
         result1 = self._run_cli(["completion", "bash"])
@@ -268,6 +270,7 @@ class TestCompletionCLI:
         # Both outputs should be identical
         assert result1.stdout == result2.stdout, "Completion script should be deterministic"
 
+    @pytest.mark.slow
     def test_completion_all_shells(self):
         """Test that all supported shells can generate completion scripts."""
         shells = ["bash", "zsh", "powershell"]

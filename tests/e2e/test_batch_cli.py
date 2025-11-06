@@ -74,6 +74,7 @@ class TestBatchCLI:
 
         return file1, file2, file3
 
+    @pytest.mark.slow
     def test_merge_from_list_tsv(self):
         """Test merging documents from TSV list."""
         file1, file2, file3 = self._create_test_files()
