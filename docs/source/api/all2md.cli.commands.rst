@@ -14,6 +14,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   all2md.cli.commands.completion
    all2md.cli.commands.config
    all2md.cli.commands.diff
    all2md.cli.commands.formats

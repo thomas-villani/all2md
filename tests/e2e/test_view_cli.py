@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from fixtures import FIXTURES_PATH
 from utils import cleanup_test_dir, create_test_temp_dir
 
 
@@ -207,7 +208,7 @@ Visit [example.com](https://example.com) for more info.
     def test_view_docx_file(self):
         """Test viewing a DOCX file (requires docx fixture)."""
         # Skip if no test fixtures available
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "documents" / "generated"
+        fixtures_dir = FIXTURES_PATH / "documents" / "generated"
         docx_files = list(fixtures_dir.glob("*.docx")) if fixtures_dir.exists() else []
 
         if not docx_files:
@@ -224,7 +225,7 @@ Visit [example.com](https://example.com) for more info.
     def test_view_pdf_file(self):
         """Test viewing a PDF file (requires pdf fixture)."""
         # Skip if no test fixtures available
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "documents" / "generated"
+        fixtures_dir = FIXTURES_PATH / "documents" / "generated"
         pdf_files = list(fixtures_dir.glob("*.pdf")) if fixtures_dir.exists() else []
 
         if not pdf_files:

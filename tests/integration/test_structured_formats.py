@@ -77,7 +77,7 @@ users:
 
     def test_toml_round_trip(self):
         """Test TOML → AST → TOML preserves data."""
-        pytest.importorskip("tomli", reason="tomli not installed")
+        pytest.importorskip("tomli_w", reason="tomli_w not installed")
         original_toml = """
 [server]
 host = "localhost"
@@ -188,7 +188,7 @@ class TestCrossFormatConversion:
 
     def test_toml_to_json(self):
         """Test converting TOML to JSON via AST."""
-        pytest.importorskip("tomli", reason="tomli not installed")
+        pytest.importorskip("tomli_w", reason="tomli_w not installed")
         toml_str = '[section]\nkey = "value"'
 
         # Parse TOML
@@ -368,7 +368,7 @@ class TestFormatSpecificFeatures:
 
     def test_toml_no_null(self):
         """Test TOML does not support null."""
-        pytest.importorskip("tomli", reason="tomli not installed")
+        pytest.importorskip("tomli_w", reason="tomli_w not installed")
         # TOML doesn't have null values
         toml_str = '[section]\nkey = "value"'
 

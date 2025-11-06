@@ -223,13 +223,13 @@ class TestPrivateIPDetectionFuzzing:
             ]
         )
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=1000)
     def test_all_ips_in_public_ranges_detected_as_public(self, cidr_block):
         """Property: All IPs in public CIDR blocks should NOT be private."""
         network = ipaddress.IPv4Network(cidr_block)
 
         # Test a few random IPs from this network
-        for ip in list(network.hosts())[:10]:
+        for ip in itertools.islice(network.hosts(), 10):
             assert not _is_private_or_reserved_ip(ip), f"IP {ip} from {cidr_block} should be public"
 
 

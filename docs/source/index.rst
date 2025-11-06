@@ -166,8 +166,8 @@ About
 
 **all2md** is developed by Tom Villani, Ph.D. and released under the MIT License.
 
-* **Source Code**: https://github.com/thomas.villani/all2md
-* **Issues**: https://github.com/thomas.villani/all2md/issues
+* **Source Code**: https://github.com/thomas-villani/all2md
+* **Issues**: https://github.com/thomas-villani/all2md/issues
 * **PyPI**: https://pypi.org/project/all2md/
 * **License**: :doc:`MIT License <license>`
 

@@ -22,13 +22,14 @@ def get_all_dependencies() -> Dict[str, Dict[str, Any]]:
     Returns
     -------
     dict
-        Mapping of format names to dependency info:
-        {
-            "parser_packages": [(install_name, import_name, version_spec), ...],
-            "renderer_packages": [(install_name, import_name, version_spec), ...],
-            "has_parser": bool,
-            "has_renderer": bool
-        }
+        Mapping of format names to dependency info::
+
+            {
+                "parser_packages": [(install_name, import_name, version_spec), ...],
+                "renderer_packages": [(install_name, import_name, version_spec), ...],
+                "has_parser": bool,
+                "has_renderer": bool
+            }
 
     """
     # Ensure auto-discovery has been performed before listing formats
@@ -63,17 +64,18 @@ def check_all_dependencies() -> Dict[str, Dict[str, Any]]:
     Returns
     -------
     dict
-        Nested dict with structure:
-        {
-            format_name: {
-                "parser_status": bool (True if all parser deps available or no parser),
-                "renderer_status": bool (True if all renderer deps available or no renderer),
-                "parser_packages": {package_name: is_installed},
-                "renderer_packages": {package_name: is_installed},
-                "has_parser": bool,
-                "has_renderer": bool
+        Nested dict with structure::
+
+            {
+                format_name: {
+                    "parser_status": bool (True if all parser deps available or no parser),
+                    "renderer_status": bool (True if all renderer deps available or no renderer),
+                    "parser_packages": {package_name: is_installed},
+                    "renderer_packages": {package_name: is_installed},
+                    "has_parser": bool,
+                    "has_renderer": bool
+                }
             }
-        }
 
     """
     all_deps = get_all_dependencies()

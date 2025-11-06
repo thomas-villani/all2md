@@ -132,8 +132,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_by_heading_level(doc, level=1)
+        >>> DocumentSplitter.split_by_heading_level(doc, level=1)
 
         """
         if not 1 <= level <= 6:
@@ -224,8 +223,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_by_word_count(doc, target_words=500)
+        >>> DocumentSplitter.split_by_word_count(doc, target_words=500)
 
         """
         if target_words < 1:
@@ -342,8 +340,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_by_parts(doc, num_parts=5)
+        >>> DocumentSplitter.split_by_parts(doc, num_parts=5)
 
         """
         if num_parts < 1:
@@ -371,7 +368,7 @@ class DocumentSplitter:
         """Split document at thematic breaks (horizontal rules).
 
         Splits the document at any ThematicBreak nodes, which represent horizontal
-        rules (---, ***, ___) in Markdown and similar separators in other formats.
+        rules (``---``, ``***``, ``___``) in Markdown and similar separators in other formats.
 
         Parameters
         ----------
@@ -385,8 +382,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_by_break(doc)
+        >>> DocumentSplitter.split_by_break(doc)
 
         """
         splits = []
@@ -466,7 +462,7 @@ class DocumentSplitter:
         doc : Document
             Document to split
         delimiter : str
-            Text delimiter to split on (e.g., "-----", "***", "<!-- split -->")
+            Text delimiter to split on (e.g., ``"-----"``, ``"***"``, ``"<!-- split -->"``)
 
         Returns
         -------
@@ -475,8 +471,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_by_delimiter(doc, delimiter="-----")
+        >>> DocumentSplitter.split_by_delimiter(doc, delimiter="-----")
 
         """
         if not delimiter:
@@ -591,8 +586,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_auto(doc)  # Target ~1500 words per split
+        >>> DocumentSplitter.split_auto(doc)  # Target ~1500 words per split
 
         """
         sections_h1 = get_all_sections(doc, min_level=1, max_level=1)
@@ -654,8 +648,7 @@ class DocumentSplitter:
 
         Examples
         --------
-        >>> splitter = DocumentSplitter()
-        >>> splits = splitter.split_by_sections(doc)
+        >>> splits = DocumentSplitter.split_by_sections(doc)
         >>> for i, split_result in enumerate(splits):
         ...     print(f"Section {i}: {len(split_result.document.children)} nodes")
 

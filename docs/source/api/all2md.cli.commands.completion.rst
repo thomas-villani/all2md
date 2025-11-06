@@ -1,5 +1,5 @@
-all2md.cli.commands.completion module
-=====================================
+all2md.cli.commands.completion
+==============================
 
 .. automodule:: all2md.cli.commands.completion
    :members:

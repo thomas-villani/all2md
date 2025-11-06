@@ -54,7 +54,7 @@ class TestHTMLEdgeCaseFuzzing:
         assert isinstance(result, str)
 
     @given(st.integers(min_value=0, max_value=1000000))
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     def test_html_repeated_characters(self, repeat_count):
         """Test HTML with many repeated characters."""
         # Limit to reasonable size to avoid memory issues

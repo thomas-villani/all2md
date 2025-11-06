@@ -1,7 +1,7 @@
-all2md.renderers.rst
+all2md.ast.splitting
 ====================
 
-.. automodule:: all2md.renderers.rst
+.. automodule:: all2md.ast.splitting
    :members:
    :show-inheritance:
    :undoc-members:

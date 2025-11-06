@@ -15,9 +15,10 @@ Submodules
    :maxdepth: 4
 
    all2md.ast.builder
-   all2md.ast.document_utils
    all2md.ast.nodes
+   all2md.ast.sections
    all2md.ast.serialization
+   all2md.ast.splitting
    all2md.ast.transforms
    all2md.ast.utils
    all2md.ast.visitors

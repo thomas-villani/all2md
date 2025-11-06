@@ -86,6 +86,8 @@ if sys.version_info < (3, 12):
         f"You are using Python {sys.version_info.major}.{sys.version_info.minor}."
     )
 
+__version__ = "1.0.0"
+
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -193,6 +195,7 @@ logger = logging.getLogger(__name__)
 
 
 __all__ = [
+    "__version__",
     "to_markdown",
     "to_ast",
     "from_ast",

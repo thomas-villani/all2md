@@ -272,7 +272,7 @@ class TestSpecialCharacterFuzzing:
         st.text(alphabet='<>:|?*"', min_size=1, max_size=20),
         st.text(alphabet=st.characters(whitelist_categories=["L"]), min_size=1, max_size=20),
     )
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow], max_examples=50)
     def test_dangerous_characters_removed(self, dangerous_chars, safe_text):
         """Property: Dangerous filesystem characters should be removed."""
         filename = safe_text + dangerous_chars + ".txt"

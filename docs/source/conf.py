@@ -58,7 +58,12 @@ exclude_patterns = []
 # Suppress warnings for ambiguous cross-references caused by re-exports in __init__.py
 # Objects like Document, Node, etc. are available at multiple import paths
 # (e.g., all2md.ast.Document and all2md.ast.nodes.Document)
-suppress_warnings = ["ref.python"]
+# Also suppress duplicate object descriptions for dataclass fields documented in both
+# the class docstring Attributes section and picked up by autodoc
+suppress_warnings = [
+    "ref.python",
+    "autodoc.import_object",
+]
 
 autodoc_default_options = {
     "members": True,
@@ -72,6 +77,41 @@ autodoc_inherit_docstrings = True
 autodoc_member_order = "bysource"
 autoclass_content = "both"
 autodoc_typehints = "signature"
+
+# Suppress duplicate documentation of dataclass fields
+# When dataclass attributes are documented in the class docstring's Attributes section,
+# we don't need autodoc to also document them separately
+autodoc_class_signature = "separated"
+
+
+def skip_dataclass_fields(app, what, name, obj, skip, options):
+    """Skip autodoc documentation of dataclass fields that are already in the class docstring.
+
+    This prevents duplicate documentation warnings for fields documented in
+    the Attributes section of the class docstring.
+
+    """
+    import dataclasses
+
+    if what == "attribute":
+        # Get the parent class
+        parts = name.rsplit(".", 1)
+        if len(parts) == 2:
+            parent_name = parts[0]
+            # Try to get the parent class
+            try:
+                parent_module_name, parent_class_name = parent_name.rsplit(".", 1)
+                import importlib
+
+                parent_module = importlib.import_module(parent_module_name)
+                parent_class = getattr(parent_module, parent_class_name, None)
+                # If it's a dataclass, skip field documentation (already in class docstring)
+                if parent_class and dataclasses.is_dataclass(parent_class):
+                    return True
+            except (ValueError, ImportError, AttributeError):
+                pass
+    return skip
+
 
 # -- Options for doctest -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/extensions/doctest.html
@@ -111,4 +151,5 @@ def _generate_options_reference(_app) -> None:
 
 def setup(app):
     """Configure Sphinx application with custom hooks."""
+    app.connect("autodoc-skip-member", skip_dataclass_fields)
     app.connect("builder-inited", _generate_options_reference)
