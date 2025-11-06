@@ -348,7 +348,7 @@ Hierarchical Configuration
 
 Options are expressed as frozen dataclasses so configurations are explicit, type safe, and composable. Each converter builds on three layers:
 
-1. **``BaseParserOptions``** shared fields (metadata extraction, attachment limits)
+1. ``BaseParserOptions`` shared fields (metadata extraction, attachment limits)
 2. **Mixins and nested helpers** such as ``AttachmentOptionsMixin``, ``NetworkFetchOptions``, and ``LocalFileAccessOptions`` that add security controls for binary assets
 3. **Format-specific parser options** (``PdfOptions``, ``HtmlOptions``, ``ZipOptions``…) paired with renderer configuration like ``MarkdownRendererOptions`` via the ``renderer_options`` argument
 

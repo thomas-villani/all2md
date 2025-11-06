@@ -1239,11 +1239,8 @@ class TestEnhancedCLIIntegration:
         for _format_name, format_info in output["formats"].items():
             assert "status" in format_info
             assert format_info["status"] in ["ok", "missing"]
-            assert "packages" in format_info
-            assert isinstance(format_info["packages"], list)
-
             # Verify package structure if packages exist
-            for package in format_info["packages"]:
+            for package in format_info["parser_packages"] + format_info["renderer_packages"]:
                 assert "name" in package
                 assert "import_name" in package
                 assert "status" in package

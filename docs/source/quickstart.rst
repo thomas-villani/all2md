@@ -444,7 +444,7 @@ Package converted documents with organized assets into ZIP archives:
 .. code-block:: bash
 
    # Create a ZIP bundle with organized assets
-   all2md ./project-docs --recursive --output-dir ./bundle --zip docs.zip --assets-layout by-stem
+   all2md ./project-docs --recursive --zip docs.zip --assets-layout by-stem
 
    # Auto-named ZIP with flat asset organization
    all2md *.pdf --output-dir ./converted --zip --assets-layout flat

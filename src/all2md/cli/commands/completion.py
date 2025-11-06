@@ -410,13 +410,13 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
 
     script += """        )
         return $subcommands
-    }}
+    }
 
     # Get previous token for context-aware completion
     $prevToken = if ($tokens.Count -gt 1) {{ $tokens[$tokens.Count - 2].ToString() }} else {{ '' }}
 
     # Complete format values
-    if ($prevToken -eq '--format' -or $prevToken -eq '-f') {{
+    if ($prevToken -eq '--format' -or $prevToken -eq '-f') {
         return @(
 """
 
@@ -427,10 +427,10 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
         )
 
     script += """        )
-    }}
+    }
 
     # Complete output-type values
-    if ($prevToken -eq '--output-type') {{
+    if ($prevToken -eq '--output-type') {
         return @(
 """
 
@@ -441,7 +441,7 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
         )
 
     script += """        )
-    }}
+    }
 
     # Build completion list based on context
     $completions = @(
@@ -455,10 +455,12 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
             f"'{flag}', '{flag}', 'ParameterName', '{safe_desc}')\n"
         )
 
+    # Close the initial completions array
+    script += "    )\n"
+
     # Add format-specific parser flags
     for fmt in sorted(parser_flags_by_format.keys()):
-        script += f"""    )
-    if ($format -eq '{fmt}') {{
+        script += f"""    if ($format -eq '{fmt}') {{
         $completions += @(
 """
         for flag in parser_flags_by_format[fmt]:
@@ -466,12 +468,11 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
                 f"            [System.Management.Automation.CompletionResult]::new("
                 f"'{flag}', '{flag}', 'ParameterName', '{fmt} parser option')\n"
             )
+        script += "        )\n    }\n"
 
     # Add renderer-specific flags
     for fmt in sorted(renderer_flags_by_format.keys()):
-        script += f"""        )
-    }}
-    if ($outputType -eq '{fmt}') {{
+        script += f"""    if ($outputType -eq '{fmt}') {{
         $completions += @(
 """
         for flag in renderer_flags_by_format[fmt]:
@@ -479,10 +480,9 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
                 f"            [System.Management.Automation.CompletionResult]::new("
                 f"'{flag}', '{flag}', 'ParameterName', '{fmt} renderer option')\n"
             )
+        script += "        )\n    }\n"
 
-    script += """        )
-    }
-
+    script += """
     # Filter completions by word being completed
     return $completions | Where-Object { $_.CompletionText -like "$wordToComplete*" }
 }

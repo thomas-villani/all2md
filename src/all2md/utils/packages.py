@@ -31,14 +31,7 @@ def get_package_version(package_name: str) -> Optional[str]:
 
         return metadata.version(package_name)
     except Exception:
-        # Fallback to pkg_resources for older environments
-        # Note: pkg_resources is deprecated but kept for compatibility
-        try:
-            import pkg_resources
-
-            return pkg_resources.get_distribution(package_name).version
-        except Exception:
-            return None
+        return None
 
 
 def check_version_requirement(package_name: str, version_spec: str) -> Tuple[bool, Optional[str]]:

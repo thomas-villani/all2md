@@ -16,13 +16,19 @@ from all2md.converter_registry import check_package_installed, registry
 from all2md.utils.packages import check_version_requirement, get_package_version
 
 
-def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
-    """Get all dependencies for all parsers from the registry.
+def get_all_dependencies() -> Dict[str, Dict[str, Any]]:
+    """Get all dependencies for all parsers and renderers from the registry.
 
     Returns
     -------
     dict
-        Mapping of format names to required packages as (install_name, import_name, version_spec) tuples
+        Mapping of format names to dependency info:
+        {
+            "parser_packages": [(install_name, import_name, version_spec), ...],
+            "renderer_packages": [(install_name, import_name, version_spec), ...],
+            "has_parser": bool,
+            "has_renderer": bool
+        }
 
     """
     # Ensure auto-discovery has been performed before listing formats
@@ -34,37 +40,77 @@ def get_all_dependencies() -> Dict[str, List[Tuple[str, str, str]]]:
         if metadata_list and len(metadata_list) > 0:
             # Use the highest priority (first) converter's dependencies
             metadata = metadata_list[0]
-            if metadata.required_packages:
-                dependencies[format_name] = metadata.required_packages
-            else:
-                dependencies[format_name] = []  # No dependencies required
+            dependencies[format_name] = {
+                "parser_packages": metadata.parser_required_packages or [],
+                "renderer_packages": metadata.renderer_required_packages or [],
+                "has_parser": metadata.parser_class is not None,
+                "has_renderer": metadata.renderer_class is not None,
+            }
         else:
-            dependencies[format_name] = []  # No dependencies required
+            dependencies[format_name] = {
+                "parser_packages": [],
+                "renderer_packages": [],
+                "has_parser": False,
+                "has_renderer": False,
+            }
 
     return dependencies
 
 
-def check_all_dependencies() -> Dict[str, Dict[str, bool]]:
-    """Check installation status of all dependencies.
+def check_all_dependencies() -> Dict[str, Dict[str, Any]]:
+    """Check installation status of all dependencies for parsers and renderers.
 
     Returns
     -------
     dict
-        Nested dict of format -> package -> is_installed
+        Nested dict with structure:
+        {
+            format_name: {
+                "parser_status": bool (True if all parser deps available or no parser),
+                "renderer_status": bool (True if all renderer deps available or no renderer),
+                "parser_packages": {package_name: is_installed},
+                "renderer_packages": {package_name: is_installed},
+                "has_parser": bool,
+                "has_renderer": bool
+            }
+        }
 
     """
     all_deps = get_all_dependencies()
     status = {}
 
-    for format_name, packages in all_deps.items():
-        format_status = {}
-        for package_name, _import_name, version_spec in packages:
+    for format_name, dep_info in all_deps.items():
+        parser_packages = {}
+        renderer_packages = {}
+
+        # Check parser packages
+        for package_name, _import_name, version_spec in dep_info["parser_packages"]:
             if version_spec:
                 meets, _ = check_version_requirement(package_name, version_spec)
-                format_status[package_name] = meets
+                parser_packages[package_name] = meets
             else:
-                format_status[package_name] = check_package_installed(_import_name)
-        status[format_name] = format_status
+                parser_packages[package_name] = check_package_installed(_import_name)
+
+        # Check renderer packages
+        for package_name, _import_name, version_spec in dep_info["renderer_packages"]:
+            if version_spec:
+                meets, _ = check_version_requirement(package_name, version_spec)
+                renderer_packages[package_name] = meets
+            else:
+                renderer_packages[package_name] = check_package_installed(_import_name)
+
+        # Determine overall status
+        parser_status = not dep_info["has_parser"] or len(parser_packages) == 0 or all(parser_packages.values())
+        renderer_status = not dep_info["has_renderer"] or len(renderer_packages) == 0 or all(renderer_packages.values())
+
+        status[format_name] = {
+            "parser_status": parser_status,
+            "renderer_status": renderer_status,
+            "parser_packages": parser_packages,
+            "renderer_packages": renderer_packages,
+            "has_parser": dep_info["has_parser"],
+            "has_renderer": dep_info["has_renderer"],
+        }
 
     return status
 
@@ -201,7 +247,7 @@ def generate_install_command(packages: List[Tuple[str, str]]) -> str:
 
 
 def print_dependency_report() -> str:
-    """Generate a human-readable dependency report.
+    """Generate a human-readable dependency report with parser/renderer status.
 
     Returns
     -------
@@ -212,24 +258,41 @@ def print_dependency_report() -> str:
     status = check_all_dependencies()
     lines = ["All2MD Dependency Status", "=" * 40]
 
-    for format_name, packages in sorted(status.items()):
-        if not packages:
-            lines.append(f"\n{format_name.upper()}: [OK] No dependencies required")
-            continue
+    for format_name, format_info in sorted(status.items()):
+        # Determine parser status
+        if not format_info["has_parser"]:
+            parser_status = "N/A"
+        elif format_info["parser_status"]:
+            parser_status = "OK"
+        else:
+            parser_status = "MISSING"
 
-        all_installed = all(packages.values())
-        status_icon = "[OK]" if all_installed else "[MISSING]"
-        lines.append(f"\n{format_name.upper()}: {status_icon}")
+        # Determine renderer status
+        if not format_info["has_renderer"]:
+            renderer_status = "N/A"
+        elif format_info["renderer_status"]:
+            renderer_status = "OK"
+        else:
+            renderer_status = "MISSING"
 
-        for package_name, is_installed in sorted(packages.items()):
-            icon = "[OK]" if is_installed else "[MISSING]"
-            lines.append(f"  {icon} {package_name}")
+        lines.append(f"\n{format_name.upper()}: Parser=[{parser_status}] Renderer=[{renderer_status}]")
 
-        if not all_installed:
-            missing = get_missing_dependencies(format_name)
-            if missing:
-                cmd = generate_install_command(missing)
-                lines.append(f"  Install with: {cmd}")
+        # Combine all packages for display
+        all_packages = {**format_info["parser_packages"], **format_info["renderer_packages"]}
+
+        if not all_packages:
+            lines.append("  No dependencies required")
+        else:
+            for package_name, is_installed in sorted(all_packages.items()):
+                icon = "[OK]" if is_installed else "[MISSING]"
+                lines.append(f"  {icon} {package_name}")
+
+            # Add install command if there are missing packages
+            if not all(all_packages.values()):
+                missing = get_missing_dependencies(format_name)
+                if missing:
+                    cmd = generate_install_command(missing)
+                    lines.append(f"  Install with: {cmd}")
 
     return "\n".join(lines)
 
@@ -271,15 +334,19 @@ def suggest_full_install() -> str:
     all_deps = get_all_dependencies()
     all_packages = set()
 
-    for packages in all_deps.values():
-        for install_name, _import_name, version_spec in packages:
+    for dep_info in all_deps.values():
+        # Add parser packages
+        for install_name, _import_name, version_spec in dep_info["parser_packages"]:
+            all_packages.add((install_name, version_spec))
+        # Add renderer packages
+        for install_name, _import_name, version_spec in dep_info["renderer_packages"]:
             all_packages.add((install_name, version_spec))
 
     return generate_install_command(sorted(all_packages))
 
 
 def format_json_all_formats() -> Dict[str, Any]:
-    """Generate JSON output for all format dependencies.
+    """Generate JSON output for all format dependencies with parser/renderer info.
 
     Returns
     -------
@@ -288,18 +355,20 @@ def format_json_all_formats() -> Dict[str, Any]:
 
     """
     all_deps = get_all_dependencies()
+    status_info = check_all_dependencies()
 
     formats_data = {}
     total_formats = 0
     formats_ok = 0
     formats_missing = 0
 
-    for format_name, packages in sorted(all_deps.items()):
+    for format_name, dep_info in sorted(all_deps.items()):
         total_formats += 1
-        format_packages = []
-        format_status = "ok"
+        format_stat = status_info[format_name]
 
-        for package_name, import_name, version_spec in packages:
+        # Process parser packages
+        parser_packages = []
+        for package_name, import_name, version_spec in dep_info["parser_packages"]:
             installed_version = get_package_version(package_name)
 
             if version_spec:
@@ -309,10 +378,7 @@ def format_json_all_formats() -> Dict[str, Any]:
                 is_installed = check_package_installed(import_name)
                 pkg_status = "ok" if is_installed else "missing"
 
-            if pkg_status == "missing":
-                format_status = "missing"
-
-            format_packages.append(
+            parser_packages.append(
                 {
                     "name": package_name,
                     "import_name": import_name,
@@ -322,12 +388,45 @@ def format_json_all_formats() -> Dict[str, Any]:
                 }
             )
 
-        if format_status == "ok":
+        # Process renderer packages
+        renderer_packages = []
+        for package_name, import_name, version_spec in dep_info["renderer_packages"]:
+            installed_version = get_package_version(package_name)
+
+            if version_spec:
+                meets, installed_version = check_version_requirement(package_name, version_spec)
+                pkg_status = "ok" if meets else "missing"
+            else:
+                is_installed = check_package_installed(import_name)
+                pkg_status = "ok" if is_installed else "missing"
+
+            renderer_packages.append(
+                {
+                    "name": package_name,
+                    "import_name": import_name,
+                    "version_spec": version_spec if version_spec else None,
+                    "installed_version": installed_version,
+                    "status": pkg_status,
+                }
+            )
+
+        # Determine overall format status
+        if format_stat["parser_status"] and format_stat["renderer_status"]:
+            format_status = "ok"
             formats_ok += 1
         else:
+            format_status = "missing"
             formats_missing += 1
 
-        formats_data[format_name] = {"status": format_status, "packages": format_packages}
+        formats_data[format_name] = {
+            "status": format_status,
+            "has_parser": dep_info["has_parser"],
+            "has_renderer": dep_info["has_renderer"],
+            "parser_status": "ok" if format_stat["parser_status"] else "missing",
+            "renderer_status": "ok" if format_stat["renderer_status"] else "missing",
+            "parser_packages": parser_packages,
+            "renderer_packages": renderer_packages,
+        }
 
     overall_status = "ok" if formats_missing == 0 else "missing"
 
@@ -405,11 +504,12 @@ def format_json_specific_format(format_name: str) -> Dict[str, Any]:
 
 
 def print_dependency_report_rich() -> None:
-    """Generate a rich formatted dependency report using tables.
+    """Generate a rich formatted dependency report using tables with separate parser/renderer columns.
 
     Notes
     -----
-    This function displays dependencies in a formatted table with color coding.
+    This function displays dependencies in a formatted table with color coding,
+    showing parser and renderer availability in separate columns.
 
     """
     from rich.console import Console
@@ -418,30 +518,46 @@ def print_dependency_report_rich() -> None:
     console = Console()
     status = check_all_dependencies()
 
-    # Create main table
+    # Create main table with separate parser/renderer columns
     table = Table(title="All2MD Dependency Status")
     table.add_column("Format", style="cyan", no_wrap=True)
-    table.add_column("Package", style="yellow")
+    table.add_column("Parser", style="white", justify="center")
+    table.add_column("Renderer", style="white", justify="center")
+    table.add_column("Dependencies", style="yellow")
     table.add_column("Status", style="white")
-    table.add_column("Install Command", style="magenta")
 
-    for format_name, packages in sorted(status.items()):
-        if not packages:
-            table.add_row(format_name.upper(), "-", "[green]OK[/green] (No dependencies)", "-")
+    for format_name, format_info in sorted(status.items()):
+        # Determine parser status
+        if not format_info["has_parser"]:
+            parser_status = "[dim]N/A[/dim]"
+        elif format_info["parser_status"]:
+            parser_status = "[green]OK[/green]"
         else:
-            all_installed = all(packages.values())
-            for idx, (package_name, is_installed) in enumerate(sorted(packages.items())):
+            parser_status = "[red]MISSING[/red]"
+
+        # Determine renderer status
+        if not format_info["has_renderer"]:
+            renderer_status = "[dim]N/A[/dim]"
+        elif format_info["renderer_status"]:
+            renderer_status = "[green]OK[/green]"
+        else:
+            renderer_status = "[red]MISSING[/red]"
+
+        # Combine all packages for display
+        all_packages = {**format_info["parser_packages"], **format_info["renderer_packages"]}
+
+        if not all_packages:
+            # No dependencies required
+            table.add_row(format_name.upper(), parser_status, renderer_status, "-", "[dim]No dependencies[/dim]")
+        else:
+            # Show each package
+            for idx, (package_name, is_installed) in enumerate(sorted(all_packages.items())):
                 format_col = format_name.upper() if idx == 0 else ""
+                parser_col = parser_status if idx == 0 else ""
+                renderer_col = renderer_status if idx == 0 else ""
                 status_text = "[green]OK[/green]" if is_installed else "[red]MISSING[/red]"
 
-                # Get install command for missing packages
-                install_cmd = ""
-                if not all_installed and idx == 0:
-                    missing = get_missing_dependencies(format_name)
-                    if missing:
-                        install_cmd = generate_install_command(missing)
-
-                table.add_row(format_col, package_name, status_text, install_cmd if idx == 0 else "")
+                table.add_row(format_col, parser_col, renderer_col, package_name, status_text)
 
     console.print(table)
 
@@ -589,8 +705,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print_dependency_report_rich()
                 status = check_all_dependencies()
                 # Return 1 if any format has missing dependencies
-                for format_status in status.values():
-                    if format_status and not all(format_status.values()):
+                for format_info in status.values():
+                    if not format_info["parser_status"] or not format_info["renderer_status"]:
                         return 1
                 return 0
             else:
@@ -598,8 +714,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 print(print_dependency_report())
                 status = check_all_dependencies()
                 # Return 1 if any format has missing dependencies
-                for format_status in status.values():
-                    if format_status and not all(format_status.values()):
+                for format_info in status.values():
+                    if not format_info["parser_status"] or not format_info["renderer_status"]:
                         return 1
                 return 0
     else:
