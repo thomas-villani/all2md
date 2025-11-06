@@ -44,27 +44,6 @@ from __future__ import annotations
 # Builder helpers
 from all2md.ast.builder import DocumentBuilder, ListBuilder, TableBuilder
 
-# Document manipulation utilities
-from all2md.ast.document_utils import (
-    Section,
-    add_section_after,
-    add_section_before,
-    count_sections,
-    extract_section,
-    find_heading,
-    find_section_by_heading,
-    find_sections,
-    generate_toc,
-    get_all_sections,
-    get_preamble,
-    get_section_by_index,
-    insert_into_section,
-    insert_toc,
-    remove_section,
-    replace_section,
-    split_by_sections,
-)
-
 # Core node types
 from all2md.ast.nodes import (
     Alignment,
@@ -107,8 +86,26 @@ from all2md.ast.nodes import (
     replace_node_children,
 )
 
+# Section operations (extraction, TOC)
+# Section primitives and querying
+from all2md.ast.sections import (
+    Section,
+    count_sections,
+    extract_sections,
+    find_heading,
+    generate_toc,
+    get_all_sections,
+    get_preamble,
+    insert_toc,
+    parse_section_ranges,
+    query_sections,
+)
+
 # Serialization
 from all2md.ast.serialization import ast_to_dict, ast_to_json, dict_to_ast, json_to_ast
+
+# Document splitting strategies
+from all2md.ast.splitting import DocumentSplitter, SplitResult, parse_split_spec
 
 # Transforms
 from all2md.ast.transforms import (
@@ -202,22 +199,20 @@ __all__ = [
     "TextReplacer",
     # Utilities
     "extract_text",
-    # Document manipulation
+    # Section primitives and querying
     "Section",
     "get_all_sections",
-    "find_section_by_heading",
-    "find_sections",
-    "get_section_by_index",
-    "add_section_after",
-    "add_section_before",
-    "remove_section",
-    "replace_section",
-    "insert_into_section",
-    "split_by_sections",
-    "extract_section",
-    "generate_toc",
-    "insert_toc",
     "get_preamble",
+    "parse_section_ranges",
+    "query_sections",
     "count_sections",
     "find_heading",
+    # Section operations
+    "extract_sections",
+    "generate_toc",
+    "insert_toc",
+    # Document splitting
+    "DocumentSplitter",
+    "SplitResult",
+    "parse_split_spec",
 ]

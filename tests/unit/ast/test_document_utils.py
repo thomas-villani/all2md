@@ -23,25 +23,66 @@ from all2md.ast import (
     Paragraph,
     Text,
 )
-from all2md.ast.document_utils import (
+from all2md.ast.sections import (
     Section,
-    add_section_after,
-    add_section_before,
     count_sections,
-    extract_section,
+    extract_sections,
     find_heading,
-    find_section_by_heading,
-    find_sections,
     generate_toc,
     get_all_sections,
     get_preamble,
-    get_section_by_index,
-    insert_into_section,
     insert_toc,
-    remove_section,
-    replace_section,
-    split_by_sections,
+    query_sections,
 )
+from all2md.ast.splitting import DocumentSplitter
+
+
+# Legacy function wrappers for tests (will be updated gradually)
+def find_section_by_heading(doc, heading, **kwargs):
+    results = query_sections(doc, heading, **kwargs)
+    return results[0] if results else None
+
+
+def find_sections(doc, predicate, **kwargs):
+    return query_sections(doc, predicate, **kwargs)
+
+
+def get_section_by_index(doc, index, **kwargs):
+    try:
+        results = query_sections(doc, index, **kwargs)
+        return results[0] if results else None
+    except IndexError:
+        return None
+
+
+def extract_section(doc, target, **kwargs):
+    return extract_sections(doc, target, combine=False, **kwargs)
+
+
+def split_by_sections(doc, **kwargs):
+    results = DocumentSplitter.split_by_sections(doc, **kwargs)
+    return [result.document for result in results]
+
+
+# Document method wrappers for tests
+def add_section_after(doc, target, section, **kwargs):
+    return doc.add_section_after(target, section, **kwargs)
+
+
+def add_section_before(doc, target, section, **kwargs):
+    return doc.add_section_before(target, section, **kwargs)
+
+
+def remove_section(doc, target, **kwargs):
+    return doc.remove_section(target, **kwargs)
+
+
+def replace_section(doc, target, content, **kwargs):
+    return doc.replace_section(target, content, **kwargs)
+
+
+def insert_into_section(doc, target, content, **kwargs):
+    return doc.insert_into_section(target, content, **kwargs)
 
 
 @pytest.mark.unit

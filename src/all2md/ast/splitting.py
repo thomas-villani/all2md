@@ -1,25 +1,24 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
-# src/all2md/ast/document_splitter.py
-"""Document splitting utilities for creating multiple output files from large documents.
+# src/all2md/ast/splitting.py
+"""Document splitting strategies.
 
-This module provides strategies for splitting documents at semantic boundaries:
-- By heading level (h1, h2, etc.)
-- By word count (maintaining section boundaries)
-- By number of parts (evenly distributed)
-- By page or chapter (for PDF/EPUB)
-- Auto-detection based on document structure
+This module provides strategies for splitting documents at semantic boundaries
+based on different criteria: heading levels, word counts, number of parts,
+thematic breaks, or automatic detection.
+
+Classes
+-------
+SplitResult : Represents a split portion with metadata
+DocumentSplitter : Main class for document splitting strategies
 
 Functions
 ---------
 parse_split_spec : Parse --split-by CLI argument
-DocumentSplitter : Main class for document splitting strategies
-SplitResult : Represents a split portion with metadata
 
 Examples
 --------
 Split by heading level:
-    >>> from all2md.ast.document_splitter import DocumentSplitter
     >>> splitter = DocumentSplitter()
     >>> splits = splitter.split_by_heading_level(doc, level=1)
     >>> for split in splits:
@@ -34,6 +33,9 @@ Split into equal parts:
 Auto-detect best strategy:
     >>> splits = splitter.split_auto(doc)
 
+Split by sections:
+    >>> splits = splitter.split_by_sections(doc, include_preamble=True)
+
 """
 
 from __future__ import annotations
@@ -42,9 +44,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from all2md.ast.document_utils import get_all_sections, get_preamble
 from all2md.ast.nodes import Document, Node, Paragraph, Text, ThematicBreak
+from all2md.ast.sections import get_all_sections, get_preamble
 from all2md.ast.utils import extract_text
+from all2md.utils.text import slugify
 
 
 @dataclass
@@ -90,12 +93,8 @@ class SplitResult:
         if not self.title:
             return ""
 
-        slug = self.title.lower()
-        slug = re.sub(r"[^\w\s-]", "", slug)
-        slug = re.sub(r"[-\s]+", "-", slug)
-        slug = slug.strip("-")
-        slug = slug[:100]
-
+        # Use the slugify function with max_length for filesystem safety
+        slug = slugify(self.title, max_length=100)
         return slug
 
 
@@ -108,7 +107,8 @@ class DocumentSplitter:
 
     """
 
-    def split_by_heading_level(self, doc: Document, level: int, include_preamble: bool = True) -> list[SplitResult]:
+    @staticmethod
+    def split_by_heading_level(doc: Document, level: int, include_preamble: bool = True) -> list[SplitResult]:
         """Split document at every heading of specified level.
 
         Parameters
@@ -197,7 +197,8 @@ class DocumentSplitter:
 
         return splits
 
-    def split_by_word_count(self, doc: Document, target_words: int) -> list[SplitResult]:
+    @staticmethod
+    def split_by_word_count(doc: Document, target_words: int) -> list[SplitResult]:
         """Split document by word count, maintaining section boundaries.
 
         Accumulates sections until target word count is reached, then creates
@@ -314,7 +315,8 @@ class DocumentSplitter:
             ]
         )
 
-    def split_by_parts(self, doc: Document, num_parts: int) -> list[SplitResult]:
+    @staticmethod
+    def split_by_parts(doc: Document, num_parts: int) -> list[SplitResult]:
         """Split document into N roughly equal parts at section boundaries.
 
         Calculates total word count and divides by num_parts to determine
@@ -362,9 +364,10 @@ class DocumentSplitter:
 
         target_words_per_part = max(1, total_words // num_parts)
 
-        return self.split_by_word_count(doc, target_words=target_words_per_part)
+        return DocumentSplitter.split_by_word_count(doc, target_words=target_words_per_part)
 
-    def split_by_break(self, doc: Document) -> list[SplitResult]:
+    @staticmethod
+    def split_by_break(doc: Document) -> list[SplitResult]:
         """Split document at thematic breaks (horizontal rules).
 
         Splits the document at any ThematicBreak nodes, which represent horizontal
@@ -451,7 +454,8 @@ class DocumentSplitter:
 
         return splits
 
-    def split_by_delimiter(self, doc: Document, delimiter: str) -> list[SplitResult]:
+    @staticmethod
+    def split_by_delimiter(doc: Document, delimiter: str) -> list[SplitResult]:
         """Split document at custom text delimiters.
 
         Searches for paragraphs or text nodes that contain only the delimiter text
@@ -564,7 +568,8 @@ class DocumentSplitter:
 
         return splits
 
-    def split_auto(self, doc: Document, target_words: int = 1500) -> list[SplitResult]:
+    @staticmethod
+    def split_auto(doc: Document, target_words: int = 1500) -> list[SplitResult]:
         """Automatically determine best split strategy based on document structure.
 
         Analyzes document to find natural split points:
@@ -602,7 +607,7 @@ class DocumentSplitter:
             max_h1_words = max(h1_word_counts) if h1_word_counts else 0
 
             if avg_h1_words <= target_words * 2 and max_h1_words <= target_words * 3:
-                splits = self.split_by_heading_level(doc, level=1)
+                splits = DocumentSplitter.split_by_heading_level(doc, level=1)
                 for split in splits:
                     split.metadata["strategy"] = "auto:h1"
                 return splits
@@ -617,14 +622,87 @@ class DocumentSplitter:
             avg_h2_words = sum(h2_word_counts) / len(h2_word_counts)
 
             if avg_h2_words <= target_words * 1.5:
-                splits = self.split_by_heading_level(doc, level=2)
+                splits = DocumentSplitter.split_by_heading_level(doc, level=2)
                 for split in splits:
                     split.metadata["strategy"] = "auto:h2"
                 return splits
 
-        splits = self.split_by_word_count(doc, target_words=target_words)
+        splits = DocumentSplitter.split_by_word_count(doc, target_words=target_words)
         for split in splits:
             split.metadata["strategy"] = "auto:word_count"
+        return splits
+
+    @staticmethod
+    def split_by_sections(doc: Document, include_preamble: bool = True) -> list[SplitResult]:
+        """Split document into separate documents by sections.
+
+        This method was moved from document_utils.py and adapted to return
+        list[SplitResult] for consistency with other DocumentSplitter methods.
+
+        Parameters
+        ----------
+        doc : Document
+            Document to split
+        include_preamble : bool, default = True
+            If True and there is content before the first heading, include it
+            as a separate split at the beginning
+
+        Returns
+        -------
+        list of SplitResult
+            List of split results, one per section (plus preamble if present)
+
+        Examples
+        --------
+        >>> splitter = DocumentSplitter()
+        >>> splits = splitter.split_by_sections(doc)
+        >>> for i, split_result in enumerate(splits):
+        ...     print(f"Section {i}: {len(split_result.document.children)} nodes")
+
+        """
+        sections = get_all_sections(doc)
+        splits = []
+        index = 1
+
+        # Handle preamble (content before first heading)
+        if include_preamble:
+            preamble = get_preamble(doc)
+            if preamble:
+                preamble_doc = Document(
+                    children=preamble, metadata=doc.metadata.copy(), source_location=doc.source_location
+                )
+                text = extract_text(preamble, joiner=" ")
+                word_count = len(text.split())
+
+                splits.append(
+                    SplitResult(
+                        document=preamble_doc,
+                        index=index,
+                        title="Preamble",
+                        word_count=word_count,
+                    )
+                )
+                index += 1
+
+        # Convert each section to a split result
+        for section in sections:
+            section_doc = section.to_document()
+            section_doc.metadata = doc.metadata.copy()
+            section_doc.source_location = doc.source_location
+
+            text = extract_text(section_doc.children, joiner=" ")
+            word_count = len(text.split())
+
+            splits.append(
+                SplitResult(
+                    document=section_doc,
+                    index=index,
+                    title=section.get_heading_text(),
+                    word_count=word_count,
+                )
+            )
+            index += 1
+
         return splits
 
 

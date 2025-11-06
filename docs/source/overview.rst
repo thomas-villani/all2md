@@ -53,8 +53,9 @@ Core Components
    ├── ast/                 # Abstract Syntax Tree module
    │   ├── __init__.py      # AST public API
    │   ├── builder.py       # AST construction helpers
-   │   ├── document_utils.py # Document manipulation utilities
-   │   ├── nodes.py         # AST node definitions
+   │   ├── nodes.py         # AST node definitions with document methods
+   │   ├── sections.py      # Section primitives, query functions, operations
+   │   ├── splitting.py     # Document splitting strategies
    │   ├── serialization.py # JSON serialization
    │   ├── transforms.py    # AST transformation utilities
    │   ├── utils.py         # AST utility functions

@@ -5,10 +5,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, cast
 
-from all2md.ast.document_utils import Section, get_all_sections, get_preamble
 from all2md.ast.nodes import Document
+from all2md.ast.sections import get_all_sections, get_preamble
 from all2md.ast.utils import extract_text
 from all2md.progress import ProgressCallback, ProgressEvent
 
@@ -39,7 +39,11 @@ def chunk_document(
     progress_callback: ProgressCallback | None = None,
 ) -> list[Chunk]:
     """Split an AST document into search-friendly text chunks."""
-    sections = _collect_sections(doc, max_heading_level=max_heading_level)
+    if max_heading_level is None:
+        sections = get_all_sections(doc)
+    else:
+        sections = get_all_sections(doc, min_level=1, max_level=max_heading_level)
+
     total_units = len(sections) + (1 if include_preamble and get_preamble(doc) else 0)
 
     if progress_callback:
@@ -144,13 +148,6 @@ def chunk_document(
         )
 
     return chunks
-
-
-def _collect_sections(doc: Document, max_heading_level: int | None) -> Sequence[Section]:
-    """Return sections limited by heading level when provided."""
-    if max_heading_level is None:
-        return get_all_sections(doc)
-    return get_all_sections(doc, min_level=1, max_level=max_heading_level)
 
 
 def _split_text(text: str, max_tokens: int, overlap_tokens: int, min_tokens: int) -> list[str]:

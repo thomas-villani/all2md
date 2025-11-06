@@ -3,8 +3,8 @@
 
 import pytest
 
-from all2md.ast.document_splitter import DocumentSplitter, SplitResult, parse_split_spec
 from all2md.ast.nodes import Document, Heading, Paragraph, Text
+from all2md.ast.splitting import DocumentSplitter, SplitResult, parse_split_spec
 from all2md.ast.utils import extract_text
 
 

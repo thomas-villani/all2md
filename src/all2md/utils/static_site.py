@@ -743,7 +743,7 @@ def generate_output_filename(
         base_name = slugify(source_file.stem)
 
     # If still empty, use index
-    if not base_name or base_name == "heading":
+    if not base_name or base_name == "section":
         base_name = f"document-{index}"
 
     # For Jekyll, prepend date if available (posts require YYYY-MM-DD prefix)

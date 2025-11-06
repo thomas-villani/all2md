@@ -49,6 +49,9 @@ logger = logging.getLogger(__name__)
 def extract_sections_from_document(doc: Document, extract_spec: str) -> Document:
     """Extract specific sections from a document based on extraction specification.
 
+    This function is a thin wrapper around the extract_sections() utility from
+    document_utils, maintained for backward compatibility.
+
     Parameters
     ----------
     doc : Document
@@ -79,104 +82,10 @@ def extract_sections_from_document(doc: Document, extract_spec: str) -> Document
     >>> extracted = extract_sections_from_document(doc, "Chapter*")
 
     """
-    import fnmatch
+    from all2md.ast.sections import extract_sections
 
-    from all2md.ast.document_utils import get_all_sections, parse_section_ranges
-
-    # Get all sections from document
-    sections = get_all_sections(doc)
-
-    if not sections:
-        raise ValueError("Document contains no sections (headings)")
-
-    # Determine if this is an index spec or name pattern
-    if extract_spec.startswith("#:"):
-        # Index-based extraction
-        index_spec = extract_spec[2:]  # Remove "#:" prefix
-
-        try:
-            # Parse section indices (returns 0-based)
-            section_indices = parse_section_ranges(index_spec, len(sections))
-
-            if not section_indices:
-                raise ValueError(f"No valid sections in range: {extract_spec}")
-
-            # Extract sections by index
-            extracted_sections = [sections[i] for i in section_indices]
-
-        except (ValueError, IndexError) as e:
-            raise ValueError(f"Invalid section index specification '{extract_spec}': {e}") from e
-    else:
-        # Name pattern-based extraction (use fnmatch for wildcards)
-        pattern = extract_spec
-        extracted_sections = []
-
-        # Collect all heading texts for potential fuzzy matching
-        all_heading_texts = []
-        for section in sections:
-            # Get the heading text from the section
-            heading_node = section.heading
-            if heading_node and heading_node.content:
-                # Extract text from heading content nodes
-                heading_text = ""
-                for node in heading_node.content:
-                    if hasattr(node, "content") and isinstance(node.content, str):
-                        heading_text += node.content
-
-                all_heading_texts.append(heading_text)
-
-                # Match against pattern (case-insensitive fnmatch)
-                if fnmatch.fnmatch(heading_text.lower(), pattern.lower()):
-                    extracted_sections.append(section)
-
-        if not extracted_sections:
-            # Check if wildcards were used in the pattern
-            has_wildcards = "*" in pattern or "?" in pattern
-
-            # If no wildcards, try fuzzy matching to provide helpful suggestions
-            if not has_wildcards and all_heading_texts:
-                import difflib
-
-                # Find close matches (case-insensitive comparison)
-                suggestions = difflib.get_close_matches(
-                    pattern.lower(), [h.lower() for h in all_heading_texts], n=3, cutoff=0.6
-                )
-
-                # Map back to original case
-                if suggestions:
-                    original_suggestions = []
-                    for suggestion in suggestions:
-                        for original in all_heading_texts:
-                            if original.lower() == suggestion:
-                                original_suggestions.append(original)
-                                break
-
-                    error_msg = (
-                        f"No sections match pattern: {pattern}\nDid you mean: {', '.join(original_suggestions)}?"
-                    )
-                    raise ValueError(error_msg)
-
-            # Fallback to simple error message
-            raise ValueError(f"No sections match pattern: {pattern}")
-
-    # Build new document with extracted sections separated by ThematicBreak
-    merged_children: list[Node] = []
-
-    for i, section in enumerate(extracted_sections):
-        # Add section heading
-        merged_children.append(section.heading)
-
-        # Add section content
-        merged_children.extend(section.content)
-
-        # Add separator between sections (but not after the last one)
-        if i < len(extracted_sections) - 1:
-            merged_children.append(ThematicBreak())
-
-    # Create new document with extracted content
-    extracted_doc = Document(children=merged_children, metadata=doc.metadata.copy())
-
-    return extracted_doc
+    # Use the enhanced extract_sections utility
+    return extract_sections(doc, extract_spec, case_sensitive=False, combine=True)
 
 
 def generate_outline_from_document(doc: Document, max_level: int = 6) -> str:
@@ -206,7 +115,7 @@ def generate_outline_from_document(doc: Document, max_level: int = 6) -> str:
       * Data Collection
 
     """
-    from all2md.ast.document_utils import get_all_sections
+    from all2md.ast.sections import get_all_sections
 
     # Get all sections from document
     sections = get_all_sections(doc, min_level=1, max_level=max_level)
@@ -2294,7 +2203,7 @@ def process_files_with_splitting(
         Exit code (0 for success)
 
     """
-    from all2md.ast.document_splitter import DocumentSplitter, parse_split_spec
+    from all2md.ast.splitting import DocumentSplitter, parse_split_spec
 
     try:
         strategy, param = parse_split_spec(args.split_by)
@@ -2302,7 +2211,6 @@ def process_files_with_splitting(
         print(f"Error: Invalid split specification: {e}", file=sys.stderr)
         return EXIT_INPUT_ERROR
 
-    splitter = DocumentSplitter()
     max_exit_code = EXIT_SUCCESS
 
     use_rich = args.rich
@@ -2333,23 +2241,23 @@ def process_files_with_splitting(
                         doc = transformed
 
                 if strategy == "heading":
-                    splits = splitter.split_by_heading_level(doc, level=param)
+                    splits = DocumentSplitter.split_by_heading_level(doc, level=param)
                 elif strategy == "length":
-                    splits = splitter.split_by_word_count(doc, target_words=param)
+                    splits = DocumentSplitter.split_by_word_count(doc, target_words=param)
                 elif strategy == "parts":
-                    splits = splitter.split_by_parts(doc, num_parts=param)
+                    splits = DocumentSplitter.split_by_parts(doc, num_parts=param)
                 elif strategy == "break":
-                    splits = splitter.split_by_break(doc)
+                    splits = DocumentSplitter.split_by_break(doc)
                 elif strategy == "delimiter":
-                    splits = splitter.split_by_delimiter(doc, delimiter=param)
+                    splits = DocumentSplitter.split_by_delimiter(doc, delimiter=param)
                 elif strategy == "auto":
-                    splits = splitter.split_auto(doc)
+                    splits = DocumentSplitter.split_auto(doc)
                 elif strategy in ("page", "chapter"):
                     print(
                         f"Warning: {strategy} splitting not yet implemented, using h1 fallback",
                         file=sys.stderr,
                     )
-                    splits = splitter.split_by_heading_level(doc, level=1)
+                    splits = DocumentSplitter.split_by_heading_level(doc, level=1)
                 else:
                     print(f"Error: Unknown split strategy: {strategy}", file=sys.stderr)
                     return EXIT_INPUT_ERROR

@@ -36,7 +36,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
+
+if TYPE_CHECKING:
+    from all2md.ast.sections import Section
 
 MathNotation = Literal["latex", "mathml", "html"]
 Alignment = Literal["left", "center", "right"]
@@ -184,6 +187,307 @@ class Document(Node):
 
         """
         return visitor.visit_document(self)
+
+    def add_section_after(
+        self, target: str | int, new_section: "Section | Document", case_sensitive: bool = False
+    ) -> Document:
+        """Add a new section after the specified target section.
+
+        Parameters
+        ----------
+        target : str or int
+            Heading text or section index to insert after
+        new_section : Section or Document
+            Section or document to insert
+        case_sensitive : bool, default = False
+            Whether text matching is case-sensitive (for string targets)
+
+        Returns
+        -------
+        Document
+            New document with the section inserted
+
+        Raises
+        ------
+        ValueError
+            If target section is not found
+
+        Examples
+        --------
+        >>> from all2md.ast.sections import Section
+        >>> from all2md.ast.nodes import Heading, Paragraph, Text
+        >>> new_section = Section(
+        ...     heading=Heading(level=2, content=[Text("New Section")]),
+        ...     content=[Paragraph(content=[Text("Content")])],
+        ...     level=2, start_index=0, end_index=0
+        ... )
+        >>> updated_doc = doc.add_section_after("Introduction", new_section)
+
+        """
+        from all2md.ast.sections import query_sections, section_or_doc_to_nodes
+
+        # Find target section
+        if isinstance(target, int):
+            target_sections = query_sections(self, target)
+        else:
+            target_sections = query_sections(self, target, case_sensitive=case_sensitive)
+
+        if not target_sections:
+            raise ValueError(f"Target section not found: {target}")
+
+        target_section = target_sections[0]
+
+        # Convert new_section to list of nodes
+        new_nodes = section_or_doc_to_nodes(new_section)
+
+        # Insert after target section
+        insert_pos = target_section.end_index
+        new_children = self.children[:insert_pos] + new_nodes + self.children[insert_pos:]
+
+        return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
+
+    def add_section_before(
+        self, target: str | int, new_section: "Section | Document", case_sensitive: bool = False
+    ) -> Document:
+        """Add a new section before the specified target section.
+
+        Parameters
+        ----------
+        target : str or int
+            Heading text or section index to insert before
+        new_section : Section or Document
+            Section or document to insert
+        case_sensitive : bool, default = False
+            Whether text matching is case-sensitive (for string targets)
+
+        Returns
+        -------
+        Document
+            New document with the section inserted
+
+        Raises
+        ------
+        ValueError
+            If target section is not found
+
+        Examples
+        --------
+        >>> from all2md.ast.sections import Section
+        >>> from all2md.ast.nodes import Heading, Paragraph, Text
+        >>> new_section = Section(
+        ...     heading=Heading(level=2, content=[Text("Preface")]),
+        ...     content=[Paragraph(content=[Text("Introduction text")])],
+        ...     level=2, start_index=0, end_index=0
+        ... )
+        >>> updated_doc = doc.add_section_before("Chapter 1", new_section)
+
+        """
+        from all2md.ast.sections import query_sections, section_or_doc_to_nodes
+
+        # Find target section
+        if isinstance(target, int):
+            target_sections = query_sections(self, target)
+        else:
+            target_sections = query_sections(self, target, case_sensitive=case_sensitive)
+
+        if not target_sections:
+            raise ValueError(f"Target section not found: {target}")
+
+        target_section = target_sections[0]
+
+        # Convert new_section to list of nodes
+        new_nodes = section_or_doc_to_nodes(new_section)
+
+        # Insert before target section
+        insert_pos = target_section.start_index
+        new_children = self.children[:insert_pos] + new_nodes + self.children[insert_pos:]
+
+        return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
+
+    def remove_section(self, target: str | int, case_sensitive: bool = False) -> Document:
+        """Remove a section from the document.
+
+        Parameters
+        ----------
+        target : str or int
+            Heading text or section index to remove
+        case_sensitive : bool, default = False
+            Whether text matching is case-sensitive (for string targets)
+
+        Returns
+        -------
+        Document
+            New document with the section removed
+
+        Raises
+        ------
+        ValueError
+            If target section is not found
+
+        Examples
+        --------
+        >>> updated_doc = doc.remove_section("Obsolete Section")
+        >>> updated_doc = doc.remove_section(2)  # Remove third section
+
+        """
+        from all2md.ast.sections import query_sections
+
+        # Find target section
+        if isinstance(target, int):
+            target_sections = query_sections(self, target)
+        else:
+            target_sections = query_sections(self, target, case_sensitive=case_sensitive)
+
+        if not target_sections:
+            raise ValueError(f"Target section not found: {target}")
+
+        target_section = target_sections[0]
+
+        # Remove section (heading + content)
+        new_children = self.children[: target_section.start_index] + self.children[target_section.end_index :]
+
+        return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
+
+    def replace_section(
+        self, target: str | int, new_content: "Section | Document | list[Node]", case_sensitive: bool = False
+    ) -> Document:
+        """Replace a section with new content.
+
+        Parameters
+        ----------
+        target : str or int
+            Heading text or section index to replace
+        new_content : Section, Document, or list of Node
+            New content to replace the section with
+        case_sensitive : bool, default = False
+            Whether text matching is case-sensitive (for string targets)
+
+        Returns
+        -------
+        Document
+            New document with the section replaced
+
+        Raises
+        ------
+        ValueError
+            If target section is not found
+
+        Examples
+        --------
+        Replace with a new section:
+            >>> from all2md.ast.sections import Section
+            >>> from all2md.ast.nodes import Heading, Paragraph, Text
+            >>> new_section = Section(
+            ...     heading=Heading(level=2, content=[Text("Updated")]),
+            ...     content=[Paragraph(content=[Text("New content")])],
+            ...     level=2, start_index=0, end_index=0
+            ... )
+            >>> updated_doc = doc.replace_section("Old Section", new_section)
+
+        Replace with custom nodes:
+            >>> new_nodes = [
+            ...     Heading(level=2, content=[Text("New Heading")]),
+            ...     Paragraph(content=[Text("Content here")])
+            ... ]
+            >>> updated_doc = doc.replace_section(0, new_nodes)
+
+        """
+        from all2md.ast.sections import query_sections, section_or_doc_to_nodes
+
+        # Find target section
+        if isinstance(target, int):
+            target_sections = query_sections(self, target)
+        else:
+            target_sections = query_sections(self, target, case_sensitive=case_sensitive)
+
+        if not target_sections:
+            raise ValueError(f"Target section not found: {target}")
+
+        target_section = target_sections[0]
+
+        # Convert new_content to list of nodes
+        new_nodes = section_or_doc_to_nodes(new_content)
+
+        # Replace section
+        new_children = (
+            self.children[: target_section.start_index] + new_nodes + self.children[target_section.end_index :]
+        )
+
+        return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
+
+    def insert_into_section(
+        self,
+        target: str | int,
+        content: "Node | list[Node]",
+        position: Literal["start", "end", "after_heading"] = "end",
+        case_sensitive: bool = False,
+    ) -> Document:
+        """Insert content into an existing section.
+
+        Parameters
+        ----------
+        target : str or int
+            Heading text or section index to insert into
+        content : Node or list of Node
+            Content to insert
+        position : {"start", "end", "after_heading"}, default = "end"
+            Where to insert the content within the section
+        case_sensitive : bool, default = False
+            Whether text matching is case-sensitive (for string targets)
+
+        Returns
+        -------
+        Document
+            New document with content inserted
+
+        Raises
+        ------
+        ValueError
+            If target section is not found
+
+        Notes
+        -----
+        - "start": Insert at the beginning of the section content (before all content)
+        - "after_heading": Insert immediately after the heading (same as "start")
+        - "end": Insert at the end of the section content (after all content)
+
+        Examples
+        --------
+        >>> from all2md.ast.nodes import Paragraph, Text
+        >>> new_para = Paragraph(content=[Text("Additional info")])
+        >>> updated_doc = doc.insert_into_section("Methods", new_para, position="end")
+
+        """
+        from all2md.ast.sections import query_sections
+
+        # Find target section
+        if isinstance(target, int):
+            target_sections = query_sections(self, target)
+        else:
+            target_sections = query_sections(self, target, case_sensitive=case_sensitive)
+
+        if not target_sections:
+            raise ValueError(f"Target section not found: {target}")
+
+        target_section = target_sections[0]
+
+        # Convert content to list
+        new_nodes = [content] if isinstance(content, Node) else content
+
+        # Determine insert position
+        if position == "start" or position == "after_heading":
+            # Insert right after heading
+            insert_pos = target_section.start_index + 1
+        elif position == "end":
+            # Insert at end of section
+            insert_pos = target_section.end_index
+        else:
+            raise ValueError(f"Invalid position: {position}")
+
+        # Insert content
+        new_children = self.children[:insert_pos] + new_nodes + self.children[insert_pos:]
+
+        return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
 
 
 @dataclass

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from all2md.ast.document_splitter import DocumentSplitter, parse_split_spec
 from all2md.ast.nodes import Document, Heading, Paragraph, Text
+from all2md.ast.splitting import DocumentSplitter, parse_split_spec
 from all2md.cli.validation import collect_argument_problems
 
 

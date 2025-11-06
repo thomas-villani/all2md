@@ -15,16 +15,8 @@ import logging
 from typing import Literal
 
 from all2md.api import from_ast, to_ast
-from all2md.ast.document_utils import (
-    add_section_after,
-    add_section_before,
-    extract_section,
-    get_all_sections,
-    insert_into_section,
-    remove_section,
-    replace_section,
-)
 from all2md.ast.nodes import Document
+from all2md.ast.sections import extract_sections, get_all_sections
 from all2md.exceptions import All2MdError
 from all2md.mcp.config import MCPConfig
 from all2md.mcp.schemas import (
@@ -156,7 +148,7 @@ def _handle_extract(doc: Document, target: str | int, config: MCPConfig) -> Edit
         Result with extracted section
 
     """
-    section_doc = extract_section(doc, target, case_sensitive=False)
+    section_doc = extract_sections(doc, target, case_sensitive=False, combine=False)
     result_md = _serialize_to_markdown(section_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(success=True, message=f"Successfully extracted {target_desc}.", content=result_md)
@@ -189,10 +181,10 @@ def _handle_add(
     new_doc = _parse_markdown_content(content, config)
 
     if action == "add:before":
-        modified_doc = add_section_before(doc, target, new_doc, case_sensitive=False)
+        modified_doc = doc.add_section_before(target, new_doc, case_sensitive=False)
         position_desc = "before"
     else:
-        modified_doc = add_section_after(doc, target, new_doc, case_sensitive=False)
+        modified_doc = doc.add_section_after(target, new_doc, case_sensitive=False)
         position_desc = "after"
 
     result_md = _serialize_to_markdown(modified_doc, config)
@@ -220,7 +212,7 @@ def _handle_remove(doc: Document, target: str | int, config: MCPConfig) -> EditD
         Result with modified document
 
     """
-    modified_doc = remove_section(doc, target, case_sensitive=False)
+    modified_doc = doc.remove_section(target, case_sensitive=False)
     result_md = _serialize_to_markdown(modified_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(success=True, message=f"Successfully removed {target_desc}.", content=result_md)
@@ -247,7 +239,7 @@ def _handle_replace(doc: Document, target: str | int, content: str, config: MCPC
 
     """
     new_doc = _parse_markdown_content(content, config)
-    modified_doc = replace_section(doc, target, new_doc, case_sensitive=False)
+    modified_doc = doc.replace_section(target, new_doc, case_sensitive=False)
     result_md = _serialize_to_markdown(modified_doc, config)
     target_desc = _format_target_description(target)
     return EditDocumentSimpleOutput(success=True, message=f"Successfully replaced {target_desc}.", content=result_md)
@@ -286,8 +278,7 @@ def _handle_insert(
     }
     position = position_map[action]
 
-    modified_doc = insert_into_section(
-        doc,
+    modified_doc = doc.insert_into_section(
         target,
         content_doc.children,
         position=position,
@@ -421,13 +412,13 @@ def edit_document_impl(input_data: EditDocumentSimpleInput, config: MCPConfig) -
             return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Target not found: {error_msg}")
         return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Invalid input: {error_msg}")
 
-    except All2MdError as e:
-        # Handle document processing errors
-        return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Document processing failed: {e}")
-
     except MCPSecurityError as e:
         # Handle security violations
         return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Security violation: {e}")
+
+    except All2MdError as e:
+        # Handle document processing errors
+        return EditDocumentSimpleOutput(success=False, message=f"[ERROR] Document processing failed: {e}")
 
     except Exception as e:
         # Catch-all for unexpected errors

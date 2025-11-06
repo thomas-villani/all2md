@@ -167,7 +167,7 @@ Content.
 
         assert result.success is False
         assert "[ERROR]" in result.message
-        assert "not found" in result.message.lower()
+        assert "no sections match pattern: nonexistent" in result.message.lower()
 
 
 @pytest.mark.integration

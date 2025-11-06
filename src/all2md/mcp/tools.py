@@ -20,8 +20,8 @@ from typing import Any, cast, get_args
 from urllib.parse import unquote
 
 from all2md.api import from_ast, from_markdown, to_ast
-from all2md.ast.document_utils import extract_section
 from all2md.ast.nodes import Document, Image
+from all2md.ast.sections import extract_sections
 from all2md.ast.transforms import NodeCollector
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError
@@ -275,9 +275,9 @@ def read_document_as_markdown_impl(input_data: ReadDocumentAsMarkdownInput, conf
         # Extract section if requested
         if input_data.section:
             logger.info(f"Extracting section: {input_data.section}")
-            doc = extract_section(doc, input_data.section, case_sensitive=False)
+            doc = extract_sections(doc, input_data.section, case_sensitive=False, combine=False)
             if not isinstance(doc, Document):
-                raise TypeError(f"Expected Document from extract_section, got {type(doc)}")
+                raise TypeError(f"Expected Document from extract_sections, got {type(doc)}")
 
         # Extract images if include_images is enabled (base64 mode for vLLM visibility)
         images: list[Any] = []

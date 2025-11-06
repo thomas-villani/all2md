@@ -397,6 +397,374 @@ For advanced filtering, use ``NodeCollector`` with a custom predicate:
    doc.accept(collector)
    print(f"Found {len(collector.collected)} top-level headings")
 
+Document Manipulation
+---------------------
+
+all2md provides powerful APIs for manipulating document structure at the section level. These APIs allow you to query, extract, split, and modify documents programmatically.
+
+Working with Sections
+~~~~~~~~~~~~~~~~~~~~~
+
+A section consists of a heading and all content until the next heading of equal or higher level:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import get_all_sections
+
+   doc = to_ast("document.md")
+
+   # Get all sections in document
+   sections = get_all_sections(doc)
+
+   for section in sections:
+       print(f"Level {section.level}: {section.get_heading_text()}")
+       print(f"  Contains {len(section.content)} nodes")
+       print(f"  Spans indices {section.start_index}-{section.end_index}")
+
+Filter sections by level:
+
+.. code-block:: python
+
+   from all2md.ast import get_all_sections
+
+   # Get only top-level headings (H1)
+   h1_sections = get_all_sections(doc, min_level=1, max_level=1)
+
+   # Get H2 and H3 headings
+   subsections = get_all_sections(doc, min_level=2, max_level=3)
+
+Querying Sections
+~~~~~~~~~~~~~~~~~
+
+Use ``query_sections()`` to find sections by various criteria:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import query_sections
+
+   doc = to_ast("document.md")
+
+   # Find by heading text (case-insensitive by default)
+   intro = query_sections(doc, "Introduction")
+
+   # Find by index
+   first_section = query_sections(doc, 0)
+
+   # Find by multiple indices
+   specific_sections = query_sections(doc, [0, 2, 4])
+
+   # Find by predicate function
+   long_sections = query_sections(doc, lambda s: len(s.content) > 10)
+
+   # Find by level
+   all_h2 = query_sections(doc, level=2)
+
+The ``query_sections()`` function returns a list of ``Section`` objects. Access section properties:
+
+.. code-block:: python
+
+   sections = query_sections(doc, "Methods")
+   if sections:
+       section = sections[0]
+       print(f"Heading: {section.get_heading_text()}")
+       print(f"Level: {section.level}")
+       print(f"Content nodes: {len(section.content)}")
+
+       # Convert section to standalone document
+       section_doc = section.to_document()
+
+Extracting Sections
+~~~~~~~~~~~~~~~~~~~
+
+Extract sections as new documents:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import extract_sections
+   from all2md.renderers.markdown import MarkdownRenderer
+
+   doc = to_ast("large_document.md")
+
+   # Extract single section
+   intro_doc = extract_sections(doc, "Introduction", combine=False)
+
+   # Extract multiple sections and combine them
+   selected = extract_sections(doc, ["Introduction", "Conclusion"])
+
+   # Extract by index
+   first_three = extract_sections(doc, [0, 1, 2])
+
+   # Extract using range notation
+   chapters = extract_sections(doc, "#:0-5")  # Sections 0 through 5
+
+   # Render extracted content
+   renderer = MarkdownRenderer()
+   markdown = renderer.render_to_string(intro_doc)
+
+**Wildcard Matching:**
+
+.. code-block:: python
+
+   # Extract all sections starting with "Chapter"
+   chapters = extract_sections(doc, "Chapter*")
+
+   # Extract all "API" sections
+   api_sections = extract_sections(doc, "*API*")
+
+Manipulating Sections
+~~~~~~~~~~~~~~~~~~~~~~
+
+The ``Document`` class provides methods for adding, removing, and replacing sections:
+
+**Adding Sections:**
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import Document, Heading, Paragraph, Text
+
+   doc = to_ast("document.md")
+
+   # Create new section
+   new_section = Document(children=[
+       Heading(level=2, content=[Text(content="New Section")]),
+       Paragraph(content=[Text(content="This is new content.")])
+   ])
+
+   # Add after existing section
+   updated_doc = doc.add_section_after("Introduction", new_section)
+
+   # Add before existing section
+   updated_doc = doc.add_section_before("Conclusion", new_section)
+
+   # Add using section index
+   updated_doc = doc.add_section_after(0, new_section)
+
+**Removing Sections:**
+
+.. code-block:: python
+
+   # Remove section by heading text
+   doc_without_intro = doc.remove_section("Introduction")
+
+   # Remove by index
+   doc_without_first = doc.remove_section(0)
+
+   # Remove multiple sections
+   for section_name in ["Appendix A", "Appendix B"]:
+       try:
+           doc = doc.remove_section(section_name)
+       except ValueError:
+           print(f"Section '{section_name}' not found")
+
+**Replacing Sections:**
+
+.. code-block:: python
+
+   # Create replacement content
+   replacement = Document(children=[
+       Heading(level=2, content=[Text(content="Updated Introduction")]),
+       Paragraph(content=[Text(content="This replaces the old introduction.")])
+   ])
+
+   # Replace section
+   updated_doc = doc.replace_section("Introduction", replacement)
+
+**Inserting Content into Sections:**
+
+.. code-block:: python
+
+   from all2md.ast import Paragraph, Text
+
+   # Create new content
+   new_para = Paragraph(content=[
+       Text(content="This paragraph is inserted into an existing section.")
+   ])
+
+   # Insert at end of section (default)
+   doc = doc.insert_into_section("Methods", new_para, position="end")
+
+   # Insert at start of section
+   doc = doc.insert_into_section("Methods", new_para, position="start")
+
+   # Insert right after heading
+   doc = doc.insert_into_section("Methods", new_para, position="after_heading")
+
+Generating Table of Contents
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generate a table of contents from document headings:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import generate_toc, insert_toc
+   from all2md.renderers.markdown import MarkdownRenderer
+
+   doc = to_ast("document.md")
+
+   # Generate TOC as markdown string
+   toc_markdown = generate_toc(doc, max_level=3, style="markdown")
+   print(toc_markdown)
+
+   # Generate TOC as AST List node
+   toc_list = generate_toc(doc, max_level=3, style="list")
+
+   # Generate nested TOC (hierarchical structure)
+   nested_toc = generate_toc(doc, max_level=3, style="nested")
+
+   # Insert TOC into document
+   doc_with_toc = insert_toc(doc, position="start", max_level=3)
+
+   # Insert after first heading
+   doc_with_toc = insert_toc(doc, position="after_first_heading", max_level=3)
+
+   # Render document with TOC
+   renderer = MarkdownRenderer()
+   markdown = renderer.render_to_string(doc_with_toc)
+
+Splitting Documents
+~~~~~~~~~~~~~~~~~~~
+
+Split documents into multiple parts using various strategies:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import DocumentSplitter
+   from all2md.renderers.markdown import MarkdownRenderer
+
+   doc = to_ast("large_document.md")
+
+   # Split by sections (one document per section)
+   results = DocumentSplitter.split_by_sections(doc, include_preamble=True)
+
+   for result in results:
+       print(f"Title: {result.title}")
+       print(f"Words: {result.word_count}")
+       print(f"Sections: {result.section_count}")
+
+       # Render each part
+       renderer = MarkdownRenderer()
+       markdown = renderer.render_to_string(result.document)
+
+**Split by Heading Level:**
+
+.. code-block:: python
+
+   # Split at H1 boundaries (chapters)
+   chapters = DocumentSplitter.split_by_level(doc, level=1)
+
+   # Split at H2 boundaries (sections)
+   sections = DocumentSplitter.split_by_level(doc, level=2, include_preamble=True)
+
+**Split by Word Count:**
+
+.. code-block:: python
+
+   # Split into chunks of approximately 500 words
+   chunks = DocumentSplitter.split_by_word_count(
+       doc,
+       target_words=500,
+       min_words=400,  # Minimum chunk size
+       max_words=600   # Maximum chunk size
+   )
+
+   for i, chunk in enumerate(chunks, 1):
+       print(f"Chunk {i}: {chunk.word_count} words")
+
+**Split into N Parts:**
+
+.. code-block:: python
+
+   # Split document into 5 equal parts
+   parts = DocumentSplitter.split_into_parts(doc, num_parts=5)
+
+   for i, part in enumerate(parts, 1):
+       print(f"Part {i}: {part.word_count} words, {part.section_count} sections")
+
+**Split by Thematic Breaks:**
+
+.. code-block:: python
+
+   # Split on horizontal rules (---, ***, ___)
+   parts = DocumentSplitter.split_by_breaks(doc)
+
+Working with Preamble
+~~~~~~~~~~~~~~~~~~~~~
+
+The preamble is content before the first heading:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import get_preamble
+
+   doc = to_ast("document.md")
+
+   # Get preamble nodes
+   preamble = get_preamble(doc)
+
+   if preamble:
+       print(f"Document has {len(preamble)} preamble nodes")
+
+       # Extract text from preamble
+       from all2md.ast.utils import extract_text
+       preamble_text = extract_text(preamble)
+       print(f"Preamble: {preamble_text}")
+
+Practical Example: Document Restructuring
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Combine multiple manipulation operations:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.ast import (
+       query_sections, extract_sections, generate_toc, insert_toc,
+       Document, Heading, Paragraph, Text
+   )
+   from all2md.renderers.markdown import MarkdownRenderer
+
+   # Load document
+   doc = to_ast("technical_report.md")
+
+   # Remove confidential sections
+   for confidential in ["Internal Notes", "Budget Details"]:
+       try:
+           doc = doc.remove_section(confidential)
+       except ValueError:
+           pass  # Section doesn't exist
+
+   # Add disclaimer at the beginning
+   disclaimer = Document(children=[
+       Heading(level=2, content=[Text(content="Disclaimer")]),
+       Paragraph(content=[Text(content="This is a public version of the report.")])
+   ])
+   doc = doc.add_section_after(0, disclaimer)  # After title
+
+   # Insert table of contents
+   doc = insert_toc(doc, position="after_first_heading", max_level=2)
+
+   # Extract only executive summary and conclusions
+   public_doc = extract_sections(
+       doc,
+       ["Executive Summary", "Conclusions"],
+       combine=True
+   )
+
+   # Render final document
+   renderer = MarkdownRenderer()
+   markdown = renderer.render_to_string(public_doc)
+
+   # Save to file
+   from pathlib import Path
+   Path("public_report.md").write_text(markdown)
+
 Building AST Programmatically
 ------------------------------
 

@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Iterable, Mapping, MutableMapping, Sequence, cast
 
 from all2md.api import to_ast
-from all2md.ast.document_utils import get_all_sections, get_preamble
 from all2md.ast.nodes import Document
+from all2md.ast.sections import get_all_sections, get_preamble
 from all2md.ast.utils import extract_text
 from all2md.constants import DocumentFormat
 from all2md.options.search import SearchOptions

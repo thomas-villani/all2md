@@ -20,6 +20,7 @@ from typing import IO, Union
 
 from all2md.ast import ast_to_dict
 from all2md.utils.decorators import requires_dependencies
+from all2md.utils.text import slugify
 
 logger = logging.getLogger(__name__)
 
@@ -694,40 +695,6 @@ hr {
 
         return f' class="{class_str}"' if class_str else ""
 
-    def _slugify_heading(self, text: str) -> str:
-        """Create a URL-friendly slug from heading text.
-
-        Parameters
-        ----------
-        text : str
-            Heading text to slugify
-
-        Returns
-        -------
-        str
-            Slugified text suitable for HTML IDs
-
-        """
-        import re
-
-        # Convert to lowercase
-        slug = text.lower()
-        # Remove HTML tags if any
-        slug = strip_html_tags(slug)
-        # Replace spaces and underscores with hyphens
-        slug = re.sub(r"[\s_]+", "-", slug)
-        # Remove non-alphanumeric characters except hyphens
-        slug = re.sub(r"[^\w\-]", "", slug)
-        # Remove leading/trailing hyphens and collapse multiple hyphens
-        slug = re.sub(r"-+", "-", slug).strip("-")
-        # Limit length to 50 characters for readability
-        if len(slug) > 50:
-            slug = slug[:50].rstrip("-")
-        # Fallback to generic if empty after slugification
-        if not slug:
-            slug = "heading"
-        return slug
-
     def visit_document(self, node: Document) -> None:
         """Render a Document node.
 
@@ -756,7 +723,7 @@ hr {
         plain_text_content = strip_html_tags(content)
 
         # Generate semantic heading ID from content with counter for uniqueness
-        slug = self._slugify_heading(plain_text_content)
+        slug = slugify(plain_text_content, max_length=50)
         self._heading_id_counter += 1
         heading_id = f"{slug}-{self._heading_id_counter}"
 
