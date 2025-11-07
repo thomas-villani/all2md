@@ -15,12 +15,13 @@ real MSG files requires extract-msg which may not be installed in CI.
 """
 
 import datetime
-from pathlib import Path
 
 import pytest
+from fixtures import FIXTURES_PATH
 
 from all2md import to_markdown
 from all2md.ast import Document, Heading
+from all2md.options.mbox import MboxOptions
 from all2md.options.outlook import OutlookOptions
 from all2md.parsers.outlook import OutlookToAstConverter
 
@@ -29,7 +30,7 @@ from all2md.parsers.outlook import OutlookToAstConverter
 def msg_simple_file():
     """Get path to simple MSG fixture (stored as EML)."""
     # Use the generated fixture
-    fixture_path = Path(__file__).parent.parent.parent / "fixtures" / "documents" / "generated" / "outlook-simple.eml"
+    fixture_path = FIXTURES_PATH / "documents" / "generated" / "outlook-simple.eml"
     if fixture_path.exists():
         return fixture_path
     pytest.skip("Outlook simple fixture not generated")
@@ -38,9 +39,7 @@ def msg_simple_file():
 @pytest.fixture
 def msg_attachments_file():
     """Get path to MSG with attachments fixture (stored as EML)."""
-    fixture_path = (
-        Path(__file__).parent.parent.parent / "fixtures" / "documents" / "generated" / "outlook-attachments.eml"
-    )
+    fixture_path = FIXTURES_PATH / "documents" / "generated" / "outlook-attachments.eml"
     if fixture_path.exists():
         return fixture_path
     pytest.skip("Outlook attachments fixture not generated")
@@ -311,7 +310,3 @@ class TestOutlookEdgeCases:
         # Options should not be affected
         assert len(options.skip_folders) == 1
         assert "Junk Email" not in options.skip_folders
-
-
-# Note: Import here to avoid circular dependency
-from all2md.options.mbox import MboxOptions

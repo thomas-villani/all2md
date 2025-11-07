@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from fixtures import FIXTURES_PATH
 
 from all2md import HtmlOptions, to_markdown
 from all2md.ast import Heading
 from all2md.parsers.html import HtmlToAstConverter
 
-FIXTURE_PATH = Path(__file__).resolve().parents[3] / "fixtures" / "documents" / "html_readability_article.html"
+FIXTURE_FILE = FIXTURES_PATH / "documents" / "html_readability_article.html"
 
 
 def _flatten_text(nodes: list) -> str:
@@ -37,7 +37,7 @@ def _flatten_text(nodes: list) -> str:
 
 def test_parser_with_readability_discards_navigation() -> None:
     """HtmlToAstConverter should prefer readability output when enabled."""
-    html_content = FIXTURE_PATH.read_text(encoding="utf-8")
+    html_content = FIXTURE_FILE.read_text(encoding="utf-8")
     options = HtmlOptions(extract_readable=True, extract_title=True)
     document = HtmlToAstConverter(options).convert_to_ast(html_content)
 
@@ -56,7 +56,7 @@ def test_parser_with_readability_discards_navigation() -> None:
 
 def test_markdown_output_changes_with_readability() -> None:
     """Using readability should remove navigation boilerplate from markdown output."""
-    html_content = FIXTURE_PATH.read_text(encoding="utf-8")
+    html_content = FIXTURE_FILE.read_text(encoding="utf-8")
 
     standard_markdown = to_markdown(
         html_content,

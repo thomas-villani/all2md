@@ -1,8 +1,7 @@
 """Integration tests for Markdown to AST conversion."""
 
-from pathlib import Path
-
 import pytest
+from fixtures import FIXTURES_PATH
 
 from all2md import to_ast, to_markdown
 from all2md.ast.nodes import Document
@@ -480,8 +479,7 @@ Term 2
 @pytest.mark.integration
 def test_markdown_to_ast_from_existing_fixture():
     """Test Markdown conversion using existing test fixture."""
-    fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "documents"
-    md_file = fixtures_dir / "basic.md"
+    md_file = FIXTURES_PATH / "documents" / "basic.md"
 
     if not md_file.exists():
         pytest.skip("Test fixture not found")

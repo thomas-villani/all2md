@@ -1,8 +1,7 @@
 """Integration tests for HTML to Markdown conversion."""
 
-from pathlib import Path
-
 import pytest
+from fixtures import FIXTURES_PATH
 
 from all2md import to_ast, to_markdown
 from all2md.options.html import HtmlOptions
@@ -350,8 +349,7 @@ def test_html_to_markdown_headings_hierarchy(tmp_path):
 @pytest.mark.html
 def test_html_to_markdown_from_existing_fixture():
     """Test HTML conversion using existing test fixture."""
-    fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "documents"
-    html_file = fixtures_dir / "basic.html"
+    html_file = FIXTURES_PATH / "documents" / "basic.html"
 
     if not html_file.exists():
         pytest.skip("Test fixture not found")
@@ -367,8 +365,7 @@ def test_html_to_markdown_from_existing_fixture():
 @pytest.mark.html
 def test_html_to_markdown_readability_article():
     """Test HTML conversion with readability article fixture."""
-    fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "documents"
-    html_file = fixtures_dir / "html_readability_article.html"
+    html_file = FIXTURES_PATH / "documents" / "html_readability_article.html"
 
     if not html_file.exists():
         pytest.skip("Test fixture not found")

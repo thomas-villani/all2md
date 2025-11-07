@@ -1,9 +1,9 @@
 """Integration tests for CSV to Markdown conversion."""
 
 import csv
-from pathlib import Path
 
 import pytest
+from fixtures import FIXTURES_PATH
 
 from all2md import to_ast, to_markdown
 from all2md.ast.nodes import Document
@@ -349,8 +349,7 @@ Data,456"""
 @pytest.mark.integration
 def test_csv_to_markdown_from_existing_fixture():
     """Test CSV conversion using existing test fixture."""
-    fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "documents"
-    csv_file = fixtures_dir / "basic.csv"
+    csv_file = FIXTURES_PATH / "basic.csv"
 
     if not csv_file.exists():
         pytest.skip("Test fixture not found")

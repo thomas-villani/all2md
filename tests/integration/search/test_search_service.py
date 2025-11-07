@@ -2,10 +2,11 @@ import importlib
 from pathlib import Path
 
 import pytest
+from fixtures import FIXTURES_PATH
 
 from all2md.search import SearchDocumentInput, SearchMode, SearchService
 
-FIXTURE_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "documents"
+FIXTURE_DIR = FIXTURES_PATH / "documents"
 
 
 @pytest.mark.integration
