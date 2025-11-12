@@ -415,7 +415,7 @@ def query_sections(
         try:
             return [all_sections[spec]]
         except IndexError:
-            raise IndexError(f"Section index {spec} out of range (0-{len(all_sections)-1})") from None
+            raise IndexError(f"Section index {spec} out of range (0-{len(all_sections) - 1})") from None
 
     elif isinstance(spec, list):
         # Multiple indices
@@ -426,7 +426,7 @@ def query_sections(
             try:
                 result.append(all_sections[idx])
             except IndexError:
-                raise IndexError(f"Section index {idx} out of range (0-{len(all_sections)-1})") from None
+                raise IndexError(f"Section index {idx} out of range (0-{len(all_sections) - 1})") from None
         return result
 
     elif callable(spec):
@@ -627,7 +627,7 @@ def extract_sections(
     elif isinstance(spec, int):
         # Single 0-based index
         if not 0 <= spec < len(sections):
-            raise ValueError(f"Section index {spec} out of range (0-{len(sections)-1})")
+            raise ValueError(f"Section index {spec} out of range (0-{len(sections) - 1})")
         extracted_sections = [sections[spec]]
 
     elif isinstance(spec, str):

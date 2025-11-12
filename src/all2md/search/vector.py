@@ -186,7 +186,9 @@ class VectorIndex(BaseIndex):
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
         vectors_path = directory / "vectors.npy"
-        vectors = self._vectors if self._vectors is not None else self._np.zeros((0, 0), dtype=self._np.float32)  # type: ignore[attr-defined]
+        vectors = (
+            self._vectors if self._vectors is not None else self._np.zeros((0, 0), dtype=self._np.float32)
+        )  # type: ignore[attr-defined]
         self._np.save(vectors_path, vectors)  # type: ignore[attr-defined]
 
     @classmethod

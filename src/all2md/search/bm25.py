@@ -63,7 +63,9 @@ class BM25Index(BaseIndex):
         if self._bm25_constructor is None:
             return
 
-        self._tokenized_corpus = [list(self._tokenizer(chunk.text)) for chunk in self._chunks]  # type: ignore[unreachable]
+        self._tokenized_corpus = [
+            list(self._tokenizer(chunk.text)) for chunk in self._chunks
+        ]  # type: ignore[unreachable]
         if not self._tokenized_corpus:
             self._backend = None
             return

@@ -8,7 +8,6 @@ document conversion library, including command handlers, version info,
 and system diagnostics.
 """
 
-
 import logging
 import sys
 
