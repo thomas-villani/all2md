@@ -507,6 +507,7 @@ def fetch_content_securely(
     require_head_success: bool = True,
     rate_limiter: RateLimiter | None = None,
     user_agent: str | None = None,
+    bypass_robots_txt: bool = False,
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -530,6 +531,8 @@ def fetch_content_securely(
         Optional rate limiter to control request rate and concurrency
     user_agent : str | None, default None
         Custom User-Agent header for requests (currently unused)
+    bypass_robots_txt : bool, default False
+        If True, bypass robots.txt checking (used internally when fetching robots.txt itself)
 
     Returns
     -------

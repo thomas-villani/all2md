@@ -27,6 +27,7 @@ Secure by Default
    all2md follows a ``secure by default`` philosophy:
 
    - Remote fetching is DISABLED by default
+   - robots.txt is ENFORCED by default (strict mode)
    - Local file access is DISABLED by default
    - HTML is ESCAPED by default
    - OCR is DISABLED by default
@@ -258,6 +259,237 @@ Quick reference for ``HtmlOptions.network.*`` settings:
    * - ``max_concurrent_requests``
      - ``5``
      - Maximum concurrent network requests
+
+Remote Document Fetching
+------------------------
+
+Understanding RemoteInputOptions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+While ``NetworkFetchOptions`` controls fetching of assets (images, stylesheets) within documents, ``RemoteInputOptions`` controls fetching entire documents from HTTP(S) URLs. This allows you to directly convert web pages and remote documents:
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.utils.input_sources import RemoteInputOptions
+
+   # Convert a remote document
+   options = RemoteInputOptions(
+       allow_remote_input=True,
+       require_https=True,
+       follow_robots_txt="strict",
+       user_agent="my-app/1.0"
+   )
+
+   markdown = to_markdown(
+       "https://example.com/document.html",
+       remote_input_options=options
+   )
+
+**Key Difference:**
+
+- ``NetworkFetchOptions``: Controls asset fetching WITHIN documents (e.g., images in HTML)
+- ``RemoteInputOptions``: Controls fetching the document itself from a URL
+
+robots.txt Compliance (RFC 9309)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+all2md respects robots.txt files by default to ensure polite web crawling. The ``follow_robots_txt`` option controls how robots.txt rules are enforced:
+
+.. code-block:: python
+
+   from all2md.utils.input_sources import RemoteInputOptions
+
+   # Strict mode: Block disallowed URLs (default)
+   strict_options = RemoteInputOptions(
+       allow_remote_input=True,
+       follow_robots_txt="strict"  # Raises ValidationError if disallowed
+   )
+
+   # Warn mode: Log warning but proceed
+   warn_options = RemoteInputOptions(
+       allow_remote_input=True,
+       follow_robots_txt="warn"  # Logs warning but continues
+   )
+
+   # Ignore mode: Skip robots.txt checks
+   ignore_options = RemoteInputOptions(
+       allow_remote_input=True,
+       follow_robots_txt="ignore"  # No robots.txt validation
+   )
+
+**Policy Modes:**
+
+.. list-table:: robots.txt Policy Modes
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Mode
+     - Behavior
+   * - ``strict``
+     - Blocks access with ``ValidationError`` if robots.txt disallows the URL. Default and most respectful to site owners.
+   * - ``warn``
+     - Logs a warning but proceeds with the fetch. Useful for monitoring without blocking.
+   * - ``ignore``
+     - Skips robots.txt validation entirely. Use only for internal URLs or when you have explicit permission.
+
+**RFC 9309 Compliance:**
+
+The robots.txt checker follows RFC 9309 (Robot Exclusion Protocol):
+
+* **404 Not Found**: Treats as "allow all" (no robots.txt = no restrictions)
+* **5xx Server Errors**: Treats as "temporarily disallow all" (fail-safe behavior)
+* **Network Errors**: Treats as "allow all" per RFC (don't punish sites for connectivity issues)
+* **Crawl-delay**: Automatically enforces crawl-delay directives to respect rate limits
+* **User-agent Matching**: Uses the ``user_agent`` from ``RemoteInputOptions`` for rule matching
+* **Caching**: Caches robots.txt files for 1 hour to reduce redundant requests
+
+.. code-block:: python
+
+   # Example: Respectful web scraping with robots.txt
+   from all2md import to_markdown
+   from all2md.utils.input_sources import RemoteInputOptions
+
+   options = RemoteInputOptions(
+       allow_remote_input=True,
+       follow_robots_txt="strict",  # Respect robots.txt
+       user_agent="MyBot/1.0 (+https://example.com/bot-info)",
+       timeout=10.0,
+       max_size_bytes=20*1024*1024,  # 20MB limit
+       require_https=True
+   )
+
+   try:
+       # This will check robots.txt before fetching
+       markdown = to_markdown(
+           "https://example.com/article.html",
+           remote_input_options=options
+       )
+   except ValidationError as e:
+       print(f"Access denied by robots.txt: {e}")
+
+**When to Use Each Mode:**
+
+* **strict**: Public web scraping, respecting site owners (default, recommended)
+* **warn**: Monitoring robot compliance without blocking operations
+* **ignore**: Internal company URLs, APIs, or when you have explicit permission
+
+RemoteInputOptions Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Complete reference for remote document fetching options:
+
+.. list-table:: RemoteInputOptions Settings
+   :header-rows: 1
+   :widths: 30 15 55
+
+   * - Option
+     - Default
+     - Description
+   * - ``allow_remote_input``
+     - ``False``
+     - Master switch for fetching documents from URLs (disabled by default)
+   * - ``follow_robots_txt``
+     - ``"strict"``
+     - robots.txt policy: ``"strict"``, ``"warn"``, or ``"ignore"``
+   * - ``allowed_hosts``
+     - ``None``
+     - Host allowlist (``None`` = all, ``[]`` = none, list = specific)
+   * - ``require_https``
+     - ``True``
+     - Require HTTPS for document URLs
+   * - ``timeout``
+     - ``10.0``
+     - Request timeout in seconds
+   * - ``max_size_bytes``
+     - ``20971520``
+     - Maximum document size (20MB default)
+   * - ``user_agent``
+     - ``"all2md-fetcher/1.0"``
+     - User-Agent header (also used for robots.txt matching)
+
+.. code-block:: python
+
+   # Production-ready configuration
+   from all2md.utils.input_sources import RemoteInputOptions
+
+   production_options = RemoteInputOptions(
+       allow_remote_input=True,
+       # robots.txt enforcement
+       follow_robots_txt="strict",
+       user_agent="CompanyBot/2.0 (+https://company.com/bot-policy)",
+       # Security
+       require_https=True,
+       allowed_hosts=["docs.company.com", "blog.company.com"],
+       # Resource limits
+       timeout=15.0,
+       max_size_bytes=50*1024*1024  # 50MB for large docs
+   )
+
+robots.txt Best Practices
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Do:**
+
+- ✅ Use default ``strict`` mode for public web scraping
+- ✅ Provide a descriptive user-agent with contact information
+- ✅ Cache results and avoid re-fetching robots.txt on every request
+- ✅ Honor crawl-delay directives (handled automatically)
+- ✅ Treat 5xx errors as temporary failures and respect them
+
+**Don't:**
+
+- ❌ Use ``ignore`` mode without explicit permission from site owner
+- ❌ Spoof user-agents to bypass robots.txt rules
+- ❌ Ignore crawl-delay directives
+- ❌ Make excessive requests that burden the server
+- ❌ Assume robots.txt absence means unrestricted access
+
+**Example: Ethical Web Scraping:**
+
+.. code-block:: python
+
+   import time
+   from all2md import to_markdown
+   from all2md.utils.input_sources import RemoteInputOptions
+   from all2md.exceptions import ValidationError
+
+   # Respectful bot configuration
+   bot_options = RemoteInputOptions(
+       allow_remote_input=True,
+       follow_robots_txt="strict",
+       user_agent="ResearchBot/1.0 (+https://university.edu/research-policy)",
+       require_https=True,
+       timeout=30.0
+   )
+
+   urls = [
+       "https://example.com/article1.html",
+       "https://example.com/article2.html",
+       "https://example.com/article3.html"
+   ]
+
+   for url in urls:
+       try:
+           # robots.txt is checked automatically
+           markdown = to_markdown(url, remote_input_options=bot_options)
+
+           # Process markdown...
+           print(f"✓ Converted {url}")
+
+           # Additional politeness: delay between requests
+           # (crawl-delay from robots.txt is handled automatically)
+           time.sleep(1.0)
+
+       except ValidationError as e:
+           # robots.txt blocked this URL
+           print(f"✗ Blocked by robots.txt: {url}")
+           print(f"  Reason: {e}")
+           continue
+
+       except Exception as e:
+           print(f"✗ Error converting {url}: {e}")
+           continue
 
 Local File Access Security
 --------------------------
@@ -650,6 +882,15 @@ When processing documents from untrusted sources, ensure:
 - [ ] Limit ``max_remote_asset_bytes`` appropriately
 - [ ] Consider ``ALL2MD_DISABLE_NETWORK`` environment variable in production
 - [ ] Monitor request rate with ``max_requests_per_second`` and ``max_concurrent_requests``
+
+**Remote Document Fetching:**
+
+- [ ] Keep ``follow_robots_txt="strict"`` for public web scraping (default)
+- [ ] Provide descriptive ``user_agent`` with contact information
+- [ ] Set ``allow_remote_input=False`` when not fetching documents from URLs
+- [ ] Use ``allowed_hosts`` to restrict to trusted domains
+- [ ] Enable ``require_https=True`` for remote documents (default)
+- [ ] Set appropriate ``timeout`` and ``max_size_bytes`` limits
 
 **Local File Security:**
 

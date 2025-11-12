@@ -44,6 +44,9 @@ HeaderCaseOption = Literal["preserve", "title", "upper", "lower"]
 AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 
+# Network security - robots.txt policy types
+RobotsTxtPolicy = Literal["strict", "warn", "ignore"]
+
 # Comment handling types (general and format-specific)
 CommentMode = Literal["html", "blockquote", "ignore"]
 HtmlCommentMode = Literal["native", "visible", "ignore"]
@@ -310,6 +313,11 @@ DEFAULT_BOILERPLATE_PATTERNS = [
 
 # Network and remote resource handling
 DEFAULT_USER_AGENT = "all2md-fetcher/1.0"
+
+# robots.txt handling
+ROBOTS_TXT_POLICY_CHOICES = ("strict", "warn", "ignore")
+DEFAULT_ROBOTS_TXT_POLICY: RobotsTxtPolicy = "strict"
+DEFAULT_ROBOTS_TXT_CACHE_DURATION = 3600  # 1 hour in seconds
 
 # =============================================================================
 # Security Constants

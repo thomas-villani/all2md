@@ -11,17 +11,19 @@ from __future__ import annotations
 
 import abc
 import os
+import time
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import IO, Any, Iterable, Optional, Sequence, Union
 from urllib.parse import urlparse
 
-from all2md.constants import DEFAULT_USER_AGENT
+from all2md.constants import DEFAULT_ROBOTS_TXT_POLICY, DEFAULT_USER_AGENT, RobotsTxtPolicy
 from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationError
 from all2md.options import CloneFrozenMixin
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.network_security import fetch_content_securely, is_network_disabled
+from all2md.utils.robots_txt import get_global_checker
 
 InputType = Union[str, Path, IO[bytes], IO[str], bytes]
 
@@ -118,11 +120,31 @@ class RemoteInputOptions(CloneFrozenMixin):
         default=DEFAULT_USER_AGENT,
         metadata={"help": "User-Agent included on header for requests", "importance": "security"},
     )
+    follow_robots_txt: RobotsTxtPolicy | str = field(
+        default=DEFAULT_ROBOTS_TXT_POLICY,
+        metadata={
+            "help": "Policy for respecting robots.txt: 'strict' blocks disallowed URLs, "
+            "'warn' logs warnings, 'ignore' skips checks.",
+            "importance": "security",
+            "choices": ("strict", "warn", "ignore"),
+        },
+    )
 
     def __post_init__(self) -> None:
-        """Normalize allowed_hosts to a list after initialization."""
+        """Normalize allowed_hosts to a list and validate follow_robots_txt value after initialization."""
         if self.allowed_hosts is not None:
             object.__setattr__(self, "allowed_hosts", list(self.allowed_hosts))
+
+        # Validate and normalize follow_robots_txt
+        if isinstance(self.follow_robots_txt, str):
+            policy = self.follow_robots_txt.lower()
+            if policy not in ("strict", "warn", "ignore"):
+                msg = (
+                    f"Invalid follow_robots_txt policy: {self.follow_robots_txt}. Must be 'strict', "
+                    "'warn', or 'ignore'."
+                )
+                raise ValidationError(msg)
+            object.__setattr__(self, "follow_robots_txt", policy)
 
 
 @dataclass(frozen=True)
@@ -359,6 +381,20 @@ class HttpRetriever(DocumentSourceRetriever):
                 parameter_name="remote_input.require_https",
                 parameter_value=remote_options.require_https,
             )
+
+        # Check robots.txt if policy is not "ignore"
+        policy = remote_options.follow_robots_txt
+        if policy != "ignore":
+            checker = get_global_checker()
+            allowed, crawl_delay = checker.can_fetch(
+                url=url,
+                remote_options=remote_options,
+                policy=policy,
+            )
+
+            # Apply crawl delay if specified
+            if crawl_delay is not None and crawl_delay > 0:
+                time.sleep(crawl_delay)
 
         # Emit download started event
         if request.progress_callback:
