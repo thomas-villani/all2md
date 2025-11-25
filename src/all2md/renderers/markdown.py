@@ -185,6 +185,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         result = "".join(self._output)
 
+        # Clear state to prevent memory leaks in long-running processes
+        self._link_references.clear()
+        self._block_link_references.clear()
+        self._output.clear()
+        self._list_marker_stack.clear()
+        self._marker_width_stack.clear()
+
         return self._cleanup_output(result)
 
     def _get_plain_text_from_nodes(self, nodes: list) -> str:

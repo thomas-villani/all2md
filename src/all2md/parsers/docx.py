@@ -15,7 +15,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, cast
+from typing import IO, TYPE_CHECKING, Any, Callable, cast
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.exceptions import MalformedFileError
@@ -657,6 +657,38 @@ class DocxToAstConverter(BaseParser):
 
         return None
 
+    def _append_text_with_line_breaks(
+        self,
+        text: str,
+        current_text: list[str],
+        result: list[Node],
+        flush_callback: Callable[[], None],
+    ) -> None:
+        """Append text to current buffer, handling line breaks.
+
+        Parameters
+        ----------
+        text : str
+            Text to append (may contain newlines)
+        current_text : list[str]
+            Current text buffer to append to
+        result : list[Node]
+            Result list to add line break nodes to
+        flush_callback : Callable
+            Function to flush current text buffer
+
+        """
+        if "\n" in text:
+            parts = text.split("\n")
+            for i, part in enumerate(parts):
+                if part:
+                    current_text.append(part)
+                if i < len(parts) - 1:
+                    flush_callback()
+                    result.append(LineBreak(soft=False))
+        else:
+            current_text.append(text)
+
     def _process_paragraph_runs_to_inline(self, paragraph: "Paragraph") -> list[Node]:
         """Process paragraph runs to inline AST nodes.
 
@@ -722,33 +754,11 @@ class DocxToAstConverter(BaseParser):
             if isinstance(run_to_parse, Hyperlink):
                 hyperlink_text = "".join(r.text for r in run_to_parse.runs)
                 if hyperlink_text:
-                    # Handle line breaks within hyperlink text
-                    if "\n" in hyperlink_text:
-                        parts = hyperlink_text.split("\n")
-                        for i, part in enumerate(parts):
-                            if part:
-                                current_text.append(part)
-                            if i < len(parts) - 1:
-                                # Add line break between parts
-                                flush_group()
-                                result.append(LineBreak(soft=False))
-                    else:
-                        current_text.append(hyperlink_text)
+                    self._append_text_with_line_breaks(hyperlink_text, current_text, result, flush_group)
             else:
                 run_text = run_to_parse.text
                 if run_text:
-                    # Handle line breaks (Shift+Enter in Word) within run text
-                    if "\n" in run_text:
-                        parts = run_text.split("\n")
-                        for i, part in enumerate(parts):
-                            if part:
-                                current_text.append(part)
-                            if i < len(parts) - 1:
-                                # Add line break between parts
-                                flush_group()
-                                result.append(LineBreak(soft=False))
-                    else:
-                        current_text.append(run_text)
+                    self._append_text_with_line_breaks(run_text, current_text, result, flush_group)
 
         flush_group()
         return result

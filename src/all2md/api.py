@@ -706,7 +706,7 @@ def to_ast(
         raise FormatError(f"Unknown format: {actual_format}")
 
     # Prepare parser options
-    final_parser_options: BaseParserOptions
+    final_parser_options: BaseParserOptions | None
     if kwargs and parser_options:
         final_parser_options = parser_options.create_updated(**kwargs)
     elif kwargs:
@@ -718,7 +718,7 @@ def to_ast(
         final_parser_options = parser_options
     else:
         # No options provided - use None (parser will use defaults)
-        final_parser_options = None  # type: ignore[assignment]
+        final_parser_options = None
 
     # Use the parser class system to convert to AST
     try:
