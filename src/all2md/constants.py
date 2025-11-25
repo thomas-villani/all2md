@@ -646,6 +646,14 @@ DEFAULT_COLUMN_DETECTION_MODE: ColumnDetectionMode = "auto"
 DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection
 DEFAULT_COLUMN_SPANNING_THRESHOLD = 0.65  # Width ratio threshold for detecting blocks that span columns
 
+# Column detection algorithm parameters (internal use)
+PDF_COLUMN_X_TOLERANCE = 5.0  # Points tolerance for grouping blocks by x0 position
+PDF_COLUMN_GAP_QUANTIZATION = 5.0  # Points resolution for quantizing gap positions
+PDF_COLUMN_MIN_FREQ_COUNT = 2  # Minimum frequency count for column boundary detection
+PDF_COLUMN_FREQ_THRESHOLD_RATIO = 0.3  # Ratio of max frequency for gap detection threshold
+PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK = 3  # Minimum blocks to perform median width check
+PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO = 0.6  # Width ratio threshold for single column detection
+
 # Table detection and extraction
 DEFAULT_TABLE_DETECTION_MODE: TableDetectionMode = "both"
 DEFAULT_TABLE_FALLBACK_DETECTION = True

@@ -1074,19 +1074,39 @@ class DocxToAstConverter(BaseParser):
 
         return AstTable(header=header_row, rows=data_rows)
 
-    def _process_footnotes(self, doc: "docx.document.Document") -> None:
-        """Populate the collector with footnote definitions from the document."""
+    def _process_notes(
+        self,
+        doc: "docx.document.Document",
+        relationship_type: str,
+        part_attr_name: str,
+        tag_name: str,
+        note_type: str,
+        id_prefix: str = "",
+    ) -> None:
+        """Populate the collector with note definitions (footnotes or endnotes).
+
+        Parameters
+        ----------
+        doc : docx.document.Document
+            The Word document
+        relationship_type : str
+            The relationship type constant (RT.FOOTNOTES or RT.ENDNOTES)
+        part_attr_name : str
+            The attribute name for the part ("footnotes_part" or "endnotes_part")
+        tag_name : str
+            The XML tag name to search for ("footnote" or "endnote")
+        note_type : str
+            The note type identifier ("footnote" or "endnote")
+        id_prefix : str
+            Optional prefix to add to note IDs (e.g., "end" for endnotes)
+
+        """
         collector = self._footnote_collector
         if collector is None:
             return
 
         try:
-            from docx.opc.constants import RELATIONSHIP_TYPE as RT
-        except ImportError:
-            return
-
-        try:
-            note_part = self._get_note_part(doc, RT.FOOTNOTES, "footnotes_part")
+            note_part = self._get_note_part(doc, relationship_type, part_attr_name)
             if note_part is None:
                 return
 
@@ -1094,47 +1114,34 @@ class DocxToAstConverter(BaseParser):
             if element is None:
                 return
 
-            for footnote in element.findall(f".//{WORD_TAG_PREFIX}footnote"):
-                footnote_id = footnote.get(WORD_ID_ATTR)
-                if footnote_id in {"-1", "0"}:
+            for note in element.findall(f".//{WORD_TAG_PREFIX}{tag_name}"):
+                note_id = note.get(WORD_ID_ATTR)
+                if note_id in {"-1", "0"}:
                     continue
 
-                content_nodes = self._build_note_definition_content(footnote, note_part)
+                content_nodes = self._build_note_definition_content(note, note_part)
                 if content_nodes:
-                    collector.register_definition(footnote_id, content_nodes, note_type="footnote")
+                    collector.register_definition(f"{id_prefix}{note_id}", content_nodes, note_type=note_type)
         except (AttributeError, KeyError) as exc:
-            logger.debug(f"Could not access footnotes (missing element): {exc}")
+            logger.debug(f"Could not access {note_type}s (missing element): {exc}")
+
+    def _process_footnotes(self, doc: "docx.document.Document") -> None:
+        """Populate the collector with footnote definitions from the document."""
+        try:
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        except ImportError:
+            return
+
+        self._process_notes(doc, RT.FOOTNOTES, "footnotes_part", "footnote", "footnote")
 
     def _process_endnotes(self, doc: "docx.document.Document") -> None:
         """Populate the collector with endnote definitions from the document."""
-        collector = self._footnote_collector
-        if collector is None:
-            return
-
         try:
             from docx.opc.constants import RELATIONSHIP_TYPE as RT
         except ImportError:
             return
 
-        try:
-            note_part = self._get_note_part(doc, RT.ENDNOTES, "endnotes_part")
-            if note_part is None:
-                return
-
-            element = self._get_note_part_element(note_part)
-            if element is None:
-                return
-
-            for endnote in element.findall(f".//{WORD_TAG_PREFIX}endnote"):
-                endnote_id = endnote.get(WORD_ID_ATTR)
-                if endnote_id in {"-1", "0"}:
-                    continue
-
-                content_nodes = self._build_note_definition_content(endnote, note_part)
-                if content_nodes:
-                    collector.register_definition(f"end{endnote_id}", content_nodes, note_type="endnote")
-        except (AttributeError, KeyError) as exc:
-            logger.debug(f"Could not access endnotes (missing element): {exc}")
+        self._process_notes(doc, RT.ENDNOTES, "endnotes_part", "endnote", "endnote", id_prefix="end")
 
     def _get_note_part(
         self,

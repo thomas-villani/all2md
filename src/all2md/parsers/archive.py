@@ -212,7 +212,9 @@ class ArchiveToAstConverter(BaseParser):
         except Exception as e:
             if isinstance(e, (All2MdError,)):
                 raise
-            raise ParsingError(f"Failed to open archive: {e}", parsing_stage="archive_opening", original_error=e) from e
+            raise ParsingError(
+                f"Failed to open archive: {e!r}", parsing_stage="archive_opening", original_error=e
+            ) from e
 
         try:
             # Convert to AST

@@ -54,6 +54,12 @@ from all2md.ast import (
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
+    PDF_COLUMN_FREQ_THRESHOLD_RATIO,
+    PDF_COLUMN_GAP_QUANTIZATION,
+    PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK,
+    PDF_COLUMN_MIN_FREQ_COUNT,
+    PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO,
+    PDF_COLUMN_X_TOLERANCE,
     PDF_MIN_PYMUPDF_VERSION,
 )
 from all2md.converter_metadata import ConverterMetadata
@@ -266,7 +272,7 @@ def _detect_columns_by_whitespace(
         Detected columns or None if single column
 
     """
-    x_tolerance = 5.0
+    x_tolerance = PDF_COLUMN_X_TOLERANCE
     x0_groups = defaultdict(list)
 
     # Group blocks by x0 position
@@ -301,14 +307,14 @@ def _detect_columns_by_whitespace(
     # Find consistent gaps
     gap_frequency: dict[float, int] = {}
     for gap in whitespace_gaps:
-        gap_pos = round((gap["start"] + gap["end"]) / 2 / 5) * 5
+        gap_pos = round((gap["start"] + gap["end"]) / 2 / PDF_COLUMN_GAP_QUANTIZATION) * PDF_COLUMN_GAP_QUANTIZATION
         gap_frequency[gap_pos] = gap_frequency.get(gap_pos, 0) + 1
 
     if not gap_frequency:
         return None
 
     max_freq = max(gap_frequency.values())
-    threshold_freq = max(2, max_freq * 0.3)
+    threshold_freq = max(PDF_COLUMN_MIN_FREQ_COUNT, max_freq * PDF_COLUMN_FREQ_THRESHOLD_RATIO)
     column_boundaries = sorted([pos for pos, freq in gap_frequency.items() if freq >= threshold_freq])
 
     if not column_boundaries:
@@ -388,14 +394,14 @@ def _detect_columns_by_gaps(
         return [blocks]
 
     # Check for single column heuristic
-    if not force_multi_column and len(block_ranges) >= 3:
+    if not force_multi_column and len(block_ranges) >= PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK:
         widths = [x1 - x0 for x0, x1 in block_ranges]
         median_width = sorted(widths)[len(widths) // 2]
         min_x = min(x0 for x0, x1 in block_ranges)
         max_x = max(x1 for x0, x1 in block_ranges)
         page_width = max_x - min_x
 
-        if median_width > 0.6 * page_width:
+        if median_width > PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO * page_width:
             return [blocks]
 
     # Group blocks into columns

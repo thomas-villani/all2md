@@ -476,31 +476,21 @@ def to_markdown(
             final_renderer_options = MarkdownRendererOptions()
 
         # Apply transforms and render using pipeline
-        if logger.isEnabledFor(logging.DEBUG):
-            start_time = time.perf_counter()
-            render_result = transforms_module.render(
-                ast_doc,
-                transforms=transforms or [],
-                hooks=hooks or {},
-                renderer="markdown",
-                options=final_renderer_options,
-                progress_callback=progress_callback,
-            )
+        start_time = time.perf_counter() if logger.isEnabledFor(logging.DEBUG) else None
+        render_result = transforms_module.render(
+            ast_doc,
+            transforms=transforms or [],
+            hooks=hooks or {},
+            renderer="markdown",
+            options=final_renderer_options,
+            progress_callback=progress_callback,
+        )
+        if start_time is not None:
             render_time = time.perf_counter() - start_time
             logger.debug(f"Rendering (markdown from AST) completed in {render_time:.2f}s")
-            assert isinstance(render_result, str), "Markdown renderer should return str"
-            content = render_result
-        else:
-            render_result = transforms_module.render(
-                ast_doc,
-                transforms=transforms or [],
-                hooks=hooks or {},
-                renderer="markdown",
-                options=final_renderer_options,
-                progress_callback=progress_callback,
-            )
-            assert isinstance(render_result, str), "Markdown renderer should return str"
-            content = render_result
+
+        assert isinstance(render_result, str), "Markdown renderer should return str"
+        content = render_result
 
         return content.replace("\r\n", "\n").replace("\r", "\n")
 
