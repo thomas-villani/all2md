@@ -26,8 +26,9 @@ from all2md.ast import (
     Table,
     Text,
 )
-from all2md.options import RstRendererOptions
+from all2md.options import MarkdownRendererOptions, RstRendererOptions
 from all2md.parsers.rst import RestructuredTextParser
+from all2md.renderers.markdown import MarkdownRenderer
 from all2md.renderers.rst import RestructuredTextRenderer
 
 
@@ -483,3 +484,100 @@ This project is licensed under MIT License.
         assert "Project Title" in output_rst
         assert "Installation" in output_rst
         assert "License" in output_rst
+
+
+@pytest.mark.integration
+class TestRstToMarkdownConversion:
+    """Tests for RST to Markdown conversion pipeline."""
+
+    def test_definition_list_conversion_default_gfm(self) -> None:
+        """Test that RST definition lists convert to Pandoc-style syntax with default GFM."""
+        rst_content = """
+Environment Variables
+=====================
+
+Configuration File via Environment Variable:
+
+``ALL2MD_CONFIG``
+   Path to a configuration file (JSON or TOML) containing conversion options.
+   This is equivalent to using ``--config`` on the command line.
+
+``ALL2MD_DEBUG``
+   Enable debug logging when set to ``1`` or ``true``.
+"""
+        # Parse RST
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst_content.strip())
+
+        # Verify definition list was parsed
+        has_definition_list = any(isinstance(child, DefinitionList) for child in doc.children)
+        assert has_definition_list, "Expected definition list in parsed AST"
+
+        # Render to Markdown with default GFM options
+        renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="gfm"))
+        output_md = renderer.render_to_string(doc)
+
+        # Should use Pandoc-style syntax, NOT HTML tags
+        assert "ALL2MD_CONFIG" in output_md
+        assert ":" in output_md  # Colon from definition list syntax
+        assert "<dl>" not in output_md
+        assert "<dt>" not in output_md
+        assert "<dd>" not in output_md
+        assert "Path to a configuration file" in output_md
+
+    def test_definition_list_conversion_explicit_html(self) -> None:
+        """Test that explicit HTML mode is respected in RST to Markdown conversion."""
+        rst_content = """
+Terms
+=====
+
+Python
+   A high-level programming language.
+
+Ruby
+   A dynamic, open source programming language.
+"""
+        # Parse RST
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst_content.strip())
+
+        # Verify definition list was parsed
+        has_definition_list = any(isinstance(child, DefinitionList) for child in doc.children)
+        assert has_definition_list, "Expected definition list in parsed AST"
+
+        # Render to Markdown with explicit HTML mode
+        renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="html"))
+        output_md = renderer.render_to_string(doc)
+
+        # Should use HTML tags when explicitly requested
+        assert "<dl>" in output_md
+        assert "<dt>" in output_md
+        assert "Python" in output_md
+        assert "<dd>" in output_md
+        assert "A high-level programming language" in output_md
+
+    def test_definition_list_conversion_pandoc_flavor(self) -> None:
+        """Test that Pandoc flavor renders definition lists natively."""
+        rst_content = """
+Glossary
+========
+
+API
+   Application Programming Interface.
+
+SDK
+   Software Development Kit.
+"""
+        # Parse RST
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst_content.strip())
+
+        # Render to Markdown with Pandoc flavor (supports definition lists)
+        renderer = MarkdownRenderer(MarkdownRendererOptions(flavor="pandoc"))
+        output_md = renderer.render_to_string(doc)
+
+        # Should use Pandoc syntax (native support)
+        assert "API" in output_md
+        assert ":" in output_md
+        assert "Application Programming Interface" in output_md
+        assert "<dl>" not in output_md  # No HTML

@@ -130,8 +130,14 @@ def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> 
 
     # Initialize centroids by selecting evenly spaced values
     sorted_values = sorted(enumerate(values), key=lambda x: x[1])
-    step = len(sorted_values) // k
-    initial_indices = [i * step for i in range(k)]
+    step = max(1, len(sorted_values) // k)  # Ensure step is at least 1
+
+    # Generate initial indices with bounds checking
+    initial_indices = []
+    for i in range(k):
+        idx = min(i * step, len(sorted_values) - 1)  # Clamp to valid range
+        initial_indices.append(idx)
+
     centroids = [sorted_values[i][1] for i in initial_indices]
 
     assignments = [0] * len(values)

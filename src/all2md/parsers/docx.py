@@ -15,7 +15,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
 from all2md.exceptions import MalformedFileError
@@ -160,7 +160,7 @@ class DocxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: DocxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: DocxOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the DOCX parser with options and progress callback."""
         BaseParser._validate_options_type(options, DocxOptions, "docx")
         options = options or DocxOptions()
@@ -175,7 +175,7 @@ class DocxToAstConverter(BaseParser):
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
     @requires_dependencies("docx", [("python-docx", "docx", "")])
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse DOCX document into AST.
 
         This method handles loading the DOCX file and converting it to AST.
@@ -1025,8 +1025,9 @@ class DocxToAstConverter(BaseParser):
                     return True
 
             return False
-        except Exception:
-            # If we can't determine, assume no border
+        except AttributeError as exc:
+            # Missing expected XML attributes or elements
+            logger.debug(f"Could not determine paragraph border (missing attribute): {exc}")
             return False
 
     def _process_table_to_ast(self, table: "Table") -> AstTable | None:
@@ -1101,8 +1102,8 @@ class DocxToAstConverter(BaseParser):
                 content_nodes = self._build_note_definition_content(footnote, note_part)
                 if content_nodes:
                     collector.register_definition(footnote_id, content_nodes, note_type="footnote")
-        except Exception as exc:
-            logger.debug(f"Could not process footnotes: {exc}")
+        except (AttributeError, KeyError) as exc:
+            logger.debug(f"Could not access footnotes (missing element): {exc}")
 
     def _process_endnotes(self, doc: "docx.document.Document") -> None:
         """Populate the collector with endnote definitions from the document."""
@@ -1132,8 +1133,8 @@ class DocxToAstConverter(BaseParser):
                 content_nodes = self._build_note_definition_content(endnote, note_part)
                 if content_nodes:
                     collector.register_definition(f"end{endnote_id}", content_nodes, note_type="endnote")
-        except Exception as exc:
-            logger.debug(f"Could not process endnotes: {exc}")
+        except (AttributeError, KeyError) as exc:
+            logger.debug(f"Could not access endnotes (missing element): {exc}")
 
     def _get_note_part(
         self,
@@ -1170,10 +1171,14 @@ class DocxToAstConverter(BaseParser):
 
         try:
             from lxml import etree
+        except ImportError as exc:
+            logger.debug(f"lxml not available for parsing note XML: {exc}")
+            return None
 
+        try:
             return etree.fromstring(blob)
-        except Exception as exc:
-            logger.debug(f"Could not parse note part XML: {exc}")
+        except (ValueError, UnicodeDecodeError) as exc:
+            logger.debug(f"Could not parse note part XML (invalid data): {exc}")
             return None
 
     def _build_note_definition_content(self, note_element: Any, note_part: Any) -> list[Node]:
@@ -1193,7 +1198,8 @@ class DocxToAstConverter(BaseParser):
 
             paragraph = Paragraph(paragraph_element, note_part)  # type: ignore[call-arg]
             return self._process_paragraph_runs_to_inline(paragraph)
-        except Exception:
+        except (TypeError, AttributeError):
+            # Expected fallback when Paragraph construction fails
             return self._extract_inline_nodes_from_xml(paragraph_element)
 
     def _extract_inline_nodes_from_xml(self, paragraph_element: Any) -> list[Node]:
@@ -1360,9 +1366,7 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
     return numbering_defs
 
 
-def _detect_list_level(
-    paragraph: "Paragraph", doc: Optional["docx.document.Document"] = None
-) -> tuple[str | None, int]:
+def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" | None = None) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth

@@ -282,18 +282,20 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Characters that always need escaping in inline content
         always_escape = r"\`*{}[]"
 
-        escaped = ""
+        escaped_chars = []
         for i, char in enumerate(text):
             if char in always_escape:
                 # Always escape these special characters
-                escaped += "\\" + char
+                escaped_chars.append("\\")
+                escaped_chars.append(char)
             elif char == "#":
                 # Only escape # at the start of text (where it could start a heading)
                 # In inline contexts, # is safe and doesn't need escaping
                 if i == 0:
-                    escaped += "\\" + char
+                    escaped_chars.append("\\")
+                    escaped_chars.append(char)
                 else:
-                    escaped += char
+                    escaped_chars.append(char)
             elif char == "_":
                 # Smart underscore escaping: don't escape if in middle of word
                 # Check if surrounded by alphanumeric characters (word context)
@@ -302,14 +304,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
                 if prev_alnum and next_alnum:
                     # In middle of word (e.g., snake_case) - safe, no escaping needed
-                    escaped += char
+                    escaped_chars.append(char)
                 else:
                     # At word boundary - could trigger emphasis, needs escaping
-                    escaped += "\\" + char
+                    escaped_chars.append("\\")
+                    escaped_chars.append(char)
             else:
-                escaped += char
+                escaped_chars.append(char)
 
-        return escaped
+        return "".join(escaped_chars)
 
     def _autolink_bare_urls(self, text: str) -> str:
         """Convert bare URLs to Markdown autolinks.
@@ -1523,6 +1526,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if not self._flavor.supports_definition_lists():
             mode = self.options.unsupported_inline_mode
+
+            # Smart fallback: Use Pandoc-style syntax for defaults, respect explicit choices
+            # When user didn't explicitly set mode and we're using HTML (GFM default),
+            # use "force" mode instead to generate readable Markdown
+            if mode == "html" and not self.options._unsupported_inline_mode_was_explicit:
+                mode = "force"
+
             if mode == "plain":
                 # Render as plain text, dropping the definition list structure
                 for term, descriptions in node.items:

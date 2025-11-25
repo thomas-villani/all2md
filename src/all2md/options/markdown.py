@@ -454,6 +454,10 @@ class MarkdownRendererOptions(BaseRendererOptions):
         },
     )
 
+    # Private field to track whether user explicitly set unsupported_inline_mode
+    # Used by renderer to implement smart fallback behavior for definition lists
+    _unsupported_inline_mode_was_explicit: bool = field(default=False, init=False, repr=False)
+
     def __post_init__(self) -> None:
         """Apply flavor-aware defaults and validate flavor compatibility.
 
@@ -477,6 +481,11 @@ class MarkdownRendererOptions(BaseRendererOptions):
         # Apply flavor defaults for any fields that are still unset
         if self.unsupported_table_mode is UNSET:
             object.__setattr__(self, "unsupported_table_mode", flavor_defaults["unsupported_table_mode"])
+
+        # Track whether user explicitly set unsupported_inline_mode (for smart fallback behavior)
+        inline_mode_was_explicit = self.unsupported_inline_mode is not UNSET
+        object.__setattr__(self, "_unsupported_inline_mode_was_explicit", inline_mode_was_explicit)
+
         if self.unsupported_inline_mode is UNSET:
             object.__setattr__(self, "unsupported_inline_mode", flavor_defaults["unsupported_inline_mode"])
 

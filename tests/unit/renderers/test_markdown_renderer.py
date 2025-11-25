@@ -17,6 +17,9 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
     FootnoteDefinition,
@@ -994,3 +997,161 @@ class TestHTMLSanitization:
         # Should not produce errors
         assert "Before" in result
         assert "After" in result
+
+
+@pytest.mark.unit
+class TestDefinitionListRendering:
+    """Tests for definition list rendering with smart fallback behavior."""
+
+    def test_gfm_default_uses_pandoc_syntax(self):
+        """Test that GFM flavor with default settings uses Pandoc-style syntax."""
+        # GFM doesn't support definition lists, but with default settings,
+        # should use force mode (Pandoc syntax) instead of HTML
+        term = DefinitionTerm(content=[Text(content="Python")])
+        description = DefinitionDescription(
+            content=[Paragraph(content=[Text(content="A high-level programming language")])]
+        )
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        # Default GFM options (no explicit unsupported_inline_mode)
+        options = MarkdownRendererOptions(flavor="gfm")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should use Pandoc syntax, NOT HTML tags
+        assert "Python\n:" in result or "Python\n :" in result
+        assert "A high-level programming language" in result
+        assert "<dl>" not in result
+        assert "<dt>" not in result
+        assert "<dd>" not in result
+
+    def test_explicit_html_mode_preserved(self):
+        """Test that explicit HTML mode is respected for backward compatibility."""
+        term = DefinitionTerm(content=[Text(content="Python")])
+        description = DefinitionDescription(content=[Paragraph(content=[Text(content="A programming language")])])
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        # Explicitly set HTML mode
+        options = MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="html")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should use HTML tags when explicitly requested
+        assert "<dl>" in result
+        assert "<dt>" in result
+        assert "Python" in result
+        assert "<dd>" in result
+        assert "A programming language" in result
+
+    def test_explicit_force_mode(self):
+        """Test that explicit force mode uses Pandoc syntax."""
+        term = DefinitionTerm(content=[Text(content="Ruby")])
+        description = DefinitionDescription(content=[Paragraph(content=[Text(content="Another programming language")])])
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        # Explicitly set force mode
+        options = MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="force")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should use Pandoc syntax
+        assert "Ruby\n:" in result or "Ruby\n :" in result
+        assert "Another programming language" in result
+        assert "<dl>" not in result
+
+    def test_explicit_plain_mode(self):
+        """Test that explicit plain mode strips structure."""
+        term = DefinitionTerm(content=[Text(content="JavaScript")])
+        description = DefinitionDescription(content=[Paragraph(content=[Text(content="A scripting language")])])
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        # Explicitly set plain mode
+        options = MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="plain")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should output plain text without structure
+        assert "JavaScript" in result
+        assert "A scripting language" in result
+        assert ":" not in result  # No colon from Pandoc syntax
+        assert "<dl>" not in result  # No HTML
+
+    def test_pandoc_flavor_uses_native_syntax(self):
+        """Test that Pandoc flavor (which supports definition lists) uses native syntax."""
+        term = DefinitionTerm(content=[Text(content="Rust")])
+        description = DefinitionDescription(
+            content=[Paragraph(content=[Text(content="A systems programming language")])]
+        )
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        # Pandoc flavor supports definition lists natively
+        options = MarkdownRendererOptions(flavor="pandoc")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should use Pandoc syntax (native support)
+        assert "Rust\n:" in result or "Rust\n :" in result
+        assert "A systems programming language" in result
+        assert "<dl>" not in result
+
+    def test_complex_inline_formatting_in_term(self):
+        """Test definition list with complex inline formatting in term."""
+        term = DefinitionTerm(content=[Code(content="ALL2MD_CONFIG"), Text(content=" variable")])
+        description = DefinitionDescription(content=[Paragraph(content=[Text(content="Configuration file path")])])
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        options = MarkdownRendererOptions(flavor="gfm")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should preserve inline formatting
+        assert "`ALL2MD_CONFIG`" in result
+        assert "variable" in result
+        assert "Configuration file path" in result
+
+    def test_multiple_descriptions_per_term(self):
+        """Test definition list with multiple descriptions for one term."""
+        term = DefinitionTerm(content=[Text(content="HTTP")])
+        desc1 = DefinitionDescription(content=[Paragraph(content=[Text(content="HyperText Transfer Protocol")])])
+        desc2 = DefinitionDescription(
+            content=[Paragraph(content=[Text(content="The foundation of web communication")])]
+        )
+        definition_list = DefinitionList(items=[(term, [desc1, desc2])])
+        doc = Document(children=[definition_list])
+
+        options = MarkdownRendererOptions(flavor="gfm")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should have multiple `: ` prefixes
+        assert "HTTP" in result
+        assert "HyperText Transfer Protocol" in result
+        assert "The foundation of web communication" in result
+        assert result.count(":") >= 2  # At least 2 colons for 2 descriptions
+
+    def test_multiline_description_with_code_block(self):
+        """Test definition list with multiline description containing code block."""
+        term = DefinitionTerm(content=[Text(content="Example")])
+        description = DefinitionDescription(
+            content=[
+                Paragraph(content=[Text(content="Here's how to use it:")]),
+                CodeBlock(content="code example", language="bash"),
+            ]
+        )
+        definition_list = DefinitionList(items=[(term, [description])])
+        doc = Document(children=[definition_list])
+
+        options = MarkdownRendererOptions(flavor="gfm")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        # Should have proper structure
+        assert "Example" in result
+        assert "Here's how to use it:" in result
+        assert "code example" in result
