@@ -25,6 +25,8 @@ import base64
 import logging
 import os
 import re
+import sys
+import threading
 import unicodedata
 from pathlib import Path
 from typing import Any, Protocol
@@ -268,35 +270,69 @@ def sanitize_attachment_filename(
     return safe_chars
 
 
-def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> Path:
-    """Ensure a unique file path by adding numeric suffixes for collisions.
+def _atomic_create_file(path: Path) -> bool:
+    """Attempt to atomically create a file at the given path.
 
-    Thread Safety and Race Conditions
-    ----------------------------------
-    WARNING: This function is susceptible to TOCTOU (Time-of-Check to Time-of-Use)
-    race conditions. Between checking if a path exists and when the caller actually
-    creates the file, another process or thread could create a file at that path,
-    leading to potential file overwrites.
+    Uses os.open() with O_CREAT | O_EXCL flags for atomic creation.
+    This prevents TOCTOU race conditions by atomically checking existence
+    and creating in a single system call.
 
-    This implementation is safe for:
-    - Single-process, single-threaded usage (typical use case)
-    - Scenarios where file collisions are acceptable
+    Parameters
+    ----------
+    path : Path
+        The path where to create the file
 
-    This implementation is NOT safe for:
-    - Concurrent file creation from multiple processes
-    - Concurrent file creation from multiple threads
-    - Security-critical applications requiring guaranteed uniqueness
+    Returns
+    -------
+    bool
+        True if file was created successfully, False if file already exists
 
-    For production concurrent use, callers should implement atomic file operations:
-    - Use os.open() with O_CREAT | O_EXCL flags (POSIX)
-    - Retry on FileExistsError when opening the file
-    - Use NamedTemporaryFile with delete=False for temporary files
+    Raises
+    ------
+    OSError
+        If creation fails for reasons other than file existing
+        (e.g., permission denied, parent directory doesn't exist)
+
+    Notes
+    -----
+    Cross-platform compatibility:
+    - Works on Windows, Linux, and macOS
+    - On Windows, O_BINARY flag is added to handle binary mode correctly
+    - The created file is immediately closed (0-byte placeholder)
+
+    """
+    # Prepare flags for atomic creation
+    # O_WRONLY: Open for writing only
+    # O_CREAT: Create if doesn't exist
+    # O_EXCL: Fail if file already exists (atomic with O_CREAT)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+
+    # Add O_BINARY on Windows for proper binary mode handling
+    if sys.platform == "win32" and hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+
+    try:
+        # Attempt atomic file creation
+        # Mode 0o644 = rw-r--r-- (owner can read/write, others can read)
+        fd = os.open(str(path), flags, 0o644)
+        os.close(fd)  # Close immediately, we just needed to claim the path
+        return True
+    except FileExistsError:
+        # File already exists - this is expected in race conditions
+        return False
+    # Other OSError exceptions propagate to caller
+
+
+def _ensure_unique_attachment_path_simple(base_path: Path, max_attempts: int) -> Path:
+    """Non-atomic path uniqueness check (original implementation).
+
+    WARNING: Subject to TOCTOU race conditions. Use only in single-threaded contexts.
 
     Parameters
     ----------
     base_path : Path
         The desired base path for the attachment
-    max_attempts : int, default 1000
+    max_attempts : int
         Maximum number of collision resolution attempts
 
     Returns
@@ -308,18 +344,6 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
     ------
     RuntimeError
         If unable to find a unique path after max_attempts
-
-    Examples
-    --------
-    >>> # If image.png exists, returns image-1.png
-    >>> ensure_unique_attachment_path(Path("./attachments/image.png"))
-    Path('./attachments/image-1.png')
-
-    Notes
-    -----
-    For typical single-process document conversion, this function is adequate.
-    The race window is small and the consequences of collision are minimal
-    (one attachment overwrites another in the same conversion run).
 
     """
     if not base_path.exists():
@@ -336,8 +360,114 @@ def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000) -> 
         if not new_path.exists():
             return new_path
 
-    # If we get here, we couldn't find a unique path
     raise RuntimeError(f"Unable to find unique path after {max_attempts} attempts for {base_path}")
+
+
+def _ensure_unique_attachment_path_atomic(base_path: Path, max_attempts: int) -> Path:
+    """Atomic path uniqueness using O_CREAT | O_EXCL.
+
+    Creates a 0-byte placeholder file at the returned path to claim it atomically.
+    The caller MUST overwrite this placeholder with actual content.
+
+    Parameters
+    ----------
+    base_path : Path
+        The desired base path for the attachment
+    max_attempts : int
+        Maximum number of collision resolution attempts
+
+    Returns
+    -------
+    Path
+        A unique file path with a 0-byte placeholder file created atomically
+
+    Raises
+    ------
+    RuntimeError
+        If unable to find a unique path after max_attempts
+    OSError
+        If atomic creation fails for reasons other than file collision
+
+    """
+    # Try the base path first
+    if _atomic_create_file(base_path):
+        return base_path
+
+    # Extract name and extension for generating alternatives
+    stem = base_path.stem
+    suffix = base_path.suffix
+    parent = base_path.parent
+
+    # Try numbered suffixes
+    for i in range(1, max_attempts + 1):
+        new_path = parent / f"{stem}-{i}{suffix}"
+        if _atomic_create_file(new_path):
+            return new_path
+
+    raise RuntimeError(f"Unable to find unique path after {max_attempts} attempts for {base_path}")
+
+
+def ensure_unique_attachment_path(base_path: Path, max_attempts: int = 1000, atomic: bool = True) -> Path:
+    """Ensure a unique file path by adding numeric suffixes for collisions.
+
+    Thread Safety and Race Conditions
+    ----------------------------------
+    When atomic=True (default), this function uses atomic file operations
+    (os.open with O_CREAT | O_EXCL) to prevent TOCTOU race conditions.
+    This makes it safe for:
+    - Concurrent file creation from multiple processes
+    - Concurrent file creation from multiple threads
+
+    When atomic=True, a 0-byte placeholder file is created at the returned
+    path. The caller should overwrite this file with actual content.
+
+    When atomic=False, the function uses non-atomic existence checks,
+    which is suitable for single-threaded usage only.
+
+    Parameters
+    ----------
+    base_path : Path
+        The desired base path for the attachment
+    max_attempts : int, default 1000
+        Maximum number of collision resolution attempts
+    atomic : bool, default True
+        If True, use atomic file creation to prevent race conditions.
+        If False, use simple existence checks (not thread-safe).
+
+    Returns
+    -------
+    Path
+        A unique file path. When atomic=True, a placeholder file exists
+        at this path that should be overwritten.
+
+    Raises
+    ------
+    RuntimeError
+        If unable to find a unique path after max_attempts
+    OSError
+        If atomic creation fails for reasons other than file collision
+        (e.g., permission denied, parent directory doesn't exist)
+
+    Examples
+    --------
+    >>> # If image.png exists, returns image-1.png (and creates placeholder if atomic=True)
+    >>> ensure_unique_attachment_path(Path("./attachments/image.png"))
+    Path('./attachments/image-1.png')
+
+    Notes
+    -----
+    When atomic=True, the caller MUST write to the returned path, as a
+    0-byte placeholder file has been created. If the caller fails to write,
+    the placeholder should be cleaned up.
+
+    For typical single-process document conversion, atomic=False is adequate.
+    Use atomic=True when concurrent access is expected.
+
+    """
+    if atomic:
+        return _ensure_unique_attachment_path_atomic(base_path, max_attempts)
+    else:
+        return _ensure_unique_attachment_path_simple(base_path, max_attempts)
 
 
 def _make_result(
@@ -606,15 +736,20 @@ def _handle_download_mode(
     # Create the initial attachment path
     base_path = Path(attachment_output_dir) / safe_name
 
-    # Ensure the path is unique to prevent collisions
+    # Ensure the path is unique to prevent collisions (atomically creates placeholder)
     unique_path = ensure_unique_attachment_path(base_path)
 
-    # Write attachment data to file
+    # Write attachment data to file (overwrites the 0-byte placeholder)
     try:
         with open(unique_path, "wb") as f:
             f.write(attachment_data)
         logger.debug(f"Wrote attachment to: {unique_path}")
     except OSError as e:
+        # Clean up the placeholder file if write fails
+        try:
+            unique_path.unlink(missing_ok=True)
+        except OSError:
+            pass  # Best effort cleanup
         logger.error(f"Failed to write attachment {unique_path}: {e}")
         return None
 
@@ -915,12 +1050,11 @@ class AttachmentSequencer(Protocol):
     create_attachment_sequencer(). The sequencer generates unique,
     sequential filenames for attachments based on format-specific rules.
 
-    Thread Safety Warning
-    ---------------------
-    Sequencers created by create_attachment_sequencer() are NOT thread-safe.
-    They use shared mutable state without synchronization. Each conversion
-    should create its own sequencer instance, and concurrent conversions
-    must not share the same sequencer.
+    Thread Safety
+    -------------
+    Sequencers created by create_attachment_sequencer() are thread-safe.
+    They use internal locking to protect shared mutable state, allowing
+    safe concurrent use from multiple threads.
 
     Parameters
     ----------
@@ -955,16 +1089,13 @@ class AttachmentSequencer(Protocol):
 def create_attachment_sequencer() -> AttachmentSequencer:
     """Create a closure that tracks attachment sequence numbers to prevent duplicates.
 
-    Thread Safety Warning
-    ---------------------
-    The returned sequencer is NOT thread-safe. It maintains shared mutable state
-    (used_filenames set and sequence_counters dict) without locks or synchronization.
+    Thread Safety
+    -------------
+    The returned sequencer is thread-safe. It uses a lock to protect
+    the internal mutable state (used_filenames set and sequence_counters dict).
 
-    To use in concurrent scenarios, either:
-    1. Create a separate sequencer for each thread/conversion (recommended)
-    2. Wrap the sequencer calls with external synchronization (e.g., threading.Lock)
-
-    Each document conversion should use its own sequencer instance.
+    This allows safe concurrent use from multiple threads, though each
+    document conversion typically uses its own sequencer instance.
 
     Returns
     -------
@@ -981,9 +1112,12 @@ def create_attachment_sequencer() -> AttachmentSequencer:
     """
     used_filenames: set[str] = set()
     sequence_counters: dict[str, int] = {}
+    _lock = threading.RLock()  # RLock allows recursive acquisition if needed
 
     def get_next_filename(base_stem: str, format_type: str = "general", **kwargs: Any) -> tuple[str, int]:
         """Generate next available filename with sequence number.
+
+        Thread-safe: Uses internal lock to protect shared state.
 
         Returns
         -------
@@ -991,32 +1125,33 @@ def create_attachment_sequencer() -> AttachmentSequencer:
             Tuple of (filename, sequence_number)
 
         """
-        # Create a key for this specific context
-        if format_type == "pdf":
-            key = f"{base_stem}_p{kwargs.get('page_num', 1)}"
-        elif format_type == "pptx":
-            key = f"{base_stem}_slide{kwargs.get('slide_num', 1)}"
-        else:
-            key = base_stem
+        with _lock:
+            # Create a key for this specific context
+            if format_type == "pdf":
+                key = f"{base_stem}_p{kwargs.get('page_num', 1)}"
+            elif format_type == "pptx":
+                key = f"{base_stem}_slide{kwargs.get('slide_num', 1)}"
+            else:
+                key = base_stem
 
-        # Get next sequence number for this key
-        sequence_num = sequence_counters.get(key, 0) + 1
-        sequence_counters[key] = sequence_num
-
-        # Generate filename
-        filename = generate_attachment_filename(
-            base_stem=base_stem, format_type=format_type, sequence_num=sequence_num, **kwargs
-        )
-
-        # Ensure uniqueness (failsafe)
-        while filename in used_filenames:
-            sequence_num += 1
+            # Get next sequence number for this key
+            sequence_num = sequence_counters.get(key, 0) + 1
             sequence_counters[key] = sequence_num
+
+            # Generate filename
             filename = generate_attachment_filename(
                 base_stem=base_stem, format_type=format_type, sequence_num=sequence_num, **kwargs
             )
 
-        used_filenames.add(filename)
-        return filename, sequence_num
+            # Ensure uniqueness (failsafe)
+            while filename in used_filenames:
+                sequence_num += 1
+                sequence_counters[key] = sequence_num
+                filename = generate_attachment_filename(
+                    base_stem=base_stem, format_type=format_type, sequence_num=sequence_num, **kwargs
+                )
+
+            used_filenames.add(filename)
+            return filename, sequence_num
 
     return get_next_filename
