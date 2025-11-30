@@ -3,7 +3,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 # src/all2md/api.py
 import logging
-import time
 from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import IO, Any, Optional, TypeVar, Union, cast, get_type_hints
@@ -16,6 +15,7 @@ from all2md.exceptions import All2MdError, FormatError, ParsingError
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions
 from all2md.progress import ProgressCallback
+from all2md.utils.decorators import debug_timer
 from all2md.utils.input_sources import (
     DocumentSource,
     DocumentSourceRequest,
@@ -476,18 +476,15 @@ def to_markdown(
             final_renderer_options = MarkdownRendererOptions()
 
         # Apply transforms and render using pipeline
-        start_time = time.perf_counter() if logger.isEnabledFor(logging.DEBUG) else None
-        render_result = transforms_module.render(
-            ast_doc,
-            transforms=transforms or [],
-            hooks=hooks or {},
-            renderer="markdown",
-            options=final_renderer_options,
-            progress_callback=progress_callback,
-        )
-        if start_time is not None:
-            render_time = time.perf_counter() - start_time
-            logger.debug(f"Rendering (markdown from AST) completed in {render_time:.2f}s")
+        with debug_timer(logger, "Rendering (markdown from AST)"):
+            render_result = transforms_module.render(
+                ast_doc,
+                transforms=transforms or [],
+                hooks=hooks or {},
+                renderer="markdown",
+                options=final_renderer_options,
+                progress_callback=progress_callback,
+            )
 
         assert isinstance(render_result, str), "Markdown renderer should return str"
         content = render_result
@@ -549,18 +546,7 @@ def to_markdown(
         else:
             raise ValueError("Invalid input type after format detection")
 
-        if logger.isEnabledFor(logging.DEBUG):
-            start_time = time.perf_counter()
-            ast_doc = to_ast(
-                ast_input,
-                parser_options=final_parser_options,
-                source_format=actual_format,
-                progress_callback=progress_callback,
-                remote_input_options=remote_input_options,
-            )
-            parse_time = time.perf_counter() - start_time
-            logger.debug(f"Parsing ({actual_format}) completed in {parse_time:.2f}s")
-        else:
+        with debug_timer(logger, f"Parsing ({actual_format})"):
             ast_doc = to_ast(
                 ast_input,
                 parser_options=final_parser_options,
@@ -572,8 +558,7 @@ def to_markdown(
         raise
 
     # Apply transforms and render using pipeline
-    if logger.isEnabledFor(logging.DEBUG):
-        start_time = time.perf_counter()
+    with debug_timer(logger, "Rendering (markdown)"):
         render_result = transforms_module.render(
             ast_doc,
             transforms=transforms or [],
@@ -582,23 +567,10 @@ def to_markdown(
             options=final_renderer_options,
             progress_callback=progress_callback,
         )
-        render_time = time.perf_counter() - start_time
-        logger.debug(f"Rendering (markdown) completed in {render_time:.2f}s")
-        # Markdown renderer always returns str
-        assert isinstance(render_result, str), "Markdown renderer should return str"
-        content = render_result
-    else:
-        render_result = transforms_module.render(
-            ast_doc,
-            transforms=transforms or [],
-            hooks=hooks or {},
-            renderer="markdown",
-            options=final_renderer_options,
-            progress_callback=progress_callback,
-        )
-        # Markdown renderer always returns str
-        assert isinstance(render_result, str), "Markdown renderer should return str"
-        content = render_result
+
+    # Markdown renderer always returns str
+    assert isinstance(render_result, str), "Markdown renderer should return str"
+    content = render_result
 
     return content.replace("\r\n", "\n").replace("\r", "\n")
 
