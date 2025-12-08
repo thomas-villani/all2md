@@ -36,8 +36,9 @@ The transform pipeline coordinates transform execution and rendering:
 .. autosummary::
    :nosignatures:
 
+   all2md.transforms.pipeline.Pipeline
    all2md.transforms.pipeline.render
-   all2md.transforms.pipeline.TransformPipeline
+   all2md.transforms.pipeline.apply
 
 Transform Registry
 ------------------
@@ -49,7 +50,6 @@ registered via Python entry points:
    :nosignatures:
 
    all2md.transforms.registry.TransformRegistry
-   all2md.transforms.registry.transform
 
 Built-in Transforms
 -------------------
@@ -60,13 +60,16 @@ Commonly used transforms included with all2md:
    :nosignatures:
 
    all2md.transforms.builtin.RemoveImagesTransform
+   all2md.transforms.builtin.RemoveNodesTransform
    all2md.transforms.builtin.HeadingOffsetTransform
    all2md.transforms.builtin.GenerateTocTransform
-   all2md.transforms.builtin.RemoveBoilerplateTransform
+   all2md.transforms.builtin.RemoveBoilerplateTextTransform
    all2md.transforms.builtin.AddAttachmentFootnotesTransform
    all2md.transforms.builtin.AddHeadingIdsTransform
    all2md.transforms.builtin.LinkRewriterTransform
    all2md.transforms.builtin.TextReplacerTransform
+   all2md.transforms.builtin.AddConversionTimestampTransform
+   all2md.transforms.builtin.CalculateWordCountTransform
 
 For the complete list, see :doc:`all2md.transforms.builtin`.
 
@@ -78,7 +81,8 @@ Hooks allow custom code execution at specific points in the pipeline:
 .. autosummary::
    :nosignatures:
 
-   all2md.transforms.hooks.TransformHooks
+   all2md.transforms.hooks.HookManager
+   all2md.transforms.hooks.HookContext
 
 Transform Options
 -----------------
@@ -88,7 +92,9 @@ Options for configuring transform behavior:
 .. autosummary::
    :nosignatures:
 
-   all2md.transforms.options.TransformOptions
+   all2md.transforms.options.RemoveNodesOptions
+   all2md.transforms.options.HeadingOffsetOptions
+   all2md.transforms.options.GenerateTocOptions
 
 Complete Transform Reference
 ----------------------------

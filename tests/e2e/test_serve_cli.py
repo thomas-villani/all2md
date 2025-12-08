@@ -164,10 +164,10 @@ def hello():
         """Test serving a single file."""
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file)])
+        self._start_server(["serve", str(md_file), "--port", "8001"])
 
         # Fetch the content
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8001/")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
@@ -181,10 +181,10 @@ def hello():
         self._create_test_markdown("file2.md", "# File 2\n\nThis is file 2.")
         self._create_test_markdown("file3.md", "# File 3\n\nThis is file 3.")
 
-        self._start_server(["serve", str(self.temp_dir)])
+        self._start_server(["serve", str(self.temp_dir), "--port", "8002"])
 
         # Fetch the index page
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8002/")
         html = content.decode("utf-8")
 
         # Should show directory listing
@@ -196,10 +196,10 @@ def hello():
         """Test accessing individual files in a served directory."""
         self._create_test_markdown("test.md", "# Test File\n\nContent here.")
 
-        self._start_server(["serve", str(self.temp_dir)])
+        self._start_server(["serve", str(self.temp_dir), "--port", "8003"])
 
         # Fetch specific file
-        content = self._fetch_url("http://127.0.0.1:8000/test.md")
+        content = self._fetch_url("http://127.0.0.1:8003/test.md")
         html = content.decode("utf-8")
 
         assert "Test File" in html
@@ -221,9 +221,9 @@ def hello():
         """Test serving with dark theme."""
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--dark"])
+        self._start_server(["serve", str(md_file), "--dark", "--port", "8004"])
 
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8004/")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
@@ -233,9 +233,9 @@ def hello():
         """Test serving with a custom theme."""
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--theme", "newspaper"])
+        self._start_server(["serve", str(md_file), "--theme", "newspaper", "--port", "8005"])
 
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8005/")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
@@ -258,9 +258,9 @@ More content.
 """
         md_file = self._create_test_markdown(content=content)
 
-        self._start_server(["serve", str(md_file), "--toc"])
+        self._start_server(["serve", str(md_file), "--toc", "--port", "8006"])
 
-        html_content = self._fetch_url("http://127.0.0.1:8000/")
+        html_content = self._fetch_url("http://127.0.0.1:8006/")
         html = html_content.decode("utf-8")
 
         assert "Main Title" in html
@@ -311,9 +311,9 @@ More content.
         html_file = self.temp_dir / "test.html"
         html_file.write_text(html_content, encoding="utf-8")
 
-        self._start_server(["serve", str(html_file)])
+        self._start_server(["serve", str(html_file), "--port", "8007"])
 
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8007/")
         html = content.decode("utf-8")
 
         assert "HTML Document" in html
@@ -322,11 +322,11 @@ More content.
         """Test that requesting non-existent path returns 404."""
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file)])
+        self._start_server(["serve", str(md_file), "--port", "8008"])
 
         # Try to fetch a non-existent path
         try:
-            self._fetch_url("http://127.0.0.1:8000/nonexistent")
+            self._fetch_url("http://127.0.0.1:8008/nonexistent")
             raise AssertionError("Should have raised URLError for 404")
         except URLError as e:
             # Expected 404 error
@@ -360,9 +360,9 @@ More content.
 """
         md_file = self._create_test_markdown(content=unicode_content)
 
-        self._start_server(["serve", str(md_file)])
+        self._start_server(["serve", str(md_file), "--port", "8009"])
 
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8009/")
         html = content.decode("utf-8")
 
         assert "Unicode Test Document" in html
@@ -378,10 +378,10 @@ More content.
         (subdir1 / "sub1.md").write_text("# Subdir1 File", encoding="utf-8")
 
         # Serve without --recursive flag
-        self._start_server(["serve", str(self.temp_dir)])
+        self._start_server(["serve", str(self.temp_dir), "--port", "8010"])
 
         # Fetch the index page
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8010/")
         html = content.decode("utf-8")
 
         # Should only show root files, not subdirectory files
@@ -407,10 +407,10 @@ More content.
         (nested / "nested.md").write_text("# Nested File", encoding="utf-8")
 
         # Serve WITH --recursive flag
-        self._start_server(["serve", str(self.temp_dir), "--recursive"])
+        self._start_server(["serve", str(self.temp_dir), "--recursive", "--port", "8011"])
 
         # Fetch the index page
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8011/")
         html = content.decode("utf-8")
 
         # Should show all files including subdirectories
@@ -420,12 +420,12 @@ More content.
         assert "nested.md" in html or "nested" in html
 
         # Test accessing file in subdirectory
-        content = self._fetch_url("http://127.0.0.1:8000/subdir1/sub1.md")
+        content = self._fetch_url("http://127.0.0.1:8011/subdir1/sub1.md")
         html = content.decode("utf-8")
         assert "Subdir1 File" in html
 
         # Test accessing file in nested subdirectory
-        content = self._fetch_url("http://127.0.0.1:8000/subdir1/nested/nested.md")
+        content = self._fetch_url("http://127.0.0.1:8011/subdir1/nested/nested.md")
         html = content.decode("utf-8")
         assert "Nested File" in html
 
@@ -433,10 +433,10 @@ More content.
         """Test that upload form is accessible when enabled."""
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--enable-upload"])
+        self._start_server(["serve", str(md_file), "--enable-upload", "--port", "8012"])
 
         # Fetch the upload page
-        content = self._fetch_url("http://127.0.0.1:8000/upload")
+        content = self._fetch_url("http://127.0.0.1:8012/upload")
         html = content.decode("utf-8")
 
         # Should show upload form
@@ -449,11 +449,11 @@ More content.
         """Test that upload form is not accessible by default."""
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file)])
+        self._start_server(["serve", str(md_file), "--port", "8013"])
 
         # Try to access upload page - should get 404
         try:
-            self._fetch_url("http://127.0.0.1:8000/upload")
+            self._fetch_url("http://127.0.0.1:8013/upload")
             raise AssertionError("Upload page should not be accessible without --enable-upload")
         except Exception:
             # Expected - either 404 or connection error
@@ -464,10 +464,10 @@ More content.
         # Create a directory with files
         self._create_test_markdown("file1.md", "# File 1")
 
-        self._start_server(["serve", str(self.temp_dir), "--enable-upload"])
+        self._start_server(["serve", str(self.temp_dir), "--enable-upload", "--port", "8014"])
 
         # Fetch the index page
-        content = self._fetch_url("http://127.0.0.1:8000/")
+        content = self._fetch_url("http://127.0.0.1:8014/")
         html = content.decode("utf-8")
 
         # Should show upload link
@@ -554,13 +554,13 @@ More content.
         # Create a markdown file
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--no-cache"])
+        self._start_server(["serve", str(md_file), "--no-cache", "--port", "8015"])
 
         # Fetch the content twice
-        content1 = self._fetch_url("http://127.0.0.1:8000/")
+        content1 = self._fetch_url("http://127.0.0.1:8015/")
         html1 = content1.decode("utf-8")
 
-        content2 = self._fetch_url("http://127.0.0.1:8000/")
+        content2 = self._fetch_url("http://127.0.0.1:8015/")
         html2 = content2.decode("utf-8")
 
         # Both should contain the same content (file unchanged)
@@ -571,7 +571,7 @@ More content.
         md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
 
         # Fetch again - should show new content due to --no-cache
-        content3 = self._fetch_url("http://127.0.0.1:8000/")
+        content3 = self._fetch_url("http://127.0.0.1:8015/")
         html3 = content3.decode("utf-8")
 
         assert "Updated Content" in html3
@@ -582,10 +582,10 @@ More content.
         # Create a markdown file
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file)])
+        self._start_server(["serve", str(md_file), "--port", "8016"])
 
         # Fetch the content once to populate cache
-        content1 = self._fetch_url("http://127.0.0.1:8000/")
+        content1 = self._fetch_url("http://127.0.0.1:8016/")
         html1 = content1.decode("utf-8")
 
         assert "Test Document" in html1
@@ -594,7 +594,7 @@ More content.
         md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
 
         # Fetch again - should still show old content due to cache
-        content2 = self._fetch_url("http://127.0.0.1:8000/")
+        content2 = self._fetch_url("http://127.0.0.1:8016/")
         html2 = content2.decode("utf-8")
 
         assert "Test Document" in html2
@@ -605,10 +605,10 @@ More content.
         # Create initial files
         self._create_test_markdown("file1.md", "# File 1")
 
-        self._start_server(["serve", str(self.temp_dir), "--no-cache"])
+        self._start_server(["serve", str(self.temp_dir), "--no-cache", "--port", "8017"])
 
         # Fetch the index
-        content1 = self._fetch_url("http://127.0.0.1:8000/")
+        content1 = self._fetch_url("http://127.0.0.1:8017/")
         html1 = content1.decode("utf-8")
 
         assert "file1.md" in html1
@@ -617,7 +617,7 @@ More content.
         self._create_test_markdown("file2.md", "# File 2")
 
         # Fetch again - should show new file due to --no-cache
-        content2 = self._fetch_url("http://127.0.0.1:8000/")
+        content2 = self._fetch_url("http://127.0.0.1:8017/")
         html2 = content2.decode("utf-8")
 
         assert "file1.md" in html2
@@ -628,10 +628,10 @@ More content.
         # Create a file
         md_file = self._create_test_markdown("test.md", "# Original Content")
 
-        self._start_server(["serve", str(self.temp_dir), "--no-cache"])
+        self._start_server(["serve", str(self.temp_dir), "--no-cache", "--port", "8018"])
 
         # Fetch the file
-        content1 = self._fetch_url("http://127.0.0.1:8000/test.md")
+        content1 = self._fetch_url("http://127.0.0.1:8018/test.md")
         html1 = content1.decode("utf-8")
 
         assert "Original Content" in html1
@@ -640,7 +640,7 @@ More content.
         md_file.write_text("# Modified Content", encoding="utf-8")
 
         # Fetch again - should show new content due to --no-cache
-        content2 = self._fetch_url("http://127.0.0.1:8000/test.md")
+        content2 = self._fetch_url("http://127.0.0.1:8018/test.md")
         html2 = content2.decode("utf-8")
 
         assert "Modified Content" in html2

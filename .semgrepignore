@@ -1,0 +1,15 @@
+# Semgrep ignore patterns
+# Documentation: https://semgrep.dev/docs/ignoring-files-folders-code
+
+# Build and cache directories
+build/
+dist/
+.venv/
+__pycache__/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Example files (not production code)
+examples/

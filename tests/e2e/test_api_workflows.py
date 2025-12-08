@@ -13,6 +13,8 @@ from io import BytesIO
 
 import pytest
 
+from all2md.utils.input_sources import NamedBytesIO
+
 DOCX_AVAILABLE = find_spec("docx") is not None
 REPORTLAB_AVAILABLE = find_spec("reportlab") is not None
 EBOOKLIB_AVAILABLE = find_spec("ebooklib") is not None
@@ -999,22 +1001,23 @@ class TestFullConversionPipeline:
 
     def test_automatic_format_detection_pipeline(self, temp_dir):
         """Test automatic format detection in the conversion pipeline."""
-        # Test with different file types without explicit extension
+        # Test with different file types using filename hints for ZIP-based formats
 
-        # DOCX test
+        # DOCX test - use NamedBytesIO since DOCX/EPUB/XLSX all share ZIP magic bytes
+        # and cannot be reliably distinguished by content alone
         doc = create_docx_with_formatting()
         docx_bytes = save_docx_to_bytes(doc)
 
-        result_docx = to_markdown(BytesIO(docx_bytes))  # No explicit extension
+        result_docx = to_markdown(NamedBytesIO(docx_bytes, name="document.docx"))
         # Format detection successful - result should contain converted content
         assert result_docx
         assert_markdown_valid(result_docx)
 
-        # HTML test
+        # HTML test - pure content detection works since HTML has unique signatures
         html_content = create_html_with_tables()
         html_bytes = html_content.encode("utf-8")
 
-        result_html = to_markdown(BytesIO(html_bytes))  # No explicit extension
+        result_html = to_markdown(BytesIO(html_bytes))  # No explicit extension needed
         # Format detection successful - result should contain converted content
         assert result_html
         assert_markdown_valid(result_html)

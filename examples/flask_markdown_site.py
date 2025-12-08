@@ -187,6 +187,8 @@ class MarkdownSite:
             index_page = self.parse_markdown_file(index_file)
             index_content = index_page.content
 
+        # nosemgrep: python.flask.security.audit.render-template-string.render-template-string
+        # HTML_TEMPLATE is a static constant, not user-controlled input
         return render_template_string(HTML_TEMPLATE, title="Home", content=index_content, posts=posts, page=None)
 
     def serve_page(self, page_path: str) -> str:
@@ -220,6 +222,8 @@ class MarkdownSite:
             abort(404)
 
         page = self.parse_markdown_file(md_file)
+        # nosemgrep: python.flask.security.audit.render-template-string.render-template-string
+        # HTML_TEMPLATE is a static constant, not user-controlled input
         return render_template_string(HTML_TEMPLATE, title=page.title, content=page.content, posts=None, page=page)
 
     def serve_static(self, filename: str) -> Any:
