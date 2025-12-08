@@ -30,6 +30,7 @@ from all2md.ast import (
     Text,
     Underline,
 )
+from all2md.constants import DEPS_RTF
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError
 from all2md.options.rtf import RtfOptions
@@ -61,7 +62,7 @@ class RtfToAstConverter(BaseParser):
 
     """
 
-    @requires_dependencies("rtf", [("pyth3", "pyth", "")])
+    @requires_dependencies("rtf", DEPS_RTF)
     def __init__(self, options: RtfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the RTF parser with options and progress callback."""
         BaseParser._validate_options_type(options, RtfOptions, "rtf")

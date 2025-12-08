@@ -32,7 +32,7 @@ PRESETS: Dict[str, Dict[str, Any]] = {
     "quality": {
         "description": "High quality processing with maximum fidelity",
         "config": {
-            "attachment_mode": "download",
+            "attachment_mode": "save",
             "pdf": {
                 "detect_columns": True,
                 "enable_table_fallback_detection": True,
@@ -70,7 +70,7 @@ PRESETS: Dict[str, Dict[str, Any]] = {
     "complete": {
         "description": "Complete preservation with all content and metadata",
         "config": {
-            "attachment_mode": "download",
+            "attachment_mode": "save",
             "pdf": {
                 "detect_columns": True,
                 "enable_table_fallback_detection": True,
@@ -116,7 +116,7 @@ PRESETS: Dict[str, Dict[str, Any]] = {
     "documentation": {
         "description": "Optimized for technical documentation",
         "config": {
-            "attachment_mode": "download",
+            "attachment_mode": "save",
             "markdown": {
                 "emphasis_symbol": "_",
             },
@@ -243,11 +243,11 @@ def apply_preset(preset_name: str, base_config: Dict[str, Any]) -> Dict[str, Any
 
     Examples
     --------
-    >>> base = {'attachment_mode': 'download'}
+    >>> base = {'attachment_mode': 'save'}
     >>> result = apply_preset('fast', base)
-    >>> # attachment_mode remains 'download' (base takes precedence)
+    >>> # attachment_mode remains 'save' (base takes precedence)
     >>> print(result['attachment_mode'])
-    download
+    save
     >>> # But pdf.skip_image_extraction comes from preset
     >>> print(result['pdf']['skip_image_extraction'])
     True

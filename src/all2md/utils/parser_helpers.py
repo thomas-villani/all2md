@@ -294,7 +294,7 @@ def attachment_result_to_image_node(
 
     Notes
     -----
-    This function handles all attachment modes (skip, alt_text, download, base64)
+    This function handles all attachment modes (skip, alt_text, save, base64)
     consistently. It extracts URL directly from the result dict when available,
     and only falls back to markdown parsing when necessary.
 
@@ -304,7 +304,7 @@ def attachment_result_to_image_node(
     if not markdown:
         return None
 
-    # Get URL directly from result (available for download/base64 modes)
+    # Get URL directly from result (available for save/base64 modes)
     url = attachment_result.get("url", "")
 
     # Extract alt text from markdown using simple regex

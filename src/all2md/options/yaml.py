@@ -82,6 +82,10 @@ class YamlParserOptions(BaseParserOptions):
         metadata={"help": "Sort object keys alphabetically", "importance": "core"},
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class YamlRendererOptions(BaseRendererOptions):
@@ -154,3 +158,7 @@ class YamlRendererOptions(BaseRendererOptions):
         default=False,
         metadata={"help": "Sort keys in output YAML", "importance": "core"},
     )
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

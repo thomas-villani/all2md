@@ -498,7 +498,7 @@ HTML processing includes sophisticated network security features to prevent SSRF
            network_timeout=5.0,           # 5-second timeout
            max_remote_asset_bytes=2 * 1024 * 1024  # 2MB image limit
        ),
-       attachment_mode="download",
+       attachment_mode="save",
        attachment_output_dir="./secure_images"
    )
 

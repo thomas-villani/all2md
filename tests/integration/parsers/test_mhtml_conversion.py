@@ -107,7 +107,7 @@ class TestMhtmlIntegrationImages:
         mhtml_file = create_mhtml_file(mhtml_content, temp_dir)
 
         image_dir = temp_dir / "images"
-        options = MhtmlOptions(attachment_mode="download", attachment_output_dir=str(image_dir))
+        options = MhtmlOptions(attachment_mode="save", attachment_output_dir=str(image_dir))
         result = mhtml_to_markdown(mhtml_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -318,7 +318,7 @@ class TestMhtmlIntegrationOptions:
             (MhtmlOptions(), None),  # Default options
             (MhtmlOptions(attachment_mode="base64"), None),
             (MhtmlOptions(attachment_mode="skip"), None),
-            (MhtmlOptions(attachment_mode="download", attachment_output_dir=str(temp_dir / "images")), None),
+            (MhtmlOptions(attachment_mode="save", attachment_output_dir=str(temp_dir / "images")), None),
             (MhtmlOptions(attachment_mode="base64"), MarkdownRendererOptions(emphasis_symbol="_")),
         ]
 

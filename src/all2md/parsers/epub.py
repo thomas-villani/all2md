@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
+from all2md.constants import DEPS_EPUB
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError, ZipFileSecurityError
 from all2md.options.epub import EpubOptions
@@ -59,7 +60,7 @@ class EpubToAstConverter(BaseParser):
         )
         self.html_parser = HtmlToAstConverter(html_opts)
 
-    @requires_dependencies("epub", [("ebooklib", "ebooklib", "")])
+    @requires_dependencies("epub", DEPS_EPUB)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse EPUB file into an AST Document.
 

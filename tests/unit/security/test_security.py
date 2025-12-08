@@ -628,7 +628,7 @@ class TestAttachmentProcessingSecurity:
         result = process_attachment(
             attachment_data=test_data,
             attachment_name=malicious_name,
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=False,
         )
@@ -649,7 +649,7 @@ class TestAttachmentProcessingSecurity:
         result1 = process_attachment(
             attachment_data=test_data1,
             attachment_name="test.txt",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=False,
         )
@@ -659,7 +659,7 @@ class TestAttachmentProcessingSecurity:
         result2 = process_attachment(
             attachment_data=test_data2,
             attachment_name="test.txt",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=False,
         )
@@ -682,7 +682,7 @@ class TestAttachmentProcessingSecurity:
         result = process_attachment(
             attachment_data=test_data,
             attachment_name=unicode_name,
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=True,
         )
@@ -709,7 +709,7 @@ class TestAttachmentProcessingSecurity:
         result = process_attachment(
             attachment_data=b"test data",
             attachment_name="test.txt",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=invalid_dir,
             is_image=False,
         )
@@ -722,7 +722,7 @@ class TestAttachmentProcessingSecurity:
         result = process_attachment(
             attachment_data=b"test data",
             attachment_name="con.txt",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=False,
         )
@@ -743,7 +743,7 @@ class TestAttachmentProcessingSecurity:
         result1 = process_attachment(
             attachment_data=test_data,
             attachment_name="TEST.txt",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=False,
         )
@@ -751,7 +751,7 @@ class TestAttachmentProcessingSecurity:
         result2 = process_attachment(
             attachment_data=test_data,
             attachment_name="test.txt",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(self.temp_dir),
             is_image=False,
         )

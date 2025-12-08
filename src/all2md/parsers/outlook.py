@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document, Heading, Node, Paragraph, Text, ThematicBreak
+from all2md.constants import DEPS_OUTLOOK
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, ParsingError, ValidationError
 from all2md.options.outlook import OutlookOptions
@@ -221,7 +222,7 @@ class OutlookToAstConverter(BaseParser):
         self.options: OutlookOptions = options
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    @requires_dependencies("outlook", [("extract-msg", "extract_msg", "")])
+    @requires_dependencies("outlook", DEPS_OUTLOOK)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Outlook file into an AST Document.
 

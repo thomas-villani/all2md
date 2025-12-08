@@ -32,7 +32,7 @@ Supported Formats
 
 Requirements
 ------------
-- Python 3.12+
+- Python 3.10+
 - Optional dependencies loaded per format (PyMuPDF, python-docx, etc.)
 
 Examples
@@ -80,9 +80,9 @@ all2md.ast : AST node definitions and utilities
 # Check Python version before any imports
 import sys
 
-if sys.version_info < (3, 12):
+if sys.version_info < (3, 10):
     raise ImportError(
-        "all2md requires Python 3.12 or later. "
+        "all2md requires Python 3.10 or later. "
         f"You are using Python {sys.version_info.major}.{sys.version_info.minor}."
     )
 

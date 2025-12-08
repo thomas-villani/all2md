@@ -25,6 +25,7 @@ from all2md.ast import (
     Paragraph,
     Text,
 )
+from all2md.constants import DEPS_ODF
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.options.ods import OdsSpreadsheetOptions
@@ -240,7 +241,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         # Type hint for IDE
         self.options: OdsSpreadsheetOptions = options
 
-    @requires_dependencies("ods", [("odfpy", "odf", "")])
+    @requires_dependencies("ods", DEPS_ODF)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse ODS spreadsheet into an AST.
 

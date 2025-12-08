@@ -31,7 +31,7 @@ from email.message import Message
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-from all2md.constants import DEFAULT_USER_AGENT
+from all2md.constants import DEFAULT_USER_AGENT, DEPS_NETWORK
 from all2md.exceptions import NetworkSecurityError
 from all2md.utils.decorators import requires_dependencies
 
@@ -418,7 +418,7 @@ def validate_url_security(url: str, allowed_hosts: list[str] | None = None, requ
     logger.debug(f"URL security validation passed for: {url}")
 
 
-@requires_dependencies("network", [("httpx", "httpx", ">=0.28.1")])
+@requires_dependencies("network", DEPS_NETWORK)
 def create_secure_http_client(
     timeout: float = 10.0,
     max_redirects: int = 5,

@@ -26,6 +26,7 @@ from all2md.ast import (
     Table,
     Text,
 )
+from all2md.constants import DEPS_XLSX
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.options.xlsx import XlsxOptions
@@ -453,7 +454,7 @@ class XlsxToAstConverter(BaseParser):
         # Type hint for IDE
         self.options: XlsxOptions = options
 
-    @requires_dependencies("xlsx", [("openpyxl", "openpyxl", "")])
+    @requires_dependencies("xlsx", DEPS_XLSX)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse the XLSX file into an AST.
 

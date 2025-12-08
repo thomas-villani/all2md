@@ -4299,7 +4299,7 @@ Environment variables use the pattern ``ALL2MD_<OPTION_NAME>`` where ``<OPTION_N
 .. code-block:: bash
 
    # Global attachment options (applies to attachment-capable formats)
-   export ALL2MD_ATTACHMENT_MODE="download"
+   export ALL2MD_ATTACHMENT_MODE="save"
    export ALL2MD_ATTACHMENT_OUTPUT_DIR="./attachments"
 
    # Markdown formatting

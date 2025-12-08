@@ -1,8 +1,7 @@
 """Unit tests for metadata utilities."""
 
-import tomllib
-
 import pytest
+import tomllib
 import yaml
 
 from all2md.utils.metadata import (

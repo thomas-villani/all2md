@@ -519,17 +519,15 @@ class HelpRenderer:
         if rendered:
             lines.extend(rendered)
 
-        lines.append(
-            "\nNote: showing only global options."
-            "\nRun 'all2md help full' for all options including format-specific parser/renderer options,"
-            "\n'all2md help transform' for transform options,"
-            "\n'all2md help rich-output-customization' for rich formatting options,"
-            "\nor 'all2md help <format>' to see options for a specific format (e.g., 'all2md help pdf')."
-        )
-
         if self.catalog.epilog:
             lines.append("")
             lines.append(self.catalog.epilog.strip())
+
+        lines.append(
+            "\nNote: showing only global options."
+            "\nRun: `all2md help full` for all options including format-specific parser/renderer options."
+            "\nRun: `all2md help <format>` to see options for a specific format (e.g., `all2md help pdf`)."
+        )
 
         return "\n".join(lines)
 
@@ -750,12 +748,23 @@ class HelpRenderer:
         if stripped.startswith("--") or (stripped.startswith("-") and not stripped.startswith("--")):
             parts = stripped.split(" ", 1)
             flag_part = parts[0]
-            remainder = parts[1] if len(parts) > 1 else ""
+            # print(flag_part[-1])
+            if flag_part[-1] == "," and len(parts) > 1 and parts[1][0] == "-":
+                parts = parts[1].split(" ", maxsplit=1)
+                flag_part += " " + parts[0]
+                remainder = parts[1] if len(parts) > 1 else ""
+            else:
+                remainder = parts[1] if len(parts) > 1 else ""
+
             text.append(flag_part, style="bold cyan")
             if remainder:
                 remainder_text = Text(" " + remainder)
                 self._highlight_metadata(remainder_text)
                 text += remainder_text
+            return text
+
+        if stripped.startswith(("Note:", "Run: `")):
+            text.append(stripped, style="dim")
             return text
 
         content = Text(stripped)

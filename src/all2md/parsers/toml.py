@@ -85,6 +85,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
+from all2md.constants import DEPS_TOML
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.toml import TomlParserOptions
@@ -134,7 +135,7 @@ class TomlParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: TomlParserOptions = options
 
-    @requires_dependencies("toml", [("tomli-w", "tomli_w", ">=1.0.0")])
+    @requires_dependencies("toml", DEPS_TOML)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse TOML input into AST Document.
 

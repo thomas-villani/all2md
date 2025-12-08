@@ -42,6 +42,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DEPS_RTF_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.rtf import RtfRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -184,7 +185,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
             return f"{line}\n{underline}"
         return line
 
-    @requires_dependencies("rtf_render", [("pyth3", "pyth", ">=0.7"), ("six", "six", ">=1.16.0")])
+    @requires_dependencies("rtf_render", DEPS_RTF_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render a document to an RTF stream or file."""
         self._ensure_dependencies()
@@ -203,7 +204,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
                 original_error=exc,
             ) from exc
 
-    @requires_dependencies("rtf_render", [("pyth3", "pyth", ""), ("six", "six", ">=1.16.0")])
+    @requires_dependencies("rtf_render", DEPS_RTF_RENDER)
     def render_to_string(self, doc: Document) -> str:
         """Render a document to an in-memory RTF string."""
         self._ensure_dependencies()

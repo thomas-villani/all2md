@@ -782,7 +782,7 @@ Set default attachment behavior via environment variables:
 .. code-block:: bash
 
    # Set default mode
-   export ALL2MD_ATTACHMENT_MODE="download"
+   export ALL2MD_ATTACHMENT_MODE="save"
    export ALL2MD_ATTACHMENT_OUTPUT_DIR="./attachments"
    export ALL2MD_ATTACHMENT_BASE_URL="https://cdn.example.com"
 

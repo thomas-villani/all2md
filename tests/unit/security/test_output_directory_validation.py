@@ -209,7 +209,7 @@ class TestProcessAttachmentOutputDirectoryValidation:
         result = process_attachment(
             attachment_data=b"fake image data",
             attachment_name="test.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=output_dir,
             block_sensitive_paths=True,
         )
@@ -233,7 +233,7 @@ class TestProcessAttachmentOutputDirectoryValidation:
         result = process_attachment(
             attachment_data=b"fake image data",
             attachment_name="test.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=dangerous_dir,
         )
 
@@ -261,7 +261,7 @@ class TestProcessAttachmentOutputDirectoryValidation:
         result = process_attachment(
             attachment_data=b"fake image data",
             attachment_name="test.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=dangerous_dir,
             block_sensitive_paths=True,
         )
@@ -281,7 +281,7 @@ class TestProcessAttachmentOutputDirectoryValidation:
         result = process_attachment(
             attachment_data=b"fake image data",
             attachment_name="test.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=None,  # Should default to "attachments"
         )
 
@@ -303,7 +303,7 @@ class TestProcessAttachmentOutputDirectoryValidation:
         result = process_attachment(
             attachment_data=b"fake image data",
             attachment_name="test.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=output_dir,
         )
 

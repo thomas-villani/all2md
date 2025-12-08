@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document
+from all2md.constants import DEPS_MHTML
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.mhtml import MhtmlOptions
@@ -48,7 +49,7 @@ class MhtmlToAstConverter(BaseParser):
         self.options: MhtmlOptions = options
         self._html_parser = HtmlToAstConverter(self.options)
 
-    @requires_dependencies("mhtml", [("beautifulsoup4", "bs4", "")])
+    @requires_dependencies("mhtml", DEPS_MHTML)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse MHTML file into an AST Document.
 

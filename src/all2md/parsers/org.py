@@ -48,6 +48,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.constants import DEPS_ORG
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.org import OrgParserOptions
@@ -140,7 +141,7 @@ class OrgParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: OrgParserOptions = options
 
-    @requires_dependencies("org", [("orgparse", "orgparse", "")])
+    @requires_dependencies("org", DEPS_ORG)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Org-Mode input into AST Document.
 

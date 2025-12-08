@@ -252,7 +252,7 @@ class AttachmentOptionsMixin(CloneFrozenMixin):
     alt_text_mode : AltTextMode
         How to render alt-text content
     attachment_output_dir : str or None
-        Directory to save attachments when using download mode
+        Directory to save attachments when using save mode
     attachment_base_url : str or None
         Base URL for resolving attachment references
     max_asset_size_bytes : int
@@ -294,7 +294,7 @@ class AttachmentOptionsMixin(CloneFrozenMixin):
         default=DEFAULT_ATTACHMENT_MODE,  # alt_text
         metadata={
             "help": "How to handle attachments/images",
-            "choices": ["skip", "alt_text", "download", "base64"],
+            "choices": ["skip", "alt_text", "save", "base64"],
             "importance": "core",
         },
     )

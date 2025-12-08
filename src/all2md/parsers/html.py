@@ -53,6 +53,8 @@ from all2md.ast import (
 )
 from all2md.constants import (
     DANGEROUS_HTML_ELEMENTS,
+    DEPS_HTML,
+    DEPS_HTML_READABILITY,
     MAX_JSON_LD_SIZE_BYTES,
     MAX_META_TAG_CONTENT_LENGTH,
 )
@@ -189,7 +191,7 @@ class HtmlToAstConverter(BaseParser):
         self._heading_level_offset = 0
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    @requires_dependencies("html", [("beautifulsoup4", "bs4", ">=4.14.2")])
+    @requires_dependencies("html", DEPS_HTML)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse HTML document into an AST.
 
@@ -344,7 +346,7 @@ class HtmlToAstConverter(BaseParser):
         return Document(children=children, metadata=metadata.to_dict())
 
     @staticmethod
-    @requires_dependencies("html", [("readability-lxml", "readability", ">=0.8.1")])
+    @requires_dependencies("html", DEPS_HTML_READABILITY)
     def _extract_readable_html(html_content: str) -> tuple[str, str | None]:
         """Extract the readable article content using readability-lxml.
 
@@ -1595,9 +1597,9 @@ class HtmlToAstConverter(BaseParser):
         # Current attachment mode (may change on error)
         current_attachment_mode = self.options.attachment_mode
 
-        # Download image data if needed for base64 or download modes
+        # Fetch image data if needed for base64 or save modes
         image_data = None
-        if current_attachment_mode in ["base64", "download"]:
+        if current_attachment_mode in ["base64", "save"]:
             try:
                 if is_file_url:
                     # For local files, read directly from filesystem

@@ -78,6 +78,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
+from all2md.constants import DEPS_YAML
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.yaml import YamlParserOptions
@@ -127,7 +128,7 @@ class YamlParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: YamlParserOptions = options
 
-    @requires_dependencies("yaml", [("pyyaml", "yaml", ">=6.0")])
+    @requires_dependencies("yaml", DEPS_YAML)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse YAML input into AST Document.
 

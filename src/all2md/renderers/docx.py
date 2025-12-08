@@ -66,6 +66,7 @@ from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DEPS_DOCX_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.docx import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -118,7 +119,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
 
-    @requires_dependencies("docx_render", [("python-docx", "docx", ">=1.2.0")])
+    @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to a DOCX file.
 
@@ -176,7 +177,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Clean up temp files
             self._cleanup_temp_files()
 
-    @requires_dependencies("docx_render", [("python-docx", "docx", ">=1.2.0")])
+    @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
     def render_to_bytes(self, doc: ASTDocument) -> bytes:
         """Render the AST to DOCX bytes.
 
@@ -618,7 +619,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Add horizontal line using a simple text separator
         para = self.document.add_paragraph()
-        run = para.add_run("─" * 80)  # Em dash character
+        run = para.add_run("─" * 78)  # Box drawing horizontal character
         run.font.color.rgb = self._RGBColor(192, 192, 192)  # Light gray
 
     def visit_html_block(self, node: HTMLBlock) -> None:

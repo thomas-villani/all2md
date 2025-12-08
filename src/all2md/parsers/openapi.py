@@ -26,6 +26,7 @@ from all2md.ast import (
     TableRow,
     Text,
 )
+from all2md.constants import DEPS_OPENAPI
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.openapi import OpenApiParserOptions
@@ -196,7 +197,7 @@ class OpenApiParser(BaseParser):
         super().__init__(options or OpenApiParserOptions(), progress_callback)
         self.options: OpenApiParserOptions = options or OpenApiParserOptions()
 
-    @requires_dependencies("openapi", [("PyYAML", "yaml", ">=5.1")])
+    @requires_dependencies("openapi", DEPS_OPENAPI)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse OpenAPI/Swagger specification into an AST.
 

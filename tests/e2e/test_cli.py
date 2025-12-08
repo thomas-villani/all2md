@@ -445,7 +445,7 @@ def example_function():
                 "--out",
                 str(output_file),
                 "--attachment-mode",
-                "download",
+                "save",
                 "--attachment-output-dir",
                 str(images_dir),
                 "--markdown-emphasis-symbol",
@@ -694,7 +694,7 @@ def example_function():
         images_dir = self.temp_dir / "images"
 
         result = self._run_cli(
-            [str(ipynb_file), "--attachment-mode", "download", "--attachment-output-dir", str(images_dir)]
+            [str(ipynb_file), "--attachment-mode", "save", "--attachment-output-dir", str(images_dir)]
         )
 
         assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
@@ -797,7 +797,7 @@ def example_function():
                 "--out",
                 str(output_file),
                 "--attachment-mode",
-                "download",
+                "save",
                 "--attachment-output-dir",
                 str(images_dir),
             ]
@@ -957,7 +957,7 @@ class TestEpubCLIEndToEnd:
                 "--out",
                 str(output_file),
                 "--attachment-mode",
-                "download",
+                "save",
                 "--attachment-output-dir",
                 str(images_dir),
             ]
@@ -1106,7 +1106,7 @@ class TestMhtmlCLIEndToEnd:
                 "--out",
                 str(output_file),
                 "--attachment-mode",
-                "download",
+                "save",
                 "--attachment-output-dir",
                 str(images_dir),
             ]

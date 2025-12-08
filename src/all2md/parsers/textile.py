@@ -18,6 +18,7 @@ from typing import IO, Any, Optional, Union
 
 from all2md import HtmlOptions, NetworkFetchOptions
 from all2md.ast import Document
+from all2md.constants import DEPS_TEXTILE
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.textile import TextileParserOptions
@@ -69,7 +70,7 @@ class TextileParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: TextileParserOptions = options
 
-    @requires_dependencies("textile", [("textile", "textile", "")])
+    @requires_dependencies("textile", DEPS_TEXTILE)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Textile input into AST Document.
 

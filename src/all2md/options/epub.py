@@ -163,3 +163,7 @@ class EpubOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     html_options: HtmlOptions | None = field(default=None, metadata={"cli_flatten": True})  # Nested, handled separately
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

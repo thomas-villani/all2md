@@ -53,7 +53,7 @@ class TestFileReadingTOCTOU:
             html = f'<img src="{file_url}" alt="test">'
 
             options = HtmlOptions(
-                attachment_mode="download",
+                attachment_mode="save",
                 attachment_output_dir=temp_dir,
                 local_files=LocalFileAccessOptions(
                     allow_local_files=True,

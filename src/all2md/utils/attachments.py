@@ -7,7 +7,7 @@ AttachmentMode system with consistent behavior across different parsers.
 The attachment handling modes are:
 - "skip": Remove attachments completely
 - "alt_text": Use alt-text for images, filename for files
-- "download": Save to folder and reference with markdown links
+- "save": Save to folder and reference with markdown links
 - "base64": Embed as base64 data URIs (images only)
 
 Functions
@@ -657,7 +657,7 @@ def _handle_base64_mode(
     return _make_result(markdown, url=data_uri, source_data="base64")
 
 
-def _handle_download_mode(
+def _handle_save_mode(
     attachment_data: bytes | None,
     attachment_name: str,
     alt_text: str,
@@ -667,7 +667,7 @@ def _handle_download_mode(
     allowed_output_base_dirs: list[str | Path] | None,
     block_sensitive_paths: bool,
 ) -> dict[str, Any] | None:
-    """Handle download attachment mode.
+    """Handle save attachment mode.
 
     Parameters
     ----------
@@ -726,7 +726,7 @@ def _handle_download_mode(
     # Check if attachment data is available
     if not attachment_data:
         logger.warning(
-            f"No attachment data available for download mode: {attachment_name}. " f"Falling back to alt_text mode."
+            f"No attachment data available for save mode: {attachment_name}. " f"Falling back to alt_text mode."
         )
         return None
 
@@ -805,12 +805,12 @@ def process_attachment(
     attachment_mode : AttachmentMode, default "alt_text"
         How to handle the attachment
     attachment_output_dir : str | None, default None
-        Directory to save attachments in download mode. For security, the directory
+        Directory to save attachments in save mode. For security, the directory
         is validated to ensure it stays within the current working directory and
         does not contain path traversal patterns. If validation fails, falls back
         to alt_text mode. Defaults to "attachments" if None.
     attachment_base_url : str | None, default None
-        Base URL for resolving relative URLs in download mode.
+        Base URL for resolving relative URLs in save mode.
         Note: Only the filename (not the directory structure) is appended to this URL.
         For example, if attachment_output_dir="attachments/images" and
         attachment_base_url="https://example.com/assets/", the resulting URL will be
@@ -861,9 +861,9 @@ def process_attachment(
             return result
         # Fall through to fallback if base64 failed
 
-    # Handle download mode
-    if attachment_mode == "download":
-        result = _handle_download_mode(
+    # Handle save mode
+    if attachment_mode == "save":
+        result = _handle_save_mode(
             attachment_data,
             attachment_name,
             alt_text,
@@ -875,7 +875,7 @@ def process_attachment(
         )
         if result is not None:
             return result
-        # Fall through to fallback if download failed
+        # Fall through to fallback if save failed
 
     # Fallback to alt_text mode if attachment data is missing or mode is unsupported
     logger.debug(

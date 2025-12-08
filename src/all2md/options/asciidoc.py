@@ -148,6 +148,10 @@ class AsciiDocOptions(BaseParserOptions):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class AsciiDocRendererOptions(BaseRendererOptions):

@@ -63,6 +63,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DEPS_ODF_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.odp import OdpRendererOptions
 from all2md.renderers._split_utils import (
@@ -122,7 +123,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         self._temp_files: list[str] = []  # Track temp files for cleanup
         self._presentation: Any | None = None  # Current presentation object for image embedding
 
-    @requires_dependencies("odp_render", [("odfpy", "odf", "")])
+    @requires_dependencies("odp_render", DEPS_ODF_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to an ODP file.
 
@@ -201,7 +202,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 except Exception:
                     pass  # Ignore cleanup errors
 
-    @requires_dependencies("odp_render", [("odfpy", "odf", "")])
+    @requires_dependencies("odp_render", DEPS_ODF_RENDER)
     def render_to_bytes(self, doc: Document) -> bytes:
         """Render the AST to ODP bytes.
 

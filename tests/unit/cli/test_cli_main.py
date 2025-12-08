@@ -160,7 +160,7 @@ class TestCLIIntegration:
                 [
                     str(html_file),
                     "--attachment-mode",
-                    "download",
+                    "save",
                     "--attachment-output-dir",
                     "./images",
                     "--attachment-base-url",
@@ -174,7 +174,7 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_mode"] == "save"
             assert kwargs["attachment_output_dir"] == "./images"
             assert kwargs["attachment_base_url"] == "https://example.com"
 
@@ -330,7 +330,7 @@ class TestCLIIntegration:
                     "--html-extract-title",
                     "--html-strip-dangerous-elements",
                     "--attachment-mode",
-                    "download",
+                    "save",
                     "--attachment-output-dir",
                     "images",
                     "--markdown-emphasis-symbol",
@@ -351,7 +351,7 @@ class TestCLIIntegration:
             assert kwargs["source_format"] == "html"
             assert kwargs["extract_title"] is True
             assert kwargs["strip_dangerous_elements"] is True
-            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_mode"] == "save"
             assert kwargs["attachment_output_dir"] == "images"
             assert kwargs["emphasis_symbol"] == "_"
             assert kwargs["bullet_symbols"] == "•→◦"
@@ -452,7 +452,7 @@ class TestCLIIntegration:
                 [
                     str(odt_file),
                     "--attachment-mode",
-                    "download",
+                    "save",
                     "--attachment-output-dir",
                     str(self.temp_dir / "images"),
                     "--attachment-base-url",
@@ -464,7 +464,7 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_mode"] == "save"
             assert kwargs["attachment_output_dir"] == str(self.temp_dir / "images")
             assert kwargs["attachment_base_url"] == "https://example.com/images/"
 
@@ -570,7 +570,7 @@ class TestCLIIntegration:
                 [
                     str(ipynb_file),
                     "--attachment-mode",
-                    "download",
+                    "save",
                     "--attachment-output-dir",
                     str(self.temp_dir / "plots"),
                     "--attachment-base-url",
@@ -582,7 +582,7 @@ class TestCLIIntegration:
             call_args = mock_to_markdown.call_args
             kwargs = call_args[1]
 
-            assert kwargs["attachment_mode"] == "download"
+            assert kwargs["attachment_mode"] == "save"
             assert kwargs["attachment_output_dir"] == str(self.temp_dir / "plots")
             assert kwargs["attachment_base_url"] == "https://example.com/plots/"
 
@@ -1077,7 +1077,7 @@ class TestAdvancedCLIIntegration:
                     "--output-dir",
                     str(output_dir),
                     "--attachment-mode",
-                    "download",
+                    "save",
                     "--attachment-output-dir",
                     str(images_dir),
                     "--no-summary",
@@ -1090,7 +1090,7 @@ class TestAdvancedCLIIntegration:
             assert mock_convert.call_count == 2
             for call in mock_convert.call_args_list:
                 kwargs = call[1]
-                assert kwargs["attachment_mode"] == "download"
+                assert kwargs["attachment_mode"] == "save"
                 assert str(images_dir) in kwargs["attachment_output_dir"]
 
     def test_markdown_options_with_multi_file(self):
@@ -1561,7 +1561,7 @@ class TestEnhancedCLIIntegration:
                 "--markdown-bullet-symbols",
                 "*-+",
                 "--attachment-mode",
-                "download",
+                "save",
                 "--attachment-output-dir",
                 "./images",
                 "--rich",
@@ -1589,7 +1589,7 @@ class TestEnhancedCLIIntegration:
         assert config["pdf.detect_columns"] is False
         assert config["markdown.emphasis_symbol"] == "_"
         assert config["markdown.bullet_symbols"] == "*-+"
-        assert config["attachment_mode"] == "download"
+        assert config["attachment_mode"] == "save"
         assert config["attachment_output_dir"] == "./images"
         assert config["rich"] is True
         assert config["exclude"] == ["*.tmp", "backup_*"]

@@ -280,7 +280,7 @@ class TestDocxImagesAdvanced:
         doc.save(str(temp_file))
 
         # Test download mode
-        options = DocxOptions(attachment_mode="download", attachment_output_dir=str(self.temp_dir / "downloads"))
+        options = DocxOptions(attachment_mode="save", attachment_output_dir=str(self.temp_dir / "downloads"))
 
         markdown = docx_to_markdown(str(temp_file), parser_options=options)
         assert_markdown_valid(markdown)

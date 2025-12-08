@@ -425,7 +425,7 @@ Features:
   • Plugin system for custom transforms
   • Intelligent format detection from content
   • Configurable Markdown output options
-  • Attachment handling (download, embed, skip)
+  • Attachment handling (save, embed, skip)
   • Command-line interface with stdin support
   • Python API for programmatic use
   • Multi-file and directory processing

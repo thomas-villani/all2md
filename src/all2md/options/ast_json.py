@@ -43,6 +43,10 @@ class AstJsonParserOptions(BaseParserOptions):
         metadata={"help": "Fail on unknown node types or attributes", "importance": "advanced"},
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class AstJsonRendererOptions(BaseRendererOptions):
@@ -82,3 +86,7 @@ class AstJsonRendererOptions(BaseRendererOptions):
         default=DEFAULT_AST_JSON_SORT_KEYS,
         metadata={"help": "Sort JSON object keys alphabetically", "importance": "advanced"},
     )
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

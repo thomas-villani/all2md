@@ -101,6 +101,10 @@ class LatexOptions(BaseParserOptions):
         metadata={"help": "Preserve LaTeX comments in AST", "cli_name": "preserve-comments", "importance": "advanced"},
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class LatexRendererOptions(BaseRendererOptions):

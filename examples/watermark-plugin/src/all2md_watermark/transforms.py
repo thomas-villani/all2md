@@ -57,7 +57,7 @@ class WatermarkTransform(NodeTransformer):
     Notes
     -----
     For images that originated from `attachment_mode="base64"` or
-    `attachment_mode="download"`, the transform mutates the underlying bytes
+    `attachment_mode="save"`, the transform mutates the underlying bytes
     to include a semi-transparent watermark. For all other images the transform
     still records the watermark text in metadata so that other tooling can act
     on it if desired.

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import IO, Any, Optional, Union
 
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
+from all2md.constants import DEPS_CHM
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError, ValidationError
 from all2md.options.chm import ChmOptions
@@ -66,7 +67,7 @@ class ChmParser(BaseParser):
             )
         self.html_parser = HtmlToAstConverter(html_options)
 
-    @requires_dependencies("chm", [("pychm", "chm", "")])
+    @requires_dependencies("chm", DEPS_CHM)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse CHM file into an AST Document.
 

@@ -64,6 +64,10 @@ class TextileParserOptions(BaseParserOptions):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class TextileRendererOptions(BaseRendererOptions):
@@ -135,3 +139,7 @@ class TextileRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

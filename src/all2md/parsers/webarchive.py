@@ -16,6 +16,7 @@ from typing import IO, Any, Optional, Union
 from urllib.parse import urlparse
 
 from all2md.ast import Document, Heading, Paragraph, Text
+from all2md.constants import DEPS_WEBARCHIVE
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options.webarchive import WebArchiveOptions
@@ -66,7 +67,7 @@ class WebArchiveToAstConverter(BaseParser):
         self.options: WebArchiveOptions = options
         self._html_parser = HtmlToAstConverter(self.options)
 
-    @requires_dependencies("webarchive", [("beautifulsoup4", "bs4", "")])
+    @requires_dependencies("webarchive", DEPS_WEBARCHIVE)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse WebArchive file into an AST Document.
 

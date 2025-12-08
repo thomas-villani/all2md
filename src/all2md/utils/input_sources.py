@@ -82,7 +82,7 @@ class RemoteInputOptions(CloneFrozenMixin):
         default=False,
         metadata={
             "help": "Allow fetching documents from remote locations.",
-            "importance": "security",
+            "importance": "core",
             "cli_name": "enabled",
         },
     )
@@ -368,7 +368,8 @@ class HttpRetriever(DocumentSourceRetriever):
         remote_options = request.remote_options or RemoteInputOptions()
         if not remote_options.allow_remote_input:
             raise ValidationError(
-                "Remote document fetching is disabled. Enable allow_remote_input to proceed.",
+                "Remote document fetching is disabled. Enable allow_remote_input (`--remote-input-enabled`) "
+                "to proceed.",
                 parameter_name="remote_input.allow_remote_input",
                 parameter_value=remote_options.allow_remote_input,
             )

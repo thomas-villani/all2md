@@ -56,3 +56,7 @@ class ChmOptions(BaseParserOptions, AttachmentOptionsMixin):
     )
 
     html_options: HtmlOptions | None = field(default=None, metadata={"cli_flatten": True, "importance": "advanced"})
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

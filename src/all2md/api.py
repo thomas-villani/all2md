@@ -424,7 +424,7 @@ def to_markdown(
         >>> markdown = to_markdown("document.pdf")
 
     With parser options:
-        >>> pdf_opts = PdfOptions(pages=[0, 1, 2], attachment_mode="download")
+        >>> pdf_opts = PdfOptions(pages=[0, 1, 2], attachment_mode="save")
         >>> markdown = to_markdown("document.pdf", parser_options=pdf_opts)
 
     With renderer options:

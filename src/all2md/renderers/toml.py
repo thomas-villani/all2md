@@ -45,6 +45,7 @@ from typing import IO, Any, Union
 
 from all2md.ast.nodes import Document, Heading, Node, Table, TableCell, Text
 from all2md.ast.nodes import List as AstList
+from all2md.constants import DEPS_TOML
 from all2md.exceptions import RenderingError
 from all2md.options.toml import TomlRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -106,7 +107,7 @@ class TomlRenderer(BaseRenderer):
         BaseRenderer.__init__(self, options)
         self.options: TomlRendererOptions = options
 
-    @requires_dependencies("toml", [("tomli-w", "tomli_w", ">=1.0.0")])
+    @requires_dependencies("toml", DEPS_TOML)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
         """Render AST document to TOML file.
 
@@ -134,7 +135,7 @@ class TomlRenderer(BaseRenderer):
         else:
             raise RenderingError(f"Unsupported output type: {type(output)}")
 
-    @requires_dependencies("toml", [("tomli-w", "tomli_w", ">=1.0.0")])
+    @requires_dependencies("toml", DEPS_TOML)
     def render_to_string(self, doc: Document) -> str:
         """Render AST document to TOML string.
 

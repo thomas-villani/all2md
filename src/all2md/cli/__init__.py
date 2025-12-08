@@ -21,9 +21,9 @@ Specify output file::
 
     $ all2md document.docx --out output.md
 
-Download attachments::
+Save attachments::
 
-    $ all2md document.docx --attachment-mode download --attachment-output-dir ./attachments
+    $ all2md document.docx --attachment-mode save --attachment-output-dir ./attachments
 
 Use underscore emphasis::
 

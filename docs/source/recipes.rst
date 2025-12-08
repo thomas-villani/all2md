@@ -69,17 +69,17 @@ Converting Directory of Mixed Documents
        # Define format-specific options
        options_map = {
            'pdf': PdfOptions(
-               attachment_mode="download",
+               attachment_mode="save",
                attachment_output_dir="./extracted_media",
                detect_columns=True,
            ),
            'html': HtmlOptions(
-               attachment_mode="download",
+               attachment_mode="save",
                attachment_output_dir="./extracted_media",
                strip_dangerous_elements=True,
            ),
            'pptx': PptxOptions(
-               attachment_mode="download",
+               attachment_mode="save",
                attachment_output_dir="./extracted_media",
                include_slide_numbers=True,
            )
@@ -550,11 +550,11 @@ Directory Processing with Progress Tracking
 
            self.options_map = {
                '.pdf': PdfOptions(
-                   attachment_mode="download",
+                   attachment_mode="save",
                    attachment_output_dir=str(self.output_dir / "media"),
                ),
                '.docx': DocxOptions(
-                   attachment_mode="download",
+                   attachment_mode="save",
                    attachment_output_dir=str(self.output_dir / "media"),
                )
            }

@@ -62,6 +62,7 @@ from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DEPS_ODF_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.odt import OdtRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -115,7 +116,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
         self._in_table_header: bool = False  # Track if rendering table header cell
 
-    @requires_dependencies("odt_render", [("odfpy", "odf", "")])
+    @requires_dependencies("odt_render", DEPS_ODF_RENDER)
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to an ODT file.
 
@@ -158,7 +159,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             # Clean up temp files
             self._cleanup_temp_files()
 
-    @requires_dependencies("odt_render", [("odfpy", "odf", "")])
+    @requires_dependencies("odt_render", DEPS_ODF_RENDER)
     def render_to_bytes(self, doc: ASTDocument) -> bytes:
         """Render the AST to ODT bytes.
 

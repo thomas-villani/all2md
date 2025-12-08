@@ -8,10 +8,10 @@ import json
 import os
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
+import tomllib
 import yaml
 from utils import cleanup_test_dir, create_test_temp_dir
 

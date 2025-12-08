@@ -31,7 +31,7 @@ def test_collect_argument_problems_includes_attachment_warning():
 
     assert problems == [
         ValidationProblem(
-            "--attachment-output-dir specified but attachment mode is 'skip' (expected 'download')",
+            "--attachment-output-dir specified but attachment mode is 'skip' (expected 'save')",
             ValidationSeverity.WARNING,
         )
     ]

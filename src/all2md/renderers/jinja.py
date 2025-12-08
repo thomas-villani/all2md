@@ -28,6 +28,7 @@ from all2md.ast.nodes import (
     Node,
 )
 from all2md.ast.serialization import ast_to_dict
+from all2md.constants import DEPS_JINJA
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.jinja import JinjaRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -644,7 +645,7 @@ class JinjaRenderer(BaseRenderer):
 
         return context
 
-    @requires_dependencies("jinja", [("jinja2", "jinja2", ">=3.1.0")])
+    @requires_dependencies("jinja", DEPS_JINJA)
     def render_to_string(self, document: Document) -> str:
         """Render document to string using Jinja2 template.
 

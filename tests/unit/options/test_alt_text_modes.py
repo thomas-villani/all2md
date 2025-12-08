@@ -144,7 +144,7 @@ class TestAltTextModes:
                 attachment_data=b"fake image data",
                 attachment_name="test.png",
                 alt_text="Test Image",
-                attachment_mode="download",
+                attachment_mode="save",
                 attachment_output_dir=temp_dir,
                 alt_text_mode="strict_markdown",
                 is_image=True,

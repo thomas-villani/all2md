@@ -1099,7 +1099,7 @@ Examples:
   all2md document.pdf --extract "#:3"
 
   # Image handling
-  all2md document.html --attachment-mode download --attachment-output-dir ./images
+  all2md document.html --attachment-mode save --attachment-output-dir ./images
   all2md book.epub --attachment-mode base64
 
   # Using options from config file

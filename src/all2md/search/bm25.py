@@ -8,12 +8,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+from all2md.constants import DEPS_SEARCH_BM25
 from all2md.utils.decorators import requires_dependencies
 
 from .index import BaseIndex
 from .types import Chunk, SearchMode, SearchQuery, SearchResult
-
-RankBm25Spec = [("rank-bm25", "rank_bm25", ">=0.2.2")]
 
 
 @dataclass
@@ -50,7 +49,7 @@ class BM25Index(BaseIndex):
         self._backend = None
         self._bm25_constructor: type | None = None
 
-    @requires_dependencies("search_bm25", RankBm25Spec)
+    @requires_dependencies("search_bm25", DEPS_SEARCH_BM25)
     def _ensure_backend(self) -> None:
         if self._bm25_constructor is None:
             from rank_bm25 import BM25Okapi
@@ -69,7 +68,7 @@ class BM25Index(BaseIndex):
             return
         self._backend = self._bm25_constructor(self._tokenized_corpus, k1=self.config.k1, b=self.config.b)
 
-    @requires_dependencies("search_bm25", RankBm25Spec)
+    @requires_dependencies("search_bm25", DEPS_SEARCH_BM25)
     def search(self, query: SearchQuery, *, top_k: int = 10) -> list[SearchResult]:
         """Return the top ``top_k`` chunks ranked by BM25 score for ``query``."""
         if self._backend is None:

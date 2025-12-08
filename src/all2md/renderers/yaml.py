@@ -43,6 +43,7 @@ from typing import IO, Any, Union
 
 from all2md.ast.nodes import Document, Heading, Node, Table, TableCell, Text
 from all2md.ast.nodes import List as AstList
+from all2md.constants import DEPS_YAML
 from all2md.exceptions import RenderingError
 from all2md.options.yaml import YamlRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -101,7 +102,7 @@ class YamlRenderer(BaseRenderer):
         BaseRenderer.__init__(self, options)
         self.options: YamlRendererOptions = options
 
-    @requires_dependencies("yaml", [("pyyaml", "yaml", ">=6.0")])
+    @requires_dependencies("yaml", DEPS_YAML)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
         """Render AST document to YAML file.
 
@@ -129,7 +130,7 @@ class YamlRenderer(BaseRenderer):
         else:
             raise RenderingError(f"Unsupported output type: {type(output)}")
 
-    @requires_dependencies("yaml", [("pyyaml", "yaml", ">=6.0")])
+    @requires_dependencies("yaml", DEPS_YAML)
     def render_to_string(self, doc: Document) -> str:
         """Render AST document to YAML string.
 

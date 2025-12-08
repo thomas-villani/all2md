@@ -69,6 +69,7 @@ from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DEPS_PDF_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.pdf import PdfRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -121,7 +122,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._footnote_definitions: dict[str, str] = {}
         self._paragraph_buffer: list[str] | None = None
 
-    @requires_dependencies("pdf_render", [("reportlab", "reportlab", ">=4.0.0")])
+    @requires_dependencies("pdf_render", DEPS_PDF_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to a PDF file.
 
@@ -251,7 +252,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             # Clean up temp files
             self._cleanup_temp_files()
 
-    @requires_dependencies("pdf_render", [("reportlab", "reportlab", ">=4.0.0")])
+    @requires_dependencies("pdf_render", DEPS_PDF_RENDER)
     def render_to_bytes(self, doc: Document) -> bytes:
         """Render the AST to PDF bytes.
 

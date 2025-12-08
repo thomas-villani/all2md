@@ -273,7 +273,7 @@ class TestSecurityDocumentationExamples:
                 network_timeout=5.0,  # Quick timeout
             ),
             max_asset_size_bytes=5 * 1024 * 1024,  # 5MB limit
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir="./safe_images/",
         )
 
@@ -607,7 +607,7 @@ class TestHtmlFileUrlSecurity:
             local_files=LocalFileAccessOptions(
                 allow_local_files=True, allow_cwd_files=True, local_file_allowlist=[str(tmp_path)]
             ),
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(output_dir),
         )
 

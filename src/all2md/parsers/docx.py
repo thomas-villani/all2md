@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, cast
 
-from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL
+from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL, DEPS_DOCX
 from all2md.exceptions import MalformedFileError
 from all2md.utils.attachments import create_attachment_sequencer, extract_docx_image_data, process_attachment
 from all2md.utils.metadata import (
@@ -174,7 +174,7 @@ class DocxToAstConverter(BaseParser):
         self._comments_map: dict[str, CommentData] = {}
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    @requires_dependencies("docx", [("python-docx", "docx", "")])
+    @requires_dependencies("docx", DEPS_DOCX)
     def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse DOCX document into AST.
 

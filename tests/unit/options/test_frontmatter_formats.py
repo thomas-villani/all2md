@@ -1,7 +1,6 @@
 """Tests for frontmatter format selection (YAML, TOML, JSON)."""
 
 import tomllib
-
 import yaml
 
 from all2md.ast.nodes import Document, Paragraph, Text

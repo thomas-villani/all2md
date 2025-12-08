@@ -104,6 +104,10 @@ class DokuWikiOptions(BaseRendererOptions):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class DokuWikiParserOptions(BaseParserOptions):
@@ -178,3 +182,7 @@ class DokuWikiParserOptions(BaseParserOptions):
             "importance": "security",
         },
     )
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

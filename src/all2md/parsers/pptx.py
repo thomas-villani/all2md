@@ -57,6 +57,7 @@ from all2md.ast import (
 from all2md.ast import (
     Table as AstTable,
 )
+from all2md.constants import DEPS_PPTX
 from all2md.converter_metadata import ConverterMetadata
 from all2md.parsers.base import BaseParser
 from all2md.utils.attachments import (
@@ -99,7 +100,7 @@ class PptxToAstConverter(BaseParser):
         self._pptx_comments: dict[int, list[Comment]] = {}  # slide_num -> list of Comment nodes
         self._input_data: Union[str, Path, IO[bytes], bytes, None] = None  # Store input for comment extraction
 
-    @requires_dependencies("pptx", [("python-pptx", "pptx", ">=1.0.2")])
+    @requires_dependencies("pptx", DEPS_PPTX)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse PPTX input into an AST Document.
 

@@ -16,7 +16,7 @@ def test_tiered_help_action_quick(capsys):
 
     captured = capsys.readouterr()
     assert "Subcommands:" in captured.out
-    assert "Run 'all2md help full'" in captured.out
+    assert "Run: `all2md help full`" in captured.out
     assert "Global options:" in captured.out
     # Quick help should NOT show parser/renderer options
     assert "Parser options:" not in captured.out

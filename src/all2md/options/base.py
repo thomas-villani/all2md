@@ -6,8 +6,14 @@ used throughout the all2md conversion pipeline.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field, replace
-from typing import Any, Self
+from typing import Any
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 from all2md.constants import (
     DEFAULT_EXTRACT_METADATA,

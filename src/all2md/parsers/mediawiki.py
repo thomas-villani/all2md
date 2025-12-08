@@ -41,6 +41,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
+from all2md.constants import DEPS_MEDIAWIKI
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.mediawiki import MediaWikiParserOptions
@@ -89,7 +90,7 @@ class MediaWikiParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: MediaWikiParserOptions = options
 
-    @requires_dependencies("mediawiki", [("mwparserfromhell", "mwparserfromhell", "")])
+    @requires_dependencies("mediawiki", DEPS_MEDIAWIKI)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse MediaWiki input into AST Document.
 

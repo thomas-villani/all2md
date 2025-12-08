@@ -43,11 +43,10 @@ def collect_argument_problems(
 
     attachment_dir = getattr(parsed_args, "attachment_output_dir", None)
     attachment_mode = getattr(parsed_args, "attachment_mode", None)
-    if attachment_dir and attachment_mode and attachment_mode != "download":
+    if attachment_dir and attachment_mode and attachment_mode != "save":
         problems.append(
             ValidationProblem(
-                "--attachment-output-dir specified but attachment mode is "
-                f"'{attachment_mode}' (expected 'download')",
+                "--attachment-output-dir specified but attachment mode is " f"'{attachment_mode}' (expected 'save')",
                 ValidationSeverity.WARNING,
             )
         )

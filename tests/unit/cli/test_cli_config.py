@@ -6,11 +6,11 @@ presets, and priority handling.
 
 import json
 import tempfile
-import tomllib
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import tomllib
 import yaml
 
 try:
@@ -867,7 +867,7 @@ class TestPresets:
         """Test that quality preset enables all features."""
         config = get_preset_config("quality")
 
-        assert config["attachment_mode"] == "download"
+        assert config["attachment_mode"] == "save"
         if "pdf" in config:
             # Quality preset should enable advanced features
             assert config["pdf"].get("detect_columns", False) is True

@@ -112,6 +112,10 @@ class MediaWikiOptions(BaseRendererOptions):
         },
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class MediaWikiParserOptions(BaseParserOptions):
@@ -185,3 +189,7 @@ class MediaWikiParserOptions(BaseParserOptions):
             "importance": "security",
         },
     )
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

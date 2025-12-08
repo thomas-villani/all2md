@@ -82,6 +82,10 @@ class TomlParserOptions(BaseParserOptions):
         metadata={"help": "Sort object keys alphabetically", "importance": "core"},
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class TomlRendererOptions(BaseRendererOptions):
@@ -137,3 +141,7 @@ class TomlRendererOptions(BaseRendererOptions):
         default=False,
         metadata={"help": "Sort keys in output TOML", "importance": "core"},
     )
+
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()

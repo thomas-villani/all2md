@@ -41,7 +41,7 @@ MetadataFormatType = Literal["yaml", "toml", "json"]
 HeaderCaseOption = Literal["preserve", "title", "upper", "lower"]
 
 # Asset and attachment handling types
-AttachmentMode = Literal["skip", "alt_text", "download", "base64"]
+AttachmentMode = Literal["skip", "alt_text", "save", "base64"]
 AltTextMode = Literal["default", "plain_filename", "strict_markdown", "footnote"]
 
 # Network security - robots.txt policy types
@@ -200,6 +200,62 @@ DocumentFormat = Literal[
     "xlsx",
     "yaml",
     "zip",
+]
+
+# =============================================================================
+# Dependency Specifications for @requires_dependencies decorator
+# =============================================================================
+# Each spec is a list of tuples: (pip_package, import_name, version_constraint)
+# These are used with the @requires_dependencies decorator to check for optional deps
+
+# Document parsers
+DEPS_CHM = [("pychm", "chm", "")]
+DEPS_DOCX = [("python-docx", "docx", "")]
+DEPS_EPUB = [("ebooklib", "ebooklib", "")]
+DEPS_HTML = [("beautifulsoup4", "bs4", ">=4.14.2")]
+DEPS_HTML_READABILITY = [("readability-lxml", "readability", ">=0.8.1")]
+DEPS_MARKDOWN = [("mistune", "mistune", ">=3.0.0")]
+DEPS_MEDIAWIKI = [("mwparserfromhell", "mwparserfromhell", "")]
+DEPS_MHTML = [("beautifulsoup4", "bs4", "")]
+DEPS_ODF = [("odfpy", "odf", "")]  # Used by ODP, ODS, ODT
+DEPS_OPENAPI = [("PyYAML", "yaml", ">=5.1")]
+DEPS_ORG = [("orgparse", "orgparse", "")]
+DEPS_OUTLOOK = [("extract-msg", "extract_msg", "")]
+DEPS_PDF = [("pymupdf", "fitz", ">=1.26.4")]
+DEPS_PPTX = [("python-pptx", "pptx", ">=1.0.2")]
+DEPS_RST = [("docutils", "docutils", ">=0.18")]
+DEPS_RTF = [("pyth3", "pyth", "")]
+DEPS_TEXTILE = [("textile", "textile", "")]
+DEPS_TOML = [("tomli-w", "tomli_w", ">=1.0.0")]
+DEPS_WEBARCHIVE = [("beautifulsoup4", "bs4", "")]
+DEPS_XLSX = [("openpyxl", "openpyxl", "")]
+DEPS_YAML = [("pyyaml", "yaml", ">=6.0")]
+DEPS_FB2 = [("lxml", "lxml", "")]
+DEPS_ENEX = [("lxml", "lxml", "")]
+
+# PDF-specific optional dependencies (beyond base pymupdf)
+DEPS_PDF_LANGDETECT = [("langdetect", "langdetect", ">=1.0.9")]
+DEPS_PDF_OCR = [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")]
+
+# Document renderers (may have different version requirements than parsers)
+DEPS_DOCX_RENDER = [("python-docx", "docx", ">=1.2.0")]
+DEPS_EPUB_RENDER = [("ebooklib", "ebooklib", ">=0.17")]
+DEPS_ODF_RENDER = [("odfpy", "odf", "")]  # Used by ODP and ODT renderers
+DEPS_PDF_RENDER = [("reportlab", "reportlab", ">=4.0.0")]
+DEPS_PPTX_RENDER = [("python-pptx", "pptx", ">=0.6.21")]
+DEPS_RTF_RENDER = [("pyth3", "pyth", ">=0.7"), ("six", "six", ">=1.16.0")]
+
+# Utilities
+DEPS_JINJA = [("jinja2", "jinja2", ">=3.1.0")]
+DEPS_NETWORK = [("httpx", "httpx", ">=0.28.1")]
+
+# Search backends
+DEPS_SEARCH_BM25 = [("rank-bm25", "rank_bm25", ">=0.2.2")]
+
+DEPS_SEARCH_VECTOR = [
+    ("faiss-cpu", "faiss", ""),
+    ("sentence-transformers", "sentence_transformers", ">=2.2.0"),
+    ("numpy", "numpy", ">=1.24.0"),
 ]
 
 # =============================================================================

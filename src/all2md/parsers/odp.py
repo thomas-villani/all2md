@@ -34,6 +34,7 @@ from all2md.ast import (
     Text,
     Underline,
 )
+from all2md.constants import DEPS_ODF
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import MalformedFileError
 from all2md.options.odp import OdpOptions
@@ -65,7 +66,7 @@ class OdpToAstConverter(BaseParser):
 
     """
 
-    @requires_dependencies("odp", [("odfpy", "odf", "")])
+    @requires_dependencies("odp", DEPS_ODF)
     def __init__(self, options: Optional[OdpOptions] = None, progress_callback: Optional[ProgressCallback] = None):
         """Initialize the ODP parser with options and progress callback."""
         BaseParser._validate_options_type(options, OdpOptions, "odp")

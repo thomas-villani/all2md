@@ -126,7 +126,7 @@ def test_notebook_with_attachment_options():
 
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
-            options = IpynbOptions(attachment_mode="download", attachment_output_dir=temp_dir)
+            options = IpynbOptions(attachment_mode="save", attachment_output_dir=temp_dir)
 
             result = ipynb_to_markdown(temp_path, parser_options=options)
 

@@ -65,6 +65,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import DEPS_PPTX_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.pptx import PptxRendererOptions
 from all2md.renderers._split_utils import (
@@ -125,7 +126,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._list_item_counters: list[int] = []  # Track item number at each level for ordered lists
         self._temp_files: list[str] = []  # Track temp files for cleanup
 
-    @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
+    @requires_dependencies("pptx_render", DEPS_PPTX_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to a PPTX file.
 
@@ -187,7 +188,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 except Exception:
                     pass  # Ignore cleanup errors
 
-    @requires_dependencies("pptx_render", [("python-pptx", "pptx", ">=0.6.21")])
+    @requires_dependencies("pptx_render", DEPS_PPTX_RENDER)
     def render_to_bytes(self, doc: Document) -> bytes:
         """Render the AST to PPTX bytes.
 

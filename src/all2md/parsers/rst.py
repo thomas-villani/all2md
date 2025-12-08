@@ -48,6 +48,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
+from all2md.constants import DEPS_RST
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import ParsingError
 from all2md.options.rst import RstParserOptions
@@ -93,7 +94,7 @@ class RestructuredTextParser(BaseParser):
         super().__init__(options, progress_callback)
         self.options: RstParserOptions = options
 
-    @requires_dependencies("rst", [("docutils", "docutils", ">=0.18")])
+    @requires_dependencies("rst", DEPS_RST)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse RST input into AST Document.
 

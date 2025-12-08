@@ -9,8 +9,13 @@ priority handling.
 
 import argparse
 import json
-import tomllib
+import sys
 from pathlib import Path
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]
 from typing import Any, Dict, Optional
 
 import yaml
@@ -200,7 +205,7 @@ def load_config_file(config_path: Path | str) -> Dict[str, Any]:
     --------
     >>> config = load_config_file(".all2md.toml")
     >>> print(config.get("attachment_mode"))
-    download
+    save
 
     >>> config = load_config_file("pyproject.toml")
     >>> print(config.get("attachment_mode"))
@@ -362,10 +367,10 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
     Examples
     --------
     >>> base = {'pdf': {'pages': [1, 2]}, 'attachment_mode': 'skip'}
-    >>> override = {'pdf': {'detect_columns': True}, 'attachment_mode': 'download'}
+    >>> override = {'pdf': {'detect_columns': True}, 'attachment_mode': 'save'}
     >>> merged = merge_configs(base, override)
     >>> print(merged)
-    {'pdf': {'pages': [1, 2], 'detect_columns': True}, 'attachment_mode': 'download'}
+    {'pdf': {'pages': [1, 2], 'detect_columns': True}, 'attachment_mode': 'save'}
 
     """
     result = base.copy()

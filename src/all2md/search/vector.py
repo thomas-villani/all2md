@@ -8,16 +8,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Mapping, Sequence
 
+from all2md.constants import DEPS_SEARCH_VECTOR
 from all2md.utils.decorators import requires_dependencies
 
 from .index import BaseIndex
 from .types import Chunk, SearchMode, SearchQuery, SearchResult
-
-VectorDependencySpec = [
-    ("faiss-cpu", "faiss", ""),
-    ("sentence-transformers", "sentence_transformers", ">=2.2.0"),
-    ("numpy", "numpy", ">=1.24.0"),
-]
 
 
 @dataclass
@@ -54,7 +49,7 @@ class VectorIndex(BaseIndex):
         self._faiss = None
         self._sentence_transformers = None
 
-    @requires_dependencies("search_vector", VectorDependencySpec)
+    @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
     def _ensure_backends(self) -> None:
         if self._np is None:
             import numpy as np
@@ -129,7 +124,7 @@ class VectorIndex(BaseIndex):
         norms[norms == 0] = 1
         return vectors / norms
 
-    @requires_dependencies("search_vector", VectorDependencySpec)
+    @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
     def search(self, query: SearchQuery, *, top_k: int = 10) -> list[SearchResult]:
         """Return the nearest ``top_k`` chunks to ``query`` in vector space."""
         if self._faiss_index is None or self._np is None or self._dimension is None:  # type: ignore[unreachable]
@@ -160,7 +155,7 @@ class VectorIndex(BaseIndex):
             )
         return results
 
-    @requires_dependencies("search_vector", VectorDependencySpec)
+    @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
     def save(self, directory: Path) -> None:
         """Persist FAISS index, embeddings, and configuration to ``directory``."""
         self._ensure_backends()
@@ -194,7 +189,7 @@ class VectorIndex(BaseIndex):
         self._np.save(vectors_path, vectors)  # type: ignore[attr-defined]
 
     @classmethod
-    @requires_dependencies("search_vector", VectorDependencySpec)
+    @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
     def load(cls, directory: Path) -> "VectorIndex":
         """Restore a vector index that was previously saved to ``directory``."""
         manifest = cls._read_manifest(directory)

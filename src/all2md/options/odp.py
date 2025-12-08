@@ -72,6 +72,10 @@ class OdpOptions(PaginatedParserOptions):
         metadata={"help": "Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)", "importance": "core"},
     )
 
+    def __post_init__(self) -> None:
+        """Validate options by calling parent validation."""
+        super().__post_init__()
+
 
 @dataclass(frozen=True)
 class OdpRendererOptions(BaseRendererOptions):

@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 
 from all2md.ast.nodes import Comment, CommentInline, Document, Heading, Image, Node, get_node_children
 from all2md.ast.transforms import clone_node
+from all2md.constants import DEPS_EPUB_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.epub import EpubRendererOptions
 from all2md.options.html import HtmlRendererOptions
@@ -85,7 +86,7 @@ class EpubRenderer(BaseRenderer):
         # Track temporary files for cleanup
         self._temp_files: list[str] = []
 
-    @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
+    @requires_dependencies("epub_render", DEPS_EPUB_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render the AST to an EPUB file.
 
@@ -203,7 +204,7 @@ class EpubRenderer(BaseRenderer):
                 except Exception:
                     pass  # Ignore cleanup errors
 
-    @requires_dependencies("epub_render", [("ebooklib", "ebooklib", ">=0.17")])
+    @requires_dependencies("epub_render", DEPS_EPUB_RENDER)
     def render_to_bytes(self, doc: Document) -> bytes:
         """Render the AST to EPUB bytes.
 

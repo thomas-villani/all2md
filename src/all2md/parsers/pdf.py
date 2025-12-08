@@ -54,6 +54,9 @@ from all2md.ast import (
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
+    DEPS_PDF,
+    DEPS_PDF_LANGDETECT,
+    DEPS_PDF_OCR,
     PDF_COLUMN_FREQ_THRESHOLD_RATIO,
     PDF_COLUMN_GAP_QUANTIZATION,
     PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK,
@@ -1470,7 +1473,7 @@ def _get_tesseract_lang(detected_lang_code: str) -> str:
     return "eng"
 
 
-@requires_dependencies("pdf", [("langdetect", "langdetect", ">=1.0.9")])
+@requires_dependencies("pdf", DEPS_PDF_LANGDETECT)
 def _detect_page_language(page: "fitz.Page", options: PdfOptions) -> str:
     """Attempt to auto-detect the language of a PDF page for OCR.
 
@@ -1528,7 +1531,7 @@ class PdfToAstConverter(BaseParser):
         self._hdr_identifier: Optional[IdentifyHeaders] = None
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    @requires_dependencies("pdf", [("pymupdf", "fitz", f">={PDF_MIN_PYMUPDF_VERSION}")])
+    @requires_dependencies("pdf", DEPS_PDF)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse PDF document into AST.
 
@@ -1999,7 +2002,7 @@ class PdfToAstConverter(BaseParser):
         return Document(children=children, metadata=metadata.to_dict())
 
     @staticmethod
-    @requires_dependencies("pdf", [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")])
+    @requires_dependencies("pdf", DEPS_PDF_OCR)
     def _ocr_page_to_text(page: "fitz.Page", options: PdfOptions) -> str:
         """Extract text from a PDF page using OCR (Optical Character Recognition).
 

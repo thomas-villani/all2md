@@ -12,10 +12,13 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 import json
-
-# tomllib is part of standard library in Python 3.11+ (project requires 3.12+)
-import tomllib
+import sys
 from pathlib import Path
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]
 from typing import IO, Any, Literal, Optional, Union
 
 from all2md.ast import (
@@ -51,6 +54,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
+from all2md.constants import DEPS_MARKDOWN
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
@@ -97,7 +101,7 @@ class MarkdownToAstConverter(BaseParser):
         self.options: MarkdownParserOptions = options
         self._footnote_definitions: dict[str, list[Node]] = {}
 
-    @requires_dependencies("markdown", [("mistune", "mistune", ">=3.0.0")])
+    @requires_dependencies("markdown", DEPS_MARKDOWN)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
         """Parse Markdown input into AST Document.
 

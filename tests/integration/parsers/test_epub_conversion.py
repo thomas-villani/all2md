@@ -139,7 +139,7 @@ class TestEpubIntegrationImages:
         epub_file = create_epub_file(epub_content, temp_dir)
 
         image_dir = temp_dir / "images"
-        options = EpubOptions(attachment_mode="download", attachment_output_dir=str(image_dir))
+        options = EpubOptions(attachment_mode="save", attachment_output_dir=str(image_dir))
         result = epub_to_markdown(epub_file, parser_options=options)
 
         assert isinstance(result, str)
@@ -391,7 +391,7 @@ class TestEpubIntegrationOptionsValidation:
         dummy_file = temp_dir / "not_a_directory"
         dummy_file.write_text("dummy")
 
-        options = EpubOptions(attachment_mode="download", attachment_output_dir=str(dummy_file))
+        options = EpubOptions(attachment_mode="save", attachment_output_dir=str(dummy_file))
 
         # Should handle gracefully or raise appropriate error
         try:

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast import ast_to_dict
+from all2md.constants import DEPS_HTML, DEPS_JINJA
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.text import slugify
 
@@ -533,7 +534,7 @@ hr {
 
         return result
 
-    @requires_dependencies("html", [("beautifulsoup4", "bs4", ">=4.14.2")])
+    @requires_dependencies("html", DEPS_HTML)
     def _apply_inject_template(self, document: Document, content: str) -> str:
         """Apply inject template mode - inject content into HTML at selector.
 
@@ -612,7 +613,7 @@ hr {
 
         return str(soup)
 
-    @requires_dependencies("html", [("jinja2", "jinja2", ">=3.1.0")])
+    @requires_dependencies("html", DEPS_JINJA)
     def _apply_jinja_template(self, document: Document, content: str) -> str:
         """Apply jinja template mode - render with Jinja2 template engine.
 

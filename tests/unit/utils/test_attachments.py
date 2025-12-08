@@ -82,7 +82,7 @@ class TestMarkdownEscaping:
             attachment_data=image_data,
             attachment_name="image.png",
             alt_text="Display [name]",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             is_image=True,
         )
@@ -103,7 +103,7 @@ class TestUrlQuoting:
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="my image.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/assets/",
             is_image=True,
@@ -125,7 +125,7 @@ class TestUrlQuoting:
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="file&name.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
             is_image=True,
@@ -143,7 +143,7 @@ class TestUrlQuoting:
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="image.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             # No base_url means local path
             is_image=True,
@@ -163,7 +163,7 @@ class TestUrlQuoting:
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="file#1.png",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
             is_image=True,
@@ -182,7 +182,7 @@ class TestUrlQuoting:
         result = process_attachment(
             attachment_data=image_data,
             attachment_name="test.png",  # Use ASCII for test
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
             is_image=True,
@@ -205,7 +205,7 @@ class TestCombinedEscapingAndQuoting:
             attachment_data=image_data,
             attachment_name="my file.png",
             alt_text="Image [1]",
-            attachment_mode="download",
+            attachment_mode="save",
             attachment_output_dir=str(tmp_path),
             attachment_base_url="https://example.com/",
             is_image=True,
@@ -382,7 +382,7 @@ class TestDownloadModeThreadSafety:
                     attachment_data=image_data,
                     attachment_name="image.png",
                     alt_text=f"Thread {thread_id}",
-                    attachment_mode="download",
+                    attachment_mode="save",
                     attachment_output_dir=str(tmp_path),
                     is_image=True,
                 )
