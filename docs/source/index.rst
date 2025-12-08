@@ -151,10 +151,12 @@ Guides & References
 API Reference
 -------------
 
+Comprehensive documentation for all public modules and classes.
+
 .. toctree::
    :maxdepth: 2
 
-   api/modules
+   api/index
 
 About
 -----

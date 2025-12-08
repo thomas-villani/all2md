@@ -350,13 +350,19 @@ class BaseParser(ABC):
                 return read_text_with_encoding_detection(f.read())
         elif isinstance(input_data, str):
             # Could be file path or content
-            path = Path(input_data)
-            if path.exists() and path.is_file():
-                with open(path, "rb") as f:
-                    return read_text_with_encoding_detection(f.read())
-            else:
-                # Assume it's content
-                return input_data
+            # Check length first - Linux has 255 char limit for path components,
+            # and calling path.exists() on very long strings raises OSError
+            if len(input_data) <= 260 and "\n" not in input_data:
+                try:
+                    path = Path(input_data)
+                    if path.exists() and path.is_file():
+                        with open(path, "rb") as f:
+                            return read_text_with_encoding_detection(f.read())
+                except OSError:
+                    # Path too long or invalid - treat as content
+                    pass
+            # Assume it's content
+            return input_data
         else:
             # File-like object (handles both binary and text mode)
             input_data.seek(0)

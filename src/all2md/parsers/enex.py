@@ -17,7 +17,8 @@ import logging
 import re
 from pathlib import Path
 from typing import IO, Any, Optional, Union
-from xml.etree import ElementTree as ET
+
+import defusedxml.ElementTree as ET
 
 from all2md.ast import Document, Heading, Node, Paragraph, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
@@ -339,7 +340,7 @@ class EnexToAstConverter(BaseParser):
 
             # Compute hash for lookup (Evernote uses MD5 of the binary data)
             if "data" in resource_data:
-                md5_hash = hashlib.md5(resource_data["data"]).hexdigest()
+                md5_hash = hashlib.md5(resource_data["data"], usedforsecurity=False).hexdigest()
                 resource_data["hash"] = md5_hash
 
             return resource_data

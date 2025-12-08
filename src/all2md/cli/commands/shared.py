@@ -436,7 +436,7 @@ Install specific format:  pip install all2md[pdf,docx,html]
 
 Documentation: https://github.com/thomas.villani/all2md
 License: MIT License
-Author: Thomas Villani <thomas.villani@gmail.com>"""
+Author: Thomas Villani <thomas.villani@njii.com>"""
 
 
 def parse_batch_list(list_path: Path | str) -> List[str]:

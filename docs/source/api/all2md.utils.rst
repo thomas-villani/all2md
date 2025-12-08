@@ -31,6 +31,7 @@ Submodules
    all2md.utils.network_security
    all2md.utils.packages
    all2md.utils.parser_helpers
+   all2md.utils.robots_txt
    all2md.utils.security
    all2md.utils.spreadsheet
    all2md.utils.static_site

@@ -54,8 +54,12 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
+echo Removing auto-generated modules.rst (replaced by hand-crafted index.rst)...
+if exist %SOURCEDIR%\api\modules.rst del %SOURCEDIR%\api\modules.rst
+echo.
 echo API documentation regenerated successfully!
 echo The :imported-members: False directive was automatically added to package files.
+echo Note: Hand-crafted section files (index.rst, core.rst, etc.) are preserved.
 goto end
 
 :help

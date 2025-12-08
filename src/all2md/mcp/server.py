@@ -72,7 +72,7 @@ def create_server(
         raise DependencyError("mcp", [("fastmcp", ">=2.0.0")]) from e
 
     # Create MCP server
-    mcp = FastMCP(name="all2md")
+    mcp: FastMCP = FastMCP(name="all2md")
 
     # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:

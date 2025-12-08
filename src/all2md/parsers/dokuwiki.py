@@ -730,7 +730,7 @@ class DokuWikiParser(BaseParser):
 
         """
         footnote_text = match.group(1).strip()
-        identifier = hashlib.md5(footnote_text.encode()).hexdigest()[:8]
+        identifier = hashlib.md5(footnote_text.encode(), usedforsecurity=False).hexdigest()[:8]
 
         if identifier not in self._footnote_definitions:
             self._footnote_definitions[identifier] = footnote_text

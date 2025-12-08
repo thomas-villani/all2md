@@ -52,14 +52,17 @@ extensions = [
 
 autosummary_generate = True
 
+# Napoleon settings to avoid duplicate attribute documentation with dataclasses
+# When napoleon_use_ivar is True, it uses :ivar: role which doesn't create separate index entries
+napoleon_use_ivar = True
+napoleon_attr_annotations = True  # Use type annotations for attribute types
+
 templates_path = ["_templates"]
 exclude_patterns = []
 
 # Suppress warnings for ambiguous cross-references caused by re-exports in __init__.py
 # Objects like Document, Node, etc. are available at multiple import paths
 # (e.g., all2md.ast.Document and all2md.ast.nodes.Document)
-# Also suppress duplicate object descriptions for dataclass fields documented in both
-# the class docstring Attributes section and picked up by autodoc
 suppress_warnings = [
     "ref.python",
     "autodoc.import_object",

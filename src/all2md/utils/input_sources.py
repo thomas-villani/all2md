@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Sequence, Union
+from typing import IO, Any, Iterable, Optional, Sequence, Union, cast
 from urllib.parse import urlparse
 
 from all2md.constants import DEFAULT_ROBOTS_TXT_POLICY, DEFAULT_USER_AGENT, RobotsTxtPolicy
@@ -248,8 +248,8 @@ class DocumentSourceLoader:
 class LocalPathRetriever(DocumentSourceRetriever):
     """Resolver for local filesystem paths.
 
-    Note:
-    ----
+    Notes
+    -----
     file:// URL scheme is not currently supported. Use direct filesystem paths
     (e.g., "/path/to/file" instead of "file:///path/to/file").
 
@@ -383,7 +383,7 @@ class HttpRetriever(DocumentSourceRetriever):
             )
 
         # Check robots.txt if policy is not "ignore"
-        policy = remote_options.follow_robots_txt
+        policy = cast(RobotsTxtPolicy, remote_options.follow_robots_txt)
         if policy != "ignore":
             checker = get_global_checker()
             allowed, crawl_delay = checker.can_fetch(

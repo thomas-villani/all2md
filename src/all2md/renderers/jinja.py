@@ -481,12 +481,12 @@ class JinjaRenderer(BaseRenderer):
         if self.options.template_dir:
             template_dir = self.options.template_dir
 
-        # Create environment
+        # Create environment (autoescape=False is intentional - we output Markdown, not HTML)
         if template_dir:
             loader = FileSystemLoader(template_dir)
-            self._env = Environment(loader=loader, autoescape=False)
+            self._env = Environment(loader=loader, autoescape=False)  # nosec B701
         else:
-            self._env = Environment(autoescape=False)
+            self._env = Environment(autoescape=False)  # nosec B701
 
         # Set undefined behavior
         if self.options.strict_undefined:

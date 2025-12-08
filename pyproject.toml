@@ -1,10 +1,10 @@
 [project]
 name = "all2md"
-version = "1.0.0"
+version = "1.0.0-alpha"
 description = "Rapid, lightweight conversion of various document formats to markdown for LLMs"
 readme = "README.md"
 authors = [
-    { name = "Tom Villani, Ph.D.", email = "thomas.villani@gmail.com" }
+    { name = "Tom Villani, Ph.D.", email = "thomas.villani@njii.com" }
 ]
 license = "MIT"
 keywords = [
@@ -79,8 +79,15 @@ pdf = [
 docx = [
     "python-docx>=1.2.0"
 ]
+fb2 = [
+    "defusedxml>=0.7.1"
+]
+enex = [
+    "defusedxml>=0.7.1"
+]
 pptx = [
     "python-pptx>=1.0.2",
+    "defusedxml>=0.7.1"
 ]
 rtf = [
     "pyth3>=0.7",
@@ -131,6 +138,8 @@ dev = [
     "types-reportlab",
     "pre-commit>=4.3.0",
     "types-pyyaml>=6.0.12.20250915",
+    "semgrep>=1.86.0",
+    "bandit[toml]>=1.9.2",
 ]
 epub = [
     "ebooklib>=0.19",
@@ -219,6 +228,11 @@ all = [
     "textile>=4.0.1",
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
+    "defusedxml>=0.7.1",
+    # Wiki parsing (MediaWiki, DokuWiki)
+    "mwparserfromhell>=0.7.2",
+    # Language detection
+    "langdetect>=1.0.9",
 ]
 wiki = [
     "mwparserfromhell>=0.7.2",
@@ -360,3 +374,12 @@ target-version = ['py312']
 include = '\.pyi?$'
 exclude = '\.git|\.mypy_cache|\.pytest_cache|build|dist'
 skip-string-normalization = false
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist", ".venv", "examples", "scripts"]
+skips = [
+    "B101",  # assert_used - asserts are fine in non-test code for invariants
+    "B105",  # hardcoded_password_string - false positives on non-password strings
+    "B110",  # try_except_pass - intentional for best-effort cleanup/graceful degradation
+    "B112",  # try_except_continue - intentional for graceful degradation in loops
+]

@@ -9,7 +9,7 @@ We take the security of all2md seriously. If you believe you've found a security
 **Please do not report security vulnerabilities through public GitHub issues.**
 
 Instead, please report them via email to:
-- **Email**: thomas.villani@gmail.com
+- **Email**: thomas.villani@njii.com
 - **Subject**: [all2md Security] Brief description of the issue
 
 You should receive a response within 48 hours. If for some reason you do not, please follow up via email to ensure we received your original message.
@@ -219,7 +219,7 @@ We encourage security researchers to review all2md. If you're conducting securit
 
 For security-related questions that are not vulnerabilities:
 - Open a [GitHub Discussion](https://github.com/thomas-villani/all2md/discussions) with the "Security" label
-- Email thomas.villani@gmail.com with "[all2md Security]" in the subject
+- Email thomas.villani@njii.com with "[all2md Security]" in the subject
 
 For general issues and feature requests:
 - [GitHub Issues](https://github.com/thomas-villani/all2md/issues)

@@ -145,7 +145,7 @@ class RobotsTxtChecker:
             if status_code == 404:
                 # 404 means no robots.txt, allow all
                 logger.debug(f"No robots.txt found at {robots_url} (404), allowing all access")
-                parser.allow_all = True
+                parser.allow_all = True  # type: ignore[attr-defined]
                 return RobotsTxtCacheEntry(
                     parser=parser,
                     timestamp=time.time(),
@@ -157,7 +157,7 @@ class RobotsTxtChecker:
                 logger.warning(
                     f"Server error fetching robots.txt from {robots_url} ({status_code}), temporarily disallowing"
                 )
-                parser.disallow_all = True
+                parser.disallow_all = True  # type: ignore[attr-defined]
                 return RobotsTxtCacheEntry(
                     parser=parser,
                     timestamp=time.time(),
@@ -167,7 +167,7 @@ class RobotsTxtChecker:
             else:
                 # Other errors (timeout, connection error, etc.), allow per RFC 9309
                 logger.warning(f"Failed to fetch robots.txt from {robots_url}: {e}, allowing access per RFC 9309")
-                parser.allow_all = True
+                parser.allow_all = True  # type: ignore[attr-defined]
                 return RobotsTxtCacheEntry(
                     parser=parser,
                     timestamp=time.time(),
@@ -178,7 +178,7 @@ class RobotsTxtChecker:
         except Exception as e:
             # Malformed robots.txt or parsing errors - allow access per RFC 9309
             logger.warning(f"Error parsing robots.txt from {robots_url}: {e}, allowing access")
-            parser.allow_all = True
+            parser.allow_all = True  # type: ignore[attr-defined]
             return RobotsTxtCacheEntry(
                 parser=parser,
                 timestamp=time.time(),
@@ -264,8 +264,9 @@ class RobotsTxtChecker:
         user_agent = remote_options.user_agent
         allowed = entry.parser.can_fetch(user_agent, url)
 
-        # Get crawl delay if specified
-        crawl_delay = entry.parser.crawl_delay(user_agent)
+        # Get crawl delay if specified (typeshed says str|None but it's actually int|None)
+        raw_delay = entry.parser.crawl_delay(user_agent)
+        crawl_delay: float | None = float(raw_delay) if raw_delay is not None else None
 
         # Handle policy
         if not allowed:

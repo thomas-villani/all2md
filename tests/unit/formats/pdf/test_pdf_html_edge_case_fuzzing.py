@@ -18,7 +18,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from all2md import to_markdown
-from all2md.exceptions import MalformedFileError
+from all2md.exceptions import MalformedFileError, ParsingError
 
 
 @pytest.mark.unit
@@ -124,10 +124,10 @@ class TestPDFEdgeCaseFuzzing:
         """Property: Random binary data should not crash PDF parser."""
         try:
             result = to_markdown(BytesIO(binary_data), source_format="pdf")
-            # Should either succeed or raise MalformedFileError
+            # Should either succeed or raise expected exceptions
             assert isinstance(result, str)
-        except MalformedFileError:
-            # Expected for invalid PDF data
+        except (MalformedFileError, ParsingError):
+            # Expected for invalid PDF data - ParsingError wraps library errors
             pass
         except Exception as e:
             # Should not crash with unexpected exceptions

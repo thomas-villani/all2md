@@ -48,7 +48,7 @@ class BM25Index(BaseIndex):
         self._tokenizer = tokenizer or _default_tokenizer
         self._tokenized_corpus: list[list[str]] = []
         self._backend = None
-        self._bm25_constructor = None
+        self._bm25_constructor: type | None = None
 
     @requires_dependencies("search_bm25", RankBm25Spec)
     def _ensure_backend(self) -> None:
@@ -63,9 +63,7 @@ class BM25Index(BaseIndex):
         if self._bm25_constructor is None:
             return
 
-        self._tokenized_corpus = [
-            list(self._tokenizer(chunk.text)) for chunk in self._chunks
-        ]  # type: ignore[unreachable]
+        self._tokenized_corpus = [list(self._tokenizer(chunk.text)) for chunk in self._chunks]
         if not self._tokenized_corpus:
             self._backend = None
             return

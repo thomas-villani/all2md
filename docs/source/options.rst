@@ -4320,7 +4320,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000021D1E5E8A90>``
+   :Default: ``<object object at 0x000001E359ED8A80>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4330,7 +4330,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000021D1E5E8A90>``
+   :Default: ``<object object at 0x000001E359ED8A80>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4494,6 +4494,12 @@ modules to ensure consistent Markdown generation.
    :Default: ``'blockquote'``
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
+
+**_unsupported_inline_mode_was_explicit**
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown-renderer--unsupported-inline-mode-was-explicit``
+   :Default: ``False``
 
 MBOX Options
 ~~~~~~~~~~~~
@@ -9706,7 +9712,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000021D1E5E8A90>``
+   :Default: ``<object object at 0x000001E359ED8A80>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9716,7 +9722,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000021D1E5E8A90>``
+   :Default: ``<object object at 0x000001E359ED8A80>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -9880,6 +9886,12 @@ modules to ensure consistent Markdown generation.
    :Default: ``'blockquote'``
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
+
+**_unsupported_inline_mode_was_explicit**
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown--unsupported-inline-mode-was-explicit``
+   :Default: ``False``
 
 Network Fetch Options
 ^^^^^^^^^^^^^^^^^^^^^

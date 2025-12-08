@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
-thomas.villani@gmail.com.
+thomas.villani@njii.com.
 
 All complaints will be reviewed and investigated promptly and fairly.
 

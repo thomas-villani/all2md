@@ -74,14 +74,12 @@
   
   ## Description List
   
-  <dl>
-    <dt>CPU</dt>
-    <dd>The brain of the computer</dd>
-    <dt>RAM</dt>
-    <dd>Random Access Memory</dd>
-    <dt>GPU</dt>
-    <dd>Graphics Processing Unit</dd>
-  </dl>
+  CPU
+  : The brain of the computer
+  RAM
+  : Random Access Memory
+  GPU
+  : Graphics Processing Unit
   
   ## Mixed Lists
   

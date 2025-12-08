@@ -300,8 +300,8 @@ class MboxToAstConverter(BaseParser):
                     folder = mbox.get_folder(folder_name)
                     # Type ignore: Maildir.get_folder returns Maildir but we accept it as Mailbox
                     messages.extend(
-                        self._process_folder_messages(folder, folder_name, processed_count)
-                    )  # type: ignore[arg-type]
+                        self._process_folder_messages(folder, folder_name, processed_count)  # type: ignore[arg-type]
+                    )
                     processed_count = len(messages)
                 except (KeyError, mailbox.NoSuchMailboxError):
                     # Folder doesn't exist, skip

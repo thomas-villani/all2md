@@ -17,7 +17,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
-from xml.etree import ElementTree as ET
+
+import defusedxml.ElementTree as ET
 
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
 from all2md.options.pptx import PptxOptions
