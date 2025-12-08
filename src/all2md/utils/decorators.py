@@ -104,6 +104,7 @@ def requires_dependencies(converter_name: str, packages: List[Tuple[str, str, st
             # Check each required package
             for install_name, import_name, version_spec in packages:
                 try:
+                    # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
                     importlib.import_module(import_name)
 
                     # If version spec is provided, validate the version

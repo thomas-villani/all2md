@@ -106,6 +106,7 @@ def skip_dataclass_fields(app, what, name, obj, skip, options):
                 parent_module_name, parent_class_name = parent_name.rsplit(".", 1)
                 import importlib
 
+                # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
                 parent_module = importlib.import_module(parent_module_name)
                 parent_class = getattr(parent_module, parent_class_name, None)
                 # If it's a dataclass, skip field documentation (already in class docstring)

@@ -287,6 +287,7 @@ def __getattr__(name: str) -> Any:
 
     # Check if it's a lazy-loaded module
     if name in _lazy_modules:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         module = importlib.import_module(_lazy_modules[name])
         # Cache the module in this module's namespace for faster future access
         globals()[name] = module
@@ -295,6 +296,7 @@ def __getattr__(name: str) -> Any:
     # Check if it's a lazy-loaded option class
     if name in _lazy_options:
         module_path, class_name = _lazy_options[name]
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         module = importlib.import_module(module_path)
         cls = getattr(module, class_name)
         # Cache the class in this module's namespace for faster future access

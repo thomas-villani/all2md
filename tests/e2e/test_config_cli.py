@@ -11,8 +11,12 @@ import sys
 from pathlib import Path
 
 import pytest
-import tomllib
 import yaml
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 from utils import cleanup_test_dir, create_test_temp_dir
 
 

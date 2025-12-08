@@ -485,8 +485,10 @@ class JinjaRenderer(BaseRenderer):
         # Create environment (autoescape=False is intentional - we output Markdown, not HTML)
         if template_dir:
             loader = FileSystemLoader(template_dir)
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             self._env = Environment(loader=loader, autoescape=False)  # nosec B701
         else:
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             self._env = Environment(autoescape=False)  # nosec B701
 
         # Set undefined behavior

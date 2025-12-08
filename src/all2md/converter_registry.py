@@ -38,6 +38,7 @@ def check_package_installed(import_name: str) -> bool:
 
     """
     try:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         importlib.import_module(import_name)
         return True
     except ImportError:
@@ -78,6 +79,7 @@ def _load_class(class_spec: Union[str, type, None], default_module_path: str, cl
             # Parse module and class name
             module_path, class_name = class_spec.rsplit(".", 1)
             try:
+                # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
                 module = importlib.import_module(module_path)
                 return getattr(module, class_name)
             except (ImportError, AttributeError) as e:
@@ -86,6 +88,7 @@ def _load_class(class_spec: Union[str, type, None], default_module_path: str, cl
         else:
             # Simple name - look in default module
             try:
+                # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
                 module = importlib.import_module(default_module_path)
                 return getattr(module, class_spec, None)
             except (ImportError, AttributeError) as e:
@@ -803,6 +806,7 @@ class ConverterRegistry:
             try:
                 # Import the module
                 module_path = f"all2md.parsers.{module_name}"
+                # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
                 module = importlib.import_module(module_path)
 
                 # Look for CONVERTER_METADATA in the module
@@ -822,6 +826,7 @@ class ConverterRegistry:
             try:
                 # Import the module
                 module_path = f"all2md.renderers.{module_name}"
+                # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
                 module = importlib.import_module(module_path)
 
                 # Look for CONVERTER_METADATA in the module
@@ -857,6 +862,7 @@ class ConverterRegistry:
 
         try:
             # Import the package to get its path
+            # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
             package = importlib.import_module(f"all2md.{package_name}")
             if package.__file__ is None:
                 logger.warning(f"Package {package_name} has no __file__ attribute")

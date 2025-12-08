@@ -6,8 +6,12 @@
 from datetime import datetime
 from pathlib import Path
 
-import tomllib
 import yaml
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 from all2md.ast.nodes import Document, Heading, Image, Paragraph, Text
 from all2md.utils.static_site import (

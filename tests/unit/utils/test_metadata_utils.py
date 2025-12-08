@@ -1,8 +1,12 @@
 """Unit tests for metadata utilities."""
 
 import pytest
-import tomllib
 import yaml
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 from all2md.utils.metadata import (
     DocumentMetadata,

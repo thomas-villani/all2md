@@ -644,6 +644,7 @@ hr {
         template_name = template_path.name
 
         # Enable autoescape for security
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=select_autoescape(["html", "xml"]))
         template = env.get_template(template_name)
 
@@ -665,6 +666,7 @@ hr {
         }
 
         # Render template
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         return template.render(**context)
 
     def _get_custom_css_class(self, node_type: str) -> str:

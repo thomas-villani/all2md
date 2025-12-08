@@ -10,8 +10,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import tomllib
 import yaml
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
 
 try:
     import tomli_w
