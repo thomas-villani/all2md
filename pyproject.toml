@@ -142,7 +142,6 @@ dev = [
     "types-reportlab",
     "pre-commit>=4.3.0",
     "types-pyyaml>=6.0.12.20250915",
-    "semgrep>=1.86.0",
     "bandit[toml]>=1.9.2",
 ]
 epub = [
