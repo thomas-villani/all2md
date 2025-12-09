@@ -1090,9 +1090,12 @@ Examples:
   all2md document.odt --odf-no-preserve-tables
   all2md book.epub --epub-no-merge-chapters
 
-  # Reading from stdin
+  # Reading from stdin (use '-' for stdin in any command)
   cat document.pdf | all2md -
   curl -s https://example.com/doc.pdf | all2md - --out output.md
+  echo "<h1>Test</h1>" | all2md view -
+  cat report.pdf | all2md grep "search term" -
+  echo "<p>Version 1</p>" | all2md diff - version2.html
 
   # Extract a section by name or index
   all2md document.pdf --extract "Materials and Methods"

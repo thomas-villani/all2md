@@ -106,14 +106,25 @@ input paths and optional output arguments to drive the conversion pipeline.
 Reading from Standard Input
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+All file-processing commands support stdin by using ``-`` as the input argument. This follows standard Unix conventions and enables powerful piping workflows.
+
 .. code-block:: bash
 
-   # Read from stdin
-   all2md -
-
-   # Pipe content through all2md
+   # Convert from stdin (main command)
    cat document.pdf | all2md -
    curl -s https://example.com/doc.pdf | all2md - --out output.md
+
+   # View from stdin in browser
+   echo "<h1>Quick Note</h1>" | all2md view -
+   cat presentation.pptx | all2md view - --theme dark
+
+   # Search content from stdin
+   cat report.pdf | all2md grep "search term" -
+   curl -s https://example.com/doc.html | all2md grep -i "keyword" -
+
+   # Compare with stdin (either source can be stdin, but not both)
+   echo "<p>Version 1</p>" | all2md diff - version2.html
+   cat modified.docx | all2md diff original.docx -
 
    # With explicit format specification
    cat unknown_file | all2md - --format pdf

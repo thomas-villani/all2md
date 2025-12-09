@@ -7,9 +7,9 @@
 [![License](https://img.shields.io/pypi/l/all2md.svg)](https://opensource.org/licenses/MIT)
 [![Python Versions](https://img.shields.io/pypi/pyversions/all2md.svg)](https://pypi.org/project/all2md/)
 
-**Rapid, lightweight conversion of various document formats to and from markdown for LLMs.**
+**Universal Python document conversion library with native AI assistant integration**
 
-all2md is a universal document converter that transforms PDFs, Office files, HTML, email, code snippets, and more into consistent Markdown — and back again. It powers cleaning, inspection, and round-tripping of documents for human workflows and AI assistants alike.
+all2md is a comprehensive document converter that transforms PDFs, Office files, HTML, emails, spreadsheets, and 40+ other formats into clean Markdown — and back again. Built on an AST-based architecture, it provides powerful programmatic document processing for Python applications, CLI workflows, data pipelines, and AI assistants.
 
 📖 **[Read the Documentation](https://all2md.readthedocs.io/)** | 🚀 **[Quick Start](#quick-start)** | 🎯 **[Use Cases](#use-case-scenarios)**
 
@@ -35,19 +35,64 @@ That's it! For more formats, install the dependencies you need: `all2md[docx,htm
 
 **Want to integrate with AI assistants?** See the [MCP Server](#mcp-server-for-ai-assistants) section below.
 
+## Essential CLI Commands
+
+Beyond basic conversion, all2md provides powerful commands for working with any document format:
+
+```bash
+# View documents in terminal with rich formatting (like fancy cat)
+all2md doc.pdf --rich
+
+# Rapidly convert Markdown to DOCX, PDF, or other formats
+all2md report.md --out report.docx
+all2md notes.md --out presentation.pptx
+
+# View any document in your web browser with instant HTML preview
+all2md view document.pdf
+all2md view spreadsheet.xlsx --theme docs
+
+# Extract specific sections by heading name
+all2md doc.pdf --extract "Introduction"
+all2md view report.docx --extract "Q3 Results"
+
+# Grep through any document type (PDF, DOCX, etc.)
+all2md grep "search term" documents/*.pdf
+all2md grep -i "case insensitive" report.docx
+
+# Keyword and vector search across document collections
+all2md search "machine learning" ./research_papers/
+all2md search "project timeline" --semantic ./docs/
+
+# Pipe and chain commands with stdin/stdout support (use '-' for stdin)
+curl https://example.com/doc.pdf | all2md - | grep "important"
+cat report.html | all2md - --format html --rich
+all2md document.docx | wc -w  # Count words in any document
+
+# All file commands support stdin via '-'
+echo "<h1>Quick Note</h1>" | all2md view -            # View from stdin
+cat doc.pdf | all2md grep "search term" -            # Search stdin content
+echo "<p>Version 1</p>" | all2md diff - version2.html # Diff with stdin
+```
+
+These commands work with all supported formats - treat PDFs, Word docs, and spreadsheets like plain text files. Full stdin/stdout support means you can pipe, chain, and integrate all2md into any workflow.
+
 ## The Problem
 
-LLMs excel at processing and generating structured text, with Markdown being a near-perfect format. However, most human-created documents are stored in formats like Microsoft Word, PDF, or PowerPoint. Feeding these directly to an LLM is often inefficient or impossible. Existing converters can be inconsistent, producing messy or hard-to-parse output.
+Modern document workflows require converting between multiple file formats - PDFs to Markdown for analysis, Word documents to HTML for web publishing, spreadsheets to readable text for processing. Existing solutions often require multiple tools with inconsistent APIs, produce messy output, or lack programmatic control. Converting back from Markdown to rich formats is even harder.
 
 ## The Solution
 
-`all2md` solves this by providing a robust, two-way conversion pipeline.
+`all2md` provides a unified, bidirectional conversion pipeline built on a powerful Abstract Syntax Tree (AST) architecture:
 
-1.  **Ingestion:** Convert any supported document into a clean, standardized Markdown representation.
-2.  **Transformation:** Programmatically clean, modify, or analyze the content *before* it reaches the LLM using a powerful transform pipeline.
-3.  **Generation:** Convert LLM-generated Markdown *back* into rich document formats like `.docx` or `.pdf`.
+1.  **Parse:** Convert any supported document into a consistent AST representation
+2.  **Transform:** Programmatically clean, modify, or analyze the content using a powerful transform pipeline
+3.  **Render:** Output to Markdown, or convert directly to other rich formats like DOCX, PDF, or HTML
 
-This approach makes Markdown the universal intermediate format, simplifying document processing workflows for AI applications.
+This AST-based approach enables:
+- **Consistent conversions** across all formats
+- **Bidirectional workflows** (Markdown ↔ DOCX/PDF/HTML)
+- **Programmatic control** with a clean Python API
+- **Perfect for AI workflows** - Feed documents to LLMs and convert their Markdown responses back to rich formats
 
 ## Why all2md?
 
@@ -85,30 +130,17 @@ While tools like Pandoc excel at document conversion, all2md is designed specifi
 -   **Smart Dependency Management**: Core library is dependency-free. Install support for formats only as you need them.
 all2md is built around four core strengths that make it ideal for modern document processing workflows:
 
-### 1. MCP Server for AI Integration
+### 1. AST-Based Architecture
 
-Built-in Model Context Protocol (MCP) server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
+Unlike direct format-to-format converters, all2md uses an intermediate Abstract Syntax Tree:
 
-- Direct document reading in Claude Desktop and other MCP-compatible AI tools
-- Smart auto-detection of file paths, data URIs, base64, and plain text
-- Section extraction for targeted reading
-- Vision model support with embedded images
-- Security-first design with file allowlists and network controls
+- Consistent document representation across all formats
+- Enables powerful transforms (remove images, offset headings, rewrite links, etc.)
+- Makes bidirectional conversion possible and reliable
+- Allows custom output formats via Jinja2 templates (DocBook XML, YAML, ANSI terminal, etc.)
+- Facilitates complex document analysis and manipulation
 
-See [MCP Server for AI Assistants](#mcp-server-for-ai-assistants) section below for setup.
-
-### 2. Powerful CLI Features
-
-Beyond basic conversion, the CLI includes advanced features for production workflows:
-
-- **Watch Mode** - Automatically convert files as they change
-- **Parallel Processing** - Multi-worker processing for large document sets
-- **Static Site Generation** - Built-in SSG with 5 themes (dark, docs, minimal, newspaper, sidebar)
-- **Quick Preview** - `all2md view` command for instant HTML preview
-- **Config Management** - Generate, validate, and manage conversion configs
-- **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
-
-### 3. Production-Ready Python API
+### 2. Production-Ready Python API
 
 Designed for embedding in applications, not just CLI usage:
 
@@ -119,15 +151,29 @@ Designed for embedding in applications, not just CLI usage:
 - Transform pipeline for systematic document modification
 - Extensive documentation with examples for every format
 
-### 4. AST-Based Architecture
+### 3. Powerful CLI Features
 
-Unlike direct format-to-format converters, all2md uses an intermediate Abstract Syntax Tree:
+Beyond basic conversion, the CLI includes advanced features for production workflows:
 
-- Consistent document representation across all formats
-- Enables powerful transforms (remove images, offset headings, rewrite links, etc.)
-- Makes bidirectional conversion possible and reliable
-- Allows custom output formats via Jinja2 templates (DocBook XML, YAML, ANSI terminal, etc.)
-- Facilitates complex document analysis and manipulation
+- **Watch Mode** - Automatically convert files as they change
+- **Parallel Processing** - Multi-worker processing for large document sets
+- **Static Site Generation** - Built-in SSG with 5 themes (dark, docs, minimal, newspaper, sidebar)
+- **Quick Preview** - `all2md view` command for instant HTML preview
+- **Config Management** - Generate, validate, and manage conversion configs
+- **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
+- **Agent-Friendly** - Clean, intuitive interface that AI agents can use directly without MCP integration
+
+### 4. MCP Server for AI Integration
+
+Built-in Model Context Protocol (MCP) server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
+
+- Direct document reading in Claude Desktop and other MCP-compatible AI tools
+- Smart auto-detection of file paths, data URIs, base64, and plain text
+- Section extraction for targeted reading
+- Vision model support with embedded images
+- Security-first design with file allowlists and network controls
+
+See [MCP Server for AI Assistants](#mcp-server-for-ai-assistants) section below for setup.
 
 ### Additional Strengths
 
@@ -219,7 +265,27 @@ The core library has no dependencies. You can install it and add support for for
 pip install all2md
 ```
 
-**2. Installation with Extras**
+**2. System-Wide CLI Installation (Recommended for CLI users)**
+
+Install the CLI globally using [uv](https://docs.astral.sh/uv/) for instant access from anywhere:
+
+```bash
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install all2md CLI system-wide with all dependencies
+uv tool install "all2md[all]"
+
+# Or install with specific formats
+uv tool install "all2md[pdf,docx,html]"
+
+# Now use all2md from anywhere
+all2md document.pdf
+```
+
+This gives you the `all2md` command globally without activating virtual environments.
+
+**3. Installation with Extras**
 
 Install support for only the formats you need. You can combine multiple extras.
 
@@ -240,7 +306,7 @@ pip install "all2md[outlook]"
 # pip install libpff-python  # For PST/OST files (platform-specific)
 ```
 
-**3. Full Installation**
+**4. Full Installation**
 
 To install all optional dependencies for all supported formats:
 
@@ -248,7 +314,7 @@ To install all optional dependencies for all supported formats:
 pip install "all2md[all]"
 ```
 
-**4. Check Dependencies**
+**5. Check Dependencies**
 
 You can check the status of optional dependencies at any time using the built-in CLI command:
 

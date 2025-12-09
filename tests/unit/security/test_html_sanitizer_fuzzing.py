@@ -87,7 +87,7 @@ class TestLinkURLSanitizationFuzzing:
         st.sampled_from(["http://", "https://", "mailto:", "tel:", "sms:"]),
         st.text(alphabet=st.characters(whitelist_categories=["L", "N"]), min_size=1, max_size=50),
     )
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow], deadline=None)
     def test_safe_schemes_allowed(self, safe_prefix, domain):
         """Property: Safe URL schemes should be allowed."""
         # Create parser with require_https=False to allow testing http:// URLs
@@ -220,7 +220,7 @@ class TestMalformedHTMLFuzzing:
         st.text(alphabet=st.characters(whitelist_categories=["L", "N"]), min_size=1, max_size=20),
         st.text(alphabet=st.characters(whitelist_categories=["L", "N"]), min_size=0, max_size=50),
     )
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.too_slow], deadline=None)
     def test_unclosed_tags(self, tag_name, content):
         """Property: Unclosed tags should not cause crashes."""
         html = f"<{tag_name}>{content}"

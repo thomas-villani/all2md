@@ -738,7 +738,7 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     parser.add_argument(
         "inputs",
         nargs="+",
-        help="Files, directories, or globs to search",
+        help="Files, directories, or globs to search (use '-' for stdin)",
     )
     parser.add_argument(
         "-e",
@@ -934,11 +934,11 @@ def _create_search_documents(items: List[CLIInputItem]) -> list[SearchDocumentIn
         if item.path_hint:
             metadata["path_hint"] = item.path_hint.as_posix()
 
-        # SearchDocumentInput expects str | Path, handle bytes case
-        source_input: str | Path
+        # SearchDocumentInput expects str | Path | bytes
+        source_input: str | Path | bytes
         if isinstance(item.raw_input, bytes):
-            # Skip bytes input for search (search works on file paths)
-            continue
+            # Use bytes directly for stdin input
+            source_input = item.raw_input
         else:
             source_input = item.raw_input
 

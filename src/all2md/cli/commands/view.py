@@ -37,7 +37,7 @@ def handle_view_command(args: list[str] | None = None) -> int:
         prog="all2md view",
         description="Convert and view document in browser with HTML themes.",
     )
-    parser.add_argument("input", help="File to view")
+    parser.add_argument("input", help="File to view (use '-' for stdin)")
     parser.add_argument(
         "--keep",
         nargs="?",
@@ -67,11 +67,24 @@ def handle_view_command(args: list[str] | None = None) -> int:
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
 
-    # Validate input file exists
-    input_path = Path(parsed.input)
-    if not input_path.exists():
-        print(f"Error: Input file not found: {parsed.input}", file=sys.stderr)
-        return EXIT_FILE_ERROR
+    # Handle stdin or validate input file exists
+    is_stdin = parsed.input == "-"
+    if is_stdin:
+        # Read from stdin
+        stdin_data = sys.stdin.buffer.read()
+        if not stdin_data:
+            print("Error: No data received from stdin", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        input_source = stdin_data
+        input_display_name = "stdin"
+    else:
+        # Validate file exists
+        input_path = Path(parsed.input)
+        if not input_path.exists():
+            print(f"Error: Input file not found: {parsed.input}", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        input_source = parsed.input
+        input_display_name = input_path.name
 
     # Select theme template
     if parsed.theme:
@@ -101,11 +114,11 @@ def handle_view_command(args: list[str] | None = None) -> int:
         return EXIT_FILE_ERROR
 
     # Print status
-    print(f"Converting {input_path.name}...")
+    print(f"Converting {input_display_name}...")
 
     try:
         # Convert to AST
-        doc = to_ast(parsed.input)
+        doc = to_ast(input_source)
 
         # Apply section extraction if requested
         if parsed.extract:
@@ -118,7 +131,7 @@ def handle_view_command(args: list[str] | None = None) -> int:
                 return EXIT_ERROR
 
         # Set custom title for web preview
-        doc.metadata["title"] = f"{input_path.name} - all2md Web Preview"
+        doc.metadata["title"] = f"{input_display_name} - all2md Web Preview"
 
         # Render with replace mode
         html_opts = HtmlRendererOptions(

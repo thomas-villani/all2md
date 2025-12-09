@@ -16,7 +16,6 @@ from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR
 from all2md.diff.renderers.html import HtmlDiffRenderer
 from all2md.diff.renderers.json import JsonDiffRenderer
 from all2md.diff.renderers.unified import UnifiedDiffRenderer
-from all2md.diff.text_diff import compare_files
 
 
 def _validate_context_lines(value: str) -> int:
@@ -65,8 +64,8 @@ def _create_diff_parser() -> argparse.ArgumentParser:
     )
 
     # Positional arguments
-    parser.add_argument("source1", help="First document (any supported format)")
-    parser.add_argument("source2", help="Second document (any supported format)")
+    parser.add_argument("source1", help="First document (any supported format, use '-' for stdin)")
+    parser.add_argument("source2", help="Second document (any supported format, use '-' for stdin)")
 
     # Output options
     parser.add_argument(
@@ -139,26 +138,62 @@ def handle_diff_command(args: list[str] | None = None) -> int:
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0
 
-    # Validate source files
-    source1_path = Path(parsed.source1)
-    source2_path = Path(parsed.source2)
+    # Handle stdin or validate source files
+    is_stdin1 = parsed.source1 == "-"
+    is_stdin2 = parsed.source2 == "-"
 
-    if not source1_path.exists():
-        print(f"Error: Source file not found: {parsed.source1}", file=sys.stderr)
+    # Cannot read both from stdin
+    if is_stdin1 and is_stdin2:
+        print("Error: Cannot read both source1 and source2 from stdin", file=sys.stderr)
         return EXIT_FILE_ERROR
 
-    if not source2_path.exists():
-        print(f"Error: Source file not found: {parsed.source2}", file=sys.stderr)
-        return EXIT_FILE_ERROR
+    # Load source1
+    if is_stdin1:
+        stdin_data = sys.stdin.buffer.read()
+        if not stdin_data:
+            print("Error: No data received from stdin", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        source1_input = stdin_data
+        source1_label = "stdin"
+    else:
+        source1_path = Path(parsed.source1)
+        if not source1_path.exists():
+            print(f"Error: Source file not found: {parsed.source1}", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        source1_input = parsed.source1
+        source1_label = str(source1_path)
+
+    # Load source2
+    if is_stdin2:
+        stdin_data = sys.stdin.buffer.read()
+        if not stdin_data:
+            print("Error: No data received from stdin", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        source2_input = stdin_data
+        source2_label = "stdin"
+    else:
+        source2_path = Path(parsed.source2)
+        if not source2_path.exists():
+            print(f"Error: Source file not found: {parsed.source2}", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        source2_input = parsed.source2
+        source2_label = str(source2_path)
 
     try:
-        # Compare documents using simple text-based diff
-        print(f"Comparing {source1_path.name} and {source2_path.name}...", file=sys.stderr)
-        diff_result = compare_files(
-            source1_path,
-            source2_path,
-            old_label=str(source1_path),
-            new_label=str(source2_path),
+        from all2md import to_ast
+        from all2md.diff.text_diff import compare_documents
+
+        # Convert both documents to AST
+        print(f"Comparing {source1_label} and {source2_label}...", file=sys.stderr)
+        doc1 = to_ast(source1_input)
+        doc2 = to_ast(source2_input)
+
+        # Compare documents
+        diff_result = compare_documents(
+            doc1,
+            doc2,
+            old_label=source1_label,
+            new_label=source2_label,
             context_lines=parsed.context,
             ignore_whitespace=parsed.ignore_whitespace,
             granularity=parsed.granularity,
