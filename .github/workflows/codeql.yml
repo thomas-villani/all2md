@@ -36,6 +36,8 @@ jobs:
           languages: ${{ matrix.language }}
           # Use extended security queries for more comprehensive analysis
           queries: security-extended,security-and-quality
+          # Use custom config to exclude tests/examples directories
+          config-file: .github/codeql-config.yml
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3

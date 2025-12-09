@@ -2,6 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/all2md.svg)](https://pypi.org/project/all2md/)
 [![CI](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/thomas-villani/all2md/graph/badge.svg)](https://codecov.io/gh/thomas-villani/all2md)
 [![Documentation](https://img.shields.io/badge/docs-readthedocs-blue.svg)](https://all2md.readthedocs.io/)
 [![License](https://img.shields.io/pypi/l/all2md.svg)](https://opensource.org/licenses/MIT)
 [![Python Versions](https://img.shields.io/pypi/pyversions/all2md.svg)](https://pypi.org/project/all2md/)

@@ -324,7 +324,8 @@ def secure_open_for_write(validated_path: Path) -> BinaryIO:
     try:
         # Open file with secure flags
         # Mode 0o644 = rw-r--r-- (owner can read/write, others can read)
-        fd = os.open(str(validated_path), flags, mode=0o644)
+        # This is intentional - output files need to be readable by other processes
+        fd = os.open(str(validated_path), flags, mode=0o644)  # nosec B101  # noqa: S101
         logger.debug(f"Securely opened file for writing: {validated_path}")
 
         # Convert file descriptor to file object

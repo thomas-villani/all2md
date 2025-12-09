@@ -314,7 +314,8 @@ def _atomic_create_file(path: Path) -> bool:
     try:
         # Attempt atomic file creation
         # Mode 0o644 = rw-r--r-- (owner can read/write, others can read)
-        fd = os.open(str(path), flags, 0o644)
+        # This is intentional - attachment files need to be readable by other processes
+        fd = os.open(str(path), flags, 0o644)  # nosec B101  # noqa: S101
         os.close(fd)  # Close immediately, we just needed to claim the path
         return True
     except FileExistsError:

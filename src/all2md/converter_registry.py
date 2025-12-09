@@ -23,6 +23,26 @@ from all2md.exceptions import FormatError
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_for_log(value: str) -> str:
+    """Sanitize a string for safe logging to prevent log injection.
+
+    Replaces newlines and carriage returns with escape sequences to prevent
+    attackers from injecting fake log entries.
+
+    Parameters
+    ----------
+    value : str
+        The string to sanitize
+
+    Returns
+    -------
+    str
+        Sanitized string safe for logging
+
+    """
+    return value.replace("\n", "\\n").replace("\r", "\\r")
+
+
 def check_package_installed(import_name: str) -> bool:
     """Check if a package is installed and importable.
 
@@ -93,7 +113,8 @@ def _load_class(class_spec: Union[str, type, None], default_module_path: str, cl
                 return getattr(module, class_spec, None)
             except (ImportError, AttributeError) as e:
                 logger.warning(
-                    f"{class_type_name.capitalize()} class '{class_spec}' " f"not found in {default_module_path}: {e}"
+                    f"{class_type_name.capitalize()} class '{_sanitize_for_log(class_spec)}' "
+                    f"not found in {default_module_path}: {_sanitize_for_log(str(e))}"
                 )
                 return None
 
@@ -418,8 +439,8 @@ class ConverterRegistry:
 
             if renderer_class is not None:
                 logger.debug(
-                    f"Selected renderer for '{format_name}': {metadata.get_renderer_display_name()} "
-                    f"(priority={metadata.priority})"
+                    f"Selected renderer for '{_sanitize_for_log(format_name)}': "
+                    f"{metadata.get_renderer_display_name()} (priority={metadata.priority})"
                 )
                 return renderer_class
 

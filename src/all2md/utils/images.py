@@ -229,15 +229,26 @@ def parse_image_data_uri(data_uri: str) -> dict[str, Any] | None:
     if not data_uri or not isinstance(data_uri, str):
         return None
 
-    # Match pattern: data:{mime}[;param1][;param2]...,{data}
-    # This handles data URIs with multiple parameters like charset, base64 encoding, etc.
-    match = re.match(r"^data:(?P<mime>[^,;]+)(?P<params>(?:;[^,]+)*),(?P<data>.*)", data_uri)
-    if not match:
+    # Parse data URI without backtracking-prone regex
+    # Format: data:{mime}[;param1][;param2]...,{data}
+    if not data_uri.startswith("data:"):
         return None
 
-    mime_type = match.group("mime")
-    params_str = match.group("params")
-    data = match.group("data")
+    # Find the comma separating metadata from data (split only on first comma)
+    comma_idx = data_uri.find(",", 5)  # Start after "data:"
+    if comma_idx == -1:
+        return None
+
+    metadata = data_uri[5:comma_idx]  # Everything between "data:" and first comma
+    data = data_uri[comma_idx + 1 :]  # Everything after the comma
+
+    # Split metadata by semicolon to get mime type and params
+    parts = metadata.split(";")
+    if not parts:
+        return None
+
+    mime_type = parts[0]
+    params_str = ";".join(parts[1:]) if len(parts) > 1 else ""
 
     # Parse parameters
     params = []

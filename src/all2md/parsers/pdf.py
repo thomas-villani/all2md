@@ -1677,7 +1677,6 @@ class PdfToAstConverter(BaseParser):
 
         for page_num in sample_pages:
             page = doc[page_num]
-            page_height = page.rect.height
             blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
 
             page_blocks[page_num] = []
