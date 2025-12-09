@@ -271,7 +271,7 @@ class TestGenerateOutputFilename:
 
     def test_filename_fallback_to_index(self):
         """Test fallback to index-based filename."""
-        source = Path("...pdf")  # Invalid stem
+        source = Path("___")  # Stem that slugifies to empty (underscores become hyphens, then stripped)
         metadata = {}
         result = generate_output_filename(source, metadata, StaticSiteGenerator.HUGO, index=5)
 

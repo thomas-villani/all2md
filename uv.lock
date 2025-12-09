@@ -65,9 +65,6 @@ archive = [
     { name = "py7zr" },
     { name = "rarfile" },
 ]
-chm = [
-    { name = "pychm" },
-]
 cli-extras = [
     { name = "rich" },
     { name = "tqdm" },
@@ -275,7 +272,6 @@ requires-dist = [
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.3.0" },
     { name = "py7zr", marker = "extra == 'all'", specifier = ">=0.22.0" },
     { name = "py7zr", marker = "extra == 'archive'", specifier = ">=0.22.0" },
-    { name = "pychm", marker = "extra == 'chm'", specifier = ">=0.8.6" },
     { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
     { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.26.5" },
@@ -2492,12 +2488,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/52/21/df6e5cb6c918d5321a4db241be78fd71d5d18561a4458eec5757b0b6a1b2/pybcj-1.0.6-cp313-cp313-win_amd64.whl", hash = "sha256:caefc3109bf172ad37b52e21dc16c84cf495b2ea2890cc7256cdf0188914508d", size = 24870 },
     { url = "https://files.pythonhosted.org/packages/fd/28/2fb3dbbf2669be30faf01c371fbc0aef65bebcf75f021116b00f9c5ad8a6/pybcj-1.0.6-cp313-cp313-win_arm64.whl", hash = "sha256:b24367175528da452a19e4c55368d5c907f4584072dc6aeee8990e2a5e6910fc", size = 23079 },
 ]
-
-[[package]]
-name = "pychm"
-version = "0.8.6"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/89/3d/2272705cfac544288fdcda172e25f4399c57371780943ad2d1b4acb67092/pychm-0.8.6.tar.gz", hash = "sha256:26606fec1e30cf7506c7afa943460c31e8dac87f35b7f178f437574d654cf672", size = 19562 }
 
 [[package]]
 name = "pycparser"
