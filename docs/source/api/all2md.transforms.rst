@@ -8,15 +8,4 @@ all2md.transforms
    :imported-members: False
    :noindex:
 
-Submodules
-----------
-
-.. toctree::
-   :maxdepth: 4
-
-   all2md.transforms.builtin
-   all2md.transforms.hooks
-   all2md.transforms.metadata
-   all2md.transforms.options
-   all2md.transforms.pipeline
-   all2md.transforms.registry
+For transforms module documentation organized by functionality, see :doc:`transforms`.

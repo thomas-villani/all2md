@@ -63,9 +63,16 @@ exclude_patterns = []
 # Suppress warnings for ambiguous cross-references caused by re-exports in __init__.py
 # Objects like Document, Node, etc. are available at multiple import paths
 # (e.g., all2md.ast.Document and all2md.ast.nodes.Document)
+#
+# Also suppress toctree warnings:
+# - toc.not_included: Some auto-generated module files are not in toctrees but are
+#   still accessible via cross-references from conceptual documentation files
+# - toc.excluded: Some files may be excluded from toctrees but still exist
 suppress_warnings = [
     "ref.python",
     "autodoc.import_object",
+    "toc.not_included",
+    "toc.excluded",
 ]
 
 autodoc_default_options = {

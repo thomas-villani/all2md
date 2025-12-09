@@ -251,7 +251,7 @@ resources.
    :Type: ``AttachmentMode``
    :CLI flag: ``--archive-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -832,7 +832,7 @@ for embedded images and resources.
    :Type: ``AttachmentMode``
    :CLI flag: ``--chm-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -1248,7 +1248,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
    :Type: ``AttachmentMode``
    :CLI flag: ``--docx-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -1766,7 +1766,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Type: ``AttachmentMode``
    :CLI flag: ``--eml-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -2034,7 +2034,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
    :Type: ``AttachmentMode``
    :CLI flag: ``--enex-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -2221,7 +2221,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
    :Type: ``AttachmentMode``
    :CLI flag: ``--epub-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -2494,7 +2494,7 @@ in FictionBook 2.0 ebooks.
    :Type: ``AttachmentMode``
    :CLI flag: ``--fb2-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -2628,7 +2628,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Type: ``AttachmentMode``
    :CLI flag: ``--html-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -3252,7 +3252,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
    :Type: ``AttachmentMode``
    :CLI flag: ``--ipynb-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -4320,7 +4320,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001E359ED8A80>``
+   :Default: ``<object object at 0x00000239E0A18CB0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4330,7 +4330,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001E359ED8A80>``
+   :Default: ``<object object at 0x00000239E0A18CB0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4521,7 +4521,7 @@ message filtering, and folder handling.
    :Type: ``AttachmentMode``
    :CLI flag: ``--mbox-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -4993,7 +4993,7 @@ primarily for handling embedded assets like images and local file security.
    :Type: ``AttachmentMode``
    :CLI flag: ``--mhtml-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -5264,7 +5264,7 @@ processing, including slide selection, numbering, and notes.
    :Type: ``AttachmentMode``
    :CLI flag: ``--odp-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -5558,7 +5558,7 @@ and adds ODS-specific options.
    :Type: ``AttachmentMode``
    :CLI flag: ``--ods-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -5775,7 +5775,7 @@ for embedded images.
    :Type: ``AttachmentMode``
    :CLI flag: ``--odt-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -6320,7 +6320,7 @@ PST/OST archive handling, and advanced message selection.
    :Type: ``AttachmentMode``
    :CLI flag: ``--outlook-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -6660,7 +6660,7 @@ including page selection, image handling, and formatting preferences.
    :Type: ``AttachmentMode``
    :CLI flag: ``--pdf-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -7556,7 +7556,7 @@ processing, including slide numbering and image handling.
    :Type: ``AttachmentMode``
    :CLI flag: ``--pptx-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -8120,7 +8120,7 @@ attachment handling from AttachmentOptionsMixin.
    :Type: ``AttachmentMode``
    :CLI flag: ``--rtf-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -8623,7 +8623,7 @@ including options for handling embedded resources and nested frames.
    :Type: ``AttachmentMode``
    :CLI flag: ``--webarchive-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -8914,7 +8914,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
    :Type: ``AttachmentMode``
    :CLI flag: ``--xlsx-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -9317,7 +9317,7 @@ resources.
    :Type: ``AttachmentMode``
    :CLI flag: ``--zip-attachment-mode``
    :Default: ``'alt_text'``
-   :Choices: ``skip``, ``alt_text``, ``download``, ``base64``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
    :Importance: core
 
 **alt_text_mode**
@@ -9712,7 +9712,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001E359ED8A80>``
+   :Default: ``<object object at 0x00000239E0A18CB0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9722,7 +9722,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001E359ED8A80>``
+   :Default: ``<object object at 0x00000239E0A18CB0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

@@ -8,34 +8,4 @@ all2md
    :imported-members: False
    :noindex:
 
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-   all2md.ast
-   all2md.cli
-   all2md.diff
-   all2md.mcp
-   all2md.options
-   all2md.parsers
-   all2md.renderers
-   all2md.search
-   all2md.transforms
-   all2md.utils
-
-Submodules
-----------
-
-.. toctree::
-   :maxdepth: 4
-
-   all2md.api
-   all2md.constants
-   all2md.converter_metadata
-   all2md.converter_registry
-   all2md.dependencies
-   all2md.exceptions
-   all2md.logging_utils
-   all2md.progress
+For organized API documentation, see the :doc:`index` which groups modules by functionality.

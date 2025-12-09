@@ -8,15 +8,4 @@ all2md.mcp
    :imported-members: False
    :noindex:
 
-Submodules
-----------
-
-.. toctree::
-   :maxdepth: 4
-
-   all2md.mcp.config
-   all2md.mcp.document_tools
-   all2md.mcp.schemas
-   all2md.mcp.security
-   all2md.mcp.server
-   all2md.mcp.tools
+For MCP module documentation, see :doc:`advanced` and the user guide at :doc:`/mcp`.

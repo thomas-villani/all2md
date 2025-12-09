@@ -1,0 +1,2 @@
+# This file ensures the _static directory is tracked by git.
+# Sphinx requires this directory for html_static_path configuration.

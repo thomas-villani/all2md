@@ -8,17 +8,4 @@ all2md.ast
    :imported-members: False
    :noindex:
 
-Submodules
-----------
-
-.. toctree::
-   :maxdepth: 4
-
-   all2md.ast.builder
-   all2md.ast.nodes
-   all2md.ast.sections
-   all2md.ast.serialization
-   all2md.ast.splitting
-   all2md.ast.transforms
-   all2md.ast.utils
-   all2md.ast.visitors
+For AST documentation, see :doc:`advanced` and the user guide at :doc:`/ast_guide`.
