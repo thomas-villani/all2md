@@ -1,0 +1,11 @@
+name: "CodeQL Config for all2md"
+
+# Exclude test files and examples from analysis
+# Tests often have intentional "bad" patterns for testing purposes
+paths-ignore:
+  - tests/
+  - examples/
+  - docs/
+  - scripts/
+  - "**/*_test.py"
+  - "**/test_*.py"
