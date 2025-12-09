@@ -26,7 +26,7 @@ from all2md.search.vector import VectorIndex, VectorIndexConfig
 class SearchDocumentInput:
     """Represents a document scheduled for indexing."""
 
-    source: str | Path
+    source: str | Path | bytes
     document_id: str | None = None
     source_format: DocumentFormat | str | None = "auto"
     metadata: Mapping[str, object] | None = None
@@ -359,7 +359,9 @@ class SearchService:
         return self._resolve_mode(self.options.default_mode)
 
 
-def _derive_document_id(source: str | Path) -> str:
+def _derive_document_id(source: str | Path | bytes) -> str:
+    if isinstance(source, bytes):  # Ends up bytes if stdin, no filename
+        return "stdin"
     path = Path(source)
     return path.stem if path.name else str(path)
 
