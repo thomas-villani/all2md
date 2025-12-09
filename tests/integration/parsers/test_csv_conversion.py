@@ -349,7 +349,7 @@ Data,456"""
 @pytest.mark.integration
 def test_csv_to_markdown_from_existing_fixture():
     """Test CSV conversion using existing test fixture."""
-    csv_file = FIXTURES_PATH / "basic.csv"
+    csv_file = FIXTURES_PATH / "documents" / "basic.csv"
 
     if not csv_file.exists():
         pytest.skip("Test fixture not found")

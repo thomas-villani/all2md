@@ -208,7 +208,7 @@ Visit [example.com](https://example.com) for more info.
     def test_view_docx_file(self):
         """Test viewing a DOCX file (requires docx fixture)."""
         # Skip if no test fixtures available
-        fixtures_dir = FIXTURES_PATH / "documents" / "generated"
+        fixtures_dir = FIXTURES_PATH / "documents"
         docx_files = list(fixtures_dir.glob("*.docx")) if fixtures_dir.exists() else []
 
         if not docx_files:
@@ -225,7 +225,7 @@ Visit [example.com](https://example.com) for more info.
     def test_view_pdf_file(self):
         """Test viewing a PDF file (requires pdf fixture)."""
         # Skip if no test fixtures available
-        fixtures_dir = FIXTURES_PATH / "documents" / "generated"
+        fixtures_dir = FIXTURES_PATH / "documents"
         pdf_files = list(fixtures_dir.glob("*.pdf")) if fixtures_dir.exists() else []
 
         if not pdf_files:
