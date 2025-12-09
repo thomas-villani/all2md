@@ -37,7 +37,7 @@ if str(SCRIPTS_PATH) not in sys.path:
 project = "all2md"
 copyright = "2025, Tom Villani, Ph.D."
 author = "Tom Villani, Ph.D."
-release = "0.1.0"
+release = "1.0.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

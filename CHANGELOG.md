@@ -133,7 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - URL validation and sanitization
 
 ### Technical Details
-- Python 3.12+ required
+- Python 3.10+ required
 - Hatchling build backend
 - MIT License
 - Comprehensive type hints throughout codebase

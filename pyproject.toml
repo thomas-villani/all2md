@@ -1,6 +1,6 @@
 [project]
 name = "all2md"
-version = "1.0.0-alpha"
+version = "1.0.0"
 description = "Rapid, lightweight conversion of various document formats to markdown for LLMs"
 readme = "README.md"
 authors = [
@@ -57,7 +57,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/thomas-villani/all2md"
 Repository = "https://github.com/thomas-villani/all2md"
-Documentation = "https://github.com/thomas-villani/all2md/tree/main/docs"
+Documentation = "https://all2md.readthedocs.io/"
 Issues = "https://github.com/thomas-villani/all2md/issues"
 Changelog = "https://github.com/thomas-villani/all2md/blob/main/CHANGELOG.md"
 
