@@ -245,6 +245,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Cleaned markdown text
 
         """
+        # Normalize line endings first (CRLF/CR -> LF)
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
         if self.options.collapse_blank_lines:
             text = re.sub(r"\n{3,}", "\n\n", text)
         text = text.rstrip()
