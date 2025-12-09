@@ -7,8 +7,8 @@ Thank you for your interest in contributing to all2md-watermark!
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/yourusername/all2md-watermark.git
-   cd all2md-watermark
+   git clone https://github.com/thomas-villani/all2md.git
+   cd all2md/examples/watermark-plugin
    ```
 
 3. Create a virtual environment:

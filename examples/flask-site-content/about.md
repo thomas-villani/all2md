@@ -28,7 +28,7 @@ This Flask application demonstrates:
 ## Technical Details
 
 The site is built with:
-- **Python 3.12+**
+- **Python 3.10+**
 - **Flask** web framework
 - **all2md** for markdown processing
 
@@ -36,7 +36,7 @@ All source code is available in the `examples/` directory of the all2md reposito
 
 ## Learn More
 
-- [all2md Documentation](https://github.com/tconbeer/all2md)
+- [all2md Documentation](https://github.com/thomas-villani/all2md)
 - [Flask Documentation](https://flask.palletsprojects.com/)
 
 ---

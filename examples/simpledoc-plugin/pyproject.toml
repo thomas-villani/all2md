@@ -7,7 +7,7 @@ name = "all2md-simpledoc"
 version = "1.0.0"
 description = "SimpleDoc format plugin for all2md - demonstrates bidirectional document conversion"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "All2md Contributors", email = "example@example.com"}
@@ -26,9 +26,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/all2md-simpledoc"
-Repository = "https://github.com/yourusername/all2md-simpledoc.git"
-Issues = "https://github.com/yourusername/all2md-simpledoc/issues"
+Homepage = "https://github.com/thomas-villani/all2md/tree/main/examples/simpledoc-plugin"
+Repository = "https://github.com/thomas-villani/all2md.git"
+Issues = "https://github.com/thomas-villani/all2md/issues"
 
 # Entry point for plugin discovery
 [project.entry-points."all2md.converters"]

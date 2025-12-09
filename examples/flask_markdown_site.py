@@ -324,7 +324,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </main>
 
     <footer>
-        <p>Powered by <a href="https://github.com/tconbeer/all2md">all2md</a> and Flask</p>
+        <p>Powered by <a href="https://github.com/thomas-villani/all2md">all2md</a> and Flask</p>
     </footer>
 </body>
 </html>

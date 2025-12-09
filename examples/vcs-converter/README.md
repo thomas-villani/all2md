@@ -462,6 +462,6 @@ This example is part of the all2md project and follows the same license.
 
 ## See Also
 
-- [all2md documentation](https://github.com/yourusername/all2md)
+- [all2md documentation](https://github.com/thomas-villani/all2md)
 - [Git hooks documentation](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)
 - [Pre-commit framework](https://pre-commit.com/)

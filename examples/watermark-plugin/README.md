@@ -61,8 +61,8 @@ When either flag is present the plugin decodes the image with [Pillow](https://p
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/all2md-watermark.git
-cd all2md-watermark
+git clone https://github.com/thomas-villani/all2md.git
+cd all2md/examples/watermark-plugin
 
 # Install in development mode
 pip install -e .
@@ -133,6 +133,6 @@ Contributions are welcome! Please:
 
 ## Support
 
-- Issues: https://github.com/yourusername/all2md-watermark/issues
+- Issues: https://github.com/thomas-villani/all2md/issues
 - all2md Documentation: https://all2md.readthedocs.io/
 - all2md Transforms Guide: https://all2md.readthedocs.io/en/latest/transforms.html

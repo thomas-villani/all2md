@@ -96,7 +96,7 @@ The frontmatter is parsed and available in `doc.metadata`.
 
 ## Next Steps
 
-- Explore the [API documentation](https://github.com/tconbeer/all2md)
+- Explore the [API documentation](https://github.com/thomas-villani/all2md)
 - Check out more examples in the repository
 - Read about advanced features in our next post
 

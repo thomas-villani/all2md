@@ -6,8 +6,8 @@ Thank you for your interest in contributing! This plugin serves as an educationa
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/all2md-simpledoc
-   cd all2md-simpledoc
+   git clone https://github.com/thomas-villani/all2md.git
+   cd all2md/examples/simpledoc-plugin
    ```
 
 2. Create a virtual environment:
@@ -59,4 +59,4 @@ This plugin demonstrates:
 
 ## Questions?
 
-Open an issue on GitHub or refer to the [all2md plugin documentation](https://github.com/yourusername/all2md).
+Open an issue on GitHub or refer to the [all2md plugin documentation](https://github.com/thomas-villani/all2md).

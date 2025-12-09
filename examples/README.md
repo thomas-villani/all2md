@@ -207,7 +207,7 @@ python llm_translation_demo.py document.pdf french --llm anthropic
 - Multilingual content creation
 - Localization workflows
 
-**Documentation:** See `LLM_TRANSLATION_EXAMPLE.md` for comprehensive guide
+**Documentation:** See code comments and docstrings for comprehensive guide
 
 **Complexity:** Intermediate-Advanced
 
@@ -359,7 +359,7 @@ Visit: http://localhost:5000
 - Content management
 - Static site prototyping
 
-**Documentation:** See `FLASK_SITE_README.md`
+**Documentation:** See code comments and `flask-site-content/` for examples
 
 **Complexity:** Intermediate
 

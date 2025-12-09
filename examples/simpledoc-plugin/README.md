@@ -64,8 +64,8 @@ pip install all2md-simpledoc
 Or for development:
 
 ```bash
-git clone https://github.com/yourusername/all2md-simpledoc
-cd all2md-simpledoc
+git clone https://github.com/thomas-villani/all2md.git
+cd all2md/examples/simpledoc-plugin
 pip install -e .
 ```
 
@@ -267,5 +267,5 @@ Contributions welcome! Please open an issue or PR on GitHub.
 
 ## Related Projects
 
-- [all2md](https://github.com/yourusername/all2md) - Universal document converter
-- [all2md-watermark](https://github.com/yourusername/all2md-watermark) - Transform plugin example
+- [all2md](https://github.com/thomas-villani/all2md) - Universal document converter
+- [all2md-watermark](https://github.com/thomas-villani/all2md/tree/main/examples/watermark-plugin) - Transform plugin example
