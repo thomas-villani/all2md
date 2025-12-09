@@ -17,7 +17,7 @@ When encountering issues, try these steps first:
    .. code-block:: bash
 
       python --version
-      # Should be 3.12 or higher
+      # Should be 3.10 or higher
 
 2. **Verify Installation**
 
@@ -86,7 +86,7 @@ Python Version Issues
    * ``SyntaxError: invalid syntax`` (on import)
 
 **Problem:**
-   all2md requires Python 3.12 or higher.
+   all2md requires Python 3.10 or higher.
 
 **Solutions:**
 
@@ -95,10 +95,13 @@ Python Version Issues
    # Check current version
    python --version
 
-   # Install Python 3.12+ (various methods)
-   # Via pyenv (recommended)
-   pyenv install 3.12.0
-   pyenv global 3.12.0
+   # Install Python 3.10+ (recommend 3.12+)
+   # Via uv (recommended)
+   uv python install 3.12
+
+   # Via pyenv
+   pyenv install 3.12
+   pyenv global 3.12
 
    # Via conda
    conda install python=3.12

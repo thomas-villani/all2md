@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Text Processing :: Markup",
 ]
 dependencies = [
-    "all2md>=0.1.0",
+    "all2md>=1.0.0",
 ]
 
 [project.urls]

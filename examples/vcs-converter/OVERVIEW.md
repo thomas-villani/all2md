@@ -163,7 +163,7 @@ Version control for research papers and theses.
 
 ## Technical Requirements
 
-- Python 3.12+
+- Python 3.10+
 - all2md library
 - Git (for hook integration)
 - python-docx (for DOCX rendering)

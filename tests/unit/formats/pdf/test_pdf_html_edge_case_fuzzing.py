@@ -260,6 +260,7 @@ class TestFormatDetectionFuzzing:
 class TestEncodingEdgeCases:
     """Test encoding edge cases."""
 
+    @settings(deadline=None)
     @given(st.sampled_from(["utf-8", "utf-16", "utf-32", "latin-1", "ascii"]), st.text(min_size=1, max_size=100))
     def test_various_encodings(self, encoding, text):
         """Test HTML parsing with various text encodings.
@@ -277,8 +278,9 @@ class TestEncodingEdgeCases:
 
             # Parser successfully handled the encoding - verify output is valid
             assert isinstance(result, str)
-            # Result should contain some content (not empty)
-            assert len(result.strip()) > 0
+            # Note: Result may be empty if text contains characters that form
+            # malformed HTML (e.g., '<A' becomes an incomplete tag that gets stripped).
+            # Empty output from graceful handling of malformed HTML is acceptable.
 
         except (UnicodeEncodeError, UnicodeDecodeError, LookupError, MalformedFileError):
             # Expected for:

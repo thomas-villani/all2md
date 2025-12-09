@@ -15,7 +15,7 @@ Thank you for your interest in contributing to all2md! This guide will help you 
 
 ### Prerequisites
 
-- Python 3.12 or higher
+- Python 3.10 or higher
 - Git
 - (Recommended) A virtual environment manager
 
@@ -58,7 +58,7 @@ Black is "the uncompromising Python code formatter" that ensures consistent code
 
 **Configuration:**
 - Line length: 120 characters (configured in `pyproject.toml`)
-- Target: Python 3.12+
+- Target: Python 3.10+
 - String normalization: enabled
 
 **Running Black manually:**
@@ -133,7 +133,7 @@ mypy performs static type checking to catch type-related errors before runtime.
 - Strict optional checking enabled
 - Disallow untyped definitions
 - Custom type stubs in `stubs/` directory
-- Python 3.12+ compatibility
+- Python 3.10+ compatibility
 
 **Running mypy:**
 
@@ -183,7 +183,7 @@ The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
 
 2. **Black** (v25.9.0)
    - Automatically formats Python code on commit
-   - Configuration: 120 char line length, Python 3.12+
+   - Configuration: 120 char line length, Python 3.10+
 
 3. **Ruff** (v0.14.2)
    - Lints code and auto-fixes common issues

@@ -45,6 +45,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 dependencies = [
@@ -232,6 +233,7 @@ all = [
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
     "defusedxml>=0.7.1",
+    "rank-bm25>=0.2.2",
     # Wiki parsing (MediaWiki, DokuWiki)
     "mwparserfromhell>=0.7.2",
     # Language detection

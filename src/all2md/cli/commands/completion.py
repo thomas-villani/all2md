@@ -86,7 +86,6 @@ def generate_bash_completion(catalog: dict[str, Any]) -> str:
     """
     # Extract data from catalog
     global_flags = [flag for opt in catalog["global"] for flag in opt["flags"]]
-    subcommands = catalog["subcommands"]
     formats = catalog["formats"]
 
     # Build format-specific option lists
@@ -158,12 +157,6 @@ _all2md_completion() {{
         done
     fi
 
-    # Complete subcommands in first position
-    if [[ $cword -eq 1 ]] && [[ "$cur" != -* ]]; then
-        COMPREPLY=($(compgen -W "{' '.join(subcommands)}" -- "$cur"))
-        return 0
-    fi
-
     # Handle option-specific completions
     case "$prev" in
         --format|-f)
@@ -211,7 +204,7 @@ _all2md_completion() {{
 """
 
     script += """
-    # Complete options
+    # Complete options only when user has typed -- or -
     if [[ "$cur" == -* ]]; then
         COMPREPLY=($(compgen -W "$opts" -- "$cur"))
         return 0
@@ -242,12 +235,6 @@ def generate_zsh_completion(catalog: dict[str, Any]) -> str:
         Complete zsh completion script
 
     """
-    subcommands = catalog["subcommands"]
-    subcommand_data = catalog.get("subcommand_data", [])
-
-    # Extract descriptions from catalog data
-    subcommand_descriptions = [item["description"] for item in subcommand_data]
-
     # Build option specifications for _arguments
     option_specs: list[str] = []
 
@@ -296,16 +283,7 @@ _all2md() {{
     local context state state_descr line
     typeset -A opt_args
 
-    # Handle subcommands in first position
-    if (( CURRENT == 2 )) && [[ $words[2] != -* ]]; then
-        local -a subcommands
-        subcommands=(
-{chr(10).join(f"            '{cmd}:{desc}'" for cmd, desc in zip(subcommands, subcommand_descriptions, strict=True))}
-        )
-        _describe 'subcommand' subcommands
-        return
-    fi
-
+    # Prioritize file completion - only show options when explicitly requested with --
     _arguments -s -S \\
 {chr(10).join(option_specs)} \\
         '*:input file:_files'
@@ -331,7 +309,6 @@ def generate_powershell_completion(catalog: dict[str, Any]) -> str:
         Complete PowerShell completion script
 
     """
-    subcommands = catalog["subcommands"]
     formats = catalog["formats"]
 
     # Build format-specific option lists
@@ -395,21 +372,6 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
                 break
             }
         }
-    }
-
-    # Complete subcommands
-    if ($tokens.Count -eq 2 -and $wordToComplete -notmatch '^-') {
-        $subcommands = @(
-"""
-
-    for cmd in subcommands:
-        script += (
-            f"            [System.Management.Automation.CompletionResult]::new("
-            f"'{cmd}', '{cmd}', 'ParameterValue', '{cmd}')\n"
-        )
-
-    script += """        )
-        return $subcommands
     }
 
     # Get previous token for context-aware completion
@@ -483,8 +445,31 @@ Register-ArgumentCompleter -CommandName all2md -ScriptBlock {
         script += "        )\n    }\n"
 
     script += """
-    # Filter completions by word being completed
-    return $completions | Where-Object { $_.CompletionText -like "$wordToComplete*" }
+    # Show option completions when user has typed -- or -
+    if ($wordToComplete -like '-*') {
+        # If user typed exactly '--' or '-', show all flags
+        if ($wordToComplete -eq '--' -or $wordToComplete -eq '-') {
+            return $completions
+        }
+        # Otherwise filter completions that match the prefix
+        $filtered = $completions | Where-Object { $_.CompletionText -like "$wordToComplete*" }
+        if ($filtered) {
+            return $filtered
+        }
+    }
+
+    # Provide file/directory completions for non-flag arguments
+    $paths = Get-ChildItem -Path "$wordToComplete*" -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $completionText = if ($_.PSIsContainer) { $_.Name + '\\' } else { $_.Name }
+            [System.Management.Automation.CompletionResult]::new(
+                $completionText,
+                $_.Name,
+                'ParameterValue',
+                $_.FullName
+            )
+        }
+    return $paths
 }
 """
 

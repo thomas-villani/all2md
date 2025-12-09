@@ -59,7 +59,7 @@ While tools like Pandoc excel at document conversion, all2md is designed specifi
 - **AST-Based Transforms** - Powerful document manipulation pipeline for cleaning, modifying, and analyzing content programmatically
 - **Lightweight Dependencies** - Install only what you need;
 - **Extensibility** - Simple plugin system using Python entry points to add custom formats and transforms
-- **Modern Python** - Built for Python 3.12+ with type hints, dataclasses, and contemporary patterns
+- **Modern Python** - Built for Python 3.10+ with type hints, dataclasses, and contemporary patterns
 
 **Choose Pandoc when you need:**
 - Maximum format support (100+ formats)
@@ -676,7 +676,6 @@ A: Use parallel processing: `all2md ./docs -r -o ./output --parallel 8` or in Py
 - **Documentation:** [Read the full documentation on ReadTheDocs](https://all2md.readthedocs.io/)
 - **Examples:** Browse [15+ examples](examples/) organized by complexity and use case
 - **Issues:** Report bugs or request features on [GitHub Issues](https://github.com/thomas-villani/all2md/issues)
-- **Discussions:** Ask questions on [GitHub Discussions](https://github.com/thomas-villani/all2md/discussions)
 
 ## Contributing
 

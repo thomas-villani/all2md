@@ -18,7 +18,7 @@ wheels = [
 
 [[package]]
 name = "all2md"
-version = "1.0.0a0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
@@ -53,6 +53,7 @@ all = [
     { name = "python-docx" },
     { name = "python-pptx" },
     { name = "pyyaml" },
+    { name = "rank-bm25" },
     { name = "rarfile" },
     { name = "readability-lxml" },
     { name = "reportlab" },
@@ -102,6 +103,7 @@ dev = [
     { name = "python-docx" },
     { name = "python-pptx" },
     { name = "pyyaml" },
+    { name = "rank-bm25" },
     { name = "rarfile" },
     { name = "readability-lxml" },
     { name = "reportlab" },
@@ -290,6 +292,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'openapi'", specifier = ">=6.0" },
+    { name = "rank-bm25", marker = "extra == 'all'", specifier = ">=0.2.2" },
     { name = "rank-bm25", marker = "extra == 'search'", specifier = ">=0.2.2" },
     { name = "rarfile", marker = "extra == 'all'", specifier = ">=4.2" },
     { name = "rarfile", marker = "extra == 'archive'", specifier = ">=4.2" },
