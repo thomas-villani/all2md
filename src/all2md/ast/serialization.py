@@ -43,8 +43,6 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
-    Comment,
-    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -76,44 +74,6 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
-
-# Mapping from node class names to classes for deserialization
-_NODE_TYPE_MAP = {
-    "Document": Document,
-    "Heading": Heading,
-    "Paragraph": Paragraph,
-    "CodeBlock": CodeBlock,
-    "BlockQuote": BlockQuote,
-    "List": List,
-    "ListItem": ListItem,
-    "DefinitionList": DefinitionList,
-    "DefinitionTerm": DefinitionTerm,
-    "DefinitionDescription": DefinitionDescription,
-    "Table": Table,
-    "TableRow": TableRow,
-    "TableCell": TableCell,
-    "ThematicBreak": ThematicBreak,
-    "HTMLBlock": HTMLBlock,
-    "Comment": Comment,
-    "FootnoteDefinition": FootnoteDefinition,
-    "Text": Text,
-    "Emphasis": Emphasis,
-    "Strong": Strong,
-    "Code": Code,
-    "Link": Link,
-    "Image": Image,
-    "LineBreak": LineBreak,
-    "Strikethrough": Strikethrough,
-    "Underline": Underline,
-    "Superscript": Superscript,
-    "Subscript": Subscript,
-    "HTMLInline": HTMLInline,
-    "CommentInline": CommentInline,
-    "FootnoteReference": FootnoteReference,
-    "MathInline": MathInline,
-    "MathBlock": MathBlock,
-    "SourceLocation": SourceLocation,
-}
 
 
 def _add_metadata_and_source(result: dict[str, Any], node: Node) -> None:

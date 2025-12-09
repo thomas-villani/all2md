@@ -9,8 +9,8 @@ single-file web archives and builds an AST representation.
 
 from __future__ import annotations
 
-import email
-from email import policy
+from email import message_from_binary_file, policy
+from email.message import EmailMessage
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
@@ -77,11 +77,11 @@ class MhtmlToAstConverter(BaseParser):
 
             if input_type == "path":
                 with open(doc_input, "rb") as f:
-                    msg = email.message_from_binary_file(f, policy=policy.default)
+                    msg = message_from_binary_file(f, policy=policy.default)
             else:
                 # file-like or bytes (both converted to BytesIO by validate_and_convert_input
                 # with require_binary=True)
-                msg = email.message_from_binary_file(doc_input, policy=policy.default)
+                msg = message_from_binary_file(doc_input, policy=policy.default)
 
         except Exception as e:
             raise ParsingError(
@@ -103,12 +103,12 @@ class MhtmlToAstConverter(BaseParser):
 
         return doc
 
-    def _extract_html_from_mhtml(self, msg: email.message.EmailMessage) -> str:
+    def _extract_html_from_mhtml(self, msg: EmailMessage) -> str:
         """Extract HTML content from MHTML message with proper charset handling.
 
         Parameters
         ----------
-        msg : email.message.EmailMessage
+        msg : EmailMessage
             Parsed MHTML message
 
         Returns
@@ -158,7 +158,7 @@ class MhtmlToAstConverter(BaseParser):
 
         Parameters
         ----------
-        document : email.message.EmailMessage
+        document : EmailMessage
             MHTML message object
         html_content : str, optional
             HTML content for additional metadata extraction

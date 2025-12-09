@@ -156,7 +156,6 @@ class ListBuilder:
                         self.root.children.append(new_list)
 
                 self._list_stack.append((new_list, level))
-                parent_list = new_list
 
         # Handle nesting down: create intermediate lists as needed
         while current_level < level:

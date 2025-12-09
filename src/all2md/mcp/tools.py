@@ -193,7 +193,6 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
         except Exception as e:
             # Not valid base64, continue
             logger.debug(f"Base64 decode failed: {e}")
-            pass
 
     # 4. Otherwise, treat as plain text content
     logger.info(f"Detected as plain text content ({len(source)} chars)")

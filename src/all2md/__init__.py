@@ -88,7 +88,6 @@ if sys.version_info < (3, 10):
 
 __version__ = "1.0.0"
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -188,8 +187,6 @@ _lazy_options = {
     "ZipOptions": ("all2md.options.zip", "ZipOptions"),
     "RemoteInputOptions": ("all2md.utils.input_sources", "RemoteInputOptions"),
 }
-
-logger = logging.getLogger(__name__)
 
 # Options handling helpers
 

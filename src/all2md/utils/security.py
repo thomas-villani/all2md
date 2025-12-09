@@ -893,7 +893,6 @@ def validate_safe_output_directory(
                 try:
                     test_path.relative_to(cwd)
                     # It's within CWD despite having .., allow it
-                    pass
                 except ValueError:
                     # It escapes CWD - this is the attack vector
                     raise SecurityError(

@@ -515,7 +515,6 @@ class ConverterRegistry:
                 input_data.seek(pos)
             except Exception as e:
                 logger.debug(f"Error reading input as file: {e!r}")
-                pass
 
         # Normalize content to bytes if it's a string (from text streams)
         if isinstance(content, str):

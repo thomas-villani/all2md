@@ -584,12 +584,9 @@ class HelpRenderer:
         for section in sections:
             if core_only:
                 core_options = [opt for opt in section.options if opt.importance == "core"]
-                # non_core_options = [opt for opt in section.options if opt.importance != 'core']
 
                 if core_options:
                     block = self._render_section_block(section, core_options, indent_section="  ")
-                    # if len(non_core_options) > 0:
-                    #     block.append("   Note: advanced/security options not shown.")
                 elif section.options:
                     block = self._render_section_placeholder(section, indent_section="  ")
                 else:
