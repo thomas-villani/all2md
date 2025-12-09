@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from all2md.constants import DEPS_SEARCH_VECTOR
 from all2md.utils.decorators import requires_dependencies
@@ -40,21 +40,23 @@ class VectorIndex(BaseIndex):
         """Create a vector index using the provided configuration options."""
         super().__init__(mode=SearchMode.VECTOR, index_id=index_id, options_snapshot=options_snapshot)
         self.config = config or VectorIndexConfig()
-        self._vectors = None
+        self._vectors: Any = None
         self._vector_count = 0
         self._dimension: int | None = None
-        self._faiss_index = None
-        self._encoder = None
-        self._np = None
-        self._faiss = None
-        self._sentence_transformers = None
+        self._faiss_index: Any = None
+        self._encoder: Any = None
+        # Lazily-loaded optional modules/classes (typed as Any to avoid
+        # mypy issues with conditional imports across different environments)
+        self._np: Any = None
+        self._faiss: Any = None
+        self._sentence_transformers: Any = None
 
     @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
     def _ensure_backends(self) -> None:
         if self._np is None:
             import numpy as np
 
-            self._np = np  # type: ignore[assignment]
+            self._np = np
         if self._faiss is None:
             import faiss
 
@@ -62,7 +64,7 @@ class VectorIndex(BaseIndex):
         if self._sentence_transformers is None:
             from sentence_transformers import SentenceTransformer
 
-            self._sentence_transformers = SentenceTransformer  # type: ignore[assignment]
+            self._sentence_transformers = SentenceTransformer
 
     def _build_backend(self) -> None:
         """Encode any new chunks and rebuild the FAISS index."""
@@ -70,7 +72,7 @@ class VectorIndex(BaseIndex):
         if self._np is None:
             return
 
-        new_chunks = self._chunks[self._vector_count :]  # type: ignore[unreachable]
+        new_chunks = self._chunks[self._vector_count :]
         if new_chunks:
             embeddings = self._encode_texts([chunk.text for chunk in new_chunks])
             if self.config.normalize_embeddings:
@@ -96,7 +98,7 @@ class VectorIndex(BaseIndex):
     def _create_index(self, dimension: int):  # type: ignore[no-untyped-def]
         if self._faiss is None:
             raise RuntimeError("FAISS backend not initialised")
-        if self.config.normalize_embeddings:  # type: ignore[unreachable]
+        if self.config.normalize_embeddings:
             return self._faiss.IndexFlatIP(dimension)
         return self._faiss.IndexFlatL2(dimension)
 
@@ -117,9 +119,9 @@ class VectorIndex(BaseIndex):
         if self.config.device:
             encode_kwargs["device"] = self.config.device
         embeddings = encoder.encode(texts, **encode_kwargs)
-        return self._np.asarray(embeddings, dtype=self._np.float32)  # type: ignore[attr-defined]
+        return self._np.asarray(embeddings, dtype=self._np.float32)
 
-    def _normalize_embeddings(self, vectors):  # type: ignore[no-untyped-def]
+    def _normalize_embeddings(self, vectors: Any) -> Any:
         norms = self._np.linalg.norm(vectors, axis=1, keepdims=True)
         norms[norms == 0] = 1
         return vectors / norms
@@ -127,10 +129,10 @@ class VectorIndex(BaseIndex):
     @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
     def search(self, query: SearchQuery, *, top_k: int = 10) -> list[SearchResult]:
         """Return the nearest ``top_k`` chunks to ``query`` in vector space."""
-        if self._faiss_index is None or self._np is None or self._dimension is None:  # type: ignore[unreachable]
+        if self._faiss_index is None or self._np is None or self._dimension is None:
             return []
 
-        query_vec = self._encode_texts([query.raw_text])  # type: ignore[unreachable]
+        query_vec = self._encode_texts([query.raw_text])
         if self.config.normalize_embeddings:
             query_vec = self._normalize_embeddings(query_vec)
         query_vec = query_vec.astype(self._np.float32)
@@ -181,12 +183,8 @@ class VectorIndex(BaseIndex):
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
         vectors_path = directory / "vectors.npy"
-        vectors = (
-            self._vectors
-            if self._vectors is not None
-            else self._np.zeros((0, 0), dtype=self._np.float32)  # type: ignore[attr-defined]
-        )
-        self._np.save(vectors_path, vectors)  # type: ignore[attr-defined]
+        vectors = self._vectors if self._vectors is not None else self._np.zeros((0, 0), dtype=self._np.float32)
+        self._np.save(vectors_path, vectors)
 
     @classmethod
     @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
@@ -218,16 +216,16 @@ class VectorIndex(BaseIndex):
 
         vectors_path = directory / "vectors.npy"
         if vectors_path.exists():
-            vectors = index._np.load(vectors_path, allow_pickle=False)  # type: ignore[attr-defined]
+            vectors = index._np.load(vectors_path, allow_pickle=False)
             if vectors.size:
                 if config.normalize_embeddings:
-                    vectors = index._normalize_embeddings(vectors)  # type: ignore[no-untyped-call]
+                    vectors = index._normalize_embeddings(vectors)
                 index._vectors = vectors
                 index._vector_count = vectors.shape[0]
                 index._dimension = vectors.shape[1]
                 index._faiss_index = index._create_index(index._dimension)
-                index._faiss_index.reset()  # type: ignore[attr-defined]
-                index._faiss_index.add(vectors.astype(index._np.float32))  # type: ignore[attr-defined]
+                index._faiss_index.reset()
+                index._faiss_index.add(vectors.astype(index._np.float32))
         return index
 
 

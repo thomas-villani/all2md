@@ -1,0 +1,23 @@
+# Force LF line endings for all text files to ensure cross-platform consistency
+* text=auto eol=lf
+
+# Binary files that should not be modified
+*.zip binary
+*.pdf binary
+*.docx binary
+*.pptx binary
+*.xlsx binary
+*.epub binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.odt binary
+*.ods binary
+*.odp binary
+*.mbox binary
+*.rtf binary
+
+# Ensure snapshot files are not modified
+*.ambr text eol=lf

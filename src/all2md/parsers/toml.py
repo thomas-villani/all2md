@@ -169,7 +169,7 @@ class TomlParser(BaseParser):
             if sys.version_info >= (3, 11):
                 import tomllib
             else:
-                import tomli as tomllib  # type: ignore[import-not-found]
+                import tomli as tomllib
 
             # Check if we should render as literal code block
             if self.options.literal_block:
@@ -565,7 +565,7 @@ def _detect_toml_content(content: bytes) -> bool:
             import tomllib
         else:
             try:
-                import tomli as tomllib  # type: ignore[import-not-found]
+                import tomli as tomllib
             except ImportError:
                 return False
 
