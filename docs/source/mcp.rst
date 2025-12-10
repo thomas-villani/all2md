@@ -549,7 +549,7 @@ When ``include_images=false``:
 
 .. note::
 
-   The ``download`` attachment mode is **not available** in MCP mode for security reasons. Images are either embedded as base64 or replaced with alt text.
+   The ``save`` attachment mode is **not available** in MCP mode for security reasons. Images are either embedded as base64 or replaced with alt text.
 
 Best Practices
 ~~~~~~~~~~~~~~
@@ -787,7 +787,7 @@ Limitations
 Current Limitations
 ~~~~~~~~~~~~~~~~~~~
 
-* **No Download Mode**: Attachment mode ``download`` is not available in MCP for security reasons
+* **No Download Mode**: Attachment mode ``save`` is not available in MCP for security reasons
 * **No Streaming**: Large documents are processed synchronously
 * **Network Default Off**: External HTML images require explicit ``--allow-network`` flag
 * **Single Server**: Each MCP server instance handles one request at a time (stdio transport)

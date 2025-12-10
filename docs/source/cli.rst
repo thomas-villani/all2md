@@ -7,78 +7,6 @@ all2md provides a comprehensive command-line interface for converting documents 
    :local:
    :depth: 2
 
-Diff Command
-------------
-
-The ``all2md diff`` subcommand compares any two supported documents and emits a
-unified diff (plain text, HTML, or JSON). It is designed to feel like classic
-``diff`` while understanding binary formats (DOCX, PDF, HTML, etc.) via the
-all2md AST pipeline.
-
-.. code-block:: bash
-
-   # Basic comparison with unified diff output
-   all2md diff old.docx new.docx
-
-   # Visual HTML report (opens nicely in a browser)
-   all2md diff old.pdf new.pdf --format html --output diff.html
-
-   # Machine-readable JSON for tooling
-   all2md diff v1.docx v2.docx --format json --output diff.json
-
-Granularity
-~~~~~~~~~~~
-
-Paragraph-level replacements can be noisy when a document has long blocks of
-text. Use ``--granularity`` to control how the diff tokenises prose before
-feeding it to ``difflib``:
-
-``block`` (default)
-   Treat each structural block as a single line (typical unified diff output).
-``sentence``
-   Split paragraphs into sentences, making inline edits easier to spot.
-``word``
-   Break content into whitespace-delimited tokens for the highest resolution.
-
-.. code-block:: bash
-
-   # Highlight sentence-level edits without expanding entire paragraphs
-   all2md diff draft.docx final.docx --granularity sentence
-
-   # Inspect word-level tweaks (e.g., legal language changes)
-   all2md diff nda_v1.docx nda_v2.docx --granularity word
-
-Whitespace control
-~~~~~~~~~~~~~~~~~~
-
-Pass ``--ignore-whitespace`` (alias ``-w``) to normalise whitespace within
-paragraphs before comparison. This keeps indentation in code blocks but collapses
-extraneous spaces in prose.
-
-Output formats
-~~~~~~~~~~~~~~
-
-``unified`` (default)
-   Classic unified diff lines with optional ANSI colours (``--color``).
-``html``
-   Full-document visual report with summary statistics, line numbers, and
-   collapsible unchanged sections.
-``json``
-   Structured output listing files, hunks, individual additions/deletions, and
-   aggregate change counts (ideal for automation).
-
-HTML output always includes the entire document structure. Unchanged sections can
-be hidden via ``--no-context`` when generating the report.
-
-JSON output now carries ``granularity`` and ``context_lines`` metadata alongside
-change statistics.
-
-Streaming and large files
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The CLI streams diff results; even large documents are processed without loading
-all output into memory multiple times. Coloured terminal output is enabled by
-default when stdout is a TTY or forced with ``--color always``.
 
 Basic Usage
 -----------
@@ -476,6 +404,11 @@ Configuration Management
 
 The ``all2md config`` command provides tools for managing configuration files.
 
+.. seealso::
+
+   :doc:`configuration`
+      Comprehensive guide to configuration files, auto-discovery, priority order, and all supported formats (TOML, YAML, JSON, pyproject.toml).
+
 .. _config-generate:
 
 Generate Default Configuration
@@ -507,7 +440,7 @@ The generated configuration includes:
    # all2md configuration file
    # Automatically generated default configuration
 
-   # Attachment handling mode: "skip", "download", or "base64"
+   # Attachment handling mode: "skip", "save", or "base64"
    attachment_mode = "skip"
 
    # PDF conversion options
@@ -588,7 +521,7 @@ This command shows configuration merged from:
 
    Effective Configuration:
    ============================================================
-   attachment_mode = "download"
+   attachment_mode = "save"
    attachment_output_dir = "./images"
 
    [pdf]
@@ -1898,7 +1831,7 @@ etc.). Formats without attachment handling simply ignore them, and format-prefix
 
    * ``skip`` - Ignore all attachments
    * ``alt_text`` - Replace with alt text or filename (default)
-   * ``download`` - Download attachments to local directory
+   * ``save`` - Download attachments to local directory
    * ``base64`` - Embed attachments as base64 data URLs
 
    **Default:** ``alt_text``
@@ -1906,7 +1839,7 @@ etc.). Formats without attachment handling simply ignore them, and format-prefix
    .. code-block:: bash
 
       # Download images to directory
-      all2md document.pdf --attachment-mode download --attachment-output-dir ./images
+      all2md document.pdf --attachment-mode save --attachment-output-dir ./images
 
       # Embed images as base64
       all2md presentation.pptx --attachment-mode base64
@@ -1915,12 +1848,12 @@ etc.). Formats without attachment handling simply ignore them, and format-prefix
       all2md document.html --attachment-mode skip
 
 ``--attachment-output-dir``
-   Directory to save attachments when using ``download`` mode.
+   Directory to save attachments when using ``save`` mode.
 
    .. code-block:: bash
 
       # Create images directory and save attachments
-      all2md document.docx --attachment-mode download --attachment-output-dir ./doc_images
+      all2md document.docx --attachment-mode save --attachment-output-dir ./doc_images
 
 ``--attachment-base-url``
    Base URL for resolving relative attachment references.
@@ -1928,7 +1861,7 @@ etc.). Formats without attachment handling simply ignore them, and format-prefix
    .. code-block:: bash
 
       # Resolve relative URLs in HTML documents
-      all2md webpage.html --attachment-mode download --attachment-base-url https://example.com
+      all2md webpage.html --attachment-mode save --attachment-base-url https://example.com
 
 Remote Input (HTTP/HTTPS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2090,7 +2023,7 @@ Configuration and Debugging
          all2md webpage.html --config config.json --html-network-allow-remote-fetch
 
          # CLI flags can still override config settings
-         all2md webpage.html --config config.toml --attachment-mode download
+         all2md webpage.html --config config.toml --attachment-mode save
 
    .. code-block:: bash
 
@@ -2098,7 +2031,7 @@ Configuration and Debugging
       all2md document.pdf --config config.toml
 
       # Config file settings with CLI overrides
-      all2md document.pdf --config config.json --attachment-mode download
+      all2md document.pdf --config config.json --attachment-mode save
 
       # Auto-discovery (checks cwd, then home directory)
       all2md document.pdf  # Uses .all2md.toml if present
@@ -2108,7 +2041,7 @@ Configuration and Debugging
    .. code-block:: toml
 
       # all2md configuration file
-      attachment_mode = "download"
+      attachment_mode = "save"
       attachment_output_dir = "./images"
 
       [pdf]
@@ -2123,12 +2056,43 @@ Configuration and Debugging
    .. code-block:: json
 
       {
-        "attachment_mode": "download",
+        "attachment_mode": "save",
         "attachment_output_dir": "./images",
         "pdf.detect_columns": true,
         "pdf.pages": [1, 2, 3],
         "markdown.emphasis_symbol": "_"
       }
+
+``--no-config``
+   Disable all configuration file loading. When this flag is set, all2md ignores:
+
+   * Auto-discovered configuration files (``.all2md.toml``, ``.all2md.json``, etc.)
+   * The ``ALL2MD_CONFIG`` environment variable
+   * Any ``--config`` flag that may be present
+
+   CLI arguments still work normally - only configuration files are skipped.
+
+   .. code-block:: bash
+
+      # Disable config file loading
+      all2md document.pdf --no-config
+
+      # --no-config ignores ALL2MD_CONFIG env var
+      ALL2MD_CONFIG=/path/to/config.toml all2md document.pdf --no-config
+
+      # --no-config takes precedence over --config
+      all2md document.pdf --no-config --config some-config.toml
+
+   **Use cases:**
+
+   * Ensure reproducible conversions without config file influence
+   * Debug configuration issues by starting with defaults
+   * Override project settings for one-off conversions
+
+   .. seealso::
+
+      :doc:`configuration`
+         Complete guide to configuration files and auto-discovery
 
 ``--preset``
    Apply a preset configuration for common use cases. Presets provide pre-configured settings that can be overridden by CLI arguments.
@@ -2157,11 +2121,11 @@ Configuration and Debugging
         - documentation
       * - Attachment Mode
         - skip
-        - download
+        - save
         - skip
-        - download
+        - save
         - base64
-        - download
+        - save
       * - PDF Column Detection
         - Disabled
         - Enabled
@@ -2277,7 +2241,7 @@ Configuration and Debugging
 
       Optimized for highest quality output with comprehensive content preservation:
 
-      * ``attachment_mode: download`` - Save all attachments locally
+      * ``attachment_mode: save`` - Save all attachments locally
       * ``pdf.detect_columns: true`` - Detect multi-column layouts
       * ``pdf.enable_table_fallback_detection: true`` - Advanced table detection
       * ``pdf.merge_hyphenated_words: true`` - Fix line-break hyphenation
@@ -2304,7 +2268,7 @@ Configuration and Debugging
 
       Complete content and metadata extraction:
 
-      * ``attachment_mode: download`` - Download all attachments
+      * ``attachment_mode: save`` - Download all attachments
       * ``pdf.detect_columns: true`` - Advanced layout detection
       * ``pdf.enable_table_fallback_detection: true`` - Comprehensive table detection
       * ``html.extract_title: true`` - Extract metadata
@@ -2336,7 +2300,7 @@ Configuration and Debugging
 
       Optimized for technical documentation with readable code and clean formatting:
 
-      * ``attachment_mode: download`` - External image files
+      * ``attachment_mode: save`` - External image files
       * ``markdown.emphasis_symbol: _`` - Underscore emphasis (common in tech docs)
       * ``html.extract_title: true`` - Document structure
       * ``html.strip_dangerous_elements: true`` - Clean HTML
@@ -2361,7 +2325,7 @@ Configuration and Debugging
       all2md document.pdf --preset quality --attachment-output-dir ./my-images
 
       # Override preset's attachment mode
-      all2md document.pdf --preset archival --attachment-mode download
+      all2md document.pdf --preset archival --attachment-mode save
 
       # Combine preset with config file
       all2md document.pdf --preset quality --config custom.toml
@@ -2389,7 +2353,7 @@ Configuration and Debugging
    .. code-block:: toml
 
       # Based on 'quality' preset with customizations
-      attachment_mode = "download"
+      attachment_mode = "save"
       attachment_output_dir = "./document-assets"
 
       [pdf]
@@ -2734,7 +2698,7 @@ Processing and Output Control
    .. code-block:: bash
 
       # Save current settings to JSON
-      all2md document.pdf --attachment-mode download --save-config my-config.json
+      all2md document.pdf --attachment-mode save --save-config my-config.json
 
       # Save and reuse
       all2md document.pdf --preset quality --save-config quality-config.json
@@ -2853,7 +2817,7 @@ Network Security Options
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``--html-network-allow-remote-fetch``
-   Allow fetching remote URLs for images and resources (base64/download modes).
+   Allow fetching remote URLs for images and resources (base64/save modes).
 
    **Default:** Disabled (prevents SSRF attacks)
 
@@ -2931,7 +2895,7 @@ Security Examples
        --html-network-require-https \
        --html-network-network-timeout 5 \
        --html-network-max-remote-asset-bytes 1048576 \
-       --attachment-mode download \
+       --attachment-mode save \
        --attachment-output-dir ./secure_images
 
    # Maximum security (no network access)
@@ -2969,7 +2933,7 @@ For common security scenarios, all2md provides convenient preset flags that conf
    .. code-block:: bash
 
       # Balanced security for web content
-      all2md webpage.html --safe-mode --attachment-mode download
+      all2md webpage.html --safe-mode --attachment-mode save
 
 ``--paranoid-mode``
    Maximum security preset: like safe-mode but with stricter size limits and host validation.
@@ -3062,7 +3026,7 @@ Individual security flags specified after a preset will override the preset's de
    all2md webpage.html --paranoid-mode --html-network-max-remote-asset-bytes 10485760  # 10MB
 
    # Combine safe-mode with attachment downloads
-   all2md webpage.html --safe-mode --attachment-mode download --attachment-output-dir ./images
+   all2md webpage.html --safe-mode --attachment-mode save --attachment-output-dir ./images
 
 **Important:** CLI flags are processed left-to-right, so presets should come first:
 
@@ -3081,16 +3045,16 @@ Individual security flags specified after a preset will override the preset's de
    # From least to most secure processing of the same HTML file
 
    # 1. No security (default - use only for trusted local HTML)
-   all2md trusted.html --attachment-mode download
+   all2md trusted.html --attachment-mode save
 
    # 2. Basic sanitization (remove scripts/styles)
-   all2md webpage.html --html-strip-dangerous-elements --attachment-mode download
+   all2md webpage.html --html-strip-dangerous-elements --attachment-mode save
 
    # 3. Safe mode (HTTPS-only external resources)
-   all2md webpage.html --safe-mode --attachment-mode download
+   all2md webpage.html --safe-mode --attachment-mode save
 
    # 4. Paranoid mode (strict size limits and validation)
-   all2md webpage.html --paranoid-mode --attachment-mode download
+   all2md webpage.html --paranoid-mode --attachment-mode save
 
    # 5. Maximum security (no external access at all)
    all2md untrusted.html --strict-html-sanitize --attachment-mode skip
@@ -3297,7 +3261,7 @@ When processing multiple formats in a single batch, you can use format-specific 
 
    # Skip attachments by default, but download from PDFs
    all2md *.* --attachment-mode skip \
-       --pdf-attachment-mode download \
+       --pdf-attachment-mode save \
        --pdf-attachment-output-dir ./pdf_images \
        --output-dir ./converted
 
@@ -3309,7 +3273,7 @@ When processing multiple formats in a single batch, you can use format-specific 
 
    # Different attachment directories per format
    all2md mixed_content/* \
-       --attachment-mode download \
+       --attachment-mode save \
        --pdf-attachment-output-dir ./assets/pdf \
        --docx-attachment-output-dir ./assets/word \
        --html-attachment-output-dir ./assets/web \
@@ -3960,13 +3924,13 @@ Working with Images
 .. code-block:: bash
 
    # Download images from PDF to local directory
-   all2md manual.pdf --attachment-mode download --attachment-output-dir ./pdf_images
+   all2md manual.pdf --attachment-mode save --attachment-output-dir ./pdf_images
 
    # Embed PowerPoint images as base64
    all2md presentation.pptx --attachment-mode base64
 
    # Process HTML with external images
-   all2md webpage.html --attachment-mode download --attachment-base-url https://example.com
+   all2md webpage.html --attachment-mode save --attachment-base-url https://example.com
 
 Advanced PDF Processing
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -3977,7 +3941,7 @@ Advanced PDF Processing
    all2md large_document.pdf --pdf-pages "1,2,3,6,11" --markdown-emphasis-symbol "_"
 
    # Handle encrypted PDF
-   all2md encrypted.pdf --pdf-password "secret" --attachment-mode download
+   all2md encrypted.pdf --pdf-password "secret" --attachment-mode save
 
    # Disable column detection for simple layout
    all2md simple.pdf --pdf-no-detect-columns
@@ -3988,7 +3952,7 @@ Email Processing
 .. code-block:: bash
 
    # Process email with attachments
-   all2md message.eml --attachment-mode download --attachment-output-dir ./email_files
+   all2md message.eml --attachment-mode save --attachment-output-dir ./email_files
 
    # Clean email conversion (no headers, flat structure)
    all2md thread.eml --eml-no-include-headers --eml-no-preserve-thread-structure
@@ -4016,7 +3980,7 @@ Web Content Processing
    curl -s "https://example.com/page.html" | all2md - --html-extract-title --html-strip-dangerous-elements
 
    # Process saved web page with images
-   all2md saved_page.html --attachment-mode download --attachment-base-url "https://example.com"
+   all2md saved_page.html --attachment-mode save --attachment-base-url "https://example.com"
 
 Document Splitting
 ~~~~~~~~~~~~~~~~~~
@@ -4128,7 +4092,7 @@ Create a configuration file ``.all2md.toml`` (preferred):
 .. code-block:: toml
 
    # all2md configuration
-   attachment_mode = "download"
+   attachment_mode = "save"
    attachment_output_dir = "./attachments"
    log_level = "INFO"
 
@@ -4147,7 +4111,7 @@ Or use JSON format:
 .. code-block:: json
 
    {
-       "attachment_mode": "download",
+       "attachment_mode": "save",
        "attachment_output_dir": "./attachments",
        "markdown.emphasis_symbol": "_",
        "markdown.bullet_symbols": "•◦▪",
@@ -4243,7 +4207,7 @@ Aliases and Functions
 .. code-block:: bash
 
    # Useful aliases
-   alias pdf2md='all2md --format pdf --attachment-mode download'
+   alias pdf2md='all2md --format pdf --attachment-mode save'
    alias docx2md='all2md --format docx --markdown-emphasis-symbol "_"'
    alias html2md='all2md --format html --html-strip-dangerous-elements'
 

@@ -776,3 +776,442 @@ class TestLinks:
         renderer.render(doc, output_file)
 
         assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestRenderToBytes:
+    """Tests for render_to_bytes method."""
+
+    def test_render_to_bytes_simple(self):
+        """Test render_to_bytes returns valid PDF bytes."""
+        doc = Document(children=[Paragraph(content=[Text(content="Byte content")])])
+        renderer = PdfRenderer()
+        result = renderer.render_to_bytes(doc)
+
+        assert isinstance(result, bytes)
+        assert len(result) > 0
+        # PDF files start with %PDF
+        assert result[:4] == b"%PDF"
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestTableSpanning:
+    """Tests for table colspan and rowspan."""
+
+    def test_table_with_colspan(self, tmp_path):
+        """Test table with column spanning."""
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Merged Header")], colspan=2),
+                            TableCell(content=[Text(content="Single")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="A")]),
+                                TableCell(content=[Text(content="B")]),
+                                TableCell(content=[Text(content="C")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "table_colspan.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Merged Header" in text
+            assert "Single" in text
+
+    def test_table_with_rowspan(self, tmp_path):
+        """Test table with row spanning."""
+        doc = Document(
+            children=[
+                Table(
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Merged")], rowspan=2),
+                                TableCell(content=[Text(content="Row 1")]),
+                            ]
+                        ),
+                        TableRow(cells=[TableCell(content=[Text(content="Row 2")])]),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "table_rowspan.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestCommentModes:
+    """Tests for comment rendering modes."""
+
+    def test_comment_mode_ignore(self, tmp_path):
+        """Test that comments are ignored when comment_mode is 'ignore'."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Visible text")]),
+                Comment(content="This should be ignored", metadata={"author": "Test"}),
+            ]
+        )
+        options = PdfRendererOptions(comment_mode="ignore")
+        renderer = PdfRenderer(options)
+        output_file = tmp_path / "comment_ignore.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Visible text" in text
+            # Comment should not appear
+            assert "This should be ignored" not in text
+
+    def test_comment_mode_visible(self, tmp_path):
+        """Test that comments are visible when comment_mode is 'visible'."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Comment(
+                    content="Visible comment",
+                    metadata={"author": "Author", "date": "2025-01-20"},
+                )
+            ]
+        )
+        options = PdfRendererOptions(comment_mode="visible")
+        renderer = PdfRenderer(options)
+        output_file = tmp_path / "comment_visible.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Visible comment" in text
+
+    def test_comment_with_label(self, tmp_path):
+        """Test comment with label metadata."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Comment(
+                    content="Labeled comment",
+                    metadata={"author": "Author", "label": "1", "date": "2025-01-20"},
+                )
+            ]
+        )
+        options = PdfRendererOptions(comment_mode="visible")
+        renderer = PdfRenderer(options)
+        output_file = tmp_path / "comment_label.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestInlineComments:
+    """Tests for inline comment rendering."""
+
+    def test_inline_comment_ignore(self, tmp_path):
+        """Test inline comment is ignored when comment_mode is 'ignore'."""
+        from all2md.ast import CommentInline
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Before "),
+                        CommentInline(content="ignored", metadata={}),
+                        Text(content=" after"),
+                    ]
+                )
+            ]
+        )
+        options = PdfRendererOptions(comment_mode="ignore")
+        renderer = PdfRenderer(options)
+        output_file = tmp_path / "inline_ignore.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+    def test_inline_comment_visible(self, tmp_path):
+        """Test inline comment is visible when comment_mode is 'visible'."""
+        from all2md.ast import CommentInline
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        CommentInline(
+                            content="visible inline",
+                            metadata={"author": "Test Author", "label": "1"},
+                        ),
+                    ]
+                )
+            ]
+        )
+        options = PdfRendererOptions(comment_mode="visible")
+        renderer = PdfRenderer(options)
+        output_file = tmp_path / "inline_visible.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestInlineFormattingAdvanced:
+    """Additional tests for inline formatting."""
+
+    def test_underline(self, tmp_path):
+        """Test underline rendering."""
+        from all2md.ast import Underline
+
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
+        renderer = PdfRenderer()
+        output_file = tmp_path / "underline.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+    def test_superscript(self, tmp_path):
+        """Test superscript rendering."""
+        from all2md.ast import Superscript
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="E = mc"),
+                        Superscript(content=[Text(content="2")]),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "superscript.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+    def test_subscript(self, tmp_path):
+        """Test subscript rendering."""
+        from all2md.ast import Subscript
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="H"),
+                        Subscript(content=[Text(content="2")]),
+                        Text(content="O"),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "subscript.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestCustomHeadingFonts:
+    """Tests for custom heading font settings."""
+
+    def test_heading_fonts_option(self, tmp_path):
+        """Test custom heading fonts option."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Custom H1")]),
+                Heading(level=2, content=[Text(content="Custom H2")]),
+            ]
+        )
+        options = PdfRendererOptions(heading_fonts={1: ("Helvetica-Bold", 20), 2: ("Helvetica-Bold", 16)})
+        renderer = PdfRenderer(options)
+        output_file = tmp_path / "heading_fonts.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Custom H1" in text
+            assert "Custom H2" in text
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestEmptyTable:
+    """Tests for empty table handling."""
+
+    def test_empty_table_no_rows(self, tmp_path):
+        """Test table with no rows is handled gracefully."""
+        doc = Document(children=[Table(rows=[])])
+        renderer = PdfRenderer()
+        output_file = tmp_path / "empty_table.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestFootnoteDefinitionContent:
+    """Tests for different footnote definition content types."""
+
+    def test_footnote_with_code_block(self, tmp_path):
+        """Test footnote definition containing code block."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Reference"), FootnoteReference(identifier="code")]),
+                FootnoteDefinition(identifier="code", content=[CodeBlock(content="print('hello')")]),
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "footnote_code.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestDefinitionListAdvanced:
+    """Advanced tests for definition list rendering."""
+
+    def test_definition_list_with_paragraph_content(self, tmp_path):
+        """Test definition list where content is wrapped in Paragraph."""
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="API")]),
+                            [
+                                DefinitionDescription(
+                                    content=[Paragraph(content=[Text(content="Application Programming Interface")])]
+                                )
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "deflist_para.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "API" in text
+            assert "Application Programming Interface" in text
+
+    def test_definition_list_multiple_items(self, tmp_path):
+        """Test definition list with multiple terms."""
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term 1")]),
+                            [DefinitionDescription(content=[Text(content="Description 1")])],
+                        ),
+                        (
+                            DefinitionTerm(content=[Text(content="Term 2")]),
+                            [DefinitionDescription(content=[Text(content="Description 2")])],
+                        ),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "deflist_multi.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Term 1" in text
+            assert "Term 2" in text
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestLineBreakInline:
+    """Tests for line break in inline content."""
+
+    def test_line_break_processing(self, tmp_path):
+        """Test line break in inline content processing."""
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=False),
+                        Text(content="Line 2"),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "line_break.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Line 1" in text
+            assert "Line 2" in text
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestNestedBlockQuote:
+    """Tests for nested blockquote rendering."""
+
+    def test_nested_blockquote(self, tmp_path):
+        """Test nested blockquote paragraphs use blockquote style."""
+        doc = Document(
+            children=[
+                BlockQuote(
+                    children=[
+                        Paragraph(content=[Text(content="Outer quote")]),
+                        BlockQuote(children=[Paragraph(content=[Text(content="Inner quote")])]),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "nested_bq.pdf"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+        if PDF_VERIFICATION_AVAILABLE:
+            text = get_pdf_text(output_file)
+            assert "Outer quote" in text
+            assert "Inner quote" in text

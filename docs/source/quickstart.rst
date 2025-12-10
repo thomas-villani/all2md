@@ -94,7 +94,7 @@ Common Use Cases
 
    # Download images to a local directory
    options = PdfOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./pdf_images'
    )
 
@@ -103,7 +103,7 @@ Common Use Cases
 .. code-block:: bash
 
    # Command line equivalent
-   all2md report.pdf --attachment-mode download --attachment-output-dir ./pdf_images
+   all2md report.pdf --attachment-mode save --attachment-output-dir ./pdf_images
 
 2. Processing Word Documents
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,9 +112,9 @@ Common Use Cases
 
    from all2md import to_markdown, DocxOptions
 
-   # Preserve all formatting and download images
+   # Preserve all formatting and save images
    options = DocxOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./doc_images'
    )
 
@@ -135,7 +135,7 @@ Common Use Cases
    )
 
    pdf_options = PdfOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./pdf_images'
    )
    markdown = to_markdown(
@@ -306,7 +306,7 @@ Email Processing Example
    from all2md import to_markdown, EmlOptions
 
    options = EmlOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./email_attachments',
        detect_reply_separators=True,  # Clean up email chains
        clean_wrapped_urls=True        # Fix broken URLs

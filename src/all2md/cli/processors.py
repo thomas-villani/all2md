@@ -746,19 +746,26 @@ def setup_and_validate_options(
     """
     # Load configuration from file (with auto-discovery if not explicitly specified)
     config_from_file = {}
-    env_config_path = os.environ.get("ALL2MD_CONFIG")
 
-    # Priority order:
-    # 1. Explicit --config flag
-    # 2. ALL2MD_CONFIG environment variable
-    # 3. Auto-discovered config (.all2md.toml or .all2md.json in cwd or home)
-    explicit_config_path = getattr(parsed_args, "config", None)
+    # Check if --no-config flag is set to disable all configuration file loading
+    no_config = getattr(parsed_args, "no_config", False)
 
-    try:
-        config_from_file = load_config_with_priority(explicit_path=explicit_config_path, env_var_path=env_config_path)
-    except argparse.ArgumentTypeError as e:
-        print(f"Error loading configuration file: {e}", file=sys.stderr)
-        raise
+    if not no_config:
+        env_config_path = os.environ.get("ALL2MD_CONFIG")
+
+        # Priority order:
+        # 1. Explicit --config flag
+        # 2. ALL2MD_CONFIG environment variable
+        # 3. Auto-discovered config (.all2md.toml or .all2md.json in cwd or home)
+        explicit_config_path = getattr(parsed_args, "config", None)
+
+        try:
+            config_from_file = load_config_with_priority(
+                explicit_path=explicit_config_path, env_var_path=env_config_path
+            )
+        except argparse.ArgumentTypeError as e:
+            print(f"Error loading configuration file: {e}", file=sys.stderr)
+            raise
 
     # Apply preset if specified (preset is applied to config, then CLI args override)
     if hasattr(parsed_args, "preset") and parsed_args.preset:

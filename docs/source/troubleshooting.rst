@@ -326,7 +326,7 @@ Word Document Issues
 
    # Download images to directory
    options = DocxOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./word_images'
    )
 
@@ -336,7 +336,7 @@ Word Document Issues
 .. code-block:: bash
 
    # CLI equivalents
-   all2md document.docx --attachment-mode download --attachment-output-dir ./word_images
+   all2md document.docx --attachment-mode save --attachment-output-dir ./word_images
    all2md document.docx --attachment-mode base64
 
 HTML Issues
@@ -379,13 +379,13 @@ HTML Issues
    from all2md.options import HtmlOptions
 
    options = HtmlOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_base_url='https://example.com'
    )
 
 .. code-block:: bash
 
-   all2md webpage.html --attachment-mode download --attachment-base-url "https://example.com"
+   all2md webpage.html --attachment-mode save --attachment-base-url "https://example.com"
 
 Email Processing Issues
 ~~~~~~~~~~~~~~~~~~~~~~~

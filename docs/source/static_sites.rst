@@ -871,7 +871,7 @@ The ``generate-site`` command works seamlessly with other all2md CLI features:
        --output-dir site \
        --generator hugo \
        --pdf-pages "1-10" \
-       --attachment-mode download
+       --attachment-mode save
 
    # Use with transforms
    all2md generate-site docs/ \

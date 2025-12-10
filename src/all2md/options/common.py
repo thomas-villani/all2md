@@ -308,7 +308,7 @@ class AttachmentOptionsMixin(CloneFrozenMixin):
     )
     attachment_output_dir: str | None = field(
         default=DEFAULT_ATTACHMENT_OUTPUT_DIR,
-        metadata={"help": "Directory to save attachments when using download mode", "importance": "advanced"},
+        metadata={"help": "Directory to save attachments when using `save` mode", "importance": "advanced"},
     )
     attachment_base_url: str | None = field(
         default=DEFAULT_ATTACHMENT_BASE_URL,

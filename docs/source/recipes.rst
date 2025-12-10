@@ -24,7 +24,7 @@ Converting Directory of Mixed Documents
    # Create a configuration file for consistent settings
    cat > conversion_config.json << EOF
    {
-       "attachment_mode": "download",
+       "attachment_mode": "save",
        "attachment_output_dir": "./extracted_media",
        "markdown.emphasis_symbol": "_",
        "markdown.bullet_symbols": "•◦▪",
@@ -1039,7 +1039,7 @@ Secure Web Scraping and Conversion
                    allow_local_files=False,  # Block file:// URLs
                    allow_cwd_files=False
                ),
-               attachment_mode='download',
+               attachment_mode='save',
                attachment_output_dir=str(self.output_dir / 'images')
            )
 
@@ -1847,7 +1847,7 @@ Creating Shareable Documentation Bundles
        --output-dir ./bundle \
        --assets-layout flat \
        --zip project-docs.zip \
-       --attachment-mode download \
+       --attachment-mode save \
        --preserve-structure
 
    # Create per-document asset organization
@@ -1855,7 +1855,7 @@ Creating Shareable Documentation Bundles
        --output-dir ./reports \
        --assets-layout by-stem \
        --zip reports-bundle.zip \
-       --attachment-mode download
+       --attachment-mode save
 
    # Structured layout preserving directory hierarchy
    all2md ./company-docs \
@@ -1881,7 +1881,7 @@ Creating Shareable Documentation Bundles
        --output-dir ./output \
        --zip technical-docs-$(date +%Y%m%d).zip \
        --assets-layout by-stem \
-       --attachment-mode download \
+       --attachment-mode save \
        --preserve-structure \
        --exclude "*.draft.*" \
        --exclude "*.tmp" \

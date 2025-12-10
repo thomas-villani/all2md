@@ -255,6 +255,11 @@ ALL2MD_MCP_LOG_LEVEL
 Configuration File
 ------------------
 
+.. seealso::
+
+   :doc:`configuration`
+      Complete guide to configuration files, including auto-discovery behavior, supported formats (TOML, YAML, JSON, pyproject.toml), and configuration priority.
+
 ALL2MD_CONFIG
 ~~~~~~~~~~~~~
 
@@ -616,7 +621,7 @@ Development vs Production
 
    # Development: Permissive settings
    ALL2MD_DISABLE_NETWORK=false
-   ALL2MD_ATTACHMENT_MODE=download
+   ALL2MD_ATTACHMENT_MODE=save
    ALL2MD_ATTACHMENT_OUTPUT_DIR=./dev-images
    ALL2MD_RICH=true
    ALL2MD_MCP_LOG_LEVEL=DEBUG
@@ -669,7 +674,7 @@ When multiple configuration sources are present, they are applied in this order 
    export ALL2MD_ATTACHMENT_MODE=base64
 
    # Explicit config file
-   export ALL2MD_CONFIG=custom.toml  # contains: attachment_mode = "download"
+   export ALL2MD_CONFIG=custom.toml  # contains: attachment_mode = "save"
 
    # CLI flag
    all2md document.pdf --attachment-mode inline
@@ -694,7 +699,7 @@ Invalid environment variable values trigger errors:
    # Invalid choice
    export ALL2MD_ATTACHMENT_MODE=invalid
    all2md document.pdf
-   # Error: Invalid attachment_mode: must be skip, alt_text, base64, or download
+   # Error: Invalid attachment_mode: must be skip, alt_text, base64, or save
 
 Required Values
 ~~~~~~~~~~~~~~~
@@ -763,6 +768,7 @@ Quick Reference
 See Also
 --------
 
+* :doc:`configuration` - Configuration files guide
 * :doc:`cli` - Command-line interface reference
 * :doc:`security` - Security configuration
 * :doc:`mcp` - MCP server documentation

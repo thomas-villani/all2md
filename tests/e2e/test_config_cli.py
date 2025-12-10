@@ -455,3 +455,112 @@ extract_title = true
 
         # Should fail - directories aren't valid config files
         assert result.returncode != 0
+
+
+@pytest.mark.e2e
+@pytest.mark.cli
+class TestNoConfigFlagEndToEnd:
+    """End-to-end tests for the --no-config CLI flag."""
+
+    def setup_method(self):
+        """Set up test environment."""
+        self.temp_dir = create_test_temp_dir()
+        self.cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli.py"
+        # Store original env var value
+        self.original_env = os.environ.get("ALL2MD_CONFIG")
+
+        # Create a simple HTML test file
+        self.test_html = self.temp_dir / "test.html"
+        self.test_html.write_text("<html><body><h1>Test</h1></body></html>", encoding="utf-8")
+
+    def teardown_method(self):
+        """Clean up test environment."""
+        # Restore original env var
+        if self.original_env is not None:
+            os.environ["ALL2MD_CONFIG"] = self.original_env
+        elif "ALL2MD_CONFIG" in os.environ:
+            del os.environ["ALL2MD_CONFIG"]
+
+        cleanup_test_dir(self.temp_dir)
+
+    def _run_cli(self, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+        """Run the CLI as a subprocess."""
+        cmd = [sys.executable, "-m", "all2md"] + args
+        subprocess_env = os.environ.copy()
+        if env:
+            subprocess_env.update(env)
+
+        return subprocess.run(
+            cmd,
+            cwd=self.cli_path.parent.parent.parent,
+            capture_output=True,
+            text=True,
+            env=subprocess_env,
+        )
+
+    def test_no_config_ignores_env_var_config(self):
+        """Test --no-config ignores ALL2MD_CONFIG environment variable."""
+        # Create a config file with settings that would affect output
+        config_file = self.temp_dir / "env_config.toml"
+        # Use a nonexistent path to ensure config loading would fail if attempted
+        config_file.write_text(
+            '[markdown]\nflavor = "commonmark"\n',
+            encoding="utf-8",
+        )
+
+        # With --no-config, the env var should be ignored and conversion should succeed
+        env = {"ALL2MD_CONFIG": str(config_file)}
+        result = self._run_cli(["--no-config", str(self.test_html)], env=env)
+
+        assert result.returncode == 0
+        assert "# Test" in result.stdout
+
+    def test_no_config_ignores_auto_discovered_config(self):
+        """Test --no-config ignores auto-discovered .all2md.toml files."""
+        # Create an auto-discoverable config file in the temp directory
+        config_file = self.temp_dir / ".all2md.toml"
+        config_file.write_text(
+            '[markdown]\nflavor = "commonmark"\n',
+            encoding="utf-8",
+        )
+
+        # Run with --no-config from temp_dir - should ignore the .all2md.toml
+        result = self._run_cli(["--no-config", str(self.test_html)])
+
+        assert result.returncode == 0
+        assert "# Test" in result.stdout
+
+    def test_no_config_with_explicit_config_flag(self):
+        """Test --no-config takes precedence over --config flag."""
+        # Create a config file
+        config_file = self.temp_dir / "config.toml"
+        config_file.write_text(
+            '[markdown]\nflavor = "commonmark"\n',
+            encoding="utf-8",
+        )
+
+        # Both flags provided - --no-config should take precedence
+        result = self._run_cli(["--no-config", "--config", str(config_file), str(self.test_html)])
+
+        assert result.returncode == 0
+        assert "# Test" in result.stdout
+
+    def test_no_config_still_allows_cli_args(self):
+        """Test --no-config still allows CLI arguments to be applied."""
+        result = self._run_cli(["--no-config", "--markdown-emphasis-symbol", "_", str(self.test_html)])
+
+        assert result.returncode == 0
+        # The emphasis symbol option should still work
+        assert "# Test" in result.stdout
+
+    def test_no_config_with_invalid_env_config_path(self):
+        """Test --no-config allows conversion even with invalid ALL2MD_CONFIG path."""
+        # Set env var to a path that doesn't exist
+        env = {"ALL2MD_CONFIG": "/nonexistent/path/config.toml"}
+
+        # Without --no-config, this would fail
+        # With --no-config, it should succeed
+        result = self._run_cli(["--no-config", str(self.test_html)], env=env)
+
+        assert result.returncode == 0
+        assert "# Test" in result.stdout

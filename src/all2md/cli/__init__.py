@@ -258,8 +258,8 @@ def main(args: list[str] | None = None) -> int:
         setup_and_validate_options,
     )
 
-    # Check for config from environment
-    if not parsed_args.config:
+    # Check for config from environment (skip if --no-config is set)
+    if not getattr(parsed_args, "no_config", False) and not parsed_args.config:
         env_config = os.environ.get("ALL2MD_CONFIG")
         if env_config:
             parsed_args.config = env_config

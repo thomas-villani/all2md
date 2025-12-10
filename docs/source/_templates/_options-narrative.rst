@@ -164,7 +164,7 @@ Any CLI flag can be expressed as ``ALL2MD_<DESTINATION>``. Dashes and dots becom
 
 .. code-block:: bash
 
-   export ALL2MD_ATTACHMENT_MODE=download
+   export ALL2MD_ATTACHMENT_MODE=save
    export ALL2MD_PDF_PAGES="1-3,10"
    export ALL2MD_HTML_NETWORK_REQUIRE_HTTPS=true
    export ALL2MD_MARKDOWN_FLAVOR=gfm

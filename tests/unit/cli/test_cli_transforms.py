@@ -1,6 +1,7 @@
 """Unit tests for the list-transforms CLI command."""
 
 import argparse
+from unittest.mock import patch
 
 import pytest
 
@@ -128,3 +129,59 @@ class TestHandleListTransformsCommand:
             captured = capsys.readouterr()
             assert "Description:" in captured.out
             assert "Priority:" in captured.out
+
+
+@pytest.mark.unit
+class TestHandleListTransformsCommandEdgeCases:
+    """Test edge cases for handle_list_transforms_command."""
+
+    def test_list_transforms_with_partial_name_match(self, capsys):
+        """Test that partial transform names don't match."""
+        result = handle_list_transforms_command(["strip"])  # Partial name
+        # Should fail unless there's an exact match
+        assert result == 1 or "not found" in capsys.readouterr().err
+
+    def test_list_transforms_empty_registry(self, capsys):
+        """Test listing when registry is empty."""
+        with patch("all2md.cli.commands.transforms.transform_registry") as mock_registry:
+            mock_registry.list_transforms.return_value = []
+            mock_registry.get_transform_info.return_value = {}
+
+            result = handle_list_transforms_command([])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Total: 0" in captured.out
+
+    def test_list_transforms_registry_error(self, capsys):
+        """Test handling of registry errors."""
+        with patch("all2md.cli.commands.transforms.transform_registry") as mock_registry:
+            mock_registry.list_transforms.side_effect = RuntimeError("Registry error")
+
+            with pytest.raises(RuntimeError):
+                handle_list_transforms_command([])
+
+
+@pytest.mark.unit
+class TestParserEdgeCases:
+    """Test parser edge cases."""
+
+    def test_parser_unknown_argument(self):
+        """Test parser rejects unknown arguments."""
+        parser = _create_list_transforms_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--unknown-arg"])
+
+    def test_parser_multiple_transforms_error(self):
+        """Test parser rejects multiple transform arguments."""
+        parser = _create_list_transforms_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["transform1", "transform2"])
+
+    def test_parser_help_text(self):
+        """Test parser has help text."""
+        parser = _create_list_transforms_parser()
+        help_text = parser.format_help()
+
+        assert "transform" in help_text.lower()
+        assert "rich" in help_text.lower()

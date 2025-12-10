@@ -169,7 +169,7 @@ Attachment processing can be expensive. Choose the right mode:
 
    # Slowest: Download to disk (file I/O overhead)
    options = PdfOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./images'
    )
 

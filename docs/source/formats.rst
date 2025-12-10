@@ -26,7 +26,7 @@ Key capabilities:
 
 - Adaptive layout analysis with multi-column detection and ruling/table heuristics
 - Page filtering, header/footer trimming, and hyphen merging for cleaner prose
-- Rich attachment pipeline (download/base64/alt-text) shared with other formats
+- Rich attachment pipeline (save/base64/alt-text) shared with other formats
 - Optional word/character counts via :doc:`transforms`
 
 Essentials:
@@ -39,7 +39,7 @@ Essentials:
    # Focus on specific pages and collect images locally
    all2md report.pdf \
      --pdf-pages "1-5" \
-     --attachment-mode download \
+     --attachment-mode save \
      --attachment-output-dir ./assets/report
 
 Word Documents (DOCX)

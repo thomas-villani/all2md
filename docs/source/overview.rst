@@ -392,11 +392,11 @@ Options can be provided in multiple ways and are merged intelligently:
 .. code-block:: python
 
    # Method 1: Pre-configured options object
-   options = PdfOptions(pages=[0, 1, 2], attachment_mode='download')
+   options = PdfOptions(pages=[0, 1, 2], attachment_mode='save')
    markdown = to_markdown('doc.pdf', parser_options=options)
 
    # Method 2: Keyword arguments (creates options object)
-   markdown = to_markdown('doc.pdf', pages=[0, 1, 2], attachment_mode='download')
+   markdown = to_markdown('doc.pdf', pages=[0, 1, 2], attachment_mode='save')
 
    # Method 3: Mixed (kwargs override options)
    markdown = to_markdown('doc.pdf', parser_options=options, attachment_mode='base64')
@@ -428,7 +428,7 @@ PDF Processing
        enable_table_fallback_detection=True,
        detect_columns=True,
        auto_trim_headers_footers=True,
-       attachment_mode='download',         # Download images locally
+       attachment_mode='save',         # Download images locally
        attachment_output_dir='./images'
    )
 

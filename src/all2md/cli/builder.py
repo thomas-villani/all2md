@@ -1240,6 +1240,14 @@ Examples:
             "then in home directory.",
         )
 
+        parser.add_argument(
+            "--no-config",
+            action="store_true",
+            dest="no_config",
+            help="Disable loading of configuration files. Ignores auto-discovered configs, "
+            "ALL2MD_CONFIG environment variable, and any --config flag.",
+        )
+
         # Preset configurations
         parser.add_argument(
             "--preset",
@@ -1733,6 +1741,7 @@ Examples:
             "format",
             "output_format",
             "config",
+            "no_config",
             "preset",
             "verbose",
             "log_level",

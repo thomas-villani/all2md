@@ -829,7 +829,7 @@ For trusted sources, you can relax restrictions:
            allow_local_files=True,
            local_file_allowlist=["/company/docs/images"]
        ),
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./downloaded_images'
    )
 

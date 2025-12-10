@@ -164,7 +164,7 @@ Any CLI flag can be expressed as ``ALL2MD_<DESTINATION>``. Dashes and dots becom
 
 .. code-block:: bash
 
-   export ALL2MD_ATTACHMENT_MODE=download
+   export ALL2MD_ATTACHMENT_MODE=save
    export ALL2MD_PDF_PAGES="1-3,10"
    export ALL2MD_HTML_NETWORK_REQUIRE_HTTPS=true
    export ALL2MD_MARKDOWN_FLAVOR=gfm
@@ -266,7 +266,7 @@ resources.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--archive-attachment-output-dir``
@@ -847,7 +847,7 @@ for embedded images and resources.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--chm-attachment-output-dir``
@@ -1263,7 +1263,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--docx-attachment-output-dir``
@@ -1781,7 +1781,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--eml-attachment-output-dir``
@@ -2049,7 +2049,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--enex-attachment-output-dir``
@@ -2236,7 +2236,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--epub-attachment-output-dir``
@@ -2509,7 +2509,7 @@ in FictionBook 2.0 ebooks.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--fb2-attachment-output-dir``
@@ -2643,7 +2643,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--html-attachment-output-dir``
@@ -3267,7 +3267,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--ipynb-attachment-output-dir``
@@ -4320,7 +4320,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001DF50014C90>``
+   :Default: ``<object object at 0x000001AC6D514C90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4330,7 +4330,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001DF50014C90>``
+   :Default: ``<object object at 0x000001AC6D514C90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4536,7 +4536,7 @@ message filtering, and folder handling.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--mbox-attachment-output-dir``
@@ -5008,7 +5008,7 @@ primarily for handling embedded assets like images and local file security.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--mhtml-attachment-output-dir``
@@ -5279,7 +5279,7 @@ processing, including slide selection, numbering, and notes.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--odp-attachment-output-dir``
@@ -5573,7 +5573,7 @@ and adds ODS-specific options.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--ods-attachment-output-dir``
@@ -5790,7 +5790,7 @@ for embedded images.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--odt-attachment-output-dir``
@@ -6335,7 +6335,7 @@ PST/OST archive handling, and advanced message selection.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--outlook-attachment-output-dir``
@@ -6675,7 +6675,7 @@ including page selection, image handling, and formatting preferences.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--pdf-attachment-output-dir``
@@ -7571,7 +7571,7 @@ processing, including slide numbering and image handling.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--pptx-attachment-output-dir``
@@ -8135,7 +8135,7 @@ attachment handling from AttachmentOptionsMixin.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--rtf-attachment-output-dir``
@@ -8638,7 +8638,7 @@ including options for handling embedded resources and nested frames.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--webarchive-attachment-output-dir``
@@ -8929,7 +8929,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--xlsx-attachment-output-dir``
@@ -9332,7 +9332,7 @@ resources.
 
 **attachment_output_dir**
 
-   Directory to save attachments when using download mode
+   Directory to save attachments when using `save` mode
 
    :Type: ``str | None``
    :CLI flag: ``--zip-attachment-output-dir``
@@ -9712,7 +9712,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001DF50014C90>``
+   :Default: ``<object object at 0x000001AC6D514C90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9722,7 +9722,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001DF50014C90>``
+   :Default: ``<object object at 0x000001AC6D514C90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

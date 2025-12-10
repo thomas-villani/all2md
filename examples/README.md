@@ -686,7 +686,7 @@ Good examples should:
 
 ```python
 #!/usr/bin/env python3
-\"\"\"Short description.
+"""Short description.
 
 Longer description of what this example demonstrates and why it's useful.
 
@@ -699,7 +699,7 @@ Example:
 Requirements:
     pip install all2md optional-dependency
 
-\"\"\"
+"""
 
 import argparse
 from all2md import to_ast, from_ast

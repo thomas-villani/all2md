@@ -820,3 +820,628 @@ class TestForceTextboxBullets:
         prs_disabled = Presentation(str(output_disabled))
         assert len(prs_enabled.slides) == 1
         assert len(prs_disabled.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestRenderToBytes:
+    """Tests for render_to_bytes method."""
+
+    def test_render_to_bytes_simple(self):
+        """Test render_to_bytes returns valid PPTX bytes."""
+        doc = Document(children=[Paragraph(content=[Text(content="Byte content")])])
+        renderer = PptxRenderer()
+        result = renderer.render_to_bytes(doc)
+
+        assert isinstance(result, bytes)
+        assert len(result) > 0
+
+        # Verify it's a valid PPTX by loading it
+        from io import BytesIO
+
+        prs = Presentation(BytesIO(result))
+        assert len(prs.slides) >= 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestCommentModes:
+    """Tests for comment rendering modes."""
+
+    def test_comment_mode_ignore(self, tmp_path):
+        """Test that comments are ignored when comment_mode is 'ignore'."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Visible text")]),
+                Comment(content="This should be ignored", metadata={"author": "Test"}),
+            ]
+        )
+        options = PptxRendererOptions(comment_mode="ignore")
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "comment_ignore.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+        # Verify comment is not present in slide text
+        slide = prs.slides[0]
+        all_text = ""
+        for shape in slide.shapes:
+            if hasattr(shape, "text_frame"):
+                all_text += shape.text_frame.text
+        assert "This should be ignored" not in all_text
+
+    def test_comment_mode_visible(self, tmp_path):
+        """Test that comments are visible when comment_mode is 'visible'."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Title")]),
+                Comment(
+                    content="Visible comment",
+                    metadata={"author": "Author", "date": "2025-01-20"},
+                ),
+            ]
+        )
+        options = PptxRendererOptions(comment_mode="visible")
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "comment_visible.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestInlineComments:
+    """Tests for inline comment rendering in PPTX."""
+
+    def test_inline_comment_ignore(self, tmp_path):
+        """Test inline comment is ignored when comment_mode is 'ignore'."""
+        from all2md.ast import CommentInline
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Title")]),
+                Paragraph(
+                    content=[
+                        Text(content="Before "),
+                        CommentInline(content="ignored", metadata={}),
+                        Text(content=" after"),
+                    ]
+                ),
+            ]
+        )
+        options = PptxRendererOptions(comment_mode="ignore")
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "inline_ignore.pptx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+    def test_inline_comment_visible(self, tmp_path):
+        """Test inline comment is visible when comment_mode is 'visible'."""
+        from all2md.ast import CommentInline
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Title")]),
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        CommentInline(
+                            content="visible inline",
+                            metadata={"author": "Test Author", "label": "1"},
+                        ),
+                    ]
+                ),
+            ]
+        )
+        options = PptxRendererOptions(comment_mode="visible")
+        renderer = PptxRenderer(options)
+        output_file = tmp_path / "inline_visible.pptx"
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestMathRendering:
+    """Tests for math rendering in PPTX."""
+
+    def test_inline_math(self, tmp_path):
+        """Test inline math rendering."""
+        from all2md.ast import MathInline
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Math Example")]),
+                Paragraph(
+                    content=[
+                        Text(content="The formula is "),
+                        MathInline(content="E = mc^2", notation="latex"),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "math_inline.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+        # Math should be rendered as text
+        slide = prs.slides[0]
+        all_text = ""
+        for shape in slide.shapes:
+            if hasattr(shape, "text_frame"):
+                all_text += shape.text_frame.text
+        assert "E = mc^2" in all_text
+
+    def test_block_math(self, tmp_path):
+        """Test block math rendering."""
+        from all2md.ast import MathBlock
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Math Block")]),
+                MathBlock(content="\\int_0^\\infty e^{-x^2} dx", notation="latex"),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "math_block.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestDefinitionListRendering:
+    """Tests for definition list rendering in PPTX."""
+
+    def test_simple_definition_list(self, tmp_path):
+        """Test simple definition list rendering."""
+        from all2md.ast import DefinitionDescription, DefinitionList, DefinitionTerm
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Glossary")]),
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="API")]),
+                            [DefinitionDescription(content=[Text(content="Application Programming Interface")])],
+                        ),
+                        (
+                            DefinitionTerm(content=[Text(content="SDK")]),
+                            [DefinitionDescription(content=[Text(content="Software Development Kit")])],
+                        ),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "deflist.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+        # Definition list should be rendered as text
+        slide = prs.slides[0]
+        all_text = ""
+        for shape in slide.shapes:
+            if hasattr(shape, "text_frame"):
+                all_text += shape.text_frame.text
+        assert "API" in all_text
+        assert "SDK" in all_text
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestInlineFormatting:
+    """Additional tests for inline formatting in PPTX."""
+
+    def test_underline(self, tmp_path):
+        """Test underline rendering."""
+        from all2md.ast import Underline
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Formatting")]),
+                Paragraph(content=[Underline(content=[Text(content="underlined text")])]),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "underline.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_strikethrough(self, tmp_path):
+        """Test strikethrough rendering."""
+        from all2md.ast import Strikethrough
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Formatting")]),
+                Paragraph(content=[Strikethrough(content=[Text(content="deleted text")])]),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "strikethrough.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_superscript(self, tmp_path):
+        """Test superscript rendering."""
+        from all2md.ast import Superscript
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Math")]),
+                Paragraph(
+                    content=[
+                        Text(content="E = mc"),
+                        Superscript(content=[Text(content="2")]),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "superscript.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_subscript(self, tmp_path):
+        """Test subscript rendering."""
+        from all2md.ast import Subscript
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Chemistry")]),
+                Paragraph(
+                    content=[
+                        Text(content="H"),
+                        Subscript(content=[Text(content="2")]),
+                        Text(content="O"),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "subscript.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestBlockquoteRendering:
+    """Tests for blockquote rendering in PPTX."""
+
+    def test_blockquote(self, tmp_path):
+        """Test blockquote rendering."""
+        from all2md.ast import BlockQuote
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Quote")]),
+                BlockQuote(children=[Paragraph(content=[Text(content="This is a quoted text")])]),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "blockquote.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_nested_blockquote(self, tmp_path):
+        """Test nested blockquote rendering."""
+        from all2md.ast import BlockQuote
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Nested Quote")]),
+                BlockQuote(
+                    children=[
+                        Paragraph(content=[Text(content="Outer quote")]),
+                        BlockQuote(children=[Paragraph(content=[Text(content="Inner quote")])]),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "nested_blockquote.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestFootnoteRendering:
+    """Tests for footnote rendering in PPTX."""
+
+    def test_footnote_reference(self, tmp_path):
+        """Test footnote reference rendering."""
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Content")]),
+                Paragraph(
+                    content=[
+                        Text(content="Some text"),
+                        FootnoteReference(identifier="1"),
+                    ]
+                ),
+                FootnoteDefinition(identifier="1", content=[Text(content="Footnote content")]),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "footnote.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestThematicBreakWithContent:
+    """Tests for thematic break with surrounding content."""
+
+    def test_thematic_break_creates_slide(self, tmp_path):
+        """Test that content after thematic break goes to new slide."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Slide 2")]),
+                Paragraph(content=[Text(content="Content 2")]),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "thematic_slides.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 2
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestTableCellContent:
+    """Tests for various table cell content types."""
+
+    def test_table_cell_with_formatting(self, tmp_path):
+        """Test table cell with formatted content."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Table")]),
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Strong(content=[Text(content="Bold Header")])]),
+                            TableCell(content=[Emphasis(content=[Text(content="Italic Header")])]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Normal")]),
+                                TableCell(content=[Code(content="code")]),
+                            ]
+                        )
+                    ],
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "table_formatted.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_table_with_empty_cells(self, tmp_path):
+        """Test table with empty cells."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Table")]),
+                Table(
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="A")]),
+                                TableCell(content=[]),
+                            ]
+                        ),
+                        TableRow(
+                            cells=[
+                                TableCell(content=[]),
+                                TableCell(content=[Text(content="D")]),
+                            ]
+                        ),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "table_empty_cells.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestLinkRendering:
+    """Tests for link rendering in PPTX."""
+
+    def test_simple_link(self, tmp_path):
+        """Test simple link rendering."""
+        from all2md.ast import Link
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Links")]),
+                Paragraph(
+                    content=[
+                        Text(content="Visit "),
+                        Link(url="https://example.com", content=[Text(content="Example")]),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "link.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_link_with_title(self, tmp_path):
+        """Test link with title attribute."""
+        from all2md.ast import Link
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Links")]),
+                Paragraph(
+                    content=[
+                        Link(url="https://example.com", title="Example Site", content=[Text(content="Click here")]),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "link_title.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestLineBreakRendering:
+    """Tests for line break rendering in PPTX."""
+
+    def test_hard_line_break(self, tmp_path):
+        """Test hard line break rendering."""
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Title")]),
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=False),
+                        Text(content="Line 2"),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "line_break.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+    def test_soft_line_break(self, tmp_path):
+        """Test soft line break rendering."""
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Title")]),
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=True),
+                        Text(content="Line 2"),
+                    ]
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "soft_line_break.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestContentPlaceholderFallback:
+    """Tests for content placeholder fallback behavior."""
+
+    def test_slide_without_title(self, tmp_path):
+        """Test slide content without a heading/title."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Content without heading")]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "no_title.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        assert len(prs.slides) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestEmptySlideHandling:
+    """Tests for handling empty slides."""
+
+    def test_empty_slide_content_between_separators(self, tmp_path):
+        """Test empty content between thematic breaks."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide 1")]),
+                Paragraph(content=[Text(content="Content 1")]),
+                ThematicBreak(),
+                ThematicBreak(),
+                Heading(level=2, content=[Text(content="Slide 3")]),
+                Paragraph(content=[Text(content="Content 3")]),
+            ]
+        )
+        renderer = PptxRenderer()
+        output_file = tmp_path / "empty_between.pptx"
+        renderer.render(doc, output_file)
+
+        prs = Presentation(str(output_file))
+        # Empty slide should be created
+        assert len(prs.slides) >= 2

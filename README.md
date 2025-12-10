@@ -35,7 +35,7 @@ That's it! For more formats, install the dependencies you need: `all2md[docx,htm
 
 **Want to integrate with AI assistants?** See the [MCP Server](#mcp-server-for-ai-assistants) section below.
 
-## Essential CLI Commands
+## Essential CLI Commands Cheatsheet
 
 Beyond basic conversion, all2md provides powerful commands for working with any document format:
 
@@ -378,7 +378,7 @@ all2md scanned.pdf --ocr-enabled --ocr-mode auto --ocr-languages eng
 all2md page.html --html-extract-title
 
 # Convert a DOCX and download images to a folder
-all2md document.docx --attachment-mode download --attachment-output-dir ./images
+all2md document.docx --attachment-mode save --attachment-output-dir ./images
 
 # Convert an MBOX mailbox, limiting to 100 messages
 all2md archive.mbox --mbox-max-messages 100

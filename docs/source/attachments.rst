@@ -139,8 +139,8 @@ You can control exactly what text is shown for images using the ``alt_text_mode`
 
    all2md document.pdf --attachment-mode alt_text --alt-text-mode plain_filename
 
-download
-~~~~~~~~
+save
+~~~~
 
 **Save attachments to a local directory and reference them with relative paths.**
 
@@ -158,7 +158,7 @@ Images and files are extracted and saved to the specified directory. Markdown ou
 
    markdown = to_markdown(
        'document.pdf',
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./pdf_images'
    )
 
@@ -189,7 +189,7 @@ Images and files are extracted and saved to the specified directory. Markdown ou
 
 .. code-block:: bash
 
-   all2md document.pdf --attachment-mode download --attachment-output-dir ./images
+   all2md document.pdf --attachment-mode save --attachment-output-dir ./images
 
 **Advanced Options:**
 
@@ -198,7 +198,7 @@ Images and files are extracted and saved to the specified directory. Markdown ou
    from all2md.options import DocxOptions
 
    options = DocxOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./doc_media',
        # Optionally set base URL for Markdown references
        attachment_base_url='https://example.com/media'
@@ -268,11 +268,11 @@ all2md provides both global and format-specific attachment flags for maximum fle
 .. code-block:: bash
 
    # Applies to all formats
-   all2md document.pdf --attachment-mode download --attachment-output-dir ./images
+   all2md document.pdf --attachment-mode save --attachment-output-dir ./images
 
 Available global flags:
 
-* ``--attachment-mode`` - Attachment handling mode (skip, alt_text, download, base64)
+* ``--attachment-mode`` - Attachment handling mode (skip, alt_text, save, base64)
 * ``--attachment-output-dir`` - Directory to save attachments
 * ``--attachment-base-url`` - Base URL for attachment references
 * ``--alt-text-mode`` - How to render alt-text (default, plain_filename, strict_markdown, footnote)
@@ -288,8 +288,8 @@ When processing multiple formats, you can use format-specific flags to override 
 
 .. code-block:: bash
 
-   # Skip attachments by default, but download from PDFs
-   all2md *.* --attachment-mode skip --pdf-attachment-mode download --pdf-attachment-output-dir ./pdf_images
+   # Skip attachments by default, but save from PDFs
+   all2md *.* --attachment-mode skip --pdf-attachment-mode save --pdf-attachment-output-dir ./pdf_images
 
    # Use alt-text globally, but embed base64 for presentations
    all2md docs/* reports/*.pdf slides/*.pptx \
@@ -298,7 +298,7 @@ When processing multiple formats, you can use format-specific flags to override 
 
    # Different output directories per format
    all2md mixed_docs/* \
-       --attachment-mode download \
+       --attachment-mode save \
        --pdf-attachment-output-dir ./pdf_assets \
        --docx-attachment-output-dir ./word_assets \
        --html-attachment-output-dir ./web_assets
@@ -309,8 +309,8 @@ Format-specific flags always take precedence over global flags:
 
 .. code-block:: bash
 
-   # PDFs use 'download', all others use 'skip'
-   all2md *.* --attachment-mode skip --pdf-attachment-mode download
+   # PDFs use 'save', all others use 'skip'
+   all2md *.* --attachment-mode skip --pdf-attachment-mode save
 
 This is particularly useful for:
 
@@ -355,7 +355,7 @@ PDF Documents
    from all2md.options import PdfOptions
 
    options = PdfOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./pdf_images',
        image_format='jpeg',
        image_quality=85,
@@ -382,7 +382,7 @@ Word Documents (DOCX)
    from all2md.options import DocxOptions
 
    options = DocxOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./word_images'
    )
    markdown = to_markdown('document.docx', parser_options=options)
@@ -430,7 +430,7 @@ HTML and MHTML
    from all2md.options import HtmlOptions, NetworkFetchOptions
 
    options = HtmlOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./web_images',
        attachment_base_url='https://example.com',  # Resolve relative URLs
        network=NetworkFetchOptions(
@@ -460,7 +460,7 @@ Email Files (EML)
    from all2md.options import EmlOptions
 
    options = EmlOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./email_attachments',
        # EML-specific: limit attachment size
        max_email_attachment_bytes=10 * 1024 * 1024  # 10 MB max
@@ -485,7 +485,7 @@ EPUB E-books
    from all2md.options import EpubOptions
 
    options = EpubOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./epub_images',
        include_toc=True
    )
@@ -509,7 +509,7 @@ OpenDocument (ODT/ODP)
    from all2md.options import OdtOptions
 
    options = OdtOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./odt_images'
    )
    markdown = to_markdown('document.odt', parser_options=options)
@@ -561,7 +561,7 @@ Jupyter Notebooks (IPYNB)
 Filename Sanitization
 ---------------------
 
-When using ``download`` mode, all2md automatically sanitizes filenames to ensure cross-platform compatibility:
+When using ``save`` mode, all2md automatically sanitizes filenames to ensure cross-platform compatibility:
 
 * Removes or replaces unsafe characters (e.g., ``/``, ``\\``, ``:``)
 * Limits filename length to 255 characters
@@ -597,10 +597,10 @@ For untrusted documents, use ``skip`` or ``alt_text`` modes:
    # Safe alternative: reference attachments but don't extract
    markdown = to_markdown('untrusted.html', attachment_mode='alt_text')
 
-Download Mode Risks
+``save`` Mode Risks
 ~~~~~~~~~~~~~~~~~~~
 
-``download`` mode writes files to disk, which poses risks:
+``save`` mode writes files to disk, which poses risks:
 
 * **Path Traversal** - Malicious filenames could attempt directory traversal (mitigated by sanitization)
 * **Disk Space** - Large or numerous attachments could fill disk space
@@ -613,7 +613,7 @@ Download Mode Risks
    from all2md.options import PdfOptions
 
    options = PdfOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./safe_sandbox',  # Isolated directory
        # Consider setting size limits if your format supports it
    )
@@ -633,7 +633,7 @@ Base64 Mode Memory Usage
 
    # For documents with many/large images, prefer download mode
    options = PdfOptions(
-       attachment_mode='download',  # Better for large documents
+       attachment_mode='save',  # Better for large documents
        attachment_output_dir='./images'
    )
 
@@ -656,7 +656,7 @@ HTML documents can reference remote resources. This poses security risks:
 
    # Balanced security
    options = HtmlOptions(
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./images',
        network=NetworkFetchOptions(
            allow_remote_fetch=True,
@@ -690,7 +690,7 @@ Quick Reference
 
 .. code-block:: bash
 
-   all2md document.pdf --attachment-mode download --attachment-output-dir ./images
+   all2md document.pdf --attachment-mode save --attachment-output-dir ./images
 
 **Self-contained Markdown:**
 
@@ -715,7 +715,7 @@ Python API Examples
    for pdf_file in Path('./pdfs').glob('*.pdf'):
        markdown = to_markdown(
            pdf_file,
-           attachment_mode='download',
+           attachment_mode='save',
            attachment_output_dir=output_dir / pdf_file.stem
        )
 
@@ -736,7 +736,7 @@ Python API Examples
        mode = 'base64'
        output_dir = None
    else:
-       mode = 'download'
+       mode = 'save'
        output_dir = './images'
 
    markdown = to_markdown(
@@ -761,7 +761,7 @@ Python API Examples
            # PDFs: download high-quality images
            return to_markdown(
                file_path,
-               attachment_mode='download',
+               attachment_mode='save',
                attachment_output_dir=f'./{path.stem}_images'
            )
        elif suffix == '.pptx':

@@ -52,7 +52,7 @@ Quick Example
 
    options = PdfOptions(
        pages=[1, 2, 3],  # First 3 pages only
-       attachment_mode='download',
+       attachment_mode='save',
        attachment_output_dir='./images'
    )
    markdown = to_markdown('document.pdf', parser_options=options)
@@ -80,7 +80,7 @@ Command Line Usage
    all2md document.docx --out output.md
 
    # Download images to a directory
-   all2md document.html --attachment-mode download --attachment-output-dir ./images
+   all2md document.html --attachment-mode save --attachment-output-dir ./images
 
 Supported Formats
 -----------------
@@ -145,6 +145,7 @@ Guides & References
    mcp
    plugins
    integrations
+   configuration
    environment_variables
    troubleshooting
 

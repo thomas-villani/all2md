@@ -1025,3 +1025,482 @@ class TestComments:
         assert output_file.exists()
         docx_doc = DocxDocument(str(output_file))
         assert docx_doc is not None
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestCommentModes:
+    """Tests for comment rendering modes."""
+
+    def test_comment_mode_ignore(self, tmp_path):
+        """Test that comments are ignored when comment_mode is 'ignore'."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Visible text")]),
+                Comment(content="This should be ignored", metadata={"author": "Test"}),
+            ]
+        )
+        options = DocxRendererOptions(comment_mode="ignore")
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "comment_ignore.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        text_content = " ".join(p.text for p in docx_doc.paragraphs)
+        assert "Visible text" in text_content
+        # Comment should not appear in text
+        assert "This should be ignored" not in text_content
+
+    def test_comment_mode_visible(self, tmp_path):
+        """Test that comments are visible when comment_mode is 'visible'."""
+        doc = Document(
+            children=[
+                Comment(
+                    content="Visible comment",
+                    metadata={"author": "Author", "date": "2025-01-20", "comment_type": "review"},
+                )
+            ]
+        )
+        options = DocxRendererOptions(comment_mode="visible")
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "comment_visible.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        text_content = " ".join(p.text for p in docx_doc.paragraphs)
+        assert "Visible comment" in text_content
+        assert "Author" in text_content
+
+    def test_inline_comment_mode_ignore(self, tmp_path):
+        """Test inline comment is ignored when comment_mode is 'ignore'."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Before "),
+                        CommentInline(content="ignored inline", metadata={}),
+                        Text(content=" after"),
+                    ]
+                )
+            ]
+        )
+        options = DocxRendererOptions(comment_mode="ignore")
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "inline_ignore.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        assert "Before" in para.text
+        assert "after" in para.text
+        assert "ignored inline" not in para.text
+
+    def test_inline_comment_mode_visible(self, tmp_path):
+        """Test inline comment is visible when comment_mode is 'visible'."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        CommentInline(
+                            content="visible inline",
+                            metadata={"author": "Test Author", "date": "2025-01-20", "label": "1"},
+                        ),
+                    ]
+                )
+            ]
+        )
+        options = DocxRendererOptions(comment_mode="visible")
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "inline_visible.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        assert "visible inline" in para.text
+        assert "Test Author" in para.text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestRenderToBytes:
+    """Tests for render_to_bytes method."""
+
+    def test_render_to_bytes_simple(self):
+        """Test render_to_bytes returns valid DOCX bytes."""
+        doc = Document(children=[Paragraph(content=[Text(content="Byte content")])])
+        renderer = DocxRenderer()
+        result = renderer.render_to_bytes(doc)
+
+        assert isinstance(result, bytes)
+        assert len(result) > 0
+
+        # Verify it's a valid DOCX by loading it
+        from io import BytesIO
+
+        docx_doc = DocxDocument(BytesIO(result))
+        assert "Byte content" in docx_doc.paragraphs[0].text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestMetadataKeywords:
+    """Tests for document metadata with keywords."""
+
+    def test_keywords_as_list(self, tmp_path):
+        """Test keywords metadata when provided as a list."""
+        doc = Document(
+            metadata={"title": "Test", "keywords": ["keyword1", "keyword2", "keyword3"]},
+            children=[Paragraph(content=[Text(content="Content")])],
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "keywords_list.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        assert "keyword1" in docx_doc.core_properties.keywords
+        assert "keyword2" in docx_doc.core_properties.keywords
+        assert "keyword3" in docx_doc.core_properties.keywords
+
+    def test_keywords_as_string(self, tmp_path):
+        """Test keywords metadata when provided as a string."""
+        doc = Document(
+            metadata={"keywords": "single keyword string"},
+            children=[Paragraph(content=[Text(content="Content")])],
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "keywords_string.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        assert docx_doc.core_properties.keywords == "single keyword string"
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestTableSpanning:
+    """Tests for table colspan and rowspan."""
+
+    def test_table_with_colspan(self, tmp_path):
+        """Test table with column spanning."""
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Merged Header")], colspan=2),
+                            TableCell(content=[Text(content="Single")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="A")]),
+                                TableCell(content=[Text(content="B")]),
+                                TableCell(content=[Text(content="C")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "table_colspan.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        assert len(docx_doc.tables) == 1
+        table = docx_doc.tables[0]
+        assert len(table.rows) == 2
+
+    def test_table_with_rowspan(self, tmp_path):
+        """Test table with row spanning."""
+        doc = Document(
+            children=[
+                Table(
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Merged")], rowspan=2),
+                                TableCell(content=[Text(content="Row 1")]),
+                            ]
+                        ),
+                        TableRow(cells=[TableCell(content=[Text(content="Row 2")])]),
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "table_rowspan.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        assert len(docx_doc.tables) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestSubscriptSuperscript:
+    """Tests for subscript and superscript rendering."""
+
+    def test_superscript(self, tmp_path):
+        """Test superscript rendering."""
+        from all2md.ast import Superscript
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="E = mc"),
+                        Superscript(content=[Text(content="2")]),
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "superscript.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        assert "E = mc" in para.text
+        assert "2" in para.text
+        # Check that some run has superscript
+        has_superscript = any(run.font.superscript for run in para.runs if run.text == "2")
+        assert has_superscript
+
+    def test_subscript(self, tmp_path):
+        """Test subscript rendering."""
+        from all2md.ast import Subscript
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="H"),
+                        Subscript(content=[Text(content="2")]),
+                        Text(content="O"),
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "subscript.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        text = para.text
+        assert "H" in text
+        assert "2" in text
+        assert "O" in text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestNestedLists:
+    """Tests for nested list rendering."""
+
+    def test_nested_unordered_list(self, tmp_path):
+        """Test nested unordered list."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="Item 1")]),
+                                List(
+                                    ordered=False,
+                                    items=[
+                                        ListItem(children=[Paragraph(content=[Text(content="Nested 1.1")])]),
+                                        ListItem(children=[Paragraph(content=[Text(content="Nested 1.2")])]),
+                                    ],
+                                ),
+                            ]
+                        ),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "nested_list.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        paragraphs = docx_doc.paragraphs
+        text_content = [p.text for p in paragraphs]
+        assert "Item 1" in text_content
+        assert "Nested 1.1" in text_content
+        assert "Item 2" in text_content
+
+    def test_multi_paragraph_list_item(self, tmp_path):
+        """Test list item with multiple paragraphs."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="First paragraph")]),
+                                Paragraph(content=[Text(content="Second paragraph")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "multi_para_list.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        text_content = " ".join(p.text for p in docx_doc.paragraphs)
+        assert "First paragraph" in text_content
+        assert "Second paragraph" in text_content
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestBlockquoteWithElements:
+    """Tests for blockquote with different element types."""
+
+    def test_blockquote_with_heading(self, tmp_path):
+        """Test heading inside blockquote has indentation."""
+        doc = Document(children=[BlockQuote(children=[Heading(level=2, content=[Text(content="Quoted Heading")])])])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "bq_heading.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        heading_para = None
+        for para in docx_doc.paragraphs:
+            if "Quoted Heading" in para.text:
+                heading_para = para
+                break
+
+        assert heading_para is not None
+        assert heading_para.paragraph_format.left_indent is not None
+
+    def test_blockquote_with_code_block(self, tmp_path):
+        """Test code block inside blockquote has indentation."""
+        doc = Document(children=[BlockQuote(children=[CodeBlock(content="code inside quote", language="python")])])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "bq_code.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        code_para = None
+        for para in docx_doc.paragraphs:
+            if "code inside quote" in para.text:
+                code_para = para
+                break
+
+        assert code_para is not None
+        assert code_para.paragraph_format.left_indent is not None
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestTableStyle:
+    """Tests for table style option."""
+
+    def test_table_with_custom_style(self, tmp_path):
+        """Test table with custom table style."""
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="Header")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="Data")])])],
+                )
+            ]
+        )
+        options = DocxRendererOptions(table_style="Table Grid")
+        renderer = DocxRenderer(options)
+        output_file = tmp_path / "table_style.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        assert len(docx_doc.tables) == 1
+        # Table should exist and have content
+        assert "Header" in docx_doc.tables[0].rows[0].cells[0].text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestEmptyTable:
+    """Tests for empty table handling."""
+
+    def test_empty_table_no_rows(self, tmp_path):
+        """Test table with no rows is handled gracefully."""
+        doc = Document(children=[Table(rows=[])])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "empty_table.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        # Empty table should not be created
+        assert len(docx_doc.tables) == 0
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestDefinitionListAdvanced:
+    """Advanced tests for definition list rendering."""
+
+    def test_definition_list_with_paragraph_content(self, tmp_path):
+        """Test definition list where content is wrapped in Paragraph."""
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="API")]),
+                            [
+                                DefinitionDescription(
+                                    content=[Paragraph(content=[Text(content="Application Programming Interface")])]
+                                )
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "deflist_para.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        text_content = " ".join(p.text for p in docx_doc.paragraphs)
+        assert "API" in text_content
+        assert "Application Programming Interface" in text_content
+
+    def test_definition_list_multiple_descriptions(self, tmp_path):
+        """Test term with multiple descriptions."""
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term")]),
+                            [
+                                DefinitionDescription(content=[Text(content="First description")]),
+                                DefinitionDescription(content=[Text(content="Second description")]),
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "deflist_multi_desc.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        text_content = " ".join(p.text for p in docx_doc.paragraphs)
+        assert "Term" in text_content
+        assert "First description" in text_content
+        assert "Second description" in text_content
