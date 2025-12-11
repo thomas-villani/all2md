@@ -158,6 +158,10 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         else:
             prs = Presentation()
 
+        # Set creator metadata if configured
+        if self.options.creator:
+            prs.core_properties.last_modified_by = self.options.creator
+
         # Split document into slides
         slides_data = self._split_into_slides(doc)
 

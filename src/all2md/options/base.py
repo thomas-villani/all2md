@@ -16,6 +16,7 @@ else:
     from typing_extensions import Self
 
 from all2md.constants import (
+    DEFAULT_CREATOR,
     DEFAULT_EXTRACT_METADATA,
     DEFAULT_MAX_ASSET_SIZE_BYTES,
 )
@@ -91,6 +92,14 @@ class BaseRendererOptions(CloneFrozenMixin):
         metadata={
             "help": "Metadata rendering policy controlling which fields appear in output",
             "importance": "advanced",
+        },
+    )
+    creator: str | None = field(
+        default=DEFAULT_CREATOR,
+        metadata={
+            "help": "Creator application name for document metadata (e.g., 'all2md'). "
+            "Set to None to disable creator metadata.",
+            "importance": "core",
         },
     )
 

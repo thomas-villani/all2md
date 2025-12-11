@@ -638,6 +638,9 @@ DEFAULT_MAX_CONCURRENT_REQUESTS = 5  # Maximum concurrent network requests
 # Asset size limits (applies to downloads, attachments, images, etc.)
 DEFAULT_MAX_ASSET_SIZE_BYTES = 50 * 1024 * 1024  # 50MB maximum per asset
 
+# Document creator/producer metadata
+DEFAULT_CREATOR = "all2md"  # Creator application name for rendered documents
+
 # HTML parser security limits (DoS protection)
 MAX_META_TAG_CONTENT_LENGTH = 10 * 1024  # 10KB maximum per meta tag content
 MAX_JSON_LD_SIZE_BYTES = 1024 * 1024  # 1MB maximum per JSON-LD script

@@ -217,27 +217,26 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             # Get page size
             page_size = self._get_page_size()
 
+            # Build common kwargs for SimpleDocTemplate
+            doc_kwargs: dict[str, Any] = {
+                "pagesize": page_size,
+                "rightMargin": self.options.margin_right,
+                "leftMargin": self.options.margin_left,
+                "topMargin": self.options.margin_top,
+                "bottomMargin": self.options.margin_bottom,
+            }
+
+            # Set creator metadata if configured
+            if self.options.creator:
+                doc_kwargs["creator"] = self.options.creator
+
             # Create PDF document
             if isinstance(output, (str, Path)):
-                pdf_doc = self._SimpleDocTemplate(
-                    str(output),
-                    pagesize=page_size,
-                    rightMargin=self.options.margin_right,
-                    leftMargin=self.options.margin_left,
-                    topMargin=self.options.margin_top,
-                    bottomMargin=self.options.margin_bottom,
-                )
+                pdf_doc = self._SimpleDocTemplate(str(output), **doc_kwargs)
             else:
                 # For file-like objects, use BytesIO buffer
                 buffer = io.BytesIO()
-                pdf_doc = self._SimpleDocTemplate(
-                    buffer,
-                    pagesize=page_size,
-                    rightMargin=self.options.margin_right,
-                    leftMargin=self.options.margin_left,
-                    topMargin=self.options.margin_top,
-                    bottomMargin=self.options.margin_bottom,
-                )
+                pdf_doc = self._SimpleDocTemplate(buffer, **doc_kwargs)
 
             # Build PDF
             pdf_doc.build(self._flowables)

@@ -215,6 +215,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         font.name = self.options.default_font
         font.size = self._Pt(self.options.default_font_size)
 
+        # Set creator metadata if configured
+        if self.options.creator:
+            self.document.core_properties.last_modified_by = self.options.creator
+
     def _cleanup_temp_files(self) -> None:
         """Remove temporary files created during rendering."""
         for temp_file in self._temp_files:

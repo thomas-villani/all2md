@@ -602,6 +602,15 @@ AsciiDoc output.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--asciidoc-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **list_indent**
 
    Spaces for nested list indentation
@@ -715,6 +724,15 @@ Options for rendering documents to JSON AST format.
    :CLI flag: ``--ast-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--ast-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **indent**
 
@@ -1117,6 +1135,15 @@ including table selection, multi-table handling, and CSV dialect options.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--csv-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **table_index**
 
    Which table to export (0-indexed, None = all tables)
@@ -1433,6 +1460,15 @@ including fonts, styles, and formatting preferences.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--docx-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **default_font**
 
    Default font for body text
@@ -1707,6 +1743,15 @@ DokuWiki markup, suitable for DokuWiki-based wikis.
    :CLI flag: ``--dokuwiki-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--dokuwiki-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **use_html_for_unsupported**
 
@@ -2366,6 +2411,15 @@ including chapter splitting strategies, metadata, and EPUB structure.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--epub-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **chapter_split_mode**
 
    Chapter splitting strategy: separator, heading, or auto
@@ -2915,6 +2969,15 @@ including document structure, styling, templating, and feature toggles.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--html-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **standalone**
 
    Generate complete HTML document (vs content fragment)
@@ -3196,6 +3259,15 @@ sections with key-value pairs are extracted.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--ini-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **type_inference**
 
    Auto-detect types (numbers, booleans)
@@ -3447,6 +3519,15 @@ between AST and .ipynb formats.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--ipynb-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **nbformat**
 
    Major notebook format version (auto = preserve from source)
@@ -3595,6 +3676,15 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
    :CLI flag: ``--jinja-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--jinja-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **template_file**
 
@@ -3828,6 +3918,15 @@ focusing on tables but optionally including lists and other elements.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--json-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **extract_mode**
 
    What to extract: tables, lists, or both
@@ -4009,6 +4108,15 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
    :CLI flag: ``--latex-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--latex-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **document_class**
 
@@ -4219,6 +4327,15 @@ modules to ensure consistent Markdown generation.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--markdown-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **escape_special**
 
    Escape special Markdown characters (e.g. asterisks) in text content
@@ -4320,7 +4437,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001AC6D514C90>``
+   :Default: ``<object object at 0x0000025139C04C90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4330,7 +4447,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001AC6D514C90>``
+   :Default: ``<object object at 0x0000025139C04C90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4926,6 +5043,15 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--mediawiki-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **use_html_for_unsupported**
 
    Use HTML tags for unsupported elements
@@ -5430,6 +5556,15 @@ generation from AST, including slide splitting strategies and layout.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--odp-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **slide_split_mode**
 
    Slide splitting strategy: separator, heading, or auto
@@ -5905,6 +6040,15 @@ including fonts, styles, and formatting preferences.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--odt-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **default_font**
 
    Default font for body text
@@ -6225,6 +6369,15 @@ Org-Mode output.
    :CLI flag: ``--org-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--org-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **heading_style**
 
@@ -6918,6 +7071,15 @@ including page selection, image handling, and formatting preferences.
    :Default: ``False``
    :Importance: advanced
 
+**consolidate_inline_formatting**
+
+   Merge adjacent same-type formatting nodes (bold+bold, italic+italic) and normalize whitespace around formatting markers
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-no-consolidate-inline-formatting``
+   :Default: ``True``
+   :Importance: advanced
+
 **enable_table_fallback_detection**
 
    Use heuristic fallback if PyMuPDF table detection fails
@@ -7191,6 +7353,15 @@ including page layout, fonts, margins, and formatting preferences.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--pdf-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **page_size**
 
    Page size: letter, a4, or legal
@@ -7463,6 +7634,15 @@ is stripped, leaving only the text content.
    :CLI flag: ``--plaintext-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--plaintext-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **max_line_width**
 
@@ -7751,6 +7931,15 @@ generation from AST, including slide splitting strategies and layout.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--pptx-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **slide_split_mode**
 
    Slide splitting strategy: separator, heading, or auto
@@ -8033,6 +8222,15 @@ reStructuredText output.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--rst-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **heading_chars**
 
    Characters for heading underlines (h1-h5)
@@ -8238,6 +8436,15 @@ Configuration options for rendering AST documents to RTF.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--rtf-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **font_family**
 
    Base font family for the entire RTF document
@@ -8389,6 +8596,15 @@ Textile markup output.
    :CLI flag: ``--textile-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--textile-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **use_extended_blocks**
 
@@ -8549,6 +8765,15 @@ focusing on tables but optionally including lists and other elements.
    :CLI flag: ``--toml-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--toml-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **extract_mode**
 
@@ -9224,6 +9449,15 @@ focusing on tables but optionally including lists and other elements.
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--yaml-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 **extract_mode**
 
    What to extract: tables, lists, or both
@@ -9570,6 +9804,15 @@ Renderers convert AST documents into various output formats (Markdown, DOCX, PDF
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``UnionType[str, NoneType]``
+   :CLI flag: ``--renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
 Markdown Options
 ^^^^^^^^^^^^^^^^
 
@@ -9610,6 +9853,15 @@ modules to ensure consistent Markdown generation.
    :CLI flag: ``--markdown-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--markdown-creator``
+   :Default: ``'all2md'``
+   :Importance: core
 
 **escape_special**
 
@@ -9712,7 +9964,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001AC6D514C90>``
+   :Default: ``<object object at 0x0000025139C04C90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9722,7 +9974,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001AC6D514C90>``
+   :Default: ``<object object at 0x0000025139C04C90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

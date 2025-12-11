@@ -173,6 +173,10 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             self._master_page = master_page
             self._presentation = prs
 
+            # Set creator metadata if configured
+            if self.options.creator:
+                self._set_creator_metadata(prs)
+
             # Split document into slides
             slides_data = self._split_into_slides(doc)
 
@@ -215,6 +219,25 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         buffer = BytesIO()
         self.render(doc, buffer)
         return buffer.getvalue()
+
+    def _set_creator_metadata(self, prs: Any) -> None:
+        """Set creator application metadata in ODP document.
+
+        Parameters
+        ----------
+        prs : OpenDocumentPresentation
+            ODP presentation object
+
+        """
+        if not self.options.creator:
+            return
+
+        from odf.meta import Generator
+
+        # Set generator (creating application) metadata
+        generator = Generator()
+        generator.addText(self.options.creator)
+        prs.meta.addElement(generator)
 
     def _split_into_slides(self, doc: Document) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into slides based on configured strategy.

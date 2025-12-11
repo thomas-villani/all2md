@@ -262,6 +262,11 @@ class EpubRenderer(BaseRenderer):
             if "description" in doc.metadata:
                 book.add_metadata("DC", "description", str(doc.metadata["description"]))
 
+        # Set creator application metadata if configured
+        if self.options.creator:
+            # Add contributor with "bkp" (book producer) role for EPUB
+            book.add_metadata("DC", "contributor", self.options.creator)
+
     def _split_into_chapters(self, doc: Document) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into chapters based on configured strategy.
 

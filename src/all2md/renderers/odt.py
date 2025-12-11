@@ -142,6 +142,10 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             else:
                 self.document = opendocument.OpenDocumentText()
 
+            # Set creator metadata if configured
+            if self.options.creator:
+                self._set_creator_metadata()
+
             # Set up styles
             self._setup_styles()
 
@@ -185,6 +189,18 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
         # Return the bytes content
         return buffer.getvalue()
+
+    def _set_creator_metadata(self) -> None:
+        """Set creator application metadata in ODT document."""
+        if not self.document or not self.options.creator:
+            return
+
+        from odf.meta import Generator
+
+        # Set generator (creating application) metadata
+        generator = Generator()
+        generator.addText(self.options.creator)
+        self.document.meta.addElement(generator)
 
     def _setup_styles(self) -> None:
         """Set up default document styles and formatting."""
