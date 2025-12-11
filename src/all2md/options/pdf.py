@@ -109,6 +109,10 @@ class PdfOptions(PaginatedParserOptions):
     use_column_clustering : bool, default False
         Use k-means clustering on x-coordinates for more robust column detection.
         Alternative to gap heuristics, better for layouts with irregular column positions.
+    consolidate_inline_formatting : bool, default True
+        Merge adjacent same-type formatting nodes (bold+bold, italic+italic) and
+        normalize whitespace around formatting markers. Fixes fragmented formatting
+        like '**text ** *more*' becoming '**text** *more*'.
 
     # Table detection parameters
     enable_table_fallback_detection : bool, default True
@@ -335,6 +339,17 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_USE_COLUMN_CLUSTERING,
         metadata={
             "help": "Use k-means clustering for more robust column detection (alternative to gap heuristics)",
+            "importance": "advanced",
+        },
+    )
+    consolidate_inline_formatting: bool = field(
+        default=True,
+        metadata={
+            "help": (
+                "Merge adjacent same-type formatting nodes (bold+bold, italic+italic) "
+                "and normalize whitespace around formatting markers"
+            ),
+            "cli_name": "no-consolidate-inline-formatting",  # default=True, use --no-*
             "importance": "advanced",
         },
     )

@@ -51,6 +51,7 @@ from all2md.ast import (
 from all2md.ast import (
     Table as AstTable,
 )
+from all2md.ast.transforms import InlineFormattingConsolidator
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
@@ -1998,7 +1999,17 @@ class PdfToAstConverter(BaseParser):
             total=total_pages,
         )
 
-        return Document(children=children, metadata=metadata.to_dict())
+        # Build the document
+        ast_doc = Document(children=children, metadata=metadata.to_dict())
+
+        # Apply inline formatting consolidation if enabled
+        if self.options.consolidate_inline_formatting:
+            consolidator = InlineFormattingConsolidator()
+            consolidated = consolidator.transform(ast_doc)
+            if isinstance(consolidated, Document):
+                ast_doc = consolidated
+
+        return ast_doc
 
     @staticmethod
     @requires_dependencies("pdf", DEPS_PDF_OCR)

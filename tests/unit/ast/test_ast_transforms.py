@@ -4,10 +4,12 @@
 import pytest
 
 from all2md.ast import (
+    Code,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
     Document,
+    Emphasis,
     Heading,
     Image,
     Link,
@@ -17,6 +19,7 @@ from all2md.ast import (
 )
 from all2md.ast.transforms import (
     HeadingLevelTransformer,
+    InlineFormattingConsolidator,
     LinkRewriter,
     NodeCollector,
     NodeTransformer,
@@ -766,3 +769,252 @@ class TestDefinitionListTransformation:
         assert len(result.items[0][1]) == 1
         assert result.items[1][0].content[0].content == "Term 2"
         assert len(result.items[1][1]) == 2
+
+
+@pytest.mark.unit
+class TestInlineFormattingConsolidator:
+    """Test InlineFormattingConsolidator transformer."""
+
+    def test_merge_adjacent_strong_nodes(self) -> None:
+        """Test merging adjacent Strong nodes: **text****more** -> **textmore**."""
+        para = Paragraph(
+            content=[
+                Strong(content=[Text(content="text")]),
+                Strong(content=[Text(content="more")]),
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], Strong)
+        # Check the inner text
+        inner = result.content[0].content[0]
+        assert isinstance(inner, Text)
+        assert inner.content == "textmore"
+
+    def test_merge_adjacent_emphasis_nodes(self) -> None:
+        """Test merging adjacent Emphasis nodes: *text**more* -> *textmore*."""
+        para = Paragraph(
+            content=[
+                Emphasis(content=[Text(content="text")]),
+                Emphasis(content=[Text(content="more")]),
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], Emphasis)
+        inner = result.content[0].content[0]
+        assert isinstance(inner, Text)
+        assert inner.content == "textmore"
+
+    def test_trailing_whitespace_moved_outside(self) -> None:
+        """Test that trailing whitespace is moved outside formatting: **text ** -> **text** + space."""
+        para = Paragraph(content=[Strong(content=[Text(content="text ")])])
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 2
+        # First should be Strong with trimmed content
+        assert isinstance(result.content[0], Strong)
+        inner = result.content[0].content[0]
+        assert isinstance(inner, Text)
+        assert inner.content == "text"
+        # Second should be trailing whitespace as Text
+        assert isinstance(result.content[1], Text)
+        assert result.content[1].content == " "
+
+    def test_leading_whitespace_moved_outside(self) -> None:
+        """Test that leading whitespace is moved outside formatting: ** text** -> space + **text**."""
+        para = Paragraph(content=[Strong(content=[Text(content=" text")])])
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 2
+        # First should be leading whitespace as Text
+        assert isinstance(result.content[0], Text)
+        assert result.content[0].content == " "
+        # Second should be Strong with trimmed content
+        assert isinstance(result.content[1], Strong)
+        inner = result.content[1].content[0]
+        assert isinstance(inner, Text)
+        assert inner.content == "text"
+
+    def test_whitespace_only_formatting_becomes_text(self) -> None:
+        """Test that whitespace-only formatting becomes plain Text: **   ** -> spaces."""
+        para = Paragraph(content=[Strong(content=[Text(content="   ")])])
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], Text)
+        assert result.content[0].content == "   "
+
+    def test_different_formats_not_merged(self) -> None:
+        """Test that different format types are NOT merged: **bold***italic* stays separate."""
+        para = Paragraph(
+            content=[
+                Strong(content=[Text(content="bold")]),
+                Emphasis(content=[Text(content="italic")]),
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 2
+        assert isinstance(result.content[0], Strong)
+        assert isinstance(result.content[1], Emphasis)
+
+    def test_link_boundaries_respected(self) -> None:
+        """Test that formatting is NOT merged across link boundaries."""
+        para = Paragraph(
+            content=[
+                Link(url="http://a.com", content=[Strong(content=[Text(content="a")])]),
+                Link(url="http://b.com", content=[Strong(content=[Text(content="b")])]),
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 2
+        # Links should be preserved, not merged
+        assert isinstance(result.content[0], Link)
+        assert isinstance(result.content[1], Link)
+
+    def test_code_spans_not_merged(self) -> None:
+        """Test that Code spans are NOT merged (they represent distinct code)."""
+        para = Paragraph(
+            content=[
+                Code(content="code1"),
+                Code(content="code2"),
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        # Code nodes should remain separate
+        assert len(result.content) == 2
+        assert isinstance(result.content[0], Code)
+        assert isinstance(result.content[1], Code)
+
+    def test_nested_formatting_preserved(self) -> None:
+        """Test that nested formatting (e.g., bold inside italic) is preserved."""
+        para = Paragraph(content=[Emphasis(content=[Strong(content=[Text(content="bold italic")])])])
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], Emphasis)
+        assert isinstance(result.content[0].content[0], Strong)
+
+    def test_adjacent_text_nodes_merged(self) -> None:
+        """Test that adjacent Text nodes are merged."""
+        para = Paragraph(
+            content=[
+                Text(content="hello"),
+                Text(content=" "),
+                Text(content="world"),
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], Text)
+        assert result.content[0].content == "hello world"
+
+    def test_heading_consolidation(self) -> None:
+        """Test that headings are also consolidated."""
+        heading = Heading(
+            level=1,
+            content=[
+                Strong(content=[Text(content="Title ")]),
+            ],
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(heading)
+
+        assert isinstance(result, Heading)
+        assert len(result.content) == 2  # Strong + trailing space
+        assert isinstance(result.content[0], Strong)
+        inner = result.content[0].content[0]
+        assert isinstance(inner, Text)
+        assert inner.content == "Title"
+
+    def test_document_transformation(self) -> None:
+        """Test that entire document is transformed."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Strong(content=[Text(content="text ")]),
+                    ]
+                )
+            ]
+        )
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(doc)
+
+        assert isinstance(result, Document)
+        assert len(result.children) == 1
+        para = result.children[0]
+        assert isinstance(para, Paragraph)
+        # Trailing space should be moved outside
+        assert len(para.content) == 2
+
+    def test_real_world_example_fragmented_bold(self) -> None:
+        """Test the specific fragmented example from the PDF issue.
+
+        Input: **Katia Kroutil, ** (bold with trailing space)
+        Expected: **Katia Kroutil,** + space
+        """
+        para = Paragraph(content=[Strong(content=[Text(content="Katia Kroutil, ")])])
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 2
+        # First: Strong with trimmed content
+        assert isinstance(result.content[0], Strong)
+        inner = result.content[0].content[0]
+        assert isinstance(inner, Text)
+        assert inner.content == "Katia Kroutil,"
+        # Second: trailing space
+        assert isinstance(result.content[1], Text)
+        assert result.content[1].content == " "
+
+    def test_empty_formatting_removed(self) -> None:
+        """Test that empty formatting nodes are removed."""
+        para = Paragraph(content=[Strong(content=[Text(content="")])])
+
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        # Empty Strong should be removed
+        assert len(result.content) == 0

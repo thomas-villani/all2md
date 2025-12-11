@@ -58,6 +58,7 @@ from all2md.ast.nodes import (
     MathInline,
     Node,
     Paragraph,
+    SourceLocation,
     Strikethrough,
     Strong,
     Subscript,
@@ -1142,6 +1143,419 @@ class TextReplacer(NodeTransformer):
         return Text(content=new_content, metadata=node.metadata.copy(), source_location=node.source_location)
 
 
+class InlineFormattingConsolidator(NodeTransformer):
+    """Transformer that consolidates fragmented inline formatting nodes.
+
+    This transformer fixes common PDF parsing artifacts where inline formatting
+    (bold, italic) is fragmented across multiple adjacent nodes. It performs:
+
+    1. Merges adjacent same-type formatting nodes (Strong+Strong, Emphasis+Emphasis)
+    2. Moves trailing/leading whitespace outside formatting markers
+    3. Removes empty formatting nodes after whitespace extraction
+    4. Merges adjacent Text nodes
+
+    Examples
+    --------
+    >>> # Fix fragmented bold: **text** **more** -> **text more**
+    >>> consolidator = InlineFormattingConsolidator()
+    >>> fixed_doc = consolidator.transform(doc)
+
+    >>> # Fix trailing whitespace: **text ** -> **text** + space
+    >>> consolidator = InlineFormattingConsolidator()
+    >>> fixed_doc = consolidator.transform(doc)
+
+    Notes
+    -----
+    This transformer is particularly useful for PDF-to-Markdown conversion where
+    PyMuPDF creates separate text spans at word or formatting boundaries.
+
+    """
+
+    def _extract_text_content(self, node: Node) -> str:
+        """Recursively extract all text content from a node.
+
+        Parameters
+        ----------
+        node : Node
+            Node to extract text from
+
+        Returns
+        -------
+        str
+            All text content concatenated
+
+        """
+        if isinstance(node, Text):
+            return node.content
+        elif isinstance(node, (Strong, Emphasis)):
+            return "".join(self._extract_text_content(child) for child in node.content)
+        elif isinstance(node, Code):
+            return node.content
+        else:
+            # For other node types, try to get children
+            children = get_node_children(node)
+            return "".join(self._extract_text_content(child) for child in children)
+
+    def _rebuild_formatting_node(
+        self, node_type: type, content: str, metadata: dict | None = None, source_location: SourceLocation | None = None
+    ) -> Strong | Emphasis:
+        """Rebuild a formatting node with new text content.
+
+        Parameters
+        ----------
+        node_type : type
+            Strong or Emphasis
+        content : str
+            Text content for the node
+        metadata : dict or None
+            Optional metadata
+        source_location : SourceLocation or None
+            Optional source location
+
+        Returns
+        -------
+        Strong or Emphasis
+            New formatting node with Text child
+
+        """
+        text_node = Text(content=content, metadata=metadata or {}, source_location=source_location)
+        if node_type is Strong:
+            return Strong(content=[text_node], metadata=metadata or {}, source_location=source_location)
+        else:
+            return Emphasis(content=[text_node], metadata=metadata or {}, source_location=source_location)
+
+    def _merge_adjacent_text_nodes(self, nodes: list[Node]) -> list[Node]:
+        """Merge adjacent Text nodes into single nodes.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Nodes to process
+
+        Returns
+        -------
+        list of Node
+            Nodes with adjacent Text nodes merged
+
+        """
+        if not nodes:
+            return []
+
+        result: list[Node] = []
+        i = 0
+
+        while i < len(nodes):
+            current = nodes[i]
+
+            if isinstance(current, Text):
+                # Accumulate adjacent Text nodes
+                accumulated_text = current.content
+                j = i + 1
+
+                while j < len(nodes) and isinstance(nodes[j], Text):
+                    text_node: Text = nodes[j]  # type: ignore[assignment]
+                    accumulated_text += text_node.content
+                    j += 1
+
+                if accumulated_text:  # Only add non-empty text
+                    result.append(
+                        Text(
+                            content=accumulated_text,
+                            metadata=current.metadata.copy(),
+                            source_location=current.source_location,
+                        )
+                    )
+                i = j
+            else:
+                result.append(current)
+                i += 1
+
+        return result
+
+    def _has_nested_formatting(self, node: Strong | Emphasis) -> bool:
+        """Check if a formatting node contains nested formatting (not just text).
+
+        Parameters
+        ----------
+        node : Strong or Emphasis
+            Node to check
+
+        Returns
+        -------
+        bool
+            True if node contains nested Strong/Emphasis, False if only Text/Code
+
+        """
+        for child in node.content:
+            if isinstance(child, (Strong, Emphasis)):
+                return True
+        return False
+
+    def _normalize_formatting_whitespace(self, nodes: list[Node]) -> list[Node]:
+        """Move leading/trailing whitespace outside formatting nodes.
+
+        Transforms:
+        - **text ** -> **text** + " "
+        - ** text** -> " " + **text**
+        - **   ** -> "   " (whitespace-only formatting becomes plain text)
+
+        Does NOT transform:
+        - Nested formatting like ***bold italic*** (preserved as-is)
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Nodes to process
+
+        Returns
+        -------
+        list of Node
+            Nodes with whitespace normalized
+
+        """
+        result: list[Node] = []
+
+        for node in nodes:
+            if isinstance(node, (Strong, Emphasis)):
+                # Skip whitespace normalization for nested formatting structures
+                # (e.g., Emphasis([Strong([Text()])]) should be preserved)
+                if self._has_nested_formatting(node):
+                    result.append(node)
+                    continue
+
+                # Extract all text from the formatting node
+                inner_text = self._extract_text_content(node)
+
+                if not inner_text:
+                    # Empty formatting node - skip
+                    continue
+
+                # Find leading and trailing whitespace
+                stripped = inner_text.strip()
+
+                if not stripped:
+                    # Whitespace-only formatting -> emit as plain Text
+                    result.append(
+                        Text(content=inner_text, metadata=node.metadata.copy(), source_location=node.source_location)
+                    )
+                    continue
+
+                leading_ws = inner_text[: len(inner_text) - len(inner_text.lstrip())]
+                trailing_ws = inner_text[len(inner_text.rstrip()) :]
+
+                # Emit leading whitespace as Text
+                if leading_ws:
+                    result.append(
+                        Text(content=leading_ws, metadata=node.metadata.copy(), source_location=node.source_location)
+                    )
+
+                # Emit the formatting node with trimmed content
+                result.append(
+                    self._rebuild_formatting_node(type(node), stripped, node.metadata.copy(), node.source_location)
+                )
+
+                # Emit trailing whitespace as Text
+                if trailing_ws:
+                    result.append(
+                        Text(content=trailing_ws, metadata=node.metadata.copy(), source_location=node.source_location)
+                    )
+            else:
+                result.append(node)
+
+        return result
+
+    def _merge_adjacent_same_formatting(self, nodes: list[Node]) -> list[Node]:
+        """Merge adjacent nodes of the same formatting type.
+
+        Transforms:
+        - **a** **b** -> **ab**
+        - *a* *b* -> *ab*
+
+        Does NOT merge:
+        - **a** *b* (different types)
+        - [**a**](url1) [**b**](url2) (across link boundaries)
+        - Nodes with nested formatting (to preserve structure)
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Nodes to process
+
+        Returns
+        -------
+        list of Node
+            Nodes with adjacent same-type formatting merged
+
+        """
+        if not nodes:
+            return []
+
+        result: list[Node] = []
+        i = 0
+
+        while i < len(nodes):
+            current = nodes[i]
+
+            # Only merge Strong or Emphasis nodes (not wrapped in links, no nested formatting)
+            if (
+                isinstance(current, (Strong, Emphasis))
+                and not isinstance(current, Link)
+                and not self._has_nested_formatting(current)
+            ):
+                node_type = type(current)
+                accumulated_text = self._extract_text_content(current)
+                first_metadata = current.metadata.copy()
+                first_source = current.source_location
+                j = i + 1
+
+                # Look for adjacent same-type nodes (without nested formatting)
+                while j < len(nodes):
+                    next_node = nodes[j]
+                    if isinstance(next_node, node_type) and not isinstance(next_node, Link):
+                        # Check for nested formatting (we know it's Strong or Emphasis here)
+                        assert isinstance(next_node, (Strong, Emphasis))  # For type checker
+                        if self._has_nested_formatting(next_node):
+                            break
+                        accumulated_text += self._extract_text_content(next_node)
+                        j += 1
+                    else:
+                        break
+
+                # Create merged node if we accumulated any text
+                if accumulated_text:
+                    result.append(
+                        self._rebuild_formatting_node(node_type, accumulated_text, first_metadata, first_source)
+                    )
+                i = j
+            else:
+                result.append(current)
+                i += 1
+
+        return result
+
+    def _consolidate_inline_nodes(self, nodes: list[Node]) -> list[Node]:
+        """Consolidates formatting for inline nodes.
+
+        Applies transformations in order:
+        1. Recursively consolidate children of container nodes
+        2. Merge adjacent same-type formatting nodes
+        3. Normalize whitespace (move outside formatting)
+        4. Merge adjacent Text nodes
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Nodes to consolidate
+
+        Returns
+        -------
+        list of Node
+            Consolidated nodes
+
+        """
+        if not nodes:
+            return []
+
+        # Step 1: Recursively process children of formatting nodes and links
+        processed: list[Node] = []
+        for node in nodes:
+            if isinstance(node, (Strong, Emphasis)):
+                # Recursively consolidate children
+                consolidated_children = self._consolidate_inline_nodes(node.content)
+                if isinstance(node, Strong):
+                    processed.append(
+                        Strong(
+                            content=consolidated_children,
+                            metadata=node.metadata.copy(),
+                            source_location=node.source_location,
+                        )
+                    )
+                else:
+                    processed.append(
+                        Emphasis(
+                            content=consolidated_children,
+                            metadata=node.metadata.copy(),
+                            source_location=node.source_location,
+                        )
+                    )
+            elif isinstance(node, Link):
+                # Recursively consolidate link content, but don't merge across link boundaries
+                consolidated_children = self._consolidate_inline_nodes(node.content)
+                processed.append(
+                    Link(
+                        url=node.url,
+                        content=consolidated_children,
+                        title=node.title,
+                        metadata=node.metadata.copy(),
+                        source_location=node.source_location,
+                    )
+                )
+            else:
+                processed.append(node)
+
+        # Step 2: Merge adjacent same-type formatting nodes
+        processed = self._merge_adjacent_same_formatting(processed)
+
+        # Step 3: Normalize whitespace in formatting nodes
+        processed = self._normalize_formatting_whitespace(processed)
+
+        # Step 4: Merge adjacent Text nodes
+        processed = self._merge_adjacent_text_nodes(processed)
+
+        return processed
+
+    def visit_paragraph(self, node: Paragraph) -> Paragraph:
+        """Consolidate inline formatting in a Paragraph."""
+        consolidated = self._consolidate_inline_nodes(node.content)
+        return Paragraph(
+            content=consolidated,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_heading(self, node: Heading) -> Heading:
+        """Consolidate inline formatting in a Heading."""
+        consolidated = self._consolidate_inline_nodes(node.content)
+        return Heading(
+            level=node.level,
+            content=consolidated,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_table_cell(self, node: TableCell) -> TableCell:
+        """Consolidate inline formatting in a TableCell."""
+        consolidated = self._consolidate_inline_nodes(node.content)
+        return TableCell(
+            content=consolidated,
+            alignment=node.alignment,
+            colspan=node.colspan,
+            rowspan=node.rowspan,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_list_item(self, node: ListItem) -> ListItem:
+        """Consolidate inline formatting in a ListItem."""
+        # ListItem can contain block nodes, so use generic transform for children
+        transformed_children = self._transform_children(node.children)
+        return ListItem(
+            children=transformed_children,
+            task_status=node.task_status,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_block_quote(self, node: BlockQuote) -> BlockQuote:
+        """Consolidate inline formatting in BlockQuote children."""
+        transformed_children = self._transform_children(node.children)
+        return BlockQuote(
+            children=transformed_children,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+
 __all__ = [
     "NodeTransformer",
     "NodeCollector",
@@ -1156,4 +1570,5 @@ __all__ = [
     "HeadingLevelTransformer",
     "LinkRewriter",
     "TextReplacer",
+    "InlineFormattingConsolidator",
 ]
