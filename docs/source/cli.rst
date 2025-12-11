@@ -14,8 +14,8 @@ Basic Usage
 Simple Conversion
 ~~~~~~~~~~~~~~~~~
 
-The primary entry point is simply ``all2md`` (equivalent to ``all2md convert``). Provide one or more
-input paths and optional output arguments to drive the conversion pipeline.
+The primary entry point is simply ``all2md``. Provide one or more input paths and optional output arguments
+to drive the conversion pipeline.
 
 .. code-block:: bash
 
@@ -75,9 +75,6 @@ Version and Help
    # Format-specific help (parser + renderer options)
    all2md help pdf
    all2md help docx
-
-   # Rich-formatted help (colour, emphasis) when Rich is installed
-   all2md help full --rich
 
    # Show detailed about information
    all2md --about

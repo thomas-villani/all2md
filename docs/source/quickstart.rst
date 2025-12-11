@@ -58,6 +58,94 @@ Let's convert a document to Markdown:
 
 That's it! all2md automatically detects the file format and converts it to clean Markdown.
 
+Bidirectional Conversion
+------------------------
+
+all2md isn't just for converting *to* Markdown—it supports full bidirectional conversion between formats. The ``convert()`` function is the core API for any format-to-format conversion.
+
+.. note::
+
+   ``to_markdown()`` is a convenience wrapper around ``convert()`` that automatically targets Markdown output. Use ``convert()`` when you need to convert to other formats or between non-Markdown formats directly.
+
+Converting Markdown to Rich Formats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generate Word documents, PDFs, and more from your Markdown files:
+
+**Command Line**
+
+.. code-block:: bash
+
+   # Convert Markdown to Word document
+   all2md report.md --out report.docx
+
+   # Convert Markdown to PDF
+   all2md notes.md --out notes.pdf
+
+   # Convert Markdown to HTML
+   all2md readme.md --out readme.html
+
+   # Convert Markdown to PowerPoint
+   all2md slides.md --out presentation.pptx
+
+**Python API**
+
+.. code-block:: python
+
+   from all2md import convert
+
+   # Convert Markdown to DOCX
+   convert("report.md", "report.docx", target_format="docx")
+
+   # Convert Markdown to PDF
+   convert("notes.md", "notes.pdf", target_format="pdf")
+
+   # Convert Markdown to HTML
+   convert("readme.md", "readme.html", target_format="html")
+
+This is particularly useful for AI/LLM workflows: ingest documents as Markdown for processing, then convert the LLM's Markdown output back to rich formats.
+
+Converting Between Any Formats
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also convert directly between non-Markdown formats:
+
+**Command Line**
+
+.. code-block:: bash
+
+   # Convert PDF to Word document
+   all2md document.pdf --out document.docx
+
+   # Convert PDF to HTML
+   all2md report.pdf --out report.html
+
+   # Convert HTML to PDF
+   all2md webpage.html --out webpage.pdf
+
+   # Convert Word to HTML
+   all2md manual.docx --out manual.html
+
+**Python API**
+
+.. code-block:: python
+
+   from all2md import convert
+
+   # PDF to DOCX
+   convert("document.pdf", "document.docx", target_format="docx")
+
+   # PDF to HTML
+   convert("report.pdf", "report.html", target_format="html")
+
+   # HTML to PDF
+   convert("webpage.html", "webpage.pdf", target_format="pdf")
+
+   # DOCX to HTML
+   convert("manual.docx", "manual.html", target_format="html")
+
+Under the hood, all2md parses the source document into an Abstract Syntax Tree (AST), then renders it to the target format. This ensures consistent, high-quality conversions regardless of the source and target formats.
+
 .. note::
 
    **Output Normalization:** The ``to_markdown()`` function always returns a string with normalized line endings. Specifically:
