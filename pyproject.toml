@@ -1,6 +1,6 @@
 [project]
 name = "all2md"
-version = "1.0.0"
+version = "1.0.1"
 description = "Rapid, lightweight conversion of various document formats to markdown for LLMs"
 readme = "README.md"
 authors = [
