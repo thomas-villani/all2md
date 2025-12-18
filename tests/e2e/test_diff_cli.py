@@ -195,8 +195,8 @@ We achieved our goals.
 
         assert result.returncode == 0
         assert "usage:" in result.stdout.lower()
-        assert "source1" in result.stdout.lower()
-        assert "source2" in result.stdout.lower()
+        assert "original" in result.stdout.lower()
+        assert "modified" in result.stdout.lower()
         assert "--format" in result.stdout
 
     def test_diff_cross_format(self):
