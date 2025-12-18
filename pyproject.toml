@@ -392,3 +392,28 @@ skips = [
     "B110",  # try_except_pass - intentional for best-effort cleanup/graceful degradation
     "B112",  # try_except_continue - intentional for graceful degradation in loops
 ]
+
+[tool.bumpversion]
+current_version = "1.0.1"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+commit = true
+tag = true
+tag_name = "v{new_version}"
+message = "Bump version: {current_version} → {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/all2md/__init__.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+
+[[tool.bumpversion.files]]
+filename = "docs/source/conf.py"
+search = 'release = "{current_version}"'
+replace = 'release = "{new_version}"'

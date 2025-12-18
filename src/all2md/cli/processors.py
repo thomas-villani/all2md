@@ -2354,7 +2354,7 @@ def _should_use_parallel(args: argparse.Namespace) -> bool:
         True if parallel processing should be used
 
     """
-    provided_args = getattr(args, "_provided_args", set())
+    provided_args: set = getattr(args, "_provided_args", set())
     if hasattr(args, "_provided_args") and "parallel" in provided_args and args.parallel is None:
         return True
     return isinstance(args.parallel, int) and args.parallel != 1
