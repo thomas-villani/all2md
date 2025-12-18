@@ -60,8 +60,8 @@ class TestCreateDiffParser:
         parser = _create_diff_parser()
         args = parser.parse_args(["file1.txt", "file2.txt", "--format", "html"])
         assert args.format == "html"
-        assert args.source1 == "file1.txt"
-        assert args.source2 == "file2.txt"
+        assert args.original == "file1.txt"
+        assert args.modified == "file2.txt"
 
     def test_parser_default_values(self):
         """Test parser default values."""

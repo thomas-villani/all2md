@@ -64,8 +64,8 @@ def _create_diff_parser() -> argparse.ArgumentParser:
     )
 
     # Positional arguments
-    parser.add_argument("source1", help="First document (any supported format, use '-' for stdin)")
-    parser.add_argument("source2", help="Second document (any supported format, use '-' for stdin)")
+    parser.add_argument("original", help="Original document (any supported format, use '-' for stdin)")
+    parser.add_argument("modified", help="Modified document (any supported format, use '-' for stdin)")
 
     # Output options
     parser.add_argument(
@@ -139,61 +139,61 @@ def handle_diff_command(args: list[str] | None = None) -> int:
         return e.code if isinstance(e.code, int) else 0
 
     # Handle stdin or validate source files
-    is_stdin1 = parsed.source1 == "-"
-    is_stdin2 = parsed.source2 == "-"
+    is_stdin1 = parsed.original == "-"
+    is_stdin2 = parsed.modified == "-"
 
     # Cannot read both from stdin
     if is_stdin1 and is_stdin2:
-        print("Error: Cannot read both source1 and source2 from stdin", file=sys.stderr)
+        print("Error: Cannot read both original and modified from stdin", file=sys.stderr)
         return EXIT_FILE_ERROR
 
-    # Load source1
+    # Load "original"
     if is_stdin1:
         stdin_data = sys.stdin.buffer.read()
         if not stdin_data:
             print("Error: No data received from stdin", file=sys.stderr)
             return EXIT_FILE_ERROR
-        source1_input = stdin_data
-        source1_label = "stdin"
+        src_original_input = stdin_data
+        src_original_label = "stdin"
     else:
-        source1_path = Path(parsed.source1)
-        if not source1_path.exists():
-            print(f"Error: Source file not found: {parsed.source1}", file=sys.stderr)
+        src_original_path = Path(parsed.original)
+        if not src_original_path.exists():
+            print(f"Error: Source file not found: {parsed.original}", file=sys.stderr)
             return EXIT_FILE_ERROR
-        source1_input = parsed.source1
-        source1_label = str(source1_path)
+        src_original_input = parsed.original
+        src_original_label = str(src_original_path)
 
-    # Load source2
+    # Load "modified"
     if is_stdin2:
         stdin_data = sys.stdin.buffer.read()
         if not stdin_data:
             print("Error: No data received from stdin", file=sys.stderr)
             return EXIT_FILE_ERROR
-        source2_input = stdin_data
-        source2_label = "stdin"
+        src_modified_input = stdin_data
+        src_modified_label = "stdin"
     else:
-        source2_path = Path(parsed.source2)
-        if not source2_path.exists():
-            print(f"Error: Source file not found: {parsed.source2}", file=sys.stderr)
+        src_modified_path = Path(parsed.modified)
+        if not src_modified_path.exists():
+            print(f"Error: Source file not found: {parsed.modified}", file=sys.stderr)
             return EXIT_FILE_ERROR
-        source2_input = parsed.source2
-        source2_label = str(source2_path)
+        src_modified_input = parsed.modified
+        src_modified_label = str(src_modified_path)
 
     try:
         from all2md import to_ast
         from all2md.diff.text_diff import compare_documents
 
         # Convert both documents to AST
-        print(f"Comparing {source1_label} and {source2_label}...", file=sys.stderr)
-        doc1 = to_ast(source1_input)
-        doc2 = to_ast(source2_input)
+        print(f"Comparing {src_original_label} and {src_modified_label}...", file=sys.stderr)
+        doc1 = to_ast(src_original_input)
+        doc2 = to_ast(src_modified_input)
 
         # Compare documents
         diff_result = compare_documents(
             doc1,
             doc2,
-            old_label=source1_label,
-            new_label=source2_label,
+            old_label=src_original_label,
+            new_label=src_modified_label,
             context_lines=parsed.context,
             ignore_whitespace=parsed.ignore_whitespace,
             granularity=parsed.granularity,
