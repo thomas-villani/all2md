@@ -263,7 +263,152 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if metadata:
             self._output.append("\n")
 
-    def visit_heading(self, node: Heading) -> None:  # noqa: C901
+    def _render_properties_drawer(self, node: Heading) -> None:
+        """Render properties drawer if present and enabled.
+
+        Parameters
+        ----------
+        node : Heading
+            Heading node with potential properties
+
+        """
+        if not self.options.preserve_properties or not node.metadata:
+            return
+
+        properties = node.metadata.get("org_properties", {})
+        if not properties:
+            return
+
+        self._output.append("\n:PROPERTIES:\n")
+        for key, value in properties.items():
+            self._output.append(f":{key}: {value}\n")
+        self._output.append(":END:")
+
+    def _render_timestamp(self, node: Heading, key: str, prefix: str) -> None:
+        """Render a timestamp (CLOSED, SCHEDULED, or DEADLINE) if present.
+
+        Parameters
+        ----------
+        node : Heading
+            Heading node with potential timestamp
+        key : str
+            Metadata key to look up (e.g., 'org_closed', 'org_scheduled')
+        prefix : str
+            Prefix for the output (e.g., 'CLOSED', 'SCHEDULED')
+
+        """
+        if not node.metadata:
+            return
+
+        timestamp = node.metadata.get(key)
+        if not timestamp:
+            return
+
+        # Handle both dict (full metadata) and string (legacy) formats
+        if isinstance(timestamp, dict):
+            timestamp_str = timestamp.get("string", str(timestamp))
+        else:
+            timestamp_str = str(timestamp)
+        self._output.append(f"\n{prefix}: {timestamp_str}")
+
+    def _render_logbook_entry(self, entry: dict) -> None:
+        """Render a single LOGBOOK entry.
+
+        Parameters
+        ----------
+        entry : dict
+            Entry dictionary with 'type' and related fields
+
+        """
+        entry_type = entry.get("type")
+
+        if entry_type == "state_change":
+            self._output.append(
+                f"- State \"{entry['new_state']}\" " f"from \"{entry['old_state']}\" " f"[{entry['timestamp']}]\n"
+            )
+        elif entry_type == "clock":
+            if entry.get("end"):
+                clock_line = f"CLOCK: [{entry['start']}]--[{entry['end']}]"
+                if entry.get("duration"):
+                    clock_line += f" =>  {entry['duration']}"
+                self._output.append(clock_line + "\n")
+            else:
+                self._output.append(f"CLOCK: [{entry['start']}]\n")
+        elif entry_type == "note":
+            self._output.append(f"- {entry['content']} [{entry['timestamp']}]\n")
+
+    def _render_logbook_drawer(self, node: Heading) -> None:
+        """Render LOGBOOK drawer if present and enabled.
+
+        Parameters
+        ----------
+        node : Heading
+            Heading node with potential logbook
+
+        """
+        if not self.options.preserve_logbook or not node.metadata:
+            return
+
+        logbook = node.metadata.get("org_logbook")
+        if not logbook:
+            return
+
+        entries = logbook.get("entries", [])
+        if not entries:
+            return
+
+        self._output.append("\n:LOGBOOK:\n")
+        for entry in entries:
+            self._render_logbook_entry(entry)
+        self._output.append(":END:")
+
+    def _render_clock_entry(self, clock: dict) -> None:
+        """Render a single CLOCK entry.
+
+        Parameters
+        ----------
+        clock : dict
+            Clock entry with 'start', optional 'end', and optional 'duration'
+
+        """
+        if clock.get("end"):
+            clock_line = f"CLOCK: [{clock['start']}]--[{clock['end']}]"
+            if clock.get("duration"):
+                clock_line += f" =>  {clock['duration']}"
+            self._output.append(clock_line + "\n")
+        else:
+            self._output.append(f"CLOCK: [{clock['start']}]\n")
+
+    def _render_clock_entries(self, node: Heading) -> None:
+        """Render CLOCK entries if present and enabled (outside LOGBOOK).
+
+        This handles clock entries that were extracted via node.clock.
+        Only renders if LOGBOOK wasn't already rendered.
+
+        Parameters
+        ----------
+        node : Heading
+            Heading node with potential clock entries
+
+        """
+        if not self.options.preserve_clock or not node.metadata:
+            return
+
+        clock_entries = node.metadata.get("org_clock")
+        if not clock_entries:
+            return
+
+        # Only render if we haven't already rendered a LOGBOOK
+        # (to avoid duplication if clock entries were in LOGBOOK)
+        if self.options.preserve_logbook and node.metadata.get("org_logbook"):
+            return
+
+        self._output.append("\n:LOGBOOK:\n")
+        for clock in clock_entries:
+            self._render_clock_entry(clock)
+        self._output.append(":END:")
+
+    def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
 
         Parameters
@@ -300,98 +445,18 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output.append(" ".join(parts))
 
-        # Render properties drawer if present and enabled
-        if self.options.preserve_properties and node.metadata:
-            properties = node.metadata.get("org_properties", {})
-            if properties:
-                self._output.append("\n:PROPERTIES:\n")
-                for key, value in properties.items():
-                    self._output.append(f":{key}: {value}\n")
-                self._output.append(":END:")
+        # Render properties drawer
+        self._render_properties_drawer(node)
 
-        # Render CLOSED timestamp if present and enabled
-        if self.options.preserve_closed and node.metadata:
-            closed = node.metadata.get("org_closed")
-            if closed:
-                # Handle both dict (full metadata) and string (legacy) formats
-                if isinstance(closed, dict):
-                    closed_str = closed.get("string", str(closed))
-                else:
-                    closed_str = str(closed)
-                self._output.append(f"\nCLOSED: {closed_str}")
+        # Render timestamps (CLOSED, SCHEDULED, DEADLINE)
+        if self.options.preserve_closed:
+            self._render_timestamp(node, "org_closed", "CLOSED")
+        self._render_timestamp(node, "org_scheduled", "SCHEDULED")
+        self._render_timestamp(node, "org_deadline", "DEADLINE")
 
-        # Render SCHEDULED timestamp if present
-        if node.metadata:
-            scheduled = node.metadata.get("org_scheduled")
-            if scheduled:
-                # Handle both dict (full metadata) and string (legacy) formats
-                if isinstance(scheduled, dict):
-                    scheduled_str = scheduled.get("string", str(scheduled))
-                else:
-                    scheduled_str = str(scheduled)
-                self._output.append(f"\nSCHEDULED: {scheduled_str}")
-
-        # Render DEADLINE timestamp if present
-        if node.metadata:
-            deadline = node.metadata.get("org_deadline")
-            if deadline:
-                # Handle both dict (full metadata) and string (legacy) formats
-                if isinstance(deadline, dict):
-                    deadline_str = deadline.get("string", str(deadline))
-                else:
-                    deadline_str = str(deadline)
-                self._output.append(f"\nDEADLINE: {deadline_str}")
-
-        # Render LOGBOOK drawer if present and enabled
-        if self.options.preserve_logbook and node.metadata:
-            logbook = node.metadata.get("org_logbook")
-            if logbook:
-                # Only render if there are entries
-                entries = logbook.get("entries", [])
-                if entries:
-                    self._output.append("\n:LOGBOOK:\n")
-
-                    # Render entries
-                    for entry in entries:
-                        entry_type = entry.get("type")
-
-                        if entry_type == "state_change":
-                            self._output.append(
-                                f"- State \"{entry['new_state']}\" "
-                                f"from \"{entry['old_state']}\" "
-                                f"[{entry['timestamp']}]\n"
-                            )
-                        elif entry_type == "clock":
-                            if entry.get("end"):
-                                clock_line = f"CLOCK: [{entry['start']}]--[{entry['end']}]"
-                                if entry.get("duration"):
-                                    clock_line += f" =>  {entry['duration']}"
-                                self._output.append(clock_line + "\n")
-                            else:
-                                self._output.append(f"CLOCK: [{entry['start']}]\n")
-                        elif entry_type == "note":
-                            self._output.append(f"- {entry['content']} [{entry['timestamp']}]\n")
-
-                    self._output.append(":END:")
-
-        # Render CLOCK entries if present and enabled (outside LOGBOOK)
-        # This handles clock entries that were extracted via node.clock
-        if self.options.preserve_clock and node.metadata:
-            clock_entries = node.metadata.get("org_clock")
-            if clock_entries:
-                # Only render if we haven't already rendered a LOGBOOK
-                # (to avoid duplication if clock entries were in LOGBOOK)
-                if not (self.options.preserve_logbook and node.metadata.get("org_logbook")):
-                    self._output.append("\n:LOGBOOK:\n")
-                    for clock in clock_entries:
-                        if clock.get("end"):
-                            clock_line = f"CLOCK: [{clock['start']}]--[{clock['end']}]"
-                            if clock.get("duration"):
-                                clock_line += f" =>  {clock['duration']}"
-                            self._output.append(clock_line + "\n")
-                        else:
-                            self._output.append(f"CLOCK: [{clock['start']}]\n")
-                    self._output.append(":END:")
+        # Render LOGBOOK drawer and CLOCK entries
+        self._render_logbook_drawer(node)
+        self._render_clock_entries(node)
 
     def visit_paragraph(self, node: Paragraph) -> None:
         """Render a Paragraph node.

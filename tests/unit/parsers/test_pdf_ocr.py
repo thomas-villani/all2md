@@ -10,9 +10,9 @@ import pytest
 
 from all2md.options.common import OCROptions
 from all2md.options.pdf import PdfOptions
+from all2md.parsers._pdf_ocr import calculate_image_coverage
 from all2md.parsers.pdf import (
     PdfToAstConverter,
-    _calculate_image_coverage,
     _detect_page_language,
     _should_use_ocr,
 )
@@ -88,7 +88,7 @@ class TestImageCoverage:
         mock_page.rect.height = 792
         mock_page.get_images.return_value = []
 
-        coverage = _calculate_image_coverage(mock_page)
+        coverage = calculate_image_coverage(mock_page)
         assert coverage == 0.0
 
     def test_calculate_image_coverage_with_images(self) -> None:
@@ -106,7 +106,7 @@ class TestImageCoverage:
         mock_rect.height = 396
         mock_page.get_image_rects.return_value = [mock_rect]
 
-        coverage = _calculate_image_coverage(mock_page)
+        coverage = calculate_image_coverage(mock_page)
         # Image area: 612 * 396 = 242352
         # Page area: 612 * 792 = 484704
         # Coverage: 242352 / 484704 ≈ 0.5
@@ -119,7 +119,7 @@ class TestImageCoverage:
         mock_page.rect.height = 0
         mock_page.get_images.return_value = []
 
-        coverage = _calculate_image_coverage(mock_page)
+        coverage = calculate_image_coverage(mock_page)
         assert coverage == 0.0
 
 
@@ -172,7 +172,7 @@ class TestShouldUseOCR:
         result = _should_use_ocr(mock_page, "A" * 100, options)
         assert result is False
 
-    @patch("all2md.parsers.pdf._calculate_image_coverage")
+    @patch("all2md.parsers._pdf_ocr.calculate_image_coverage")
     def test_should_use_ocr_auto_high_image_coverage(self, mock_coverage: Mock) -> None:
         """Test OCR triggering in auto mode with high image coverage."""
         mock_page = Mock()

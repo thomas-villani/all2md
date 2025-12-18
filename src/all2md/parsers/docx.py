@@ -461,6 +461,50 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         return document
 
+    def _try_process_heading(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
+        """Try to process paragraph as a heading. Returns Heading or None."""
+        heading_match = re.match(r"Heading (\d+)", style_name)
+        if heading_match:
+            level = int(heading_match.group(1))
+            content = self._process_paragraph_runs_to_inline(paragraph)
+            return Heading(level=level, content=content)
+        return None
+
+    def _try_process_code_block(self, paragraph: "Paragraph", style_name: str) -> CodeBlock | None:
+        """Try to process paragraph as a code block. Returns CodeBlock or None."""
+        if not style_name or not self.options.code_style_names:
+            return None
+        for code_style in self.options.code_style_names:
+            if code_style.lower() in style_name.lower():
+                return CodeBlock(content=paragraph.text)
+        return None
+
+    def _try_process_thematic_break(self, paragraph: "Paragraph") -> ThematicBreak | None:
+        """Try to process paragraph as a thematic break. Returns ThematicBreak or None."""
+        text = paragraph.text.strip()
+        if text in ("---", "___", "***", "—" * 3, "–" * 3):
+            return ThematicBreak()
+        if not text and self._has_bottom_border(paragraph):
+            return ThematicBreak()
+        return None
+
+    def _process_regular_paragraph(
+        self, paragraph: "Paragraph", math_blocks: list[MathBlock]
+    ) -> Node | list[Node] | None:
+        """Process a regular (non-list) paragraph with optional math blocks."""
+        content = self._process_paragraph_runs_to_inline(paragraph)
+        if content:
+            has_non_whitespace = any(not isinstance(node, Text) or node.content.strip() for node in content)
+            if has_non_whitespace:
+                if math_blocks:
+                    return [AstParagraph(content=content), *math_blocks]
+                return AstParagraph(content=content)
+
+        if math_blocks:
+            return math_blocks[0] if len(math_blocks) == 1 else cast(list[Node], math_blocks)
+
+        return None
+
     def _process_paragraph_to_ast(
         self, paragraph: "Paragraph", doc: "docx.document.Document"
     ) -> Node | list[Node] | None:
@@ -479,36 +523,19 @@ class DocxToAstConverter(BaseParser):
             Resulting AST node(s)
 
         """
-        # Handle heading styles
         style_name = paragraph.style.name if paragraph.style else ""
-        heading_match = re.match(r"Heading (\d+)", style_name)
-        if heading_match:
-            level = int(heading_match.group(1))
-            content = self._process_paragraph_runs_to_inline(paragraph)
-            return Heading(level=level, content=content)
 
-        # Handle code block styles
-        if style_name and self.options.code_style_names:
-            for code_style in self.options.code_style_names:
-                # Support both exact match and partial match (case-insensitive)
-                if code_style.lower() in style_name.lower():
-                    code_text = paragraph.text
-                    return CodeBlock(content=code_text)
-
-        # Handle horizontal rules (thematic breaks)
-        # Detect paragraphs that look like horizontal rules:
-        # 1. Empty or contain only special characters like --- or ___
-        # 2. Have a bottom border that spans the paragraph
-        text = paragraph.text.strip()
-        if text in ("---", "___", "***", "—" * 3, "–" * 3) or (not text and self._has_bottom_border(paragraph)):
-            return ThematicBreak()
+        # Try special paragraph types first
+        if heading_result := self._try_process_heading(paragraph, style_name):
+            return heading_result
+        if code_result := self._try_process_code_block(paragraph, style_name):
+            return code_result
+        if break_result := self._try_process_thematic_break(paragraph):
+            return break_result
 
         # Handle lists
-
         list_type, level = _detect_list_level(paragraph, doc)
         if list_type:
-            # This paragraph is part of a list
-            # We'll accumulate list items and return them when list ends
             return self._process_list_item_paragraph(paragraph, list_type, level)
 
         math_blocks = self._extract_math_blocks_from_paragraph(paragraph)
@@ -525,28 +552,9 @@ class DocxToAstConverter(BaseParser):
                 nodes.append(AstParagraph(content=content))
             if math_blocks:
                 nodes.extend(math_blocks)
-            if not nodes:
-                return None
-            if len(nodes) == 1:
-                return nodes[0]
-            return nodes
+            return nodes[0] if len(nodes) == 1 else (nodes or None)
 
-        # Regular paragraph
-        content = self._process_paragraph_runs_to_inline(paragraph)
-        if content:
-            # Skip paragraphs that only contain whitespace
-            has_non_whitespace = any(not isinstance(node, Text) or node.content.strip() for node in content)
-            if has_non_whitespace:
-                if math_blocks:
-                    return [AstParagraph(content=content), *math_blocks]
-                return AstParagraph(content=content)
-
-        if math_blocks:
-            if len(math_blocks) == 1:
-                return math_blocks[0]
-            return cast(list[Node], math_blocks)
-
-        return None
+        return self._process_regular_paragraph(paragraph, math_blocks)
 
     def _process_list_item_paragraph(self, paragraph: "Paragraph", list_type: str, level: int) -> Node | None:
         """Process a paragraph that is part of a list.
@@ -1312,75 +1320,184 @@ class DocxToAstConverter(BaseParser):
         return nodes
 
 
+_WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+_BULLET_FORMATS = frozenset(("bullet", "none"))
+_NUMBER_FORMATS = frozenset(("decimal", "lowerLetter", "upperLetter", "lowerRoman", "upperRoman"))
+
+
+def _map_numbering_format(fmt_val: str | None) -> str | None:
+    """Map Word numbering format to our type ('bullet' or 'number')."""
+    if not fmt_val:
+        return None
+    if fmt_val in _BULLET_FORMATS:
+        return "bullet"
+    if fmt_val in _NUMBER_FORMATS:
+        return "number"
+    return None
+
+
+def _collect_abstract_numbering_defs(numbering_xml: Any) -> dict[str, dict[str, str]]:
+    """Collect abstract numbering definitions from XML."""
+    abstract_nums: dict[str, dict[str, str]] = {}
+
+    for elem in numbering_xml.iter():
+        if not elem.tag.endswith("abstractNum"):
+            continue
+
+        abstract_num_id = elem.get(f"{_WORD_NS}abstractNumId")
+        if not abstract_num_id:
+            continue
+
+        levels = _extract_level_formats(elem)
+        if levels:
+            abstract_nums[abstract_num_id] = levels
+
+    return abstract_nums
+
+
+def _extract_level_formats(abstract_num_elem: Any) -> dict[str, str]:
+    """Extract level format mappings from an abstractNum element."""
+    levels: dict[str, str] = {}
+
+    for level_elem in abstract_num_elem.iter():
+        if not level_elem.tag.endswith("lvl"):
+            continue
+
+        level_id = level_elem.get(f"{_WORD_NS}ilvl")
+        if level_id is None:
+            continue
+
+        for child in level_elem.iter():
+            if child.tag.endswith("numFmt"):
+                fmt_val = child.get(f"{_WORD_NS}val")
+                mapped = _map_numbering_format(fmt_val)
+                if mapped:
+                    levels[level_id] = mapped
+                break
+
+    return levels
+
+
+def _map_num_ids_to_abstract_nums(
+    numbering_xml: Any, abstract_nums: dict[str, dict[str, str]]
+) -> dict[str, dict[str, str]]:
+    """Map number IDs to abstract numbering definitions."""
+    numbering_defs: dict[str, dict[str, str]] = {}
+
+    for elem in numbering_xml.iter():
+        if not elem.tag.endswith("num"):
+            continue
+
+        num_id = elem.get(f"{_WORD_NS}numId")
+        if not num_id:
+            continue
+
+        for child in elem.iter():
+            if child.tag.endswith("abstractNumId"):
+                abs_id = child.get(f"{_WORD_NS}val")
+                if abs_id in abstract_nums:
+                    numbering_defs[num_id] = abstract_nums[abs_id]
+                break
+
+    return numbering_defs
+
+
 def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[str, str]]:
     """Extract and cache numbering definitions from document.
 
-    Returns a mapping of numId -> {level -> format_type} where format_type is 'bullet' or 'decimal'.
+    Returns a mapping of numId -> {level -> format_type} where format_type is 'bullet' or 'number'.
     """
-    numbering_defs: dict[str, dict[str, str]] = {}
-
     if not hasattr(doc, "_part") or not hasattr(doc._part, "numbering_part"):
-        return numbering_defs
+        return {}
 
     numbering_part = doc._part.numbering_part
     if not numbering_part:
-        return numbering_defs
+        return {}
 
     try:
         numbering_xml = numbering_part._element
-
-        # First, collect abstract numbering definitions
-        abstract_nums = {}
-        for elem in numbering_xml.iter():
-            if elem.tag.endswith("abstractNum"):
-                abstract_num_id = elem.get(
-                    "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId"
-                )
-                if abstract_num_id:
-                    levels = {}
-                    for level_elem in elem.iter():
-                        if level_elem.tag.endswith("lvl"):
-                            level_id = level_elem.get(
-                                "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl"
-                            )
-                            if level_id is not None:
-                                for child in level_elem.iter():
-                                    if child.tag.endswith("numFmt"):
-                                        fmt_val = child.get(
-                                            "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"
-                                        )
-                                        if fmt_val:
-                                            # Map Word numbering formats to our types
-                                            if fmt_val in ("bullet", "none"):
-                                                levels[level_id] = "bullet"
-                                            elif fmt_val in (
-                                                "decimal",
-                                                "lowerLetter",
-                                                "upperLetter",
-                                                "lowerRoman",
-                                                "upperRoman",
-                                            ):
-                                                levels[level_id] = "number"
-                                            break
-                    if levels:
-                        abstract_nums[abstract_num_id] = levels
-
-        # Then, map number IDs to abstract numbers
-        for elem in numbering_xml.iter():
-            if elem.tag.endswith("num"):
-                num_id = elem.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId")
-                if num_id:
-                    for child in elem.iter():
-                        if child.tag.endswith("abstractNumId"):
-                            abs_id = child.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
-                            if abs_id in abstract_nums:
-                                numbering_defs[num_id] = abstract_nums[abs_id]
-                            break
-
+        abstract_nums = _collect_abstract_numbering_defs(numbering_xml)
+        return _map_num_ids_to_abstract_nums(numbering_xml, abstract_nums)
     except Exception as e:
         logger.debug(f"Error parsing numbering definitions: {e}")
+        return {}
 
-    return numbering_defs
+
+def _detect_list_from_numbering_props(
+    paragraph: "Paragraph", doc: "docx.document.Document" | None
+) -> tuple[str | None, int] | None:
+    """Check for Word native numbering properties (numPr element).
+
+    Returns (list_type, level) if found, None if no numbering properties.
+    """
+    if not hasattr(paragraph, "_p") or paragraph._p is None:
+        return None
+
+    try:
+        ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        num_pr = paragraph._p.find(f".//{ns}numPr")
+        if num_pr is None:
+            return None
+
+        # Get numbering level (Word uses 0-based indexing, we use 1-based)
+        ilvl_elem = num_pr.find(f".//{ns}ilvl")
+        level = int(ilvl_elem.get(f"{ns}val", "0")) + 1 if ilvl_elem is not None else 1
+
+        # Get numbering ID to determine list type
+        num_id_elem = num_pr.find(f".//{ns}numId")
+        if num_id_elem is None:
+            return "bullet", level
+
+        num_id = num_id_elem.get(f"{ns}val")
+
+        # Look up the numbering definition if document is available
+        if doc and num_id:
+            numbering_defs = _get_numbering_definitions(doc)
+            if num_id in numbering_defs:
+                level_key = str(level - 1)
+                if level_key in numbering_defs[num_id]:
+                    return numbering_defs[num_id][level_key], level
+                if "0" in numbering_defs[num_id]:
+                    return numbering_defs[num_id]["0"], level
+
+        # Fallback: detect type from paragraph text pattern
+        return _detect_list_type_from_text(paragraph.text, level)
+    except Exception:
+        return None
+
+
+def _detect_list_type_from_text(text: str, level: int) -> tuple[str, int]:
+    """Detect list type from paragraph text pattern."""
+    text = text.strip()
+    if re.match(r"^\d+[.)]", text) or re.match(r"^[a-zA-Z][.)]", text):
+        return "number", level
+    return "bullet", level
+
+
+def _detect_list_from_style_name(style_name: str) -> tuple[str | None, int]:
+    """Check for built-in list styles and return (base_type, style_level)."""
+    if style_name == "List Paragraph":
+        return "bullet", 1
+
+    if match := re.match(r"List\s*Bullet\s?(?P<level>\d+)?", style_name, re.I):
+        return "bullet", int(match.group("level") or 1)
+
+    if match := re.match(r"List\s*Number\s?(?P<level>\d+)?", style_name, re.I):
+        return "number", int(match.group("level") or 1)
+
+    return None, 1
+
+
+def _get_paragraph_indent_level(paragraph: "Paragraph") -> int:
+    """Get indentation level from paragraph formatting."""
+    try:
+        indent = paragraph.paragraph_format.left_indent
+        if indent:
+            return int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
+    except AttributeError:
+        pass
+    return 0
 
 
 def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" | None = None) -> tuple[str | None, int]:
@@ -1388,75 +1505,18 @@ def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" | N
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth
     """
-    # Check for Word native numbering properties first (works for all list styles including "List Paragraph")
-    if hasattr(paragraph, "_p") and paragraph._p is not None:
-        try:
-            # Check for numPr (numbering properties) element
-            num_pr = paragraph._p.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numPr")
-            if num_pr is not None:
-                # Get numbering level (Word uses 0-based indexing, we use 1-based)
-                ilvl_elem = num_pr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl")
-                level = (
-                    int(ilvl_elem.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val", "0")) + 1
-                    if ilvl_elem is not None
-                    else 1
-                )
-
-                # Get numbering ID to determine list type
-                num_id_elem = num_pr.find(".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId")
-                if num_id_elem is not None:
-                    num_id = num_id_elem.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
-
-                    # Look up the numbering definition if document is available
-                    if doc and num_id:
-                        numbering_defs = _get_numbering_definitions(doc)
-                        if num_id in numbering_defs:
-                            # Get the format for this level (use level-1 since Word is 0-based)
-                            level_key = str(level - 1)
-                            if level_key in numbering_defs[num_id]:
-                                return numbering_defs[num_id][level_key], level
-                            # If specific level not found, use level 0 as fallback
-                            elif "0" in numbering_defs[num_id]:
-                                return numbering_defs[num_id]["0"], level
-
-                    # Fallback: detect type from paragraph text pattern
-                    text = paragraph.text.strip()
-                    if re.match(r"^\d+[.)]", text) or re.match(r"^[a-zA-Z][.)]", text):
-                        return "number", level
-                    else:
-                        return "bullet", level
-        except Exception:
-            pass
+    # Check for Word native numbering properties first
+    result = _detect_list_from_numbering_props(paragraph, doc)
+    if result is not None:
+        return result
 
     # Check for built-in list styles
     style_name = paragraph.style.name if paragraph.style else None
     if not style_name:
         return None, 0
 
-    base_type = None
-    style_level = 1
-
-    # Handle "List Paragraph" style - check for numbering properties above
-    if style_name == "List Paragraph":
-        # If we got here, numbering properties weren't found or processed
-        # This might be a list paragraph without proper numbering - treat as bullet by default
-        return "bullet", 1
-    elif match := re.match(r"List\s*Bullet\s?(?P<level>\d+)?", style_name, re.I):
-        base_type = "bullet"
-        style_level = int(match.group("level") or 1)
-    elif match := re.match(r"List\s*Number\s?(?P<level>\d+)?", style_name, re.I):
-        base_type = "number"
-        style_level = int(match.group("level") or 1)
-
-    # Check indentation level for additional nesting
-    indent_level = 0
-    try:
-        indent = paragraph.paragraph_format.left_indent
-        if indent:
-            # Convert Pt to level (assume DEFAULT_INDENTATION_PT_PER_LEVEL per level)
-            indent_level = int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
-    except AttributeError:
-        pass
+    base_type, style_level = _detect_list_from_style_name(style_name)
+    indent_level = _get_paragraph_indent_level(paragraph)
 
     # If we have a list style, combine with indentation
     if base_type:
@@ -1465,10 +1525,7 @@ def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" | N
 
     # Check indentation level for paragraphs without list styles
     if indent_level > 0:
-        # Try to detect if numbered based on paragraph text
-        if re.match(r"^\d+[.)]", paragraph.text.strip()):
-            return "number", indent_level
-        return "bullet", indent_level
+        return _detect_list_type_from_text(paragraph.text, indent_level)
 
     return None, 0
 

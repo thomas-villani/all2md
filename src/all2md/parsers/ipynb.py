@@ -204,10 +204,190 @@ class IpynbToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata_dict)
 
+    def _process_markdown_cell(
+        self,
+        cell: dict[str, Any],
+        base_info: dict[str, Any],
+        source: str,
+        attachments: Any,
+    ) -> list[Node]:
+        """Process a markdown cell into AST nodes.
+
+        Parameters
+        ----------
+        cell : dict[str, Any]
+            Cell data
+        base_info : dict[str, Any]
+            Base metadata info for the cell
+        source : str
+            Cell source content
+        attachments : Any
+            Cell attachments
+
+        Returns
+        -------
+        list[Node]
+            AST nodes for the markdown cell
+
+        """
+        markdown_nodes: list[Node] = []
+        if source.strip():
+            markdown_nodes = self._parse_markdown_cell(source)
+
+        # Handle empty markdown cells based on skip_empty_cells option
+        if not markdown_nodes:
+            if not self.options.skip_empty_cells or attachments:
+                markdown_nodes = [Paragraph(content=[Text(content="")])]
+            else:
+                return []
+
+        for segment_index, markdown_node in enumerate(markdown_nodes):
+            info = deepcopy(base_info)
+            if segment_index > 0 and info.get("attachments") is not None:
+                info.pop("attachments")
+            node_meta = getattr(markdown_node, "metadata", {})
+            fallback_plain = bool(node_meta.pop(_IPYNB_MARKDOWN_FALLBACK_FLAG, False))
+            extras: dict[str, Any] = {"segment_index": segment_index}
+            if fallback_plain:
+                extras["markdown_plaintext"] = True
+            self._attach_ipynb_metadata(markdown_node, info, role="body", **extras)
+
+        return markdown_nodes
+
+    def _process_code_cell(
+        self,
+        cell: dict[str, Any],
+        base_info: dict[str, Any],
+        source: str,
+        attachments: Any,
+        cell_index: int,
+        language: str,
+    ) -> list[Node]:
+        """Process a code cell into AST nodes.
+
+        Parameters
+        ----------
+        cell : dict[str, Any]
+            Cell data
+        base_info : dict[str, Any]
+            Base metadata info for the cell
+        source : str
+            Cell source content
+        attachments : Any
+            Cell attachments
+        cell_index : int
+            Index of the cell
+        language : str
+            Programming language
+
+        Returns
+        -------
+        list[Node]
+            AST nodes for the code cell
+
+        """
+        nodes: list[Node] = []
+        base_info["execution_count"] = cell.get("execution_count")
+        base_info["language"] = language
+        base_info["raw_outputs"] = deepcopy(cell.get("outputs", []))
+
+        # Skip empty code cells if configured (unless they have outputs or attachments)
+        has_outputs = cell.get("outputs") and len(cell.get("outputs", [])) > 0
+        if self.options.skip_empty_cells and not source.strip() and not has_outputs and not attachments:
+            return nodes
+
+        if self.options.include_inputs:
+            # Only create input node if source is non-empty OR skip_empty_cells is False
+            if source.strip() or not self.options.skip_empty_cells:
+                code_content = source
+
+                if self.options.show_execution_count:
+                    execution_count = cell.get("execution_count")
+                    if execution_count is not None:
+                        code_content = f"# In [{execution_count}]:\n{source}"
+                        base_info["execution_count_was_inlined"] = True
+
+                code_node = CodeBlock(language=language, content=code_content)
+                self._attach_ipynb_metadata(code_node, base_info, role="input")
+                nodes.append(code_node)
+
+        if self.options.include_outputs:
+            for j, output in enumerate(cell.get("outputs", [])):
+                output_node = self._process_output(output, cell_index, j, base_info)
+                if output_node:
+                    nodes.append(output_node)
+
+        return nodes
+
+    def _process_raw_cell(
+        self,
+        base_info: dict[str, Any],
+        source: str,
+        attachments: Any,
+    ) -> list[Node]:
+        """Process a raw cell into AST nodes.
+
+        Parameters
+        ----------
+        base_info : dict[str, Any]
+            Base metadata info for the cell
+        source : str
+            Cell source content
+        attachments : Any
+            Cell attachments
+
+        Returns
+        -------
+        list[Node]
+            AST nodes for the raw cell
+
+        """
+        if source or attachments:
+            raw_node = CodeBlock(language=None, content=source)
+            self._attach_ipynb_metadata(raw_node, base_info, role="body")
+            return [raw_node]
+        return []
+
+    def _process_unknown_cell(
+        self,
+        cell_type: str,
+        cell_index: int,
+        base_info: dict[str, Any],
+        source: str,
+    ) -> list[Node]:
+        """Process an unknown cell type into AST nodes.
+
+        Parameters
+        ----------
+        cell_type : str
+            The unknown cell type
+        cell_index : int
+            Index of the cell
+        base_info : dict[str, Any]
+            Base metadata info for the cell
+        source : str
+            Cell source content
+
+        Returns
+        -------
+        list[Node]
+            AST nodes for the unknown cell
+
+        """
+        logger.debug(
+            "Encountered unsupported cell type '%s' at index %s; preserving as raw text",
+            cell_type,
+            cell_index,
+        )
+        if source:
+            fallback_node = Paragraph(content=[Text(content=source)])
+            self._attach_ipynb_metadata(fallback_node, base_info, role="body")
+            return [fallback_node]
+        return []
+
     def _process_cell(self, cell: dict[str, Any], cell_index: int, language: str) -> list[Node]:
         """Process a notebook cell to AST nodes with metadata for round-tripping."""
         cell_type = cell.get("cell_type")
-        nodes: list[Node] = []
 
         # Skip cells with missing or invalid cell_type
         if not cell_type or not isinstance(cell_type, str):
@@ -215,7 +395,7 @@ class IpynbToAstConverter(BaseParser):
                 "Skipping cell at index %s with missing or invalid cell_type",
                 cell_index,
             )
-            return nodes
+            return []
 
         cell_metadata = deepcopy(cell.get("metadata", {})) if cell.get("metadata") else {}
         attachments = cell.get("attachments")
@@ -233,85 +413,13 @@ class IpynbToAstConverter(BaseParser):
             base_info["attachments"] = deepcopy(attachments)
 
         if cell_type == "markdown":
-            markdown_nodes: list[Node] = []
-            if source.strip():
-                markdown_nodes = self._parse_markdown_cell(source)
-
-            # Handle empty markdown cells based on skip_empty_cells option
-            if not markdown_nodes:
-                # If skip_empty_cells is False OR there are attachments, preserve the empty cell
-                if not self.options.skip_empty_cells or attachments:
-                    markdown_nodes = [Paragraph(content=[Text(content="")])]
-                else:
-                    # Skip empty cell entirely
-                    return nodes
-
-            for segment_index, markdown_node in enumerate(markdown_nodes):
-                info = deepcopy(base_info)
-                if segment_index > 0 and info.get("attachments") is not None:
-                    info.pop("attachments")
-                node_meta = getattr(markdown_node, "metadata", {})
-                fallback_plain = bool(node_meta.pop(_IPYNB_MARKDOWN_FALLBACK_FLAG, False))
-                extras: dict[str, Any] = {"segment_index": segment_index}
-                if fallback_plain:
-                    extras["markdown_plaintext"] = True
-                self._attach_ipynb_metadata(
-                    markdown_node,
-                    info,
-                    role="body",
-                    **extras,
-                )
-            nodes.extend(markdown_nodes)
-
+            return self._process_markdown_cell(cell, base_info, source, attachments)
         elif cell_type == "code":
-            base_info["execution_count"] = cell.get("execution_count")
-            base_info["language"] = language
-            base_info["raw_outputs"] = deepcopy(cell.get("outputs", []))
-
-            # Skip empty code cells if configured (unless they have outputs or attachments)
-            has_outputs = cell.get("outputs") and len(cell.get("outputs", [])) > 0
-            if self.options.skip_empty_cells and not source.strip() and not has_outputs and not attachments:
-                return nodes
-
-            if self.options.include_inputs:
-                # Only create input node if source is non-empty OR skip_empty_cells is False
-                if source.strip() or not self.options.skip_empty_cells:
-                    code_content = source
-
-                    if self.options.show_execution_count:
-                        execution_count = cell.get("execution_count")
-                        if execution_count is not None:
-                            code_content = f"# In [{execution_count}]:\n{source}"
-                            base_info["execution_count_was_inlined"] = True
-
-                    code_node = CodeBlock(language=language, content=code_content)
-                    self._attach_ipynb_metadata(code_node, base_info, role="input")
-                    nodes.append(code_node)
-
-            if self.options.include_outputs:
-                for j, output in enumerate(cell.get("outputs", [])):
-                    output_node = self._process_output(output, cell_index, j, base_info)
-                    if output_node:
-                        nodes.append(output_node)
-
+            return self._process_code_cell(cell, base_info, source, attachments, cell_index, language)
         elif cell_type == "raw":
-            if source or attachments:
-                raw_node = CodeBlock(language=None, content=source)
-                self._attach_ipynb_metadata(raw_node, base_info, role="body")
-                nodes.append(raw_node)
-
+            return self._process_raw_cell(base_info, source, attachments)
         else:
-            logger.debug(
-                "Encountered unsupported cell type '%s' at index %s; preserving as raw text",
-                cell_type,
-                cell_index,
-            )
-            if source:
-                fallback_node = Paragraph(content=[Text(content=source)])
-                self._attach_ipynb_metadata(fallback_node, base_info, role="body")
-                nodes.append(fallback_node)
-
-        return nodes
+            return self._process_unknown_cell(cell_type, cell_index, base_info, source)
 
     def _get_source(self, cell: dict[str, Any]) -> str:
         """Safely extract and join the source from a notebook cell.

@@ -91,26 +91,27 @@ def _generate_upload_form(theme_path: Path) -> str:
     # Generate form HTML
     form_html = (
         """
-            <h1>Document Converter</h1>
-            <p>Upload a document to convert it to another format.</p>
+                <h1>Document Converter</h1>
+                <p>Upload a document to convert it to another format.</p>
 
-            <form method="POST" enctype="multipart/form-data" style="max-width: 600px; margin: 20px 0;">
-                <div style="margin-bottom: 20px;">
-                    <label for="file" style="display: block; margin-bottom: 5px; font-weight: bold;">
-                        Select Document:
-                    </label>
-                    <input type="file" name="file" id="file" required
-                   style="display: block; width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px;">
-                </div>
+                <form method="POST" enctype="multipart/form-data" style="max-width: 600px; margin: 20px 0;">
+                    <div style="margin-bottom: 20px;">
+                        <label for="file" style="display: block; margin-bottom: 5px; font-weight: bold;">
+                            Select Document:
+                        </label>
+                        <input type="file" name="file" id="file" required
+                       style="display: block; width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px;">
+                    </div>
 
-                <div style="margin-bottom: 20px;">
-                    <label for="format" style="display: block; margin-bottom: 5px; font-weight: bold;">
-                        Output Format:
-                    </label>
-                    <select name="format" id="format" required
-                        style="display: block; width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px;">
-                        <option value="html" selected>html</option>
-            """
+                    <div style="margin-bottom: 20px;">
+                        <label for="format" style="display: block; margin-bottom: 5px; font-weight: bold;">
+                            Output Format:
+                        </label>
+                        <select name="format" id="format" required
+                            style="display: block; width: 100%; padding: 10px; border: 2px solid #ddd;
+                            border-radius: 4px;">
+                            <option value="html" selected>html</option>
+                """
         + format_options
         + """
             </select>

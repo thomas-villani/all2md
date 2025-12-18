@@ -497,6 +497,160 @@ class XlsxToAstConverter(BaseParser):
 
         return self.xlsx_to_ast(wb)
 
+    def _select_sheet_names(self, workbook: Any) -> list[str]:
+        """Select sheet names based on options.
+
+        Parameters
+        ----------
+        workbook : Any
+            Openpyxl workbook
+
+        Returns
+        -------
+        list[str]
+            List of sheet names to process
+
+        """
+        sheet_names: list[str] = list(workbook.sheetnames)
+        if isinstance(self.options.sheets, list):
+            return [n for n in sheet_names if n in self.options.sheets]
+        elif isinstance(self.options.sheets, str):
+            pattern = re.compile(self.options.sheets)
+            return [n for n in sheet_names if pattern.search(n)]
+        return sheet_names
+
+    def _convert_rows_to_strings(self, raw_rows: list[list[Any]], merged_map: dict[str, str]) -> list[list[str]]:
+        """Convert raw cell rows to string rows, handling merged cells.
+
+        Parameters
+        ----------
+        raw_rows : list[list[Any]]
+            Raw cell data from sheet
+        merged_map : dict[str, str]
+            Mapping of merged cell coordinates to master coordinates
+
+        Returns
+        -------
+        list[list[str]]
+            Rows as string values
+
+        """
+        str_rows: list[list[str]] = []
+        for row in raw_rows:
+            out: list[str] = []
+            for cell in row:
+                coord = getattr(cell, "coordinate", None)
+                # Only apply merged cell logic if mode is "flatten"
+                if (
+                    self.options.merged_cell_mode == "flatten"
+                    and coord
+                    and coord in merged_map
+                    and merged_map[coord] != coord
+                ):
+                    out.append("")
+                else:
+                    out.append(_format_link_or_text(cell, cell.value, self.options.preserve_newlines_in_cells))
+            str_rows.append(out)
+        return str_rows
+
+    def _compute_alignments(self, sheet: Any, num_cols: int) -> list[Alignment]:
+        """Compute column alignments from header cells.
+
+        Parameters
+        ----------
+        sheet : Any
+            Openpyxl worksheet
+        num_cols : int
+            Number of columns
+
+        Returns
+        -------
+        list[Alignment]
+            List of alignment values
+
+        """
+        alignments: list[Alignment] = []
+        try:
+            first_row_cells = next(sheet.iter_rows(min_row=1, max_row=1, values_only=False))
+            for c_idx, cell in enumerate(first_row_cells, start=1):
+                if self.options.max_cols is not None and c_idx > self.options.max_cols:
+                    break
+                alignments.append(_alignment_for_cell(cell))
+        except Exception:
+            alignments = cast(list[Alignment], ["center"] * num_cols)
+        return alignments
+
+    def _process_sheet(
+        self,
+        sheet: Any,
+        base_filename: str,
+        attachment_sequencer: Any,
+    ) -> list[Node]:
+        """Process a single sheet into AST nodes.
+
+        Parameters
+        ----------
+        sheet : Any
+            Openpyxl worksheet
+        base_filename : str
+            Base filename for attachments
+        attachment_sequencer : callable
+            Sequencer for unique attachment filenames
+
+        Returns
+        -------
+        list[Node]
+            AST nodes for the sheet
+
+        """
+        children: list[Node] = []
+
+        # Handle merged cells based on mode
+        merged_map: dict[str, str] = {}
+        if self.options.merged_cell_mode != "skip":
+            merged_map = _map_merged_cells(sheet)
+
+        raw_rows: list[list[Any]] = list(_xlsx_iter_rows(sheet, self.options.max_rows, self.options.max_cols))
+        if not raw_rows:
+            return children
+
+        # Convert to strings
+        str_rows = self._convert_rows_to_strings(raw_rows, merged_map)
+
+        # Trim empty rows and columns
+        str_rows = trim_rows(str_rows, cast(Any, self.options.trim_empty))
+        if not str_rows:
+            return children
+
+        str_rows = trim_columns(str_rows, cast(Any, self.options.trim_empty))
+        if not str_rows or not any(str_rows):
+            return children
+
+        # Build table
+        header = str_rows[0]
+        data = str_rows[1:] if len(str_rows) > 1 else []
+        header = transform_header_case(header, self.options.header_case)
+        alignments = self._compute_alignments(sheet, len(header))
+
+        table = build_table_ast(header, data, alignments)
+        children.append(table)
+
+        # Add truncation indicator if needed
+        truncated_rows = self.options.max_rows is not None and sheet.max_row > self.options.max_rows
+        truncated_cols = self.options.max_cols is not None and sheet.max_column > self.options.max_cols
+        if truncated_rows or truncated_cols:
+            children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))
+
+        # Extract images and charts
+        sheet_images, sheet_footnotes = _extract_sheet_images(sheet, base_filename, attachment_sequencer, self.options)
+        self._attachment_footnotes.update(sheet_footnotes)
+        children.extend(sheet_images)
+
+        sheet_charts = _extract_sheet_charts(sheet, base_filename, self.options)
+        children.extend(sheet_charts)
+
+        return children
+
     def xlsx_to_ast(self, workbook: Any) -> Document:
         """Convert an openpyxl workbook to AST Document.
 
@@ -528,13 +682,7 @@ class XlsxToAstConverter(BaseParser):
         attachment_sequencer = create_attachment_sequencer()
 
         # Select sheets
-        sheet_names: list[str] = list(workbook.sheetnames)
-        if isinstance(self.options.sheets, list):
-            sheet_names = [n for n in sheet_names if n in self.options.sheets]
-        elif isinstance(self.options.sheets, str):
-            pattern = re.compile(self.options.sheets)
-            sheet_names = [n for n in sheet_names if pattern.search(n)]
-
+        sheet_names = self._select_sheet_names(workbook)
         if not sheet_names:
             return Document(children=[], metadata=metadata.to_dict())
 
@@ -543,92 +691,11 @@ class XlsxToAstConverter(BaseParser):
 
             # Add sheet title if requested
             if self.options.include_sheet_titles:
-                # Create heading node
                 children.append(Heading(level=2, content=[Text(content=sname)]))
 
             # Process sheet data
-            # Handle merged cells based on mode
-            merged_map: dict[str, str] = {}
-            if self.options.merged_cell_mode != "skip":
-                merged_map = _map_merged_cells(sheet)
-
-            raw_rows: list[list[Any]] = []
-            for row in _xlsx_iter_rows(sheet, self.options.max_rows, self.options.max_cols):
-                if all((cell.value is None) for cell in row):
-                    raw_rows.append(row)
-                else:
-                    raw_rows.append(row)
-
-            if not raw_rows:
-                continue
-
-            # Convert to strings and handle merged cells based on mode
-            str_rows: list[list[str]] = []
-            for row in raw_rows:
-                out: list[str] = []
-                for cell in row:
-                    coord = getattr(cell, "coordinate", None)
-                    # Only apply merged cell logic if mode is "flatten"
-                    if (
-                        self.options.merged_cell_mode == "flatten"
-                        and coord
-                        and coord in merged_map
-                        and merged_map[coord] != coord
-                    ):
-                        out.append("")
-                    else:
-                        out.append(_format_link_or_text(cell, cell.value, self.options.preserve_newlines_in_cells))
-                str_rows.append(out)
-
-            # Trim empty rows based on trim_empty option
-            str_rows = trim_rows(str_rows, cast(Any, self.options.trim_empty))
-
-            if not str_rows:
-                continue
-
-            # Trim empty columns based on trim_empty option
-            str_rows = trim_columns(str_rows, cast(Any, self.options.trim_empty))
-
-            if not str_rows or not any(str_rows):
-                continue
-
-            header = str_rows[0]
-            data = str_rows[1:] if len(str_rows) > 1 else []
-
-            # Apply header case transformation
-            header = transform_header_case(header, self.options.header_case)
-
-            # Compute alignments from header cells
-            alignments: list[Alignment] = []
-            try:
-                first_row_cells = next(sheet.iter_rows(min_row=1, max_row=1, values_only=False))
-                for c_idx, cell in enumerate(first_row_cells, start=1):
-                    if self.options.max_cols is not None and c_idx > self.options.max_cols:
-                        break
-                    alignments.append(_alignment_for_cell(cell))
-            except Exception:
-                alignments = cast(list[Alignment], ["center"] * len(header))
-
-            # Build table AST
-            table = build_table_ast(header, data, alignments)
-            children.append(table)
-
-            # Add truncation indicator as paragraph if needed
-            truncated_rows = self.options.max_rows is not None and sheet.max_row > self.options.max_rows
-            truncated_cols = self.options.max_cols is not None and sheet.max_column > self.options.max_cols
-            if truncated_rows or truncated_cols:
-                children.append(Paragraph(content=[HTMLInline(content=f"*{self.options.truncation_indicator}*")]))
-
-            # Extract images from sheet
-            sheet_images, sheet_footnotes = _extract_sheet_images(
-                sheet, base_filename, attachment_sequencer, self.options
-            )
-            self._attachment_footnotes.update(sheet_footnotes)
-            children.extend(sheet_images)
-
-            # Extract charts from sheet
-            sheet_charts = _extract_sheet_charts(sheet, base_filename, self.options)
-            children.extend(sheet_charts)
+            sheet_nodes = self._process_sheet(sheet, base_filename, attachment_sequencer)
+            children.extend(sheet_nodes)
 
         # Append attachment footnote definitions if any were collected
         if self.options.attachments_footnotes_section:

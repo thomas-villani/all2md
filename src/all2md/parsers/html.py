@@ -230,6 +230,72 @@ class HtmlToAstConverter(BaseParser):
         # Convert the HTML content to AST
         return self.convert_to_ast(html_content)
 
+    def _parse_html_with_parser(self, html_content: str) -> Any:
+        """Parse HTML content using configured parser."""
+        from bs4 import BeautifulSoup
+        from bs4.exceptions import FeatureNotFound
+
+        try:
+            return BeautifulSoup(html_content, self.options.html_parser)
+        except FeatureNotFound as e:
+            if "html5lib" in str(e):
+                missing_packages = [("html5lib", "")]
+            elif "lxml" in str(e):
+                missing_packages = [("lxml", "")]
+            else:
+                missing_packages = []
+            raise DependencyError(
+                f"Error in HtmlToAstConverter! Selected HtmlOptions.html_parser not found: {e}.",
+                missing_packages=missing_packages,
+            ) from e
+
+    def _sanitize_soup(self, soup: Any) -> Any:
+        """Apply sanitization to parsed HTML soup."""
+        if self.options.strip_dangerous_elements and self.options.allowed_attributes is None:
+            sanitized_html = sanitize_html_string(str(soup))
+            soup = self._parse_html_with_parser(sanitized_html)
+            logger.debug("Applied single-pass HTML sanitization via html_sanitizer utility")
+        elif self.options.strip_dangerous_elements or self.options.allowed_attributes is not None:
+            soup = self._apply_custom_sanitization(soup)
+        return soup
+
+    def _extract_title_heading(self, soup: Any, readability_title: str | None) -> Heading | None:
+        """Extract title heading from soup or readability title."""
+        from bs4.element import Tag
+
+        if not self.options.extract_title:
+            return None
+
+        title_tag = soup.find("title")
+        if isinstance(title_tag, Tag) and title_tag.string:
+            self._heading_level_offset = 1
+            return Heading(level=1, content=[Text(content=title_tag.string.strip())])
+
+        if readability_title:
+            self._heading_level_offset = 1
+            return Heading(level=1, content=[Text(content=readability_title.strip())])
+
+        return None
+
+    def _process_body_children(self, soup: Any) -> list[Node]:
+        """Process body or root element children to AST nodes."""
+        from bs4.element import Tag
+
+        body = soup.find("body")
+        root = body if isinstance(body, Tag) else soup
+        children: list[Node] = []
+
+        for child in root.children:
+            if not isinstance(child, Tag):
+                continue
+            nodes = self._process_node_to_ast(child)
+            if nodes:
+                if isinstance(nodes, list):
+                    children.extend(nodes)
+                else:
+                    children.append(nodes)
+        return children
+
     def convert_to_ast(self, html_content: str) -> Document:
         """Convert HTML string to AST Document.
 
@@ -244,92 +310,30 @@ class HtmlToAstConverter(BaseParser):
             AST document node
 
         """
-        # Reset parser state to prevent leakage across parse calls
+        # Reset parser state
         self._attachment_footnotes = {}
         self._list_depth = 0
         self._in_code_block = False
         self._heading_level_offset = 0
 
-        # Emit started event
         self._emit_progress("started", "Converting HTML document", current=0, total=1)
 
-        # M8: Sanitize null bytes and zero-width characters from HTML to prevent XSS bypass
-        # This removes \x00, \ufeff, \u200b, \u200c, \u200d, \u2060 which can be used to
-        # hide malicious payloads or bypass security filters
+        # Sanitize null bytes and extract readable content if requested
         html_content = sanitize_null_bytes(html_content)
-
         readability_title: str | None = None
         if self.options.extract_readable:
             html_content, readability_title = self._extract_readable_html(html_content)
 
-        from bs4 import BeautifulSoup
-        from bs4.element import Tag
-        from bs4.exceptions import FeatureNotFound
-
-        # M10: Use configurable parser (html.parser by default, html5lib for browser-like parsing)
-        # html.parser: Fast, built-in, but may handle malformed HTML differently than browsers
-        # html5lib: Standards-compliant, matches browser behavior, but slower, requires html5lib installed
-        # lxml: Fast, requires C library
-        try:
-            soup = BeautifulSoup(html_content, self.options.html_parser)
-        except FeatureNotFound as e:
-            if "html5lib" in str(e):
-                missing_packages = [("html5lib", "")]
-            elif "lxml" in str(e):
-                missing_packages = [("lxml", "")]
-            else:
-                missing_packages = []
-            raise DependencyError(
-                f"Error in HtmlToAstConverter! Selected HtmlOptions.html_parser " f"not found: {e}.",
-                missing_packages=missing_packages,
-            ) from e
-
-        # Sanitize HTML: Use single-pass bleach when possible, fall back to multi-pass BeautifulSoup
-        # This reduces duplication and aligns with HtmlRenderer's sanitization approach
-        if self.options.strip_dangerous_elements and self.options.allowed_attributes is None:
-            # Use shared sanitization utility from html_sanitizer module for single-pass approach
-            # This provides comprehensive sanitization with bleach (when available) or BeautifulSoup fallback
-
-            sanitized_html = sanitize_html_string(str(soup))
-            soup = BeautifulSoup(sanitized_html, self.options.html_parser)
-            logger.debug("Applied single-pass HTML sanitization via html_sanitizer utility")
-        elif self.options.strip_dangerous_elements or self.options.allowed_attributes is not None:
-            # Use multi-pass BeautifulSoup for custom attribute allowlists
-            soup = self._apply_custom_sanitization(soup)
+        # Parse and sanitize
+        soup = self._parse_html_with_parser(html_content)
+        soup = self._sanitize_soup(soup)
 
         # Build document children
         children: list[Node] = []
-
-        # Extract title if requested - this will offset all headings by 1 level
-        extracted_readability_title = False
-        if self.options.extract_title:
-            title_tag = soup.find("title")
-            if isinstance(title_tag, Tag) and title_tag.string:
-                title_heading = Heading(level=1, content=[Text(content=title_tag.string.strip())])
-                children.append(title_heading)
-                # Demote all body headings by 1 level to make room for extracted title
-                self._heading_level_offset = 1
-                extracted_readability_title = True
-
-        if self.options.extract_title and not extracted_readability_title and readability_title:
-            title_heading = Heading(level=1, content=[Text(content=readability_title.strip())])
+        if title_heading := self._extract_title_heading(soup, readability_title):
             children.append(title_heading)
-            self._heading_level_offset = 1
-            extracted_readability_title = True
 
-        # Process body or root element
-        body = soup.find("body")
-        root = body if isinstance(body, Tag) else soup
-
-        for child in root.children:
-            if not isinstance(child, Tag):
-                continue
-            nodes = self._process_node_to_ast(child)
-            if nodes:
-                if isinstance(nodes, list):
-                    children.extend(nodes)
-                else:
-                    children.append(nodes)
+        children.extend(self._process_body_children(soup))
 
         # Extract and attach metadata
         metadata = self.extract_metadata(soup)
@@ -485,6 +489,66 @@ class HtmlToAstConverter(BaseParser):
                 if not metadata.author:
                     metadata.author = link.get("href", "").replace("mailto:", "")
 
+    def _extract_opengraph_tags(self, document: Any) -> dict[str, str]:
+        """Extract Open Graph tags from document."""
+        og_tags = {}
+        for meta in document.find_all("meta", property=re.compile(r"^og:")):
+            prop = meta.get("property", "")
+            content = meta.get("content", "").strip()
+            if content:
+                og_tags[prop] = content
+        return og_tags
+
+    def _extract_twitter_tags(self, document: Any) -> dict[str, str]:
+        """Extract Twitter Card tags from document."""
+        twitter_tags = {}
+        for meta in document.find_all("meta", attrs={"name": re.compile(r"^twitter:")}):
+            name = meta.get("name", "")
+            content = meta.get("content", "").strip()
+            if content:
+                twitter_tags[name] = content
+        return twitter_tags
+
+    def _extract_microdata_items(self, document: Any) -> list[dict[str, Any]]:
+        """Extract microdata items (itemscope/itemprop) from document."""
+        microdata_items = []
+        for scope in document.find_all(attrs={"itemscope": True}):
+            item = {"type": scope.get("itemtype", ""), "properties": {}}
+            for prop in scope.find_all(attrs={"itemprop": True}):
+                prop_name = prop.get("itemprop")
+                # Get content from various sources
+                if prop.get("content"):
+                    prop_value = prop.get("content")
+                elif prop.name == "meta":
+                    prop_value = prop.get("content", "")
+                elif prop.name == "link":
+                    prop_value = prop.get("href", "")
+                else:
+                    prop_value = prop.get_text(strip=True)
+                if prop_name and prop_value:
+                    item["properties"][prop_name] = prop_value
+            if item["properties"]:
+                microdata_items.append(item)
+        return microdata_items
+
+    def _extract_json_ld(self, document: Any) -> list[Any]:
+        """Extract JSON-LD structured data from document."""
+        json_ld_data = []
+        for script in document.find_all("script", type="application/ld+json"):
+            try:
+                script_content = script.string or ""
+                if len(script_content) > MAX_JSON_LD_SIZE_BYTES:
+                    logger.warning(
+                        f"JSON-LD script exceeds maximum size "
+                        f"({len(script_content)} > {MAX_JSON_LD_SIZE_BYTES} bytes), "
+                        f"skipping to prevent DoS attack"
+                    )
+                    continue
+                json_ld_data.append(json.loads(script_content))
+            except Exception:
+                pass
+        return json_ld_data
+
     def _extract_microdata(self, document: Any) -> dict[str, Any]:
         """Extract microdata and structured data from document.
 
@@ -501,81 +565,17 @@ class HtmlToAstConverter(BaseParser):
         """
         microdata: dict[str, Any] = {}
 
-        # Extract all Open Graph tags
-        og_tags = {}
-        for meta in document.find_all("meta", property=re.compile(r"^og:")):
-            prop = meta.get("property", "")
-            content = meta.get("content", "").strip()
-            if content:
-                og_tags[prop] = content
-
-        if og_tags:
+        if og_tags := self._extract_opengraph_tags(document):
             microdata["opengraph"] = og_tags
 
-        # Extract all Twitter Card metadata
-        twitter_tags = {}
-        for meta in document.find_all("meta", attrs={"name": re.compile(r"^twitter:")}):
-            name = meta.get("name", "")
-            content = meta.get("content", "").strip()
-            if content:
-                twitter_tags[name] = content
-
-        if twitter_tags:
+        if twitter_tags := self._extract_twitter_tags(document):
             microdata["twitter_card"] = twitter_tags
 
-        # Extract microdata (itemscope/itemprop)
-        itemscopes = document.find_all(attrs={"itemscope": True})
-        if itemscopes:
-            microdata_items = []
-            for scope in itemscopes:
-                item = {"type": scope.get("itemtype", ""), "properties": {}}
+        if items := self._extract_microdata_items(document):
+            microdata["items"] = items
 
-                props = scope.find_all(attrs={"itemprop": True})
-                for prop in props:
-                    prop_name = prop.get("itemprop")
-                    # Get content from various sources
-                    if prop.get("content"):
-                        prop_value = prop.get("content")
-                    elif prop.name == "meta":
-                        prop_value = prop.get("content", "")
-                    elif prop.name == "link":
-                        prop_value = prop.get("href", "")
-                    else:
-                        prop_value = prop.get_text(strip=True)
-
-                    if prop_name and prop_value:
-                        item["properties"][prop_name] = prop_value
-
-                if item["properties"]:
-                    microdata_items.append(item)
-
-            if microdata_items:
-                microdata["items"] = microdata_items
-
-        # Extract JSON-LD structured data
-        json_ld_scripts = document.find_all("script", type="application/ld+json")
-        if json_ld_scripts:
-
-            json_ld_data = []
-            for script in json_ld_scripts:
-                try:
-                    # M9: Check JSON-LD script size to prevent DoS via large JSON payloads
-                    script_content = script.string or ""
-                    if len(script_content) > MAX_JSON_LD_SIZE_BYTES:
-                        logger.warning(
-                            f"JSON-LD script exceeds maximum size "
-                            f"({len(script_content)} > {MAX_JSON_LD_SIZE_BYTES} bytes), "
-                            f"skipping to prevent DoS attack"
-                        )
-                        continue
-
-                    data = json.loads(script_content)
-                    json_ld_data.append(data)
-                except Exception:
-                    pass
-
-            if json_ld_data:
-                microdata["json_ld"] = json_ld_data
+        if json_ld := self._extract_json_ld(document):
+            microdata["json_ld"] = json_ld
 
         return microdata
 
@@ -699,6 +699,109 @@ class HtmlToAstConverter(BaseParser):
         # Use centralized element safety check from html_sanitizer utility
         return is_element_safe(element, strip_framework_attributes=self.options.strip_framework_attributes)
 
+    def _strip_dangerous_elements(self, soup: Any) -> None:
+        """Strip dangerous HTML elements from soup.
+
+        Removes script/style tags completely, then removes other dangerous elements
+        and elements with dangerous attributes.
+
+        Parameters
+        ----------
+        soup : BeautifulSoup
+            BeautifulSoup object to sanitize in-place
+
+        """
+        # Remove script and style tags completely (including all content for security)
+        for tag in soup.find_all(["script", "style"]):
+            tag.decompose()
+
+        # Collect other dangerous elements and elements with dangerous attributes
+        elements_to_remove = []
+        for element in soup.find_all():
+            if not hasattr(element, "name"):
+                continue
+            # Check for other dangerous elements (not script/style, already removed)
+            if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ["script", "style"]:
+                elements_to_remove.append(element)
+            # Check for dangerous attributes
+            elif not self._sanitize_element(element):
+                elements_to_remove.append(element)
+
+        # Remove collected elements completely for security (defense-in-depth)
+        for element in elements_to_remove:
+            element.decompose()
+
+    def _apply_element_whitelist(self, soup: Any) -> None:
+        """Apply element whitelist filter.
+
+        Removes elements not in the allowed_elements list (preserves children).
+
+        Parameters
+        ----------
+        soup : BeautifulSoup
+            BeautifulSoup object to filter in-place
+
+        """
+        if self.options.allowed_elements is None:
+            return
+
+        elements_to_remove = []
+        for element in soup.find_all():
+            if hasattr(element, "name") and element.name not in self.options.allowed_elements:
+                elements_to_remove.append(element)
+
+        for element in elements_to_remove:
+            element.unwrap()
+
+    def _apply_attribute_whitelist(self, soup: Any) -> None:
+        """Apply attribute whitelist filter.
+
+        Removes attributes not in the allowed_attributes list.
+        Supports both global allowlist (tuple) and per-element allowlist (dict).
+
+        Parameters
+        ----------
+        soup : BeautifulSoup
+            BeautifulSoup object to filter in-place
+
+        """
+        if self.options.allowed_attributes is None:
+            return
+
+        is_per_element = isinstance(self.options.allowed_attributes, dict)
+
+        for element in soup.find_all():
+            if not (hasattr(element, "attrs") and hasattr(element, "name")):
+                continue
+
+            allowed_attrs: Union[tuple[str, ...], dict[str, tuple[str, ...]]]
+            if is_per_element:
+                assert isinstance(self.options.allowed_attributes, dict)
+                allowed_attrs = self.options.allowed_attributes.get(element.name, ())
+            else:
+                allowed_attrs = self.options.allowed_attributes
+
+            attrs_to_remove = [attr for attr in element.attrs if attr not in allowed_attrs]
+            for attr in attrs_to_remove:
+                del element.attrs[attr]
+
+    def _final_security_pass(self, soup: Any) -> None:
+        """Execute final security pass to catch any dangerous attributes after whitelisting.
+
+        Parameters
+        ----------
+        soup : BeautifulSoup
+            BeautifulSoup object to sanitize in-place
+
+        """
+        elements_to_remove = []
+        for element in soup.find_all():
+            if hasattr(element, "name") and not self._sanitize_element(element):
+                elements_to_remove.append(element)
+
+        for element in elements_to_remove:
+            element.decompose()
+
     def _apply_custom_sanitization(self, soup: Any) -> Any:
         """Apply custom sanitization with user-specified attribute allowlists.
 
@@ -717,75 +820,15 @@ class HtmlToAstConverter(BaseParser):
             Sanitized BeautifulSoup object
 
         """
-        # Strip dangerous elements if requested
         if self.options.strip_dangerous_elements:
-            # Remove script and style tags completely (including all content for security)
-            for tag in soup.find_all(["script", "style"]):
-                # Decompose completely to avoid any script content in output
-                tag.decompose()
+            self._strip_dangerous_elements(soup)
 
-            # Collect other dangerous elements and elements with dangerous attributes
-            elements_to_remove = []
-            for element in soup.find_all():
-                if hasattr(element, "name"):
-                    # Check for other dangerous elements (not script/style, already removed)
-                    if element.name in DANGEROUS_HTML_ELEMENTS and element.name not in ["script", "style"]:
-                        elements_to_remove.append(element)
-                    # Check for dangerous attributes
-                    elif not self._sanitize_element(element):
-                        elements_to_remove.append(element)
+        self._apply_element_whitelist(soup)
+        self._apply_attribute_whitelist(soup)
 
-            # Remove collected elements completely for security (defense-in-depth)
-            for element in elements_to_remove:
-                # Decompose all dangerous elements and elements with dangerous attributes.
-                # This fully removes both tags and their content to prevent fallback content,
-                # misleading text, or edge cases in malformed HTML from being preserved.
-                element.decompose()
-
-        # Apply whitelist filters if specified
-        if self.options.allowed_elements is not None:
-            elements_to_remove = []
-            for element in soup.find_all():
-                if hasattr(element, "name") and element.name not in self.options.allowed_elements:
-                    elements_to_remove.append(element)
-            for element in elements_to_remove:
-                # Unwrap instead of decompose to keep children
-                element.unwrap()
-
-        if self.options.allowed_attributes is not None:
-            # Support both global allowlist (tuple) and per-element allowlist (dict)
-            is_per_element = isinstance(self.options.allowed_attributes, dict)
-
-            for element in soup.find_all():
-                if hasattr(element, "attrs") and hasattr(element, "name"):
-                    allowed_attrs: Union[tuple[str, ...], dict[str, tuple[str, ...]]]
-                    if is_per_element:
-                        # Per-element allowlist: check element-specific allowed attributes
-                        assert isinstance(self.options.allowed_attributes, dict)
-                        allowed_attrs = self.options.allowed_attributes.get(element.name, ())
-                    else:
-                        # Global allowlist: same attributes allowed for all elements
-                        allowed_attrs = self.options.allowed_attributes
-
-                    # Remove attributes not in the allowlist
-                    attrs_to_remove = [attr for attr in element.attrs if attr not in allowed_attrs]
-                    for attr in attrs_to_remove:
-                        del element.attrs[attr]
-
-        # Final security pass: sanitize attributes on all remaining elements (defense-in-depth)
-        # This catches any dangerous attributes that may have been preserved during whitelisting
+        # Final security pass (defense-in-depth)
         if self.options.strip_dangerous_elements:
-            elements_to_remove = []
-            for element in soup.find_all():
-                if hasattr(element, "name"):
-                    # Use _sanitize_element to check for dangerous attributes
-                    if not self._sanitize_element(element):
-                        elements_to_remove.append(element)
-
-            # Remove elements that failed final sanitization check
-            for element in elements_to_remove:
-                # Decompose completely for security (don't preserve children from dangerous elements)
-                element.decompose()
+            self._final_security_pass(soup)
 
         return soup
 
@@ -1267,6 +1310,76 @@ class HtmlToAstConverter(BaseParser):
 
         return None
 
+    def _process_table_row_cells(
+        self, tr: Any, collect_alignments: bool = False
+    ) -> tuple[list[TableCell], list[str | None]]:
+        """Process cells in a table row. Returns (cells, alignments)."""
+        cells = []
+        alignments = []
+        for cell in tr.find_all(["th", "td"]):
+            content = self._process_table_cell_content(cell)
+            cells.append(TableCell(content=content))
+            if collect_alignments:
+                alignments.append(self._get_alignment(cell))
+        return cells, alignments
+
+    def _process_thead_section(self, node: Any) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
+        """Process thead section. Returns (header, extra_rows, alignments)."""
+        thead = node.find("thead")
+        if not thead:
+            return None, [], []
+
+        thead_rows = thead.find_all("tr", recursive=False)
+        if not thead_rows:
+            return None, [], []
+
+        # First row becomes header
+        cells, alignments = self._process_table_row_cells(thead_rows[0], collect_alignments=True)
+        header = TableRow(cells=cells, is_header=True) if cells else None
+
+        # Remaining thead rows become body rows
+        extra_rows = []
+        for tr in thead_rows[1:]:
+            cells, _ = self._process_table_row_cells(tr)
+            extra_rows.append(TableRow(cells=cells))
+
+        return header, extra_rows, alignments
+
+    def _process_tbody_rows(
+        self, node: Any, has_header: bool
+    ) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
+        """Process tbody or direct rows. Returns (header_if_found, rows, alignments)."""
+        tbody = node.find("tbody")
+        row_container = tbody if tbody else node
+        header = None
+        rows = []
+        alignments: list[str | None] = []
+
+        for tr in row_container.find_all("tr", recursive=False):
+            if has_header and tr.parent.name == "thead":
+                continue
+
+            has_th = bool(tr.find("th"))
+            if has_th and not has_header and not header:
+                cells, alignments = self._process_table_row_cells(tr, collect_alignments=True)
+                header = TableRow(cells=cells, is_header=True)
+            else:
+                cells, _ = self._process_table_row_cells(tr)
+                rows.append(TableRow(cells=cells))
+
+        return header, rows, alignments
+
+    def _process_tfoot_rows(self, node: Any) -> list[TableRow]:
+        """Process tfoot rows as data rows."""
+        tfoot = node.find("tfoot")
+        if not tfoot:
+            return []
+        rows = []
+        for tr in tfoot.find_all("tr", recursive=False):
+            cells, _ = self._process_table_row_cells(tr)
+            rows.append(TableRow(cells=cells))
+        return rows
+
     def _process_table_to_ast(self, node: Any) -> Table:
         """Process table element to Table node.
 
@@ -1281,87 +1394,25 @@ class HtmlToAstConverter(BaseParser):
             Table node
 
         """
-        header: TableRow | None = None
-        rows: list[TableRow] = []
-        alignments: list[str | None] = []
-        caption: str | None = None
-
         # Process caption
         caption_tag = node.find("caption")
-        if caption_tag:
-            caption = caption_tag.get_text().strip()
+        caption = caption_tag.get_text().strip() if caption_tag else None
 
-        # Process thead - use only first row as header, remaining as body rows
-        thead = node.find("thead")
-        if thead:
-            thead_rows = thead.find_all("tr", recursive=False)
-
-            if thead_rows:
-                # Use only the first row as the header to avoid malformed tables
-                # where header cell count doesn't match body cell count
-                header_cells = []
-                first_header_tr = thead_rows[0]
-                for th in first_header_tr.find_all(["th", "td"]):
-                    content = self._process_table_cell_content(th)
-                    alignment = self._get_alignment(th)
-                    alignments.append(alignment)
-                    header_cells.append(TableCell(content=content))
-
-                if header_cells:
-                    header = TableRow(cells=header_cells, is_header=True)
-
-                # Add remaining thead rows as body rows to preserve content
-                for header_tr in thead_rows[1:]:
-                    row_cells = []
-                    for td in header_tr.find_all(["td", "th"]):
-                        content = self._process_table_cell_content(td)
-                        row_cells.append(TableCell(content=content))
-                    rows.append(TableRow(cells=row_cells))
+        # Process thead
+        header, thead_extra_rows, alignments = self._process_thead_section(node)
 
         # Process tbody or direct rows
-        tbody = node.find("tbody")
-        row_container = tbody if tbody else node
+        body_header, body_rows, body_alignments = self._process_tbody_rows(node, header is not None)
+        if not header and body_header:
+            header = body_header
+            alignments = body_alignments
 
-        for tr in row_container.find_all("tr", recursive=False):
-            # Skip if already processed in thead
-            if header and tr.parent.name == "thead":
-                continue
+        rows = thead_extra_rows + body_rows + self._process_tfoot_rows(node)
 
-            # Check if this row has th elements (header row without thead)
-            has_th = bool(tr.find("th"))
-
-            if has_th and not header:
-                # This is a header row
-                header_cells = []
-                for th in tr.find_all(["th", "td"]):
-                    content = self._process_table_cell_content(th)
-                    alignment = self._get_alignment(th)
-                    alignments.append(alignment)
-                    header_cells.append(TableCell(content=content))
-                header = TableRow(cells=header_cells, is_header=True)
-            else:
-                # This is a data row
-                row_cells = []
-                for td in tr.find_all(["td", "th"]):
-                    content = self._process_table_cell_content(td)
-                    row_cells.append(TableCell(content=content))
-                rows.append(TableRow(cells=row_cells))
-
-        # Process tfoot rows (add them as regular data rows)
-        tfoot = node.find("tfoot")
-        if tfoot:
-            for tr in tfoot.find_all("tr", recursive=False):
-                row_cells = []
-                for td in tr.find_all(["td", "th"]):
-                    content = self._process_table_cell_content(td)
-                    row_cells.append(TableCell(content=content))
-                rows.append(TableRow(cells=row_cells))
-
-        # If no header was found but we have rows, use first row as header
+        # Fallback: use first row as header if none found
         if not header and rows:
             header = TableRow(cells=rows[0].cells, is_header=True)
             rows.pop(0)
-            # Set default alignments if none were set
             if not alignments:
                 alignments = [None] * len(header.cells)
 
@@ -2025,6 +2076,71 @@ class HtmlToAstConverter(BaseParser):
         """
         return html.unescape(text)
 
+    # Language alias mapping for common abbreviations
+    _LANG_ALIASES: dict[str, str] = {
+        "js": "javascript",
+        "ts": "typescript",
+        "py": "python",
+        "rb": "ruby",
+        "sh": "bash",
+        "yml": "yaml",
+        "md": "markdown",
+        "cs": "csharp",
+        "fs": "fsharp",
+        "kt": "kotlin",
+        "rs": "rust",
+    }
+
+    # Regex patterns for language detection
+    _LANG_PATTERNS = [
+        re.compile(r"language-([a-zA-Z0-9_+\-]+)"),  # Prism.js
+        re.compile(r"lang-([a-zA-Z0-9_+\-]+)"),
+        re.compile(r"hljs-([a-zA-Z0-9_+\-]+)"),  # Highlight.js
+        re.compile(r"brush:\s*([a-zA-Z0-9_+\-]+)"),  # SyntaxHighlighter
+    ]
+
+    def _resolve_lang_alias(self, lang: str) -> str:
+        """Resolve language alias and sanitize."""
+        return sanitize_language_identifier(self._LANG_ALIASES.get(lang, lang))
+
+    def _check_class_for_language(self, cls: str, idx: int, classes: list) -> str | None:
+        """Check a single class for language pattern. Returns language or None."""
+        for pattern in self._LANG_PATTERNS:
+            if match := pattern.match(cls):
+                return self._resolve_lang_alias(match.group(1))
+
+        # Handle split "brush:" pattern (BeautifulSoup splits "brush: sql" into ["brush:", "sql"])
+        if cls == "brush:" and idx + 1 < len(classes):
+            return self._resolve_lang_alias(classes[idx + 1])
+
+        return None
+
+    def _check_data_attrs_for_language(self, node: Any) -> str | None:
+        """Check data-lang and data-language attributes. Returns language or None."""
+        for attr in ("data-lang", "data-language"):
+            if lang := node.get(attr):
+                return self._resolve_lang_alias(lang)
+        return None
+
+    def _extract_language_from_classes(self, node: Any) -> tuple[str | None, str]:
+        """Extract language from class attributes. Returns (found_lang, fallback_lang)."""
+        classes = node.get("class")
+        if not classes:
+            return None, ""
+
+        if isinstance(classes, str):
+            classes = [classes]
+
+        fallback = ""
+        for idx, cls in enumerate(classes):
+            if lang := self._check_class_for_language(cls, idx, classes):
+                return lang, ""
+            # Track fallback: simple class name if not a known prefix
+            if not fallback and cls and not cls.startswith(("hljs", "highlight")) and cls != "brush:":
+                fallback = self._LANG_ALIASES.get(cls, cls)
+
+        return None, fallback
+
     def _extract_language_from_attrs(self, node: Any) -> str:
         """Extract language identifier from HTML attributes.
 
@@ -2045,100 +2161,25 @@ class HtmlToAstConverter(BaseParser):
             Language identifier
 
         """
-        language = ""
+        # Check classes on main node
+        found_lang, fallback = self._extract_language_from_classes(node)
+        if found_lang:
+            return found_lang
 
-        # Language alias mapping for common abbreviations
-        aliases = {
-            "js": "javascript",
-            "ts": "typescript",
-            "py": "python",
-            "rb": "ruby",
-            "sh": "bash",
-            "yml": "yaml",
-            "md": "markdown",
-            "cs": "csharp",
-            "fs": "fsharp",
-            "kt": "kotlin",
-            "rs": "rust",
-        }
-
-        # Check class attribute
-        if node.get("class"):
-            classes = node.get("class")
-            if isinstance(classes, str):
-                classes = [classes]
-
-            for idx, cls in enumerate(classes):
-                # Check for language-xxx pattern (Prism.js)
-                if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                    lang = match.group(1)
-                    return sanitize_language_identifier(aliases.get(lang, lang))
-                # Check for lang-xxx pattern
-                elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                    lang = match.group(1)
-                    return sanitize_language_identifier(aliases.get(lang, lang))
-                # Check for hljs-xxx pattern (Highlight.js)
-                elif match := re.match(r"hljs-([a-zA-Z0-9_+\-]+)", cls):
-                    lang = match.group(1)
-                    return sanitize_language_identifier(aliases.get(lang, lang))
-                # Check for brush: xxx pattern - BeautifulSoup splits "brush: sql" into ["brush:", "sql"]
-                elif cls == "brush:" and idx + 1 < len(classes):
-                    # Next class is the language identifier
-                    lang = classes[idx + 1]
-                    return sanitize_language_identifier(aliases.get(lang, lang))
-                elif match := re.match(r"brush:\s*([a-zA-Z0-9_+\-]+)", cls):
-                    # Fallback for cases where brush:lang is together without space
-                    lang = match.group(1)
-                    return sanitize_language_identifier(aliases.get(lang, lang))
-                # Use the class as-is if it's a simple language name (only if we haven't found one yet)
-                elif (
-                    not language
-                    and cls
-                    and not cls.startswith("hljs")
-                    and not cls.startswith("highlight")
-                    and cls != "brush:"
-                ):
-                    language = aliases.get(cls, cls)
-
-        # Check data-lang attribute
-        if node.get("data-lang"):
-            lang = node.get("data-lang")
-            return sanitize_language_identifier(aliases.get(lang, lang))
-
-        # Check data-language attribute (alternative)
-        if node.get("data-language"):
-            lang = node.get("data-language")
-            return sanitize_language_identifier(aliases.get(lang, lang))
+        # Check data attributes
+        if lang := self._check_data_attrs_for_language(node):
+            return lang
 
         # Check child code element
         code_child = node.find("code")
         if code_child:
-            # Check class on code element
-            if code_child.get("class"):
-                classes = code_child.get("class")
-                if isinstance(classes, str):
-                    classes = [classes]
+            child_lang, _ = self._extract_language_from_classes(code_child)
+            if child_lang:
+                return child_lang
+            if lang := self._check_data_attrs_for_language(code_child):
+                return lang
 
-                for cls in classes:
-                    if match := re.match(r"language-([a-zA-Z0-9_+\-]+)", cls):
-                        lang = match.group(1)
-                        return sanitize_language_identifier(aliases.get(lang, lang))
-                    elif match := re.match(r"lang-([a-zA-Z0-9_+\-]+)", cls):
-                        lang = match.group(1)
-                        return sanitize_language_identifier(aliases.get(lang, lang))
-                    elif match := re.match(r"hljs-([a-zA-Z0-9_+\-]+)", cls):
-                        lang = match.group(1)
-                        return sanitize_language_identifier(aliases.get(lang, lang))
-
-            # Check data attributes on code element
-            if code_child.get("data-lang"):
-                lang = code_child.get("data-lang")
-                return sanitize_language_identifier(aliases.get(lang, lang))
-            if code_child.get("data-language"):
-                lang = code_child.get("data-language")
-                return sanitize_language_identifier(aliases.get(lang, lang))
-
-        return sanitize_language_identifier(language)
+        return sanitize_language_identifier(fallback)
 
     def _get_alignment(self, cell: Any) -> str | None:
         """Get table cell alignment.

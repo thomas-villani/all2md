@@ -146,6 +146,9 @@ dev = [
     "bandit[toml]>=1.9.2",
     "html5lib>=1.1",
     "pytest-xdist>=3.8.0",
+    "radon>=6.0.1",
+    "interrogate>=1.7.0",
+    "vulture>=2.14",
 ]
 epub = [
     "ebooklib>=0.19",

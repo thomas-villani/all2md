@@ -380,7 +380,156 @@ class OrgParser(BaseParser):
 
         return {"entries": entries, "raw": logbook_content}
 
-    def _process_headline(self, node: Any) -> Heading | None:  # noqa: C901
+    def _extract_todo_state(self, node: Any) -> tuple[str | None, bool]:
+        """Extract TODO state from headline node.
+
+        Parameters
+        ----------
+        node : orgparse.OrgNode
+            Orgparse node representing a headline
+
+        Returns
+        -------
+        tuple[str | None, bool]
+            Tuple of (todo_state, manually_extracted) where manually_extracted
+            indicates if the TODO keyword was manually parsed from heading text
+
+        """
+        # First try orgparse's detection
+        if node.todo and node.todo in self.options.todo_keywords:
+            return node.todo, False
+
+        # Manually check if heading starts with a TODO keyword that orgparse didn't recognize
+        if not node.todo:
+            heading_parts = node.heading.split(None, 1)
+            if heading_parts and heading_parts[0] in self.options.todo_keywords:
+                return heading_parts[0], True
+
+        return None, False
+
+    def _extract_scheduling_to_metadata(self, node: Any, heading_metadata: dict[str, Any]) -> None:
+        """Extract scheduling information (SCHEDULED/DEADLINE) into heading metadata.
+
+        Parameters
+        ----------
+        node : orgparse.OrgNode
+            Orgparse node with potential scheduling info
+        heading_metadata : dict[str, Any]
+            Metadata dictionary to update in-place
+
+        """
+        if not self.options.parse_scheduling:
+            return
+
+        if hasattr(node, "scheduled") and node.scheduled:
+            if self.options.preserve_timestamp_metadata:
+                sched_metadata = self._extract_timestamp_metadata(node.scheduled)
+                if sched_metadata:
+                    heading_metadata["org_scheduled"] = sched_metadata
+            else:
+                # Legacy: just store string
+                try:
+                    heading_metadata["org_scheduled"] = str(node.scheduled)
+                except Exception:
+                    heading_metadata["org_scheduled"] = repr(node.scheduled)
+
+        if hasattr(node, "deadline") and node.deadline:
+            if self.options.preserve_timestamp_metadata:
+                deadline_metadata = self._extract_timestamp_metadata(node.deadline)
+                if deadline_metadata:
+                    heading_metadata["org_deadline"] = deadline_metadata
+            else:
+                # Legacy: just store string
+                try:
+                    heading_metadata["org_deadline"] = str(node.deadline)
+                except Exception:
+                    heading_metadata["org_deadline"] = repr(node.deadline)
+
+    def _extract_closed_to_metadata(self, node: Any, heading_metadata: dict[str, Any]) -> None:
+        """Extract CLOSED timestamp into heading metadata.
+
+        Parameters
+        ----------
+        node : orgparse.OrgNode
+            Orgparse node with potential closed timestamp
+        heading_metadata : dict[str, Any]
+            Metadata dictionary to update in-place
+
+        """
+        if not self.options.parse_closed:
+            return
+
+        if not (hasattr(node, "closed") and node.closed):
+            return
+
+        if self.options.preserve_timestamp_metadata:
+            closed_metadata = self._extract_timestamp_metadata(node.closed)
+            if closed_metadata:
+                heading_metadata["org_closed"] = closed_metadata
+        else:
+            # Legacy: just store string
+            try:
+                heading_metadata["org_closed"] = str(node.closed)
+            except Exception:
+                heading_metadata["org_closed"] = repr(node.closed)
+
+    def _extract_clock_to_metadata(self, node: Any, heading_metadata: dict[str, Any]) -> None:
+        """Extract CLOCK entries into heading metadata.
+
+        Parameters
+        ----------
+        node : orgparse.OrgNode
+            Orgparse node with potential clock entries
+        heading_metadata : dict[str, Any]
+            Metadata dictionary to update in-place
+
+        """
+        if not self.options.parse_clock:
+            return
+
+        if not (hasattr(node, "clock") and node.clock):
+            return
+
+        clock_entries = []
+        for clock in node.clock:
+            entry: dict[str, Any] = {}
+            if hasattr(clock, "start") and clock.start:
+                entry["start"] = str(clock.start)
+            if hasattr(clock, "end") and clock.end:
+                entry["end"] = str(clock.end)
+            # Try to get duration if available
+            if hasattr(clock, "duration"):
+                try:
+                    entry["duration"] = str(clock.duration)
+                except Exception:
+                    pass
+            if entry:
+                clock_entries.append(entry)
+
+        if clock_entries:
+            heading_metadata["org_clock"] = clock_entries
+
+    def _extract_logbook_to_metadata(self, node: Any, heading_metadata: dict[str, Any]) -> None:
+        """Extract LOGBOOK drawer into heading metadata.
+
+        Parameters
+        ----------
+        node : orgparse.OrgNode
+            Orgparse node with potential logbook drawer
+        heading_metadata : dict[str, Any]
+            Metadata dictionary to update in-place
+
+        """
+        if not self.options.parse_logbook:
+            return
+
+        body_text = node.get_body(format="raw") if hasattr(node, "get_body") else (node.body if node.body else "")
+        if body_text:
+            logbook_data = self._parse_logbook_drawer(body_text)
+            if logbook_data:
+                heading_metadata["org_logbook"] = logbook_data
+
+    def _process_headline(self, node: Any) -> Heading | None:
         """Process an orgparse headline node.
 
         Parameters
@@ -400,35 +549,19 @@ class OrgParser(BaseParser):
         # Extract heading level (number of stars)
         level = node.level
 
-        # Extract TODO state (independent of parse_tags)
-        # First try orgparse's detection, then manually parse if needed
-        todo_state = None
-        manually_extracted_todo = False
-        if node.todo and node.todo in self.options.todo_keywords:
-            todo_state = node.todo
-        elif not node.todo:
-            # Manually check if heading starts with a TODO keyword
-            # that orgparse didn't recognize
-            heading_parts = node.heading.split(None, 1)
-            if heading_parts and heading_parts[0] in self.options.todo_keywords:
-                todo_state = heading_parts[0]
-                manually_extracted_todo = True
+        # Extract TODO state
+        todo_state, manually_extracted_todo = self._extract_todo_state(node)
 
         # Extract priority
-        priority = None
-        if hasattr(node, "priority") and node.priority:
-            priority = node.priority
+        priority = node.priority if hasattr(node, "priority") and node.priority else None
 
         # Extract tags (controlled by parse_tags option)
-        tags = []
-        if self.options.parse_tags and hasattr(node, "tags") and node.tags:
-            tags = list(node.tags)
+        tags = list(node.tags) if self.options.parse_tags and hasattr(node, "tags") and node.tags else []
 
         # Parse inline content from heading text
         # If we manually extracted TODO, remove it from the heading text
         heading_text = node.heading
         if manually_extracted_todo and todo_state:
-            # Remove the TODO keyword from heading text
             heading_text = heading_text[len(todo_state) :].lstrip()
         content = self._parse_inline(heading_text)
 
@@ -445,75 +578,11 @@ class OrgParser(BaseParser):
         if self.options.parse_properties and hasattr(node, "properties") and node.properties:
             heading_metadata["org_properties"] = dict(node.properties)
 
-        # Extract scheduling information if enabled (SCHEDULED/DEADLINE)
-        if self.options.parse_scheduling:
-            if hasattr(node, "scheduled") and node.scheduled:
-                if self.options.preserve_timestamp_metadata:
-                    sched_metadata = self._extract_timestamp_metadata(node.scheduled)
-                    if sched_metadata:
-                        heading_metadata["org_scheduled"] = sched_metadata
-                else:
-                    # Legacy: just store string
-                    try:
-                        heading_metadata["org_scheduled"] = str(node.scheduled)
-                    except Exception:
-                        # Handle orgparse bug
-                        heading_metadata["org_scheduled"] = repr(node.scheduled)
-
-            if hasattr(node, "deadline") and node.deadline:
-                if self.options.preserve_timestamp_metadata:
-                    deadline_metadata = self._extract_timestamp_metadata(node.deadline)
-                    if deadline_metadata:
-                        heading_metadata["org_deadline"] = deadline_metadata
-                else:
-                    # Legacy: just store string
-                    try:
-                        heading_metadata["org_deadline"] = str(node.deadline)
-                    except Exception:
-                        # Handle orgparse bug
-                        heading_metadata["org_deadline"] = repr(node.deadline)
-
-        # Extract CLOSED timestamp if enabled
-        if self.options.parse_closed and hasattr(node, "closed") and node.closed:
-            if self.options.preserve_timestamp_metadata:
-                closed_metadata = self._extract_timestamp_metadata(node.closed)
-                if closed_metadata:
-                    heading_metadata["org_closed"] = closed_metadata
-            else:
-                # Legacy: just store string
-                try:
-                    heading_metadata["org_closed"] = str(node.closed)
-                except Exception:
-                    heading_metadata["org_closed"] = repr(node.closed)
-
-        # Extract CLOCK entries if enabled
-        if self.options.parse_clock and hasattr(node, "clock") and node.clock:
-            clock_entries = []
-            for clock in node.clock:
-                entry: dict[str, Any] = {}
-                if hasattr(clock, "start") and clock.start:
-                    entry["start"] = str(clock.start)
-                if hasattr(clock, "end") and clock.end:
-                    entry["end"] = str(clock.end)
-                # Try to get duration if available
-                if hasattr(clock, "duration"):
-                    try:
-                        entry["duration"] = str(clock.duration)
-                    except Exception:
-                        pass
-                if entry:
-                    clock_entries.append(entry)
-            if clock_entries:
-                heading_metadata["org_clock"] = clock_entries
-
-        # Extract LOGBOOK drawer if enabled
-        if self.options.parse_logbook:
-            # Get body text
-            body_text = node.get_body(format="raw") if hasattr(node, "get_body") else (node.body if node.body else "")
-            if body_text:
-                logbook_data = self._parse_logbook_drawer(body_text)
-                if logbook_data:
-                    heading_metadata["org_logbook"] = logbook_data
+        # Extract scheduling, closed, clock, and logbook metadata
+        self._extract_scheduling_to_metadata(node, heading_metadata)
+        self._extract_closed_to_metadata(node, heading_metadata)
+        self._extract_clock_to_metadata(node, heading_metadata)
+        self._extract_logbook_to_metadata(node, heading_metadata)
 
         return Heading(level=level, content=content, metadata=heading_metadata)
 

@@ -13,20 +13,18 @@ from __future__ import annotations
 
 import logging
 import re
-import string
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
 
-from all2md.options.common import OCROptions
-from all2md.options.markdown import MarkdownRendererOptions
 from all2md.options.pdf import PdfOptions
-from all2md.utils.attachments import create_attachment_sequencer, generate_attachment_filename, process_attachment
+from all2md.utils.attachments import create_attachment_sequencer
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 if TYPE_CHECKING:
     import fitz
+
+from dataclasses import dataclass, field
 
 from all2md.ast import (
     Code,
@@ -53,26 +51,31 @@ from all2md.ast import (
 )
 from all2md.ast.transforms import InlineFormattingConsolidator
 from all2md.constants import (
-    DEFAULT_OVERLAP_THRESHOLD_PERCENT,
     DEFAULT_OVERLAP_THRESHOLD_PX,
     DEPS_PDF,
-    DEPS_PDF_LANGDETECT,
     DEPS_PDF_OCR,
-    PDF_COLUMN_FREQ_THRESHOLD_RATIO,
-    PDF_COLUMN_GAP_QUANTIZATION,
-    PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK,
-    PDF_COLUMN_MIN_FREQ_COUNT,
-    PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO,
-    PDF_COLUMN_X_TOLERANCE,
     PDF_MIN_PYMUPDF_VERSION,
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
+
+# Import from private submodules
+from all2md.parsers._pdf_columns import detect_columns
+from all2md.parsers._pdf_headers import IdentifyHeaders
+from all2md.parsers._pdf_images import extract_page_images
+from all2md.parsers._pdf_ocr import (
+    detect_page_language as _detect_page_language,
+)
+from all2md.parsers._pdf_ocr import (
+    should_use_ocr as _should_use_ocr,
+)
+from all2md.parsers._pdf_tables import detect_tables_by_ruling_lines
+from all2md.parsers._pdf_text import handle_rotated_text
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.encoding import normalize_stream_to_bytes
-from all2md.utils.inputs import escape_markdown_special, validate_and_convert_input, validate_page_range
+from all2md.utils.inputs import validate_and_convert_input, validate_page_range
 from all2md.utils.metadata import (
     PDF_FIELD_MAPPING,
     DocumentMetadata,
@@ -81,8 +84,36 @@ from all2md.utils.metadata import (
 
 logger = logging.getLogger(__name__)
 
-# Used to check relevance of text pieces
-SPACES = set(string.whitespace)
+
+@dataclass
+class _BlockProcessingState:
+    """State tracking for block-to-AST processing.
+
+    This class encapsulates the mutable state used during block processing,
+    reducing parameter passing and simplifying helper method signatures.
+
+    """
+
+    nodes: list[Node] = field(default_factory=list)
+    in_code_block: bool = False
+    code_block_lines: list[str] = field(default_factory=list)
+    paragraph_content: list[Node] = field(default_factory=list)
+    paragraph_bbox: tuple[float, float, float, float] | None = None
+    paragraph_is_list: bool = False
+    paragraph_list_type: str | None = None
+    previous_y: float = 0.0
+
+    def reset_paragraph(self) -> None:
+        """Reset paragraph accumulation state."""
+        self.paragraph_content = []
+        self.paragraph_bbox = None
+        self.paragraph_is_list = False
+        self.paragraph_list_type = None
+
+    def reset_code_block(self) -> None:
+        """Reset code block state."""
+        self.in_code_block = False
+        self.code_block_lines = []
 
 
 def _check_pymupdf_version() -> None:
@@ -110,1404 +141,14 @@ def _check_pymupdf_version() -> None:
         )
 
 
-def _simple_kmeans_1d(values: list[float], k: int, max_iterations: int = 20) -> list[int]:
-    """Cluster 1D values using k-means algorithm.
-
-    Parameters
-    ----------
-    values : list of float
-        1D values to cluster (e.g., x-coordinates)
-    k : int
-        Number of clusters
-    max_iterations : int, default 20
-        Maximum iterations for convergence
-
-    Returns
-    -------
-    list of int
-        Cluster assignment for each value (0 to k-1)
-
-    """
-    if not values or k <= 0:
-        return []
-
-    if k == 1:
-        return [0] * len(values)
-
-    if len(values) < k:
-        # Not enough values for k clusters, assign each to its own cluster
-        return list(range(len(values)))
-
-    # Initialize centroids by selecting evenly spaced values
-    sorted_values = sorted(enumerate(values), key=lambda x: x[1])
-    step = max(1, len(sorted_values) // k)  # Ensure step is at least 1
-
-    # Generate initial indices with bounds checking
-    initial_indices = []
-    for i in range(k):
-        idx = min(i * step, len(sorted_values) - 1)  # Clamp to valid range
-        initial_indices.append(idx)
-
-    centroids = [sorted_values[i][1] for i in initial_indices]
-
-    assignments = [0] * len(values)
-
-    for _ in range(max_iterations):
-        # Assign each value to nearest centroid
-        new_assignments = []
-        for val in values:
-            distances = [abs(val - centroid) for centroid in centroids]
-            new_assignments.append(distances.index(min(distances)))
-
-        # Check for convergence
-        if new_assignments == assignments:
-            break
-
-        assignments = new_assignments
-
-        # Update centroids
-        new_centroids = []
-        for cluster_id in range(k):
-            cluster_values = [values[i] for i, assign in enumerate(assignments) if assign == cluster_id]
-            if cluster_values:
-                new_centroids.append(sum(cluster_values) / len(cluster_values))
-            else:
-                # Empty cluster, keep previous centroid
-                new_centroids.append(centroids[cluster_id])
-
-        centroids = new_centroids
-
-    return assignments
-
-
-def _detect_columns_by_clustering(
-    blocks: list, block_centers: list[float], x_coords: list[float], column_gap_threshold: float
-) -> list[list[dict]] | None:
-    """Detect columns using k-means clustering.
-
-    Parameters
-    ----------
-    blocks : list
-        Text blocks
-    block_centers : list of float
-        Center x-coordinates of blocks
-    x_coords : list of float
-        Starting x-coordinates
-    column_gap_threshold : float
-        Minimum gap threshold
-
-    Returns
-    -------
-    list of list of dict or None
-        Detected columns or None if single column
-
-    """
-    # Estimate number of columns from gap analysis
-    sorted_x = sorted(set(x_coords))
-    num_columns = 1
-    for i in range(1, len(sorted_x)):
-        gap = sorted_x[i] - sorted_x[i - 1]
-        if gap >= column_gap_threshold:
-            num_columns += 1
-
-    num_columns = max(1, min(num_columns, 4))
-
-    if num_columns <= 1:
-        return None
-
-    # Apply k-means clustering
-    cluster_assignments = _simple_kmeans_1d(block_centers, num_columns)
-
-    # Group blocks by cluster
-    columns_dict: dict[int, list[dict]] = {i: [] for i in range(num_columns)}
-    for block, cluster_id in zip(blocks, cluster_assignments, strict=False):
-        if "bbox" in block:
-            columns_dict[cluster_id].append(block)
-        else:
-            columns_dict[0].append(block)
-
-    # Sort clusters by mean x-coordinate
-    cluster_centers = {}
-    for cluster_id, cluster_blocks in columns_dict.items():
-        if cluster_blocks:
-            centers = [(b["bbox"][0] + b["bbox"][2]) / 2 for b in cluster_blocks if "bbox" in b]
-            cluster_centers[cluster_id] = sum(centers) / len(centers) if centers else 0
-        else:
-            cluster_centers[cluster_id] = 0
-
-    sorted_clusters = sorted(cluster_centers.items(), key=lambda x: x[1])
-    columns = [columns_dict[cluster_id] for cluster_id, _ in sorted_clusters if columns_dict[cluster_id]]
-
-    # Sort blocks within each column by y-coordinate
-    for column in columns:
-        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-
-    return columns
-
-
-def _detect_columns_by_whitespace(
-    blocks: list,
-    block_ranges: list[tuple[float, float]],
-    column_gap_threshold: float,
-    page_width: float,
-    spanning_threshold: float,
-    force_multi_column: bool,
-) -> list[list[dict]] | None:
-    """Detect columns using whitespace gap analysis.
-
-    Parameters
-    ----------
-    blocks : list
-        Text blocks
-    block_ranges : list of tuple
-        (x0, x1) ranges for each block
-    column_gap_threshold : float
-        Minimum gap threshold
-    page_width : float
-        Page width
-    spanning_threshold : float
-        Threshold for spanning blocks
-    force_multi_column : bool
-        Force multi-column detection
-
-    Returns
-    -------
-    list of list of dict or None
-        Detected columns or None if single column
-
-    """
-    x_tolerance = PDF_COLUMN_X_TOLERANCE
-    x0_groups = defaultdict(list)
-
-    # Group blocks by x0 position
-    for i, (x0, x1) in enumerate(block_ranges):
-        width = x1 - x0
-        if not force_multi_column and width > spanning_threshold * page_width:
-            continue
-        x0_key = round(x0 / x_tolerance) * x_tolerance
-        x0_groups[x0_key].append((x0, x1, i))
-
-    if not x0_groups:
-        return None
-
-    # Find group ranges
-    group_ranges = []
-    for x0_key in sorted(x0_groups.keys()):
-        group = x0_groups[x0_key]
-        min_x0 = min(x0 for x0, x1, i in group)
-        max_x1 = max(x1 for x0, x1, i in group)
-        group_ranges.append((min_x0, max_x1))
-
-    # Find whitespace gaps
-    whitespace_gaps = []
-    for i in range(len(group_ranges) - 1):
-        gap_width = group_ranges[i + 1][0] - group_ranges[i][1]
-        if gap_width >= column_gap_threshold:
-            whitespace_gaps.append({"start": group_ranges[i][1], "end": group_ranges[i + 1][0], "width": gap_width})
-
-    if not whitespace_gaps:
-        return None
-
-    # Find consistent gaps
-    gap_frequency: dict[float, int] = {}
-    for gap in whitespace_gaps:
-        gap_pos = round((gap["start"] + gap["end"]) / 2 / PDF_COLUMN_GAP_QUANTIZATION) * PDF_COLUMN_GAP_QUANTIZATION
-        gap_frequency[gap_pos] = gap_frequency.get(gap_pos, 0) + 1
-
-    if not gap_frequency:
-        return None
-
-    max_freq = max(gap_frequency.values())
-    threshold_freq = max(PDF_COLUMN_MIN_FREQ_COUNT, max_freq * PDF_COLUMN_FREQ_THRESHOLD_RATIO)
-    column_boundaries = sorted([pos for pos, freq in gap_frequency.items() if freq >= threshold_freq])
-
-    if not column_boundaries:
-        return None
-
-    # Split blocks into columns
-    whitespace_columns: list[list[dict]] = [[] for _ in range(len(column_boundaries) + 1)]
-
-    for block in blocks:
-        if "bbox" not in block:
-            whitespace_columns[0].append(block)
-            continue
-
-        block_center = (block["bbox"][0] + block["bbox"][2]) / 2
-        assigned = False
-        for i, boundary in enumerate(column_boundaries):
-            if block_center < boundary:
-                whitespace_columns[i].append(block)
-                assigned = True
-                break
-
-        if not assigned:
-            whitespace_columns[-1].append(block)
-
-    # Sort and clean up
-    for column in whitespace_columns:
-        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-
-    whitespace_columns = [col for col in whitespace_columns if col]
-
-    return whitespace_columns if len(whitespace_columns) > 1 else None
-
-
-def _detect_columns_by_gaps(
-    blocks: list,
-    block_ranges: list[tuple[float, float]],
-    x_coords: list[float],
-    column_gap_threshold: float,
-    force_multi_column: bool,
-) -> list[list[dict]]:
-    """Detect columns using simple gap detection (fallback method).
-
-    Parameters
-    ----------
-    blocks : list
-        Text blocks
-    block_ranges : list of tuple
-        (x0, x1) ranges for each block
-    x_coords : list of float
-        Starting x-coordinates
-    column_gap_threshold : float
-        Minimum gap threshold
-    force_multi_column : bool
-        Force multi-column detection
-
-    Returns
-    -------
-    list of list of dict
-        Detected columns (always returns at least single column)
-
-    """
-    # Sort block ranges by starting position to find actual whitespace gaps
-    sorted_ranges = sorted(block_ranges, key=lambda r: r[0])
-
-    # Find column boundaries based on actual whitespace gaps (end of one block to start of next)
-    column_boundaries = [sorted_ranges[0][0]]
-
-    for i in range(1, len(sorted_ranges)):
-        prev_x1 = sorted_ranges[i - 1][1]
-        curr_x0 = sorted_ranges[i][0]
-        gap = curr_x0 - prev_x1
-
-        if gap >= column_gap_threshold:
-            column_boundaries.append(curr_x0)
-
-    if len(column_boundaries) <= 1:
-        return [blocks]
-
-    # Check for single column heuristic
-    if not force_multi_column and len(block_ranges) >= PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK:
-        widths = [x1 - x0 for x0, x1 in block_ranges]
-        median_width = sorted(widths)[len(widths) // 2]
-        min_x = min(x0 for x0, x1 in block_ranges)
-        max_x = max(x1 for x0, x1 in block_ranges)
-        page_width = max_x - min_x
-
-        if median_width > PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO * page_width:
-            return [blocks]
-
-    # Group blocks into columns
-    columns: list[list[dict]] = [[] for _ in range(len(column_boundaries))]
-
-    for block in blocks:
-        if "bbox" not in block:
-            columns[0].append(block)
-            continue
-
-        x0 = block["bbox"][0]
-        assigned = False
-        for i in range(len(column_boundaries) - 1):
-            if column_boundaries[i] <= x0 < column_boundaries[i + 1]:
-                columns[i].append(block)
-                assigned = True
-                break
-
-        if not assigned:
-            columns[-1].append(block)
-
-    # Sort and clean up
-    for column in columns:
-        column.sort(key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-
-    return [col for col in columns if col]
-
-
-def detect_columns(
-    blocks: list, column_gap_threshold: float = 20, use_clustering: bool = False, force_multi_column: bool = False
-) -> list[list[dict]]:
-    """Detect multi-column layout in text blocks with enhanced whitespace analysis.
-
-    Analyzes the x-coordinates of text blocks to identify column boundaries
-    and groups blocks into columns based on their horizontal positions. Uses
-    whitespace analysis and connected-component grouping for improved accuracy.
-
-    Parameters
-    ----------
-    blocks : list
-        List of text blocks from PyMuPDF page extraction
-    column_gap_threshold : float, default 20
-        Minimum gap between columns in points
-    use_clustering : bool, default False
-        Use k-means clustering on x-coordinates for improved robustness
-    force_multi_column : bool, default False
-        Force multi-column detection by bypassing spanning block heuristics.
-        When True, skips the check that treats wide blocks as single-column indicators.
-        Useful when you know the document has multi-column layout despite wide headers/footers.
-
-    Returns
-    -------
-    list[list[dict]]
-        List of columns, where each column is a list of blocks
-
-    Notes
-    -----
-    When use_clustering=True, the function uses k-means clustering to identify
-    column groupings based on block center positions. This can be more robust
-    for complex layouts but requires estimating the number of columns first.
-
-    When force_multi_column=True, the function bypasses heuristics that would
-    normally detect single-column layouts (e.g., blocks spanning most of the page width).
-    This is useful when you have headers/footers spanning the full width but want to
-    detect multi-column content in the body.
-
-    """
-    if not blocks:
-        return [blocks]
-
-    # Extract block coordinates
-    x_coords = []
-    block_ranges = []
-    block_centers = []
-    for block in blocks:
-        if "bbox" in block:
-            x0, x1 = block["bbox"][0], block["bbox"][2]
-            x_coords.append(x0)
-            block_ranges.append((x0, x1))
-            block_centers.append((x0 + x1) / 2)
-
-    if len(x_coords) < 2:
-        return [blocks]
-
-    # Calculate page dimensions
-    min_x = min(x0 for x0, x1 in block_ranges)
-    max_x = max(x1 for x0, x1 in block_ranges)
-    page_width = max_x - min_x
-    spanning_threshold = 0.65
-
-    # Try clustering-based detection if requested
-    if use_clustering and block_centers:
-        columns = _detect_columns_by_clustering(blocks, block_centers, x_coords, column_gap_threshold)
-        if columns:
-            return columns
-
-    # Try whitespace-based detection
-    columns = _detect_columns_by_whitespace(
-        blocks, block_ranges, column_gap_threshold, page_width, spanning_threshold, force_multi_column
-    )
-    if columns:
-        return columns
-
-    # Fallback to simple gap detection
-    return _detect_columns_by_gaps(blocks, block_ranges, x_coords, column_gap_threshold, force_multi_column)
-
-
-def handle_rotated_text(line: dict, md_options: MarkdownRendererOptions | None = None) -> str:
-    """Process rotated text blocks and convert to readable format.
-
-    Handles text that is rotated 90°, 180°, or 270° by extracting the text
-    and marking it appropriately for inclusion in the markdown output.
-
-    Parameters
-    ----------
-    line : dict
-        Line dictionary from PyMuPDF containing direction and span information
-    md_options : MarkdownRendererOptions or None, optional
-        Markdown formatting options for escaping special characters
-
-    Returns
-    -------
-    str
-        Processed text from the rotated line, with rotation indicator
-
-    """
-    # Extract text from all spans in the rotated line
-    text_parts = []
-    for span in line.get("spans", []):
-        span_text = span.get("text", "").strip()
-        if span_text:
-            if md_options and md_options.escape_special:
-                span_text = escape_markdown_special(span_text)
-            text_parts.append(span_text)
-
-    if not text_parts:
-        return ""
-
-    combined_text = " ".join(text_parts)
-
-    # Determine rotation type based on direction vector
-    dir_x, dir_y = line.get("dir", (1, 0))
-
-    if abs(dir_x) < 0.1 and abs(dir_y) > 0.9:
-        # Vertical text (90° or 270°)
-        if dir_y > 0:
-            rotation_note = " *[rotated 90° clockwise]*"
-        else:
-            rotation_note = " *[rotated 90° counter-clockwise]*"
-    elif abs(dir_x) > 0.9 and abs(dir_y) < 0.1:
-        if dir_x < 0:
-            rotation_note = " *[rotated 180°]*"
-        else:
-            rotation_note = ""  # Normal horizontal text
-    else:
-        # Arbitrary angle rotation
-        rotation_note = " *[rotated text]*"
-
-    return combined_text + rotation_note if rotation_note else combined_text
-
-
-def resolve_links(
-    links: list, span: dict, md_options: MarkdownRendererOptions | None = None, overlap_threshold: float | None = None
-) -> str | None:
-    """Accept a span bbox and return a markdown link string.
-
-    Enhanced to handle partial overlaps and multiple links within a span
-    by using character-level bbox analysis when needed.
-
-    Parameters
-    ----------
-    links : list
-        List of link dictionaries from page.get_links()
-    span : dict
-        Text span dictionary containing bbox and text information
-    md_options : MarkdownRendererOptions or None, optional
-        Markdown formatting options for escaping special characters
-    overlap_threshold : float or None, optional
-        Percentage overlap required for link detection (0-100). If None, uses DEFAULT_OVERLAP_THRESHOLD_PERCENT.
-
-    Returns
-    -------
-    str or None
-        Formatted markdown link string if overlap detected, None otherwise
-
-    Notes
-    -----
-    The overlap_threshold parameter allows tuning link detection sensitivity:
-    - Higher values (e.g., 80-90) reduce false positives but may miss valid links
-    - Lower values (e.g., 50-60) catch more links but may incorrectly link non-link text
-    - Default (70) provides a good balance for most PDFs
-
-    """
-    if not links or not span.get("text"):
-        return None
-
-    import fitz
-
-    bbox = fitz.Rect(span["bbox"])  # span bbox
-    span_text = span["text"]
-
-    # Use provided threshold or fall back to default
-    threshold_percent = overlap_threshold if overlap_threshold is not None else DEFAULT_OVERLAP_THRESHOLD_PERCENT
-
-    # Find all links that overlap with this span
-    overlapping_links = []
-    for link in links:
-        hot = link.get("from")  # the hot area of the link
-        if hot is None:
-            continue  # Skip links without valid hot area
-        overlap = hot & bbox
-        if abs(overlap) > 0:
-            overlapping_links.append((link, overlap))
-
-    if not overlapping_links:
-        return None
-
-    # If single link covers most of the span, use simple approach
-    if len(overlapping_links) == 1:
-        link, overlap = overlapping_links[0]
-        bbox_area = (threshold_percent / 100.0) * abs(bbox)
-        if abs(overlap) >= bbox_area:
-            uri = link.get("uri")
-            if not uri:
-                return None  # Skip links without valid URI
-            link_text = span_text.strip()
-            if md_options and md_options.escape_special:
-                link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
-            return f"[{link_text}]({uri})"
-
-    # Handle multiple or partial links by character-level analysis
-    # Estimate character positions based on bbox width
-    if len(span_text) == 0:
-        return None
-
-    char_width = bbox.width / len(span_text)
-    result_parts = []
-    last_end = 0
-
-    # Sort links by their x-coordinate
-    overlapping_links.sort(key=lambda x: x[1].x0)
-
-    for link, overlap in overlapping_links:
-        # Check if this link meets the threshold
-        bbox_area = (threshold_percent / 100.0) * abs(bbox)
-        if abs(overlap) < bbox_area:
-            # This link doesn't meet the threshold, skip it
-            continue
-
-        # Calculate character range for this link
-        start_char = max(0, int((overlap.x0 - bbox.x0) / char_width))
-        end_char = min(len(span_text), int((overlap.x1 - bbox.x0) / char_width))
-
-        if start_char >= end_char:
-            continue
-
-        # Add non-link text before this link
-        if start_char > last_end:
-            text_before = span_text[last_end:start_char]
-            if md_options and md_options.escape_special:
-                text_before = escape_markdown_special(text_before, md_options.bullet_symbols)
-            result_parts.append(text_before)
-
-        # Add link text
-        link_text = span_text[start_char:end_char].strip()
-        if link_text:
-            if md_options and md_options.escape_special:
-                link_text = escape_markdown_special(link_text, md_options.bullet_symbols)
-            result_parts.append(f"[{link_text}]({link['uri']})")
-            last_end = end_char
-
-    # Add remaining non-link text
-    if last_end < len(span_text):
-        text_after = span_text[last_end:]
-        if md_options and md_options.escape_special:
-            text_after = escape_markdown_special(text_after, md_options.bullet_symbols)
-        result_parts.append(text_after)
-
-    # Return combined result if any links were found
-    if result_parts:
-        return "".join(result_parts)
-
-    return None
-
-
-def extract_page_images(
-    page: "fitz.Page",
-    page_num: int,
-    options: PdfOptions | None = None,
-    base_filename: str = "document",
-    attachment_sequencer: Callable | None = None,
-) -> tuple[list[dict], dict[str, str]]:
-    """Extract images from a PDF page with their positions.
-
-    Extracts all images from the page and optionally saves them to disk
-    or converts to base64 data URIs for embedding in Markdown.
-
-    Parameters
-    ----------
-    page : PyMuPDF Page
-        PDF page to extract images from
-    page_num : int
-        Page number for naming extracted images
-    options : PdfOptions or None, optional
-        PDF options containing image extraction settings
-    base_filename : str, default "document"
-        Base filename stem for generating standardized image names
-    attachment_sequencer : object, optional
-        Sequencer for generating unique attachment names
-
-    Returns
-    -------
-    tuple[list[dict], dict[str, str]]
-        Tuple containing:
-            - List of dictionaries with image info:
-                - 'bbox': Image bounding box
-                - 'path': Path to saved image or data URI
-                - 'caption': Detected caption text (if any)
-            - Dictionary of footnote definitions (label -> content) collected during processing
-
-
-    Notes
-    -----
-    For large PDFs with many images, use skip_image_extraction=True in PdfOptions
-    to avoid memory pressure from decoding images on every page.
-
-    """
-    # Track footnotes collected during this function
-    collected_footnotes: dict[str, str] = {}
-
-    # Skip image extraction entirely if requested (performance optimization for large PDFs)
-    if options and options.skip_image_extraction:
-        return [], collected_footnotes
-
-    if not options or options.attachment_mode == "skip":
-        return [], collected_footnotes
-
-    # For alt_text mode, only extract if we need image placement markers
-    if options.attachment_mode == "alt_text" and not options.image_placement_markers:
-        return [], collected_footnotes
-
-    import fitz
-
-    images = []
-    image_list = page.get_images()
-
-    for img_idx, img in enumerate(image_list):
-        # Initialize pixmap references for proper cleanup in finally block
-        pix = None
-        pix_rgb = None
-        try:
-            # Get image data
-            xref = img[0]
-            pix = fitz.Pixmap(page.parent, xref)
-
-            # Convert to RGB if needed
-            if pix.n - pix.alpha < 4:  # GRAY or RGB
-                pix_rgb = pix
-            else:
-                pix_rgb = fitz.Pixmap(fitz.csRGB, pix)
-
-            # Get image position on page
-            img_rects = page.get_image_rects(xref)
-            if not img_rects:
-                continue
-
-            bbox = img_rects[0]  # Use first occurrence
-
-            # Determine image format and convert pixmap to bytes
-            img_format = options.image_format if options.image_format else "png"
-            img_extension = img_format  # "png" or "jpeg"
-
-            if img_format == "jpeg":
-                # Use JPEG with specified quality
-                quality = options.image_quality if options.image_quality else 90
-                img_bytes = pix_rgb.tobytes("jpeg", jpg_quality=quality)
-            else:
-                # Default to PNG
-                img_bytes = pix_rgb.tobytes("png")
-
-            # Use sequencer if available, otherwise fall back to manual indexing
-            if attachment_sequencer is not None:
-                img_filename, _ = attachment_sequencer(
-                    base_stem=base_filename,
-                    format_type="pdf",
-                    page_num=page_num + 1,  # Convert to 1-based
-                    extension=img_extension,
-                )
-            else:
-                img_filename = generate_attachment_filename(
-                    base_stem=base_filename,
-                    format_type="pdf",
-                    page_num=page_num + 1,  # Convert to 1-based
-                    sequence_num=img_idx + 1,
-                    extension=img_extension,
-                )
-
-            result = process_attachment(
-                attachment_data=img_bytes,
-                attachment_name=img_filename,
-                alt_text=f"Image from page {page_num + 1}",
-                attachment_mode=options.attachment_mode,
-                attachment_output_dir=options.attachment_output_dir,
-                attachment_base_url=options.attachment_base_url,
-                is_image=True,
-                alt_text_mode=options.alt_text_mode,
-            )
-
-            # Collect footnote info if present
-            if result.get("footnote_label") and result.get("footnote_content"):
-                collected_footnotes[result["footnote_label"]] = result["footnote_content"]
-
-            # Try to detect caption
-            caption = None
-            if options.include_image_captions:
-                caption = detect_image_caption(page, bbox)
-
-            # Store the process_attachment result dict instead of just markdown string
-            images.append({"bbox": bbox, "result": result, "caption": caption})
-
-        except Exception:
-            # Skip problematic images
-            continue
-        finally:
-            # Clean up pixmap resources to prevent memory leaks
-            # This is critical for long-running operations and batch processing
-            if pix_rgb is not None and pix_rgb != pix:
-                pix_rgb = None
-            if pix is not None:
-                pix = None
-
-    return images, collected_footnotes
-
-
-def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | None:
-    """Detect caption text near an image.
-
-    Looks for text blocks immediately below or above the image
-    that might be captions (e.g., starting with "Figure", "Fig.", etc.).
-
-    Parameters
-    ----------
-    page : PyMuPDF Page
-        PDF page containing the image
-    image_bbox : PyMuPDF Rect
-        Bounding box of the image
-
-    Returns
-    -------
-    str or None
-        Detected caption text or None if no caption found
-
-    """
-    # Define search region below and above image
-    caption_patterns = [
-        r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+\d+",
-        r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+[A-Z]\.",
-    ]
-
-    import fitz
-
-    # Search below image
-    search_below = fitz.Rect(image_bbox.x0 - 20, image_bbox.y1, image_bbox.x1 + 20, image_bbox.y1 + 50)
-
-    # Search above image (less common)
-    search_above = fitz.Rect(image_bbox.x0 - 20, image_bbox.y0 - 50, image_bbox.x1 + 20, image_bbox.y0)
-
-    for search_rect in [search_below, search_above]:
-        text = page.get_textbox(search_rect)
-        if text:
-            text = text.strip()
-            # Limit text length to prevent ReDoS attacks
-            # Captions should be short, so 500 chars is reasonable
-            if len(text) > 500:
-                text = text[:500]
-            # Check if text matches caption pattern
-            for pattern in caption_patterns:
-                if re.match(pattern, text, re.IGNORECASE):
-                    return text
-
-            # Also check for short text that might be a caption
-            if len(text) < 200 and text[0].isupper():
-                return text
-
-    return None
-
-
-def detect_tables_by_ruling_lines(
-    page: "fitz.Page", threshold: float = 0.5
-) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
-    """Fallback table detection using ruling lines and text alignment.
-
-    Uses page drawing commands to detect horizontal and vertical lines
-    that form table structures, useful when PyMuPDF's table detection fails.
-
-    Parameters
-    ----------
-    page : PyMuPDF Page
-        PDF page to analyze for tables
-    threshold : float, default 0.5
-        Minimum line length ratio relative to page size for ruling lines
-
-    Returns
-    -------
-    tuple[list[PyMuPDF Rect], list[tuple[list, list]]]
-        Tuple containing:
-            - List of bounding boxes for detected tables
-            - List of (h_lines, v_lines) tuples for each table, where each line
-              is a tuple of (x0, y0, x1, y1) coordinates
-
-
-    """
-    # Get page dimensions
-    page_rect = page.rect
-    min_hline_len = page_rect.width * threshold
-    min_vline_len = page_rect.height * threshold * 0.3  # Lower threshold for vertical lines
-
-    # Extract drawing commands to find lines
-    drawings = page.get_drawings()
-
-    h_lines = []
-    v_lines = []
-
-    import fitz
-
-    for item in drawings:
-        if "items" not in item:
-            continue
-
-        for drawing in item["items"]:
-            if drawing[0] == "l":  # Line command
-                p1, p2 = drawing[1], drawing[2]
-
-                # Check if horizontal line
-                if abs(p1.y - p2.y) < 2:  # Nearly horizontal
-                    line_len = abs(p2.x - p1.x)
-                    if line_len >= min_hline_len:
-                        h_lines.append((min(p1.x, p2.x), p1.y, max(p1.x, p2.x), p2.y))
-
-                # Check if vertical line
-                elif abs(p1.x - p2.x) < 2:  # Nearly vertical
-                    line_len = abs(p2.y - p1.y)
-                    if line_len >= min_vline_len:
-                        v_lines.append((p1.x, min(p1.y, p2.y), p2.x, max(p1.y, p2.y)))
-
-    # Find table regions by grouping intersecting lines
-    table_rects: list["fitz.Rect"] = []
-
-    # Group horizontal lines by proximity
-    h_lines.sort(key=lambda line: line[1])  # Sort by y-coordinate
-
-    if len(h_lines) >= 2 and len(v_lines) >= 2:
-        # Look for regions with multiple h_lines and v_lines
-        for i in range(len(h_lines) - 1):
-            for j in range(i + 1, min(i + 10, len(h_lines))):  # Check next few h_lines
-                y1 = h_lines[i][1]
-                y2 = h_lines[j][1]
-
-                # Find v_lines that span between these h_lines
-                spanning_vlines = [v for v in v_lines if v[1] <= y1 + 5 and v[3] >= y2 - 5]
-
-                if len(spanning_vlines) >= 2:
-                    # Found a potential table
-                    x_min = min(min(h_lines[i][0], h_lines[j][0]), min(v[0] for v in spanning_vlines))
-                    x_max = max(max(h_lines[i][2], h_lines[j][2]), max(v[2] for v in spanning_vlines))
-
-                    table_rect = fitz.Rect(x_min, y1, x_max, y2)
-
-                    # Check for overlap with existing tables
-                    overlaps = False
-                    for existing in table_rects:
-                        if abs(existing & table_rect) > abs(table_rect) * 0.5:
-                            overlaps = True
-                            break
-
-                    if not overlaps and not table_rect.is_empty:
-                        table_rects.append(table_rect)
-
-    # Build list of line tuples for each table
-    table_lines = []
-    for table_rect in table_rects:
-        # Find h_lines and v_lines that are part of this table
-        table_h_lines = [line for line in h_lines if line[1] >= table_rect.y0 and line[1] <= table_rect.y1]
-        table_v_lines = [line for line in v_lines if line[0] >= table_rect.x0 and line[0] <= table_rect.x1]
-        table_lines.append((table_h_lines, table_v_lines))
-
-    return table_rects, table_lines
-
-
-class IdentifyHeaders:
-    """Compute data for identifying header text based on font size analysis.
-
-    This class analyzes font sizes across document pages to identify which
-    font sizes should be treated as headers versus body text. It creates
-    a mapping from font sizes to Markdown header levels (# ## ### etc.).
-
-    Parameters
-    ----------
-    doc : fitz.Document
-        PDF document to analyze
-    pages : list[int], range, or None, optional
-        Pages to analyze for font size distribution. If None, samples first 5 pages
-        for performance on large PDFs.
-    body_limit : float or None, optional
-        Font size threshold below which text is considered body text.
-        If None, uses the most frequent font size as body text baseline.
-    options : PdfOptions or None, optional
-        PDF conversion options containing header detection parameters.
-        Use options.header_sample_pages to override the default sampling behavior.
-
-    Attributes
-    ----------
-    header_id : dict[int, str]
-        Mapping from font size to markdown header prefix string
-    options : PdfOptions
-        PDF conversion options used for header detection
-    debug_info : dict or None
-        Debug information about header detection (if header_debug_output is enabled).
-        Contains font size distribution, header sizes, and classification details.
-
-    """
-
-    def __init__(
-        self,
-        doc: Any,  # PyMuPDF Document object
-        pages: list[int] | range | None = None,
-        body_limit: float | None = None,
-        options: PdfOptions | None = None,
-    ) -> None:
-        """Initialize header identification by analyzing font sizes.
-
-        Reads all text spans from specified pages and builds a frequency
-        distribution of font sizes. Uses this to determine which font sizes
-        should be treated as headers versus body text.
-
-        Parameters
-        ----------
-        doc : fitz.Document
-            PDF document to analyze
-        pages : list[int], range, or None, optional
-            Pages to analyze for font size distribution. If None, samples first 5 pages.
-        body_limit : float or None, optional
-            Font size threshold below which text is considered body text.
-            If None, uses the most frequent font size as body text baseline.
-        options : PdfOptions or None, optional
-            PDF conversion options containing header detection parameters.
-
-        """
-        self.options = options or PdfOptions()
-        self.debug_info: dict[str, Any] | None = None
-
-        # Determine pages to sample for header analysis
-        if self.options.header_sample_pages is not None:
-            if isinstance(self.options.header_sample_pages, int):
-                # Sample first N pages
-                pages_to_sample = list(range(min(self.options.header_sample_pages, doc.page_count)))
-            else:
-                # Use specific page list
-                pages_to_sample = [p for p in self.options.header_sample_pages if p < doc.page_count]
-        elif pages is not None:
-            pages_to_sample = pages if isinstance(pages, list) else list(pages)
-        else:
-            # Default: sample first 5 pages for performance on large PDFs
-            # This provides good header detection accuracy while avoiding O(n) scans
-            pages_to_sample = list(range(min(5, doc.page_count)))
-
-        pages_to_use: list[int] = pages_to_sample
-        fontsizes: dict[int, int] = {}
-        fontweight_sizes: dict[int, int] = {}  # Track bold font sizes
-        allcaps_sizes: dict[int, int] = {}  # Track all-caps text sizes
-        import fitz
-
-        for pno in pages_to_use:
-            page = doc[pno]
-            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
-            for span in [  # look at all non-empty horizontal spans
-                s
-                for b in blocks
-                for line in b["lines"]
-                for s in line["spans"]
-                if not SPACES.issuperset(s["text"]) and line.get("dir") == (1, 0)
-            ]:
-                fontsz = round(span["size"])
-                text = span["text"].strip()
-                text_len = len(text)
-
-                # Track font size occurrences
-                count = fontsizes.get(fontsz, 0) + text_len
-                fontsizes[fontsz] = count
-
-                # Track bold text if enabled
-                if self.options.header_use_font_weight and (span["flags"] & 16):  # Bold flag
-                    fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
-
-                # Track all-caps text if enabled
-                if self.options.header_use_all_caps and text.isupper() and text.isalpha():
-                    allcaps_sizes[fontsz] = allcaps_sizes.get(fontsz, 0) + text_len
-
-        # maps a fontsize to a string of multiple # header tag characters
-        self.header_id = {}
-        self.bold_header_sizes = set()  # Track which sizes are headers due to bold
-        self.allcaps_header_sizes = set()  # Track which sizes are headers due to all-caps
-
-        # Apply allowlist/denylist filters
-        if self.options.header_size_denylist:
-            for size in self.options.header_size_denylist:
-                fontsizes.pop(round(size), None)
-
-        # Filter by minimum occurrences
-        if self.options.header_min_occurrences > 0:
-            fontsizes = {k: v for k, v in fontsizes.items() if v >= self.options.header_min_occurrences}
-
-        # If not provided, choose the most frequent font size as body text.
-        # If no text at all on all pages, just use 12
-        if body_limit is None:
-            temp = sorted(
-                fontsizes.items(),
-                key=lambda i: i[1],
-                reverse=True,
-            )
-            body_limit = temp[0][0] if temp else 12
-
-        # Get header sizes based on percentile threshold and minimum font size ratio
-        if self.options.header_percentile_threshold and fontsizes:
-            sorted_sizes = sorted(fontsizes.keys(), reverse=True)
-            percentile_idx = int(len(sorted_sizes) * (1 - self.options.header_percentile_threshold / 100))
-            percentile_threshold = sorted_sizes[max(0, percentile_idx - 1)] if percentile_idx > 0 else sorted_sizes[0]
-            # Apply both percentile and font size ratio filters
-            min_header_size = body_limit * self.options.header_font_size_ratio
-            sizes = [s for s in sorted_sizes if s >= percentile_threshold and s >= min_header_size]
-        else:
-            # Apply font size ratio filter even without percentile threshold
-            min_header_size = body_limit * self.options.header_font_size_ratio
-            sizes = sorted([f for f in fontsizes if f >= min_header_size], reverse=True)
-
-        # Add sizes from allowlist
-        if self.options.header_size_allowlist:
-            for size in self.options.header_size_allowlist:
-                rounded_size = round(size)
-                if rounded_size not in sizes and rounded_size > body_limit:
-                    sizes.append(rounded_size)
-            sizes = sorted(sizes, reverse=True)
-
-        # Add bold and all-caps sizes as potential headers (but still respect font size ratio)
-        min_header_size = body_limit * self.options.header_font_size_ratio
-        if self.options.header_use_font_weight:
-            for size in fontweight_sizes:
-                if size not in sizes and size >= min_header_size:
-                    sizes.append(size)
-                    self.bold_header_sizes.add(size)
-
-        if self.options.header_use_all_caps:
-            for size in allcaps_sizes:
-                if size not in sizes and size >= min_header_size:
-                    sizes.append(size)
-                    self.allcaps_header_sizes.add(size)
-
-        sizes = sorted(set(sizes), reverse=True)
-
-        # make the header tag dictionary
-        for i, size in enumerate(sizes):
-            level = min(i + 1, 6)  # Limit to h6
-            # Store level information for later formatting
-            self.header_id[size] = level
-
-        # Store debug information if enabled
-        if self.options.header_debug_output:
-            self.debug_info = {
-                "font_size_distribution": fontsizes.copy(),
-                "bold_font_sizes": dict(fontweight_sizes),
-                "allcaps_font_sizes": dict(allcaps_sizes),
-                "body_text_size": body_limit,
-                "header_sizes": sizes.copy(),
-                "header_id_mapping": self.header_id.copy(),
-                "bold_header_sizes": list(self.bold_header_sizes),
-                "allcaps_header_sizes": list(self.allcaps_header_sizes),
-                "percentile_threshold": self.options.header_percentile_threshold,
-                "font_size_ratio": self.options.header_font_size_ratio,
-                "min_occurrences": self.options.header_min_occurrences,
-                "pages_sampled": pages_to_use.copy() if isinstance(pages_to_use, list) else list(pages_to_use),
-            }
-
-    def get_header_level(self, span: dict) -> int:
-        """Return header level for a text span, or 0 if not a header.
-
-        Analyzes the font size of a text span and returns the corresponding
-        header level (1-6) or 0 if the span should be treated as body text.
-        Includes content-based validation to reduce false positives.
-
-        Parameters
-        ----------
-        span : dict
-            Text span dictionary from PyMuPDF extraction containing 'size' key
-
-        Returns
-        -------
-        int
-            Header level (1-6) or 0 if not a header
-
-        """
-        fontsize = round(span["size"])  # compute fontsize
-        level = self.header_id.get(fontsize, 0)
-
-        # Check for additional header indicators if no size-based header found
-        if not level and self.options:
-            text = span.get("text", "").strip()
-
-            # Check for bold header
-            if self.options.header_use_font_weight and (span.get("flags", 0) & 16):
-                if fontsize in self.bold_header_sizes:
-                    level = self.header_id.get(fontsize, 0)
-
-            # Check for all-caps header
-            if self.options.header_use_all_caps and text.isupper() and text.isalpha():
-                if fontsize in self.allcaps_header_sizes:
-                    level = self.header_id.get(fontsize, 0)
-
-        # Apply content-based validation if we detected a potential header
-        if level > 0:
-            text = span.get("text", "").strip()
-
-            # Skip if text is too long to be a realistic header
-            if len(text) > self.options.header_max_line_length:
-                return 0
-
-            # Skip if text is mostly whitespace or empty
-            if not text or len(text.strip()) == 0:
-                return 0
-
-            # Skip if text looks like a paragraph (ends with typical sentence punctuation and is long)
-            if len(text) > 50 and text.endswith((".", "!", "?")):
-                return 0
-
-        return level
-
-    def get_debug_info(self) -> dict[str, Any] | None:
-        """Return debug information about header detection.
-
-        Returns
-        -------
-        dict or None
-            Debug information dictionary if header_debug_output was enabled,
-            None otherwise. The dictionary contains:
-            - font_size_distribution: Frequency of each font size
-            - bold_font_sizes: Sizes where bold text was found
-            - allcaps_font_sizes: Sizes where all-caps text was found
-            - body_text_size: Detected body text font size
-            - header_sizes: Font sizes classified as headers
-            - header_id_mapping: Mapping from size to header level
-            - bold_header_sizes: Sizes treated as headers due to bold
-            - allcaps_header_sizes: Sizes treated as headers due to all-caps
-            - percentile_threshold: Threshold used for detection
-            - font_size_ratio: Minimum ratio for header classification
-            - min_occurrences: Minimum occurrences threshold
-            - pages_sampled: Pages analyzed for header detection
-
-        Examples
-        --------
-        >>> options = PdfOptions(header_debug_output=True)
-        >>> hdr = IdentifyHeaders(doc, options=options)
-        >>> debug_info = hdr.get_debug_info()
-        >>> if debug_info:
-        ...     print(f"Body text size: {debug_info['body_text_size']}")
-        ...     print(f"Header sizes: {debug_info['header_sizes']}")
-
-        """
-        return self.debug_info
-
-
-def _calculate_image_coverage(page: "fitz.Page") -> float:
-    """Calculate the ratio of image area to total page area.
-
-    This function analyzes a PDF page to determine what fraction of the page
-    is covered by images, which helps identify image-based or scanned pages.
-
-    Parameters
-    ----------
-    page : fitz.Page
-        PDF page to analyze
-
-    Returns
-    -------
-    float
-        Ratio of image area to page area (0.0 to 1.0)
-
-    Notes
-    -----
-    This function accounts for overlapping images by combining their bounding
-    boxes and calculating the total covered area.
-
-    """
-    page_area = page.rect.width * page.rect.height
-    if page_area == 0:
-        return 0.0
-
-    # Get all images on the page
-    image_list = page.get_images()
-    if not image_list:
-        return 0.0
-
-    # Calculate total image area (accounting for potential overlaps)
-    # We'll use a simple approach: sum individual image areas
-    # For more accuracy, we could use union of bounding boxes
-    total_image_area = 0.0
-
-    for img in image_list:
-        xref = img[0]
-        img_rects = page.get_image_rects(xref)
-        if img_rects:
-            # Use first occurrence of image on page
-            bbox = img_rects[0]
-            img_area = (bbox.width) * (bbox.height)
-            total_image_area += img_area
-
-    # Calculate ratio
-    coverage_ratio = min(1.0, total_image_area / page_area)
-    return coverage_ratio
-
-
-def _should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) -> bool:
-    """Determine whether OCR should be applied to a PDF page.
-
-    Analyzes the page content based on the OCR mode and detection thresholds
-    to decide if OCR processing is needed.
-
-    Parameters
-    ----------
-    page : fitz.Page
-        PDF page to analyze
-    extracted_text : str
-        Text extracted by PyMuPDF from the page
-    options : PdfOptions
-        PDF conversion options containing OCR settings
-
-    Returns
-    -------
-    bool
-        True if OCR should be applied, False otherwise
-
-    Notes
-    -----
-    Detection logic depends on ocr.mode:
-    - "off": Always returns False
-    - "force": Always returns True
-    - "auto": Uses text_threshold and image_area_threshold to detect scanned pages
-
-    """
-    ocr_opts: OCROptions = options.ocr
-
-    # Check if OCR is enabled
-    if not ocr_opts.enabled or ocr_opts.mode == "off":
-        return False
-
-    # Force mode always uses OCR
-    if ocr_opts.mode == "force":
-        return True
-
-    # Auto mode: detect based on thresholds
-    if ocr_opts.mode == "auto":
-        # Check text threshold
-        text_length = len(extracted_text.strip())
-        if text_length < ocr_opts.text_threshold:
-            logger.debug(f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), triggering OCR")
-            return True
-
-        # Check image coverage threshold
-        image_coverage = _calculate_image_coverage(page)
-        if image_coverage >= ocr_opts.image_area_threshold:
-            logger.debug(
-                f"Page has {image_coverage:.1%} image coverage "
-                f"(threshold: {ocr_opts.image_area_threshold:.1%}), triggering OCR"
-            )
-            return True
-
-    return False
-
-
-def _get_tesseract_lang(detected_lang_code: str) -> str:
-    """Map ISO 639-1 language codes (and some variants) to Tesseract language codes.
-
-    Parameters
-    ----------
-    detected_lang_code : str
-        ISO 639-1 language code (e.g., "en", "fr", "zh-cn")
-
-    Returns
-    -------
-    str
-        Tesseract language code (e.g., "eng", "fra", "chi_sim")
-
-    """
-    lang_map = {
-        # English and variants
-        "en": "eng",
-        # European languages
-        "fr": "fra",  # French
-        "es": "spa",  # Spanish
-        "de": "deu",  # German
-        "it": "ita",  # Italian
-        "pt": "por",  # Portuguese
-        "ru": "rus",  # Russian
-        "nl": "nld",  # Dutch
-        "sv": "swe",  # Swedish
-        "no": "nor",  # Norwegian
-        "da": "dan",  # Danish
-        "fi": "fin",  # Finnish
-        "pl": "pol",  # Polish
-        "cs": "ces",  # Czech
-        "sk": "slk",  # Slovak
-        "hu": "hun",  # Hungarian
-        "ro": "ron",  # Romanian
-        "bg": "bul",  # Bulgarian
-        "el": "ell",  # Greek
-        "tr": "tur",  # Turkish
-        "uk": "ukr",  # Ukrainian
-        "hr": "hrv",  # Croatian
-        "sr": "srp",  # Serbian
-        "sl": "slv",  # Slovenian
-        "lv": "lav",  # Latvian
-        "lt": "lit",  # Lithuanian
-        "et": "est",  # Estonian
-        # Asian languages
-        "zh-cn": "chi_sim",  # Chinese Simplified
-        "zh-tw": "chi_tra",  # Chinese Traditional
-        "zh": "chi_sim",  # Default to Simplified
-        "ja": "jpn",  # Japanese
-        "ko": "kor",  # Korean
-        "hi": "hin",  # Hindi
-        "th": "tha",  # Thai
-        "vi": "vie",  # Vietnamese
-        "my": "mya",  # Burmese
-        "km": "khm",  # Khmer
-        "bn": "ben",  # Bengali
-        # Middle Eastern languages
-        "ar": "ara",  # Arabic
-        "fa": "fas",  # Persian (Farsi)
-        "he": "heb",  # Hebrew
-        "ur": "urd",  # Urdu
-        # Others
-        "id": "ind",  # Indonesian
-        "ms": "msa",  # Malay
-        "ta": "tam",  # Tamil
-        "te": "tel",  # Telugu
-        "kn": "kan",  # Kannada
-        "ml": "mal",  # Malayalam
-        "gu": "guj",  # Gujarati
-        "mr": "mar",  # Marathi
-        "pa": "pan",  # Punjabi
-        "si": "sin",  # Sinhala
-    }
-
-    # Normalize input to lowercase
-    code = detected_lang_code.lower()
-
-    # Handle cases like 'zh-cn', 'zh-tw'
-    if code in lang_map:
-        return lang_map[code]
-
-    # Sometimes language codes come with region subtags, e.g. 'en-US', 'pt-BR'
-    if "-" in code:
-        base_code = code.split("-")[0]
-        if base_code in lang_map:
-            return lang_map[base_code]
-
-    # Fallback to English if unknown
-    return "eng"
-
-
-@requires_dependencies("pdf", DEPS_PDF_LANGDETECT)
-def _detect_page_language(page: "fitz.Page", options: PdfOptions) -> str:
-    """Attempt to auto-detect the language of a PDF page for OCR.
-
-    This is an experimental feature that tries to determine the language
-    of the page content to optimize OCR accuracy.
-
-    Parameters
-    ----------
-    page : fitz.Page
-        PDF page to analyze
-    options : PdfOptions
-        PDF conversion options containing OCR settings
-
-    Returns
-    -------
-    str
-        Tesseract language code (e.g., "eng", "fra", "deu")
-        Falls back to options.ocr.languages if detection fails
-
-    """
-    from langdetect import detect
-    from langdetect.detector import Detector
-
-    page_text_sample = page.get_text()[:10000]  # Limit to 10KB
-    detected_lang_code = detect(page_text_sample)
-
-    if detected_lang_code == Detector.UNKNOWN_LANG:
-        # Return the configured languages (handle both string and list formats)
-        if isinstance(options.ocr.languages, list):
-            return "+".join(options.ocr.languages)
-        return options.ocr.languages
-
-    return _get_tesseract_lang(detected_lang_code)
+# Note: Column detection, table detection, image extraction, header identification,
+# OCR utilities, and text processing functions have been moved to private submodules:
+# - _pdf_columns.py: detect_columns and helpers
+# - _pdf_tables.py: detect_tables_by_ruling_lines and helpers
+# - _pdf_images.py: extract_page_images, detect_image_caption
+# - _pdf_headers.py: IdentifyHeaders class
+# - _pdf_ocr.py: OCR decision logic and language detection
+# - _pdf_text.py: handle_rotated_text, resolve_links
 
 
 class PdfToAstConverter(BaseParser):
@@ -1639,6 +280,95 @@ class PdfToAstConverter(BaseParser):
 
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
+    def _get_sample_pages(self, pages_to_use: range | list[int]) -> list[int] | None:
+        """Get evenly distributed sample pages for header/footer detection."""
+        total_pages = len(list(pages_to_use))
+        if total_pages < 3:
+            return None  # Need at least 3 pages to detect patterns
+
+        sample_size = min(10, total_pages)
+        if isinstance(pages_to_use, range):
+            step = max(1, total_pages // sample_size)
+            return [pages_to_use.start + i * step for i in range(sample_size)]
+        step = max(1, len(pages_to_use) // sample_size)
+        return [pages_to_use[i * step] for i in range(sample_size)]
+
+    def _extract_block_text(self, block: dict) -> str | None:
+        """Extract text from a block dictionary. Returns None if no valid text."""
+        if block.get("type") != 0:
+            return None
+        if not block.get("bbox"):
+            return None
+
+        text_lines = []
+        for line in block.get("lines", []):
+            line_text = " ".join(span["text"] for span in line.get("spans", []))
+            text_lines.append(line_text.strip())
+
+        block_text = " ".join(text_lines).strip()
+        return block_text if block_text else None
+
+    def _collect_page_blocks(
+        self, doc: "fitz.Document", sample_pages: list[int]
+    ) -> dict[int, list[tuple[str, float, float]]]:
+        """Collect text blocks with positions from sampled pages."""
+        import fitz
+
+        page_blocks: dict[int, list[tuple[str, float, float]]] = {}
+
+        for page_num in sample_pages:
+            page = doc[page_num]
+            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+            page_blocks[page_num] = []
+
+            for block in blocks:
+                block_text = self._extract_block_text(block)
+                if block_text:
+                    bbox = block["bbox"]
+                    page_blocks[page_num].append((block_text, bbox[1], bbox[3]))
+
+        return page_blocks
+
+    def _classify_header_footer_candidates(
+        self, page_blocks: dict[int, list[tuple[str, float, float]]], page_height: float
+    ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
+        """Classify blocks into header/footer candidates based on position."""
+        header_candidates: dict[str, list[float]] = {}
+        footer_candidates: dict[str, list[float]] = {}
+
+        header_zone_threshold = page_height * 0.2
+        footer_zone_threshold = page_height * 0.8
+
+        for blocks in page_blocks.values():
+            for text, y_top, y_bottom in blocks:
+                if y_bottom < header_zone_threshold:
+                    header_candidates.setdefault(text, []).append(y_bottom)
+                if y_top > footer_zone_threshold:
+                    footer_candidates.setdefault(text, []).append(y_top)
+
+        return header_candidates, footer_candidates
+
+    def _find_repeating_zone_boundaries(
+        self,
+        header_candidates: dict[str, list[float]],
+        footer_candidates: dict[str, list[float]],
+        page_height: float,
+        min_occurrences: int,
+    ) -> tuple[float, float]:
+        """Find boundaries of repeating header/footer zones."""
+        max_header_y = 0.0
+        max_footer_y = page_height
+
+        for y_values in header_candidates.values():
+            if len(y_values) >= min_occurrences:
+                max_header_y = max(max_header_y, max(y_values))
+
+        for y_values in footer_candidates.values():
+            if len(y_values) >= min_occurrences:
+                max_footer_y = min(max_footer_y, min(y_values))
+
+        return max_header_y, max_footer_y
+
     def _auto_detect_header_footer_zones(self, doc: "fitz.Document", pages_to_use: range | list[int]) -> None:
         """Automatically detect and set header/footer zones by analyzing repeating text patterns.
 
@@ -1655,107 +385,24 @@ class PdfToAstConverter(BaseParser):
             Pages to process (used to determine sample range)
 
         """
-        import fitz
-
-        # Sample pages for analysis (min 3, max 10, or all if fewer pages)
-        total_pages = len(list(pages_to_use))
-        if total_pages < 3:
-            # Need at least 3 pages to detect patterns
+        sample_pages = self._get_sample_pages(pages_to_use)
+        if not sample_pages:
             return
 
-        # Sample evenly distributed pages
-        sample_size = min(10, total_pages)
-        if isinstance(pages_to_use, range):
-            step = max(1, total_pages // sample_size)
-            sample_pages = [pages_to_use.start + i * step for i in range(sample_size)]
-        else:
-            step = max(1, len(pages_to_use) // sample_size)
-            sample_pages = [pages_to_use[i * step] for i in range(sample_size)]
-
-        # Collect text blocks from each sampled page
-        # Structure: {page_num: [(text, y_top, y_bottom), ...]}
-        page_blocks: dict[int, list[tuple[str, float, float]]] = {}
-
-        for page_num in sample_pages:
-            page = doc[page_num]
-            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
-
-            page_blocks[page_num] = []
-            for block in blocks:
-                if block.get("type") != 0:  # Only process text blocks
-                    continue
-
-                bbox = block.get("bbox")
-                if not bbox:
-                    continue
-
-                # Extract text from block
-                text_lines = []
-                for line in block.get("lines", []):
-                    line_text = " ".join(span["text"] for span in line.get("spans", []))
-                    text_lines.append(line_text.strip())
-
-                block_text = " ".join(text_lines).strip()
-                if not block_text:
-                    continue
-
-                # Store text with vertical position
-                y_top = bbox[1]
-                y_bottom = bbox[3]
-                page_blocks[page_num].append((block_text, y_top, y_bottom))
-
-        # Find repeating patterns in header zone (top 20% of page)
-        # and footer zone (bottom 20% of page)
+        page_blocks = self._collect_page_blocks(doc, sample_pages)
         if not page_blocks:
             return
 
-        # Get representative page height from first sampled page
-        first_page = doc[sample_pages[0]]
-        page_height = first_page.rect.height
+        page_height = doc[sample_pages[0]].rect.height
+        header_candidates, footer_candidates = self._classify_header_footer_candidates(page_blocks, page_height)
 
-        # Track potential headers (text appearing in top portion of multiple pages)
-        # Structure: {text: [y_bottom_values]}
-        header_candidates: dict[str, list[float]] = {}
-        footer_candidates: dict[str, list[float]] = {}
-
-        header_zone_threshold = page_height * 0.2  # Top 20%
-        footer_zone_threshold = page_height * 0.8  # Bottom 20%
-
-        for blocks in page_blocks.values():
-            for text, y_top, y_bottom in blocks:
-                # Check if in potential header zone
-                if y_bottom < header_zone_threshold:
-                    if text not in header_candidates:
-                        header_candidates[text] = []
-                    header_candidates[text].append(y_bottom)
-
-                # Check if in potential footer zone
-                if y_top > footer_zone_threshold:
-                    if text not in footer_candidates:
-                        footer_candidates[text] = []
-                    footer_candidates[text].append(y_top)
-
-        # Find repeating headers (text appearing on at least 50% of sampled pages)
-        min_occurrences = max(2, sample_size // 2)
-        max_header_y = 0.0
-        max_footer_y = page_height
-
-        for _text, y_values in header_candidates.items():
-            if len(y_values) >= min_occurrences:
-                # This text appears frequently in header zone
-                max_y = max(y_values)
-                max_header_y = max(max_header_y, max_y)
-
-        for _text, y_values in footer_candidates.items():
-            if len(y_values) >= min_occurrences:
-                # This text appears frequently in footer zone
-                min_y = min(y_values)
-                max_footer_y = min(max_footer_y, min_y)
+        min_occurrences = max(2, len(sample_pages) // 2)
+        max_header_y, max_footer_y = self._find_repeating_zone_boundaries(
+            header_candidates, footer_candidates, page_height, min_occurrences
+        )
 
         # Set header_height and footer_height if we found repeating patterns
-        # Add small margin (5 points) to ensure we capture the full header/footer
         if max_header_y > 0:
-            # Update the options object (create new frozen instance)
             self.options = self.options.create_updated(header_height=int(max_header_y + 5), trim_headers_footers=True)
 
         if max_footer_y < page_height:
@@ -2270,6 +917,99 @@ class PdfToAstConverter(BaseParser):
                             table["column"] = col_idx
                             break
 
+    def _calculate_average_line_height(self, columns: list[list[dict]]) -> float | None:
+        """Calculate average line height across all columns.
+
+        Parameters
+        ----------
+        columns : list of list of dict
+            Text block columns
+
+        Returns
+        -------
+        float or None
+            Average line height, or None if no valid lines found
+
+        """
+        line_heights = []
+        for column in columns:
+            for block in column:
+                for line in block.get("lines", []):
+                    if "bbox" in line:
+                        line_height = line["bbox"][3] - line["bbox"][1]
+                        if line_height > 0:
+                            line_heights.append(line_height)
+        return sum(line_heights) / len(line_heights) if line_heights else None
+
+    def _build_sorted_column_items(self, column: list[dict], col_tables: list[dict]) -> list[tuple[str, float, Any]]:
+        """Build a sorted list of blocks and tables for a column.
+
+        Parameters
+        ----------
+        column : list of dict
+            Text blocks in the column
+        col_tables : list of dict
+            Tables assigned to this column
+
+        Returns
+        -------
+        list of tuple
+            Sorted list of (item_type, y_coord, item_data) tuples
+
+        """
+        items: list[tuple[str, float, Any]] = []
+        for block in column:
+            if "bbox" in block:
+                items.append(("block", block["bbox"][1], block))
+        for table in col_tables:
+            items.append(("table", table["bbox"].y0, table))
+        items.sort(key=lambda x: x[1])
+        return items
+
+    def _process_table_item(self, item_data: dict, page: "fitz.Page", page_num: int) -> Node | None:
+        """Process a single table item and return its AST node.
+
+        Parameters
+        ----------
+        item_data : dict
+            Table information dictionary
+        page : fitz.Page
+            PDF page
+        page_num : int
+            Page number
+
+        Returns
+        -------
+        Node or None
+            Table AST node, or None if processing failed
+
+        """
+        if item_data["type"] == "pymupdf":
+            return self._process_table_to_ast(item_data["table_obj"], page_num)
+        elif item_data["type"] == "fallback":
+            h_lines, v_lines = item_data["lines"]
+            return self._extract_table_from_ruling_rect(page, item_data["bbox"], h_lines, v_lines, page_num)
+        return None
+
+    def _get_page_links(self, page: "fitz.Page") -> list:
+        """Extract URI links from a page.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page
+
+        Returns
+        -------
+        list
+            List of URI link dictionaries
+
+        """
+        try:
+            return [link for link in page.get_links() if link["kind"] == 2]
+        except (AttributeError, Exception):
+            return []
+
     def _process_columns_and_tables(
         self,
         columns: list[list[dict]],
@@ -2300,54 +1040,22 @@ class PdfToAstConverter(BaseParser):
 
         """
         nodes: list[Node] = []
-
-        # Calculate average line height for link overlap threshold
-        line_heights = []
-        for column in columns:
-            for block in column:
-                for line in block.get("lines", []):
-                    if "bbox" in line:
-                        line_height = line["bbox"][3] - line["bbox"][1]
-                        if line_height > 0:
-                            line_heights.append(line_height)
-        average_line_height: float | None = sum(line_heights) / len(line_heights) if line_heights else None
+        average_line_height = self._calculate_average_line_height(columns)
+        links = self._get_page_links(page)
 
         # Process each column
         for col_idx, column in enumerate(columns):
             col_tables = [t for t in table_info if t["column"] == col_idx]
-
-            # Build combined list of blocks and tables, sorted by y-coordinate
-            items = []
-            for block in column:
-                if "bbox" in block:
-                    items.append(("block", block["bbox"][1], block))
-            for table in col_tables:
-                items.append(("table", table["bbox"].y0, table))
-
-            items.sort(key=lambda x: x[1])
-
-            # Process items in order
-            try:
-                links = [line for line in page.get_links() if line["kind"] == 2]
-            except (AttributeError, Exception):
-                links = []
+            items = self._build_sorted_column_items(column, col_tables)
 
             for item_type, _y, item_data in items:
                 if item_type == "block":
                     block_nodes = self._process_single_block_to_ast(item_data, links, page_num, average_line_height)
                     nodes.extend(block_nodes)
                 elif item_type == "table":
-                    if item_data["type"] == "pymupdf":
-                        table_node = self._process_table_to_ast(item_data["table_obj"], page_num)
-                        if table_node:
-                            nodes.append(table_node)
-                    elif item_data["type"] == "fallback":
-                        h_lines, v_lines = item_data["lines"]
-                        table_node = self._extract_table_from_ruling_rect(
-                            page, item_data["bbox"], h_lines, v_lines, page_num
-                        )
-                        if table_node:
-                            nodes.append(table_node)
+                    table_node = self._process_table_item(item_data, page, page_num)
+                    if table_node:
+                        nodes.append(table_node)
 
         # Post-processing
         nodes = self._merge_adjacent_paragraphs(nodes)
@@ -2503,6 +1211,63 @@ class PdfToAstConverter(BaseParser):
         # Process blocks in proper reading order: top-to-bottom, left-to-right
         return self._merge_columns_for_reading_order(columns)
 
+    def _calculate_blocks_average_line_height(self, blocks: list[dict]) -> float | None:
+        """Calculate average line height across multiple blocks."""
+        line_heights = []
+        for block in blocks:
+            for line in block.get("lines", []):
+                if "bbox" in line:
+                    line_height = line["bbox"][3] - line["bbox"][1]
+                    if line_height > 0:
+                        line_heights.append(line_height)
+
+        if line_heights:
+            avg = sum(line_heights) / len(line_heights)
+            logger.debug(f"Calculated average line height for page: {avg:.2f} points")
+            return avg
+        return None
+
+    def _process_blocks_line_monospace(self, spans: list, text: str, block: dict, state: _BlockProcessingState) -> bool:
+        """Handle monospace line in blocks processing. Returns True if handled."""
+        all_mono = all(s["flags"] & 8 for s in spans)
+        if not all_mono:
+            return False
+
+        state.in_code_block = True
+        span_size = spans[0]["size"]
+        delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5)) if span_size > 0 else 0
+        state.code_block_lines.append(" " * delta + text)
+        return True
+
+    def _process_blocks_line_text(
+        self,
+        spans: list,
+        links: list[dict],
+        page_num: int,
+        average_line_height: float | None,
+        state: _BlockProcessingState,
+    ) -> None:
+        """Process text line (heading or paragraph) in blocks processing."""
+        first_span = spans[0]
+        header_level = self._hdr_identifier.get_header_level(first_span) if self._hdr_identifier else 0
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+
+        if not inline_content:
+            return
+
+        if header_level > 0:
+            state.nodes.append(
+                Heading(
+                    level=header_level,
+                    content=inline_content,
+                    source_location=SourceLocation(format="pdf", page=page_num + 1),
+                )
+            )
+        else:
+            state.nodes.append(
+                AstParagraph(content=inline_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
+            )
+
     def _process_text_blocks_to_nodes(
         self, blocks_to_process: list[dict], links: list[dict], page_num: int
     ) -> list[Node]:
@@ -2523,116 +1288,48 @@ class PdfToAstConverter(BaseParser):
             List of AST nodes
 
         """
-        nodes: list[Node] = []
+        average_line_height = self._calculate_blocks_average_line_height(blocks_to_process)
+        state = _BlockProcessingState()
 
-        # Calculate average line height for auto-calibration of link overlap threshold
-        line_heights = []
         for block in blocks_to_process:
-            for line in block.get("lines", []):
-                if "bbox" in line:
-                    line_height = line["bbox"][3] - line["bbox"][1]  # y1 - y0
-                    if line_height > 0:
-                        line_heights.append(line_height)
+            previous_y = 0.0
 
-        average_line_height: float | None = None
-        if line_heights:
-            average_line_height = sum(line_heights) / len(line_heights)
-            logger.debug(f"Calculated average line height for page: {average_line_height:.2f} points")
-
-        # Track if we're in a code block
-        in_code_block = False
-        code_block_lines: list[str] = []
-
-        for block in blocks_to_process:  # Iterate textblocks
-            previous_y = 0
-
-            for line in block["lines"]:  # Iterate lines in block
-                # Handle rotated text if enabled, otherwise skip non-horizontal lines
-                if line.get("dir", (0, 0))[1] != 0:  # Non-horizontal lines
+            for line in block["lines"]:
+                # Handle rotated text
+                if line.get("dir", (0, 0))[1] != 0:
                     if self.options.handle_rotated_text:
                         rotated_text = handle_rotated_text(line, None)
                         if rotated_text.strip():
-                            # Add as paragraph
-                            nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+                            state.nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
                     continue
 
                 spans = list(line["spans"])
                 if not spans:
                     continue
 
-                this_y = line["bbox"][3]  # Current bottom coord
-
-                # Check for still being on same line
+                this_y = line["bbox"][3]
                 same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
-
-                # Are all spans in line in a mono-spaced font?
-                all_mono = all(s["flags"] & 8 for s in spans)
-
-                # Compute text of the line
                 text = "".join([s["text"] for s in spans])
 
                 if not same_line:
                     previous_y = this_y
 
                 # Handle monospace text (code blocks)
-                if all_mono:
-                    if not in_code_block:
-                        in_code_block = True
-                    # Add line to code block
-                    # Compute approximate indentation
-                    span_size = spans[0]["size"]
-                    if span_size > 0:
-                        delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5))
-                    else:
-                        delta = 0
-                    code_block_lines.append(" " * delta + text)
+                if self._process_blocks_line_monospace(spans, text, block, state):
                     continue
 
-                # If we were in a code block and now we're not, finalize it
-                if in_code_block:
-                    code_content = "\n".join(code_block_lines)
-                    nodes.append(
-                        CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
-                    )
-                    in_code_block = False
-                    code_block_lines = []
+                # Finalize code block if we were in one
+                if state.in_code_block:
+                    self._finalize_code_block(state, page_num)
 
-                # Process non-monospace text
-                # Check if first span is a header
-                first_span = spans[0]
-                header_level = 0
-                if self._hdr_identifier:
-                    header_level = self._hdr_identifier.get_header_level(first_span)
-
-                if header_level > 0:
-                    # This is a heading
-                    inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-                    if inline_content:
-                        nodes.append(
-                            Heading(
-                                level=header_level,
-                                content=inline_content,
-                                source_location=SourceLocation(format="pdf", page=page_num + 1),
-                            )
-                        )
-                else:
-                    # Regular paragraph
-                    inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-                    if inline_content:
-                        nodes.append(
-                            AstParagraph(
-                                content=inline_content, source_location=SourceLocation(format="pdf", page=page_num + 1)
-                            )
-                        )
+                # Process text line (heading or paragraph)
+                self._process_blocks_line_text(spans, links, page_num, average_line_height, state)
 
         # Finalize any remaining code block
-        if in_code_block and code_block_lines:
-            code_content = "\n".join(code_block_lines)
-            nodes.append(
-                CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
-            )
+        if state.in_code_block:
+            self._finalize_code_block(state, page_num)
 
-        return nodes
+        return state.nodes
 
     def _process_text_region_to_ast(self, page: "fitz.Page", clip: "fitz.Rect", page_num: int) -> list[Node]:
         """Process a text region to AST nodes.
@@ -2854,6 +1551,126 @@ class PdfToAstConverter(BaseParser):
             source_loc = SourceLocation(format="pdf", page=page_num + 1, metadata=metadata)
             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
 
+    def _flush_state_paragraph(self, state: _BlockProcessingState, page_num: int) -> None:
+        """Flush paragraph from state to nodes and reset paragraph state."""
+        self._flush_paragraph(
+            state.paragraph_content,
+            state.paragraph_bbox,
+            state.paragraph_is_list,
+            state.paragraph_list_type,
+            page_num,
+            state.nodes,
+        )
+        state.reset_paragraph()
+
+    def _finalize_code_block(self, state: _BlockProcessingState, page_num: int) -> None:
+        """Finalize code block from state and reset code block state."""
+        if state.code_block_lines:
+            code_content = "\n".join(state.code_block_lines)
+            state.nodes.append(
+                CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
+            )
+        state.reset_code_block()
+
+    def _handle_rotated_line(self, line: dict, state: _BlockProcessingState, page_num: int) -> bool:
+        """Handle rotated text line. Returns True if line was processed (should skip further processing)."""
+        if line["dir"][1] == 0:  # Horizontal line
+            return False
+
+        if self.options.handle_rotated_text:
+            rotated_text = handle_rotated_text(line, None)
+            if rotated_text.strip():
+                self._flush_state_paragraph(state, page_num)
+                state.nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+        return True  # Skip non-horizontal lines
+
+    def _handle_monospace_line(
+        self, line: dict, spans: list, text: str, block: dict, state: _BlockProcessingState, page_num: int
+    ) -> bool:
+        """Handle monospace line (code block). Returns True if line was processed as code."""
+        all_mono = all(s["flags"] & 8 for s in spans)
+        if not all_mono:
+            return False
+
+        # Flush accumulated paragraph before starting code block
+        self._flush_state_paragraph(state, page_num)
+        state.in_code_block = True
+
+        # Compute approximate indentation
+        span_size = spans[0]["size"]
+        delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5)) if span_size > 0 else 0
+        state.code_block_lines.append(" " * delta + text)
+        return True
+
+    def _handle_header_line(
+        self,
+        spans: list,
+        links: list[dict],
+        state: _BlockProcessingState,
+        page_num: int,
+        average_line_height: float | None,
+    ) -> bool:
+        """Handle header line. Returns True if line was processed as header."""
+        first_span = spans[0]
+        header_level = 0
+        if self._hdr_identifier:
+            header_level = self._hdr_identifier.get_header_level(first_span)
+
+        if header_level <= 0:
+            return False
+
+        self._flush_state_paragraph(state, page_num)
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+        if inline_content:
+            state.nodes.append(
+                Heading(
+                    level=header_level,
+                    content=inline_content,
+                    source_location=SourceLocation(format="pdf", page=page_num + 1),
+                )
+            )
+        return True
+
+    def _accumulate_paragraph_line(
+        self,
+        line: dict,
+        spans: list,
+        links: list[dict],
+        vertical_gap: float,
+        paragraph_break_threshold: float,
+        state: _BlockProcessingState,
+        page_num: int,
+        average_line_height: float | None,
+    ) -> None:
+        """Accumulate regular text line into paragraph state."""
+        # Check if we should start a new paragraph (don't break list items)
+        if vertical_gap > paragraph_break_threshold and state.paragraph_content and not state.paragraph_is_list:
+            self._flush_state_paragraph(state, page_num)
+
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+        if not inline_content:
+            return
+
+        if state.paragraph_content:
+            state.paragraph_content.append(Text(content=" "))
+        else:
+            # Starting new paragraph
+            state.paragraph_bbox = line["bbox"]
+            first_text = next((n.content for n in inline_content if isinstance(n, Text)), "")
+            state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(first_text)
+
+        state.paragraph_content.extend(inline_content)
+
+        # Expand bbox to include this line
+        if state.paragraph_bbox:
+            line_bbox = line["bbox"]
+            state.paragraph_bbox = (
+                min(state.paragraph_bbox[0], line_bbox[0]),
+                min(state.paragraph_bbox[1], line_bbox[1]),
+                max(state.paragraph_bbox[2], line_bbox[2]),
+                max(state.paragraph_bbox[3], line_bbox[3]),
+            )
+
     def _process_single_block_to_ast(
         self, block: dict, links: list[dict], page_num: int, average_line_height: float | None = None
     ) -> list[Node]:
@@ -2876,172 +1693,49 @@ class PdfToAstConverter(BaseParser):
             List of AST nodes (paragraphs, headings, code blocks)
 
         """
-        nodes: list[Node] = []
-
         if "lines" not in block:
-            return nodes
+            return []
 
-        previous_y = 0
-        in_code_block = False
-        code_block_lines: list[str] = []
-
-        # Track accumulated paragraph content
-        paragraph_content: list[Node] = []
-        paragraph_bbox: tuple[float, float, float, float] | None = None  # (x0, y0, x1, y1)
-        paragraph_is_list: bool = False  # Track if paragraph starts with list marker
-        paragraph_list_type: str | None = None
-
-        # Calculate adaptive paragraph break threshold based on line heights in this block
+        state = _BlockProcessingState()
         paragraph_break_threshold = self._calculate_paragraph_break_threshold(block)
 
         for line in block["lines"]:
-            # Handle rotated text if enabled, otherwise skip non-horizontal lines
-            if line["dir"][1] != 0:  # Non-horizontal lines
-                if self.options.handle_rotated_text:
-                    rotated_text = handle_rotated_text(line, None)
-                    if rotated_text.strip():
-                        # Flush any accumulated paragraph first
-                        self._flush_paragraph(
-                            paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
-                        )
-                        paragraph_content = []
-                        paragraph_bbox = None
-                        paragraph_is_list = False
-                        paragraph_list_type = None
-                        nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+            # Handle rotated text (skip further processing if rotated)
+            if self._handle_rotated_line(line, state, page_num):
                 continue
 
             spans = list(line.get("spans", []))
             if not spans:
                 continue
 
-            this_y = line["bbox"][3]  # Current bottom coord
-
-            # Calculate vertical gap from previous line
-            vertical_gap = abs(this_y - previous_y) if previous_y > 0 else 0
-
-            # Are all spans in line in a mono-spaced font?
-            all_mono = all(s["flags"] & 8 for s in spans)
-
-            # Compute text of the line
+            this_y = line["bbox"][3]
+            vertical_gap = abs(this_y - state.previous_y) if state.previous_y > 0 else 0
             text = "".join([s["text"] for s in spans])
-
-            previous_y = this_y
+            state.previous_y = this_y
 
             # Handle monospace text (code blocks)
-            if all_mono:
-                # Flush accumulated paragraph before starting code block
-                self._flush_paragraph(
-                    paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
-                )
-                paragraph_content = []
-                paragraph_bbox = None
-                paragraph_is_list = False
-                paragraph_list_type = None
-
-                if not in_code_block:
-                    in_code_block = True
-                # Add line to code block
-                # Compute approximate indentation
-                span_size = spans[0]["size"]
-                if span_size > 0:
-                    delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5))
-                else:
-                    delta = 0
-                code_block_lines.append(" " * delta + text)
+            if self._handle_monospace_line(line, spans, text, block, state, page_num):
                 continue
 
-            # If we were in a code block and now we're not, finalize it
-            if in_code_block:
-                code_content = "\n".join(code_block_lines)
-                nodes.append(
-                    CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
-                )
-                in_code_block = False
-                code_block_lines = []
+            # Finalize code block if we were in one
+            if state.in_code_block:
+                self._finalize_code_block(state, page_num)
 
-            # Process non-monospace text
-            # Check if first span is a header
-            first_span = spans[0]
-            header_level = 0
-            if self._hdr_identifier:
-                header_level = self._hdr_identifier.get_header_level(first_span)
+            # Handle headers
+            if self._handle_header_line(spans, links, state, page_num, average_line_height):
+                continue
 
-            if header_level > 0:
-                # Flush accumulated paragraph before adding heading
-                self._flush_paragraph(
-                    paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
-                )
-                paragraph_content = []
-                paragraph_bbox = None
-                paragraph_is_list = False
-                paragraph_list_type = None
-
-                # This is a heading
-                inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-                if inline_content:
-                    nodes.append(
-                        Heading(
-                            level=header_level,
-                            content=inline_content,
-                            source_location=SourceLocation(format="pdf", page=page_num + 1),
-                        )
-                    )
-            else:
-                # Regular text - check if we should start a new paragraph
-                # Large vertical gap (adaptive threshold based on line height) indicates paragraph break
-                # BUT: Don't break list items - they may span multiple lines
-                if vertical_gap > paragraph_break_threshold and paragraph_content and not paragraph_is_list:
-                    # Flush previous paragraph (unless it's a list item)
-                    self._flush_paragraph(
-                        paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
-                    )
-                    paragraph_content = []
-                    paragraph_bbox = None
-                    paragraph_is_list = False
-                    paragraph_list_type = None
-
-                # Accumulate inline content
-                inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-                if inline_content:
-                    # Add space between lines if we're continuing a paragraph
-                    if paragraph_content:
-                        paragraph_content.append(Text(content=" "))
-                    else:
-                        # Starting new paragraph - initialize bbox and check for list marker
-                        paragraph_bbox = line["bbox"]
-                        # Detect list markers at the start of paragraph
-                        first_text = ""
-                        for node in inline_content:
-                            if isinstance(node, Text):
-                                first_text = node.content
-                                break
-                        paragraph_is_list, paragraph_list_type = self._is_valid_list_marker(first_text)
-
-                    paragraph_content.extend(inline_content)
-                    # Expand bbox to include this line
-                    if paragraph_bbox:
-                        line_bbox = line["bbox"]
-                        paragraph_bbox = (
-                            min(paragraph_bbox[0], line_bbox[0]),  # x0
-                            min(paragraph_bbox[1], line_bbox[1]),  # y0
-                            max(paragraph_bbox[2], line_bbox[2]),  # x1
-                            max(paragraph_bbox[3], line_bbox[3]),  # y1
-                        )
-
-        # Flush any remaining paragraph content
-        self._flush_paragraph(
-            paragraph_content, paragraph_bbox, paragraph_is_list, paragraph_list_type, page_num, nodes
-        )
-
-        # Finalize any remaining code block
-        if in_code_block and code_block_lines:
-            code_content = "\n".join(code_block_lines)
-            nodes.append(
-                CodeBlock(content=code_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
+            # Regular paragraph text
+            self._accumulate_paragraph_line(
+                line, spans, links, vertical_gap, paragraph_break_threshold, state, page_num, average_line_height
             )
 
-        return nodes
+        # Finalize remaining content
+        self._flush_state_paragraph(state, page_num)
+        if state.in_code_block:
+            self._finalize_code_block(state, page_num)
+
+        return state.nodes
 
     def _resolve_link_for_span(
         self, links: list[dict], span: dict, average_line_height: float | None = None

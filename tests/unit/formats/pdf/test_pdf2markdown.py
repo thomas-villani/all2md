@@ -13,6 +13,8 @@ import pytest
 
 import all2md.parsers.pdf as pdf_parser
 from all2md.options import PdfOptions
+from all2md.parsers._pdf_columns import _simple_kmeans_1d
+from all2md.parsers._pdf_text import resolve_links
 
 
 class FakePageIdent:
@@ -62,7 +64,7 @@ def test_identify_headers_mapping():
 def test_resolve_links_no_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": "X"}
     link = {"from": fitz.Rect(50, 50, 60, 60), "uri": "u"}  # Link is completely outside span
-    assert pdf_parser.resolve_links([link], span) is None
+    assert resolve_links([link], span) is None
 
 
 @pytest.mark.unit
@@ -71,7 +73,7 @@ def test_resolve_links_partial_overlap():
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for more info"}
     link = {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://example.com"}
     # Link covers 50% of span, use 50% threshold so it's detected
-    result = pdf_parser.resolve_links([link], span, overlap_threshold=50.0)
+    result = resolve_links([link], span, overlap_threshold=50.0)
     assert result is not None
     assert "[Click here]" in result or "http://example.com" in result
 
@@ -85,7 +87,7 @@ def test_resolve_links_multiple_links():
         {"from": fitz.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
     ]
     # Each link covers 25% of span, use 20% threshold so both are detected
-    result = pdf_parser.resolve_links(links, span, overlap_threshold=20.0)
+    result = resolve_links(links, span, overlap_threshold=20.0)
     assert result is not None
     # Should contain both links
     assert "link1.com" in result
@@ -211,7 +213,7 @@ def test_image_extraction_options():
 def test_resolve_links_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": " click "}
     link = {"from": fitz.Rect(0, 0, 10, 10), "uri": "http://test"}
-    res = pdf_parser.resolve_links([link], span)
+    res = resolve_links([link], span)
     assert res == "[click](http://test)"
 
 
@@ -228,11 +230,11 @@ def test_link_overlap_threshold_high():
     link = {"from": fitz.Rect(0, 0, 40, 10), "uri": "http://example.com"}
 
     # With 90% threshold, should NOT detect link
-    result = pdf_parser.resolve_links([link], span, overlap_threshold=90.0)
+    result = resolve_links([link], span, overlap_threshold=90.0)
     assert result is None or "http://example.com" not in result
 
     # With 30% threshold, should detect link
-    result = pdf_parser.resolve_links([link], span, overlap_threshold=30.0)
+    result = resolve_links([link], span, overlap_threshold=30.0)
     assert result is not None
     assert "http://example.com" in result
 
@@ -267,11 +269,11 @@ def test_link_overlap_multiple_links_threshold():
     ]
 
     # With 50% threshold, neither link should be detected (each is only 25%)
-    result = pdf_parser.resolve_links(links, span, overlap_threshold=50.0)
+    result = resolve_links(links, span, overlap_threshold=50.0)
     assert result is None or ("link1.com" not in result and "link2.com" not in result)
 
     # With 20% threshold, both links should be detected
-    result = pdf_parser.resolve_links(links, span, overlap_threshold=20.0)
+    result = resolve_links(links, span, overlap_threshold=20.0)
     assert result is not None
     assert "link1.com" in result
     assert "link2.com" in result
@@ -397,7 +399,7 @@ def test_simple_kmeans_1d():
     """Test simple k-means clustering implementation."""
     # Test with clear two-cluster data
     values = [10.0, 12.0, 11.0, 100.0, 102.0, 101.0]  # Two clear clusters
-    assignments = pdf_parser._simple_kmeans_1d(values, k=2)
+    assignments = _simple_kmeans_1d(values, k=2)
 
     # Should assign first 3 values to one cluster, last 3 to another
     assert len(assignments) == 6
@@ -412,15 +414,15 @@ def test_simple_kmeans_edge_cases():
     """Test k-means edge cases."""
     # Test with k=1
     values = [10.0, 20.0, 30.0]
-    assignments = pdf_parser._simple_kmeans_1d(values, k=1)
+    assignments = _simple_kmeans_1d(values, k=1)
     assert all(a == 0 for a in assignments)  # All in one cluster
 
     # Test with empty values
-    assignments = pdf_parser._simple_kmeans_1d([], k=2)
+    assignments = _simple_kmeans_1d([], k=2)
     assert assignments == []
 
     # Test with fewer values than k
     values = [10.0, 20.0]
-    assignments = pdf_parser._simple_kmeans_1d(values, k=5)
+    assignments = _simple_kmeans_1d(values, k=5)
     # Should handle gracefully
     assert len(assignments) == 2

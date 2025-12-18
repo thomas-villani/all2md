@@ -18,7 +18,7 @@ wheels = [
 
 [[package]]
 name = "all2md"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
@@ -87,6 +87,7 @@ dev = [
     { name = "html5lib" },
     { name = "httpx" },
     { name = "hypothesis" },
+    { name = "interrogate" },
     { name = "jinja2" },
     { name = "langdetect" },
     { name = "mistune" },
@@ -108,6 +109,7 @@ dev = [
     { name = "python-docx" },
     { name = "python-pptx" },
     { name = "pyyaml" },
+    { name = "radon" },
     { name = "rank-bm25" },
     { name = "rarfile" },
     { name = "readability-lxml" },
@@ -126,6 +128,7 @@ dev = [
     { name = "types-pillow" },
     { name = "types-pyyaml" },
     { name = "types-reportlab" },
+    { name = "vulture" },
     { name = "watchdog" },
 ]
 docx = [
@@ -260,6 +263,7 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'html'", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'http'", specifier = ">=0.28.1" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100.0" },
+    { name = "interrogate", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "jinja2", marker = "extra == 'all'", specifier = ">=3.1.0" },
     { name = "jinja2", marker = "extra == 'templates'", specifier = ">=3.1.0" },
     { name = "langdetect", marker = "extra == 'all'", specifier = ">=1.0.9" },
@@ -300,6 +304,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'openapi'", specifier = ">=6.0" },
+    { name = "radon", marker = "extra == 'dev'", specifier = ">=6.0.1" },
     { name = "rank-bm25", marker = "extra == 'all'", specifier = ">=0.2.2" },
     { name = "rank-bm25", marker = "extra == 'search'", specifier = ">=0.2.2" },
     { name = "rarfile", marker = "extra == 'all'", specifier = ">=4.2" },
@@ -330,6 +335,7 @@ requires-dist = [
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12.20250915" },
     { name = "types-reportlab", marker = "extra == 'dev'" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.0.0" },
+    { name = "vulture", marker = "extra == 'dev'", specifier = ">=2.14" },
     { name = "watchdog", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "watchdog", marker = "extra == 'cli-extras'", specifier = ">=4.0.0" },
 ]
@@ -1390,6 +1396,23 @@ wheels = [
 ]
 
 [[package]]
+name = "interrogate"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "click" },
+    { name = "colorama" },
+    { name = "py" },
+    { name = "tabulate" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/22/74f7fcc96280eea46cf2bcbfa1354ac31de0e60a4be6f7966f12cef20893/interrogate-1.7.0.tar.gz", hash = "sha256:a320d6ec644dfd887cc58247a345054fc4d9f981100c45184470068f4b3719b0", size = 159636 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/c9/6869a1dcf4aaf309b9543ec070be3ec3adebee7c9bec9af8c230494134b9/interrogate-1.7.0-py3-none-any.whl", hash = "sha256:b13ff4dd8403369670e2efe684066de9fcb868ad9d7f2b4095d8112142dc9d12", size = 46982 },
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1567,6 +1590,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d9/cb/c9c5bb2a9c47292e236a808dd233a03531f53b626f36259dcd32b49c76da/lxml_html_clean-0.4.3.tar.gz", hash = "sha256:c9df91925b00f836c807beab127aac82575110eacff54d0a75187914f1bd9d8c", size = 21498 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/4a/63a9540e3ca73709f4200564a737d63a4c8c9c4dd032bab8535f507c190a/lxml_html_clean-0.4.3-py3-none-any.whl", hash = "sha256:63fd7b0b9c3a2e4176611c2ca5d61c4c07ffca2de76c14059a81a2825833731e", size = 14177 },
+]
+
+[[package]]
+name = "mando"
+version = "0.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/24/cd70d5ae6d35962be752feccb7dca80b5e0c2d450e995b16abd6275f3296/mando-0.7.1.tar.gz", hash = "sha256:18baa999b4b613faefb00eac4efadcf14f510b59b924b66e08289aa1de8c3500", size = 37868 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/f0/834e479e47e499b6478e807fb57b31cc2db696c4db30557bb6f5aea4a90b/mando-0.7.1-py2.py3-none-any.whl", hash = "sha256:26ef1d70928b6057ee3ca12583d73c63e05c49de8972d620c278a7b206581a8a", size = 28149 },
 ]
 
 [[package]]
@@ -2458,6 +2493,15 @@ wheels = [
 ]
 
 [[package]]
+name = "py"
+version = "1.11.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/98/ff/fec109ceb715d2a6b4c4a85a61af3b40c723a961e8828319fbcb15b868dc/py-1.11.0.tar.gz", hash = "sha256:51c75c4126074b472f746a24399ad32f6053d1b34b68d2fa41e558e6f4a98719", size = 207796 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/f0/10642828a8dfb741e5f3fbaac830550a518a775c7fff6f04a007259b0548/py-1.11.0-py2.py3-none-any.whl", hash = "sha256:607c53218732647dff4acdfcd50cb62615cedf612e72d1724fb1a0cc6405b378", size = 98708 },
+]
+
+[[package]]
 name = "py7zr"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3030,6 +3074,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a1/b1/179601c6972cea615af936de9ba8225be9d53c2cfd0a2a7ceacf32a22857/pyzstd-0.18.0-pp311-pypy311_pp73-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:571c5f71622943387370f76de8cc0de3d5c6217ab0f38386cb127665e4e09275", size = 338432 },
     { url = "https://files.pythonhosted.org/packages/b8/57/067cf55f86a4baf8cd9e91f7e9596038cabc2b296ac3e0f9be14310c435f/pyzstd-0.18.0-pp311-pypy311_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:de0b730f374b583894d58b79cff76569540baf1e84bc493be191d3128b58e559", size = 358419 },
     { url = "https://files.pythonhosted.org/packages/49/88/53d1ec8c639305fb96944b3a1e7f60b6e6af80781d970036c3cf2d6d2316/pyzstd-0.18.0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:b32184013f33dba2fabcdda89f2a83289f5b717a0c2477cda764e53fdafec7ee", size = 244902 },
+]
+
+[[package]]
+name = "radon"
+version = "6.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama" },
+    { name = "mando" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/6d/98e61600febf6bd929cf04154537c39dc577ce414bafbfc24a286c4fa76d/radon-6.0.1.tar.gz", hash = "sha256:d1ac0053943a893878940fedc8b19ace70386fc9c9bf0a09229a44125ebf45b5", size = 1874992 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/93/f7/d00d9b4a0313a6be3a3e0818e6375e15da6d7076f4ae47d1324e7ca986a1/radon-6.0.1-py2.py3-none-any.whl", hash = "sha256:632cc032364a6f8bb1010a2f6a12d0f14bc7e5ede76585ef29dc0cecf4cd8859", size = 52784 },
 ]
 
 [[package]]
@@ -3730,6 +3787,15 @@ wheels = [
 ]
 
 [[package]]
+name = "tabulate"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/fe/802052aecb21e3797b8f7902564ab6ea0d60ff8ca23952079064155d1ae1/tabulate-0.9.0.tar.gz", hash = "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c", size = 81090 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/40/44/4a5f08c96eb108af5cb50b41f76142f0afa346dfa99d5296fe7202a11854/tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f", size = 35252 },
+]
+
+[[package]]
 name = "textile"
 version = "4.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -4084,6 +4150,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a4/d5/b0ccd381d55c8f45d46f77df6ae59fbc23d19e901e2d523395598e5f4c93/virtualenv-20.35.3.tar.gz", hash = "sha256:4f1a845d131133bdff10590489610c98c168ff99dc75d6c96853801f7f67af44", size = 6002907 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/27/73/d9a94da0e9d470a543c1b9d3ccbceb0f59455983088e727b8a1824ed90fb/virtualenv-20.35.3-py3-none-any.whl", hash = "sha256:63d106565078d8c8d0b206d48080f938a8b25361e19432d2c9db40d2899c810a", size = 5981061 },
+]
+
+[[package]]
+name = "vulture"
+version = "2.14"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8e/25/925f35db758a0f9199113aaf61d703de891676b082bd7cf73ea01d6000f7/vulture-2.14.tar.gz", hash = "sha256:cb8277902a1138deeab796ec5bef7076a6e0248ca3607a3f3dee0b6d9e9b8415", size = 58823 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/56/0cc15b8ff2613c1d5c3dc1f3f576ede1c43868c1bc2e5ccaa2d4bcd7974d/vulture-2.14-py2.py3-none-any.whl", hash = "sha256:d9a90dba89607489548a49d557f8bac8112bd25d3cbc8aeef23e860811bd5ed9", size = 28915 },
 ]
 
 [[package]]

@@ -755,3 +755,555 @@ class TestTableLimitations:
         # Should render inline formatting within cells
         assert "*emphasis*" in rst
         assert "``code``" in rst
+
+
+@pytest.mark.unit
+class TestMathRendering:
+    """Tests for math rendering."""
+
+    def test_math_inline(self) -> None:
+        """Test rendering inline math."""
+        from all2md.ast import MathInline
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="The equation "),
+                        MathInline(content="E = mc^2"),
+                        Text(content=" is famous."),
+                    ]
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":math:`E = mc^2`" in rst
+
+    def test_math_block(self) -> None:
+        """Test rendering math block."""
+        from all2md.ast import MathBlock
+
+        doc = Document(
+            children=[
+                MathBlock(content="\\int_0^\\infty e^{-x} dx = 1"),
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ".. math::" in rst
+        assert "\\int_0^\\infty e^{-x} dx = 1" in rst
+
+
+@pytest.mark.unit
+class TestFootnoteRendering:
+    """Tests for footnote rendering."""
+
+    def test_footnote_reference(self) -> None:
+        """Test rendering footnote reference."""
+        from all2md.ast import FootnoteReference
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text with footnote"),
+                        FootnoteReference(identifier="1"),
+                        Text(content="."),
+                    ]
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Uses [id]_ format
+        assert "[1]_" in rst
+
+    def test_footnote_definition(self) -> None:
+        """Test rendering footnote definition."""
+        from all2md.ast import FootnoteDefinition
+
+        doc = Document(
+            children=[
+                FootnoteDefinition(
+                    identifier="1",
+                    content=[Paragraph(content=[Text(content="Footnote content")])],
+                ),
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # Uses .. [id] format
+        assert ".. [1]" in rst
+        assert "Footnote content" in rst
+
+
+@pytest.mark.unit
+class TestCommentRendering:
+    """Tests for comment rendering modes."""
+
+    def test_comment_rst_mode(self) -> None:
+        """Test comment in RST native mode."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Comment(content="This is a comment"),
+            ]
+        )
+        options = RstRendererOptions(comment_mode="rst")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        # RST mode uses .. directive format with indented content
+        assert ".." in rst
+        assert "This is a comment" in rst
+
+    def test_comment_visible_mode(self) -> None:
+        """Test comment in visible mode."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Comment(content="Visible comment"),
+            ]
+        )
+        options = RstRendererOptions(comment_mode="visible")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        assert "Visible comment" in rst
+
+    def test_comment_ignore_mode(self) -> None:
+        """Test comment in ignore mode."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Comment(content="Ignored comment"),
+            ]
+        )
+        options = RstRendererOptions(comment_mode="ignore")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        assert "Ignored comment" not in rst
+
+    def test_comment_with_metadata(self) -> None:
+        """Test comment with author metadata."""
+        from all2md.ast import Comment
+
+        doc = Document(
+            children=[
+                Comment(
+                    content="Comment with author",
+                    metadata={"author": "John", "date": "2025-01-01"},
+                ),
+            ]
+        )
+        options = RstRendererOptions(comment_mode="visible")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        assert "Comment with author" in rst
+
+    def test_inline_comment(self) -> None:
+        """Test inline comment rendering."""
+        from all2md.ast import CommentInline
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        CommentInline(content="inline note"),
+                        Text(content=" more text."),
+                    ]
+                )
+            ]
+        )
+        options = RstRendererOptions(comment_mode="visible")
+        renderer = RestructuredTextRenderer(options)
+        rst = renderer.render_to_string(doc)
+
+        # Inline comments should appear in visible mode
+        assert "inline note" in rst
+
+
+@pytest.mark.unit
+class TestHTMLHandling:
+    """Tests for HTML node handling."""
+
+    def test_html_inline_rendered(self) -> None:
+        """Test that inline HTML is passed through."""
+        from all2md.ast import HTMLInline
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        HTMLInline(content="<span>inline</span>"),
+                        Text(content=" more."),
+                    ]
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # HTML is passed through in RST
+        assert "Text" in rst
+        assert "more" in rst
+
+    def test_html_block_rendered(self) -> None:
+        """Test that HTML blocks are passed through."""
+        from all2md.ast import HTMLBlock
+
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Before")]),
+                HTMLBlock(content="<div>HTML content</div>"),
+                Paragraph(content=[Text(content="After")]),
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        # HTML blocks are passed through
+        assert "Before" in rst
+        assert "After" in rst
+
+
+@pytest.mark.unit
+class TestFileOutput:
+    """Tests for file output functionality."""
+
+    def test_render_to_file_path(self, tmp_path) -> None:
+        """Test rendering to file path string."""
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
+        output_file = tmp_path / "output.rst"
+
+        renderer = RestructuredTextRenderer()
+        renderer.render(doc, str(output_file))
+
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "Title" in content
+        assert "=====" in content
+
+    def test_render_to_path_object(self, tmp_path) -> None:
+        """Test rendering to Path object."""
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])])
+        output_file = tmp_path / "output.rst"
+
+        renderer = RestructuredTextRenderer()
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+    def test_render_to_text_stream(self) -> None:
+        """Test rendering to text stream."""
+        from io import StringIO
+
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])])
+        output = StringIO()
+
+        renderer = RestructuredTextRenderer()
+        renderer.render(doc, output)
+
+        result = output.getvalue()
+        assert "Content" in result
+
+    def test_render_to_bytes(self) -> None:
+        """Test render_to_bytes method."""
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
+        renderer = RestructuredTextRenderer()
+        result = renderer.render_to_bytes(doc)
+
+        assert isinstance(result, bytes)
+        assert b"Title" in result
+
+
+@pytest.mark.unit
+class TestNestedContent:
+    """Tests for nested content rendering."""
+
+    def test_nested_lists(self) -> None:
+        """Test rendering nested lists."""
+        inner_list = List(
+            ordered=False,
+            items=[
+                ListItem(children=[Paragraph(content=[Text(content="Inner 1")])]),
+                ListItem(children=[Paragraph(content=[Text(content="Inner 2")])]),
+            ],
+        )
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Outer 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Outer 2")]), inner_list]),
+                    ],
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "* Outer 1" in rst
+        assert "Inner 1" in rst
+        assert "Inner 2" in rst
+
+    def test_nested_ordered_lists(self) -> None:
+        """Test rendering nested ordered lists."""
+        inner_list = List(
+            ordered=True,
+            items=[
+                ListItem(children=[Paragraph(content=[Text(content="a")])]),
+                ListItem(children=[Paragraph(content=[Text(content="b")])]),
+            ],
+        )
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="2")]), inner_list]),
+                    ],
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "1. 1" in rst
+        assert "2. 2" in rst
+        assert "1. a" in rst
+
+    def test_nested_block_quotes(self) -> None:
+        """Test rendering nested block quotes."""
+        doc = Document(
+            children=[
+                BlockQuote(
+                    children=[
+                        Paragraph(content=[Text(content="Outer quote")]),
+                        BlockQuote(children=[Paragraph(content=[Text(content="Inner quote")])]),
+                    ]
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "Outer quote" in rst
+        assert "Inner quote" in rst
+
+
+@pytest.mark.unit
+class TestExtendedMetadata:
+    """Tests for extended metadata rendering."""
+
+    def test_metadata_with_title(self) -> None:
+        """Test metadata with title field."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"title": "Document Title"},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Title: Document Title" in rst
+
+    def test_metadata_with_source(self) -> None:
+        """Test metadata with source field."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"source": "https://example.com"},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Source: https://example.com" in rst
+
+    def test_metadata_with_modification_date(self) -> None:
+        """Test metadata with modification date."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"modification_date": "2025-12-01"},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Updated: 2025-12-01" in rst
+
+    def test_metadata_with_keywords_list(self) -> None:
+        """Test metadata with keywords as list."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"keywords": ["python", "rst", "docs"]},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Keywords: python, rst, docs" in rst
+
+    def test_metadata_with_language(self) -> None:
+        """Test metadata with language field."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"language": "en"},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Language: en" in rst
+
+    def test_metadata_with_category(self) -> None:
+        """Test metadata with category field."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"category": "Documentation"},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Category: Documentation" in rst
+
+    def test_metadata_with_custom_fields(self) -> None:
+        """Test metadata with custom fields."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Content")])],
+            metadata={"custom": {"version": "1.0", "status": "draft"}},
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert ":Version: 1.0" in rst
+        assert ":Status: draft" in rst
+
+
+@pytest.mark.unit
+class TestOptionsValidation:
+    """Tests for options validation."""
+
+    def test_invalid_options_type(self) -> None:
+        """Test that invalid options type raises error."""
+        from all2md.exceptions import InvalidOptionsError
+
+        with pytest.raises(InvalidOptionsError):
+            RestructuredTextRenderer(options="invalid")
+
+    def test_valid_options(self) -> None:
+        """Test valid options are accepted."""
+        options = RstRendererOptions(
+            heading_chars="=-~^",
+            table_style="simple",
+            code_directive_style="double_colon",
+        )
+        renderer = RestructuredTextRenderer(options)
+        doc = Document(children=[Paragraph(content=[Text(content="Test")])])
+        rst = renderer.render_to_string(doc)
+
+        assert "Test" in rst
+
+
+@pytest.mark.unit
+class TestEdgeCases:
+    """Tests for edge cases."""
+
+    def test_empty_document(self) -> None:
+        """Test rendering empty document."""
+        doc = Document(children=[])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert isinstance(rst, str)
+
+    def test_empty_paragraph(self) -> None:
+        """Test rendering empty paragraph."""
+        doc = Document(children=[Paragraph(content=[])])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert isinstance(rst, str)
+
+    def test_deeply_nested_formatting(self) -> None:
+        """Test deeply nested inline formatting."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Strong(
+                            content=[
+                                Text(content="Bold with "),
+                                Emphasis(content=[Text(content="italic inside")]),
+                            ]
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "**Bold with" in rst or "Bold with" in rst
+
+    def test_special_unicode_characters(self) -> None:
+        """Test rendering special unicode characters."""
+        doc = Document(children=[Paragraph(content=[Text(content="Unicode: \u00e9\u00f1\u00fc \u4e2d\u6587")])])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "\u00e9" in rst
+        assert "\u4e2d\u6587" in rst
+
+    def test_very_long_line(self) -> None:
+        """Test rendering very long line."""
+        long_text = "This is a very long sentence. " * 50
+        doc = Document(children=[Paragraph(content=[Text(content=long_text)])])
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "This is a very long sentence" in rst
+
+    def test_mixed_content_document(self) -> None:
+        """Test rendering document with mixed content types."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(
+                    content=[
+                        Text(content="Normal "),
+                        Strong(content=[Text(content="bold")]),
+                        Text(content=" "),
+                        Emphasis(content=[Text(content="italic")]),
+                        Text(content=" "),
+                        Code(content="code"),
+                    ]
+                ),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item")])]),
+                    ],
+                ),
+                CodeBlock(content="print('hello')", language="python"),
+                ThematicBreak(),
+            ]
+        )
+        renderer = RestructuredTextRenderer()
+        rst = renderer.render_to_string(doc)
+
+        assert "Title" in rst
+        assert "**bold**" in rst
+        assert "*italic*" in rst
+        assert "``code``" in rst
+        assert "* Item" in rst
+        assert "----" in rst

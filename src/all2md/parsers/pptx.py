@@ -327,54 +327,42 @@ class PptxToAstConverter(BaseParser):
         # For other shapes, skip or handle as needed
         return None
 
-    def _process_chart_to_ast(self, chart: Any) -> Node | list[Node] | None:
-        """Process a PPTX chart to AST Table node.
-
-        Parameters
-        ----------
-        chart : Chart
-            PPTX chart to convert
-
-        Returns
-        -------
-        AstTable or None
-            Table node representing chart data
-
-        """
-        from pptx.enum.chart import XL_CHART_TYPE
-
-        try:
-            chart_type = chart.chart_type
-        except Exception:
-            chart_type = None
-
-        is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER if chart_type is not None else False
-        mode = self.options.charts_mode.lower()
-
+    def _process_scatter_chart_mode(self, chart: Any, mode: str) -> tuple[AstTable | None, str | None]:
+        """Process scatter chart and return table/mermaid based on mode."""
+        scatter_data = self._extract_scatter_chart_data(chart)
         table_node: AstTable | None = None
         mermaid_code: str | None = None
 
-        if is_scatter:
-            scatter_data = self._extract_scatter_chart_data(chart)
-            if mode in {"data", "both"}:
-                table_node = self._scatter_data_to_table(scatter_data)
-            if mode in {"mermaid", "both"}:
-                mermaid_code = self._scatter_chart_to_mermaid(chart, scatter_data)
-            if mode == "data" and table_node is None:
-                table_node = self._scatter_data_to_table(scatter_data)
-        else:
-            categories, series_rows = self._extract_standard_chart_data(chart)
-            if mode in {"data", "both"}:
-                table_node = self._standard_data_to_table(categories, series_rows)
-            if mode in {"mermaid", "both"}:
-                mermaid_code = self._standard_chart_to_mermaid(chart, chart_type, categories, series_rows)
-            if mode == "data" and table_node is None:
-                table_node = self._standard_data_to_table(categories, series_rows)
+        if mode in {"data", "both"}:
+            table_node = self._scatter_data_to_table(scatter_data)
+        if mode in {"mermaid", "both"}:
+            mermaid_code = self._scatter_chart_to_mermaid(chart, scatter_data)
+        if mode == "data" and table_node is None:
+            table_node = self._scatter_data_to_table(scatter_data)
 
-        mermaid_node: CodeBlock | None = None
-        if mermaid_code:
-            mermaid_node = CodeBlock(content=mermaid_code, language="mermaid")
+        return table_node, mermaid_code
 
+    def _process_standard_chart_mode(
+        self, chart: Any, chart_type: Any, mode: str
+    ) -> tuple[AstTable | None, str | None]:
+        """Process standard chart and return table/mermaid based on mode."""
+        categories, series_rows = self._extract_standard_chart_data(chart)
+        table_node: AstTable | None = None
+        mermaid_code: str | None = None
+
+        if mode in {"data", "both"}:
+            table_node = self._standard_data_to_table(categories, series_rows)
+        if mode in {"mermaid", "both"}:
+            mermaid_code = self._standard_chart_to_mermaid(chart, chart_type, categories, series_rows)
+        if mode == "data" and table_node is None:
+            table_node = self._standard_data_to_table(categories, series_rows)
+
+        return table_node, mermaid_code
+
+    def _build_chart_output_nodes(
+        self, table_node: AstTable | None, mermaid_node: CodeBlock | None, mode: str
+    ) -> list[Node]:
+        """Build output nodes list based on mode and available representations."""
         output_nodes: list[Node] = []
 
         if table_node and mode in {"data", "both"}:
@@ -388,59 +376,86 @@ class PptxToAstConverter(BaseParser):
                 output_nodes.append(mermaid_node)
             elif table_node:
                 output_nodes.append(table_node)
-            else:
-                return None
 
-        if len(output_nodes) == 1:
-            return output_nodes[0]
         return output_nodes
+
+    def _process_chart_to_ast(self, chart: Any) -> Node | list[Node] | None:
+        """Process a PPTX chart to AST Table node."""
+        from pptx.enum.chart import XL_CHART_TYPE
+
+        try:
+            chart_type = chart.chart_type
+        except Exception:
+            chart_type = None
+
+        is_scatter = chart_type == XL_CHART_TYPE.XY_SCATTER if chart_type is not None else False
+        mode = self.options.charts_mode.lower()
+
+        if is_scatter:
+            table_node, mermaid_code = self._process_scatter_chart_mode(chart, mode)
+        else:
+            table_node, mermaid_code = self._process_standard_chart_mode(chart, chart_type, mode)
+
+        mermaid_node = CodeBlock(content=mermaid_code, language="mermaid") if mermaid_code else None
+        output_nodes = self._build_chart_output_nodes(table_node, mermaid_node, mode)
+
+        if not output_nodes:
+            return None
+        return output_nodes[0] if len(output_nodes) == 1 else output_nodes
+
+    _CHART_NS = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
+
+    def _extract_values_from_xml_cache(self, element: Any, value_ref_name: str) -> list[float]:
+        """Extract float values from XML numCache element."""
+        values: list[float] = []
+        val_ref = element.find(f".//c:{value_ref_name}", self._CHART_NS)
+        if val_ref is None:
+            return values
+
+        num_cache = val_ref.find(".//c:numCache", self._CHART_NS)
+        if num_cache is None:
+            return values
+
+        for pt in num_cache.findall(".//c:pt", self._CHART_NS):
+            v_element = pt.find("c:v", self._CHART_NS)
+            if v_element is not None and v_element.text:
+                try:
+                    values.append(float(v_element.text))
+                except ValueError:
+                    continue
+        return values
+
+    def _extract_scatter_series_data(self, series: Any) -> tuple[str, list[float], list[float]] | None:
+        """Extract X/Y data from a single scatter series."""
+        x_values: list[float] = []
+        y_values: list[float] = []
+
+        if hasattr(series, "_element"):
+            element = series._element
+            x_values = self._extract_values_from_xml_cache(element, "xVal")
+            y_values = self._extract_values_from_xml_cache(element, "yVal")
+
+        if x_values and y_values and len(x_values) == len(y_values):
+            return (series.name or "Series", x_values, y_values)
+
+        # Fallback to series.values if XML extraction failed
+        if hasattr(series, "values") and series.values:
+            y_values = [float(v) for v in series.values if v is not None]
+            if y_values:
+                x_values = list(range(len(y_values)))
+                return (series.name or "Series", x_values, y_values)
+
+        return None
 
     def _extract_scatter_chart_data(self, chart: Any) -> list[tuple[str, list[float], list[float]]]:
         data: list[tuple[str, list[float], list[float]]] = []
-
         for series in chart.series:
             try:
-                x_values: list[float] = []
-                y_values: list[float] = []
-
-                if hasattr(series, "_element"):
-                    element = series._element
-                    ns = {"c": "http://schemas.openxmlformats.org/drawingml/2006/chart"}
-
-                    x_val_ref = element.find(".//c:xVal", ns)
-                    if x_val_ref is not None:
-                        num_cache = x_val_ref.find(".//c:numCache", ns)
-                        if num_cache is not None:
-                            for pt in num_cache.findall(".//c:pt", ns):
-                                v_element = pt.find("c:v", ns)
-                                if v_element is not None and v_element.text:
-                                    try:
-                                        x_values.append(float(v_element.text))
-                                    except ValueError:
-                                        continue
-
-                    y_val_ref = element.find(".//c:yVal", ns)
-                    if y_val_ref is not None:
-                        num_cache = y_val_ref.find(".//c:numCache", ns)
-                        if num_cache is not None:
-                            for pt in num_cache.findall(".//c:pt", ns):
-                                v_element = pt.find("c:v", ns)
-                                if v_element is not None and v_element.text:
-                                    try:
-                                        y_values.append(float(v_element.text))
-                                    except ValueError:
-                                        continue
-
-                if x_values and y_values and len(x_values) == len(y_values):
-                    data.append((series.name or "Series", x_values, y_values))
-                elif hasattr(series, "values") and series.values:
-                    y_values = [float(v) for v in series.values if v is not None]
-                    if y_values:
-                        x_values = list(range(len(y_values)))
-                        data.append((series.name or "Series", x_values, y_values))
+                series_data = self._extract_scatter_series_data(series)
+                if series_data:
+                    data.append(series_data)
             except Exception:
                 continue
-
         return data
 
     def _process_scatter_chart_to_table(self, chart: Any) -> AstTable | None:
@@ -584,6 +599,35 @@ class PptxToAstConverter(BaseParser):
 
         return "\n".join(lines)
 
+    def _build_mermaid_x_labels(self, categories: list[str], max_cols: int) -> list[str]:
+        """Build x-axis labels for Mermaid chart."""
+        if categories and len(categories) == max_cols:
+            return [self._escape_mermaid_text(str(label)) for label in categories]
+        return [f"Col {i + 1}" for i in range(max_cols)]
+
+    def _collect_chart_numeric_values(self, series_rows: list[tuple[str, list[Any]]]) -> list[float]:
+        """Collect all numeric values from series rows for axis range calculation."""
+        numeric_values: list[float] = []
+        for _, values in series_rows:
+            for value in values:
+                numeric = self._coerce_float(value)
+                if numeric is not None:
+                    numeric_values.append(numeric)
+        return numeric_values
+
+    def _build_mermaid_series_lines(
+        self, series_rows: list[tuple[str, list[Any]]], mermaid_series_type: str, max_cols: int
+    ) -> list[str]:
+        """Build Mermaid series lines."""
+        lines: list[str] = []
+        for series_name, values in series_rows:
+            series_label = self._escape_mermaid_text(series_name)
+            formatted_values = [self._format_mermaid_number(val) for val in values]
+            if len(formatted_values) < max_cols:
+                formatted_values.extend(["null"] * (max_cols - len(formatted_values)))
+            lines.append(f'  {mermaid_series_type} "{series_label}" [{", ".join(formatted_values)}]')
+        return lines
+
     def _standard_chart_to_mermaid(
         self,
         chart: Any,
@@ -602,21 +646,8 @@ class PptxToAstConverter(BaseParser):
         if max_cols == 0:
             return None
 
-        if categories and len(categories) == max_cols:
-            x_labels = [self._escape_mermaid_text(str(label)) for label in categories]
-        else:
-            x_labels = [f"Col {i + 1}" for i in range(max_cols)]
-
-        numeric_values: list[float] = []
-        for _, values in series_rows:
-            for value in values:
-                numeric = self._coerce_float(value)
-                if numeric is not None:
-                    numeric_values.append(numeric)
-
-        y_axis_label = self._get_axis_title(getattr(chart, "value_axis", None)) or "Value"
-        y_min = min(numeric_values) if numeric_values else None
-        y_max = max(numeric_values) if numeric_values else None
+        x_labels = self._build_mermaid_x_labels(categories, max_cols)
+        numeric_values = self._collect_chart_numeric_values(series_rows)
 
         lines: list[str] = ["xychart-beta"]
         title = self._get_chart_title(chart)
@@ -626,20 +657,16 @@ class PptxToAstConverter(BaseParser):
         x_axis_list = ", ".join(f'"{label}"' for label in x_labels)
         lines.append(f"  x-axis [{x_axis_list}]")
 
+        y_axis_label = self._get_axis_title(getattr(chart, "value_axis", None)) or "Value"
+        y_min = min(numeric_values) if numeric_values else None
+        y_max = max(numeric_values) if numeric_values else None
         if y_min is not None and y_max is not None and y_min != y_max:
             lines.append(
                 f'  y-axis "{self._escape_mermaid_text(y_axis_label)}" '
                 f"{self._format_axis_value(y_min)} --> {self._format_axis_value(y_max)}"
             )
 
-        for series_name, values in series_rows:
-            series_label = self._escape_mermaid_text(series_name)
-            formatted_values = [self._format_mermaid_number(val) for val in values]
-            # Pad values to match axis length
-            if len(formatted_values) < max_cols:
-                formatted_values.extend(["null"] * (max_cols - len(formatted_values)))
-            lines.append(f'  {mermaid_series_type} "{series_label}" [{", ".join(formatted_values)}]')
-
+        lines.extend(self._build_mermaid_series_lines(series_rows, mermaid_series_type, max_cols))
         return "\n".join(lines)
 
     @staticmethod
@@ -1453,29 +1480,59 @@ def _detect_list_formatting_xml(paragraph: Any) -> tuple[str | None, str | None]
     return None, None
 
 
+def _detect_list_from_level(paragraph: Any, slide_context: dict | None) -> tuple[bool, str] | None:
+    """Detect list from paragraph indentation level."""
+    if not hasattr(paragraph, "level") or paragraph.level is None:
+        return None
+
+    level = paragraph.level
+    if level > 0:
+        if slide_context and slide_context.get("has_numbered_list", False):
+            return True, "number"
+        return True, "bullet"
+    return None
+
+
+def _detect_list_from_text_pattern(text: str) -> tuple[bool, str] | None:
+    """Check for explicit numbered list patterns in text."""
+    if re.match(r"^\d+[\.\)]\s", text):
+        return True, "number"
+    return None
+
+
+def _detect_list_from_context(text: str, slide_context: dict | None) -> tuple[bool, str] | None:
+    """Detect numbered list based on slide context and keywords."""
+    if not slide_context or not slide_context.get("has_numbered_list", False):
+        return None
+
+    text_lower = text.lower()
+    if any(kw in text_lower for kw in ("item", "first", "second", "third")):
+        return True, "number"
+    return None
+
+
+def _detect_list_from_heuristics(text: str) -> tuple[bool, str] | None:
+    """Use heuristics for bullet lists - shorter text that doesn't look like a title/header."""
+    words = text.split()
+    if len(words) > 8 or text.endswith((".", "!", "?", ":")):
+        return None
+
+    # Avoid false positives for titles/headers
+    if text.lower().startswith(("slide", "title", "chapter")):
+        return None
+    if len(words) <= 3 and text.istitle():
+        return None
+
+    return True, "bullet"
+
+
 def _detect_list_item(paragraph: Any, slide_context: dict | None = None, strict_mode: bool = False) -> tuple[bool, str]:
     """Detect if a paragraph is a list item and determine the list type.
 
     Uses XML-based detection first, then falls back to heuristics unless strict_mode is enabled.
-
-    Parameters
-    ----------
-    paragraph : Any
-        The paragraph object to analyze
-    slide_context : dict, optional
-        Context about the slide to help with detection
-    strict_mode : bool, default False
-        If True, only use XML-based detection (no heuristics).
-        If False, use XML detection with heuristic fallbacks.
-
-    Returns
-    -------
-    tuple[bool, str]
-        (is_list_item, list_type) where list_type is "bullet" or "number"
-
     """
-    # First try XML-based detection for proper list formatting
-    xml_list_type, xml_list_style = _detect_list_formatting_xml(paragraph)
+    # First try XML-based detection
+    xml_list_type, _ = _detect_list_formatting_xml(paragraph)
     if xml_list_type:
         return True, xml_list_type
 
@@ -1483,40 +1540,30 @@ def _detect_list_item(paragraph: Any, slide_context: dict | None = None, strict_
     if strict_mode:
         return False, "bullet"
 
-    # Fall back to level-based detection
-    if not hasattr(paragraph, "level") or paragraph.level is None:
-        return False, "bullet"
+    # Try level-based detection
+    result = _detect_list_from_level(paragraph, slide_context)
+    if result:
+        return result
 
-    level = paragraph.level
-    if level > 0:
-        # Use slide context to help determine list type for indented items
-        if slide_context and slide_context.get("has_numbered_list", False):
-            return True, "number"
-        return True, "bullet"
-
-    # For level 0, use heuristics as last resort
+    # For level 0 or no level, try text-based heuristics
     text = paragraph.text.strip() if hasattr(paragraph, "text") else ""
     if not text:
         return False, "bullet"
 
-    # Check for explicit numbered list patterns in text
-    if re.match(r"^\d+[\.\)]\s", text):
-        return True, "number"
+    # Try explicit numbered pattern
+    result = _detect_list_from_text_pattern(text)
+    if result:
+        return result
 
-    # Check if this looks like a numbered list item based on context
-    if (
-        slide_context
-        and slide_context.get("has_numbered_list", False)
-        and ("item" in text.lower() or "first" in text.lower() or "second" in text.lower() or "third" in text.lower())
-    ):
-        return True, "number"
+    # Try context-based detection
+    result = _detect_list_from_context(text, slide_context)
+    if result:
+        return result
 
-    # Use heuristics for bullet lists - shorter text that doesn't look like a title/header
-    words = text.split()
-    if len(words) <= 8 and not text.endswith((".", "!", "?", ":")):
-        # Additional checks to avoid false positives
-        if not (text.lower().startswith(("slide", "title", "chapter")) or len(words) <= 3 and text.istitle()):
-            return True, "bullet"
+    # Try heuristic-based detection
+    result = _detect_list_from_heuristics(text)
+    if result:
+        return result
 
     return False, "bullet"
 

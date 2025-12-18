@@ -9,7 +9,6 @@ function to improve maintainability and testability.
 import argparse
 import json
 import logging
-import mimetypes
 import os
 import platform
 import pydoc
@@ -21,8 +20,11 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 from all2md.api import convert, from_ast, to_ast, to_markdown
 from all2md.ast.nodes import Document, Heading, Node, Text, ThematicBreak
 from all2md.ast.nodes import Document as ASTDocument
+
+# Import detection/dry-run functions from submodule
+from all2md.cli._processors_detect import process_detect_only
+from all2md.cli._processors_detect import process_dry_run as _process_dry_run_impl
 from all2md.cli.builder import (
-    EXIT_DEPENDENCY_ERROR,
     EXIT_ERROR,
     EXIT_INPUT_ERROR,
     EXIT_SUCCESS,
@@ -36,12 +38,11 @@ from all2md.cli.packaging import create_package_from_conversions
 from all2md.cli.presets import apply_preset
 from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
 from all2md.constants import DocumentFormat
-from all2md.converter_registry import check_package_installed, registry
+from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
 from all2md.transforms import AddHeadingIdsTransform, GenerateTocTransform
 from all2md.transforms import transform_registry as transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
-from all2md.utils.packages import check_version_requirement
 
 logger = logging.getLogger(__name__)
 
@@ -822,7 +823,13 @@ def process_multi_file(
         return process_detect_only(items, parsed_args, format_arg)
 
     if parsed_args.dry_run:
-        return process_dry_run(items, parsed_args, format_arg)
+        return _process_dry_run_impl(
+            items,
+            parsed_args,
+            format_arg,
+            _compute_base_input_dir,
+            _generate_output_path_for_item,
+        )
 
     # If --zip is specified, skip disk writes and package directly to zip
     if parsed_args.zip:
@@ -974,6 +981,62 @@ def merge_exclusion_patterns_from_json(parsed_args: argparse.Namespace, json_opt
     return None
 
 
+def _is_stdin_path(list_path: Path | str) -> bool:
+    """Check if the path represents stdin."""
+    return list_path == "-" or str(list_path) == "-"
+
+
+def _read_merge_list_content(list_path: Path | str) -> Tuple[List[str], Path]:
+    """Read merge list content from file or stdin.
+
+    Returns tuple of (lines, base_directory).
+    """
+    if _is_stdin_path(list_path):
+        return sys.stdin.readlines(), Path.cwd()
+
+    list_path = Path(list_path)
+    if not list_path.exists():
+        raise argparse.ArgumentTypeError(f"Merge list file does not exist: {list_path}")
+
+    with open(list_path, "r", encoding="utf-8") as f:
+        return f.readlines(), list_path.parent
+
+
+def _parse_merge_entry(
+    line: str, line_num: int, separator: str, list_dir: Path
+) -> Optional[Tuple[Path, Optional[str]]]:
+    """Parse a single merge list entry. Returns None for skipped lines."""
+    line = line.strip()
+
+    # Skip comments and blank lines
+    if not line or line.startswith("#"):
+        return None
+
+    parts = line.split(separator, 1)
+    file_path_str = parts[0].strip()
+
+    if not file_path_str:
+        return None
+
+    # Get section title if provided
+    section_title = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
+    if section_title and section_title.startswith("#"):
+        section_title = None
+
+    # Resolve file path
+    file_path = Path(file_path_str)
+    if not file_path.is_absolute():
+        file_path = list_dir / file_path
+
+    # Validate file exists
+    if not file_path.exists():
+        raise argparse.ArgumentTypeError(
+            f"File not found in merge list (line {line_num}): {file_path_str}\nResolved path: {file_path}"
+        )
+
+    return (file_path, section_title)
+
+
 def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple[Path, Optional[str]]]:
     r"""Parse merge list file and return file paths with optional section titles.
 
@@ -1028,64 +1091,16 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
     """
     try:
-        # Check if reading from stdin
-        if list_path == "-" or str(list_path) == "-":
-            # Read from stdin
-            lines = sys.stdin.readlines()
-            # Resolve paths relative to current working directory
-            list_dir = Path.cwd()
-        else:
-            # Read from file
-            list_path = Path(list_path)
-            if not list_path.exists():
-                raise argparse.ArgumentTypeError(f"Merge list file does not exist: {list_path}")
+        lines, list_dir = _read_merge_list_content(list_path)
 
-            with open(list_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            # Resolve paths relative to list file directory
-            list_dir = list_path.parent
-
-        # Parse entries
         entries: List[Tuple[Path, Optional[str]]] = []
-
         for line_num, line in enumerate(lines, 1):
-            # Strip whitespace
-            line = line.strip()
-
-            # Skip comments and blank lines
-            if not line or line.startswith("#"):
-                continue
-
-            # Split by separator
-            parts = line.split(separator, 1)
-            file_path_str = parts[0].strip()
-
-            # Get section title if provided
-            section_title = parts[1].strip() if len(parts) > 1 and parts[1].strip() else None
-
-            # Skip if second part is a comment
-            if section_title and section_title.startswith("#"):
-                section_title = None
-
-            # Resolve file path (relative to list file directory)
-            if not file_path_str:
-                continue
-
-            file_path = Path(file_path_str)
-            if not file_path.is_absolute():
-                file_path = list_dir / file_path
-
-            # Validate file exists
-            if not file_path.exists():
-                raise argparse.ArgumentTypeError(
-                    f"File not found in merge list (line {line_num}): {file_path_str}\n" f"Resolved path: {file_path}"
-                )
-
-            entries.append((file_path, section_title))
+            entry = _parse_merge_entry(line, line_num, separator, list_dir)
+            if entry:
+                entries.append(entry)
 
         if not entries:
-            source_desc = "stdin" if (list_path == "-" or str(list_path) == "-") else str(list_path)
+            source_desc = "stdin" if _is_stdin_path(list_path) else str(list_path)
             raise argparse.ArgumentTypeError(f"Merge list is empty or contains no valid entries: {source_desc}")
 
         return entries
@@ -1093,7 +1108,7 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
     except argparse.ArgumentTypeError:
         raise
     except Exception as e:
-        source_desc = "stdin" if (list_path == "-" or str(list_path) == "-") else str(list_path)
+        source_desc = "stdin" if _is_stdin_path(list_path) else str(list_path)
         raise argparse.ArgumentTypeError(f"Error reading merge list from {source_desc}: {e}") from e
 
 
@@ -1402,516 +1417,23 @@ def process_merge_from_list(
         return get_exit_code_for_exception(e)
 
 
-def _detect_format_for_item(item: CLIInputItem, format_arg: str) -> tuple[str, str]:
-    """Detect format and detection method for a single item.
-
-    Parameters
-    ----------
-    item : CLIInputItem
-        Input item to detect format for
-    format_arg : str
-        Format argument from CLI
-
-    Returns
-    -------
-    tuple[str, str]
-        (detected_format, detection_method)
-
-    """
-    if format_arg != "auto":
-        return format_arg, "explicit (--format)"
-
-    detected_format = registry.detect_format(item.raw_input)
-
-    # Determine detection method
-    metadata_list = registry.get_format_info(detected_format)
-    metadata = metadata_list[0] if metadata_list else None
-    suffix = item.suffix.lower() if item.suffix else ""
-    if metadata and suffix in metadata.extensions:
-        return detected_format, "file extension"
-
-    # Check MIME type
-    guess_target = item.display_name
-    if item.path_hint:
-        guess_target = str(item.path_hint)
-    mime_type, _ = mimetypes.guess_type(guess_target)
-    if mime_type and metadata and mime_type in metadata.mime_types:
-        return detected_format, "MIME type"
-
-    return detected_format, "magic bytes/content"
-
-
-def _check_converter_dependencies(
-    converter_metadata: Any,
-) -> tuple[bool, list[tuple[str, str, str | None, str | None]]]:
-    """Check converter dependencies and return availability status.
-
-    Parameters
-    ----------
-    converter_metadata : Any
-        Converter metadata object
-
-    Returns
-    -------
-    tuple[bool, list[tuple[str, str, str | None, str | None]]]
-        (converter_available, dependency_status_list)
-
-    """
-    converter_available = True
-    dependency_status: list[tuple[str, str, str | None, str | None]] = []
-
-    if not converter_metadata or not converter_metadata.required_packages:
-        return converter_available, dependency_status
-
-    # required_packages is now a list of 3-tuples: (install_name, import_name, version_spec)
-    for install_name, import_name, version_spec in converter_metadata.required_packages:
-        if version_spec:
-            # Use install_name for version checking (pip/metadata lookup)
-            meets_req, installed_version = check_version_requirement(install_name, version_spec)
-            if not meets_req:
-                converter_available = False
-                if installed_version:
-                    dependency_status.append((install_name, "version mismatch", installed_version, version_spec))
-                else:
-                    dependency_status.append((install_name, "missing", None, version_spec))
-            else:
-                dependency_status.append((install_name, "ok", installed_version, version_spec))
-        else:
-            # Use import_name for import checking
-            if not check_package_installed(import_name):
-                converter_available = False
-                dependency_status.append((install_name, "missing", None, None))
-            else:
-                dependency_status.append((install_name, "ok", None, None))
-
-    return converter_available, dependency_status
-
-
-def _render_detection_results_rich(detection_results: list[dict[str, Any]], any_issues: bool) -> None:
-    """Render detection results using rich formatting.
-
-    Parameters
-    ----------
-    detection_results : list[dict[str, Any]]
-        List of detection results
-    any_issues : bool
-        Whether there were any dependency issues
-
-    """
-    from rich.console import Console
-    from rich.table import Table
-
-    console = Console()
-
-    # Main detection table
-    table = Table(title="Format Detection Results")
-    table.add_column("Input", style="cyan", no_wrap=False)
-    table.add_column("Detected Format", style="yellow")
-    table.add_column("Detection Method", style="magenta")
-    table.add_column("Converter Status", style="white")
-
-    for result in detection_results:
-        if result["available"]:
-            status = "[green][OK] Available[/green]"
-        else:
-            status = "[red][X] Unavailable[/red]"
-
-        table.add_row(result["item"].display_name, result["format"].upper(), result["method"], status)
-
-    console.print(table)
-
-    # Show dependency details if there are issues
-    if any_issues:
-        console.print("\n[bold yellow]Dependency Issues:[/bold yellow]")
-        for result in detection_results:
-            if not result["available"]:
-                console.print(f"\n[cyan]{result['item'].display_name}[/cyan] ({result['format'].upper()}):")
-                for pkg_name, status, installed, required in result["deps"]:
-                    if status == "missing":
-                        console.print(f"  [red][X] {pkg_name} - Not installed[/red]")
-                    elif status == "version mismatch":
-                        msg = f"  [yellow][!] {pkg_name} - Version mismatch"
-                        msg += f" (requires {required}, installed: {installed})[/yellow]"
-                        console.print(msg)
-
-                if result["metadata"]:
-                    install_cmd = result["metadata"].get_install_command()
-                    console.print(f"  [dim]Install: {install_cmd}[/dim]")
-
-
-def _render_detection_results_plain(detection_results: list[dict[str, Any]]) -> None:
-    """Render detection results using plain text formatting.
-
-    Parameters
-    ----------
-    detection_results : list[dict[str, Any]]
-        List of detection results
-
-    """
-    for i, result in enumerate(detection_results, 1):
-        status = "[OK]" if result["available"] else "[X]"
-        print(f"{i:3d}. {status} {result['item'].display_name}")
-        print(f"     Format: {result['format'].upper()}")
-        print(f"     Detection: {result['method']}")
-
-        if result["deps"]:
-            print("     Dependencies:")
-            for pkg_name, status_str, installed, required in result["deps"]:
-                if status_str == "ok":
-                    version_info = f" ({installed})" if installed else ""
-                    print(f"       [OK] {pkg_name}{version_info}")
-                elif status_str == "missing":
-                    print(f"       [MISSING] {pkg_name}")
-                elif status_str == "version mismatch":
-                    print(f"       [MISMATCH] {pkg_name} (requires {required}, installed: {installed})")
-
-            if not result["available"] and result["metadata"]:
-                install_cmd = result["metadata"].get_install_command()
-                print(f"     Install: {install_cmd}")
-        else:
-            print("     Dependencies: None required")
-
-        print()
-
-
-def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
-    """Process inputs in detect-only mode - show format detection without conversion plan."""
-    # Auto-discover parsers
-    registry.auto_discover()
-
-    print("DETECT-ONLY MODE - Format Detection Results")
-    print(f"Analyzing {len(items)} input(s)")
-    print()
-
-    # Gather detection info
-    detection_results: list[dict[str, Any]] = []
-    any_issues = False
-
-    for item in items:
-        # Detect format and method
-        detected_format, detection_method = _detect_format_for_item(item, format_arg)
-
-        # Get converter info
-        converter_metadata_list = registry.get_format_info(detected_format)
-        converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
-
-        # Check dependencies
-        converter_available, dependency_status = _check_converter_dependencies(converter_metadata)
-
-        # Track if there are any issues
-        if not converter_available:
-            any_issues = True
-
-        detection_results.append(
-            {
-                "item": item,
-                "format": detected_format,
-                "method": detection_method,
-                "available": converter_available,
-                "deps": dependency_status,
-                "metadata": converter_metadata,
-            }
-        )
-
-    # Display results
-    if args.rich:
-        try:
-            _render_detection_results_rich(detection_results, any_issues)
-        except ImportError:
-            # Fall back to plain text
-            args.rich = False
-
-    if not args.rich:
-        _render_detection_results_plain(detection_results)
-
-    # Print summary
-    print(f"\nTotal inputs analyzed: {len(detection_results)}")
-    if any_issues:
-        unavailable_count = sum(1 for r in detection_results if not r["available"])
-        print(f"Inputs with unavailable parsers: {unavailable_count}")
-        return EXIT_DEPENDENCY_ERROR
-    else:
-        print("All detected parsers are available")
-        return 0
-
-
-def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -> List[Dict[str, Any]]:
-    """Collect file information for dry run display.
-
-    Parameters
-    ----------
-    items : list of CLIInputItem
-        Input items to analyze
-    format_arg : str
-        Format specification
-
-    Returns
-    -------
-    list of dict
-        List of file info dictionaries
-
-    """
-    file_info_list: List[Dict[str, Any]] = []
-
-    for index, item in enumerate(items, start=1):
-        if format_arg != "auto":
-            detected_format = format_arg
-            detection_method = "explicit (--format)"
-        else:
-            detected_format = registry.detect_format(item.raw_input)
-
-            all_extensions: List[str] = []
-            for fmt_name in registry.list_formats():
-                fmt_info_list = registry.get_format_info(fmt_name)
-                if fmt_info_list:
-                    for fmt_info in fmt_info_list:
-                        all_extensions.extend(fmt_info.extensions)
-
-            suffix = item.suffix.lower() if item.suffix else ""
-            detection_method = "extension" if suffix in all_extensions else "content analysis"
-
-        converter_metadata_list = registry.get_format_info(detected_format)
-        converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
-
-        converter_available = True
-        dependency_issues: List[str] = []
-
-        if converter_metadata:
-            required_packages = converter_metadata.get_required_packages_for_content(
-                content=None,
-                input_data=item.display_name,
-            )
-
-            if required_packages:
-                for pkg_name, _import_name, version_spec in required_packages:
-                    if version_spec:
-                        meets_req, installed_version = check_version_requirement(pkg_name, version_spec)
-                        if not meets_req:
-                            converter_available = False
-                            if installed_version:
-                                dependency_issues.append(f"{pkg_name} (version mismatch)")
-                            else:
-                                dependency_issues.append(f"{pkg_name} (missing)")
-                    else:
-                        if not check_package_installed(pkg_name):
-                            converter_available = False
-                            dependency_issues.append(f"{pkg_name} (missing)")
-
-        file_info_list.append(
-            {
-                "item": item,
-                "detected_format": detected_format,
-                "detection_method": detection_method,
-                "converter_available": converter_available,
-                "dependency_issues": dependency_issues,
-                "converter_metadata": converter_metadata,
-                "index": index,
-            }
-        )
-
-    return file_info_list
-
-
-def _determine_output_destination(
-    item: CLIInputItem,
-    args: argparse.Namespace,
-    file_info_list: List[Dict[str, Any]],
-    base_input_dir: Optional[Path],
-    index: int,
-) -> str:
-    """Determine output destination for an item in dry run.
-
-    Parameters
-    ----------
-    item : CLIInputItem
-        Input item
-    args : argparse.Namespace
-        Command line arguments
-    file_info_list : list of dict
-        All file info
-    base_input_dir : Path or None
-        Base input directory
-    index : int
-        Item index
-
-    Returns
-    -------
-    str
-        Output destination string
-
-    """
-    if args.collate:
-        return str(Path(args.out)) if args.out else "stdout (collated)"
-
-    if len(file_info_list) == 1 and args.out and not args.output_dir:
-        return str(Path(args.out))
-
-    if args.output_dir:
-        target_format = getattr(args, "output_format", "markdown")
-        computed = _generate_output_path_for_item(
-            item,
-            Path(args.output_dir),
-            args.preserve_structure,
-            base_input_dir,
-            target_format,
-            index,
-            dry_run=True,
-        )
-        return str(computed)
-
-    return "stdout"
-
-
-def _render_dry_run_rich(
-    file_info_list: List[Dict[str, Any]],
-    args: argparse.Namespace,
-    base_input_dir: Optional[Path],
-) -> bool:
-    """Render dry run output using rich formatting.
-
-    Parameters
-    ----------
-    file_info_list : list of dict
-        File information list
-    args : argparse.Namespace
-        Command line arguments
-    base_input_dir : Path or None
-        Base input directory
-
-    Returns
-    -------
-    bool
-        True if successfully rendered with rich, False otherwise
-
-    """
-    try:
-        from rich.console import Console
-        from rich.table import Table
-
-        console = Console()
-        table = Table(title="Dry Run - Planned Conversions")
-        table.add_column("Input", style="cyan", no_wrap=False)
-        table.add_column("Output", style="green", no_wrap=False)
-        table.add_column("Format", style="yellow")
-        table.add_column("Detection", style="magenta")
-        table.add_column("Status", style="white")
-
-        for info in file_info_list:
-            item = info["item"]
-            output_str = _determine_output_destination(item, args, file_info_list, base_input_dir, info["index"])
-
-            if info["converter_available"]:
-                status = "[green][OK] Ready[/green]"
-            else:
-                issues = ", ".join(info["dependency_issues"][:2])
-                if len(info["dependency_issues"]) > 2:
-                    issues += "..."
-                status = f"[red][X] {issues}[/red]"
-
-            table.add_row(
-                item.display_name,
-                output_str,
-                info["detected_format"].upper(),
-                info["detection_method"],
-                status,
-            )
-
-        console.print(table)
-        return True
-
-    except ImportError:
-        return False
-
-
-def _render_dry_run_plain(
-    file_info_list: List[Dict[str, Any]],
-    args: argparse.Namespace,
-    base_input_dir: Optional[Path],
-) -> None:
-    """Render dry run output using plain text.
-
-    Parameters
-    ----------
-    file_info_list : list of dict
-        File information list
-    args : argparse.Namespace
-        Command line arguments
-    base_input_dir : Path or None
-        Base input directory
-
-    """
-    for info in file_info_list:
-        item = info["item"]
-        print(f"{item.display_name}")
-        print(f"  Format: {info['detected_format'].upper()} ({info['detection_method']})")
-
-        if info["converter_available"]:
-            print("  Status: ready")
-        else:
-            issues_str = ", ".join(info["dependency_issues"]) or "dependency issues"
-            print(f"  Status: missing requirements ({issues_str})")
-
-        destination = _determine_output_destination(item, args, file_info_list, base_input_dir, info["index"])
-        print(f"  Output: {destination}")
-        print()
+# Detection and dry-run functions moved to _processors_detect.py
+# Keep public wrappers here for backward compatibility
 
 
 def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
     """Show what would be processed without performing any conversions.
 
-    Parameters
-    ----------
-    items : list of CLIInputItem
-        Input items to process
-    args : argparse.Namespace
-        Command line arguments
-    format_arg : str
-        Format specification
-
-    Returns
-    -------
-    int
-        Exit code
-
+    This is a backward-compatible wrapper that delegates to the implementation
+    in _processors_detect.py.
     """
-    base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
-
-    registry.auto_discover()
-
-    print("DRY RUN MODE - Showing what would be processed")
-    print(f"Found {len(items)} input(s) to convert")
-    print()
-
-    file_info_list = _collect_file_info_for_dry_run(items, format_arg)
-
-    if args.rich:
-        if not _render_dry_run_rich(file_info_list, args, base_input_dir):
-            args.rich = False
-
-    if not args.rich:
-        _render_dry_run_plain(file_info_list, args, base_input_dir)
-
-    print("Options that would be used:")
-    if args.format != "auto":
-        print(f"  Format: {args.format}")
-    if args.recursive:
-        print("  Recursive directory processing: enabled")
-    parallel_provided = hasattr(args, "_provided_args") and "parallel" in args._provided_args
-    if parallel_provided and args.parallel is None:
-        worker_count = os.cpu_count() or "auto"
-        print(f"  Parallel processing: {worker_count} workers (auto-detected)")
-    elif isinstance(args.parallel, int) and args.parallel != 1:
-        print(f"  Parallel processing: {args.parallel} workers")
-    if args.preserve_structure:
-        print("  Preserve directory structure: enabled")
-    if args.collate:
-        print("  Collate multiple inputs: enabled")
-    if args.exclude:
-        print(f"  Exclusion patterns: {', '.join(args.exclude)}")
-
-    print()
-    print("No inputs were converted (dry run mode).")
-    return 0
+    return _process_dry_run_impl(
+        items,
+        args,
+        format_arg,
+        _compute_base_input_dir,
+        _generate_output_path_for_item,
+    )
 
 
 def _convert_item_to_ast_for_collation(
@@ -1967,14 +1489,21 @@ def _convert_item_to_ast_for_collation(
         return exit_code, None, error_msg
 
 
-def process_files_collated(
+def _collect_documents_for_collation(
     items: List[CLIInputItem],
     args: argparse.Namespace,
     options: Dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
-) -> int:
-    """Collate multiple inputs into a single output using an AST pipeline."""
+) -> Tuple[List[ASTDocument], List[Tuple[CLIInputItem, str, int]]]:
+    """Collect and convert documents for collation.
+
+    Returns
+    -------
+    Tuple containing:
+        - List of collected documents with heading prefixes
+        - List of failures (item, error, exit_code)
+
+    """
     collected_documents: List[ASTDocument] = []
     failures: List[Tuple[CLIInputItem, str, int]] = []
 
@@ -1982,10 +1511,9 @@ def process_files_collated(
     show_progress = args.progress or args.rich or len(items) > 1
 
     with ProgressContext(use_rich, show_progress, len(items), "Loading documents") as progress:
-        # Create progress callback wrapper
         progress_callback = create_progress_context_callback(progress) if show_progress else None
 
-        for _offset, item in enumerate(items, start=1):
+        for item in items:
             progress.set_postfix(f"Processing {item.name}")
             exit_code, document, error = _convert_item_to_ast_for_collation(
                 item, options, format_arg, progress_callback
@@ -2006,10 +1534,28 @@ def process_files_collated(
 
             progress.update()
 
-    if not collected_documents:
-        print("Error: No inputs were successfully processed", file=sys.stderr)
-        return max((code for _, _, code in failures), default=EXIT_INPUT_ERROR)
+    return collected_documents, failures
 
+
+def _merge_collected_documents(
+    collected_documents: List[ASTDocument],
+    transforms: Optional[list],
+) -> ASTDocument:
+    """Merge collected documents into a single document with thematic breaks.
+
+    Parameters
+    ----------
+    collected_documents : List[ASTDocument]
+        Documents to merge
+    transforms : Optional[list]
+        Transforms to apply after merging
+
+    Returns
+    -------
+    ASTDocument
+        Merged document
+
+    """
     merged_children: List[Any] = []
     for index, document in enumerate(collected_documents):
         merged_children.extend(document.children)
@@ -2024,28 +1570,49 @@ def process_files_collated(
             assert isinstance(transformed, ASTDocument), "Transform should return Document"
             merged_document = transformed
 
-    output_path: Optional[Path] = None
-    if args.out:
-        output_path = Path(args.out)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+    return merged_document
 
+
+def _determine_collation_target_format(args: argparse.Namespace, output_path: Optional[Path]) -> str:
+    """Determine target format for collation output.
+
+    Returns
+    -------
+    str
+        Target format string
+
+    """
     target_format = args.output_format
-    if target_format == "auto":
-        if output_path:
-            try:
-                detected_target = registry.detect_format(output_path)
-                target_format = detected_target if detected_target != "txt" else "markdown"
-            except Exception:
-                target_format = "markdown"
-        else:
-            target_format = "markdown"
+    if target_format != "auto":
+        return target_format
 
-    render_options = prepare_options_for_execution(
-        options,
-        None,
-        format_arg,
-        target_format,
-    )
+    if output_path:
+        try:
+            detected_target = registry.detect_format(output_path)
+            return detected_target if detected_target != "txt" else "markdown"
+        except Exception:
+            pass
+
+    return "markdown"
+
+
+def _render_collated_document(
+    merged_document: ASTDocument,
+    output_path: Optional[Path],
+    target_format: str,
+    options: Dict[str, Any],
+    format_arg: str,
+    num_documents: int,
+) -> Optional[int]:
+    """Render the merged document to output.
+
+    Returns
+    -------
+    Optional[int]
+        Exit code if rendering failed, None if successful
+
+    """
+    render_options = prepare_options_for_execution(options, None, format_arg, target_format)
     render_options.pop("remote_input_options", None)
 
     try:
@@ -2066,15 +1633,44 @@ def process_files_collated(
             print("", end="")
 
         if output_path:
-            print(
-                f"Collated {len(collected_documents)} input(s) -> {output_path}",
-                file=sys.stderr,
-            )
+            print(f"Collated {num_documents} input(s) -> {output_path}", file=sys.stderr)
+
+        return None
 
     except Exception as exc:
         exit_code = get_exit_code_for_exception(exc)
         print(f"Error rendering collated document: {exc}", file=sys.stderr)
         return exit_code
+
+
+def process_files_collated(
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list] = None,
+) -> int:
+    """Collate multiple inputs into a single output using an AST pipeline."""
+    collected_documents, failures = _collect_documents_for_collation(items, args, options, format_arg)
+
+    if not collected_documents:
+        print("Error: No inputs were successfully processed", file=sys.stderr)
+        return max((code for _, _, code in failures), default=EXIT_INPUT_ERROR)
+
+    merged_document = _merge_collected_documents(collected_documents, transforms)
+
+    output_path: Optional[Path] = None
+    if args.out:
+        output_path = Path(args.out)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    target_format = _determine_collation_target_format(args, output_path)
+
+    render_error = _render_collated_document(
+        merged_document, output_path, target_format, options, format_arg, len(collected_documents)
+    )
+    if render_error is not None:
+        return render_error
 
     if not args.no_summary:
         renderer = SummaryRenderer(use_rich=args.rich)
@@ -2383,6 +1979,180 @@ def generate_output_path(
     return output_path
 
 
+def _normalize_url_input(source_value: Any) -> Any:
+    """Normalize URL inputs by fixing malformed protocol prefixes.
+
+    Returns
+    -------
+    Any
+        Normalized source value
+
+    """
+    if not isinstance(source_value, str):
+        return source_value
+
+    if source_value.startswith("https:/") and not source_value.startswith("https://"):
+        return source_value.replace("https:/", "https://", 1)
+    if source_value.startswith("http:/") and not source_value.startswith("http://"):
+        return source_value.replace("http:/", "http://", 1)
+
+    return source_value
+
+
+def _detect_renderer_hint(target_format: str, output_path: Optional[Path]) -> str:
+    """Detect renderer hint from target format and output path.
+
+    Returns
+    -------
+    str
+        Detected renderer hint
+
+    """
+    if target_format != "auto" or output_path is None:
+        return target_format
+
+    try:
+        detected_target = registry.detect_format(output_path)
+        if detected_target and detected_target != "txt":
+            return detected_target
+    except Exception:
+        pass
+
+    return "auto"
+
+
+def _output_result_to_stdout(result: Any) -> None:
+    """Output conversion result to stdout.
+
+    Parameters
+    ----------
+    result : Any
+        Result from conversion (bytes, str, or None)
+
+    """
+    if isinstance(result, bytes):
+        sys.stdout.buffer.write(result)
+        sys.stdout.buffer.flush()
+    elif isinstance(result, str):
+        print(result)
+
+
+def _handle_outline_conversion(
+    source_value: Any,
+    format_arg: str,
+    effective_options: Dict[str, Any],
+    progress_callback: Optional[Any],
+    output_path: Optional[Path],
+    outline_max_level: int,
+    display_name: str,
+) -> Tuple[int, str, Optional[str]]:
+    """Handle outline mode conversion.
+
+    Returns
+    -------
+    Tuple[int, str, Optional[str]]
+        (exit_code, display_name, error_message)
+
+    """
+    doc = to_ast(
+        source_value,
+        source_format=cast(DocumentFormat, format_arg),
+        progress_callback=progress_callback,
+        **effective_options,
+    )
+
+    outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
+
+    if output_path:
+        output_path.write_text(outline_text, encoding="utf-8")
+    else:
+        print(outline_text)
+
+    return EXIT_SUCCESS, display_name, None
+
+
+def _handle_extraction_conversion(
+    source_value: Any,
+    format_arg: str,
+    effective_options: Dict[str, Any],
+    progress_callback: Optional[Any],
+    output_path: Optional[Path],
+    target_format: str,
+    extract_spec: str,
+    local_transforms: Optional[list],
+    display_name: str,
+) -> Tuple[int, str, Optional[str]]:
+    """Handle extraction mode conversion.
+
+    Returns
+    -------
+    Tuple[int, str, Optional[str]]
+        (exit_code, display_name, error_message)
+
+    """
+    doc = to_ast(
+        source_value,
+        source_format=cast(DocumentFormat, format_arg),
+        progress_callback=progress_callback,
+        **effective_options,
+    )
+
+    doc = extract_sections_from_document(doc, extract_spec)
+
+    if local_transforms:
+        for transform in local_transforms:
+            doc = transform.transform(doc)
+
+    render_target = target_format if target_format != "auto" else "markdown"
+    result = from_ast(
+        doc,
+        target_format=cast(DocumentFormat, render_target),
+        output=output_path,
+        **effective_options,
+    )
+
+    if output_path is None:
+        _output_result_to_stdout(result)
+
+    return EXIT_SUCCESS, display_name, None
+
+
+def _handle_normal_conversion(
+    source_value: Any,
+    format_arg: str,
+    effective_options: Dict[str, Any],
+    progress_callback: Optional[Any],
+    output_path: Optional[Path],
+    target_format: str,
+    local_transforms: Optional[list],
+    display_name: str,
+) -> Tuple[int, str, Optional[str]]:
+    """Handle normal conversion path.
+
+    Returns
+    -------
+    Tuple[int, str, Optional[str]]
+        (exit_code, display_name, error_message)
+
+    """
+    render_target = target_format if target_format != "auto" else "markdown"
+
+    result = convert(
+        source_value,
+        output=output_path,
+        source_format=cast(DocumentFormat, format_arg),
+        target_format=cast(DocumentFormat, render_target),
+        transforms=local_transforms,
+        progress_callback=progress_callback,
+        **effective_options,
+    )
+
+    if output_path is None:
+        _output_result_to_stdout(result)
+
+    return EXIT_SUCCESS, display_name, None
+
+
 def convert_single_file(
     input_item: CLIInputItem,
     output_path: Optional[Path],
@@ -2437,21 +2207,8 @@ def convert_single_file(
         if local_transforms is None and transform_specs:
             local_transforms = _instantiate_transforms_from_specs(transform_specs)
 
-        source_value: Any = input_item.raw_input
-        if isinstance(source_value, str):
-            if source_value.startswith("https:/") and not source_value.startswith("https://"):
-                source_value = source_value.replace("https:/", "https://", 1)
-            elif source_value.startswith("http:/") and not source_value.startswith("http://"):
-                source_value = source_value.replace("http:/", "http://", 1)
-
-        renderer_hint = target_format
-        if renderer_hint == "auto" and output_path:
-            try:
-                detected_target = registry.detect_format(output_path)
-                if detected_target and detected_target != "txt":
-                    renderer_hint = detected_target
-            except Exception:  # pragma: no cover - best effort
-                renderer_hint = "auto"
+        source_value = _normalize_url_input(input_item.raw_input)
+        renderer_hint = _detect_renderer_hint(target_format, output_path)
 
         effective_options = prepare_options_for_execution(
             options,
@@ -2460,100 +2217,40 @@ def convert_single_file(
             renderer_hint,
         )
 
-        # If outline is requested, generate and output outline
         if outline:
-            # Parse to AST
-            doc = to_ast(
+            return _handle_outline_conversion(
                 source_value,
-                source_format=cast(DocumentFormat, format_arg),
-                progress_callback=progress_callback,
-                **effective_options,
+                format_arg,
+                effective_options,
+                progress_callback,
+                output_path,
+                outline_max_level,
+                input_item.display_name,
             )
 
-            # Generate outline
-            outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
-
-            # Output outline
-            if output_path:
-                output_path.write_text(outline_text, encoding="utf-8")
-                return EXIT_SUCCESS, input_item.display_name, None
-
-            # Print to stdout
-            print(outline_text)
-            return EXIT_SUCCESS, input_item.display_name, None
-
-        # If extraction is requested, use AST pipeline
         if extract_spec:
-            # Parse to AST
-            doc = to_ast(
+            return _handle_extraction_conversion(
                 source_value,
-                source_format=cast(DocumentFormat, format_arg),
-                progress_callback=progress_callback,
-                **effective_options,
+                format_arg,
+                effective_options,
+                progress_callback,
+                output_path,
+                target_format,
+                extract_spec,
+                local_transforms,
+                input_item.display_name,
             )
 
-            # Extract sections
-            doc = extract_sections_from_document(doc, extract_spec)
-
-            # Apply transforms
-            if local_transforms:
-                for transform in local_transforms:
-                    doc = transform.transform(doc)
-
-            # Render from AST
-            render_target = target_format if target_format != "auto" else "markdown"
-            result = from_ast(
-                doc,
-                target_format=cast(DocumentFormat, render_target),
-                output=output_path,
-                **effective_options,
-            )
-
-            if output_path:
-                return EXIT_SUCCESS, input_item.display_name, None
-
-            # Handle stdout output
-            if isinstance(result, bytes):
-                sys.stdout.buffer.write(result)
-                sys.stdout.buffer.flush()
-            elif isinstance(result, str):
-                print(result)
-
-            return EXIT_SUCCESS, input_item.display_name, None
-
-        # Normal conversion path (no extraction)
-        if output_path:
-            convert(
-                source_value,
-                output=output_path,
-                source_format=cast(DocumentFormat, format_arg),
-                target_format=cast(DocumentFormat, target_format),
-                transforms=local_transforms,
-                progress_callback=progress_callback,
-                **effective_options,
-            )
-            return EXIT_SUCCESS, input_item.display_name, None
-
-        render_target = target_format if target_format != "auto" else "markdown"
-
-        result = convert(
+        return _handle_normal_conversion(
             source_value,
-            output=None,
-            source_format=cast(DocumentFormat, format_arg),
-            target_format=cast(DocumentFormat, render_target),
-            transforms=local_transforms,
-            progress_callback=progress_callback,
-            **effective_options,
+            format_arg,
+            effective_options,
+            progress_callback,
+            output_path,
+            target_format,
+            local_transforms,
+            input_item.display_name,
         )
-
-        if isinstance(result, bytes):
-            sys.stdout.buffer.write(result)
-            sys.stdout.buffer.flush()
-        elif isinstance(result, str):
-            print(result)
-        # result can only be bytes, str, or None at this point
-
-        return EXIT_SUCCESS, input_item.display_name, None
 
     except Exception as exc:
         exit_code = get_exit_code_for_exception(exc)
@@ -2565,6 +2262,287 @@ def convert_single_file(
         return exit_code, input_item.display_name, error_msg
 
 
+# Type alias for planned conversion tasks
+PlannedTask = Tuple[CLIInputItem, Optional[Path], str, int]
+
+
+def _setup_rich_output(args: argparse.Namespace) -> Tuple[bool, Optional[str]]:
+    """Set up rich output detection.
+
+    Returns
+    -------
+    Tuple[bool, Optional[str]]
+        Tuple of (should_use_rich, error_message_if_any)
+
+    """
+    try:
+        return should_use_rich_output(args, True), None
+    except DependencyError as exc:
+        return False, str(exc)
+
+
+def _determine_target_format(args: argparse.Namespace) -> str:
+    """Determine the default target format from CLI args.
+
+    Returns
+    -------
+    str
+        Target format string ("auto" or explicit format)
+
+    """
+    provided_args: set[str] = getattr(args, "_provided_args", set())
+    if "output_format" in provided_args:
+        return args.output_format
+    return "auto"
+
+
+def _plan_conversion_tasks(
+    items: List[CLIInputItem],
+    args: argparse.Namespace,
+    target_format_default: str,
+    base_input_dir: Optional[Path],
+) -> List[PlannedTask]:
+    """Plan conversion tasks with output paths.
+
+    Parameters
+    ----------
+    items : List[CLIInputItem]
+        Input items to convert
+    args : argparse.Namespace
+        CLI arguments
+    target_format_default : str
+        Default target format
+    base_input_dir : Optional[Path]
+        Base input directory for structure preservation
+
+    Returns
+    -------
+    List[PlannedTask]
+        List of (item, output_path, target_format, index) tuples
+
+    """
+    planned_tasks: List[PlannedTask] = []
+    output_dir = Path(args.output_dir) if args.output_dir else None
+
+    for index, item in enumerate(items, start=1):
+        output_path: Optional[Path] = None
+
+        if args.out and len(items) == 1:
+            output_path = Path(args.out)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        elif output_dir:
+            output_path = _generate_output_path_for_item(
+                item,
+                output_dir,
+                args.preserve_structure,
+                base_input_dir,
+                target_format_default,
+                index,
+            )
+
+        planned_tasks.append((item, output_path, target_format_default, index))
+
+    return planned_tasks
+
+
+def _should_use_parallel(args: argparse.Namespace) -> bool:
+    """Determine if parallel processing should be used.
+
+    Returns
+    -------
+    bool
+        True if parallel processing should be used
+
+    """
+    provided_args = getattr(args, "_provided_args", set())
+    if hasattr(args, "_provided_args") and "parallel" in provided_args and args.parallel is None:
+        return True
+    return isinstance(args.parallel, int) and args.parallel != 1
+
+
+def _log_task_result(
+    progress: ProgressContext,
+    item: CLIInputItem,
+    output_path: Optional[Path],
+    exit_code: int,
+    error: Optional[str],
+) -> None:
+    """Log the result of a task to the progress context.
+
+    Parameters
+    ----------
+    progress : ProgressContext
+        Progress context for logging
+    item : CLIInputItem
+        The input item that was processed
+    output_path : Optional[Path]
+        Output path if any
+    exit_code : int
+        Exit code from conversion
+    error : Optional[str]
+        Error message if failed
+
+    """
+    if exit_code == EXIT_SUCCESS:
+        message = f"[OK] {item.display_name}"
+        if output_path:
+            message = f"[OK] {item.display_name} -> {output_path}"
+        progress.log(message, level="success")
+    else:
+        progress.log(f"[ERROR] {item.display_name}: {error}", level="error")
+
+
+def _execute_tasks_parallel(
+    planned_tasks: List[PlannedTask],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transform_specs: Optional[List[TransformSpec]],
+    use_rich: bool,
+    show_progress: bool,
+) -> Tuple[List[Tuple[CLIInputItem, Optional[Path]]], List[Tuple[CLIInputItem, Optional[str], int]], int]:
+    """Execute conversion tasks in parallel.
+
+    Returns
+    -------
+    Tuple containing:
+        - List of successful results (item, output_path)
+        - List of failures (item, error, exit_code)
+        - Maximum exit code encountered
+
+    """
+    results: List[Tuple[CLIInputItem, Optional[Path]]] = []
+    failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
+    max_exit_code = EXIT_SUCCESS
+
+    extract_spec = getattr(args, "extract", None)
+    outline = getattr(args, "outline", False)
+    outline_max_level = getattr(args, "outline_max_level", 6)
+    max_workers = args.parallel if args.parallel else os.cpu_count()
+
+    with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    convert_single_file,
+                    item,
+                    output_path,
+                    options,
+                    format_arg,
+                    None,
+                    False,
+                    target_format,
+                    transform_specs,
+                    None,
+                    extract_spec,
+                    outline,
+                    outline_max_level,
+                ): (item, output_path)
+                for item, output_path, target_format, _ in planned_tasks
+            }
+
+            for future in as_completed(futures):
+                item, output_path = futures[future]
+                exit_code, _, error = future.result()
+
+                _log_task_result(progress, item, output_path, exit_code, error)
+
+                if exit_code == EXIT_SUCCESS:
+                    results.append((item, output_path))
+                else:
+                    failures.append((item, error, exit_code))
+                    max_exit_code = max(max_exit_code, exit_code)
+                    if not args.skip_errors:
+                        progress.update()
+                        break
+
+                progress.update()
+
+    return results, failures, max_exit_code
+
+
+def _execute_tasks_sequential(
+    planned_tasks: List[PlannedTask],
+    args: argparse.Namespace,
+    options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    transform_specs: Optional[List[TransformSpec]],
+    use_rich: bool,
+    show_progress: bool,
+) -> Tuple[List[Tuple[CLIInputItem, Optional[Path]]], List[Tuple[CLIInputItem, Optional[str], int]], int]:
+    """Execute conversion tasks sequentially.
+
+    Returns
+    -------
+    Tuple containing:
+        - List of successful results (item, output_path)
+        - List of failures (item, error, exit_code)
+        - Maximum exit code encountered
+
+    """
+    results: List[Tuple[CLIInputItem, Optional[Path]]] = []
+    failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
+    max_exit_code = EXIT_SUCCESS
+
+    extract_spec = getattr(args, "extract", None)
+    outline = getattr(args, "outline", False)
+    outline_max_level = getattr(args, "outline_max_level", 6)
+
+    with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
+        progress_callback = create_progress_context_callback(progress) if show_progress else None
+
+        for item, output_path, target_format, _ in planned_tasks:
+            progress.set_postfix(f"Processing {item.name}")
+
+            exit_code, _, error = convert_single_file(
+                item,
+                output_path,
+                options,
+                format_arg,
+                transforms,
+                False,
+                target_format,
+                transform_specs,
+                progress_callback,
+                extract_spec,
+                outline,
+                outline_max_level,
+            )
+
+            _log_task_result(progress, item, output_path, exit_code, error)
+
+            if exit_code == EXIT_SUCCESS:
+                results.append((item, output_path))
+            else:
+                failures.append((item, error, exit_code))
+                max_exit_code = max(max_exit_code, exit_code)
+                if not args.skip_errors:
+                    progress.update()
+                    break
+
+            progress.update()
+
+    return results, failures, max_exit_code
+
+
+def _render_summary_if_needed(
+    args: argparse.Namespace,
+    items: List[CLIInputItem],
+    results: List[Tuple[CLIInputItem, Optional[Path]]],
+    failures: List[Tuple[CLIInputItem, Optional[str], int]],
+    use_rich: bool,
+) -> None:
+    """Render conversion summary if appropriate."""
+    if not args.no_summary and len(items) > 1:
+        renderer = SummaryRenderer(use_rich=use_rich)
+        renderer.render_conversion_summary(
+            successful=len(results),
+            failed=len(failures),
+            total=len(items),
+        )
+
+
 def process_files_unified(
     items: List[CLIInputItem],
     args: argparse.Namespace,
@@ -2574,24 +2552,12 @@ def process_files_unified(
 ) -> int:
     """Process CLI inputs with unified progress handling."""
     base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
+    should_use_rich, rich_error = _setup_rich_output(args)
 
-    try:
-        should_use_rich = should_use_rich_output(args, True)
-        rich_dependency_error: Optional[str] = None
-    except DependencyError as exc:
-        should_use_rich = False
-        rich_dependency_error = str(exc)
+    if rich_error:
+        print(f"Warning: {rich_error}", file=sys.stderr)
 
-    if rich_dependency_error:
-        print(f"Warning: {rich_dependency_error}", file=sys.stderr)
-
-    # Check if output_format was explicitly provided by user
-    # If not, use "auto" to enable format detection from output filename
-    provided_args: set[str] = getattr(args, "_provided_args", set())
-    if "output_format" in provided_args:
-        target_format_default = args.output_format
-    else:
-        target_format_default = "auto"
+    target_format_default = _determine_target_format(args)
 
     # Special case: single item to stdout
     if len(items) == 1 and not args.out and not args.output_dir:
@@ -2605,139 +2571,136 @@ def process_files_unified(
             target_format_default,
         )
 
-    transform_specs_for_workers = cast(Optional[list[TransformSpec]], getattr(args, "transform_specs", None))
-
-    planned_tasks: List[Tuple[CLIInputItem, Optional[Path], str, int]] = []
-
-    output_dir = Path(args.output_dir) if args.output_dir else None
-
-    for index, item in enumerate(items, start=1):
-        target_format = target_format_default
-        output_path: Optional[Path] = None
-
-        if args.out and len(items) == 1:
-            output_path = Path(args.out)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-        elif output_dir:
-            output_path = _generate_output_path_for_item(
-                item,
-                output_dir,
-                args.preserve_structure,
-                base_input_dir,
-                target_format,
-                index,
-            )
-
-        planned_tasks.append((item, output_path, target_format, index))
-
+    transform_specs = cast(Optional[List[TransformSpec]], getattr(args, "transform_specs", None))
+    planned_tasks = _plan_conversion_tasks(items, args, target_format_default, base_input_dir)
     show_progress = args.progress or (should_use_rich and args.rich) or len(items) > 1
-    use_rich = should_use_rich
 
-    results: List[Tuple[CLIInputItem, Optional[Path]]] = []
-    failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
-    max_exit_code = EXIT_SUCCESS
-
-    # Get extract_spec from args if present
-    extract_spec = getattr(args, "extract", None)
-
-    # Get outline parameters from args if present
-    outline = getattr(args, "outline", False)
-    outline_max_level = getattr(args, "outline_max_level", 6)
-
-    use_parallel = (
-        hasattr(args, "_provided_args") and "parallel" in args._provided_args and args.parallel is None
-    ) or (isinstance(args.parallel, int) and args.parallel != 1)
-
-    if use_parallel:
-        max_workers = args.parallel if args.parallel else os.cpu_count()
-
-        with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
-            with ProcessPoolExecutor(max_workers=max_workers) as executor:
-                futures = {
-                    executor.submit(
-                        convert_single_file,
-                        item,
-                        output_path,
-                        options,
-                        format_arg,
-                        None,
-                        False,
-                        target_format,
-                        transform_specs_for_workers,
-                        None,  # progress_callback (not supported in parallel mode)
-                        extract_spec,
-                        outline,
-                        outline_max_level,
-                    ): (item, output_path)
-                    for item, output_path, target_format, _ in planned_tasks
-                }
-
-                for future in as_completed(futures):
-                    item, output_path = futures[future]
-                    exit_code, _, error = future.result()
-
-                    if exit_code == EXIT_SUCCESS:
-                        results.append((item, output_path))
-                        message = f"[OK] {item.display_name}"
-                        if output_path:
-                            message = f"[OK] {item.display_name} -> {output_path}"
-                        progress.log(message, level="success")
-                    else:
-                        failures.append((item, error, exit_code))
-                        progress.log(f"[ERROR] {item.display_name}: {error}", level="error")
-                        max_exit_code = max(max_exit_code, exit_code)
-                        if not args.skip_errors:
-                            break
-
-                    progress.update()
+    if _should_use_parallel(args):
+        results, failures, max_exit_code = _execute_tasks_parallel(
+            planned_tasks, args, options, format_arg, transform_specs, should_use_rich, show_progress
+        )
     else:
-        with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
-            # Create progress callback wrapper for sequential processing
-            progress_callback = create_progress_context_callback(progress) if show_progress else None
-
-            for item, output_path, target_format, _index in planned_tasks:
-                progress.set_postfix(f"Processing {item.name}")
-
-                exit_code, _, error = convert_single_file(
-                    item,
-                    output_path,
-                    options,
-                    format_arg,
-                    transforms,
-                    False,
-                    target_format,
-                    transform_specs_for_workers,
-                    progress_callback,
-                    extract_spec,
-                    outline,
-                    outline_max_level,
-                )
-
-                if exit_code == EXIT_SUCCESS:
-                    results.append((item, output_path))
-                    message = f"[OK] {item.display_name}"
-                    if output_path:
-                        message = f"[OK] {item.display_name} -> {output_path}"
-                    progress.log(message, level="success")
-                else:
-                    failures.append((item, error, exit_code))
-                    progress.log(f"[ERROR] {item.display_name}: {error}", level="error")
-                    max_exit_code = max(max_exit_code, exit_code)
-                    if not args.skip_errors:
-                        break
-
-                progress.update()
-
-    if not args.no_summary and len(items) > 1:
-        renderer = SummaryRenderer(use_rich=use_rich)
-        renderer.render_conversion_summary(
-            successful=len(results),
-            failed=len(failures),
-            total=len(items),
+        results, failures, max_exit_code = _execute_tasks_sequential(
+            planned_tasks, args, options, format_arg, transforms, transform_specs, should_use_rich, show_progress
         )
 
-    if failures:
-        return max_exit_code
+    _render_summary_if_needed(args, items, results, failures, should_use_rich)
+
+    return max_exit_code if failures else EXIT_SUCCESS
+
+
+def _output_text_with_options(content: str, args: argparse.Namespace, is_rich: bool) -> None:
+    """Output text content respecting pager settings."""
+    if args.pager:
+        if not _page_content(content, is_rich=is_rich):
+            print(content)
+    else:
+        print(content)
+
+
+def _apply_formatting_and_output(content: str, args: argparse.Namespace, should_use_rich: bool) -> None:
+    """Apply rich formatting if enabled and output content."""
+    if should_use_rich:
+        formatted, is_rich = _apply_rich_formatting(content, args)
+    else:
+        formatted, is_rich = content, False
+    _output_text_with_options(formatted, args, is_rich)
+
+
+def _render_outline_mode(
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    effective_options: Dict[str, Any],
+    format_arg: str,
+    should_use_rich: bool,
+) -> int:
+    """Handle outline mode rendering."""
+    outline_max_level = getattr(args, "outline_max_level", 6)
+    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
+    _apply_formatting_and_output(outline_text, args, should_use_rich)
+    return EXIT_SUCCESS
+
+
+def _convert_with_extraction(
+    item: CLIInputItem,
+    effective_options: Dict[str, Any],
+    format_arg: str,
+    extract_spec: str,
+    transforms: Optional[list],
+    render_target: str,
+) -> Any:
+    """Convert with section extraction."""
+    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    doc = extract_sections_from_document(doc, extract_spec)
+    if transforms:
+        for transform in transforms:
+            doc = transform.transform(doc)
+    return from_ast(doc, cast(DocumentFormat, render_target), **effective_options)
+
+
+def _render_markdown_mode(
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    effective_options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    should_use_rich: bool,
+    extract_spec: Optional[str],
+) -> int:
+    """Handle markdown format rendering."""
+    if extract_spec:
+        markdown_content = _convert_with_extraction(
+            item, effective_options, format_arg, extract_spec, transforms, "markdown"
+        )
+    else:
+        markdown_content = to_markdown(
+            item.raw_input,
+            source_format=cast(DocumentFormat, format_arg),
+            transforms=transforms,
+            **effective_options,
+        )
+    assert isinstance(markdown_content, str), "Markdown renderer should return str"
+    _apply_formatting_and_output(markdown_content, args, should_use_rich)
+    return EXIT_SUCCESS
+
+
+def _render_other_format_mode(
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    effective_options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    should_use_rich: bool,
+    render_target: str,
+    extract_spec: Optional[str],
+) -> int:
+    """Handle non-markdown format rendering."""
+    if extract_spec:
+        result = _convert_with_extraction(item, effective_options, format_arg, extract_spec, transforms, render_target)
+    else:
+        result = convert(
+            item.raw_input,
+            output=None,
+            source_format=cast(DocumentFormat, format_arg),
+            target_format=cast(DocumentFormat, render_target),
+            transforms=transforms,
+            **effective_options,
+        )
+
+    if isinstance(result, bytes):
+        sys.stdout.buffer.write(result)
+        sys.stdout.buffer.flush()
+        return EXIT_SUCCESS
+
+    text_output = result if isinstance(result, str) else ""
+
+    rendered = False
+    if should_use_rich and args.rich and text_output:
+        rendered = _render_rich_text_output(text_output, args, render_target)
+
+    if not rendered:
+        _output_text_with_options(text_output, args, is_rich=False)
 
     return EXIT_SUCCESS
 
@@ -2754,148 +2717,21 @@ def _render_single_item_to_stdout(
     """Render a single item to stdout, respecting pager and rich flags."""
     try:
         render_target = target_format if target_format != "auto" else "markdown"
-        effective_options = prepare_options_for_execution(
-            options,
-            item.best_path(),
-            format_arg,
-            render_target,
-        )
-
-        # Check if extraction is requested
+        effective_options = prepare_options_for_execution(options, item.best_path(), format_arg, render_target)
         extract_spec = getattr(args, "extract", None)
 
-        # Check if outline is requested
-        outline = getattr(args, "outline", False)
-        outline_max_level = getattr(args, "outline_max_level", 6)
-
         # Handle outline mode
-        if outline:
-            # Parse to AST
-            doc = to_ast(
-                item.raw_input,
-                source_format=cast(DocumentFormat, format_arg),
-                **effective_options,
-            )
+        if getattr(args, "outline", False):
+            return _render_outline_mode(item, args, effective_options, format_arg, should_use_rich)
 
-            # Generate outline
-            outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
-
-            # Apply rich formatting if requested
-            if should_use_rich:
-                content_to_output, is_rich = _apply_rich_formatting(outline_text, args)
-            else:
-                content_to_output, is_rich = outline_text, False
-
-            # Apply paging if requested
-            if args.pager:
-                if not _page_content(content_to_output, is_rich=is_rich):
-                    print(content_to_output)
-            else:
-                print(content_to_output)
-
-            return EXIT_SUCCESS
-
+        # Handle markdown vs other formats
         if render_target == "markdown":
-            # Handle extraction using AST pipeline
-            if extract_spec:
-                # Parse to AST
-                doc = to_ast(
-                    item.raw_input,
-                    source_format=cast(DocumentFormat, format_arg),
-                    **effective_options,
-                )
-
-                # Extract sections
-                doc = extract_sections_from_document(doc, extract_spec)
-
-                # Apply transforms
-                if transforms:
-                    for transform in transforms:
-                        doc = transform.transform(doc)
-
-                # Render to markdown
-                markdown_content = from_ast(doc, "markdown", **effective_options)
-            else:
-                # Normal markdown conversion
-                markdown_content = to_markdown(
-                    item.raw_input,
-                    source_format=cast(DocumentFormat, format_arg),
-                    transforms=transforms,
-                    **effective_options,
-                )
-
-            # Ensure markdown_content is a string (markdown renderer always returns str when output=None)
-            assert isinstance(markdown_content, str), "Markdown renderer should return str"
-
-            # Apply rich formatting if requested
-            if should_use_rich:
-                content_to_output, is_rich = _apply_rich_formatting(markdown_content, args)
-            else:
-                content_to_output, is_rich = markdown_content, False
-
-            # Apply paging if requested
-            if args.pager:
-                if not _page_content(content_to_output, is_rich=is_rich):
-                    print(content_to_output)
-            else:
-                print(content_to_output)
-
-            return EXIT_SUCCESS
-        else:
-            # Handle extraction for non-markdown formats
-            if extract_spec:
-                # Parse to AST
-                doc = to_ast(
-                    item.raw_input,
-                    source_format=cast(DocumentFormat, format_arg),
-                    **effective_options,
-                )
-
-                # Extract sections
-                doc = extract_sections_from_document(doc, extract_spec)
-
-                # Apply transforms
-                if transforms:
-                    for transform in transforms:
-                        doc = transform.transform(doc)
-
-                # Render to target format
-                result = from_ast(doc, cast(DocumentFormat, render_target), **effective_options)
-            else:
-                # Normal conversion
-                result = convert(
-                    item.raw_input,
-                    output=None,
-                    source_format=cast(DocumentFormat, format_arg),
-                    target_format=cast(DocumentFormat, render_target),
-                    transforms=transforms,
-                    **effective_options,
-                )
-
-            if isinstance(result, bytes):
-                sys.stdout.buffer.write(result)
-                sys.stdout.buffer.flush()
-                return EXIT_SUCCESS
-
-            text_output: str
-            if isinstance(result, str):
-                text_output = result
-            else:
-                # result can only be None at this point (already handled bytes)
-                text_output = ""
-
-            rendered = False
-            if should_use_rich and args.rich and text_output is not None:
-                rendered = _render_rich_text_output(text_output, args, render_target)
-
-            if not rendered:
-                if args.pager and text_output is not None:
-                    if not _page_content(text_output, is_rich=False):
-                        print(text_output)
-                else:
-                    print(text_output)
-
-            return EXIT_SUCCESS
+            return _render_markdown_mode(
+                item, args, effective_options, format_arg, transforms, should_use_rich, extract_spec
+            )
+        return _render_other_format_mode(
+            item, args, effective_options, format_arg, transforms, should_use_rich, render_target, extract_spec
+        )
     except Exception as exc:
         exit_code = get_exit_code_for_exception(exc)
         print(f"Error: {exc}", file=sys.stderr)

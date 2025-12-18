@@ -523,3 +523,362 @@ class TestOptions:
         org = renderer.render_to_string(doc)
 
         assert ":work:urgent:" not in org
+
+    def test_invalid_options_type(self) -> None:
+        """Test that wrong options type raises error."""
+        from all2md.exceptions import InvalidOptionsError
+
+        with pytest.raises(InvalidOptionsError):
+            OrgRenderer(options="invalid")
+
+
+@pytest.mark.unit
+class TestMathRendering:
+    """Tests for math rendering."""
+
+    def test_math_inline(self) -> None:
+        """Test rendering inline math."""
+        from all2md.ast import MathInline
+
+        doc = Document(children=[Paragraph(content=[MathInline(content="E=mc^2")])])
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "$E=mc^2$" in org
+
+    def test_math_block(self) -> None:
+        """Test rendering math block."""
+        from all2md.ast import MathBlock
+
+        doc = Document(children=[MathBlock(content="\\int_0^1 x^2 dx")])
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "\\begin{equation}" in org or "\\int_0^1 x^2 dx" in org
+
+
+@pytest.mark.unit
+class TestFootnotes:
+    """Tests for footnote rendering."""
+
+    def test_footnote_reference(self) -> None:
+        """Test rendering footnote reference."""
+        from all2md.ast import FootnoteReference
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Some text"),
+                        FootnoteReference(identifier="1"),
+                        Text(content=" more text"),
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "[fn:1]" in org
+
+    def test_footnote_definition(self) -> None:
+        """Test rendering footnote definition."""
+        from all2md.ast import FootnoteDefinition
+
+        doc = Document(
+            children=[
+                FootnoteDefinition(
+                    identifier="1",
+                    content=[Paragraph(content=[Text(content="Footnote text")])],
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "[fn:1]" in org
+        assert "Footnote text" in org
+
+
+@pytest.mark.unit
+class TestDefinitionLists:
+    """Tests for definition list rendering."""
+
+    def test_definition_list(self) -> None:
+        """Test rendering definition list."""
+        from all2md.ast import DefinitionDescription, DefinitionList, DefinitionTerm
+
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term 1")]),
+                            [DefinitionDescription(content=[Paragraph(content=[Text(content="Description 1")])])],
+                        ),
+                        (
+                            DefinitionTerm(content=[Text(content="Term 2")]),
+                            [DefinitionDescription(content=[Paragraph(content=[Text(content="Description 2")])])],
+                        ),
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "Term 1" in org
+        assert "Description 1" in org
+        assert "Term 2" in org
+        assert "Description 2" in org
+
+
+@pytest.mark.unit
+class TestSubscriptSuperscript:
+    """Tests for subscript and superscript rendering."""
+
+    def test_subscript(self) -> None:
+        """Test rendering subscript."""
+        from all2md.ast import Subscript
+
+        doc = Document(
+            children=[Paragraph(content=[Text(content="H"), Subscript(content=[Text(content="2")]), Text(content="O")])]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "_{2}" in org
+
+    def test_superscript(self) -> None:
+        """Test rendering superscript."""
+        from all2md.ast import Superscript
+
+        doc = Document(children=[Paragraph(content=[Text(content="x"), Superscript(content=[Text(content="2")])])])
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "^{2}" in org
+
+
+@pytest.mark.unit
+class TestLineBreaks:
+    """Tests for line break rendering."""
+
+    def test_hard_line_break(self) -> None:
+        """Test rendering hard line break."""
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=False),
+                        Text(content="Line 2"),
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "Line 1" in org
+        assert "Line 2" in org
+
+    def test_soft_line_break(self) -> None:
+        """Test rendering soft line break."""
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=True),
+                        Text(content="Line 2"),
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "Line 1" in org
+        assert "Line 2" in org
+
+
+@pytest.mark.unit
+class TestHTMLHandling:
+    """Tests for HTML handling in Org rendering."""
+
+    def test_html_block(self) -> None:
+        """Test rendering HTML block."""
+        from all2md.ast import HTMLBlock
+
+        doc = Document(children=[HTMLBlock(content="<div>HTML content</div>")])
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        # HTML should be rendered in export block
+        assert "#+BEGIN_EXPORT html" in org or "<div>" in org
+
+    def test_html_inline(self) -> None:
+        """Test rendering inline HTML."""
+        from all2md.ast import HTMLInline
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text "),
+                        HTMLInline(content="<span>inline</span>"),
+                        Text(content=" here"),
+                    ]
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        # Check result doesn't throw
+        assert isinstance(org, str)
+
+
+@pytest.mark.unit
+class TestNestedLists:
+    """Tests for nested list rendering."""
+
+    def test_nested_unordered_list(self) -> None:
+        """Test rendering nested unordered list."""
+        nested_list = List(
+            ordered=False,
+            items=[
+                ListItem(children=[Paragraph(content=[Text(content="Nested 1")])]),
+                ListItem(children=[Paragraph(content=[Text(content="Nested 2")])]),
+            ],
+        )
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Top")]), nested_list]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                )
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "- Top" in org
+        assert "- Nested 1" in org or "  - Nested 1" in org
+        assert "- Item 2" in org
+
+
+@pytest.mark.unit
+class TestFileOutput:
+    """Tests for file output functionality."""
+
+    def test_render_to_file(self, tmp_path) -> None:
+        """Test rendering to file path."""
+        doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
+        output_file = tmp_path / "output.org"
+
+        renderer = OrgRenderer()
+        renderer.render(doc, str(output_file))
+
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "* Title" in content
+
+    def test_render_to_path_object(self, tmp_path) -> None:
+        """Test rendering to Path object."""
+        doc = Document(children=[Paragraph(content=[Text(content="Content")])])
+        output_file = tmp_path / "output.org"
+
+        renderer = OrgRenderer()
+        renderer.render(doc, output_file)
+
+        assert output_file.exists()
+
+    def test_render_to_text_stream(self) -> None:
+        """Test rendering to text stream."""
+        from io import StringIO
+
+        doc = Document(children=[Heading(level=2, content=[Text(content="Section")])])
+        output = StringIO()
+
+        renderer = OrgRenderer()
+        renderer.render(doc, output)
+
+        result = output.getvalue()
+        assert "** Section" in result
+
+    def test_render_to_binary_stream(self) -> None:
+        """Test rendering to binary stream."""
+        doc = Document(children=[Paragraph(content=[Text(content="Binary test")])])
+
+        class BinaryStream:
+            def __init__(self):
+                self.data = b""
+                self.mode = "wb"
+
+            def write(self, data):
+                self.data = data
+
+        output = BinaryStream()
+        renderer = OrgRenderer()
+        renderer.render(doc, output)
+
+        assert b"Binary test" in output.data
+
+
+@pytest.mark.unit
+class TestEdgeCases:
+    """Tests for edge cases."""
+
+    def test_render_empty_document(self) -> None:
+        """Test rendering empty document."""
+        doc = Document(children=[])
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert isinstance(org, str)
+
+    def test_render_empty_paragraph(self) -> None:
+        """Test rendering empty paragraph."""
+        doc = Document(children=[Paragraph(content=[])])
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert isinstance(org, str)
+
+    def test_complex_document(self) -> None:
+        """Test rendering complex document with mixed content."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Paragraph(content=[Text(content="Introduction with "), Strong(content=[Text(content="bold")])]),
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="Item 1")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="Item 2")])]),
+                    ],
+                ),
+                CodeBlock(content="code example", language="python"),
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="Header")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="Value")])])],
+                ),
+            ]
+        )
+        renderer = OrgRenderer()
+        org = renderer.render_to_string(doc)
+
+        assert "* Title" in org
+        assert "*bold*" in org
+        assert "- Item 1" in org
+        assert "#+BEGIN_SRC python" in org
+        assert "| Header" in org
