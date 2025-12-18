@@ -422,6 +422,26 @@ def _serialize_catalog_for_completion(catalog: HelpCatalog) -> dict[str, Any]:
     available_formats = sorted(registry.list_formats())
     available_transforms = sorted(transform_registry.list_transforms())
 
+    # Get all supported extensions and dependency-aware available extensions
+    all_extensions = sorted(registry.get_all_extensions())
+
+    # Build extension list for formats with satisfied dependencies
+    from all2md.dependencies import check_all_dependencies
+
+    dep_status = check_all_dependencies()
+    available_extensions: set[str] = set()
+
+    for format_name in registry.list_formats():
+        # Check if parser dependencies are satisfied
+        format_status = dep_status.get(format_name, {})
+        if format_status.get("parser_status", False):
+            # Get extensions for this format
+            metadata_list = registry.get_format_info(format_name)
+            if metadata_list:
+                for metadata in metadata_list:
+                    if metadata.extensions:
+                        available_extensions.update(metadata.extensions)
+
     subcommand_names = [name for name, _ in catalog.subcommands]
     subcommand_data = [{"name": name, "description": desc} for name, desc in catalog.subcommands]
 
@@ -433,6 +453,8 @@ def _serialize_catalog_for_completion(catalog: HelpCatalog) -> dict[str, Any]:
         "subcommand_data": subcommand_data,
         "formats": available_formats,
         "transforms": available_transforms,
+        "all_extensions": all_extensions,
+        "available_extensions": sorted(available_extensions),
     }
 
 
