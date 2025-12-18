@@ -695,6 +695,71 @@ class TestLineBreaks:
         assert "Line 1" in para.text
         assert "Line 2" in para.text
 
+    def test_soft_line_break_adds_break(self, tmp_path):
+        """Test soft line break adds a line break (not run together)."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Bold text"), LineBreak(soft=True), Text(content="continues here")])
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "soft_linebreak.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        para = docx_doc.paragraphs[0]
+        # Text should contain both parts
+        assert "Bold text" in para.text
+        assert "continues here" in para.text
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestCodeBlockStyle:
+    """Tests for CodeBlock style creation."""
+
+    def test_code_block_style_created(self, tmp_path):
+        """Test that CodeBlock style is created when code blocks are present."""
+        doc = Document(children=[CodeBlock(content="print('hello')", language="python")])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "codeblock_style.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        # Check that CodeBlock style exists
+        style_names = [s.name for s in docx_doc.styles]
+        assert "CodeBlock" in style_names
+
+    def test_no_code_block_style_when_no_code_blocks(self, tmp_path):
+        """Test that CodeBlock style is not created when no code blocks are present."""
+        doc = Document(children=[Paragraph(content=[Text(content="No code here")])])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "no_codeblock.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        # Check that CodeBlock style does not exist
+        style_names = [s.name for s in docx_doc.styles]
+        assert "CodeBlock" not in style_names
+
+    def test_code_block_uses_style(self, tmp_path):
+        """Test that code blocks use the CodeBlock style."""
+        doc = Document(children=[CodeBlock(content="def foo():\n    pass", language="python")])
+        renderer = DocxRenderer()
+        output_file = tmp_path / "codeblock_uses_style.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        # Find the code block paragraph
+        code_para = None
+        for para in docx_doc.paragraphs:
+            if "def foo()" in para.text:
+                code_para = para
+                break
+
+        assert code_para is not None
+        assert code_para.style.name == "CodeBlock"
+
 
 @pytest.mark.unit
 @pytest.mark.docx

@@ -241,9 +241,85 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if node.metadata:
             self._set_document_properties(node.metadata)
 
+        # Define CodeBlock style if there are code blocks in the document
+        if self._ast_contains_code_blocks(node):
+            self._ensure_code_block_style()
+
         # Render children
         for child in node.children:
             child.accept(self)
+
+    def _ast_contains_code_blocks(self, node: Node) -> bool:
+        """Check if the AST contains any CodeBlock nodes.
+
+        Parameters
+        ----------
+        node : Node
+            Root node to search from
+
+        Returns
+        -------
+        bool
+            True if any CodeBlock nodes are found
+
+        """
+        if isinstance(node, CodeBlock):
+            return True
+
+        # Check children based on node type
+        if hasattr(node, "children") and isinstance(node.children, list):
+            for child in node.children:
+                if self._ast_contains_code_blocks(child):
+                    return True
+
+        if hasattr(node, "content") and isinstance(node.content, list):
+            for child in node.content:
+                if self._ast_contains_code_blocks(child):
+                    return True
+
+        if hasattr(node, "items") and isinstance(node.items, list):
+            for item in node.items:
+                if isinstance(item, tuple):
+                    for part in item:
+                        if isinstance(part, list):
+                            for subpart in part:
+                                if self._ast_contains_code_blocks(subpart):
+                                    return True
+                        elif isinstance(part, Node) and self._ast_contains_code_blocks(part):
+                            return True
+                elif isinstance(item, Node) and self._ast_contains_code_blocks(item):
+                    return True
+
+        if hasattr(node, "rows") and isinstance(node.rows, list):
+            for row in node.rows:
+                if self._ast_contains_code_blocks(row):
+                    return True
+
+        if hasattr(node, "header") and node.header is not None:
+            if self._ast_contains_code_blocks(node.header):
+                return True
+
+        if hasattr(node, "cells") and isinstance(node.cells, list):
+            for cell in node.cells:
+                if self._ast_contains_code_blocks(cell):
+                    return True
+
+        return False
+
+    def _ensure_code_block_style(self) -> None:
+        """Create the CodeBlock style if it doesn't already exist."""
+        if not self.document:
+            return
+
+        styles = self.document.styles
+        if "CodeBlock" not in [s.name for s in styles]:
+            # Create the CodeBlock style
+            style = styles.add_style("CodeBlock", self._WD_STYLE_TYPE.PARAGRAPH)
+            style.font.name = self.options.code_font
+            style.font.size = self._Pt(self.options.code_font_size)
+            # Set paragraph format for the style
+            style.paragraph_format.space_before = self._Pt(6)
+            style.paragraph_format.space_after = self._Pt(6)
 
     def _set_document_properties(self, metadata: dict) -> None:
         """Set document properties from metadata.
@@ -360,6 +436,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Add paragraph with code formatting
         para = self.document.add_paragraph()
+
+        # Apply CodeBlock style if it exists
+        if "CodeBlock" in [s.name for s in self.document.styles]:
+            para.style = "CodeBlock"
+
         run = para.add_run(node.content)
         run.font.name = self.options.code_font
         run.font.size = self._Pt(self.options.code_font_size)
@@ -623,7 +704,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Add horizontal line using a simple text separator
         para = self.document.add_paragraph()
-        run = para.add_run("─" * 78)  # Box drawing horizontal character
+        run = para.add_run("─" * 75)  # Box drawing horizontal character
         run.font.color.rgb = self._RGBColor(192, 192, 192)  # Light gray
 
     def visit_html_block(self, node: HTMLBlock) -> None:
@@ -838,6 +919,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._add_hyperlink(paragraph, node.url, link_text)
 
             elif isinstance(node, LineBreak):
+                # Both soft and hard breaks become line breaks in DOCX
                 paragraph.add_run().add_break()
 
             else:
@@ -1114,6 +1196,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         """
         if self._current_paragraph:
+            # Both soft and hard breaks become line breaks in DOCX
             self._current_paragraph.add_run().add_break()
 
     def visit_strikethrough(self, node: Strikethrough) -> None:

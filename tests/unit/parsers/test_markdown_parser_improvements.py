@@ -154,3 +154,47 @@ Content"""
 
         # Description stays as "description" field
         assert doc.metadata.get("description") == "This is a test document"
+
+
+class TestSoftBreakParsing:
+    """Tests for soft break (single newline) parsing."""
+
+    def test_softbreak_after_strong(self) -> None:
+        """Test that soft breaks are parsed after bold text."""
+        from all2md.ast import LineBreak, Paragraph, Strong, Text
+
+        markdown = """**Bold text**
+And then a paragraph immediately afterwards."""
+        parser = MarkdownToAstConverter()
+        doc = parser.parse(markdown)
+
+        # Should have one paragraph
+        assert len(doc.children) == 1
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+
+        # Paragraph should have Strong, LineBreak, Text
+        assert len(para.content) == 3
+        assert isinstance(para.content[0], Strong)
+        assert isinstance(para.content[1], LineBreak)
+        assert para.content[1].soft is True
+        assert isinstance(para.content[2], Text)
+
+    def test_softbreak_between_text(self) -> None:
+        """Test that soft breaks are parsed between plain text."""
+        from all2md.ast import LineBreak, Paragraph, Text
+
+        markdown = """First line
+Second line"""
+        parser = MarkdownToAstConverter()
+        doc = parser.parse(markdown)
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+
+        # Should have Text, LineBreak, Text
+        assert len(para.content) == 3
+        assert isinstance(para.content[0], Text)
+        assert isinstance(para.content[1], LineBreak)
+        assert para.content[1].soft is True
+        assert isinstance(para.content[2], Text)

@@ -884,6 +884,10 @@ class MarkdownToAstConverter(BaseParser):
         soft = attrs.get("soft", False)
         return LineBreak(soft=soft)
 
+    def _handle_softbreak_token(self, token: dict[str, Any]) -> LineBreak:
+        """Handle softbreak token (single newline in source)."""
+        return LineBreak(soft=True)
+
     def _handle_strikethrough_token(self, token: dict[str, Any]) -> Strikethrough:
         """Handle strikethrough token."""
         children = token.get("children", [])
@@ -939,6 +943,7 @@ class MarkdownToAstConverter(BaseParser):
             "link": self._handle_link_token,
             "image": self._handle_image_token,
             "linebreak": self._handle_linebreak_token,
+            "softbreak": self._handle_softbreak_token,
             "strikethrough": self._handle_strikethrough_token,
             "inline_html": self._handle_inline_html_token,
             "inline_math": self._handle_inline_math_token,
