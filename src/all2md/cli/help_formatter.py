@@ -155,6 +155,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("search", "Search documents using keyword, vector, or hybrid retrieval"),
     ("grep", "Search for text patterns in documents (like grep for any format)"),
     ("generate-site", "Generate Hugo or Jekyll static site from documents"),
+    ("arxiv", "Generate ArXiv submission package (LaTeX + figures + bibliography)"),
 )
 
 

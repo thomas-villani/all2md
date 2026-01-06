@@ -66,6 +66,17 @@ Utilities for specific format handling:
    all2md.utils.footnotes
    all2md.utils.flavors
 
+Academic/ArXiv Utilities
+------------------------
+
+Utilities for academic document processing and ArXiv submission:
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.utils.bibliography
+   all2md.utils.arxiv_figures
+
 Other Utilities
 ---------------
 

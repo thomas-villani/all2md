@@ -12,6 +12,7 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from typing import IO, Any, Literal, Optional, Union
 
 from all2md.ast import (
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -163,8 +165,116 @@ class MarkdownToAstConverter(BaseParser):
             for identifier, content in self._footnote_definitions.items():
                 children.append(FootnoteDefinition(identifier=identifier, content=content))
 
-        # Use frontmatter metadata as document metadata
-        return Document(children=children, metadata=frontmatter_metadata.to_dict())
+        # Create document
+        doc = Document(children=children, metadata=frontmatter_metadata.to_dict())
+
+        # Post-process citations if enabled
+        if self.options.parse_citations:
+            doc = self._parse_citations_in_document(doc)
+
+        return doc
+
+    def _parse_citations_in_document(self, document: Document) -> Document:
+        """Parse Pandoc-style citations in document.
+
+        Scans Text nodes for [@key] patterns and converts them to Citation nodes.
+
+        Parameters
+        ----------
+        document : Document
+            Document to process
+
+        Returns
+        -------
+        Document
+            Document with citations parsed
+
+        """
+        from all2md.ast.nodes import get_node_children, replace_node_children
+
+        # Pattern for Pandoc-style citations: [@key] or [@key1; @key2] or [see @key, p. 42]
+        citation_pattern = re.compile(r"\[([^\]]*@[^\]]+)\]")
+
+        def parse_citation_content(content: str) -> Citation | None:
+            """Parse citation content like '@key' or 'see @key, p. 42'."""
+            # Extract keys and prefix/suffix
+            keys: list[str] = []
+            prefix = ""
+            suffix = ""
+
+            # Find all @key patterns
+            key_pattern = re.compile(r"@([\w\-:]+)")
+            key_matches = list(key_pattern.finditer(content))
+
+            if not key_matches:
+                return None
+
+            for match in key_matches:
+                keys.append(match.group(1))
+
+            # Extract prefix (text before first @)
+            first_at = content.find("@")
+            if first_at > 0:
+                prefix = content[:first_at].strip().rstrip(";").strip()
+
+            # Extract suffix (text after last key, typically after comma)
+            last_match = key_matches[-1]
+            after_last_key = content[last_match.end() :]
+            if "," in after_last_key:
+                suffix = after_last_key.split(",", 1)[1].strip()
+
+            return Citation(keys=keys, prefix=prefix, suffix=suffix)
+
+        def transform_node(node: Node) -> Node | list[Node]:
+            """Transform a node, splitting Text nodes with citations."""
+            if isinstance(node, Text):
+                text = node.content
+                matches = list(citation_pattern.finditer(text))
+
+                if not matches:
+                    return node
+
+                # Split text into parts
+                result: list[Node] = []
+                last_end = 0
+
+                for match in matches:
+                    # Add text before citation
+                    if match.start() > last_end:
+                        result.append(Text(content=text[last_end : match.start()]))
+
+                    # Parse and add citation
+                    citation_content = match.group(1)
+                    citation = parse_citation_content(citation_content)
+                    if citation:
+                        result.append(citation)
+                    else:
+                        # Keep original if parsing failed
+                        result.append(Text(content=match.group(0)))
+
+                    last_end = match.end()
+
+                # Add remaining text
+                if last_end < len(text):
+                    result.append(Text(content=text[last_end:]))
+
+                return result if len(result) > 1 else (result[0] if result else node)
+
+            # Recursively transform children
+            children = get_node_children(node)
+            if children:
+                new_children: list[Node] = []
+                for child in children:
+                    transformed = transform_node(child)
+                    if isinstance(transformed, list):
+                        new_children.extend(transformed)
+                    else:
+                        new_children.append(transformed)
+                return replace_node_children(node, new_children)
+
+            return node
+
+        return transform_node(document)  # type: ignore[return-value]
 
     def _try_extract_yaml_frontmatter(self, content: str) -> tuple[str, DocumentMetadata] | None:
         """Try to extract YAML frontmatter (--- ... ---).

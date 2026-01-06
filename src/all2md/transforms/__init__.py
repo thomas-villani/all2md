@@ -90,6 +90,9 @@ from .builtin import (
     TextReplacerTransform,
 )
 
+# Academic/ArXiv transforms
+from .footnote_to_citation import FootnoteToCitationTransformer
+
 # Core classes
 from .hooks import HookCallable, HookContext, HookManager, HookPoint, HookTarget, NodeType
 from .metadata import ParameterSpec, TransformMetadata
@@ -134,6 +137,8 @@ __all__ = [
     "CalculateWordCountTransform",
     "AddAttachmentFootnotesTransform",
     "GenerateTocTransform",
+    # Academic/ArXiv Transforms
+    "FootnoteToCitationTransformer",
     # Built-in Metadata
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",

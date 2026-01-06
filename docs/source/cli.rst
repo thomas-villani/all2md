@@ -594,6 +594,146 @@ Configuration sources are applied in this order (highest to lowest priority):
    # 5. Use it (auto-discovered)
    all2md document.pdf
 
+ArXiv Command
+-------------
+
+``all2md arxiv`` generates complete ArXiv-ready submission packages from documents.
+It converts DOCX, Markdown, and other formats into LaTeX with proper bibliography,
+figure extraction, and packaging.
+
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Generate ArXiv package from a Word document
+   all2md arxiv paper.docx -o submission/
+
+   # Generate tar.gz archive for upload
+   all2md arxiv paper.docx --output-format tar.gz -o paper.tar.gz
+
+   # From Markdown with custom options
+   all2md arxiv paper.md --document-class revtex4-2 --bib-style apsrev4-2 -o submission/
+
+Common Options
+~~~~~~~~~~~~~~
+
+**Output Options:**
+
+.. code-block:: bash
+
+   # Output directory (default)
+   all2md arxiv paper.docx -o submission/
+
+   # Tar.gz archive
+   all2md arxiv paper.docx --output-format tar.gz -o paper.tar.gz
+
+**Document Class:**
+
+.. code-block:: bash
+
+   # Use specific LaTeX document class
+   all2md arxiv paper.docx --document-class article  # default
+   all2md arxiv paper.docx --document-class revtex4-2
+   all2md arxiv paper.docx --document-class amsart
+
+**Bibliography Style:**
+
+.. code-block:: bash
+
+   # Use specific bibliography style
+   all2md arxiv paper.docx --bib-style plain  # default
+   all2md arxiv paper.docx --bib-style apsrev4-2
+   all2md arxiv paper.docx --bib-style unsrt
+
+**Footnote Handling:**
+
+.. code-block:: bash
+
+   # Convert bibliographic footnotes to citations (default)
+   all2md arxiv paper.docx
+
+   # Keep footnotes as-is (don't convert to citations)
+   all2md arxiv paper.docx --no-convert-footnotes
+
+**Package Options:**
+
+.. code-block:: bash
+
+   # Include natbib package (default)
+   all2md arxiv paper.docx
+
+   # Exclude natbib package
+   all2md arxiv paper.docx --no-natbib
+
+Output Structure
+~~~~~~~~~~~~~~~~
+
+The generated package contains:
+
+.. code-block:: text
+
+   submission/
+   ├── main.tex          # LaTeX source
+   ├── main.bib          # BibTeX bibliography (if citations present)
+   └── figures/          # Extracted figures
+       ├── figure_1.png
+       └── figure_2.png
+
+Citation Handling
+~~~~~~~~~~~~~~~~~
+
+The ArXiv packager automatically:
+
+* Detects bibliographic footnotes using heuristics (author patterns, years, DOIs)
+* Converts footnote references to ``\cite{}`` commands
+* Generates BibTeX entries from footnote text
+* Creates a proper bibliography file
+
+For Markdown input, Pandoc-style citations (``[@key]``) are also supported:
+
+.. code-block:: markdown
+
+   According to recent research [@smith2023], the results show...
+
+   Multiple citations are supported [@smith2023; @jones2024].
+
+   Citations with context: [see @smith2023, p. 42].
+
+Examples
+~~~~~~~~
+
+**Basic Academic Paper:**
+
+.. code-block:: bash
+
+   # Convert Word document to ArXiv package
+   all2md arxiv dissertation_chapter.docx -o arxiv_submission/
+
+   # Then compile:
+   cd arxiv_submission
+   pdflatex main.tex
+   bibtex main
+   pdflatex main.tex
+   pdflatex main.tex
+
+**Physics Paper (Physical Review Style):**
+
+.. code-block:: bash
+
+   all2md arxiv paper.docx \
+       --document-class revtex4-2 \
+       --bib-style apsrev4-2 \
+       --output-format tar.gz \
+       -o paper.tar.gz
+
+**Direct Upload Package:**
+
+.. code-block:: bash
+
+   # Create tar.gz ready for ArXiv upload
+   all2md arxiv paper.docx --output-format tar.gz -o arxiv_upload.tar.gz
+
 Static Site Generation
 -----------------------
 

@@ -21,7 +21,10 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from all2md.ast.nodes import (
+    Bibliography,
+    BibliographyEntry,
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -655,6 +658,69 @@ class NodeVisitor(ABC):
         """
         pass
 
+    def visit_citation(self, node: "Citation") -> Any:  # noqa: B027
+        """Visit a Citation node.
+
+        Parameters
+        ----------
+        node : Citation
+            The citation node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        Note
+        ----
+        This is an optional visitor method with a default no-op implementation.
+        Renderers can override this if they need to handle citations.
+
+        """
+        pass
+
+    def visit_bibliography_entry(self, node: "BibliographyEntry") -> Any:  # noqa: B027
+        """Visit a BibliographyEntry node.
+
+        Parameters
+        ----------
+        node : BibliographyEntry
+            The bibliography entry node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        Note
+        ----
+        This is an optional visitor method with a default no-op implementation.
+        Renderers can override this if they need to handle bibliography entries.
+
+        """
+        pass
+
+    def visit_bibliography(self, node: "Bibliography") -> Any:  # noqa: B027
+        """Visit a Bibliography node.
+
+        Parameters
+        ----------
+        node : Bibliography
+            The bibliography node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        Note
+        ----
+        This is an optional visitor method with a default no-op implementation.
+        Renderers can override this if they need to handle bibliographies.
+
+        """
+        pass
+
     def generic_visit(self, node: Node) -> Any:
         """Fallback visitor for unhandled node types.
 
@@ -736,6 +802,7 @@ class ValidationVisitor(NodeVisitor):
             HTMLInline,
             MathInline,
             FootnoteReference,
+            Citation,
         }
     )
 
@@ -758,6 +825,8 @@ class ValidationVisitor(NodeVisitor):
             DefinitionTerm,
             DefinitionDescription,
             MathBlock,
+            Bibliography,
+            BibliographyEntry,
         }
     )
 
@@ -1161,3 +1230,26 @@ class ValidationVisitor(NodeVisitor):
                 self._add_error(f"MathBlock has invalid representation key '{notation}'")
             elif not isinstance(value, str):
                 self._add_error("MathBlock representations must be strings")  # type: ignore[unreachable]
+
+    def visit_citation(self, node: Citation) -> None:
+        """Validate a Citation node."""
+        if not node.keys:
+            self._add_error("Citation must have at least one key")
+        for key in node.keys:
+            if not key or not key.strip():
+                self._add_error("Citation keys must be non-empty strings")
+
+    def visit_bibliography_entry(self, node: BibliographyEntry) -> None:
+        """Validate a BibliographyEntry node."""
+        if not node.key:
+            self._add_error("BibliographyEntry must have a key")
+
+    def visit_bibliography(self, node: Bibliography) -> None:
+        """Validate a Bibliography node."""
+        # Check for duplicate keys
+        seen_keys: set[str] = set()
+        for entry in node.entries:
+            if entry.key in seen_keys:
+                self._add_error(f"Bibliography has duplicate key: {entry.key}")
+            seen_keys.add(entry.key)
+            entry.accept(self)

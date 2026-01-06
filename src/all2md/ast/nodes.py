@@ -22,6 +22,7 @@ Block-level nodes represent structural document elements:
     - List, ListItem, Table, TableRow, TableCell
     - ThematicBreak, HTMLBlock, Comment
     - FootnoteDefinition, DefinitionList, MathBlock
+    - Bibliography, BibliographyEntry (academic/ArXiv support)
 
 Inline nodes represent text formatting:
     - Text, Emphasis, Strong, Code
@@ -29,6 +30,7 @@ Inline nodes represent text formatting:
     - Strikethrough, Underline, Superscript, Subscript
     - HTMLInline, CommentInline
     - FootnoteReference, MathInline
+    - Citation (academic/ArXiv support)
 
 """
 
@@ -1942,6 +1944,193 @@ class Comment(Node):
         return visitor.visit_comment(self)
 
 
+# ============================================================================
+# Citation and Bibliography Nodes (ArXiv/Academic Support)
+# ============================================================================
+
+
+@dataclass
+class Citation(Node):
+    r"""Inline citation reference node.
+
+    Represents an inline citation reference, rendered as \cite{keys} in LaTeX
+    or [@key] in Pandoc-style Markdown. Supports multiple citation keys and
+    optional prefix/suffix text for complex citations.
+
+    Parameters
+    ----------
+    keys : list of str
+        Citation keys (e.g., ["einstein1905", "feynman1965"])
+    prefix : str, default = ""
+        Text before the citation (e.g., "see" in "see [@key]")
+    suffix : str, default = ""
+        Text after the citation (e.g., "p. 42" in "[@key, p. 42]")
+    metadata : dict, default = empty dict
+        Citation metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    Examples
+    --------
+    Simple citation:
+        >>> Citation(keys=["smith2023"])
+
+    Multiple citations:
+        >>> Citation(keys=["smith2023", "jones2024"])
+
+    Citation with context:
+        >>> Citation(keys=["smith2023"], prefix="see", suffix="p. 42")
+
+    """
+
+    keys: list[str] = field(default_factory=list)
+    prefix: str = ""
+    suffix: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this citation.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_citation method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_citation(self)
+
+        """
+        return visitor.visit_citation(self)
+
+
+@dataclass
+class BibliographyEntry(Node):
+    """Single bibliography entry node.
+
+    Represents a structured bibliography entry with BibTeX-style fields.
+    Can be generated from parsed footnotes or imported from .bib files.
+
+    Parameters
+    ----------
+    key : str
+        Unique citation key for referencing (e.g., "smith2023")
+    entry_type : str, default = "misc"
+        BibTeX entry type (article, book, inproceedings, misc, etc.)
+    fields : dict of str to str, default = empty dict
+        BibTeX fields (author, title, year, journal, volume, pages, doi, url, etc.)
+    raw_text : str, default = ""
+        Original source text (e.g., footnote content) for traceability
+    metadata : dict, default = empty dict
+        Entry metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    Examples
+    --------
+    Article entry:
+        >>> BibliographyEntry(
+        ...     key="smith2023",
+        ...     entry_type="article",
+        ...     fields={
+        ...         "author": "John Smith and Jane Doe",
+        ...         "title": "A Study of Something",
+        ...         "journal": "Journal of Examples",
+        ...         "year": "2023",
+        ...         "volume": "42",
+        ...         "pages": "1-10"
+        ...     }
+        ... )
+
+    Entry from footnote:
+        >>> BibliographyEntry(
+        ...     key="ref1",
+        ...     entry_type="misc",
+        ...     fields={"author": "Smith, J.", "title": "Example", "year": "2023"},
+        ...     raw_text="Smith, J. (2023). Example. Journal of Examples, 42, 1-10."
+        ... )
+
+    """
+
+    key: str
+    entry_type: str = "misc"
+    fields: dict[str, str] = field(default_factory=dict)
+    raw_text: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this bibliography entry.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_bibliography_entry method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_bibliography_entry(self)
+
+        """
+        return visitor.visit_bibliography_entry(self)
+
+
+@dataclass
+class Bibliography(Node):
+    """Bibliography block containing all references.
+
+    Represents a complete bibliography section with all citation entries.
+    Typically rendered at the end of a document in LaTeX or Markdown.
+
+    Parameters
+    ----------
+    entries : list of BibliographyEntry, default = empty list
+        Bibliography entries
+    style : str, default = "plain"
+        Bibliography style (plain, alpha, abbrv, unsrt, apsrev4-2, etc.)
+    metadata : dict, default = empty dict
+        Bibliography metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    Examples
+    --------
+    Simple bibliography:
+        >>> Bibliography(
+        ...     entries=[
+        ...         BibliographyEntry(key="smith2023", entry_type="article", fields={...}),
+        ...         BibliographyEntry(key="jones2024", entry_type="book", fields={...}),
+        ...     ],
+        ...     style="plain"
+        ... )
+
+    """
+
+    entries: list[BibliographyEntry] = field(default_factory=list)
+    style: str = "plain"
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this bibliography.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_bibliography method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_bibliography(self)
+
+        """
+        return visitor.visit_bibliography(self)
+
+
 def get_node_children(node: Node) -> list[Node]:
     """Get all child nodes from a node.
 
@@ -2018,6 +2207,10 @@ def get_node_children(node: Node) -> list[Node]:
             dl_children.append(term)
             dl_children.extend(descriptions)
         return dl_children
+
+    # Bibliography has entries
+    if isinstance(node, Bibliography):
+        return list(node.entries)
 
     # Leaf nodes (no children)
     return []
@@ -2132,6 +2325,10 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
     # FootnoteDefinition has content
     if isinstance(node, FootnoteDefinition):
         return replace(node, content=new_children)
+
+    # Bibliography has entries
+    if isinstance(node, Bibliography):
+        return replace(node, entries=new_children)  # type: ignore[arg-type]
 
     # DefinitionList needs special handling
     if isinstance(node, DefinitionList):

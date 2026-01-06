@@ -157,6 +157,55 @@ Inline nodes represent inline formatting:
        content=[Text(content="Click here")]
    )
 
+Citation and Bibliography Nodes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Nodes for academic citation and bibliography support:
+
+.. code-block:: python
+
+   from all2md.ast import (
+       Citation,           # Inline citation reference
+       BibliographyEntry,  # Single bibliography entry
+       Bibliography        # Bibliography container
+   )
+
+   # Example: Create citation
+   from all2md.ast import Citation
+
+   cite = Citation(
+       keys=["smith2023", "jones2024"],
+       prefix="see",
+       suffix="p. 42"
+   )
+   # Renders as: \cite[see][p. 42]{smith2023,jones2024} in LaTeX
+   # Or: [see @smith2023; @jones2024, p. 42] in Pandoc Markdown
+
+   # Example: Create bibliography entry
+   from all2md.ast import BibliographyEntry
+
+   entry = BibliographyEntry(
+       key="smith2023",
+       entry_type="article",
+       fields={
+           "author": "John Smith",
+           "title": "A Study of Examples",
+           "year": "2023",
+           "journal": "Journal of Examples"
+       }
+   )
+
+   # Example: Create bibliography
+   from all2md.ast import Bibliography
+
+   bibliography = Bibliography(
+       entries=[entry],
+       style="plain"
+   )
+
+These nodes are primarily used by the ArXiv packager (``all2md arxiv``) and
+the ``FootnoteToCitationTransformer`` for converting academic documents.
+
 Traversing the AST
 ------------------
 

@@ -415,6 +415,46 @@ Generate multiple output formats from a single Markdown source:
    # Usage
    publish_multiformat('article.md', './output')
 
+ArXiv Package Generation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generate ArXiv-ready submission packages with LaTeX source, bibliography, and figures:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.packagers.arxiv import ArxivPackager, ArxivPackageOptions
+   from all2md.transforms import FootnoteToCitationTransformer
+
+   # Load document
+   doc = to_ast('paper.docx')
+
+   # Transform bibliographic footnotes to citations
+   transformer = FootnoteToCitationTransformer()
+   doc = transformer.transform(doc)
+
+   # Configure package options
+   options = ArxivPackageOptions(
+       document_class="revtex4-2",     # or "article", "amsart"
+       bibliography_style="apsrev4-2", # or "plain", "unsrt"
+       output_format="directory",      # or "tar.gz"
+       include_natbib=True
+   )
+
+   # Generate package
+   packager = ArxivPackager(options)
+   output_path = packager.package(doc, "submission/")
+
+   print(f"ArXiv package created at: {output_path}")
+
+The generated package contains:
+
+- ``main.tex`` - LaTeX source with proper structure
+- ``main.bib`` - BibTeX bibliography (if citations present)
+- ``figures/`` - Extracted figures from the document
+
+For CLI usage, see the ``all2md arxiv`` command documentation in :doc:`cli`.
+
 Transform Before Rendering
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

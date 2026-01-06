@@ -47,7 +47,10 @@ from all2md.ast.builder import DocumentBuilder, ListBuilder, TableBuilder
 # Core node types
 from all2md.ast.nodes import (
     Alignment,
+    Bibliography,
+    BibliographyEntry,
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -168,6 +171,10 @@ __all__ = [
     "DefinitionList",
     "DefinitionTerm",
     "DefinitionDescription",
+    # Citation and Bibliography nodes (ArXiv/academic support)
+    "Citation",
+    "BibliographyEntry",
+    "Bibliography",
     # Node helpers
     "get_node_children",
     "replace_node_children",

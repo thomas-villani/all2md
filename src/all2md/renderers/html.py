@@ -26,7 +26,10 @@ from all2md.utils.text import slugify
 logger = logging.getLogger(__name__)
 
 from all2md.ast.nodes import (  # noqa: E402
+    Bibliography,
+    BibliographyEntry,
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -1364,3 +1367,54 @@ hr {
             if comment_type:
                 self._output.append(f' data-type="{escape_html(comment_type)}"')
             self._output.append(f">{escape_html(comment_text)}</div>\n")
+
+    def visit_citation(self, node: "Citation") -> None:
+        """Render a Citation node.
+
+        Parameters
+        ----------
+        node : Citation
+            Citation to render
+
+        """
+        # Render as a superscript link to the reference
+        keys_str = ", ".join(node.keys)
+        self._output.append(f'<sup class="citation">[{escape_html(keys_str)}]</sup>')
+
+    def visit_bibliography_entry(self, node: "BibliographyEntry") -> None:
+        """Render a BibliographyEntry node.
+
+        Parameters
+        ----------
+        node : BibliographyEntry
+            Bibliography entry to render
+
+        """
+        # Handled by visit_bibliography
+        pass
+
+    def visit_bibliography(self, node: "Bibliography") -> None:
+        """Render a Bibliography node.
+
+        Parameters
+        ----------
+        node : Bibliography
+            Bibliography to render
+
+        """
+        self._output.append('<section class="bibliography">\n')
+        self._output.append("<h2>References</h2>\n")
+        self._output.append("<ol>\n")
+        for entry in node.entries:
+            author = entry.fields.get("author", "Unknown")
+            title = entry.fields.get("title", "Untitled")
+            year = entry.fields.get("year", "n.d.")
+            journal = entry.fields.get("journal", "")
+
+            ref_text = f"{escape_html(author)} ({escape_html(year)}). <em>{escape_html(title)}</em>."
+            if journal:
+                ref_text += f" {escape_html(journal)}."
+
+            self._output.append(f'<li id="ref-{escape_html(entry.key)}">{ref_text}</li>\n')
+        self._output.append("</ol>\n")
+        self._output.append("</section>\n")

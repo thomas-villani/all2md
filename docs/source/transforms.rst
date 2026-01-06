@@ -376,6 +376,45 @@ CLI usage:
        --toc-max-depth 2 \
        --toc-position bottom
 
+footnote-to-citation
+~~~~~~~~~~~~~~~~~~~~
+
+Convert bibliographic footnotes to proper citations with a bibliography.
+This transform is particularly useful for academic documents being prepared
+for ArXiv submission.
+
+.. code-block:: python
+
+   from all2md.transforms import FootnoteToCitationTransformer
+
+   # Basic usage
+   transform = FootnoteToCitationTransformer()
+
+   # Custom configuration
+   transform = FootnoteToCitationTransformer(
+       confidence_threshold=0.3,       # Min confidence for bibliographic detection
+       preserve_non_bibliographic=True, # Keep non-bibliographic footnotes as-is
+       bibliography_style="plain"       # BibTeX style
+   )
+
+The transform:
+
+* Scans all FootnoteDefinition nodes for bibliographic content
+* Uses heuristics to detect citations (author patterns, years, DOIs, etc.)
+* Parses bibliographic text to extract author, title, year, journal, etc.
+* Replaces FootnoteReference nodes with Citation nodes
+* Generates a Bibliography node containing BibliographyEntry nodes
+* Keeps non-bibliographic footnotes unchanged (when preserve_non_bibliographic=True)
+
+**Parameters:**
+
+* ``confidence_threshold`` (float, default=0.3) - Minimum confidence score (0-1) to treat footnote as bibliographic
+* ``preserve_non_bibliographic`` (bool, default=True) - Keep non-bibliographic footnotes as-is
+* ``bibliography_style`` (str, default="plain") - BibTeX bibliography style
+
+This transform is automatically used by the ``all2md arxiv`` command when
+converting documents to ArXiv submission packages.
+
 Creating Custom Transforms
 ---------------------------
 

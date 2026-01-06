@@ -50,6 +50,15 @@ Inline nodes:
    all2md.ast.nodes.Emphasis
    all2md.ast.nodes.Strong
 
+Citation and Bibliography nodes:
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.ast.nodes.Citation
+   all2md.ast.nodes.BibliographyEntry
+   all2md.ast.nodes.Bibliography
+
 AST Utilities
 ^^^^^^^^^^^^^
 
@@ -113,6 +122,19 @@ Model Context Protocol server for LLM integration:
 
 For user-facing MCP documentation, see :doc:`/mcp`.
 
+Packagers
+---------
+
+Specialized packagers for specific output formats:
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.packagers.arxiv
+
+The ArXiv packager generates complete submission packages with LaTeX source,
+bibliography, and figures. See :doc:`all2md.packagers.arxiv` for details.
+
 Complete References
 -------------------
 
@@ -123,3 +145,4 @@ Complete References
    all2md.search
    all2md.diff
    all2md.mcp
+   all2md.packagers.arxiv

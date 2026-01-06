@@ -15,7 +15,10 @@ from pathlib import Path
 from typing import IO, Any, Dict, Union
 
 from all2md.ast.nodes import (
+    Bibliography,
+    BibliographyEntry,
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -896,6 +899,61 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         pass
+
+    def visit_citation(self, node: Citation) -> None:
+        r"""Render a Citation node.
+
+        Generates LaTeX \cite{} commands with optional prefix/suffix
+        using natbib-style citation commands.
+
+        Parameters
+        ----------
+        node : Citation
+            Citation to render
+
+        """
+        keys_str = ",".join(node.keys)
+
+        if node.prefix and node.suffix:
+            # natbib-style: \cite[prefix][suffix]{keys}
+            self._output.append(f"\\cite[{self._escape(node.prefix)}][{self._escape(node.suffix)}]{{{keys_str}}}")
+        elif node.suffix:
+            # Just suffix (e.g., page number)
+            self._output.append(f"\\cite[{self._escape(node.suffix)}]{{{keys_str}}}")
+        elif node.prefix:
+            # Just prefix (less common but supported)
+            self._output.append(f"\\cite[{self._escape(node.prefix)}][]{{{keys_str}}}")
+        else:
+            # Simple citation
+            self._output.append(f"\\cite{{{keys_str}}}")
+
+    def visit_bibliography_entry(self, node: BibliographyEntry) -> None:
+        """Render a BibliographyEntry node (handled by visit_bibliography).
+
+        Parameters
+        ----------
+        node : BibliographyEntry
+            Bibliography entry to render
+
+        """
+        pass
+
+    def visit_bibliography(self, node: Bibliography) -> None:
+        r"""Render a Bibliography node.
+
+        Generates \bibliographystyle{} and \bibliography{} commands.
+        The actual BibTeX content is written to a separate .bib file
+        during package assembly.
+
+        Parameters
+        ----------
+        node : Bibliography
+            Bibliography to render
+
+        """
+        # Add bibliography commands
+        self._output.append(f"\n\\bibliographystyle{{{node.style}}}\n")
+        self._output.append("\\bibliography{main}\n")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to LaTeX and write to output.

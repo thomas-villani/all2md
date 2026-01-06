@@ -34,7 +34,10 @@ import re
 from typing import Any, Callable, Pattern, Type
 
 from all2md.ast.nodes import (
+    Bibliography,
+    BibliographyEntry,
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -425,6 +428,36 @@ class NodeTransformer(NodeVisitor):
             source_location=node.source_location,
         )
 
+    def visit_citation(self, node: "Citation") -> "Citation":
+        """Transform a Citation node."""
+        return Citation(
+            keys=node.keys.copy(),
+            prefix=node.prefix,
+            suffix=node.suffix,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_bibliography_entry(self, node: "BibliographyEntry") -> "BibliographyEntry":
+        """Transform a BibliographyEntry node."""
+        return BibliographyEntry(
+            key=node.key,
+            entry_type=node.entry_type,
+            fields=node.fields.copy(),
+            raw_text=node.raw_text,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+    def visit_bibliography(self, node: "Bibliography") -> "Bibliography":
+        """Transform a Bibliography node."""
+        return Bibliography(
+            entries=self._transform_children(node.entries),  # type: ignore
+            style=node.style,
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
 
 class NodeCollector(NodeVisitor):
     """Visitor that collects nodes matching a condition.
@@ -629,6 +662,19 @@ class NodeCollector(NodeVisitor):
     def visit_math_block(self, node: "MathBlock") -> None:
         """Visit a MathBlock node."""
         self._collect_if_match(node)
+
+    def visit_citation(self, node: "Citation") -> None:
+        """Visit a Citation node."""
+        self._collect_if_match(node)
+
+    def visit_bibliography_entry(self, node: "BibliographyEntry") -> None:
+        """Visit a BibliographyEntry node."""
+        self._collect_if_match(node)
+
+    def visit_bibliography(self, node: "Bibliography") -> None:
+        """Visit a Bibliography node."""
+        self._collect_if_match(node)
+        self._visit_children(node.entries)  # type: ignore
 
 
 # Utility functions

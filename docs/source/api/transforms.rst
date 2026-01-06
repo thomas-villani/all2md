@@ -73,6 +73,16 @@ Commonly used transforms included with all2md:
 
 For the complete list, see :doc:`all2md.transforms.builtin`.
 
+Academic/ArXiv Transforms
+-------------------------
+
+Transforms for academic document processing:
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.transforms.footnote_to_citation.FootnoteToCitationTransformer
+
 Transform Hooks
 ---------------
 
@@ -104,6 +114,7 @@ Complete Transform Reference
 
    all2md.transforms
    all2md.transforms.builtin
+   all2md.transforms.footnote_to_citation
    all2md.transforms.pipeline
    all2md.transforms.registry
    all2md.transforms.hooks

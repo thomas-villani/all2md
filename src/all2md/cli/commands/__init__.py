@@ -67,6 +67,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:
 
         return handle_generate_site_command(args[1:])
 
+    # Check for arxiv command
+    if args[0] == "arxiv":
+        from all2md.cli.commands.arxiv import handle_arxiv_command
+
+        return handle_arxiv_command(args[1:])
+
     if args[0] == "search":
         from all2md.cli.commands.search import handle_search_command
 

@@ -21,7 +21,10 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from all2md.ast.nodes import (
+    Bibliography,
+    BibliographyEntry,
     BlockQuote,
+    Citation,
     Code,
     CodeBlock,
     Comment,
@@ -1649,6 +1652,65 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not content.endswith("\n"):
             self._output.append("\n")
         self._output.append("$$")
+
+    def visit_citation(self, node: "Citation") -> None:
+        """Render a Citation node as Pandoc-style citation.
+
+        Parameters
+        ----------
+        node : Citation
+            Citation to render
+
+        """
+        # Build Pandoc-style citation: [@key] or [see @key, p. 42]
+        keys_str = "; ".join(f"@{key}" for key in node.keys)
+        if node.prefix and node.suffix:
+            self._output.append(f"[{node.prefix} {keys_str}, {node.suffix}]")
+        elif node.prefix:
+            self._output.append(f"[{node.prefix} {keys_str}]")
+        elif node.suffix:
+            self._output.append(f"[{keys_str}, {node.suffix}]")
+        else:
+            self._output.append(f"[{keys_str}]")
+
+    def visit_bibliography_entry(self, node: "BibliographyEntry") -> None:
+        """Render a BibliographyEntry node.
+
+        Parameters
+        ----------
+        node : BibliographyEntry
+            Bibliography entry to render
+
+        """
+        # Bibliography entries are not typically rendered inline in markdown
+        # They are handled by visit_bibliography
+        pass
+
+    def visit_bibliography(self, node: "Bibliography") -> None:
+        """Render a Bibliography node.
+
+        Parameters
+        ----------
+        node : Bibliography
+            Bibliography to render
+
+        """
+        # Render as a references section
+        self._output.append("## References\n\n")
+        for i, entry in enumerate(node.entries):
+            # Render each entry as a numbered list item
+            author = entry.fields.get("author", "Unknown")
+            title = entry.fields.get("title", "Untitled")
+            year = entry.fields.get("year", "n.d.")
+            journal = entry.fields.get("journal", "")
+
+            ref_text = f"{author} ({year}). *{title}*."
+            if journal:
+                ref_text += f" {journal}."
+
+            self._output.append(f"{i + 1}. {ref_text}")
+            if i < len(node.entries) - 1:
+                self._output.append("\n")
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render AST to markdown and write to output.

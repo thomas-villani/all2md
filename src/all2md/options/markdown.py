@@ -128,6 +128,14 @@ class MarkdownParserOptions(BaseParserOptions):
             "importance": "core",
         },
     )
+    parse_citations: bool = field(
+        default=False,
+        metadata={
+            "help": "Parse Pandoc-style citations ([@key] syntax)",
+            "cli_name": "parse-citations",
+            "importance": "advanced",
+        },
+    )
     parse_frontmatter: bool = field(
         default=True,
         metadata={
