@@ -822,7 +822,9 @@ class PdfToAstConverter(BaseParser):
 
         return table_info, fallback_table_rects, fallback_table_lines
 
-    def _apply_ocr_if_needed(self, page: "fitz.Page", all_blocks: list[dict], extracted_text: str) -> list[dict]:
+    def _apply_ocr_if_needed(
+        self, page: "fitz.Page", all_blocks: list[dict], extracted_text: str
+    ) -> tuple[list[dict], bool]:
         """Apply OCR to page if needed based on options and content.
 
         Parameters
@@ -836,21 +838,21 @@ class PdfToAstConverter(BaseParser):
 
         Returns
         -------
-        list of dict
-            Updated blocks (may include OCR-generated blocks)
+        tuple of (list of dict, bool)
+            Updated blocks (may include OCR-generated blocks) and whether OCR was applied.
 
         """
         use_ocr = _should_use_ocr(page, extracted_text, self.options)
 
         if not use_ocr:
-            return all_blocks
+            return all_blocks, False
 
         try:
             ocr_text = self._ocr_page_to_text(page, self.options)
 
             if not ocr_text.strip():
                 logger.warning("OCR returned empty text, keeping original extraction")
-                return all_blocks
+                return all_blocks, False
 
             # Handle preserve_existing_text option
             if self.options.ocr.preserve_existing_text and extracted_text.strip():
@@ -870,7 +872,7 @@ class PdfToAstConverter(BaseParser):
                     ],
                 }
                 all_blocks.append(ocr_block)
-                return all_blocks
+                return all_blocks, True
             else:
                 logger.debug(f"Replacing PyMuPDF text ({len(extracted_text)} chars) with OCR ({len(ocr_text)} chars)")
                 # Replace with OCR block
@@ -886,11 +888,11 @@ class PdfToAstConverter(BaseParser):
                             }
                         ],
                     }
-                ]
+                ], True
 
         except Exception as e:
             logger.warning(f"OCR processing failed: {e}. Falling back to standard text extraction.")
-            return all_blocks
+            return all_blocks, False
 
     def _assign_tables_to_columns(self, table_info: list[dict], columns: list[list[dict]]) -> None:
         """Assign each table to a column based on x-coordinate.
@@ -1132,7 +1134,7 @@ class PdfToAstConverter(BaseParser):
         )
 
         # Apply OCR if needed
-        all_blocks = self._apply_ocr_if_needed(page, all_blocks, extracted_text)
+        all_blocks, ocr_applied = self._apply_ocr_if_needed(page, all_blocks, extracted_text)
 
         # Filter headers/footers if enabled
         if self.options.trim_headers_footers:
@@ -1165,8 +1167,10 @@ class PdfToAstConverter(BaseParser):
         # Assign tables to columns
         self._assign_tables_to_columns(table_info, columns)
 
-        # Process columns and tables
-        nodes = self._process_columns_and_tables(columns, table_info, page, page_num, page_images)
+        # Process columns and tables (suppress image placeholders when OCR replaced page content)
+        nodes = self._process_columns_and_tables(
+            columns, table_info, page, page_num, page_images=[] if ocr_applied else page_images
+        )
 
         return nodes
 

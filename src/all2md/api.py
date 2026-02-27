@@ -3,6 +3,7 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 # src/all2md/api.py
 import logging
+import warnings
 from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import IO, Any, Optional, TypeVar, Union, cast, get_type_hints
@@ -344,7 +345,12 @@ def _split_kwargs_for_parser_and_renderer(
             unmatched.append(k)
 
     if unmatched:
-        logger.debug(f"Kwargs don't match parser or renderer fields: {unmatched}")
+        warnings.warn(
+            f"Unrecognized keyword arguments were ignored: {unmatched}. "
+            "Check the API documentation for valid parameter names.",
+            UserWarning,
+            stacklevel=4,
+        )
 
     return parser_kwargs, renderer_kwargs
 
@@ -354,6 +360,7 @@ def to_markdown(
     *,
     parser_options: Optional[BaseParserOptions] = None,
     renderer_options: Optional[MarkdownRendererOptions] = None,
+    options: Optional[BaseParserOptions] = None,
     source_format: DocumentFormat = "auto",
     flavor: Optional[str] = None,
     transforms: Optional[list] = None,
@@ -379,6 +386,10 @@ def to_markdown(
     renderer_options : BaseRendererOptions, optional
         Pre-configured renderer options for Markdown rendering settings
         (e.g., MarkdownOptions).
+    options : BaseParserOptions, optional
+        .. deprecated:: Use ``parser_options`` instead.
+        Deprecated alias for ``parser_options``. Cannot be used together
+        with ``parser_options``.
     source_format : DocumentFormat, default "auto"
         Explicitly specify the source document format. If "auto", the format is
         detected from the filename or content.
@@ -451,6 +462,17 @@ def to_markdown(
         >>> markdown = to_markdown(ast_doc)
 
     """
+    # Handle deprecated 'options' alias for 'parser_options'
+    if options is not None:
+        if parser_options is not None:
+            raise TypeError("Cannot specify both 'options' and 'parser_options'")
+        warnings.warn(
+            "The 'options' parameter is deprecated. Use 'parser_options' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        parser_options = options
+
     # If source is already a Document AST, skip parsing and go directly to rendering
     if isinstance(source, Document):
         ast_doc = source
