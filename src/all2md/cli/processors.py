@@ -1582,18 +1582,7 @@ def _determine_collation_target_format(args: argparse.Namespace, output_path: Op
         Target format string
 
     """
-    target_format = args.output_format
-    if target_format != "auto":
-        return target_format
-
-    if output_path:
-        try:
-            detected_target = registry.detect_format(output_path)
-            return detected_target if detected_target != "txt" else "markdown"
-        except Exception:
-            pass
-
-    return "markdown"
+    return _determine_output_format(args, output_path)
 
 
 def _render_collated_document(

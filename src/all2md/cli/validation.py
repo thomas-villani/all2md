@@ -62,7 +62,16 @@ def collect_argument_problems(
                 )
             )
 
-    if files and len(files) > 1 and getattr(parsed_args, "out", None) and not output_dir:
+    collate = getattr(parsed_args, "collate", False)
+    merge_from_list = getattr(parsed_args, "merge_from_list", None)
+    if (
+        files
+        and len(files) > 1
+        and getattr(parsed_args, "out", None)
+        and not output_dir
+        and not collate
+        and not merge_from_list
+    ):
         problems.append(
             ValidationProblem(
                 "--out is ignored for multiple files. Use --output-dir instead.",
