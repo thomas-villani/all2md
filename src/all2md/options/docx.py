@@ -68,6 +68,11 @@ class DocxRendererOptions(BaseRendererOptions):
         - "visible": Render as regular text paragraphs with attribution
         - "ignore": Skip comment nodes entirely
         This controls presentation of comments from DOCX source files and other formats.
+    promote_title : bool, default True
+        When True, a leading H1 is rendered with Word's "Title" style instead of
+        "Heading 1", and all subsequent headings are promoted by one level
+        (H2 → Heading 1, H3 → Heading 2, etc.). Set to False to keep all H1s as
+        "Heading 1".
 
     """
 
@@ -134,6 +139,15 @@ class DocxRendererOptions(BaseRendererOptions):
             "ignore (skip comment nodes entirely). Controls presentation of comments "
             "from DOCX source files and other format annotations.",
             "choices": ["native", "visible", "ignore"],
+            "importance": "core",
+        },
+    )
+    promote_title: bool = field(
+        default=True,
+        metadata={
+            "help": "Promote a leading H1 to Word's Title style and shift subsequent headings up one level. "
+            "Disable with --no-promote-title to keep all H1s as Heading 1.",
+            "cli_name": "no-promote-title",
             "importance": "core",
         },
     )

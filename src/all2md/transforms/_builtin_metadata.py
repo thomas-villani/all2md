@@ -25,6 +25,7 @@ from all2md.transforms.builtin import (
     RemoveImagesTransform,
     RemoveNodesTransform,
     TextReplacerTransform,
+    TitlePromotionTransform,
 )
 from all2md.transforms.metadata import ParameterSpec, TransformMetadata
 
@@ -275,10 +276,23 @@ GENERATE_TOC_METADATA = TransformMetadata(
     author="all2md",
 )
 
+# TitlePromotionTransform metadata
+TITLE_PROMOTION_METADATA = TransformMetadata(
+    name="title-promotion",
+    description="Promote a leading H1 to document title and shift subsequent headings up one level",
+    transformer_class=TitlePromotionTransform,
+    parameters={},
+    priority=50,
+    tags=["headings", "title", "structure"],
+    version="1.0.0",
+    author="all2md",
+)
+
 __all__ = [
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",
     "HEADING_OFFSET_METADATA",
+    "TITLE_PROMOTION_METADATA",
     "LINK_REWRITER_METADATA",
     "TEXT_REPLACER_METADATA",
     "ADD_HEADING_IDS_METADATA",

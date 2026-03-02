@@ -221,6 +221,10 @@ following common ``--no-*`` conventions in shell scripts.
      - ``True``
      - (default)
      - ``--odt-no-preserve-tables``
+   * - ``DocxRendererOptions.promote_title``
+     - ``True``
+     - (default)
+     - ``--docx-no-promote-title``
 
 For booleans that default to ``False`` simply use the positive flag (e.g. ``--html-strip-dangerous-elements``). The
 full list—including renderer toggles and security helpers—is maintained in the generated :doc:`options` reference.
@@ -1649,6 +1653,15 @@ to prevent SSRF attacks.
    :CLI flag: ``--docx-renderer-comment-mode``
    :Default: ``'native'``
    :Choices: ``native``, ``visible``, ``ignore``
+   :Importance: core
+
+**promote_title**
+
+   Promote a leading H1 to Word's Title style and shift subsequent headings up one level. Disable with --no-promote-title to keep all H1s as Heading 1.
+
+   :Type: ``bool``
+   :CLI flag: ``--docx-renderer-no-promote-title``
+   :Default: ``True``
    :Importance: core
 
 DOKUWIKI Options
@@ -4437,7 +4450,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000025139C04C90>``
+   :Default: ``<object object at 0x0000027BA42F4C90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4447,7 +4460,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000025139C04C90>``
+   :Default: ``<object object at 0x0000027BA42F4C90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -9964,7 +9977,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000025139C04C90>``
+   :Default: ``<object object at 0x0000027BA42F4C90>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9974,7 +9987,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000025139C04C90>``
+   :Default: ``<object object at 0x0000027BA42F4C90>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

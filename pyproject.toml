@@ -273,6 +273,7 @@ remove-boilerplate = "all2md.transforms._builtin_metadata:REMOVE_BOILERPLATE_MET
 add-timestamp = "all2md.transforms._builtin_metadata:ADD_TIMESTAMP_METADATA"
 word-count = "all2md.transforms._builtin_metadata:WORD_COUNT_METADATA"
 add-attachment-footnotes = "all2md.transforms._builtin_metadata:ADD_ATTACHMENT_FOOTNOTES_METADATA"
+title-promotion = "all2md.transforms._builtin_metadata:TITLE_PROMOTION_METADATA"
 
 [build-system]
 requires = ["hatchling"]

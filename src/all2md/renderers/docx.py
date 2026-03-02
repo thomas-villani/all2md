@@ -163,6 +163,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Set default font
             self._set_document_defaults()
 
+            # Apply title promotion transform if enabled (requires styles for Title style)
+            if self.options.promote_title and self.options.use_styles:
+                from all2md.transforms.builtin import TitlePromotionTransform
+
+                doc = TitlePromotionTransform().transform(doc)  # type: ignore[assignment]
+
             # Render document
             doc.accept(self)
 
@@ -357,6 +363,16 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         """
         if not self.document:
+            return
+
+        # Title-promoted heading: use Word's Title style (level=0)
+        if node.metadata.get("is_title") and self.options.use_styles:
+            heading = self.document.add_heading(level=0)
+            heading.text = ""
+            self._current_paragraph = heading
+            for child in node.content:
+                child.accept(self)
+            self._current_paragraph = None
             return
 
         # Add heading with appropriate level

@@ -12,6 +12,7 @@ Available Transforms
 - RemoveImagesTransform: Remove all images
 - RemoveNodesTransform: Remove nodes of specified types
 - HeadingOffsetTransform: Shift heading levels
+- TitlePromotionTransform: Promote leading H1 to title and shift subsequent headings
 - LinkRewriterTransform: Rewrite URLs with regex patterns
 - TextReplacerTransform: Find and replace text
 - AddHeadingIdsTransform: Generate unique IDs for headings
@@ -256,6 +257,101 @@ class HeadingOffsetTransform(NodeTransformer):
         return Heading(
             level=new_level,
             content=self._transform_children(node.content),
+            metadata=node.metadata.copy(),
+            source_location=node.source_location,
+        )
+
+
+class TitlePromotionTransform(NodeTransformer):
+    """Promote a leading H1 to a document title and shift subsequent headings.
+
+    When converting Markdown to Word, a leading ``# Heading`` is typically the
+    document title rather than a "Heading 1".  This transform detects a leading
+    H1 (skipping empty / whitespace-only paragraphs before it), marks it with
+    ``metadata["is_title"] = True``, and promotes all subsequent headings by one
+    level (H2 → H1, H3 → H2, etc.) so they style properly under the title.
+
+    If the first real content node is not an H1, the document passes through
+    unchanged.
+
+    Examples
+    --------
+    >>> transform = TitlePromotionTransform()
+    >>> new_doc = transform.transform(document)
+
+    """
+
+    def transform(self, node: Node) -> Node:
+        """Apply title promotion to the document.
+
+        Parameters
+        ----------
+        node : Node
+            Root node (expected to be a Document)
+
+        Returns
+        -------
+        Node
+            Document with title metadata and promoted headings
+
+        """
+        if not isinstance(node, Document):
+            return node
+
+        children = list(node.children)
+        if not children:
+            return node
+
+        # Find the first "real content" node (skip empty/whitespace-only paragraphs)
+        title_index: int | None = None
+        for i, child in enumerate(children):
+            if isinstance(child, Paragraph):
+                text = extract_text(child).strip()
+                if not text:
+                    continue  # skip empty paragraphs
+                # First real content is a non-heading paragraph → no promotion
+                return node
+            if isinstance(child, Heading):
+                if child.level == 1:
+                    title_index = i
+                break  # any non-empty, non-paragraph node stops the search
+            # Other block-level nodes (lists, tables, etc.) → stop
+            break
+
+        if title_index is None:
+            return node
+
+        # Build new children list
+        new_children: list[Node] = []
+        for i, child in enumerate(children):
+            if i == title_index:
+                # Mark the leading H1 as a title
+                new_meta = child.metadata.copy()
+                new_meta["is_title"] = True
+                new_children.append(
+                    Heading(
+                        level=child.level,  # type: ignore[union-attr]
+                        content=child.content,  # type: ignore[union-attr]
+                        metadata=new_meta,
+                        source_location=child.source_location,
+                    )
+                )
+            elif isinstance(child, Heading) and i > title_index:
+                # Promote subsequent headings by one level
+                new_level = max(1, child.level - 1)
+                new_children.append(
+                    Heading(
+                        level=new_level,
+                        content=child.content,
+                        metadata=child.metadata.copy(),
+                        source_location=child.source_location,
+                    )
+                )
+            else:
+                new_children.append(child)
+
+        return Document(
+            children=new_children,
             metadata=node.metadata.copy(),
             source_location=node.source_location,
         )
@@ -1410,6 +1506,7 @@ __all__ = [
     "RemoveImagesTransform",
     "RemoveNodesTransform",
     "HeadingOffsetTransform",
+    "TitlePromotionTransform",
     "LinkRewriterTransform",
     "TextReplacerTransform",
     "AddHeadingIdsTransform",

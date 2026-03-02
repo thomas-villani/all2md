@@ -221,6 +221,10 @@ following common ``--no-*`` conventions in shell scripts.
      - ``True``
      - (default)
      - ``--odt-no-preserve-tables``
+   * - ``DocxRendererOptions.promote_title``
+     - ``True``
+     - (default)
+     - ``--docx-no-promote-title``
 
 For booleans that default to ``False`` simply use the positive flag (e.g. ``--html-strip-dangerous-elements``). The
 full list—including renderer toggles and security helpers—is maintained in the generated :doc:`options` reference.

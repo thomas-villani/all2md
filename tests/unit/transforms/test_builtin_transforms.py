@@ -16,6 +16,7 @@ from all2md.transforms.builtin import (
     RemoveImagesTransform,
     RemoveNodesTransform,
     TextReplacerTransform,
+    TitlePromotionTransform,
 )
 
 # Fixtures
@@ -1149,3 +1150,161 @@ class TestGenerateTocTransform:
 
         # Original heading should come after TOC
         assert result.children[1].content[0].content == "Section"
+
+
+# TitlePromotionTransform tests
+
+
+class TestTitlePromotionTransform:
+    """Tests for TitlePromotionTransform."""
+
+    def test_leading_h1_promoted_to_title(self):
+        """Test that a leading H1 gets is_title metadata."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Title")]),
+                Heading(level=2, content=[Text(content="Section")]),
+                Paragraph(content=[Text(content="Body text")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        assert isinstance(result, Document)
+        # First heading should be marked as title
+        h1 = result.children[0]
+        assert isinstance(h1, Heading)
+        assert h1.metadata.get("is_title") is True
+        assert h1.level == 1
+
+        # H2 should be promoted to H1
+        h2 = result.children[1]
+        assert isinstance(h2, Heading)
+        assert h2.level == 1
+
+    def test_subsequent_headings_promoted(self):
+        """Test that all subsequent headings are shifted up one level."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="H2")]),
+                Heading(level=3, content=[Text(content="H3")]),
+                Heading(level=4, content=[Text(content="H4")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        levels = [child.level for child in result.children if isinstance(child, Heading)]
+        # Title stays level 1, H2->1, H3->2, H4->3
+        assert levels == [1, 1, 2, 3]
+
+    def test_h1_already_level_1_clamps(self):
+        """Test that promoting H1 after title clamps to level 1."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=1, content=[Text(content="Another H1")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        # "Another H1" should clamp to level 1 (max(1, 1-1) = 1)
+        second = result.children[1]
+        assert isinstance(second, Heading)
+        assert second.level == 1
+
+    def test_text_before_h1_skips_promotion(self):
+        """Test that a text paragraph before H1 prevents promotion."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Some preamble")]),
+                Heading(level=1, content=[Text(content="Title")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        # No promotion should have occurred
+        h = result.children[1]
+        assert isinstance(h, Heading)
+        assert h.metadata.get("is_title") is None
+
+    def test_non_h1_heading_before_h1_skips_promotion(self):
+        """Test that a non-H1 heading as first content prevents promotion."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Subtitle First")]),
+                Heading(level=1, content=[Text(content="Title")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        # First heading is H2, not H1, so no promotion
+        first = result.children[0]
+        assert isinstance(first, Heading)
+        assert first.level == 2
+        assert first.metadata.get("is_title") is None
+
+    def test_empty_paragraphs_before_h1_allowed(self):
+        """Test that empty paragraphs before H1 are skipped."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="")]),
+                Paragraph(content=[Text(content="   ")]),
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="Section")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        # H1 should be promoted to title
+        h1 = result.children[2]
+        assert isinstance(h1, Heading)
+        assert h1.metadata.get("is_title") is True
+
+        # H2 should become H1
+        h2 = result.children[3]
+        assert isinstance(h2, Heading)
+        assert h2.level == 1
+
+    def test_no_h1_passthrough(self):
+        """Test that a document without H1 passes through unchanged."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Section")]),
+                Paragraph(content=[Text(content="Body")]),
+            ]
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        h = result.children[0]
+        assert isinstance(h, Heading)
+        assert h.level == 2
+        assert h.metadata.get("is_title") is None
+
+    def test_empty_document_passthrough(self):
+        """Test that an empty document passes through."""
+        doc = Document(children=[])
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        assert isinstance(result, Document)
+        assert len(result.children) == 0
+
+    def test_preserves_metadata(self):
+        """Test that document metadata is preserved."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Title")]),
+            ],
+            metadata={"author": "Test"},
+        )
+        transform = TitlePromotionTransform()
+        result = transform.transform(doc)
+
+        assert result.metadata.get("author") == "Test"

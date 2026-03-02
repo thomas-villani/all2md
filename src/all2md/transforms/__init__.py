@@ -72,6 +72,7 @@ from ._builtin_metadata import (
     REMOVE_IMAGES_METADATA,
     REMOVE_NODES_METADATA,
     TEXT_REPLACER_METADATA,
+    TITLE_PROMOTION_METADATA,
     WORD_COUNT_METADATA,
 )
 
@@ -88,6 +89,7 @@ from .builtin import (
     RemoveImagesTransform,
     RemoveNodesTransform,
     TextReplacerTransform,
+    TitlePromotionTransform,
 )
 
 # Core classes
@@ -126,6 +128,7 @@ __all__ = [
     "RemoveImagesTransform",
     "RemoveNodesTransform",
     "HeadingOffsetTransform",
+    "TitlePromotionTransform",
     "LinkRewriterTransform",
     "TextReplacerTransform",
     "AddHeadingIdsTransform",
@@ -138,6 +141,7 @@ __all__ = [
     "REMOVE_IMAGES_METADATA",
     "REMOVE_NODES_METADATA",
     "HEADING_OFFSET_METADATA",
+    "TITLE_PROMOTION_METADATA",
     "LINK_REWRITER_METADATA",
     "TEXT_REPLACER_METADATA",
     "ADD_HEADING_IDS_METADATA",

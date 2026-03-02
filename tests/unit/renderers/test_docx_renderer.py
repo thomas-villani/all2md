@@ -1569,3 +1569,107 @@ class TestDefinitionListAdvanced:
         assert "Term" in text_content
         assert "First description" in text_content
         assert "Second description" in text_content
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestTitlePromotion:
+    """Tests for H1-to-Title promotion in DOCX rendering."""
+
+    def test_leading_h1_uses_title_style(self, tmp_path):
+        """Test that a leading H1 is rendered with Word's Title style."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Title")]),
+                Heading(level=2, content=[Text(content="Section One")]),
+                Paragraph(content=[Text(content="Body text")]),
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "title.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        # Find the title paragraph
+        title_para = None
+        for para in docx_doc.paragraphs:
+            if para.text == "My Title":
+                title_para = para
+                break
+        assert title_para is not None
+        assert title_para.style.name == "Title"
+
+    def test_subsequent_headings_promoted(self, tmp_path):
+        """Test that H2 becomes Heading 1 after title promotion."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Title")]),
+                Heading(level=2, content=[Text(content="Section One")]),
+                Heading(level=3, content=[Text(content="Subsection")]),
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "promoted.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        section_para = None
+        subsection_para = None
+        for para in docx_doc.paragraphs:
+            if para.text == "Section One":
+                section_para = para
+            elif para.text == "Subsection":
+                subsection_para = para
+
+        assert section_para is not None
+        assert section_para.style.name == "Heading 1"
+        assert subsection_para is not None
+        assert subsection_para.style.name == "Heading 2"
+
+    def test_promote_title_false_keeps_h1(self, tmp_path):
+        """Test that promote_title=False keeps H1 as Heading 1."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="My Title")]),
+                Heading(level=2, content=[Text(content="Section")]),
+            ]
+        )
+        options = DocxRendererOptions(promote_title=False)
+        renderer = DocxRenderer(options=options)
+        output_file = tmp_path / "no_promote.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        title_para = None
+        section_para = None
+        for para in docx_doc.paragraphs:
+            if para.text == "My Title":
+                title_para = para
+            elif para.text == "Section":
+                section_para = para
+
+        assert title_para is not None
+        assert title_para.style.name == "Heading 1"
+        assert section_para is not None
+        assert section_para.style.name == "Heading 2"
+
+    def test_no_h1_no_title_style(self, tmp_path):
+        """Test that documents without a leading H1 are unaffected."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Section")]),
+                Paragraph(content=[Text(content="Body")]),
+            ]
+        )
+        renderer = DocxRenderer()
+        output_file = tmp_path / "no_title.docx"
+        renderer.render(doc, output_file)
+
+        docx_doc = DocxDocument(str(output_file))
+        section_para = None
+        for para in docx_doc.paragraphs:
+            if para.text == "Section":
+                section_para = para
+                break
+        assert section_para is not None
+        assert section_para.style.name == "Heading 2"

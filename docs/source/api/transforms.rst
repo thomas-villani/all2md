@@ -62,6 +62,7 @@ Commonly used transforms included with all2md:
    all2md.transforms.builtin.RemoveImagesTransform
    all2md.transforms.builtin.RemoveNodesTransform
    all2md.transforms.builtin.HeadingOffsetTransform
+   all2md.transforms.builtin.TitlePromotionTransform
    all2md.transforms.builtin.GenerateTocTransform
    all2md.transforms.builtin.RemoveBoilerplateTextTransform
    all2md.transforms.builtin.AddAttachmentFootnotesTransform
