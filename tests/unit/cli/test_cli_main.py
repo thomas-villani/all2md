@@ -847,10 +847,10 @@ class TestAdvancedCLIIntegration:
             assert output_file.exists()
 
             content = output_file.read_text()
-            # Should contain all sections with separators
-            assert "# File: section_0.html" in content
-            assert "# File: section_1.html" in content
-            assert "# File: section_2.html" in content
+            # Default collation should NOT include file headers
+            assert "# File: section_0.html" not in content
+            assert "# File: section_1.html" not in content
+            assert "# File: section_2.html" not in content
             assert "Section 0" in content
             assert "Section 1" in content
             assert "Section 2" in content

@@ -1792,6 +1792,7 @@ Examples:
             "toc_position",
             "list_separator",
             "no_section_titles",
+            "section_titles",
             # Batch-from-list arguments
             "batch_from_list",
             # Section extraction and outline arguments
@@ -2136,7 +2137,13 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-section-titles",
         action=TrackingStoreTrueAction,
-        help="Disable section title headers when merging from list",
+        help="Disable section title headers when merging or collating",
+    )
+
+    parser.add_argument(
+        "--section-titles",
+        action=TrackingStoreTrueAction,
+        help="Add section title headers when collating (off by default for --collate)",
     )
 
     # Configuration save option

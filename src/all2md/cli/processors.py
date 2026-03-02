@@ -1520,8 +1520,14 @@ def _collect_documents_for_collation(
             )
 
             if exit_code == EXIT_SUCCESS and document:
-                heading = Heading(level=1, content=[Text(f"File: {item.name}")])
-                composed_children = [heading, *document.children]
+                # For --collate, headers are off by default; use --section-titles to enable.
+                # --no-section-titles always wins if both are somehow specified.
+                show_titles = getattr(args, "section_titles", False) and not args.no_section_titles
+                if show_titles:
+                    heading = Heading(level=1, content=[Text(f"File: {item.name}")])
+                    composed_children = [heading, *document.children]
+                else:
+                    composed_children = list(document.children)
                 composed_doc = ASTDocument(children=composed_children, metadata=document.metadata)
                 collected_documents.append(composed_doc)
                 progress.log(f"[OK] {item.display_name}", level="success")
@@ -2224,7 +2230,7 @@ def convert_single_file(
                 effective_options,
                 progress_callback,
                 output_path,
-                target_format,
+                renderer_hint,
                 extract_spec,
                 local_transforms,
                 input_item.display_name,
@@ -2236,7 +2242,7 @@ def convert_single_file(
             effective_options,
             progress_callback,
             output_path,
-            target_format,
+            renderer_hint,
             local_transforms,
             input_item.display_name,
         )

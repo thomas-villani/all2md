@@ -1261,7 +1261,8 @@ class TestAdvancedCLIFeaturesE2E:
 
         output_file = self.temp_dir / "collated.md"
 
-        result = self._run_cli([*files, "--collate", "--out", str(output_file)])
+        # --section-titles enables "# File: ..." headers (off by default for --collate)
+        result = self._run_cli([*files, "--collate", "--section-titles", "--out", str(output_file)])
 
         assert result.returncode == 0, f"CLI failed: {result.stderr}"
         assert output_file.exists()
@@ -1393,7 +1394,7 @@ class TestAdvancedCLIFeaturesE2E:
             html_file.write_text(f"<h1>Complex Document {i}</h1><p>Content for testing {i}</p>")
             files.append(str(html_file))
 
-        # Use many features together
+        # Use many features together (--section-titles enables "# File: ..." headers)
         result = self._run_cli(
             [
                 *files,
@@ -1403,6 +1404,7 @@ class TestAdvancedCLIFeaturesE2E:
                 "2",  # Parallel processing
                 "--skip-errors",  # Error handling
                 "--collate",  # File collation
+                "--section-titles",  # Enable file headers
                 "--no-summary",  # No summary
             ]
         )

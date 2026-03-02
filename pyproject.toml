@@ -1,6 +1,6 @@
 [project]
 name = "all2md"
-version = "1.0.1"
+version = "1.0.2"
 description = "Rapid, lightweight conversion of various document formats to markdown for LLMs"
 readme = "README.md"
 authors = [
@@ -394,7 +394,7 @@ skips = [
 ]
 
 [tool.bumpversion]
-current_version = "1.0.1"
+current_version = "1.0.2"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 commit = true
