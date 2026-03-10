@@ -126,6 +126,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Rendering state
         self._current_textbox: TextFrame | None = None
         self._current_paragraph: Any = None
+        self._current_slide: Any = None  # Current Slide object (for speaker notes routing)
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._list_item_counters: list[int] = []  # Track item number at each level for ordered lists
         self._temp_files: list[str] = []  # Track temp files for cleanup
@@ -331,6 +332,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             AST nodes to render
 
         """
+        self._current_slide = slide
         if self.options.use_flow_layout:
             self._render_slide_content_flow(slide, nodes)
         else:
@@ -655,6 +657,27 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 ) from e
             return 0.0
 
+    @staticmethod
+    def _remove_content_placeholders(slide: "Slide") -> None:
+        """Remove non-title content placeholders from a slide.
+
+        Template slides typically contain placeholder shapes with default text
+        like "Click here to add text".  When using flow layout we create our
+        own textboxes, so these placeholders must be removed to avoid overlap.
+
+        Only placeholders with ``idx >= 1`` are removed (idx 0 is the title).
+
+        """
+        sp_tree = slide.shapes._spTree  # type: ignore[attr-defined]
+        for ph in list(slide.placeholders):
+            try:
+                idx = ph.placeholder_format.idx
+            except Exception:
+                idx = -1
+            if idx >= 1:
+                sp_element = ph._element  # type: ignore[attr-defined]
+                sp_tree.remove(sp_element)
+
     def _render_slide_content_flow(self, slide: "Slide", nodes: list[Node]) -> None:
         """Render AST nodes using flow layout (no overlap).
 
@@ -663,6 +686,9 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         """
         from pptx.util import Inches
+
+        # Remove template content placeholders so they don't overlap our content
+        self._remove_content_placeholders(slide)
 
         content_left = self.options.content_margin_left
         content_width = self.options.slide_width - self.options.content_margin_left - self.options.content_margin_right
@@ -1528,10 +1554,19 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         comment_parts.append(node.content)
         comment_text = "".join(comment_parts)
 
-        if comment_mode == "speaker_notes" or comment_mode == "visible":
-            # Both modes render as italic text in the current textbox
-            # The difference is context: speaker_notes mode is used when
-            # rendering within speaker notes, visible when in slide content
+        if comment_mode == "speaker_notes":
+            # Write to the slide's speaker notes pane
+            if self._current_slide is not None:
+                try:
+                    notes_slide = self._current_slide.notes_slide
+                    notes_tf = notes_slide.notes_text_frame
+                    p = notes_tf.add_paragraph()
+                    run = p.add_run()
+                    run.text = comment_text
+                except Exception as e:
+                    logger.warning(f"Failed to write comment to speaker notes: {e}")
+        elif comment_mode == "visible":
+            # Render as visible italic text in slide content
             if self._current_textbox:
                 p = self._current_textbox.add_paragraph()
                 run = p.add_run()
@@ -1593,7 +1628,19 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         comment_text = "".join(comment_parts)
 
-        # Render as italic text run
-        run = self._current_paragraph.add_run()
-        run.text = comment_text
-        run.font.italic = True
+        if comment_mode == "speaker_notes":
+            # Route to speaker notes instead of inline on the slide
+            if self._current_slide is not None:
+                try:
+                    notes_slide = self._current_slide.notes_slide
+                    notes_tf = notes_slide.notes_text_frame
+                    p = notes_tf.add_paragraph()
+                    run = p.add_run()
+                    run.text = comment_text
+                except Exception as e:
+                    logger.warning(f"Failed to write inline comment to speaker notes: {e}")
+        else:
+            # "visible" mode: render as italic text run in slide content
+            run = self._current_paragraph.add_run()
+            run.text = comment_text
+            run.font.italic = True
