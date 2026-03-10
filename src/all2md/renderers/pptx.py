@@ -127,6 +127,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._current_textbox: TextFrame | None = None
         self._current_paragraph: Any = None
         self._current_slide: Any = None  # Current Slide object (for speaker notes routing)
+        self._using_placeholder: bool = False  # True when rendering into a template placeholder
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._list_item_counters: list[int] = []  # Track item number at each level for ordered lists
         self._temp_files: list[str] = []  # Track temp files for cleanup
@@ -310,7 +311,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             slide.shapes.title.text = title
 
         # Render content nodes
-        self._render_slide_content(slide, nodes_to_render)
+        self._render_slide_content(slide, nodes_to_render, is_title_slide=is_first)
 
         # Add speaker notes if present
         if notes_content:
@@ -318,11 +319,13 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         return slide
 
-    def _render_slide_content(self, slide: "Slide", nodes: list[Node]) -> None:
+    def _render_slide_content(self, slide: "Slide", nodes: list[Node], *, is_title_slide: bool = False) -> None:
         """Render AST nodes as slide content.
 
         Dispatches to flow layout (default) or legacy fixed-position layout
-        based on ``use_flow_layout`` option.
+        based on ``use_flow_layout`` option.  Title slides always use the
+        fixed-position path so that template placeholders (e.g. subtitle)
+        are preserved with their built-in styles.
 
         Parameters
         ----------
@@ -330,10 +333,13 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             Slide to add content to
         nodes : list of Node
             AST nodes to render
+        is_title_slide : bool, default False
+            Whether this is a title slide (forces fixed layout to preserve
+            template subtitle placeholder and built-in styles).
 
         """
         self._current_slide = slide
-        if self.options.use_flow_layout:
+        if self.options.use_flow_layout and not is_title_slide:
             self._render_slide_content_flow(slide, nodes)
         else:
             self._render_slide_content_fixed(slide, nodes)
@@ -378,10 +384,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 content_placeholder = shape
 
         if content_placeholder:
-            # Use placeholder text frame
+            # Use placeholder text frame (inherits template styles)
             text_frame = content_placeholder.text_frame
             text_frame.clear()  # Clear any default text
             self._current_textbox = text_frame
+            self._using_placeholder = True
         else:
             # Create a text box for content
             from pptx.util import Inches
@@ -396,6 +403,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
             textbox = slide.shapes.add_textbox(left, top, width, height)
             self._current_textbox = textbox.text_frame
+            self._using_placeholder = False
 
         # Render nodes
         for node in nodes:
@@ -658,7 +666,31 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return 0.0
 
     @staticmethod
-    def _remove_content_placeholders(slide: "Slide") -> None:
+    def _find_content_placeholder(slide: "Slide") -> Any | None:
+        """Find the first non-title content placeholder on a slide.
+
+        Returns the placeholder shape, or ``None`` if none exists.
+        """
+        content_ph = None
+        for shape in slide.placeholders:
+            if not hasattr(shape, "text_frame"):
+                continue
+            try:
+                if shape.placeholder_format.idx == 0:
+                    continue
+            except Exception:
+                pass
+            try:
+                if hasattr(shape.placeholder_format, "type") and shape.placeholder_format.type == 2:
+                    return shape
+            except Exception:
+                pass
+            if content_ph is None and shape.has_text_frame:
+                content_ph = shape
+        return content_ph
+
+    @staticmethod
+    def _remove_content_placeholders(slide: "Slide", *, keep_idx: int | None = None) -> None:
         """Remove non-title content placeholders from a slide.
 
         Template slides typically contain placeholder shapes with default text
@@ -667,6 +699,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         Only placeholders with ``idx >= 1`` are removed (idx 0 is the title).
 
+        Parameters
+        ----------
+        slide : Slide
+            Slide to remove placeholders from.
+        keep_idx : int or None
+            Placeholder index to keep (e.g. the content placeholder being
+            reused for the first text block).
+
         """
         sp_tree = slide.shapes._spTree  # type: ignore[attr-defined]
         for ph in list(slide.placeholders):
@@ -674,7 +714,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 idx = ph.placeholder_format.idx
             except Exception:
                 idx = -1
-            if idx >= 1:
+            if idx >= 1 and idx != keep_idx:
                 sp_element = ph._element  # type: ignore[attr-defined]
                 sp_tree.remove(sp_element)
 
@@ -684,11 +724,12 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         Positions text blocks, tables, and images sequentially from top to
         bottom, advancing a y-cursor after each element.
 
+        The first text block reuses the template's content placeholder (if one
+        exists) so that built-in font styles are inherited.  Remaining content
+        placeholders are removed to prevent overlap.
+
         """
         from pptx.util import Inches
-
-        # Remove template content placeholders so they don't overlap our content
-        self._remove_content_placeholders(slide)
 
         content_left = self.options.content_margin_left
         content_width = self.options.slide_width - self.options.content_margin_left - self.options.content_margin_right
@@ -696,6 +737,22 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         content_bottom = self.options.slide_height - self.options.content_margin_bottom
 
         blocks = self._group_into_layout_blocks(nodes)
+
+        # Find content placeholder to reuse for the first text block
+        content_ph = self._find_content_placeholder(slide)
+        first_text_rendered = False
+
+        # Determine placeholder index to keep
+        keep_idx: int | None = None
+        if content_ph is not None:
+            try:
+                keep_idx = content_ph.placeholder_format.idx
+            except Exception:
+                pass
+
+        # Remove other content placeholders (keep the one we'll reuse)
+        self._remove_content_placeholders(slide, keep_idx=keep_idx)
+
         y_cursor = content_top
 
         for block_type, block_data in blocks:
@@ -704,17 +761,34 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 break
 
             if block_type == "text":
-                height = self._estimate_text_block_height(block_data, content_width)
-                height = min(height, content_bottom - y_cursor)
+                if not first_text_rendered and content_ph is not None:
+                    # Reuse content placeholder for first text block (inherits
+                    # template styles like font size and family).
+                    content_ph.left = Inches(content_left)
+                    content_ph.top = Inches(y_cursor)
+                    content_ph.width = Inches(content_width)
+                    height = self._estimate_text_block_height(block_data, content_width)
+                    height = min(height, content_bottom - y_cursor)
+                    content_ph.height = Inches(height)
+                    text_frame = content_ph.text_frame
+                    text_frame.clear()
+                    text_frame.word_wrap = True
+                    self._current_textbox = text_frame
+                    self._using_placeholder = True
+                    first_text_rendered = True
+                else:
+                    height = self._estimate_text_block_height(block_data, content_width)
+                    height = min(height, content_bottom - y_cursor)
+                    textbox = slide.shapes.add_textbox(
+                        Inches(content_left),
+                        Inches(y_cursor),
+                        Inches(content_width),
+                        Inches(height),
+                    )
+                    textbox.text_frame.word_wrap = True
+                    self._current_textbox = textbox.text_frame
+                    self._using_placeholder = False
 
-                textbox = slide.shapes.add_textbox(
-                    Inches(content_left),
-                    Inches(y_cursor),
-                    Inches(content_width),
-                    Inches(height),
-                )
-                textbox.text_frame.word_wrap = True
-                self._current_textbox = textbox.text_frame
                 for node in block_data:
                     node.accept(self)
                 y_cursor += height + self.options.element_gap
@@ -740,6 +814,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                         ) from e
                     image_height = 0.0
                 y_cursor += image_height + self.options.element_gap
+
+        # Clean up: if the content placeholder was kept but never used
+        # (e.g. no text blocks), remove it now so it doesn't show through
+        if not first_text_rendered and content_ph is not None and keep_idx is not None:
+            self._remove_content_placeholders(slide, keep_idx=None)
+
+        # Reset placeholder flag
+        self._using_placeholder = False
 
     # ------------------------------------------------------------------
     # Thin wrappers (used by fixed-position path)
@@ -977,8 +1059,10 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         p = self._current_textbox.add_paragraph()
         self._current_paragraph = p
 
-        # Set font size
-        p.font.size = self._Pt(self.options.default_font_size)
+        # Set font size only when not using a template placeholder
+        # (placeholders inherit styles from the slide master)
+        if not self._using_placeholder:
+            p.font.size = self._Pt(self.options.default_font_size)
 
         # Render content
         for child in node.content:
@@ -1004,7 +1088,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         # Make it bold and larger
         p.font.bold = True
-        p.font.size = self._Pt(self.options.default_font_size + 4)
+        if not self._using_placeholder:
+            p.font.size = self._Pt(self.options.default_font_size + 4)
 
         # Render content
         for child in node.content:
@@ -1101,7 +1186,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         run = p.add_run()
         run.text = node.content
         run.font.name = "Courier New"
-        run.font.size = self._Pt(self.options.default_font_size - 2)
+        if not self._using_placeholder:
+            run.font.size = self._Pt(self.options.default_font_size - 2)
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

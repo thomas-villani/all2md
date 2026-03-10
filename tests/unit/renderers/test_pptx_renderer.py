@@ -1543,6 +1543,7 @@ class TestFlowLayout:
         img_node, _ = _make_test_image(tmp_path)
         doc = Document(
             children=[
+                Heading(level=2, content=[Text(content="Title")]),
                 Heading(level=2, content=[Text(content="Slide")]),
                 Paragraph(content=[Text(content="Text before image.")]),
                 img_node,
@@ -1553,7 +1554,7 @@ class TestFlowLayout:
         renderer.render(doc, out)
 
         prs = Presentation(str(out))
-        slide = prs.slides[0]
+        slide = prs.slides[1]
         non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
         assert len(non_title) >= 2
         assert _shape_top_inches(non_title[1]) >= _shape_bottom_inches(non_title[0]) - 0.01
@@ -1581,6 +1582,7 @@ class TestFlowLayout:
         """Three blocks should be vertically sequential."""
         doc = Document(
             children=[
+                Heading(level=2, content=[Text(content="Title")]),
                 Heading(level=2, content=[Text(content="Slide")]),
                 Paragraph(content=[Text(content="Before.")]),
                 _make_simple_table(),
@@ -1592,7 +1594,7 @@ class TestFlowLayout:
         renderer.render(doc, out)
 
         prs = Presentation(str(out))
-        slide = prs.slides[0]
+        slide = prs.slides[1]
         non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
         assert len(non_title) >= 3
         for i in range(len(non_title) - 1):
@@ -1602,6 +1604,7 @@ class TestFlowLayout:
         """Second table should be below the first."""
         doc = Document(
             children=[
+                Heading(level=2, content=[Text(content="Title")]),
                 Heading(level=2, content=[Text(content="Slide")]),
                 _make_simple_table(),
                 _make_simple_table(),
@@ -1612,7 +1615,7 @@ class TestFlowLayout:
         renderer.render(doc, out)
 
         prs = Presentation(str(out))
-        slide = prs.slides[0]
+        slide = prs.slides[1]
         non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
         assert len(non_title) >= 2
         assert _shape_top_inches(non_title[1]) >= _shape_bottom_inches(non_title[0]) - 0.01
@@ -1621,6 +1624,7 @@ class TestFlowLayout:
         """Text before and after a table should produce 2 separate textbox shapes."""
         doc = Document(
             children=[
+                Heading(level=2, content=[Text(content="Title")]),
                 Heading(level=2, content=[Text(content="Slide")]),
                 Paragraph(content=[Text(content="Before.")]),
                 _make_simple_table(),
@@ -1632,10 +1636,11 @@ class TestFlowLayout:
         renderer.render(doc, out)
 
         prs = Presentation(str(out))
-        slide = prs.slides[0]
-        # Count textbox shapes (those with text_frame that are NOT placeholders and NOT tables)
-        textboxes = [s for s in slide.shapes if s.has_text_frame and not s.has_table and not _is_placeholder(s)]
-        assert len(textboxes) >= 2
+        slide = prs.slides[1]
+        # Count shapes with text_frame that are NOT title placeholders and NOT tables
+        # (includes both textboxes and reused content placeholders)
+        text_shapes = [s for s in slide.shapes if s.has_text_frame and not s.has_table and not _is_title_placeholder(s)]
+        assert len(text_shapes) >= 2
 
 
 @pytest.mark.unit
