@@ -30,6 +30,7 @@ from all2md.ast import (
     Document,
     Emphasis,
     Heading,
+    Image,
     List,
     ListItem,
     Paragraph,
@@ -1445,3 +1446,324 @@ class TestEmptySlideHandling:
         prs = Presentation(str(output_file))
         # Empty slide should be created
         assert len(prs.slides) >= 2
+
+
+# ======================================================================
+# Flow Layout Tests
+# ======================================================================
+
+
+def _make_simple_table() -> Table:
+    """Helper: create a 2×2 table."""
+    return Table(
+        header=TableRow(cells=[TableCell(content=[Text(content="H1")]), TableCell(content=[Text(content="H2")])]),
+        rows=[TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])])],
+    )
+
+
+def _make_test_image(tmp_path) -> tuple[Image, str]:
+    """Helper: create a small PNG on disk and return (Image node, path)."""
+    import base64
+
+    png_bytes = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/w8AAn8B9FpQHLwAAAAASUVORK5CYII="
+    )
+    img_path = tmp_path / "test.png"
+    img_path.write_bytes(png_bytes)
+    return Image(url=str(img_path), alt_text="test"), str(img_path)
+
+
+def _is_title_placeholder(shape) -> bool:
+    """Check if a shape is the title placeholder (idx 0)."""
+    try:
+        return shape.placeholder_format.idx == 0
+    except (ValueError, AttributeError):
+        return False
+
+
+def _is_placeholder(shape) -> bool:
+    """Check if a shape is any placeholder."""
+    try:
+        _ = shape.placeholder_format.idx
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
+def _shapes_by_top(slide):
+    """Return slide shapes sorted by top position (inches)."""
+    shapes = list(slide.shapes)
+    shapes.sort(key=lambda s: s.top)
+    return shapes
+
+
+def _shape_top_inches(shape) -> float:
+    from pptx.util import Emu
+
+    return shape.top / Emu(914400)
+
+
+def _shape_bottom_inches(shape) -> float:
+    from pptx.util import Emu
+
+    return (shape.top + shape.height) / Emu(914400)
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestFlowLayout:
+    """Verify the flow layout engine places elements without vertical overlap."""
+
+    def test_text_then_table_no_overlap(self, tmp_path):
+        """Table top should be >= text bottom."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                Paragraph(content=[Text(content="Some text before the table.")]),
+                _make_simple_table(),
+            ]
+        )
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        sorted_shapes = _shapes_by_top(slide)
+
+        # Find textbox and table shapes (skip title placeholder)
+        non_title = [s for s in sorted_shapes if not _is_title_placeholder(s)]
+        assert len(non_title) >= 2
+        text_shape = non_title[0]
+        table_shape = non_title[1]
+        assert _shape_top_inches(table_shape) >= _shape_bottom_inches(text_shape) - 0.01
+
+    def test_text_then_image_no_overlap(self, tmp_path):
+        """Image top should be >= text bottom."""
+        img_node, _ = _make_test_image(tmp_path)
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                Paragraph(content=[Text(content="Text before image.")]),
+                img_node,
+            ]
+        )
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
+        assert len(non_title) >= 2
+        assert _shape_top_inches(non_title[1]) >= _shape_bottom_inches(non_title[0]) - 0.01
+
+    def test_table_then_text_no_overlap(self, tmp_path):
+        """Text top should be >= table bottom."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                _make_simple_table(),
+                Paragraph(content=[Text(content="Text after table.")]),
+            ]
+        )
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
+        assert len(non_title) >= 2
+        assert _shape_top_inches(non_title[1]) >= _shape_bottom_inches(non_title[0]) - 0.01
+
+    def test_text_table_text_sequential(self, tmp_path):
+        """Three blocks should be vertically sequential."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                Paragraph(content=[Text(content="Before.")]),
+                _make_simple_table(),
+                Paragraph(content=[Text(content="After.")]),
+            ]
+        )
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
+        assert len(non_title) >= 3
+        for i in range(len(non_title) - 1):
+            assert _shape_top_inches(non_title[i + 1]) >= _shape_bottom_inches(non_title[i]) - 0.01
+
+    def test_multiple_tables_sequential(self, tmp_path):
+        """Second table should be below the first."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                _make_simple_table(),
+                _make_simple_table(),
+            ]
+        )
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        non_title = [s for s in _shapes_by_top(slide) if not _is_title_placeholder(s)]
+        assert len(non_title) >= 2
+        assert _shape_top_inches(non_title[1]) >= _shape_bottom_inches(non_title[0]) - 0.01
+
+    def test_flow_layout_creates_separate_textboxes(self, tmp_path):
+        """Text before and after a table should produce 2 separate textbox shapes."""
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                Paragraph(content=[Text(content="Before.")]),
+                _make_simple_table(),
+                Paragraph(content=[Text(content="After.")]),
+            ]
+        )
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        # Count textbox shapes (those with text_frame that are NOT placeholders and NOT tables)
+        textboxes = [s for s in slide.shapes if s.has_text_frame and not s.has_table and not _is_placeholder(s)]
+        assert len(textboxes) >= 2
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestWidescreenDefaults:
+    """Verify widescreen (16:9) slide dimensions."""
+
+    def test_default_slide_dimensions(self, tmp_path):
+        """Default should be 13.333 x 7.5 inches."""
+        doc = Document(children=[Paragraph(content=[Text(content="Hello")])])
+        renderer = PptxRenderer()
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        from pptx.util import Emu
+
+        width_in = prs.slide_width / Emu(914400)
+        height_in = prs.slide_height / Emu(914400)
+        assert abs(width_in - 13.333) < 0.01
+        assert abs(height_in - 7.5) < 0.01
+
+    def test_custom_slide_dimensions(self, tmp_path):
+        """Custom dimensions should be applied."""
+        opts = PptxRendererOptions(slide_width=10.0, slide_height=5.625)
+        renderer = PptxRenderer(opts)
+        doc = Document(children=[Paragraph(content=[Text(content="Hello")])])
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        from pptx.util import Emu
+
+        width_in = prs.slide_width / Emu(914400)
+        height_in = prs.slide_height / Emu(914400)
+        assert abs(width_in - 10.0) < 0.01
+        assert abs(height_in - 5.625) < 0.01
+
+    def test_template_preserves_dimensions(self, tmp_path):
+        """When a template is provided, its dimensions should be preserved."""
+        # Create a template with 4:3 dimensions
+        from pptx.util import Inches
+
+        template_prs = Presentation()
+        template_prs.slide_width = Inches(10.0)
+        template_prs.slide_height = Inches(7.5)
+        template_path = tmp_path / "template.pptx"
+        template_prs.save(str(template_path))
+
+        opts = PptxRendererOptions(template_path=str(template_path))
+        renderer = PptxRenderer(opts)
+        doc = Document(children=[Paragraph(content=[Text(content="Hello")])])
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        from pptx.util import Emu
+
+        width_in = prs.slide_width / Emu(914400)
+        # Template was 10.0", renderer should NOT override it
+        assert abs(width_in - 10.0) < 0.01
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestTextHeightEstimation:
+    """Test the _estimate_text_block_height helper."""
+
+    def test_short_paragraph_height(self):
+        """Short paragraph should return at least MIN_TEXT_HEIGHT."""
+        from all2md.constants import DEFAULT_PPTX_MIN_TEXT_HEIGHT
+
+        renderer = PptxRenderer()
+        nodes = [Paragraph(content=[Text(content="Short")])]
+        height = renderer._estimate_text_block_height(nodes, 12.0)
+        assert height >= DEFAULT_PPTX_MIN_TEXT_HEIGHT
+
+    def test_long_paragraph_wraps(self):
+        """Long paragraph should produce a taller estimate than a short one."""
+        renderer = PptxRenderer()
+        short_nodes = [Paragraph(content=[Text(content="Short")])]
+        long_text = "This is a much longer paragraph. " * 20
+        long_nodes = [Paragraph(content=[Text(content=long_text)])]
+        h_short = renderer._estimate_text_block_height(short_nodes, 5.0)
+        h_long = renderer._estimate_text_block_height(long_nodes, 5.0)
+        assert h_long > h_short
+
+    def test_code_block_multiline(self):
+        """Code block height should scale with line count."""
+        renderer = PptxRenderer()
+        code_2 = [CodeBlock(content="a\nb")]
+        code_10 = [CodeBlock(content="\n".join(["line"] * 10))]
+        h2 = renderer._estimate_text_block_height(code_2, 12.0)
+        h10 = renderer._estimate_text_block_height(code_10, 12.0)
+        assert h10 > h2
+
+    def test_empty_returns_minimum(self):
+        """Empty node list should return minimum height."""
+        from all2md.constants import DEFAULT_PPTX_MIN_TEXT_HEIGHT
+
+        renderer = PptxRenderer()
+        height = renderer._estimate_text_block_height([], 12.0)
+        # With no nodes total_lines is 0, so height = max(0, MIN) = MIN
+        assert height == pytest.approx(DEFAULT_PPTX_MIN_TEXT_HEIGHT, abs=0.01)
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+class TestFlowLayoutBackwardCompat:
+    """Verify that use_flow_layout=False preserves old fixed-position behavior."""
+
+    def test_use_flow_layout_false(self, tmp_path):
+        """With flow layout disabled, tables should use the fixed table_top position."""
+        opts = PptxRendererOptions(use_flow_layout=False, table_top=2.0)
+        renderer = PptxRenderer(opts)
+        doc = Document(
+            children=[
+                Heading(level=2, content=[Text(content="Slide")]),
+                Paragraph(content=[Text(content="Some text.")]),
+                _make_simple_table(),
+            ]
+        )
+        out = tmp_path / "t.pptx"
+        renderer.render(doc, out)
+
+        prs = Presentation(str(out))
+        slide = prs.slides[0]
+        # Find the table shape
+        table_shapes = [s for s in slide.shapes if s.has_table]
+        assert len(table_shapes) == 1
+        assert abs(_shape_top_inches(table_shapes[0]) - 2.0) < 0.01

@@ -8,9 +8,14 @@ from dataclasses import dataclass, field
 from all2md.constants import (
     DEFAULT_PPTX_CHARTS_MODE,
     DEFAULT_PPTX_COMMENT_MODE,
+    DEFAULT_PPTX_CONTENT_MARGIN_BOTTOM,
+    DEFAULT_PPTX_CONTENT_MARGIN_LEFT,
+    DEFAULT_PPTX_CONTENT_MARGIN_RIGHT,
+    DEFAULT_PPTX_CONTENT_MARGIN_TOP,
     DEFAULT_PPTX_DEFAULT_FONT,
     DEFAULT_PPTX_DEFAULT_FONT_SIZE,
     DEFAULT_PPTX_DEFAULT_LAYOUT,
+    DEFAULT_PPTX_ELEMENT_GAP,
     DEFAULT_PPTX_FORCE_TEXTBOX_BULLETS,
     DEFAULT_PPTX_IMAGE_LEFT,
     DEFAULT_PPTX_IMAGE_TOP,
@@ -20,8 +25,10 @@ from all2md.constants import (
     DEFAULT_PPTX_LIST_INDENT_PER_LEVEL,
     DEFAULT_PPTX_LIST_NUMBER_SPACING,
     DEFAULT_PPTX_PARSER_COMMENT_MODE,
+    DEFAULT_PPTX_SLIDE_HEIGHT,
     DEFAULT_PPTX_SLIDE_SPLIT_HEADING_LEVEL,
     DEFAULT_PPTX_SLIDE_SPLIT_MODE,
+    DEFAULT_PPTX_SLIDE_WIDTH,
     DEFAULT_PPTX_STRICT_LIST_DETECTION,
     DEFAULT_PPTX_TABLE_HEIGHT_PER_ROW,
     DEFAULT_PPTX_TABLE_LEFT,
@@ -29,6 +36,7 @@ from all2md.constants import (
     DEFAULT_PPTX_TABLE_WIDTH,
     DEFAULT_PPTX_TITLE_FONT_SIZE,
     DEFAULT_PPTX_TITLE_SLIDE_LAYOUT,
+    DEFAULT_PPTX_USE_FLOW_LAYOUT,
     DEFAULT_PPTX_USE_HEADING_AS_SLIDE_TITLE,
     DEFAULT_SLIDE_NUMBERS,
     ChartsMode,
@@ -109,6 +117,24 @@ class PptxRendererOptions(BaseRendererOptions):
         When True (default), bullets are explicitly enabled via OOXML for all text boxes.
         When False, bullets are only applied to content placeholders (native PowerPoint behavior).
         Set to False if using strict templates that conflict with OOXML manipulation.
+    slide_width : float, default 13.333
+        Slide width in inches. Default is widescreen 16:9 (13.333").
+    slide_height : float, default 7.5
+        Slide height in inches. Default is 7.5" (standard for both 4:3 and 16:9).
+    content_margin_left : float, default 0.5
+        Left margin for content area in inches.
+    content_margin_right : float, default 0.5
+        Right margin for content area in inches.
+    content_margin_top : float, default 1.5
+        Top margin for content area in inches (below title area).
+    content_margin_bottom : float, default 0.5
+        Bottom margin for content area in inches.
+    element_gap : float, default 0.2
+        Vertical gap between content blocks in inches.
+    use_flow_layout : bool, default True
+        Enable the flow layout engine that positions text, tables, and images
+        sequentially to avoid overlap. When False, uses the legacy fixed-position
+        behavior where all text shares one frame and tables/images use fixed positions.
 
     Notes
     -----
@@ -247,6 +273,42 @@ class PptxRendererOptions(BaseRendererOptions):
             "importance": "advanced",
         },
     )
+    slide_width: float = field(
+        default=DEFAULT_PPTX_SLIDE_WIDTH,
+        metadata={"help": "Slide width in inches (13.333 for 16:9 widescreen)", "type": float, "importance": "core"},
+    )
+    slide_height: float = field(
+        default=DEFAULT_PPTX_SLIDE_HEIGHT,
+        metadata={"help": "Slide height in inches", "type": float, "importance": "core"},
+    )
+    content_margin_left: float = field(
+        default=DEFAULT_PPTX_CONTENT_MARGIN_LEFT,
+        metadata={"help": "Left margin for content area in inches", "type": float, "importance": "advanced"},
+    )
+    content_margin_right: float = field(
+        default=DEFAULT_PPTX_CONTENT_MARGIN_RIGHT,
+        metadata={"help": "Right margin for content area in inches", "type": float, "importance": "advanced"},
+    )
+    content_margin_top: float = field(
+        default=DEFAULT_PPTX_CONTENT_MARGIN_TOP,
+        metadata={"help": "Top margin for content area in inches", "type": float, "importance": "advanced"},
+    )
+    content_margin_bottom: float = field(
+        default=DEFAULT_PPTX_CONTENT_MARGIN_BOTTOM,
+        metadata={"help": "Bottom margin for content area in inches", "type": float, "importance": "advanced"},
+    )
+    element_gap: float = field(
+        default=DEFAULT_PPTX_ELEMENT_GAP,
+        metadata={"help": "Vertical gap between content blocks in inches", "type": float, "importance": "advanced"},
+    )
+    use_flow_layout: bool = field(
+        default=DEFAULT_PPTX_USE_FLOW_LAYOUT,
+        metadata={
+            "help": "Enable flow layout engine (sequential positioning to avoid overlap)",
+            "cli_name": "no-use-flow-layout",
+            "importance": "core",
+        },
+    )
 
     def __post_init__(self) -> None:
         """Validate numeric ranges for PPTX renderer options.
@@ -300,6 +362,29 @@ class PptxRendererOptions(BaseRendererOptions):
 
         if self.image_width < 0:
             raise ValueError(f"image_width must be non-negative, got {self.image_width}")
+
+        # Validate positive slide dimensions
+        if self.slide_width <= 0:
+            raise ValueError(f"slide_width must be positive, got {self.slide_width}")
+
+        if self.slide_height <= 0:
+            raise ValueError(f"slide_height must be positive, got {self.slide_height}")
+
+        # Validate non-negative margins and gap
+        if self.content_margin_left < 0:
+            raise ValueError(f"content_margin_left must be non-negative, got {self.content_margin_left}")
+
+        if self.content_margin_right < 0:
+            raise ValueError(f"content_margin_right must be non-negative, got {self.content_margin_right}")
+
+        if self.content_margin_top < 0:
+            raise ValueError(f"content_margin_top must be non-negative, got {self.content_margin_top}")
+
+        if self.content_margin_bottom < 0:
+            raise ValueError(f"content_margin_bottom must be non-negative, got {self.content_margin_bottom}")
+
+        if self.element_gap < 0:
+            raise ValueError(f"element_gap must be non-negative, got {self.element_gap}")
 
 
 @dataclass(frozen=True)

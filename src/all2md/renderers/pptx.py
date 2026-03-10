@@ -65,7 +65,11 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.constants import DEPS_PPTX_RENDER
+from all2md.constants import (
+    DEFAULT_PPTX_LINE_HEIGHT_FACTOR,
+    DEFAULT_PPTX_MIN_TEXT_HEIGHT,
+    DEPS_PPTX_RENDER,
+)
 from all2md.exceptions import RenderingError
 from all2md.options.pptx import PptxRendererOptions
 from all2md.renderers._split_utils import (
@@ -157,6 +161,9 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             prs = Presentation(self.options.template_path)
         else:
             prs = Presentation()
+            # Set widescreen dimensions (default 16:9)
+            prs.slide_width = Inches(self.options.slide_width)  # type: ignore[misc,assignment]
+            prs.slide_height = Inches(self.options.slide_height)  # type: ignore[misc,assignment]
 
         # Set creator metadata if configured
         if self.options.creator:
@@ -313,12 +320,31 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     def _render_slide_content(self, slide: "Slide", nodes: list[Node]) -> None:
         """Render AST nodes as slide content.
 
+        Dispatches to flow layout (default) or legacy fixed-position layout
+        based on ``use_flow_layout`` option.
+
         Parameters
         ----------
         slide : Slide
             Slide to add content to
         nodes : list of Node
             AST nodes to render
+
+        """
+        if self.options.use_flow_layout:
+            self._render_slide_content_flow(slide, nodes)
+        else:
+            self._render_slide_content_fixed(slide, nodes)
+
+    # ------------------------------------------------------------------
+    # Legacy fixed-position layout
+    # ------------------------------------------------------------------
+
+    def _render_slide_content_fixed(self, slide: "Slide", nodes: list[Node]) -> None:
+        """Render AST nodes using legacy fixed-position layout.
+
+        All text nodes share a single text frame, and tables/images are placed
+        at their configured fixed positions (``table_top``, ``image_top``).
 
         """
         # Try to find content placeholder with robust detection
@@ -358,10 +384,13 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             # Create a text box for content
             from pptx.util import Inches
 
-            left = Inches(0.5)
-            top = Inches(1.5)
-            width = Inches(9.0)
-            height = Inches(5.0)
+            opts = self.options
+            content_width = opts.slide_width - opts.content_margin_left - opts.content_margin_right
+            content_height = opts.slide_height - opts.content_margin_top - opts.content_margin_bottom
+            left = Inches(opts.content_margin_left)
+            top = Inches(opts.content_margin_top)
+            width = Inches(content_width)
+            height = Inches(content_height)
 
             textbox = slide.shapes.add_textbox(left, top, width, height)
             self._current_textbox = textbox.text_frame
@@ -376,40 +405,155 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 # Render to text frame
                 node.accept(self)
 
-    def _render_table(self, slide: "Slide", table: Table) -> None:
-        """Render a table as a PowerPoint table.
+    # ------------------------------------------------------------------
+    # Flow layout engine
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _group_into_layout_blocks(nodes: list[Node]) -> list[tuple[str, list[Node]]]:
+        """Group consecutive nodes into layout blocks.
+
+        Consecutive non-Table/non-Image nodes are merged into ``("text", [nodes])``
+        blocks.  Table and Image nodes become standalone
+        ``("table", [table])`` / ``("image", [image])`` blocks.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Flat list of AST nodes for a single slide.
+
+        Returns
+        -------
+        list of tuple[str, list[Node]]
+            Each element is ``(block_type, nodes)`` where *block_type* is one
+            of ``"text"``, ``"table"``, or ``"image"``.
+
+        """
+        blocks: list[tuple[str, list[Node]]] = []
+        text_acc: list[Node] = []
+
+        for node in nodes:
+            if isinstance(node, Table):
+                if text_acc:
+                    blocks.append(("text", text_acc))
+                    text_acc = []
+                blocks.append(("table", [node]))
+            elif isinstance(node, Image):
+                if text_acc:
+                    blocks.append(("text", text_acc))
+                    text_acc = []
+                blocks.append(("image", [node]))
+            else:
+                text_acc.append(node)
+
+        if text_acc:
+            blocks.append(("text", text_acc))
+
+        return blocks
+
+    def _estimate_text_block_height(self, nodes: list[Node], available_width_inches: float) -> float:
+        """Estimate the height of a text block in inches.
+
+        Uses a simple heuristic based on character count and line wrapping.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Text-bearing AST nodes.
+        available_width_inches : float
+            Width available for text rendering.
+
+        Returns
+        -------
+        float
+            Estimated height in inches.
+
+        """
+        font_size_pt = self.options.default_font_size
+        # Approximate characters per line: width in points / (font_size * ~0.5 avg char width)
+        chars_per_line = max(1, int(available_width_inches * 72 / (font_size_pt * 0.5)))
+
+        total_lines = 0
+        for node in nodes:
+            total_lines += self._count_lines_for_node(node, chars_per_line)
+
+        line_height_inches = (font_size_pt / 72.0) * DEFAULT_PPTX_LINE_HEIGHT_FACTOR
+        return max(total_lines * line_height_inches, DEFAULT_PPTX_MIN_TEXT_HEIGHT)
+
+    def _count_lines_for_node(self, node: Node, chars_per_line: int) -> int:
+        """Count estimated rendered lines for a single AST node.
+
+        Parameters
+        ----------
+        node : Node
+            AST node to estimate.
+        chars_per_line : int
+            Characters that fit on one line.
+
+        Returns
+        -------
+        int
+            Estimated number of lines (minimum 1).
+
+        """
+        if isinstance(node, CodeBlock):
+            code = node.content if isinstance(node.content, str) else ""
+            return max(1, code.count("\n") + 1)
+
+        if isinstance(node, List):
+            count = 0
+            for child in node.items:
+                text = self._extract_text_from_nodes(child.content if hasattr(child, "content") else [])
+                count += max(1, -(-len(text) // chars_per_line))  # ceiling division
+            return max(1, count)
+
+        # Paragraph / other text-bearing nodes
+        text = self._extract_text_from_nodes(node.content if hasattr(node, "content") else [])
+        if not text:
+            return 1
+        return max(1, -(-len(text) // chars_per_line))  # ceiling division
+
+    def _render_table_at(
+        self, slide: "Slide", table: Table, left_inches: float, top_inches: float, width_inches: float
+    ) -> float:
+        """Render a table at an explicit position and return its height.
 
         Parameters
         ----------
         slide : Slide
-            Slide to add table to
+            Target slide.
         table : Table
-            AST table node
+            AST table node.
+        left_inches, top_inches, width_inches : float
+            Position and width in inches.
+
+        Returns
+        -------
+        float
+            Table height in inches.
 
         """
         from pptx.util import Inches
 
-        # Collect all rows
-        all_rows = []
+        all_rows: list[TableRow] = []
         if table.header:
             all_rows.append(table.header)
         all_rows.extend(table.rows)
 
         if not all_rows:
-            return
+            return 0.0
 
-        # Compute grid dimensions accounting for colspan/rowspan
         num_rows = len(all_rows)
         num_cols = self._compute_table_columns(all_rows)
-
         if num_cols == 0 or num_rows == 0:
-            return
+            return 0.0
 
-        # Use configurable positioning and sizing
-        left = Inches(self.options.table_left)
-        top = Inches(self.options.table_top)
-        width = Inches(self.options.table_width)
-        height = Inches(self.options.table_height_per_row * num_rows)
+        height_inches = self.options.table_height_per_row * num_rows
+
+        left = Inches(left_inches)
+        top = Inches(top_inches)
+        width = Inches(width_inches)
+        height = Inches(height_inches)
 
         table_shape = slide.shapes.add_table(num_rows, num_cols, left, top, width, height)
         pptx_table = table_shape.table
@@ -417,32 +561,24 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Track which grid cells are occupied by spanning cells
         occupied = [[False] * num_cols for _ in range(num_rows)]
 
-        # Render all rows
         for row_idx, ast_row in enumerate(all_rows):
             col_idx = 0
             for ast_cell in ast_row.cells:
-                # Skip occupied cells
                 while col_idx < num_cols and occupied[row_idx][col_idx]:
                     col_idx += 1
-
                 if col_idx >= num_cols:
                     break
 
-                # Render cell content
                 pptx_cell = pptx_table.rows[row_idx].cells[col_idx]
                 cell_text = self._extract_text_from_nodes(ast_cell.content)
                 pptx_cell.text = cell_text
 
-                # Handle cell spanning
                 colspan = ast_cell.colspan
                 rowspan = ast_cell.rowspan
-
-                # Mark occupied cells
                 for r in range(row_idx, min(row_idx + rowspan, num_rows)):
                     for c in range(col_idx, min(col_idx + colspan, num_cols)):
                         occupied[r][c] = True
 
-                # Merge cells if needed
                 if colspan > 1 or rowspan > 1:
                     end_row = min(row_idx + rowspan - 1, num_rows - 1)
                     end_col = min(col_idx + colspan - 1, num_cols - 1)
@@ -451,59 +587,157 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
                 col_idx += colspan
 
-    def _render_image(self, slide: "Slide", image: Image) -> None:
-        """Render an image on the slide.
+        return height_inches
+
+    def _resolve_image_file(self, image: Image) -> str | None:
+        """Resolve an Image node to a local file path (or temp file).
+
+        Returns
+        -------
+        str or None
+            Path to the image file, or None if unresolvable.
+
+        """
+        if not image.url:
+            return None
+
+        if image.url.startswith("data:"):
+            return self._decode_base64_image(image.url)
+        elif urlparse(image.url).scheme in ("http", "https"):
+            return self._fetch_remote_image(image.url)
+        else:
+            return image.url
+
+    def _render_image_at(
+        self, slide: "Slide", image: Image, left_inches: float, top_inches: float, max_width_inches: float
+    ) -> float:
+        """Render an image at an explicit position and return its height.
 
         Parameters
         ----------
         slide : Slide
-            Slide to add image to
+            Target slide.
         image : Image
-            AST image node
+            AST image node.
+        left_inches, top_inches : float
+            Position in inches.
+        max_width_inches : float
+            Maximum width in inches.
+
+        Returns
+        -------
+        float
+            Image height in inches (0.0 if the image could not be placed).
 
         """
-        # Skip if no URL
+        from pptx.util import Emu, Inches
+
+        image_file = self._resolve_image_file(image)
+        if not image_file:
+            return 0.0
+
+        try:
+            pic = slide.shapes.add_picture(
+                image_file,
+                Inches(left_inches),
+                Inches(top_inches),
+                width=Inches(min(self.options.image_width, max_width_inches)),
+            )
+            # add_picture returns a Picture shape; convert EMU height to inches
+            return pic.height / Emu(914400)  # 914400 EMU per inch
+        except Exception as e:
+            logger.warning(f"Failed to add image to slide: {e}")
+            if self.options.fail_on_resource_errors:
+                raise RenderingError(
+                    f"Failed to add image to slide: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e,
+                ) from e
+            return 0.0
+
+    def _render_slide_content_flow(self, slide: "Slide", nodes: list[Node]) -> None:
+        """Render AST nodes using flow layout (no overlap).
+
+        Positions text blocks, tables, and images sequentially from top to
+        bottom, advancing a y-cursor after each element.
+
+        """
+        from pptx.util import Inches
+
+        content_left = self.options.content_margin_left
+        content_width = self.options.slide_width - self.options.content_margin_left - self.options.content_margin_right
+        content_top = self.options.content_margin_top
+        content_bottom = self.options.slide_height - self.options.content_margin_bottom
+
+        blocks = self._group_into_layout_blocks(nodes)
+        y_cursor = content_top
+
+        for block_type, block_data in blocks:
+            if y_cursor >= content_bottom:
+                logger.warning("Content exceeds slide area; remaining blocks truncated.")
+                break
+
+            if block_type == "text":
+                height = self._estimate_text_block_height(block_data, content_width)
+                height = min(height, content_bottom - y_cursor)
+
+                textbox = slide.shapes.add_textbox(
+                    Inches(content_left),
+                    Inches(y_cursor),
+                    Inches(content_width),
+                    Inches(height),
+                )
+                textbox.text_frame.word_wrap = True
+                self._current_textbox = textbox.text_frame
+                for node in block_data:
+                    node.accept(self)
+                y_cursor += height + self.options.element_gap
+
+            elif block_type == "table":
+                table_node = block_data[0]
+                assert isinstance(table_node, Table)
+                table_height = self._render_table_at(slide, table_node, content_left, y_cursor, content_width)
+                y_cursor += table_height + self.options.element_gap
+
+            elif block_type == "image":
+                image_node = block_data[0]
+                assert isinstance(image_node, Image)
+                try:
+                    image_height = self._render_image_at(slide, image_node, content_left, y_cursor, content_width)
+                except Exception as e:
+                    logger.warning(f"Failed to render image {image_node.url}: {e}")
+                    if self.options.fail_on_resource_errors:
+                        raise RenderingError(
+                            f"Failed to render image {image_node.url}: {e!r}",
+                            rendering_stage="image_processing",
+                            original_error=e,
+                        ) from e
+                    image_height = 0.0
+                y_cursor += image_height + self.options.element_gap
+
+    # ------------------------------------------------------------------
+    # Thin wrappers (used by fixed-position path)
+    # ------------------------------------------------------------------
+
+    def _render_table(self, slide: "Slide", table: Table) -> None:
+        """Render a table at the fixed configured position."""
+        self._render_table_at(slide, table, self.options.table_left, self.options.table_top, self.options.table_width)
+
+    def _render_image(self, slide: "Slide", image: Image) -> None:
+        """Render an image at the fixed configured position."""
         if not image.url:
             return
 
         try:
-            # Handle different image sources
-            image_file = None
-
-            if image.url.startswith("data:"):
-                # Base64 encoded image
-                image_file = self._decode_base64_image(image.url)
-            elif urlparse(image.url).scheme in ("http", "https"):
-                # Remote URL - use secure fetching if enabled
-                image_file = self._fetch_remote_image(image.url)
-            else:
-                # Local file path
-                image_file = image.url
-
-            # Add image to slide if we have a valid file
-            if image_file:
-                from pptx.util import Inches
-
-                # Use configurable positioning and sizing
-                left = Inches(self.options.image_left)
-                top = Inches(self.options.image_top)
-
-                # Add image with configurable width, maintaining aspect ratio
-                try:
-                    slide.shapes.add_picture(image_file, left, top, width=Inches(self.options.image_width))
-                except Exception as e:
-                    logger.warning(f"Failed to add image to slide: {e}")
-                    if self.options.fail_on_resource_errors:
-                        raise RenderingError(
-                            f"Failed to add image to slide: {e!r}", rendering_stage="image_processing", original_error=e
-                        ) from e
-
+            opts = self.options
+            self._render_image_at(slide, image, opts.image_left, opts.image_top, opts.image_width)
         except Exception as e:
-            # Log warning but don't fail rendering
             logger.warning(f"Failed to render image {image.url}: {e}")
             if self.options.fail_on_resource_errors:
                 raise RenderingError(
-                    f"Failed to render image {image.url}: {e!r}", rendering_stage="image_processing", original_error=e
+                    f"Failed to render image {image.url}: {e!r}",
+                    rendering_stage="image_processing",
+                    original_error=e,
                 ) from e
 
     def _decode_base64_image(self, data_uri: str) -> str | None:
