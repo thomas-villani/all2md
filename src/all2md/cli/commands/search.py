@@ -8,6 +8,7 @@ various retrieval modes including keyword (BM25), vector (semantic), hybrid,
 and grep (pattern matching). Supports index persistence, rich output
 formatting, and configurable chunking strategies.
 """
+
 import argparse
 import json
 import os

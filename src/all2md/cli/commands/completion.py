@@ -189,9 +189,7 @@ _all2md_completion() {{
     # Build list of available options based on context
     local opts="{} "
 
-""".format(
-        " ".join(global_flags)
-    )
+""".format(" ".join(global_flags))
 
     # Add format-specific options
     for fmt in sorted(parser_flags_by_format.keys()):

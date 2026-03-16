@@ -8,6 +8,7 @@ supported format and generating unified, HTML, or JSON diff output. It
 supports various comparison granularities (block, sentence, word) and
 context options similar to traditional diff tools.
 """
+
 import argparse
 import sys
 from pathlib import Path

@@ -299,8 +299,7 @@ class TestCLIIntegration:
     def test_complex_option_combination(self):
         """Test complex combination of multiple options."""
         html_file = self.temp_dir / "complex.html"
-        html_file.write_text(
-            """
+        html_file.write_text("""
         <html>
         <head><title>Complex Test</title></head>
         <body>
@@ -310,8 +309,7 @@ class TestCLIIntegration:
             <script>alert('remove me');</script>
         </body>
         </html>
-        """
-        )
+        """)
 
         output_file = self.temp_dir / "complex_output.md"
 
@@ -650,11 +648,9 @@ class TestCLIIntegration:
         output_file = self.temp_dir / "complex_output.md"
 
         with patch("all2md.cli.processors.convert") as mock_convert:
-            mock_convert.side_effect = mock_convert_with_file_write(
-                """# Complex Notebook
+            mock_convert.side_effect = mock_convert_with_file_write("""# Complex Notebook
 
-Code and outputs with custom settings."""
-            )
+Code and outputs with custom settings.""")
 
             result = main([str(ipynb_file), "--out", str(output_file), "--attachment-mode", "base64"])
 
@@ -672,8 +668,7 @@ Code and outputs with custom settings."""
         output_file = self.temp_dir / "complex_output.md"
 
         with patch("all2md.cli.processors.convert") as mock_convert:
-            mock_convert.side_effect = mock_convert_with_file_write(
-                """# Complex Document
+            mock_convert.side_effect = mock_convert_with_file_write("""# Complex Document
 
 This is a complex document with:
 
@@ -685,8 +680,7 @@ This is a complex document with:
 |-------|------|
 | Row1  | Val1 |
 
-![Image alt text](data:image/png;base64,iVBORw...)"""
-            )
+![Image alt text](data:image/png;base64,iVBORw...)""")
 
             result = main(
                 [

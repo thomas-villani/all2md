@@ -8,6 +8,7 @@ about available document parsers and renderers, including their file
 extensions, MIME types, capabilities, and dependency status. Supports
 both plain text and rich terminal output.
 """
+
 import argparse
 import sys
 from typing import Any

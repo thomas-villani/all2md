@@ -387,7 +387,9 @@ def to_markdown(
         Pre-configured renderer options for Markdown rendering settings
         (e.g., MarkdownOptions).
     options : BaseParserOptions, optional
-        .. deprecated:: Use ``parser_options`` instead.
+        .. deprecated::
+            Use ``parser_options`` instead.
+
         Deprecated alias for ``parser_options``. Cannot be used together
         with ``parser_options``.
     source_format : DocumentFormat, default "auto"

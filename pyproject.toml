@@ -129,7 +129,7 @@ dev = [
     "mypy>=1.18.2",
     "pytest>=8.4.2",
     "ruff>=0.14.0",
-    "black>=25.9.0",
+    "black~=26.1",
     "sphinx>=8.2.3;python_version>='3.11'",
     "sphinx-rtd-theme>=3.0.2;python_version>='3.11'",
     "sphinx-copybutton>=0.5.2;python_version>='3.11'",

@@ -7,6 +7,7 @@ This module provides the view command for converting documents to HTML and
 displaying them in a web browser with optional themes. Supports temporary
 or persistent output files and includes table of contents generation.
 """
+
 import argparse
 import os
 import sys

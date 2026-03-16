@@ -66,19 +66,16 @@ class TestGenerateSiteCLI:
         content_parts = []
 
         if with_metadata:
-            content_parts.append(
-                """---
+            content_parts.append("""---
 title: Test Document
 author: Test Author
 creation_date: 2025-01-22T10:00:00
 keywords: test, example, tutorial
 description: A test document for static site generation
 ---
-"""
-            )
+""")
 
-        content_parts.append(
-            """# Test Document
+        content_parts.append("""# Test Document
 
 This is a test document for the generate-site command.
 
@@ -91,8 +88,7 @@ Some content here with **bold** and *italic* text.
 - Bullet point 1
 - Bullet point 2
 - Bullet point 3
-"""
-        )
+""")
 
         if with_image:
             content_parts.append("\n![Test Image](./images/test.png)\n")

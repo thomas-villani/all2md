@@ -2,7 +2,6 @@
 
 """Unit tests for output directory validation security."""
 
-
 import pytest
 
 from all2md.exceptions import SecurityError

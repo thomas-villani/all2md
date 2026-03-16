@@ -7,6 +7,7 @@ This module provides the serve command for hosting documents via HTTP server
 with on-demand conversion to HTML. Supports directory listings, multiple
 themes, file upload forms, and REST API endpoints for development use.
 """
+
 import argparse
 import base64
 import http.server

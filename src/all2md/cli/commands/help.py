@@ -7,6 +7,7 @@ This module provides the help command for displaying various levels of
 CLI documentation, including quick reference, full help, and format-specific
 help sections. Supports both plain text and rich terminal output.
 """
+
 import argparse
 import sys
 from typing import Optional

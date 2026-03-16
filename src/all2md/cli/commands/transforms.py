@@ -7,6 +7,7 @@ This module provides the list-transforms command for displaying information
 about available AST transforms, including their descriptions, parameters,
 dependencies, and tags. Supports both plain text and rich terminal output.
 """
+
 import argparse
 import sys
 

@@ -1463,8 +1463,7 @@ class TestAdvancedCLIFeaturesE2E:
         """Test attachment handling across multiple files end-to-end."""
         # Create HTML files with image references
         html1 = self.temp_dir / "with_image1.html"
-        html1.write_text(
-            """
+        html1.write_text("""
         <html>
         <head><title>Document with Image 1</title></head>
         <body>
@@ -1473,12 +1472,10 @@ class TestAdvancedCLIFeaturesE2E:
             <img src="image1.png" alt="Test Image 1">
         </body>
         </html>
-        """
-        )
+        """)
 
         html2 = self.temp_dir / "with_image2.html"
-        html2.write_text(
-            """
+        html2.write_text("""
         <html>
         <head><title>Document with Image 2</title></head>
         <body>
@@ -1487,8 +1484,7 @@ class TestAdvancedCLIFeaturesE2E:
             <img src="image2.png" alt="Test Image 2">
         </body>
         </html>
-        """
-        )
+        """)
 
         output_dir = self.temp_dir / "attachment_output"
 
@@ -1520,8 +1516,7 @@ class TestAdvancedCLIFeaturesE2E:
         """Test Markdown formatting options across multiple files."""
         # Create HTML files with various formatting
         html1 = self.temp_dir / "formatting1.html"
-        html1.write_text(
-            """
+        html1.write_text("""
         <html>
         <body>
             <h1>Formatting Test 1</h1>
@@ -1532,12 +1527,10 @@ class TestAdvancedCLIFeaturesE2E:
             </ul>
         </body>
         </html>
-        """
-        )
+        """)
 
         html2 = self.temp_dir / "formatting2.html"
-        html2.write_text(
-            """
+        html2.write_text("""
         <html>
         <body>
             <h1>Formatting Test 2</h1>
@@ -1548,8 +1541,7 @@ class TestAdvancedCLIFeaturesE2E:
             </ul>
         </body>
         </html>
-        """
-        )
+        """)
 
         output_dir = self.temp_dir / "formatting_output"
 

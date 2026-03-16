@@ -6,6 +6,7 @@ This module provides common functionality used across multiple CLI commands,
 including input file collection from various sources (filesystem, URIs, stdin),
 version information, system diagnostics, and batch file list parsing.
 """
+
 import argparse
 import fnmatch
 import logging

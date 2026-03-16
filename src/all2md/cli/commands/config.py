@@ -8,6 +8,7 @@ configuration files for the all2md document conversion tool. It supports
 multiple configuration formats (TOML, JSON, YAML) and handles configuration
 priority resolution from multiple sources.
 """
+
 import argparse
 import json
 import logging
@@ -406,8 +407,7 @@ def handle_config_validate_command(args: list[str] | None = None) -> int:
     if args:
         for arg in args:
             if arg in ("--help", "-h"):
-                print(
-                    """Usage: all2md config validate <config-file>
+                print("""Usage: all2md config validate <config-file>
 
 Validate a configuration file for syntax errors.
 
@@ -420,8 +420,7 @@ Options:
 Examples:
   all2md config validate .all2md.toml
   all2md config validate ~/.all2md.json
-"""
-                )
+""")
                 return 0
             elif not arg.startswith("-"):
                 config_file = arg

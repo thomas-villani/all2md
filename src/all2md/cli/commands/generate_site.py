@@ -8,6 +8,7 @@ to Hugo or Jekyll static site formats. It handles frontmatter generation,
 asset copying, and site scaffolding to create ready-to-deploy static sites
 from various document formats.
 """
+
 import argparse
 import logging
 import sys

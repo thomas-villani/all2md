@@ -2,7 +2,6 @@
 
 """Unit tests for JSON parser."""
 
-
 import pytest
 
 from all2md.ast import CodeBlock, Document, Heading, List, Table

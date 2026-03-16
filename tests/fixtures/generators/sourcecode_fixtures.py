@@ -8,8 +8,7 @@ from textwrap import dedent
 
 def create_python_module() -> str:
     """Return Python source that exercises docstrings, classes, and functions."""
-    return dedent(
-        """
+    return dedent("""
         \"\"\"Example module used in conversion tests.\"\"\"
 
         from __future__ import annotations
@@ -32,14 +31,12 @@ def create_python_module() -> str:
 
         if __name__ == "__main__":
             main()
-        """
-    ).lstrip()
+        """).lstrip()
 
 
 def create_markdown_embedded_snippet() -> str:
     """Return source code that contains embedded markdown-style comments."""
-    return dedent(
-        """
+    return dedent("""
         // Example demonstrating converter support for fenced comments.
         /*
         # Heading in comment
@@ -50,8 +47,7 @@ def create_markdown_embedded_snippet() -> str:
         int add(int a, int b) {
             return a + b;
         }
-        """
-    ).lstrip()
+        """).lstrip()
 
 
 def sourcecode_to_bytes(text: str, encoding: str = "utf-8") -> bytes:

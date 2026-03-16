@@ -1,7 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for diff/renderers/unified.py UnifiedDiffRenderer."""
 
-
 from all2md.diff.renderers.unified import UnifiedDiffRenderer, colorize_diff
 
 
