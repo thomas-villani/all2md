@@ -31,8 +31,9 @@ class TestDetectEncoding:
 
     def test_detect_latin1(self):
         """Test detection of Latin-1 encoded text."""
-        # Text with Latin-1 specific characters
-        data = "Café résumé naïve".encode("latin-1")
+        # Use a longer sample so chardet has enough signal to detect reliably
+        text = "Café résumé naïve. " * 20
+        data = text.encode("latin-1")
         encoding = detect_encoding(data)
         # chardet should detect some encoding (might be ISO-8859-1 or Windows-1252)
         assert encoding is not None
