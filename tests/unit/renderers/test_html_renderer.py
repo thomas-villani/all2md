@@ -105,21 +105,21 @@ class TestHeadingRendering:
         doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<h1 id="title-1">Title</h1>' in result
+        assert '<h1 id="title">Title</h1>' in result
 
     def test_heading_level_2(self):
         """Test rendering h2."""
         doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<h2 id="subtitle-1">Subtitle</h2>' in result
+        assert '<h2 id="subtitle">Subtitle</h2>' in result
 
     def test_heading_level_6(self):
         """Test rendering h6."""
         doc = Document(children=[Heading(level=6, content=[Text(content="Small heading")])])
         renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
         result = renderer.render_to_string(doc)
-        assert '<h6 id="small-heading-1">Small heading</h6>' in result
+        assert '<h6 id="small-heading">Small heading</h6>' in result
 
     def test_heading_with_formatting(self):
         """Test heading with inline formatting."""

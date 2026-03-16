@@ -15,6 +15,7 @@ generate HTML output with appropriate semantic markup.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import IO, Union
 
@@ -104,7 +105,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self.options: HtmlRendererOptions = options
         self._output: list[str] = []
         self._headings: list[tuple[int, str, str]] = []  # (level, id, text)
-        self._heading_id_counter: int = 0
+        self._seen_heading_slugs: dict[str, int] = {}
         self._footnote_definitions: list[FootnoteDefinition] = []
         self._toc_insert_position: int | None = None  # Position to insert TOC in inject mode
 
@@ -124,7 +125,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output = []
         self._headings = []
-        self._heading_id_counter = 0
+        self._seen_heading_slugs = {}
         self._footnote_definitions = []
         self._toc_insert_position = None
 
@@ -148,6 +149,9 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.insert(self._toc_insert_position, toc_html)
 
         content = "".join(self._output)
+
+        # Resolve internal anchor links against actual heading IDs
+        content = self._resolve_anchor_links(content)
 
         # Apply template if template_mode is set
         if self.options.template_mode is not None:
@@ -446,6 +450,40 @@ hr {
 
         return "\n".join(parts)
 
+    def _resolve_anchor_links(self, content: str) -> str:
+        """Resolve internal anchor links to match generated heading IDs.
+
+        Slugifies the fragment in each ``href="#..."`` and looks it up in the
+        heading-ID map so that Markdown-style anchor links (e.g.
+        ``[text](#my-heading)``) point to the actual heading element.
+
+        """
+        if not self._headings:
+            return content
+
+        # Build slug → first heading ID lookup
+        slug_to_id: dict[str, str] = {}
+        for _level, heading_id, text in self._headings:
+            slug = slugify(text, max_length=50)
+            if slug not in slug_to_id:
+                slug_to_id[slug] = heading_id
+
+        # Also index by heading_id for already-correct references
+        known_ids = {hid for _, hid, _ in self._headings}
+
+        def _replace_anchor(match: re.Match[str]) -> str:
+            fragment = match.group(1)
+            # Already points to a valid heading ID
+            if fragment in known_ids:
+                return match.group(0)
+            # Slugify the fragment and look up the heading
+            normalized = slugify(fragment, max_length=50)
+            if normalized in slug_to_id:
+                return f'href="#{slug_to_id[normalized]}"'
+            return match.group(0)
+
+        return re.sub(r'href="#([^"]+)"', _replace_anchor, content)
+
     def _apply_template(self, document: Document, content: str) -> str:
         """Apply template based on template_mode.
 
@@ -725,10 +763,15 @@ hr {
         # Store for TOC (extract plain text to avoid HTML tags in TOC entries)
         plain_text_content = strip_html_tags(content)
 
-        # Generate semantic heading ID from content with counter for uniqueness
+        # Generate semantic heading ID from content (bare slug for first occurrence,
+        # suffixed for duplicates, matching GitHub-style anchor link conventions)
         slug = slugify(plain_text_content, max_length=50)
-        self._heading_id_counter += 1
-        heading_id = f"{slug}-{self._heading_id_counter}"
+        if slug in self._seen_heading_slugs:
+            self._seen_heading_slugs[slug] += 1
+            heading_id = f"{slug}-{self._seen_heading_slugs[slug]}"
+        else:
+            self._seen_heading_slugs[slug] = 1
+            heading_id = slug
 
         self._headings.append((level, heading_id, plain_text_content))
 
