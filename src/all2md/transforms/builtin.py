@@ -330,8 +330,8 @@ class TitlePromotionTransform(NodeTransformer):
                 new_meta["is_title"] = True
                 new_children.append(
                     Heading(
-                        level=child.level,  # type: ignore[union-attr]
-                        content=child.content,  # type: ignore[union-attr]
+                        level=child.level,  # type: ignore[attr-defined]
+                        content=child.content,  # type: ignore[attr-defined]
                         metadata=new_meta,
                         source_location=child.source_location,
                     )

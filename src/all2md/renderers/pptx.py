@@ -708,14 +708,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             reused for the first text block).
 
         """
-        sp_tree = slide.shapes._spTree  # type: ignore[attr-defined]
+        sp_tree = slide.shapes._spTree
         for ph in list(slide.placeholders):
             try:
                 idx = ph.placeholder_format.idx
             except Exception:
                 idx = -1
             if idx >= 1 and idx != keep_idx:
-                sp_element = ph._element  # type: ignore[attr-defined]
+                sp_element = ph._element
                 sp_tree.remove(sp_element)
 
     def _render_slide_content_flow(self, slide: "Slide", nodes: list[Node]) -> None:
