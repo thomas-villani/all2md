@@ -465,7 +465,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Setup cleanup
                 def cleanup() -> None:
-                    sz.close()  # type: ignore[no-untyped-call]
+                    sz.close()  # type: ignore[no-untyped-call,unused-ignore]
                     try:
                         os.unlink(tmp_path)
                     except OSError:
@@ -499,7 +499,7 @@ class ArchiveToAstConverter(BaseParser):
 
                 # Setup cleanup
                 def cleanup() -> None:
-                    sz.close()  # type: ignore[no-untyped-call]
+                    sz.close()  # type: ignore[no-untyped-call,unused-ignore]
                     try:
                         os.unlink(tmp_path)
                     except OSError:
