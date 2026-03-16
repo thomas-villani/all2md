@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-03-16
+
+### Added
+- Flow layout engine for Markdown-to-PPTX rendering with template placeholder reuse and inherited built-in styles
+- H1-to-Title promotion for Markdown-to-DOCX rendering
+- Prebuilt [Agent Skills](https://agentskills.io) (`all2md-convert`, `all2md-view-diff`, `all2md-search`) for teaching coding agents how to use all2md
+
+### Fixed
+- HTML renderer anchor links now use GitHub-style heading IDs (`id="introduction"` instead of `id="introduction-1"`), so `#ref` links resolve correctly
+- PPTX flow layout no longer overlaps template placeholders; HTML comments route to speaker notes
+- `--collate --out` now writes the target format (e.g. DOCX) instead of raw Markdown
+- Sphinx documentation build warning from malformed `.. deprecated::` directive
+- Stale mypy `type: ignore` comments across pptx renderer, title promotion transform, and archive parser
+- Flaky `test_detect_latin1` marked as `xfail` (chardet Latin-1 detection unreliable across platforms)
+
+### Changed
+- Upgraded to Black 26.x and pinned version (`~=26.1`) to prevent CI/local formatting drift
+- Pre-commit format-sync hooks now use `uv run` for Windows compatibility
+- `options=` accepted as deprecated alias for `parser_options` in `to_markdown()`; unmatched kwargs now warn
+
+## [1.0.2] - 2026-02-27
+
+### Fixed
+- PPTX flow layout overlapping template placeholders
+- HTML comments in PPTX now route to speaker notes
+
+## [1.0.1] - 2025-12-18
+
+### Added
+- Softbreak parsing and DOCX CodeBlock styling support
+- Dependency-aware file filtering for shell completions
+
+### Fixed
+- Diff CLI args renamed to original/modified for clarity
+- CLI processor refactoring and PDF parsing internals split out
+- Broken test from CLI help text change
+- mypy type issue from merging lost branch
+
+### Changed
+- Refactored CLI processors and split PDF parsing internals
+
 ## [1.0.0] - 2025-10-29
 
 #### Core Features
@@ -122,4 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
+[1.0.3]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.3
+[1.0.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.2
+[1.0.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.1
 [1.0.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.0
