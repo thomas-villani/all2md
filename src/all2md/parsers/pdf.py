@@ -53,6 +53,7 @@ from all2md.ast.transforms import InlineFormattingConsolidator
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PX,
     DEPS_PDF,
+    DEPS_PDF_LAYOUT,
     DEPS_PDF_OCR,
     PDF_MIN_PYMUPDF_VERSION,
 )
@@ -63,6 +64,13 @@ from all2md.exceptions import DependencyError, MalformedFileError, PasswordProte
 from all2md.parsers._pdf_columns import detect_columns
 from all2md.parsers._pdf_headers import IdentifyHeaders
 from all2md.parsers._pdf_images import extract_page_images
+from all2md.parsers._pdf_layout import (
+    PageLayoutPredictions,
+    annotate_blocks_with_layout,
+    is_layout_available,
+    match_predictions_to_blocks,
+    predict_page_layout,
+)
 from all2md.parsers._pdf_ocr import (
     detect_page_language as _detect_page_language,
 )
@@ -172,6 +180,7 @@ class PdfToAstConverter(BaseParser):
         self.options: PdfOptions = options
         self._hdr_identifier: Optional[IdentifyHeaders] = None
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
+        self._use_layout: bool = False
 
     @requires_dependencies("pdf", DEPS_PDF)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -193,6 +202,21 @@ class PdfToAstConverter(BaseParser):
         import fitz
 
         _check_pymupdf_version()
+
+        # Determine if layout analysis should be used
+        if self.options.layout_analysis_mode == "enabled":
+            if not is_layout_available():
+                raise DependencyError(
+                    converter_name="pdf",
+                    missing_packages=[(pkg, ver) for pkg, _, ver in DEPS_PDF_LAYOUT],
+                )
+            self._use_layout = True
+        elif self.options.layout_analysis_mode == "auto":
+            self._use_layout = is_layout_available()
+            if self._use_layout:
+                logger.debug("Layout analysis available, enabling automatic block classification")
+        else:
+            self._use_layout = False
 
         # Validate and convert input
         doc_input, input_type = validate_and_convert_input(
@@ -991,6 +1015,9 @@ class PdfToAstConverter(BaseParser):
         elif item_data["type"] == "fallback":
             h_lines, v_lines = item_data["lines"]
             return self._extract_table_from_ruling_rect(page, item_data["bbox"], h_lines, v_lines, page_num)
+        elif item_data["type"] == "layout":
+            # Layout-detected table: extract text from the predicted region
+            return self._extract_table_from_layout_region(page, item_data["bbox"], page_num)
         return None
 
     def _get_page_links(self, page: "fitz.Page") -> list:
@@ -1124,6 +1151,17 @@ class PdfToAstConverter(BaseParser):
         except (AttributeError, KeyError, Exception):
             return []
 
+        # Run layout analysis if enabled (before any filtering so indices match)
+        layout: PageLayoutPredictions | None = None
+        if self._use_layout:
+            try:
+                raw_predictions = predict_page_layout(page)
+                layout = match_predictions_to_blocks(raw_predictions, all_blocks, self.options.layout_iou_threshold)
+                annotate_blocks_with_layout(all_blocks, layout)
+            except Exception as e:
+                logger.warning("Layout analysis failed for page %d: %s", page_num + 1, e)
+                layout = None
+
         # Extract plain text for OCR detection
         extracted_text = "".join(
             span.get("text", "")
@@ -1136,9 +1174,32 @@ class PdfToAstConverter(BaseParser):
         # Apply OCR if needed
         all_blocks, ocr_applied = self._apply_ocr_if_needed(page, all_blocks, extracted_text)
 
-        # Filter headers/footers if enabled
-        if self.options.trim_headers_footers:
-            all_blocks = self._filter_headers_footers(all_blocks, page)
+        # Filter headers/footers when enabled - layout labels provide more accurate detection
+        if self.options.trim_headers_footers or self.options.auto_trim_headers_footers:
+            if layout and (layout.has_label("page-header") or layout.has_label("page-footer")):
+                all_blocks = [b for b in all_blocks if b.get("_layout_label") not in ("page-header", "page-footer")]
+            else:
+                all_blocks = self._filter_headers_footers(all_blocks, page)
+
+        # Supplement table detection with layout-predicted tables
+        if layout:
+            for pred in layout.get_predictions_by_label("table"):
+                pred_rect = fitz.Rect(pred.x0, pred.y0, pred.x1, pred.y1)
+                # Check both directions: layout region covered by existing table,
+                # OR existing table covered by layout region
+                already_covered = any(
+                    abs(pred_rect & t["bbox"]) > 0.3 * max(abs(pred_rect), abs(t["bbox"])) for t in table_info
+                )
+                if not already_covered:
+                    table_info.append(
+                        {
+                            "bbox": pred_rect,
+                            "idx": len(table_info),
+                            "type": "layout",
+                            "lines": ([], []),
+                        }
+                    )
+                    logger.debug("Layout analysis detected additional table at %s on page %d", pred_rect, page_num + 1)
 
         # Filter out blocks inside table regions
         text_blocks = []
@@ -1635,6 +1696,74 @@ class PdfToAstConverter(BaseParser):
             )
         return True
 
+    def _handle_header_line_with_layout(
+        self,
+        spans: list,
+        links: list[dict],
+        state: _BlockProcessingState,
+        page_num: int,
+        average_line_height: float | None,
+        layout_label: str,
+    ) -> bool:
+        """Handle header line using layout analysis classification.
+
+        The layout model classifies the block as ``title`` or ``section-header``.
+        For ``title``, always use heading level 1. For ``section-header``,
+        prefer the font-size heuristic if available. When the heuristic
+        disagrees with the layout model, only promote to heading if the text
+        looks plausibly like a header (short text without trailing punctuation).
+
+        Parameters
+        ----------
+        spans : list
+            Text spans from the line.
+        links : list[dict]
+            Links on the page.
+        state : _BlockProcessingState
+            Current processing state.
+        page_num : int
+            Page number for source tracking.
+        average_line_height : float or None
+            Average line height for the page.
+        layout_label : str
+            Layout label (``"title"`` or ``"section-header"``).
+
+        Returns
+        -------
+        bool
+            True if the line was emitted as a heading.
+
+        """
+        if layout_label == "title":
+            level = 1
+        else:
+            # section-header: check font-size heuristic first
+            level = 0
+            if self._hdr_identifier:
+                level = self._hdr_identifier.get_header_level(spans[0])
+            if level <= 0:
+                # Heuristic disagrees - only trust layout if text looks like a header
+                text = "".join(s["text"] for s in spans).strip()
+                if text.endswith((".", ",", ";", ":", "!", "?")):
+                    return False  # Sentences aren't headers
+                if len(text) > self.options.header_max_line_length:
+                    return False  # Too long for a header
+                level = 2
+
+        self._flush_state_paragraph(state, page_num)
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+        if not inline_content:
+            return False
+
+        state.nodes.append(
+            Heading(
+                level=level,
+                content=inline_content,
+                source_location=SourceLocation(format="pdf", page=page_num + 1),
+            )
+        )
+        return True
+
     def _accumulate_paragraph_line(
         self,
         line: dict,
@@ -1700,8 +1829,14 @@ class PdfToAstConverter(BaseParser):
         if "lines" not in block:
             return []
 
+        layout_label = block.get("_layout_label")
         state = _BlockProcessingState()
         paragraph_break_threshold = self._calculate_paragraph_break_threshold(block)
+
+        # Layout hint: if model says list-item, pre-set list state
+        if layout_label == "list-item":
+            state.paragraph_is_list = True
+            state.paragraph_list_type = "unordered"
 
         for line in block["lines"]:
             # Handle rotated text (skip further processing if rotated)
@@ -1725,8 +1860,13 @@ class PdfToAstConverter(BaseParser):
             if state.in_code_block:
                 self._finalize_code_block(state, page_num)
 
-            # Handle headers
-            if self._handle_header_line(spans, links, state, page_num, average_line_height):
+            # Handle headers - layout label overrides font-size heuristics
+            if layout_label in ("title", "section-header"):
+                if self._handle_header_line_with_layout(
+                    spans, links, state, page_num, average_line_height, layout_label
+                ):
+                    continue
+            elif self._handle_header_line(spans, links, state, page_num, average_line_height):
                 continue
 
             # Regular paragraph text
@@ -2021,6 +2161,54 @@ class PdfToAstConverter(BaseParser):
         header_row = rows[0] if rows else TableRow(cells=[])
         data_rows = rows[1:] if len(rows) > 1 else []
 
+        return AstTable(
+            header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
+        )
+
+    def _extract_table_from_layout_region(
+        self, page: "fitz.Page", table_rect: "fitz.Rect", page_num: int
+    ) -> AstTable | None:
+        """Extract a table from a region identified by layout analysis.
+
+        Uses ``page.find_tables()`` scoped to the predicted region. Falls back
+        to extracting the raw text as a single-cell table if no structured
+        table is found.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page containing the table.
+        table_rect : fitz.Rect
+            Bounding box predicted by the layout model.
+        page_num : int
+            Page number for source tracking.
+
+        Returns
+        -------
+        AstTable or None
+            Table node if extraction succeeded.
+
+        """
+        # Try PyMuPDF's find_tables within the predicted region
+        try:
+            tabs = page.find_tables(clip=table_rect)
+            if tabs.tables:
+                return self._process_table_to_ast(tabs.tables[0], page_num)
+        except Exception:
+            pass
+
+        # Fallback: extract raw text from the region as a simple table
+        text = page.get_textbox(table_rect)
+        if not text or not text.strip():
+            return None
+
+        lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
+        if not lines:
+            return None
+
+        # Build a single-column table from the lines
+        header_row = TableRow(cells=[TableCell(content=[Text(content=lines[0])])], is_header=True)
+        data_rows = [TableRow(cells=[TableCell(content=[Text(content=line)])]) for line in lines[1:]]
         return AstTable(
             header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
         )

@@ -79,7 +79,11 @@ odf = [
     "odfpy>=1.4.1",
 ]
 pdf = [
-    "pymupdf>=1.26.5"
+    "pymupdf>=1.27.2"
+]
+pdf_layout = [
+    "pymupdf>=1.27.2",
+    "pymupdf-layout>=1.27.2",
 ]
 docx = [
     "python-docx>=1.2.0"
@@ -224,7 +228,9 @@ all = [
     "orgparse>=0.4.20250520",
     "pillow>=11.3.0",
     "py7zr>=0.22.0",
-    "pymupdf>=1.26.5",
+    "pymupdf>=1.27.2",
+    # Note: pymupdf-layout is NOT included in 'all' due to its Polyform Noncommercial license.
+    # Install separately via: pip install all2md[pdf_layout]
     "pytesseract>=0.3.10",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",

@@ -29,6 +29,8 @@ from all2md.constants import (
     DEFAULT_IMAGE_QUALITY,
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
+    DEFAULT_LAYOUT_ANALYSIS_MODE,
+    DEFAULT_LAYOUT_IOU_THRESHOLD,
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
     DEFAULT_PDF_CODE_FONT,
@@ -46,6 +48,7 @@ from all2md.constants import (
     DEFAULT_USE_COLUMN_CLUSTERING,
     ColumnDetectionMode,
     ImageFormat,
+    LayoutAnalysisMode,
     PageSize,
     PdfCommentMode,
     TableDetectionMode,
@@ -503,6 +506,28 @@ class PdfOptions(PaginatedParserOptions):
         },
     )
 
+    # Layout analysis options (requires pymupdf-layout)
+    layout_analysis_mode: LayoutAnalysisMode = field(
+        default=DEFAULT_LAYOUT_ANALYSIS_MODE,
+        metadata={
+            "help": (
+                "Document layout analysis mode: 'auto' (use if available), "
+                "'enabled' (require), 'disabled' (never use). "
+                "Requires: pip install all2md[pdf_layout]"
+            ),
+            "choices": ["auto", "enabled", "disabled"],
+            "importance": "advanced",
+        },
+    )
+    layout_iou_threshold: float = field(
+        default=DEFAULT_LAYOUT_IOU_THRESHOLD,
+        metadata={
+            "help": "Minimum IoU overlap to match layout predictions to text blocks (0.0-1.0)",
+            "type": float,
+            "importance": "advanced",
+        },
+    )
+
     def __post_init__(self) -> None:
         """Validate numeric ranges and dependent field constraints.
 
@@ -533,6 +558,8 @@ class PdfOptions(PaginatedParserOptions):
             raise ValueError(
                 f"table_ruling_line_threshold must be in range [0.0, 1.0], " f"got {self.table_ruling_line_threshold}"
             )
+        if not 0.0 <= self.layout_iou_threshold <= 1.0:
+            raise ValueError(f"layout_iou_threshold must be in range [0.0, 1.0], " f"got {self.layout_iou_threshold}")
 
         # Validate positive values
         if self.header_font_size_ratio <= 0:

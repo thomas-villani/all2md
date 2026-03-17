@@ -75,6 +75,7 @@ TableExtractionMode = Literal["none", "grid", "text_clustering"]
 TableDetectionMode = Literal["pymupdf", "ruling", "both", "none"]
 ImageFormat = Literal["png", "jpeg"]
 OCRMode = Literal["auto", "force", "off"]
+LayoutAnalysisMode = Literal["auto", "enabled", "disabled"]
 
 # Email-specific types
 DateFormatMode = Literal["iso8601", "locale", "strftime"]
@@ -221,7 +222,7 @@ DEPS_ODF = [("odfpy", "odf", "")]  # Used by ODP, ODS, ODT
 DEPS_OPENAPI = [("PyYAML", "yaml", ">=5.1")]
 DEPS_ORG = [("orgparse", "orgparse", "")]
 DEPS_OUTLOOK = [("extract-msg", "extract_msg", "")]
-DEPS_PDF = [("pymupdf", "fitz", ">=1.26.4")]
+DEPS_PDF = [("pymupdf", "fitz", ">=1.27.2")]
 DEPS_PPTX = [("python-pptx", "pptx", ">=1.0.2")]
 DEPS_RST = [("docutils", "docutils", ">=0.18")]
 DEPS_RTF = [("pyth3", "pyth", "")]
@@ -236,6 +237,7 @@ DEPS_ENEX = [("lxml", "lxml", "")]
 # PDF-specific optional dependencies (beyond base pymupdf)
 DEPS_PDF_LANGDETECT = [("langdetect", "langdetect", ">=1.0.9")]
 DEPS_PDF_OCR = [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")]
+DEPS_PDF_LAYOUT = [("pymupdf-layout", "pymupdf.layout", "")]
 
 # Document renderers (may have different version requirements than parsers)
 DEPS_DOCX_RENDER = [("python-docx", "docx", ">=1.2.0")]
@@ -685,7 +687,7 @@ DANGEROUS_REGEX_PATTERNS = [
 # =============================================================================
 
 # Version requirements
-PDF_MIN_PYMUPDF_VERSION = "1.26.4"
+PDF_MIN_PYMUPDF_VERSION = "1.27.2"
 
 # Header detection
 DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives
@@ -734,6 +736,10 @@ DEFAULT_TRIM_HEADERS_FOOTERS = False
 DEFAULT_AUTO_TRIM_HEADERS_FOOTERS = False
 DEFAULT_HEADER_HEIGHT = 0  # Height in points to trim from top
 DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
+
+# Layout analysis defaults (requires pymupdf-layout)
+DEFAULT_LAYOUT_ANALYSIS_MODE: LayoutAnalysisMode = "auto"
+DEFAULT_LAYOUT_IOU_THRESHOLD = 0.3  # Min IoU to match a prediction to a text block
 
 # PDF rendering defaults (for Markdown to PDF conversion)
 DEFAULT_PDF_PAGE_SIZE: PageSize = "letter"

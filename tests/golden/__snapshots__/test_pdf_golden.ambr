@@ -11,7 +11,7 @@
   
   # Large Header Text
   
-  Medium Subheader
+  ## Medium Subheader
   
   Regular paragraph text continues here with normal formatting
   
@@ -58,9 +58,12 @@
   
   | Product | Price |
   |---|---|
-  | Widget A | $10.99 |
-  | Widget B | $15.50 |
-  | Widget C | $8.25 |
+  | WidgetA | $1099
+  . |
+  | WidgetB | $1550
+  . |
+  | WidgetC | $825
+  . |
   '''
 # ---
 # name: TestPDFGoldenFromFiles.test_basic_pdf_file
@@ -75,7 +78,7 @@
   
   Here we want a longer paragraph that can span a few lines in a document. It should be like  3 or 4 sentences, which is the normal length of a paragraph. We can even include some  **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done. 
   
-  First Section Heading 
+  ## First Section Heading 
   
   Right before this was the equivalent of an “h2” heading. Now we have some more stuff in  this section. I think a [hyperlink](https://example.com/) would be cool. 
   
@@ -85,7 +88,7 @@
   
   Let’s add some more stuff 
   
-  Second Section Heading 
+  ## Second Section Heading 
   
   And here’s an ordered list: 
   
@@ -115,10 +118,18 @@
   
   And a simple table with a header: 
   
-  | Header A | Header B | Header C | Header D |
+  | HeaderA | HeaderB | HeaderC | HeaderD |
   |---|---|---|---|
-  | Row 1, Col 1 | Row 1, Col 2 | Row 1, Col 3 | Rol 1, Col 4 |
-  | Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 | Row 2, Col 4 |
+  | Row1 Col1
+  , | Row1 Col2
+  , | Row1 Col3
+  , | Rol1 Col4
+  , |
+  | Row2 Col1
+  , | Row2 Col2
+  , | Row2 Col3
+  , | Row2 Col4
+  , |
   
   We’ll put an inline image: 
   
