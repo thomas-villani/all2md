@@ -78,6 +78,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:
 
         return handle_grep_command(args[1:])
 
+    # Check for arxiv command
+    if args[0] == "arxiv":
+        from all2md.cli.commands.arxiv import handle_arxiv_command
+
+        return handle_arxiv_command(args[1:])
+
     # Check for diff command
     if args[0] == "diff":
         from all2md.cli.commands.diff import handle_diff_command

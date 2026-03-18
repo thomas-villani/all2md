@@ -113,6 +113,16 @@ Model Context Protocol server for LLM integration:
 
 For user-facing MCP documentation, see :doc:`/mcp`.
 
+Packagers
+---------
+
+Submission package generators for academic publishing:
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.packagers.arxiv
+
 Complete References
 -------------------
 
@@ -123,3 +133,5 @@ Complete References
    all2md.search
    all2md.diff
    all2md.mcp
+   all2md.packagers
+   all2md.packagers.arxiv

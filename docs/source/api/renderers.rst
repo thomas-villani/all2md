@@ -143,6 +143,9 @@ Specialized output formats:
    * - Jupyter
      - :doc:`all2md.renderers.ipynb`
      - Jupyter notebook output
+   * - ArXiv LaTeX
+     - :doc:`all2md.renderers.arxiv_latex`
+     - ArXiv submission LaTeX with figure extraction
 
 Base Renderer Class
 -------------------

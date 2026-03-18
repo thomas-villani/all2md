@@ -1202,6 +1202,18 @@ DEFAULT_LATEX_LINE_WIDTH = 0
 DEFAULT_LATEX_ESCAPE_SPECIAL = True
 DEFAULT_LATEX_USE_UNICODE = True
 
+# ArXiv packager options
+ArxivOutputFormat = Literal["tar.gz", "directory"]
+ArxivFigureFormat = Literal["png", "jpg", "pdf"]
+DEFAULT_ARXIV_DOCUMENT_CLASS = "article"
+DEFAULT_ARXIV_FIGURE_FORMAT: ArxivFigureFormat = "png"
+DEFAULT_ARXIV_FIGURE_DPI = 300
+DEFAULT_ARXIV_FIGURE_DIR = "figures"
+DEFAULT_ARXIV_OUTPUT_FORMAT: ArxivOutputFormat = "tar.gz"
+DEFAULT_ARXIV_BIBLIOGRAPHY_STYLE = "plain"
+DEFAULT_ARXIV_MAIN_TEX_FILENAME = "main.tex"
+DEFAULT_ARXIV_PACKAGES = ["amsmath", "graphicx", "hyperref", "natbib"]
+
 # =============================================================================
 # Format-Specific Constants - Jinja
 # =============================================================================

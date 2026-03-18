@@ -396,6 +396,59 @@ Machine-readable format for programmatic processing:
      ]
    }
 
+ArXiv Command
+~~~~~~~~~~~~~
+
+``all2md arxiv`` generates an ArXiv-ready LaTeX submission package from any supported
+document format. The output is a ``.tar.gz`` archive (or directory) containing a
+``main.tex`` file, extracted figures, and an optional ``.bib`` bibliography file.
+
+Basic Usage
+^^^^^^^^^^^
+
+.. code-block:: bash
+
+   # Generate a tar.gz submission archive from a document
+   all2md arxiv paper.md -o submission.tar.gz
+
+   # Include a bibliography file
+   all2md arxiv paper.docx -o submission.tar.gz --bib references.bib
+
+   # Output as a directory instead of tar.gz
+   all2md arxiv paper.pdf -o submission/ --output-format directory
+
+Options
+^^^^^^^
+
+.. code-block:: bash
+
+   # Set document class and options
+   all2md arxiv paper.md -o out.tar.gz --document-class article
+
+   # Control figure extraction
+   all2md arxiv paper.md -o out.tar.gz --figure-format png --figure-dir figures
+
+   # Set bibliography style
+   all2md arxiv paper.md -o out.tar.gz --bib refs.bib --bib-style plainnat
+
+   # Custom main tex filename
+   all2md arxiv paper.md -o out.tar.gz --main-tex paper.tex
+
+* ``-o/--output`` (required) -- Output path for archive or directory
+* ``--bib`` -- Path to a ``.bib`` bibliography file to include
+* ``--document-class`` -- LaTeX document class (default: ``article``)
+* ``--figure-format`` -- Figure format: ``png``, ``jpg``, or ``pdf`` (default: ``png``)
+* ``--figure-dir`` -- Figure subdirectory name in the archive (default: ``figures``)
+* ``--output-format`` -- ``tar.gz`` or ``directory`` (default: ``tar.gz``)
+* ``--bib-style`` -- BibTeX bibliography style (default: ``plain``)
+* ``--main-tex`` -- Main ``.tex`` filename (default: ``main.tex``)
+
+The generated archive contains:
+
+* ``main.tex`` -- Complete LaTeX document with preamble, packages, and body
+* ``figures/`` -- Extracted images wrapped in ``\begin{figure}`` environments
+* ``*.bib`` -- Bibliography file (if ``--bib`` was provided)
+
 Configuration Management
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -96,6 +96,7 @@ if TYPE_CHECKING:
     from all2md.ast import Document  # noqa: F401 - used in docstrings
 
     # Import all option classes for type checking
+    from all2md.options.arxiv import ArxivPackagerOptions  # noqa: F401
     from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions  # noqa: F401
     from all2md.options.chm import ChmOptions  # noqa: F401
     from all2md.options.csv import CsvOptions  # noqa: F401
@@ -152,6 +153,7 @@ _lazy_modules = {
 
 # Lazy loading for option classes - maps class name to (module_path, class_name)
 _lazy_options = {
+    "ArxivPackagerOptions": ("all2md.options.arxiv", "ArxivPackagerOptions"),
     "AsciiDocOptions": ("all2md.options.asciidoc", "AsciiDocOptions"),
     "AsciiDocRendererOptions": ("all2md.options.asciidoc", "AsciiDocRendererOptions"),
     "ChmOptions": ("all2md.options.chm", "ChmOptions"),
@@ -210,6 +212,7 @@ __all__ = [
     "BaseParserOptions",
     "NetworkFetchOptions",
     "LocalFileAccessOptions",
+    "ArxivPackagerOptions",
     "AsciiDocRendererOptions",
     "AsciiDocOptions",
     "ChmOptions",
