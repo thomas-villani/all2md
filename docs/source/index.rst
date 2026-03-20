@@ -143,6 +143,7 @@ Guides & References
    :caption: Integrations & Operations
 
    mcp
+   agent_skills
    plugins
    integrations
    configuration

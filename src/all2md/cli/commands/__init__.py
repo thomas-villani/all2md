@@ -102,6 +102,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:
 
         return handle_list_transforms_command(args[1:])
 
+    # Check for install-skills command
+    if args[0] == "install-skills":
+        from all2md.cli.commands.skills import handle_install_skills_command
+
+        return handle_install_skills_command(args[1:])
+
     # Check for dependency management commands
     if args[0] == "check-deps":
         from all2md.dependencies import main as deps_main

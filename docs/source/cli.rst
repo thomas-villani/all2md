@@ -4458,4 +4458,57 @@ The generated completion scripts provide:
 * **Renderer context** - Suggest renderer options when ``--output-type`` is specified
 * **Choice completion** - Complete valid values for options with predefined choices
 
+Install Skills Command
+----------------------
+
+The ``all2md install-skills`` command copies bundled agent skills to a directory where AI coding assistants can discover them. See :doc:`agent_skills` for full details on the skills themselves.
+
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Install to default location (./.agents/skills/ or ~/.agents/skills/)
+   all2md install-skills
+
+   # List available skills without installing
+   all2md install-skills --list
+
+   # Install to local project
+   all2md install-skills --local
+
+   # Install globally
+   all2md install-skills --global
+
+   # Install to custom directory
+   all2md install-skills --target /path/to/skills
+
+   # Force overwrite existing skills
+   all2md install-skills --force
+
+   # Remove installed skills
+   all2md install-skills --uninstall
+
+Options
+~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Option
+     - Description
+   * - ``--target <path>``
+     - Explicit target directory for skills
+   * - ``--local``
+     - Install to ``./.agents/skills/``
+   * - ``--global``
+     - Install to ``~/.agents/skills/``
+   * - ``--force``
+     - Overwrite existing skills without warning
+   * - ``--list``
+     - List bundled skills without installing
+   * - ``--uninstall``
+     - Remove ``all2md-*`` skills from target
+
 The completion scripts are static and self-contained, requiring no runtime calls to ``all2md``. If you add new formats via plugins, regenerate the completion script to include the new options.

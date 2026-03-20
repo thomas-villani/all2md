@@ -33,7 +33,7 @@ python -c "from all2md import to_markdown; print(to_markdown('document.pdf'))"
 
 That's it! For more formats, install the dependencies you need: `all2md[docx,html,xlsx]` or `all2md[all]` for everything.
 
-**Want to integrate with AI assistants?** See the [MCP Server](#mcp-server-for-ai-assistants) section below.
+**Want to integrate with AI assistants?** See the [MCP Server](#mcp-server-for-ai-assistants) and [Agent Skills](#agent-skills) sections below.
 
 ## Essential CLI Commands Cheatsheet
 
@@ -121,6 +121,7 @@ While tools like Pandoc excel at document conversion, all2md is designed specifi
 -   **Document Comparison**: Built-in `diff` command that works like Unix `diff` but for any document format. Compare PDFs, Word docs, or mixed formats with text-based, symmetric comparison.
 -   **Custom Template Rendering**: Use Jinja2 templates to create any text-based output format (DocBook XML, YAML, ANSI terminal, custom markup) without writing Python code.
 -   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
+-   **Agent Skills**: Pre-built skill files that teach AI coding assistants (Claude Code, Cursor, Windsurf) how to use all2md. Install with `all2md install-skills`.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
 -   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, and robust text extraction powered by PyMuPDF.
 -   **Extensible Plugin System**: Easily add support for new file formats (converters) or create custom document manipulations (transforms) using a simple entry-point system.
@@ -161,11 +162,11 @@ Beyond basic conversion, the CLI includes advanced features for production workf
 - **Quick Preview** - `all2md view` command for instant HTML preview
 - **Config Management** - Generate, validate, and manage conversion configs
 - **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
-- **Agent-Friendly** - Clean, intuitive interface that AI agents can use directly without MCP integration
+- **Agent-Friendly** - Clean, intuitive interface that AI agents can use directly, plus pre-built agent skills installable via `all2md install-skills`
 
-### 4. MCP Server for AI Integration
+### 4. AI-Native Integration
 
-Built-in Model Context Protocol (MCP) server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
+**MCP Server** — Built-in Model Context Protocol server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
 
 - Direct document reading in Claude Desktop and other MCP-compatible AI tools
 - Smart auto-detection of file paths, data URIs, base64, and plain text
@@ -173,7 +174,14 @@ Built-in Model Context Protocol (MCP) server enables direct integration with AI 
 - Vision model support with embedded images
 - Security-first design with file allowlists and network controls
 
-See [MCP Server for AI Assistants](#mcp-server-for-ai-assistants) section below for setup.
+**Agent Skills** — Pre-built skill files that teach AI coding assistants how to use all2md effectively.
+
+- 6 focused skills covering reading, conversion, generation, grep, search, and diff
+- Works with Claude Code, Cursor, Windsurf, and other skill-aware agents
+- Install with one command: `all2md install-skills`
+- Customizable — edit the installed skill files to match your project's needs
+
+See [MCP Server](#mcp-server-for-ai-assistants) and [Agent Skills](#agent-skills) sections below for setup.
 
 ### Additional Strengths
 
@@ -215,6 +223,43 @@ Configure in Claude Desktop (`claude_desktop_config.json`):
 ```
 
 See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) for full details.
+
+## Agent Skills
+
+all2md ships with **6 pre-built agent skills** — structured instruction files that teach AI coding assistants (Claude Code, Cursor, Windsurf, etc.) how to use all2md effectively. Each skill covers a specific document workflow with CLI examples, Python API patterns, and option references.
+
+| Skill | Purpose |
+|-------|---------|
+| `all2md-read` | Read, extract text from, or parse any document to Markdown |
+| `all2md-convert` | Convert documents between formats (PDF→DOCX, HTML→PDF, etc.) |
+| `all2md-generate` | Create new documents from Markdown (DOCX, PDF, PPTX, EPUB, sites) |
+| `all2md-grep` | Pattern matching inside documents (like `grep` for PDFs) |
+| `all2md-search` | Ranked/semantic search across document collections |
+| `all2md-diff` | Compare any two documents regardless of format |
+
+### Install Skills
+
+```bash
+# Install to default location
+all2md install-skills
+
+# List available skills
+all2md install-skills --list
+
+# Install to local project (./.agents/skills/)
+all2md install-skills --local
+
+# Install globally (~/.agents/skills/)
+all2md install-skills --global
+
+# Force overwrite existing skills
+all2md install-skills --force
+
+# Remove installed skills
+all2md install-skills --uninstall
+```
+
+After installation, agents automatically discover the skills and use them when relevant tasks arise. See the [Agent Skills documentation](https://all2md.readthedocs.io/en/latest/agent_skills.html) for full details.
 
 ## Supported Formats
 
