@@ -260,7 +260,7 @@ def _filter_options_for_formats(
             filtered[terminal] = value
             continue
 
-        if renderer_format and prefix == renderer_format:
+        if renderer_format and prefix in (renderer_format, f"renderer_{renderer_format}"):
             filtered[terminal] = value
             continue
 
