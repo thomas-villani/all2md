@@ -118,6 +118,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._temp_files: list[str] = []
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
+        self._available_styles: set[str] = set()  # Populated after document creation
 
     @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
@@ -159,6 +160,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self.document = self._Document(self.options.template_path)
             else:
                 self.document = self._Document()
+
+            # Cache available style names for safe lookups with templates
+            self._available_styles = {s.name for s in self.document.styles}
 
             # Set default font
             self._set_document_defaults()
@@ -216,14 +220,19 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Set default font for Normal style
-        style = self.document.styles["Normal"]
-        font = style.font
-        font.name = self.options.default_font
-        font.size = self._Pt(self.options.default_font_size)
+        if self._has_style("Normal"):
+            style = self.document.styles["Normal"]
+            font = style.font
+            font.name = self.options.default_font
+            font.size = self._Pt(self.options.default_font_size)
 
         # Set creator metadata if configured
         if self.options.creator:
             self.document.core_properties.last_modified_by = self.options.creator
+
+    def _has_style(self, name: str) -> bool:
+        """Check whether the document contains a style with the given name."""
+        return name in self._available_styles
 
     def _cleanup_temp_files(self) -> None:
         """Remove temporary files created during rendering."""
@@ -317,10 +326,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if not self.document:
             return
 
-        styles = self.document.styles
-        if "CodeBlock" not in [s.name for s in styles]:
+        if not self._has_style("CodeBlock"):
             # Create the CodeBlock style
+            styles = self.document.styles
             style = styles.add_style("CodeBlock", self._WD_STYLE_TYPE.PARAGRAPH)
+            self._available_styles.add("CodeBlock")
             style.font.name = self.options.code_font
             style.font.size = self._Pt(self.options.code_font_size)
             # Set paragraph format for the style
@@ -366,7 +376,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return
 
         # Title-promoted heading: use Word's Title style (level=0)
-        if node.metadata.get("is_title") and self.options.use_styles:
+        if node.metadata.get("is_title") and self.options.use_styles and self._has_style("Title"):
             heading = self.document.add_heading(level=0)
             heading.text = ""
             self._current_paragraph = heading
@@ -378,13 +388,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Add heading with appropriate level
         level = min(9, max(1, node.level))  # Word supports levels 1-9
 
-        if self.options.use_styles:
+        # Resolve style name for this heading level
+        heading_style_name = f"Heading {level}"
+        use_heading_style = self.options.use_styles and self._has_style(heading_style_name)
+
+        if use_heading_style:
             # Use built-in heading styles
             heading = self.document.add_heading(level=level)
             # Clear the heading text (add_heading adds empty text)
             heading.text = ""
         else:
-            # Use direct formatting
+            # Use direct formatting (either by choice or because template lacks the style)
             heading = self.document.add_paragraph()
 
         # Apply blockquote indentation if inside a blockquote
@@ -397,8 +411,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         for child in node.content:
             child.accept(self)
 
-        # Apply direct formatting AFTER content is rendered (when use_styles=False)
-        if not self.options.use_styles:
+        # Apply direct formatting AFTER content is rendered (when heading style unavailable)
+        if not use_heading_style:
             if self.options.heading_font_sizes and level in self.options.heading_font_sizes:
                 for run in heading.runs:
                     run.font.size = self._Pt(self.options.heading_font_sizes[level])
@@ -454,7 +468,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         para = self.document.add_paragraph()
 
         # Apply CodeBlock style if it exists
-        if "CodeBlock" in [s.name for s in self.document.styles]:
+        if self._has_style("CodeBlock"):
             para.style = "CodeBlock"
 
         run = para.add_run(node.content)
@@ -538,9 +552,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Determine list style based on ordered/unordered
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
         if is_ordered:
-            para.style = "List Number"
+            if self._has_style("List Number"):
+                para.style = "List Number"
         else:
-            para.style = "List Bullet"
+            if self._has_style("List Bullet"):
+                para.style = "List Bullet"
 
         self._current_paragraph = para
 
@@ -605,8 +621,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Create table with proper dimensions
         table = self.document.add_table(rows=num_rows, cols=num_cols)
 
-        # Apply table style if requested
-        if self.options.table_style:
+        # Apply table style if requested and available in the document
+        if self.options.table_style and self._has_style(self.options.table_style):
             table.style = self.options.table_style
 
         self._in_table = True

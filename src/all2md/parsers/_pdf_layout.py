@@ -135,7 +135,7 @@ def get_layout_model() -> Any:
     if _layout_model is None:
         from pymupdf.layout import DocumentLayoutAnalyzer
 
-        _layout_model = DocumentLayoutAnalyzer.get_model()  # type: ignore[no-untyped-call]
+        _layout_model = DocumentLayoutAnalyzer.get_model()
         logger.debug("Loaded pymupdf-layout GNN model")
     return _layout_model
 
