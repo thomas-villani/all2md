@@ -75,7 +75,7 @@
   
   Here we want a longer paragraph that can span a few lines in a document. It should be like  3 or 4 sentences, which is the normal length of a paragraph. We can even include some  **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done. 
   
-  First Section Heading
+  First Section Heading 
   
   Right before this was the equivalent of an “h2” heading. Now we have some more stuff in  this section. I think a [hyperlink](https://example.com/) would be cool. 
   
@@ -85,7 +85,7 @@
   
   Let’s add some more stuff 
   
-  Second Section Heading
+  Second Section Heading 
   
   And here’s an ordered list: 
   
