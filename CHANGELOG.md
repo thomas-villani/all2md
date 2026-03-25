@@ -7,15 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-03-25
+
 ### Added
 - ArXiv submission package generator (`all2md arxiv`) — converts any supported document format into a complete ArXiv-ready LaTeX submission archive (`.tar.gz` or directory) with extracted figures and optional `.bib` bibliography
+- Pre-built [Agent Skills](https://agentskills.io) — 6 focused skill files (`all2md-read`, `all2md-convert`, `all2md-generate`, `all2md-grep`, `all2md-search`, `all2md-diff`) that teach AI coding assistants (Claude Code, Cursor, Windsurf) how to use all2md. Install with `all2md install-skills`
+- Optional `pymupdf-layout` integration for GNN-based PDF layout analysis — classifies text blocks by semantic role (title, section-header, caption, footnote, etc.) for improved reading order and structure detection. Install with `pip install "all2md[pdf_layout]"`
+
+### Fixed
+- CLI renderer options (e.g. `--docx-renderer-template-path`) were silently dropped during format filtering, causing renderer-specific flags to have no effect
 
 ## [1.0.3] - 2026-03-16
 
 ### Added
 - Flow layout engine for Markdown-to-PPTX rendering with template placeholder reuse and inherited built-in styles
 - H1-to-Title promotion for Markdown-to-DOCX rendering
-- Prebuilt [Agent Skills](https://agentskills.io) (`all2md-convert`, `all2md-view-diff`, `all2md-search`) for teaching coding agents how to use all2md
 
 ### Fixed
 - HTML renderer anchor links now use GitHub-style heading IDs (`id="introduction"` instead of `id="introduction-1"`), so `#ref` links resolve correctly

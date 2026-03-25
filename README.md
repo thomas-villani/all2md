@@ -47,6 +47,9 @@ all2md doc.pdf --rich
 all2md report.md --out report.docx
 all2md notes.md --out presentation.pptx
 
+# Package a paper for ArXiv submission
+all2md arxiv paper.md -o submission.tar.gz --bib references.bib
+
 # View any document in your web browser with instant HTML preview
 all2md view document.pdf
 all2md view spreadsheet.xlsx --theme docs
@@ -123,7 +126,7 @@ While tools like Pandoc excel at document conversion, all2md is designed specifi
 -   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
 -   **Agent Skills**: Pre-built skill files that teach AI coding assistants (Claude Code, Cursor, Windsurf) how to use all2md. Install with `all2md install-skills`.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
--   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, and robust text extraction powered by PyMuPDF.
+-   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, optional GNN-based semantic layout classification (`pdf_layout` extra), header/footer removal, OCR support for scanned documents, and robust text extraction powered by PyMuPDF.
 -   **Extensible Plugin System**: Easily add support for new file formats (converters) or create custom document manipulations (transforms) using a simple entry-point system.
 -   **Powerful CLI**: A full-featured command-line interface with multi-file processing, parallel execution, directory watching, stdin/stdout piping, and dynamic, format-specific options.
 -   **Highly Configurable**: Fine-tune every aspect of the conversion process using clean, type-safe `dataclass` options for each format.
@@ -186,7 +189,7 @@ See [MCP Server](#mcp-server-for-ai-assistants) and [Agent Skills](#agent-skills
 ### Additional Strengths
 
 -   **Comprehensive Format Support** - 40+ input formats and 25+ output formats including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages
--   **Advanced PDF Parsing** - Intelligent table detection, multi-column layout analysis, header/footer removal, OCR support for scanned documents, powered by PyMuPDF
+-   **Advanced PDF Parsing** - Intelligent table detection, multi-column layout analysis, optional GNN-based semantic layout classification, header/footer removal, OCR support for scanned documents, powered by PyMuPDF
 -   **Highly Configurable** - Fine-tune every aspect of conversion using clean, type-safe dataclass options for each format
 -   **Security-Conscious** - Built-in SSRF protection, archive validation (ZIP bombs, path traversal), and sandboxed HTML rendering
 -   **Smart Dependency Management** - Core library has no dependencies; install only what you need
@@ -344,6 +347,9 @@ pip install "all2md[xlsx,odf]"
 # Install PDF support with OCR for scanned documents
 pip install "all2md[pdf,ocr]"
 
+# Install PDF support with GNN-based layout analysis
+pip install "all2md[pdf_layout]"
+
 # Install support for Outlook MSG files
 pip install "all2md[outlook]"
 
@@ -463,6 +469,13 @@ all2md document.pdf view --theme docs
 
 # Generate a static website from markdown files
 all2md generate-site ./content --output ./site --theme newspaper
+
+# Package a document for ArXiv submission
+all2md arxiv paper.md -o submission.tar.gz
+all2md arxiv paper.docx -o submission.tar.gz --bib references.bib
+
+# Install agent skills for AI coding assistants
+all2md install-skills
 
 # Config management - generate, show, or validate config files
 all2md config generate > all2md.toml
