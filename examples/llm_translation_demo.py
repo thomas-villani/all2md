@@ -11,6 +11,7 @@ the AST. The workflow is:
 
 This works with any format supported by all2md, making it format-agnostic.
 """
+
 from typing import Callable
 import os
 import argparse

@@ -5,6 +5,7 @@ This plugin embeds a visual watermark into image data when the original bytes
 are available (base64 or downloaded attachments) and records watermark metadata
 for other images.
 """
+
 from all2md.transforms import ParameterSpec, TransformMetadata
 
 from .transforms import WatermarkTransform

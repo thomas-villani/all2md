@@ -4,6 +4,7 @@
 This test suite demonstrates comprehensive testing of an all2md plugin,
 including parser, renderer, options, and integration with the registry.
 """
+
 import io
 
 import pytest
