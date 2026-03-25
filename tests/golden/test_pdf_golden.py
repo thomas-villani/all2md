@@ -2,11 +2,19 @@
 
 These tests use syrupy for snapshot testing to ensure PDF conversion
 output remains consistent across code changes.
+
+Note: Snapshots are generated on Linux (CI). PyMuPDF text extraction
+produces platform-dependent output, so these tests are skipped on Windows.
 """
 
+import sys
 from io import BytesIO
 
 import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="PDF golden snapshots are Linux-specific (PyMuPDF output varies by platform)"
+)
 from fixtures import FIXTURES_PATH
 from fixtures.generators.pdf_test_fixtures import (
     create_pdf_with_figures,
