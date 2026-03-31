@@ -164,6 +164,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Cache available style names for safe lookups with templates
             self._available_styles = {s.name for s in self.document.styles}
 
+            # Ensure required list styles exist (templates may omit them)
+            if self.options.use_styles:
+                self._ensure_list_styles()
+
             # Set default font
             self._set_document_defaults()
 
@@ -242,6 +246,135 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             except Exception as e:
                 logger.debug(f"Failed to cleanup temp file {temp_file}: {e}")
         self._temp_files.clear()
+
+    def _ensure_list_styles(self) -> None:
+        """Ensure List Bullet and List Number styles exist, creating them if missing.
+
+        Template documents often lack the built-in list styles that python-docx's
+        default template provides.  This method creates proper numbering definitions
+        and paragraph styles so that bullet and numbered lists render correctly
+        regardless of the template used.
+        """
+        need_bullet = not self._has_style("List Bullet")
+        need_number = not self._has_style("List Number")
+        if not need_bullet and not need_number:
+            return
+
+        OxmlElement = self._OxmlElement
+        qn = self._qn
+        parse_xml = __import__("docx.oxml", fromlist=["parse_xml"]).parse_xml
+        WD_STYLE_TYPE = self._WD_STYLE_TYPE
+
+        # ------------------------------------------------------------------
+        # 1. Ensure a numbering part exists in the document package
+        # ------------------------------------------------------------------
+        try:
+            numbering_part = self.document.part.numbering_part
+        except (KeyError, NotImplementedError):
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+            from docx.opc.packuri import PackURI
+            from docx.parts.numbering import NumberingPart
+
+            numbering_xml = b'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
+            numbering_element = parse_xml(numbering_xml)
+            numbering_part = NumberingPart(
+                PackURI("/word/numbering.xml"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+                numbering_element,
+                self.document.part.package,
+            )
+            self.document.part.relate_to(numbering_part, RT.NUMBERING)
+
+        numbering_el = numbering_part._element
+
+        # Determine the next safe abstractNumId and numId values
+        existing_abstract_ids = {int(el.get(qn("w:abstractNumId"))) for el in numbering_el.findall(qn("w:abstractNum"))}
+        existing_num_ids = {int(el.get(qn("w:numId"))) for el in numbering_el.findall(qn("w:num"))}
+        next_abstract_id = max(existing_abstract_ids, default=-1) + 1
+        next_num_id = max(existing_num_ids, default=0) + 1
+
+        # ------------------------------------------------------------------
+        # 2. Create numbering definitions and styles
+        # ------------------------------------------------------------------
+        W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+        if need_bullet:
+            abs_id = next_abstract_id
+            num_id = next_num_id
+            next_abstract_id += 1
+            next_num_id += 1
+
+            bullet_abstract_xml = (
+                f'<w:abstractNum xmlns:w="{W}" w:abstractNumId="{abs_id}">'
+                f'  <w:multiLevelType w:val="singleLevel"/>'
+                f'  <w:lvl w:ilvl="0">'
+                f'    <w:start w:val="1"/>'
+                f'    <w:numFmt w:val="bullet"/>'
+                f'    <w:pStyle w:val="ListBullet"/>'
+                f'    <w:lvlText w:val="\u00b7"/>'
+                f'    <w:lvlJc w:val="left"/>'
+                f'    <w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
+                f'    <w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr>'
+                f"  </w:lvl>"
+                f"</w:abstractNum>"
+            ).encode("utf-8")
+            numbering_el.append(parse_xml(bullet_abstract_xml))
+
+            num_xml = (f'<w:num xmlns:w="{W}" w:numId="{num_id}">  <w:abstractNumId w:val="{abs_id}"/></w:num>').encode(
+                "utf-8"
+            )
+            numbering_el.append(parse_xml(num_xml))
+
+            bullet_style = self.document.styles.add_style("List Bullet", WD_STYLE_TYPE.PARAGRAPH)
+            bullet_style.base_style = self.document.styles["Normal"]
+            pPr = bullet_style._element.get_or_add_pPr()
+            numPr = OxmlElement("w:numPr")
+            numId_el = OxmlElement("w:numId")
+            numId_el.set(qn("w:val"), str(num_id))
+            numPr.append(numId_el)
+            pPr.append(numPr)
+            pPr.append(OxmlElement("w:contextualSpacing"))
+            self._available_styles.add("List Bullet")
+
+        if need_number:
+            abs_id = next_abstract_id
+            num_id = next_num_id
+
+            number_abstract_xml = (
+                f'<w:abstractNum xmlns:w="{W}" w:abstractNumId="{abs_id}">'
+                f'  <w:multiLevelType w:val="singleLevel"/>'
+                f'  <w:lvl w:ilvl="0">'
+                f'    <w:start w:val="1"/>'
+                f'    <w:numFmt w:val="decimal"/>'
+                f'    <w:pStyle w:val="ListNumber"/>'
+                f'    <w:lvlText w:val="%1."/>'
+                f'    <w:lvlJc w:val="left"/>'
+                f'    <w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
+                f"  </w:lvl>"
+                f"</w:abstractNum>"
+            ).encode("utf-8")
+            numbering_el.append(parse_xml(number_abstract_xml))
+
+            num_xml = (f'<w:num xmlns:w="{W}" w:numId="{num_id}">  <w:abstractNumId w:val="{abs_id}"/></w:num>').encode(
+                "utf-8"
+            )
+            numbering_el.append(parse_xml(num_xml))
+
+            number_style = self.document.styles.add_style("List Number", WD_STYLE_TYPE.PARAGRAPH)
+            number_style.base_style = self.document.styles["Normal"]
+            pPr2 = number_style._element.get_or_add_pPr()
+            numPr2 = OxmlElement("w:numPr")
+            numId_el2 = OxmlElement("w:numId")
+            numId_el2.set(qn("w:val"), str(num_id))
+            numPr2.append(numId_el2)
+            pPr2.append(numPr2)
+            pPr2.append(OxmlElement("w:contextualSpacing"))
+            self._available_styles.add("List Number")
+
+        logger.debug(
+            "Created missing list styles: %s",
+            ", ".join(s for s, needed in [("List Bullet", need_bullet), ("List Number", need_number)] if needed),
+        )
 
     def visit_document(self, node: ASTDocument) -> None:
         """Render a Document node.
