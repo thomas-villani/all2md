@@ -62,6 +62,11 @@ def handle_view_command(args: list[str] | None = None) -> int:
         "multiple ('#:1,3,5'), or open-ended ('#:3-'). "
         "Sections are 1-indexed.",
     )
+    parser.add_argument(
+        "--no-wait",
+        action="store_true",
+        help="Skip waiting for confirmation before cleaning up (useful for scripts)",
+    )
 
     try:
         parsed = parser.parse_args(args or [])
@@ -178,8 +183,8 @@ def handle_view_command(args: list[str] | None = None) -> int:
         if use_temp:
             print(f"\nTemporary file: {output_path}")
 
-            # Skip interactive prompt in test mode
-            if not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+            # Skip interactive prompt in test mode or with --no-wait
+            if not os.environ.get("ALL2MD_TEST_NO_BROWSER") and not parsed.no_wait:
                 try:
                     input("Press Enter to clean up and exit...")
                 except (KeyboardInterrupt, EOFError):
