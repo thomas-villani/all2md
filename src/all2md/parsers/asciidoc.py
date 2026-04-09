@@ -1124,7 +1124,9 @@ class AsciiDocParser(BaseParser):
             link_text = match.group(2)
             url = self._postprocess_escapes(url, escape_map)
             url = sanitize_url(url)
-            content = self._parse_inline_recursive(link_text, escape_map) if link_text else [Text(content=url)]
+            content: list[Node] = (
+                self._parse_inline_recursive(link_text, escape_map) if link_text else [Text(content=url)]
+            )
             return [Link(url=url, content=content)], match.end()
 
         match = self.auto_link_pattern.match(text)

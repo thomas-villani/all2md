@@ -578,7 +578,7 @@ class BBCodeParser(BaseParser):
 
         """
         # Recursively parse inner content
-        inner_nodes = self._parse_inline(inner_content) if inner_content else [Text(content="")]
+        inner_nodes: list[Node] = self._parse_inline(inner_content) if inner_content else [Text(content="")]
 
         # Create appropriate node based on tag
         if tag_name == "b":
@@ -713,7 +713,9 @@ class BBCodeParser(BaseParser):
 
         """
         # Parse content recursively
-        children = self._parse_blocks(content) if content.strip() else [Paragraph(content=[Text(content="")])]
+        children: list[Node] = (
+            self._parse_blocks(content) if content.strip() else [Paragraph(content=[Text(content="")])]
+        )
 
         # Add author attribution if present
         if author:
@@ -858,7 +860,9 @@ class BBCodeParser(BaseParser):
             Blockquote representing spoiler
 
         """
-        children = self._parse_blocks(content) if content.strip() else [Paragraph(content=[Text(content="")])]
+        children: list[Node] = (
+            self._parse_blocks(content) if content.strip() else [Paragraph(content=[Text(content="")])]
+        )
         return BlockQuote(children=children, metadata={"spoiler": True})
 
     def _create_media_block(self, content: str, media_type: str) -> Paragraph:

@@ -34,10 +34,11 @@ from all2md.mcp.schemas import (
 )
 from all2md.mcp.security import secure_open_for_write, validate_read_path, validate_write_path
 
+FastMCPImage: type | None
 try:
     from fastmcp.utilities.types import Image as FastMCPImage
 except ImportError:
-    FastMCPImage = None  # type: ignore[misc, assignment]
+    FastMCPImage = None
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ def _extract_images_from_ast(doc: Any) -> list[Any]:
 
     """
     if FastMCPImage is None:
-        logger.warning("FastMCP not available, cannot extract images")  # type: ignore[unreachable]
+        logger.warning("FastMCP not available, cannot extract images")
         return []
 
     # Collect all Image nodes from AST

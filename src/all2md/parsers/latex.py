@@ -682,7 +682,9 @@ class LatexParser(BaseParser):
                     # Wrap in paragraph if not empty
                     if item_nodes:
                         all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                        content = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                        content: list[Node] = (
+                            item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                        )
                         para = Paragraph(content=content)
                         items.append(ListItem(children=[para]))
 
@@ -722,7 +724,9 @@ class LatexParser(BaseParser):
                     # Wrap in paragraph
                     if item_nodes:
                         all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                        content = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                        content: list[Node] = (
+                            item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                        )
                         para = Paragraph(content=content)
                         items.append(ListItem(children=[para]))
 
