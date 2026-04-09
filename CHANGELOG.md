@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-04-08
+
+### Added
+- `--no-wait` flag for the `view` command for non-interactive use
+
+### Fixed
+- Create missing list styles when rendering DOCX with custom templates
+
 ## [1.0.4] - 2026-03-25
 
 ### Added
@@ -174,6 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
+[1.0.5]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.5
+[1.0.4]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.4
 [1.0.3]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.3
 [1.0.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.2
 [1.0.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.1
