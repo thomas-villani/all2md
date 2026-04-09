@@ -232,12 +232,22 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         if not self.options.creator:
             return
 
-        from odf.meta import Generator
+        from odf.dc import Creator
+        from odf.meta import Generator, InitialCreator
 
         # Set generator (creating application) metadata
         generator = Generator()
         generator.addText(self.options.creator)
         prs.meta.addElement(generator)
+
+        # Set default author to creator
+        creator = Creator()
+        creator.addText(self.options.creator)
+        prs.meta.addElement(creator)
+
+        initial_creator = InitialCreator()
+        initial_creator.addText(self.options.creator)
+        prs.meta.addElement(initial_creator)
 
     def _split_into_slides(self, doc: Document) -> list[tuple[Heading | None, list[Node]]]:
         """Split AST document into slides based on configured strategy.

@@ -229,6 +229,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             # Set creator metadata if configured
             if self.options.creator:
                 doc_kwargs["creator"] = self.options.creator
+                # Set default author to creator if not overridden by document metadata
+                doc_kwargs["author"] = self.options.creator
 
             # Create PDF document
             if isinstance(output, (str, Path)):

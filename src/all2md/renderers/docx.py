@@ -233,6 +233,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Set creator metadata if configured
         if self.options.creator:
             self.document.core_properties.last_modified_by = self.options.creator
+            # Set default author to creator if not overridden by document metadata
+            self.document.core_properties.author = self.options.creator
 
     def _has_style(self, name: str) -> bool:
         """Check whether the document contains a style with the given name."""

@@ -298,9 +298,8 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             Document to render
 
         """
-        # Set metadata if present
-        if node.metadata:
-            self._set_document_properties(node.metadata)
+        # Set metadata (always called to ensure default author is set)
+        self._set_document_properties(node.metadata or {})
 
         # Render children
         for child in node.children:
@@ -328,13 +327,16 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             title.addText(str(metadata["title"]))
             meta.addElement(title)
 
-        if "author" in metadata:
+        author = metadata.get("author")
+        if not author and self.options.creator:
+            author = self.options.creator
+        if author:
             creator = Creator()
-            creator.addText(str(metadata["author"]))
+            creator.addText(str(author))
             meta.addElement(creator)
 
             initial_creator = InitialCreator()
-            initial_creator.addText(str(metadata["author"]))
+            initial_creator.addText(str(author))
             meta.addElement(initial_creator)
 
         if "subject" in metadata:

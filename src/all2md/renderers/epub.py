@@ -241,6 +241,8 @@ class EpubRenderer(BaseRenderer):
         author = self.options.author
         if not author and doc.metadata and "author" in doc.metadata:
             author = str(doc.metadata["author"])
+        if not author:
+            author = self.options.creator
         if author:
             book.add_author(author)
 
