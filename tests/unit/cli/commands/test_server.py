@@ -10,6 +10,7 @@ import pytest
 
 from all2md.cli.commands.server import (
     _format_file_size,
+    _generate_breadcrumbs,
     _generate_directory_index,
     _generate_upload_form,
     _get_content_type_for_format,
@@ -307,11 +308,7 @@ class TestParseMultipartFormData:
         """Test parsing a simple text field."""
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         body = (
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="format"\r\n'
-            f"\r\n"
-            f"html\r\n"
-            f"------{boundary}--"
+            f'------{boundary}\r\nContent-Disposition: form-data; name="format"\r\n\r\nhtml\r\n------{boundary}--'
         ).encode("utf-8")
 
         content_type = f"multipart/form-data; boundary=----{boundary}"
@@ -379,13 +376,9 @@ class TestParseMultipartFormData:
     def test_parse_boundary_with_quotes(self):
         """Test parsing boundary with quotes."""
         boundary = "testboundary"
-        body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="field"\r\n'
-            f"\r\n"
-            f"value\r\n"
-            f"--{boundary}--"
-        ).encode("utf-8")
+        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="field"\r\n\r\nvalue\r\n--{boundary}--').encode(
+            "utf-8"
+        )
 
         content_type = f'multipart/form-data; boundary="{boundary}"'
         result = _parse_multipart_form_data(body, content_type)
@@ -406,9 +399,7 @@ class TestParseMultipartFormData:
         """Test parsing with different newline styles."""
         boundary = "testboundary"
         # Using just \n instead of \r\n
-        body = (
-            f"--{boundary}\n" f'Content-Disposition: form-data; name="field"\n' f"\n" f"value\n" f"--{boundary}--"
-        ).encode("utf-8")
+        body = (f'--{boundary}\nContent-Disposition: form-data; name="field"\n\nvalue\n--{boundary}--').encode("utf-8")
 
         content_type = f"multipart/form-data; boundary={boundary}"
         result = _parse_multipart_form_data(body, content_type)
@@ -424,9 +415,7 @@ class TestGenerateUploadForm:
         """Test basic upload form generation."""
         # Create a minimal theme template
         theme_path = tmp_path / "theme.html"
-        theme_path.write_text(
-            "<!DOCTYPE html><html><head><title>{TITLE}</title></head>" "<body>{CONTENT}</body></html>"
-        )
+        theme_path.write_text("<!DOCTYPE html><html><head><title>{TITLE}</title></head><body>{CONTENT}</body></html>")
 
         with patch("all2md.cli.commands.server.registry") as mock_registry:
             mock_registry.list_formats.return_value = ["html", "markdown", "pdf"]
@@ -476,23 +465,22 @@ class TestGenerateDirectoryIndex:
 
     def test_generate_directory_index_basic(self, tmp_path):
         """Test basic directory index generation."""
-        # Create test files
-        file1 = tmp_path / "doc1.pdf"
-        file2 = tmp_path / "doc2.md"
+        # Create a named directory so we can assert on the name
+        test_dir = tmp_path / "TestDir"
+        test_dir.mkdir()
+        file1 = test_dir / "doc1.pdf"
+        file2 = test_dir / "doc2.md"
         file1.write_text("pdf content")
         file2.write_text("# Markdown")
 
         # Create theme template
         theme_path = tmp_path / "theme.html"
-        theme_path.write_text(
-            "<!DOCTYPE html><html><head><title>{TITLE}</title></head>" "<body>{CONTENT}</body></html>"
-        )
+        theme_path.write_text("<!DOCTYPE html><html><head><title>{TITLE}</title></head><body>{CONTENT}</body></html>")
 
         html = _generate_directory_index(
             [file1, file2],
-            "TestDir",
             theme_path,
-            tmp_path,
+            test_dir,
             enable_upload=False,
         )
 
@@ -511,7 +499,6 @@ class TestGenerateDirectoryIndex:
 
         html = _generate_directory_index(
             [file1],
-            "TestDir",
             theme_path,
             tmp_path,
             enable_upload=True,
@@ -530,7 +517,6 @@ class TestGenerateDirectoryIndex:
 
         html = _generate_directory_index(
             [file1],
-            "TestDir",
             theme_path,
             tmp_path,
             enable_upload=False,
@@ -551,17 +537,44 @@ class TestGenerateDirectoryIndex:
         theme_path = tmp_path / "theme.html"
         theme_path.write_text("{TITLE} {CONTENT}")
 
+        # Root index should show root files and subdirectory links
         html = _generate_directory_index(
             [file1, file2],
-            "TestDir",
             theme_path,
             tmp_path,
             enable_upload=False,
         )
 
         assert "root.md" in html
-        assert "nested.pdf" in html
-        assert "subdir" in html  # Directory name should appear
+        assert "subdir/" in html  # Subdirectory link should appear
+        assert "1 subdirectory" in html
+
+    def test_generate_directory_index_subdirectory(self, tmp_path):
+        """Test directory index for a specific subdirectory."""
+        subdir = tmp_path / "reports"
+        subdir.mkdir()
+
+        file1 = tmp_path / "root.md"
+        file2 = subdir / "quarterly.pdf"
+        file1.write_text("root content")
+        file2.write_text("report content")
+
+        theme_path = tmp_path / "theme.html"
+        theme_path.write_text("{TITLE} {CONTENT}")
+
+        # Subdirectory index should show only files in that subdir
+        html = _generate_directory_index(
+            [file1, file2],
+            theme_path,
+            tmp_path,
+            current_subdir="reports",
+            enable_upload=False,
+        )
+
+        assert "reports" in html  # Directory name in heading
+        assert "quarterly.pdf" in html  # File in this subdir
+        assert "root.md" not in html  # Root file should NOT appear
+        assert "Home" in html  # Breadcrumb home link
 
     def test_generate_directory_index_shows_file_size(self, tmp_path):
         """Test that directory index shows file sizes."""
@@ -573,7 +586,6 @@ class TestGenerateDirectoryIndex:
 
         html = _generate_directory_index(
             [file1],
-            "TestDir",
             theme_path,
             tmp_path,
             enable_upload=False,
@@ -584,16 +596,101 @@ class TestGenerateDirectoryIndex:
 
     def test_generate_directory_index_empty_files(self, tmp_path):
         """Test directory index with empty file list."""
+        test_dir = tmp_path / "EmptyDir"
+        test_dir.mkdir()
+
         theme_path = tmp_path / "theme.html"
         theme_path.write_text("{TITLE} {CONTENT}")
 
         html = _generate_directory_index(
             [],
-            "EmptyDir",
             theme_path,
-            tmp_path,
+            test_dir,
             enable_upload=False,
         )
 
         assert "EmptyDir" in html
         assert "0 document(s)" in html
+
+    def test_generate_directory_index_has_breadcrumbs(self, tmp_path):
+        """Test that directory index includes breadcrumb navigation."""
+        subdir = tmp_path / "docs"
+        nested = subdir / "api"
+        nested.mkdir(parents=True)
+
+        file1 = nested / "reference.md"
+        file1.write_text("# API Reference")
+
+        theme_path = tmp_path / "theme.html"
+        theme_path.write_text("<html><head><title>{TITLE}</title></head><body>{CONTENT}</body></html>")
+
+        html = _generate_directory_index(
+            [file1],
+            theme_path,
+            tmp_path,
+            current_subdir="docs/api",
+            enable_upload=False,
+        )
+
+        assert "Home" in html  # Root breadcrumb
+        assert 'href="/"' in html  # Home link
+        assert 'href="/docs/"' in html  # Parent dir breadcrumb link
+        assert "api" in html  # Current dir in breadcrumb
+
+    def test_generate_directory_index_upload_only_at_root(self, tmp_path):
+        """Test that upload link only appears at root level."""
+        subdir = tmp_path / "sub"
+        subdir.mkdir()
+        file1 = subdir / "doc.md"
+        file1.write_text("content")
+
+        theme_path = tmp_path / "theme.html"
+        theme_path.write_text("{TITLE} {CONTENT}")
+
+        html = _generate_directory_index(
+            [file1],
+            theme_path,
+            tmp_path,
+            current_subdir="sub",
+            enable_upload=True,
+        )
+
+        assert "/upload" not in html  # Upload link should NOT appear in subdirectory
+
+
+@pytest.mark.unit
+class TestGenerateBreadcrumbs:
+    """Test breadcrumb navigation generation."""
+
+    def test_breadcrumbs_root(self):
+        """Test breadcrumbs for root path shows only Home."""
+        html = _generate_breadcrumbs("/")
+        assert "Home" in html
+        assert 'href="/"' in html
+        assert "<nav" in html
+
+    def test_breadcrumbs_single_level(self):
+        """Test breadcrumbs for a single-level path."""
+        html = _generate_breadcrumbs("/reports/")
+        assert "Home" in html
+        assert 'href="/"' in html
+        # "reports" should be the current page (not a link)
+        assert "<span" in html
+        assert "reports" in html
+
+    def test_breadcrumbs_nested_path(self):
+        """Test breadcrumbs for a nested path."""
+        html = _generate_breadcrumbs("/docs/api/v2/")
+        assert "Home" in html
+        assert 'href="/"' in html
+        assert 'href="/docs/"' in html  # docs is a link
+        assert 'href="/docs/api/"' in html  # api is a link
+        # v2 is the current page (last element, not a link)
+        assert "v2" in html
+
+    def test_breadcrumbs_file_path(self):
+        """Test breadcrumbs for a file path (no trailing slash)."""
+        html = _generate_breadcrumbs("/reports/quarterly.pdf")
+        assert "Home" in html
+        assert 'href="/reports/"' in html  # parent dir is a link
+        assert "quarterly.pdf" in html  # filename shown as current page

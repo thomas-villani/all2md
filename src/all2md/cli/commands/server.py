@@ -17,7 +17,7 @@ import socketserver
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from all2md.api import from_ast, to_ast
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
@@ -176,22 +176,29 @@ def _scan_directory_for_documents(directory: Path, recursive: bool) -> List[Path
 
 
 def _generate_directory_index(
-    files: List[Path], directory_name: str, theme_path: Path, base_dir: Path, enable_upload: bool = False
+    all_files: List[Path],
+    theme_path: Path,
+    base_dir: Path,
+    current_subdir: str = "",
+    enable_upload: bool = False,
 ) -> str:
-    """Generate HTML index page for directory listing.
+    """Generate HTML index page for a directory listing.
+
+    Shows only files and immediate subdirectories at the specified level,
+    with breadcrumb navigation for parent directories.
 
     Parameters
     ----------
-    files : list[Path]
-        List of file paths to include in index
-    directory_name : str
-        Name of the directory being served
+    all_files : list[Path]
+        All supported file paths across all subdirectories
     theme_path : Path
         Path to the theme template file
     base_dir : Path
         Base directory path for computing relative paths
+    current_subdir : str
+        Relative subdirectory path (e.g., "" for root, "reports/2024" for nested)
     enable_upload : bool
-        Whether to show link to upload page
+        Whether to show link to upload page (root only)
 
     Returns
     -------
@@ -202,50 +209,42 @@ def _generate_directory_index(
     # Read theme template
     theme_content = theme_path.read_text(encoding="utf-8")
 
-    # Group files by directory
-    files_by_dir: Dict[str, List[Path]] = {}
-    for file in files:
+    # Filter files to current directory level and find child subdirectories
+    current_files: List[Path] = []
+    child_dir_names: set[str] = set()
+
+    for file in all_files:
         rel_path = file.relative_to(base_dir)
-        parent = str(rel_path.parent) if rel_path.parent != Path(".") else ""
-        if parent not in files_by_dir:
-            files_by_dir[parent] = []
-        files_by_dir[parent].append(file)
+        parent = str(rel_path.parent).replace("\\", "/")
+        if parent == ".":
+            parent = ""
 
-    # Generate file list HTML with directory structure
-    file_list_html = "<div style='font-family: monospace;'>"
+        if parent == current_subdir:
+            current_files.append(file)
+        elif current_subdir:
+            prefix = current_subdir + "/"
+            if parent.startswith(prefix):
+                remainder = parent[len(prefix) :]
+                child_dir_names.add(remainder.split("/")[0])
+        elif parent:
+            child_dir_names.add(parent.split("/")[0])
 
-    # Sort directories (root first, then alphabetically)
-    sorted_dirs = sorted(files_by_dir.keys(), key=lambda d: ("" if d == "" else "z" + d))
+    # Generate breadcrumbs
+    url_path = "/" + current_subdir + "/" if current_subdir else "/"
+    breadcrumbs = _generate_breadcrumbs(url_path)
 
-    for dir_path in sorted_dirs:
-        dir_files = files_by_dir[dir_path]
+    # Directory display name
+    if current_subdir:
+        dir_display = current_subdir.split("/")[-1]
+    else:
+        dir_display = base_dir.name
 
-        # Show directory header if not root
-        if dir_path:
-            file_list_html += "<div style='margin-top: 20px; margin-bottom: 10px;'>"
-            file_list_html += f"<strong style='font-size: 1.1em;'>{dir_path}/</strong>"
-            file_list_html += "</div>"
+    # Build content
+    content = breadcrumbs
+    content += f"<h1>Directory: {dir_display}</h1>"
 
-        # List files in this directory
-        file_list_html += "<ul style='list-style: none; padding-left: 20px;'>"
-        for file in sorted(dir_files, key=lambda f: f.name.lower()):
-            rel_path = file.relative_to(base_dir)
-            url = quote(str(rel_path).replace("\\", "/"))
-            file_size = file.stat().st_size
-            size_str = _format_file_size(file_size)
-            file_list_html += "<li style='margin: 5px 0;'>"
-            file_list_html += f"<a href='/{url}' style='text-decoration: none; font-size: 1.0em;'>{file.name}</a>"
-            file_list_html += f" <span style='color: #888; font-size: 0.9em;'>({size_str})</span>"
-            file_list_html += "</li>"
-        file_list_html += "</ul>"
-
-    file_list_html += "</div>"
-
-    # Content with file list
-    content = f"<h1>Document Directory: {directory_name}</h1>"
-
-    # Add upload link if enabled
-    if enable_upload:
+    # Add upload link if enabled (root only)
+    if enable_upload and not current_subdir:
         content += """
         <div style="margin: 20px 0; padding: 15px; background: #e8f4f8;
                     border-left: 4px solid #0066cc; border-radius: 4px;">
@@ -256,11 +255,43 @@ def _generate_directory_index(
         </div>
         """
 
-    content += f"<p>Found {len(files)} document(s) - click to view:</p>"
-    content += file_list_html
+    # Show subdirectories
+    if child_dir_names:
+        content += "<div style='font-family: monospace;'>"
+        content += "<ul style='list-style: none; padding-left: 20px;'>"
+        for dir_name in sorted(child_dir_names):
+            if current_subdir:
+                dir_url = "/" + "/".join(quote(p) for p in current_subdir.split("/")) + "/" + quote(dir_name) + "/"
+            else:
+                dir_url = "/" + quote(dir_name) + "/"
+            content += "<li style='margin: 5px 0;'>"
+            content += f"<a href='{dir_url}' style='text-decoration: none; font-size: 1.0em;'>{dir_name}/</a>"
+            content += "</li>"
+        content += "</ul></div>"
+
+    # Show file count
+    content += f"<p>Found {len(current_files)} document(s)"
+    if child_dir_names:
+        content += f" and {len(child_dir_names)} subdirectory(ies)"
+    content += " - click to view:</p>"
+
+    # List files at this level
+    if current_files:
+        content += "<div style='font-family: monospace;'>"
+        content += "<ul style='list-style: none; padding-left: 20px;'>"
+        for file in sorted(current_files, key=lambda f: f.name.lower()):
+            rel_path = file.relative_to(base_dir)
+            url = "/" + quote(str(rel_path).replace("\\", "/"))
+            file_size = file.stat().st_size
+            size_str = _format_file_size(file_size)
+            content += "<li style='margin: 5px 0;'>"
+            content += f"<a href='{url}' style='text-decoration: none; font-size: 1.0em;'>{file.name}</a>"
+            content += f" <span style='color: #888; font-size: 0.9em;'>({size_str})</span>"
+            content += "</li>"
+        content += "</ul></div>"
 
     # Apply theme template
-    title = f"Directory: {directory_name}"
+    title = f"Directory: {dir_display}"
     html = theme_content.replace("{TITLE}", title)
     html = html.replace("{CONTENT}", content)
 
@@ -287,6 +318,36 @@ def _format_file_size(size_bytes: int) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024.0
     return f"{size:.1f} TB"
+
+
+def _generate_breadcrumbs(url_path: str) -> str:
+    """Generate HTML breadcrumb navigation for a URL path.
+
+    Parameters
+    ----------
+    url_path : str
+        URL path with unencoded display names (e.g., "/reports/2024/")
+
+    Returns
+    -------
+    str
+        HTML string containing breadcrumb navigation
+
+    """
+    parts = [p for p in url_path.strip("/").split("/") if p]
+
+    breadcrumb_style = "padding: 10px 0; margin-bottom: 20px; font-size: 0.9em; border-bottom: 1px solid #eee;"
+    separator = ' <span style="color: #999; margin: 0 5px;">&rsaquo;</span> '
+
+    crumbs = ['<a href="/">Home</a>']
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            crumbs.append(f'<span style="color: #666;">{part}</span>')
+        else:
+            encoded_path = "/" + "/".join(quote(p) for p in parts[: i + 1]) + "/"
+            crumbs.append(f'<a href="{encoded_path}">{part}</a>')
+
+    return f'<nav style="{breadcrumb_style}">{separator.join(crumbs)}</nav>'
 
 
 def _parse_multipart_form_data(body: bytes, content_type: str) -> Dict[str, Any]:
@@ -470,6 +531,9 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     content_cache: Dict[str, str] = {}
     # File mapping: maps URL path to actual file path (for lazy loading)
     file_mapping: Dict[str, Path] = {}
+    # Tracked files and known subdirectories (for directory mode)
+    supported_files: List[Path] = []
+    known_subdirs: set[str] = set()
 
     # Setup based on input type
     if is_directory:
@@ -485,9 +549,20 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         mode_str = "recursively" if parsed.recursive else "in directory"
         print(f"Found {len(supported_files)} document(s) {mode_str} - will convert on demand")
 
-        # Generate directory index page (only pre-cached content)
+        # Compute known subdirectories for index page generation
+        for file in supported_files:
+            rel_path = file.relative_to(input_path)
+            parent = str(rel_path.parent).replace("\\", "/")
+            if parent == ".":
+                parent = ""
+            if parent:
+                parts = parent.split("/")
+                for i in range(len(parts)):
+                    known_subdirs.add("/".join(parts[: i + 1]))
+
+        # Generate root directory index page
         index_html = _generate_directory_index(
-            supported_files, input_path.name, theme_path, input_path, parsed.enable_upload
+            supported_files, theme_path, input_path, current_subdir="", enable_upload=parsed.enable_upload
         )
         content_cache["/"] = index_html
 
@@ -542,19 +617,6 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                 self.wfile.write(content_cache[path].encode("utf-8"))
                 return
 
-            # Handle directory index regeneration when --no-cache is enabled
-            if parsed.no_cache and path == "/" and is_directory:
-                # Rescan directory and regenerate index
-                supported_files = _scan_directory_for_documents(input_path, parsed.recursive)
-                index_html = _generate_directory_index(
-                    supported_files, input_path.name, theme_path, input_path, parsed.enable_upload
-                )
-                self.send_response(200)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(index_html.encode("utf-8"))
-                return
-
             # Handle single file re-conversion when --no-cache is enabled
             if parsed.no_cache and path == "/" and not is_directory:
                 try:
@@ -602,6 +664,11 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                     if not isinstance(html_content, str):
                         raise RuntimeError("Expected string result from HTML rendering")
 
+                    # Inject breadcrumbs for navigating back to directory index
+                    if is_directory:
+                        breadcrumbs = _generate_breadcrumbs(unquote(path))
+                        html_content = html_content.replace("<body>", "<body>\n" + breadcrumbs, 1)
+
                     # Cache for future requests (unless --no-cache is enabled)
                     if not parsed.no_cache:
                         content_cache[path] = html_content
@@ -624,6 +691,32 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                         f"<p>Error converting document: {e}</p></body></html>"
                     )
                     self.wfile.write(error_html.encode("utf-8"))
+                    return
+
+            # Handle directory index requests (root or subdirectory)
+            if is_directory:
+                subdir = unquote(path.strip("/"))
+                if path == "/" or subdir in known_subdirs:
+                    # Rescan directory for root in --no-cache mode
+                    if parsed.no_cache and path == "/":
+                        files_for_index = _scan_directory_for_documents(input_path, parsed.recursive)
+                    else:
+                        files_for_index = supported_files
+
+                    index_html = _generate_directory_index(
+                        files_for_index,
+                        theme_path,
+                        input_path,
+                        current_subdir=subdir,
+                        enable_upload=parsed.enable_upload,
+                    )
+                    if not parsed.no_cache:
+                        content_cache[path] = index_html
+
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(index_html.encode("utf-8"))
                     return
 
             # Not found
