@@ -12,6 +12,7 @@ import argparse
 import os
 import sys
 import tempfile
+import time
 import webbrowser
 from pathlib import Path
 
@@ -189,6 +190,9 @@ def handle_view_command(args: list[str] | None = None) -> int:
                     input("Press Enter to clean up and exit...")
                 except (KeyboardInterrupt, EOFError):
                     print()  # New line after interrupt
+            elif parsed.no_wait and not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+                # Give the browser time to load the file before deleting
+                time.sleep(3)
 
             # Cleanup if not keeping temp file
             if not parsed.keep:
