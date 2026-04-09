@@ -1132,6 +1132,13 @@ Examples:
 
   # Hybrid keyword/vector search
   all2md search "vector search query" documents/ --hybrid --hybrid-keyword-weight 50
+
+  # Batch conversion
+  all2md *.pdf --output-dir converted/
+  all2md docs/ --output-dir converted/ --recursive --skip-errors
+  all2md docs/ --output-dir converted/ --recursive --preserve-structure
+  all2md report.pdf slides.pptx notes.docx --collate --out combined.md
+  all2md --batch-from-list filelist.txt --output-dir converted/
         """,
         )
 
@@ -1172,8 +1179,7 @@ Examples:
             type=int,
             metavar="LEVEL",
             default=6,
-            help="Maximum heading level to include in outline (1-6, default: 6). "
-            "Only applies when --outline is used.",
+            help="Maximum heading level to include in outline (1-6, default: 6). Only applies when --outline is used.",
         )
 
         # Document splitting options
@@ -1834,12 +1840,9 @@ Examples:
                 suggestion = self._suggest_similar_argument(unknown_arg)
 
                 if suggestion:
-                    msg = (
-                        f"Unknown argument: --{unknown_arg.replace('_', '-')}. "
-                        f"Did you mean {suggestion}? {help_hint}"
-                    )
+                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. Did you mean {suggestion}? {help_hint}"
                 else:
-                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. " f"{help_hint}"
+                    msg = f"Unknown argument: --{unknown_arg.replace('_', '-')}. {help_hint}"
 
                 error_messages.append(msg)
 
@@ -1907,7 +1910,7 @@ Examples:
                 return [int(x.strip()) for x in arg_value.split(",")]
             except ValueError as e:
                 raise argparse.ArgumentTypeError(
-                    f"Argument --{arg_name.replace('_', '-')} expects comma-separated integers, " f"got: {arg_value}"
+                    f"Argument --{arg_name.replace('_', '-')} expects comma-separated integers, got: {arg_value}"
                 ) from e
 
         # Validate integer type if specified in metadata
@@ -2175,8 +2178,7 @@ def create_parser() -> argparse.ArgumentParser:
     # Create Rich output options group
     rich_group = parser.add_argument_group(
         "Rich output customization",
-        "Customize rich terminal output with syntax highlighting and formatting. "
-        "Requires: `pip install all2md[rich]`",
+        "Customize rich terminal output with syntax highlighting and formatting. Requires: `pip install all2md[rich]`",
     )
     rich_group.add_argument(
         "--rich-code-theme",
