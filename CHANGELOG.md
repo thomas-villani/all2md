@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-04-10
+
+### Added
+- Per-subdirectory index pages with breadcrumb navigation when serving directories recursively (`all2md serve --recursive`)
+- Batch conversion examples added to CLI help output for discoverability
+
+### Fixed
+- PDF conversion crash when PyMuPDF detects empty tables (tables with no cells)
+- `view --no-wait` deleting the temp file before the browser could load it
+
+### Changed
+- Default document author is now set to "all2md" when not otherwise specified by the source document
+- Auto-release CI workflow: tag pushes now run CI checks then publish to PyPI automatically
+- Bumped `codecov/codecov-action` from 5 to 6 and `actions/setup-python` from 5 to 6
+
 ## [1.0.5] - 2026-04-08
 
 ### Added
@@ -182,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
+[1.0.6]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.6
 [1.0.5]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.5
 [1.0.4]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.4
 [1.0.3]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.3

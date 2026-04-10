@@ -266,6 +266,10 @@ PDF Problems
    # CLI equivalent
    all2md document.pdf --pdf-no-enable-table-fallback-detection  # To disable fallback
 
+.. note::
+
+   Prior to v1.0.6, PyMuPDF could detect table regions that contained no cells, causing a conversion crash. This has been fixed — empty tables are now skipped gracefully.
+
 **Column Layout Problems**
 
 *Problem:* Multi-column text merged incorrectly.

@@ -923,6 +923,14 @@ Arguments
       # Save to subdirectory (created automatically)
       all2md view document.pdf --keep docs/preview.html
 
+``--no-wait``
+   Don't wait for the browser to close before returning. Useful in scripts and non-interactive environments. The temp file is kept long enough for the browser to load it.
+
+   .. code-block:: bash
+
+      # Open in browser and return immediately
+      all2md view document.pdf --no-wait
+
 ``--toc``
    Include an automatically generated table of contents in the HTML output. The TOC is automatically placed based on the theme:
 
@@ -1472,7 +1480,7 @@ Serve all documents in a directory:
 The command will:
 
 1. Scan the directory for supported document formats
-2. Generate an index page with links to all documents
+2. Generate an index page with links to all documents (with ``--recursive``, each subdirectory gets its own index page with breadcrumb navigation)
 3. Start an HTTP server (default: http://127.0.0.1:8000/)
 4. Convert documents on-demand when requested (lazy loading)
 5. Cache converted HTML for faster subsequent requests
@@ -1507,14 +1515,14 @@ Arguments
       all2md serve ./docs --host 127.0.0.1
 
 ``-r``, ``--recursive``
-   Recursively serve subdirectories. When enabled, scans all nested folders for documents and organizes them hierarchically in the index.
+   Recursively serve subdirectories. When enabled, scans all nested folders for documents and generates a per-subdirectory index page for each folder. Each index lists immediate files and child directories, with breadcrumb navigation (e.g., ``Home > reports > 2026``) for easy traversal of the directory tree.
 
    .. code-block:: bash
 
       # Serve only immediate directory
       all2md serve ./docs
 
-      # Serve all subdirectories recursively
+      # Serve all subdirectories recursively (with breadcrumb navigation)
       all2md serve ./docs --recursive
 
 ``--toc``
