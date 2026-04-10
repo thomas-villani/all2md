@@ -826,7 +826,13 @@ class PdfToAstConverter(BaseParser):
         # Build table info list
         table_info = []
         for i, t in enumerate(tabs.tables):
-            bbox = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+            try:
+                bbox = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+            except ValueError:
+                # PyMuPDF may detect a table structure with no cells,
+                # causing t.bbox to fail with "min() iterable argument is empty".
+                # Skip these empty tables.
+                continue
             table_info.append({"bbox": bbox, "idx": i, "type": "pymupdf", "table_obj": t})
         for i, rect in enumerate(fallback_table_rects):
             table_info.append({"bbox": rect, "idx": i, "type": "fallback", "lines": fallback_table_lines[i]})
