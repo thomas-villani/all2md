@@ -413,11 +413,16 @@ More content.
         content = self._fetch_url("http://127.0.0.1:8011/")
         html = content.decode("utf-8")
 
-        # Should show all files including subdirectories
+        # Root index should show root files and immediate subdirectories
         assert "root.md" in html
-        assert "sub1.md" in html or "subdir1" in html
-        assert "sub2.md" in html or "subdir2" in html
-        assert "nested.md" in html or "nested" in html
+        assert "subdir1" in html
+        assert "subdir2" in html
+
+        # Subdirectory index should show its files and nested subdirectories
+        content = self._fetch_url("http://127.0.0.1:8011/subdir1/")
+        html = content.decode("utf-8")
+        assert "sub1.md" in html
+        assert "nested" in html
 
         # Test accessing file in subdirectory
         content = self._fetch_url("http://127.0.0.1:8011/subdir1/sub1.md")
