@@ -19,6 +19,8 @@ Quick Links
      - Output renderers (Markdown, HTML, DOCX, PDF, and 20+ more)
    * - :doc:`transforms`
      - AST transformation pipeline and built-in transforms
+   * - :doc:`linter`
+     - Document linter (rules, runner, reporters, and registry)
    * - :doc:`cli`
      - Command-line interface components
    * - :doc:`utilities`
@@ -34,6 +36,7 @@ Quick Links
    parsers
    renderers
    transforms
+   linter
    cli
    utilities
    advanced

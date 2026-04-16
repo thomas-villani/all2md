@@ -1417,6 +1417,59 @@ Full Documentation
 
 For complete template reference, see :doc:`templates`.
 
+.. _document-linting-api:
+
+Document Linting
+----------------
+
+The ``all2md.linter`` package exposes a rule-based linter that operates on
+the AST. The public entry points mirror the ``all2md lint`` subcommand and
+support both "give me a parsed document" and "give me a file path" workflows:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.linter import (
+       LintConfig,
+       LintRunner,
+       Severity,
+       lint_document,
+       lint_file,
+       rule_registry,
+   )
+
+   # Fastest path: hand in a file, get a LintResult back
+   result = lint_file("whitepaper.pdf")
+
+   # Or parse once and lint with a custom config
+   doc = to_ast("handbook.md")
+   config = LintConfig(
+       severity_threshold=Severity.WARNING,
+       disabled_rules=frozenset({"TYP003", "HDG004"}),
+       severity_overrides={"STR005": Severity.ERROR},
+       rule_options={"HDG002": {"max_length": 100}},
+   )
+   result = lint_document(doc, config=config, file_path="handbook.md")
+
+   for v in result.violations:
+       print(f"{v.rule_code} {v.severity.label}: {v.message}")
+
+``LintConfig`` is a frozen dataclass — use ``create_updated(...)`` to derive
+modified copies in place of mutating. The ``LintRunner`` class wraps the same
+pipeline when you need to lint many documents with a shared config:
+
+.. code-block:: python
+
+   runner = LintRunner(config=config)
+   results = runner.lint_files(["a.md", "b.md", "c.md"])
+
+The :data:`rule_registry` singleton lists the 20 built-in rules and accepts
+third-party rules either by direct registration or via the
+``all2md.lint_rules`` entry-point group (see :doc:`plugins`). A custom rule
+is any subclass of ``all2md.linter.LintRule`` that implements ``check(ctx)``
+and sets the class-level ``code``, ``name``, ``category``, ``description``,
+and ``default_severity`` attributes.
+
 See Also
 --------
 
@@ -1433,3 +1486,4 @@ API Reference
 - :doc:`api/all2md.renderers` - Renderers API
 - :doc:`api/all2md.parsers` - Parsers API
 - :doc:`api/all2md.options` - Parser and renderer Options
+- :doc:`api/linter` - Document linter (rules, runner, reporters)

@@ -30,6 +30,8 @@ Key Features
 
 🧠 **AST Transforms** – Hookable transformation pipeline with built-in TOC generation, boilerplate removal, and plugins
 
+✅ **Document Linter** – 20 built-in rules across structure, headings, links, and typography with JSON/text output and CI-friendly exit codes
+
 🎨 **Custom Templates** – Jinja2-based rendering for custom output formats (DocBook, YAML, ANSI terminal, etc.) without writing Python
 
 🧭 **Rich CLI Toolkit** – Batch processing, watch mode, parallel workers, collated output, and themed Rich terminals

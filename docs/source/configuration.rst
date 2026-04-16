@@ -368,6 +368,77 @@ Each input format has its own configuration section. See :doc:`options` for the 
 * ``[pptx]`` - PowerPoint options (slide handling)
 * ``[eml]`` - Email options (chain detection, attachment handling)
 
+.. _lint-configuration:
+
+Lint Options
+~~~~~~~~~~~~
+
+Configure the ``all2md lint`` subcommand under the ``[lint]`` section of
+``.all2md.toml`` (or the equivalent ``[tool.all2md.lint]`` block in
+``pyproject.toml``). See :doc:`cli` for the full list of built-in rules and
+command-line usage.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 20 55
+
+   * - Option
+     - Type
+     - Description
+   * - ``disable``
+     - list of strings
+     - Rule codes to skip entirely. Example: ``["TYP003", "HDG004"]``.
+   * - ``enable``
+     - list of strings
+     - Whitelist of rule codes to run. When set, every other rule is skipped.
+   * - ``severity_threshold``
+     - string
+     - Minimum severity to report: ``info`` (default), ``warning``, or ``error``.
+       Filters both the output and the process exit code.
+   * - ``severity``
+     - table
+     - Per-rule severity overrides. Keys are rule codes, values are
+       ``info``/``warning``/``error``. Overrides each rule's built-in default.
+   * - ``rules``
+     - table of tables
+     - Per-rule option dictionaries, keyed by rule code. Forwarded to the rule
+       via the ``LintContext.config`` parameter. Currently only ``HDG002``
+       reads options (``max_length``).
+
+Example ``pyproject.toml`` block:
+
+.. code-block:: toml
+
+   [tool.all2md.lint]
+   disable = ["TYP003", "HDG004"]
+   severity_threshold = "warning"
+
+   [tool.all2md.lint.severity]
+   STR005 = "error"
+   LNK003 = "warning"
+
+   [tool.all2md.lint.rules.HDG002]
+   max_length = 100
+
+Equivalent ``.all2md.toml`` block (no ``tool.all2md`` prefix):
+
+.. code-block:: toml
+
+   [lint]
+   disable = ["TYP003", "HDG004"]
+   severity_threshold = "warning"
+
+   [lint.severity]
+   STR005 = "error"
+   LNK003 = "warning"
+
+   [lint.rules.HDG002]
+   max_length = 100
+
+Command-line flags layer on top of the config file: ``--rule``/``--disable``
+extend the whitelist/blacklist, and ``--severity`` overrides
+``severity_threshold``.
+
 Managing Configuration
 ----------------------
 

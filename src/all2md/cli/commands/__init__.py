@@ -90,6 +90,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:
 
         return handle_diff_command(args[1:])
 
+    # Check for lint command
+    if args[0] == "lint":
+        from all2md.cli.commands.lint import handle_lint_command
+
+        return handle_lint_command(args[1:])
+
     # Check for list-formats command
     if args[0] in ("list-formats", "formats"):
         from all2md.cli.commands.formats import handle_list_formats_command

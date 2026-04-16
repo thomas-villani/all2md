@@ -347,7 +347,39 @@ For programmatic control, you can process files manually:
            except Exception as e:
                print(f"✗ Failed: {file_path.name}: {e}")
 
-7. Working with File Objects
+7. Linting Converted Documents
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Run 20 built-in rules against any document all2md can parse. The linter
+operates on the AST, so PDF, DOCX, HTML, and Markdown inputs all share the
+same ruleset.
+
+.. code-block:: bash
+
+   # Lint a single document (default: report everything, fail on any violation)
+   all2md lint handbook.md
+
+   # Lint a tree and emit machine-readable JSON for CI
+   all2md lint docs/ --recursive --format json --output lint-report.json
+
+   # Loosen the gate: only warnings and errors count toward CI exit status
+   all2md lint docs/ --severity warning
+
+Or from Python:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.linter import lint_document
+
+   doc = to_ast('handbook.md')
+   result = lint_document(doc)
+   print(f"{result.error_count} errors, {result.warning_count} warnings")
+
+See :doc:`cli` for the full rule catalogue, output formats, and severity
+handling, and :doc:`configuration` for the ``[tool.all2md.lint]`` schema.
+
+8. Working with File Objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python

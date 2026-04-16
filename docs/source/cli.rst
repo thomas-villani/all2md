@@ -647,6 +647,245 @@ Configuration sources are applied in this order (highest to lowest priority):
    # 5. Use it (auto-discovered)
    all2md document.pdf
 
+Lint Command
+------------
+
+``all2md lint`` inspects converted documents and reports structural, heading,
+link, and typography issues via a rule-based engine. The linter operates on
+the AST, so it works against every format all2md can parse (PDF, DOCX, HTML,
+Markdown, and the rest) without needing format-specific logic. Twenty built-in
+rules ship in the MVP release, grouped into four categories: **STR**
+(structure), **HDG** (headings), **LNK** (links), and **TYP** (typography).
+
+.. code-block:: bash
+
+   # Lint a single document
+   all2md lint document.md
+
+   # Lint every Markdown file in a directory tree
+   all2md lint docs/ --recursive
+
+   # Emit machine-readable JSON for CI consumption
+   all2md lint docs/ --format json --output lint-report.json
+
+   # Only run specific rules, or disable noisy ones
+   all2md lint --rule STR001 --rule STR003 document.md
+   all2md lint --disable TYP003 --disable HDG004 docs/
+
+   # Raise the reporting threshold (drops INFO from both output and exit code)
+   all2md lint --severity warning docs/
+
+Common options:
+
+* ``-R`` / ``--recursive`` – recurse into directories when collecting inputs
+* ``--format`` – ``text`` (default, human-readable) or ``json`` (CI-friendly)
+* ``--output`` – write the report to this file instead of stdout
+* ``--config`` – explicit path to an ``.all2md.toml`` or ``pyproject.toml``
+* ``--rule CODE`` – only run the listed rules (repeatable, acts as a whitelist)
+* ``--disable CODE`` – skip the listed rules (repeatable, layered over config)
+* ``--severity`` – minimum severity to report: ``info`` (default), ``warning``, or ``error``
+
+The ``--severity`` flag filters **both** the displayed output and the process
+exit code. With ``--severity warning``, info-level violations are dropped and
+no longer affect CI gating — the mental model is "what you see is what fails
+CI".
+
+Exit codes:
+
+* ``0`` – no violations remain after the severity filter
+* ``3`` – one or more violations remain (``EXIT_VALIDATION_ERROR``)
+* ``4`` – input file not found
+
+Configuration lives under ``[tool.all2md.lint]`` in ``pyproject.toml`` (or
+``[lint]`` in ``.all2md.toml``). See :ref:`lint-configuration` for the full
+schema and a worked example. To discover every registered rule at runtime,
+import the registry:
+
+.. code-block:: python
+
+
+   from all2md.linter import rule_registry
+   print(rule_registry.list_rules())          # all 20 codes
+   print(rule_registry.list_rules(category="structure"))
+
+Built-in Rules
+~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 25 10 55
+
+   * - Code
+     - Name
+     - Severity
+     - Check
+   * - ``STR001``
+     - ``missing-title``
+     - error
+     - Document has no top-level H1 heading.
+   * - ``STR002``
+     - ``multiple-h1``
+     - warning
+     - More than one H1 heading in the document.
+   * - ``STR003``
+     - ``heading-hierarchy``
+     - error
+     - Heading level skips (for example, H1 followed by H3).
+   * - ``STR004``
+     - ``empty-heading``
+     - error
+     - Heading contains no text.
+   * - ``STR005``
+     - ``orphan-heading``
+     - warning
+     - A heading is the last child of the document with no content after it.
+   * - ``HDG001``
+     - ``heading-trailing-punctuation``
+     - info
+     - Heading ends with sentence-style punctuation (``.``, ``,``, ``;``, ``:``).
+   * - ``HDG002``
+     - ``heading-length``
+     - info
+     - Heading exceeds ``max_length`` characters (default 80, configurable per-rule).
+   * - ``HDG003``
+     - ``duplicate-headings``
+     - warning
+     - Two headings at the same level share the same text (case-insensitive).
+   * - ``HDG004``
+     - ``heading-capitalization``
+     - info
+     - Same-level headings diverge from the dominant capitalization style.
+   * - ``HDG005``
+     - ``heading-emphasis``
+     - warning
+     - Heading content is a single ``Strong`` or ``Emphasis`` node.
+   * - ``LNK001``
+     - ``empty-link-text``
+     - warning
+     - Link has no visible text.
+   * - ``LNK002``
+     - ``missing-url``
+     - error
+     - Link URL is empty or whitespace-only.
+   * - ``LNK003``
+     - ``duplicate-urls``
+     - info
+     - The same URL is linked from more than one place.
+   * - ``LNK004``
+     - ``bare-url``
+     - info
+     - Raw URL appears in prose text instead of being wrapped in a ``Link``.
+   * - ``LNK005``
+     - ``link-text-quality``
+     - warning
+     - Link text is a generic filler phrase ("click here", "read more", etc.).
+   * - ``TYP001``
+     - ``trailing-spaces``
+     - info
+     - A ``Text`` node at the end of its container ends with trailing whitespace.
+   * - ``TYP002``
+     - ``multiple-spaces``
+     - warning
+     - Text contains runs of two or more consecutive spaces.
+   * - ``TYP003``
+     - ``straight-quotes``
+     - info
+     - Text uses straight ASCII quotes around a word instead of curly quotes.
+   * - ``TYP004``
+     - ``double-hyphens``
+     - info
+     - Text contains ``--`` that should probably be an em-dash (``—``).
+   * - ``TYP005``
+     - ``mixed-list-markers``
+     - warning
+     - Adjacent sibling lists disagree on the ordered/unordered style.
+
+Text Output Format
+~~~~~~~~~~~~~~~~~~
+
+The default text reporter emits one line per violation in a ruff-style
+``path:line:column: CODE severity: message`` format, with optional
+``suggestion:`` and ``context:`` lines indented underneath:
+
+.. code-block:: text
+
+   docs/handbook.md:12:1: STR003 error: Heading level 4 follows level 1
+       suggestion: Use heading level 2 instead
+   docs/handbook.md:25:-: LNK001 warning: Link to 'https://example.com' has no visible text
+       suggestion: Add descriptive text for the link
+
+   Found 2 violations (1 errors, 1 warnings, 0 info) in 1 file
+
+A dash (``-``) in the line or column slot means the underlying parser did not
+populate a ``SourceLocation`` for the node. This is common for formats that
+don't carry positional information (PDF, DOCX, image-based OCR).
+
+JSON Output Format
+~~~~~~~~~~~~~~~~~~
+
+With ``--format json``, the reporter emits a structured document suitable for
+parsing in CI pipelines:
+
+.. code-block:: json
+
+   {
+     "summary": {
+       "files": 1,
+       "violations": 2,
+       "errors": 1,
+       "warnings": 1,
+       "info": 0
+     },
+     "results": [
+       {
+         "file_path": "docs/handbook.md",
+         "rules_checked": 20,
+         "error_count": 1,
+         "warning_count": 1,
+         "info_count": 0,
+         "violations": [
+           {
+             "rule_code": "STR003",
+             "rule_name": "heading-hierarchy",
+             "message": "Heading level 4 follows level 1",
+             "severity": "error",
+             "line": 12,
+             "column": 1,
+             "node_type": "Heading",
+             "suggestion": "Use heading level 2 instead",
+             "fixable": false,
+             "context": null
+           }
+         ]
+       }
+     ]
+   }
+
+Python API
+~~~~~~~~~~
+
+Every CLI capability is available from Python via the ``all2md.linter`` package:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.linter import LintConfig, lint_document, Severity
+
+   doc = to_ast("whitepaper.pdf")
+   config = LintConfig(
+       severity_threshold=Severity.WARNING,
+       disabled_rules=frozenset({"TYP003", "HDG004"}),
+   )
+   result = lint_document(doc, config=config)
+
+   print(f"Errors: {result.error_count}, Warnings: {result.warning_count}")
+   for violation in result.violations:
+       print(f"  {violation.rule_code}: {violation.message}")
+
+See :doc:`python_api` ("Document Linting") for details on the runner, rule
+registry, and writing custom rules via the ``all2md.lint_rules`` entry-point
+group.
+
 Static Site Generation
 -----------------------
 

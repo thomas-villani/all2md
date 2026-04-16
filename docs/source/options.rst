@@ -4450,7 +4450,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000027BA42F4C90>``
+   :Default: ``<object object at 0x00000207EEBBCC70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4460,7 +4460,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000027BA42F4C90>``
+   :Default: ``<object object at 0x00000207EEBBCC70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -7331,6 +7331,25 @@ to extract text from images (PDF scanned pages, standalone images, etc.).
    :Default: ``''``
    :Importance: advanced
 
+**layout_analysis_mode**
+
+   Document layout analysis mode: 'auto' (use if available), 'enabled' (require), 'disabled' (never use). Requires: pip install all2md[pdf_layout]
+
+   :Type: ``Literal['auto', 'enabled', 'disabled']``
+   :CLI flag: ``--pdf-layout-analysis-mode``
+   :Default: ``'auto'``
+   :Choices: ``auto``, ``enabled``, ``disabled``
+   :Importance: advanced
+
+**layout_iou_threshold**
+
+   Minimum IoU overlap to match layout predictions to text blocks (0.0-1.0)
+
+   :Type: ``float``
+   :CLI flag: ``--pdf-layout-iou-threshold``
+   :Default: ``0.3``
+   :Importance: advanced
+
 PDF Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -8023,7 +8042,7 @@ generation from AST, including slide splitting strategies and layout.
 
    :Type: ``int``
    :CLI flag: ``--pptx-renderer-default-font-size``
-   :Default: ``18``
+   :Default: ``24``
    :Importance: core
 
 **title_font_size**
@@ -8077,7 +8096,7 @@ generation from AST, including slide splitting strategies and layout.
 
    :Type: ``float``
    :CLI flag: ``--pptx-renderer-table-width``
-   :Default: ``9.0``
+   :Default: ``12.333``
    :Importance: advanced
 
 **table_height_per_row**
@@ -8113,7 +8132,7 @@ generation from AST, including slide splitting strategies and layout.
 
    :Type: ``float``
    :CLI flag: ``--pptx-renderer-image-width``
-   :Default: ``4.0``
+   :Default: ``5.0``
    :Importance: advanced
 
 **network**
@@ -8151,6 +8170,78 @@ generation from AST, including slide splitting strategies and layout.
    :CLI flag: ``--pptx-renderer-no-force-textbox-bullets``
    :Default: ``True``
    :Importance: advanced
+
+**slide_width**
+
+   Slide width in inches (13.333 for 16:9 widescreen)
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-slide-width``
+   :Default: ``13.333``
+   :Importance: core
+
+**slide_height**
+
+   Slide height in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-slide-height``
+   :Default: ``7.5``
+   :Importance: core
+
+**content_margin_left**
+
+   Left margin for content area in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-content-margin-left``
+   :Default: ``0.5``
+   :Importance: advanced
+
+**content_margin_right**
+
+   Right margin for content area in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-content-margin-right``
+   :Default: ``0.5``
+   :Importance: advanced
+
+**content_margin_top**
+
+   Top margin for content area in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-content-margin-top``
+   :Default: ``1.5``
+   :Importance: advanced
+
+**content_margin_bottom**
+
+   Bottom margin for content area in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-content-margin-bottom``
+   :Default: ``0.5``
+   :Importance: advanced
+
+**element_gap**
+
+   Vertical gap between content blocks in inches
+
+   :Type: ``float``
+   :CLI flag: ``--pptx-renderer-element-gap``
+   :Default: ``0.2``
+   :Importance: advanced
+
+**use_flow_layout**
+
+   Enable flow layout engine (sequential positioning to avoid overlap)
+
+   :Type: ``bool``
+   :CLI flag: ``--pptx-renderer-no-use-flow-layout``
+   :Default: ``True``
+   :Importance: core
 
 RST Options
 ~~~~~~~~~~~
@@ -9977,7 +10068,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000027BA42F4C90>``
+   :Default: ``<object object at 0x00000207EEBBCC70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -9987,7 +10078,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000027BA42F4C90>``
+   :Default: ``<object object at 0x00000207EEBBCC70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
