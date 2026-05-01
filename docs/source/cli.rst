@@ -651,11 +651,65 @@ Lint Command
 ------------
 
 ``all2md lint`` inspects converted documents and reports structural, heading,
-link, and typography issues via a rule-based engine. The linter operates on
-the AST, so it works against every format all2md can parse (PDF, DOCX, HTML,
-Markdown, and the rest) without needing format-specific logic. Twenty built-in
-rules ship in the MVP release, grouped into four categories: **STR**
-(structure), **HDG** (headings), **LNK** (links), and **TYP** (typography).
+link, list, table, image, and typography issues via a rule-based engine. The
+linter operates on the AST, so it works against every format all2md can parse
+(PDF, DOCX, HTML, Markdown, and the rest) without needing format-specific
+logic. Forty-seven built-in rules ship across seven categories.
+
+Rule Categories at a Glance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 8 30 52
+
+   * - Code
+     - Count
+     - Category
+     - What it covers
+   * - **STR**
+     - 8
+     - Structure
+     - Document shape: title presence, H1 uniqueness, heading hierarchy,
+       empty/orphan headings, short sections, empty documents, excessive
+       block-level nesting.
+   * - **HDG**
+     - 7
+     - Headings
+     - Heading content: trailing punctuation, length, duplicates,
+       capitalization consistency, emphasis-wrapped headings, sentence-shaped
+       headings, URLs in headings.
+   * - **LNK**
+     - 7
+     - Links
+     - Empty link text, missing URLs, duplicate URLs, bare URLs in prose,
+       low-quality link text, ``http://`` instead of ``https://``, link text
+       that duplicates the URL.
+   * - **TYP**
+     - 8
+     - Typography
+     - Trailing whitespace, multiple spaces, straight quotes, ``--``
+       vs em-dash, mixed list markers, ``...`` vs ellipsis character,
+       space-before-punctuation, repeated punctuation.
+   * - **LST**
+     - 6
+     - Lists
+     - Single-item lists, empty items, ordered-list numbering, excessive
+       nesting, inconsistent trailing-punctuation, inconsistent
+       capitalization across items.
+   * - **TBL**
+     - 6
+     - Tables
+     - Missing header rows, empty cells, single-column / single-row tables,
+       missing captions, excessive width.
+   * - **IMG**
+     - 5
+     - Images
+     - Missing alt text, broken local image paths, duplicate images,
+       oversized base64 inlining, unhelpful boilerplate alt text.
+
+Several typography and structure rules carry safe auto-fixes that ``--fix``
+applies in place — see :ref:`auto-fix` below.
 
 .. code-block:: bash
 
@@ -675,6 +729,12 @@ rules ship in the MVP release, grouped into four categories: **STR**
    # Raise the reporting threshold (drops INFO from both output and exit code)
    all2md lint --severity warning docs/
 
+   # Apply safe auto-fixes in place
+   all2md lint --fix README.md
+
+   # Preview --fix without writing the file
+   all2md lint --fix --dry-run README.md
+
 Common options:
 
 * ``-R`` / ``--recursive`` – recurse into directories when collecting inputs
@@ -684,6 +744,8 @@ Common options:
 * ``--rule CODE`` – only run the listed rules (repeatable, acts as a whitelist)
 * ``--disable CODE`` – skip the listed rules (repeatable, layered over config)
 * ``--severity`` – minimum severity to report: ``info`` (default), ``warning``, or ``error``
+* ``--fix`` – apply safe auto-fixes in place (file inputs only)
+* ``--dry-run`` – with ``--fix``, report what would be changed without writing
 
 The ``--severity`` flag filters **both** the displayed output and the process
 exit code. With ``--severity warning``, info-level violations are dropped and
@@ -705,7 +767,7 @@ import the registry:
 
 
    from all2md.linter import rule_registry
-   print(rule_registry.list_rules())          # all 20 codes
+   print(rule_registry.list_rules())          # all 47 codes
    print(rule_registry.list_rules(category="structure"))
 
 Built-in Rules
@@ -799,6 +861,151 @@ Built-in Rules
      - ``mixed-list-markers``
      - warning
      - Adjacent sibling lists disagree on the ordered/unordered style.
+   * - ``TYP006``
+     - ``ellipsis-character``
+     - info
+     - Text contains ``...`` that should be the ellipsis character (``…``). Auto-fixable with ``--fix``.
+   * - ``TYP007``
+     - ``space-before-punctuation``
+     - info
+     - Text has a space before ``,``/``.``/``;``/``:``/``!``/``?``. Auto-fixable with ``--fix``.
+   * - ``TYP008``
+     - ``consecutive-punctuation``
+     - warning
+     - Text contains repeated punctuation like ``,,``, ``!!``, or ``??``.
+   * - ``STR006``
+     - ``short-section``
+     - info
+     - Section under a heading has fewer than ``min_words`` words (default 10, configurable).
+   * - ``STR007``
+     - ``empty-document``
+     - error
+     - Document contains no children.
+   * - ``STR008``
+     - ``excessive-nesting``
+     - warning
+     - Block-level nesting (blockquotes / list items) exceeds ``max_depth`` levels (default 4).
+   * - ``HDG006``
+     - ``heading-as-sentence``
+     - info
+     - Heading exceeds ``max_words`` (default 12) and ends in ``.``/``!``/``?``.
+   * - ``HDG007``
+     - ``heading-url``
+     - warning
+     - Heading text contains a URL.
+   * - ``LNK006``
+     - ``insecure-link``
+     - info
+     - Link uses ``http://`` instead of ``https://``.
+   * - ``LNK007``
+     - ``link-text-is-url``
+     - info
+     - Link's visible text duplicates its URL (``[https://x](https://x)``).
+   * - ``LST001``
+     - ``single-item-list``
+     - info
+     - List contains only one item — usually should be a paragraph.
+   * - ``LST002``
+     - ``empty-list-item``
+     - warning
+     - List item has no rendered text content.
+   * - ``LST003``
+     - ``ordered-list-numbering``
+     - info
+     - Ordered list does not start at 1.
+   * - ``LST004``
+     - ``list-depth-excessive``
+     - warning
+     - List nesting exceeds ``max_depth`` (default 4, configurable).
+   * - ``LST005``
+     - ``list-punctuation-inconsistent``
+     - info
+     - List items mix trailing-period and no-trailing-period styles.
+   * - ``LST006``
+     - ``list-capitalization-inconsistent``
+     - info
+     - List items mix upper- and lower-case first characters.
+   * - ``TBL001``
+     - ``table-header-missing``
+     - warning
+     - Table has no header row.
+   * - ``TBL002``
+     - ``table-empty-cells``
+     - info
+     - Table contains cells with no rendered content.
+   * - ``TBL003``
+     - ``table-single-column``
+     - info
+     - Table has only one column — should usually be a list.
+   * - ``TBL004``
+     - ``table-single-row``
+     - info
+     - Table has only one body row — may not need to be a table.
+   * - ``TBL005``
+     - ``table-caption-missing``
+     - info
+     - Table has neither a caption nor a preceding paragraph introducing it.
+   * - ``TBL006``
+     - ``table-width-excessive``
+     - warning
+     - Table has more than ``max_columns`` columns (default 12, configurable).
+   * - ``IMG001``
+     - ``missing-alt-text``
+     - warning
+     - Image has empty ``alt_text``.
+   * - ``IMG002``
+     - ``image-not-found``
+     - error
+     - Image's local path does not exist on disk (resolved relative to the input file).
+   * - ``IMG003``
+     - ``duplicate-images``
+     - info
+     - Same image URL appears more than once in the document.
+   * - ``IMG004``
+     - ``image-size-excessive``
+     - warning
+     - Inline base64 image exceeds ``max_bytes`` (default 1 MiB, configurable).
+   * - ``IMG005``
+     - ``decorative-image-alt``
+     - info
+     - Alt text is a generic placeholder ("image", "photo", "screenshot", etc.).
+
+.. _auto-fix:
+
+Auto-Fix (``--fix``)
+~~~~~~~~~~~~~~~~~~~~
+
+A subset of rules ship with safe auto-fixes that the linter can apply
+in place. Pass ``--fix`` to apply them and rewrite the input file::
+
+    all2md lint --fix README.md
+
+Currently auto-fixable (all classified as **safe**):
+
+* ``TYP001`` trailing-spaces — strip trailing whitespace
+* ``TYP002`` multiple-spaces — collapse runs of spaces to a single space
+* ``TYP003`` straight-quotes — replace ``"…"``/``'…'`` with curly equivalents
+* ``TYP004`` double-hyphens — replace ``--`` with em-dash (``—``)
+* ``TYP006`` ellipsis-character — replace ``...`` with ``…``
+* ``TYP007`` space-before-punctuation — remove the offending space
+* ``STR004`` empty-heading — remove the empty heading from the document
+
+Use ``--dry-run`` together with ``--fix`` to see what would be changed
+without writing the file::
+
+    all2md lint --fix --dry-run README.md
+
+The reporter prints an ``applied N fix(es)`` summary per file plus the
+post-fix violation list (everything still left to address). When two
+fixes target the same AST node the linter applies them across multiple
+internal passes, but a small handful may still defer with a
+``"... fix(es) deferred due to conflicts — re-run lint --fix to apply"``
+footer; rerun ``--fix`` to converge.
+
+``--fix`` requires file inputs — it cannot operate on stdin or remote
+inputs because there is no file to rewrite. A clean document (no
+applicable fixes) is never rewritten, so re-running ``--fix`` against an
+already-clean file produces a byte-identical result.
 
 Text Output Format
 ~~~~~~~~~~~~~~~~~~

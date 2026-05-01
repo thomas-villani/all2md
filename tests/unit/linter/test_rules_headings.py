@@ -1,4 +1,4 @@
-"""Happy-path coverage for HDG001-HDG005."""
+"""Happy-path coverage for HDG001-HDG007."""
 
 from __future__ import annotations
 
@@ -8,10 +8,12 @@ from all2md.ast import Document, Heading, Strong, Text
 from all2md.linter.rule import LintContext
 from all2md.linter.rules.headings import (
     DuplicateHeadingsRule,
+    HeadingAsSentenceRule,
     HeadingCapitalizationRule,
     HeadingEmphasisRule,
     HeadingLengthRule,
     HeadingTrailingPunctuationRule,
+    HeadingUrlRule,
 )
 
 pytestmark = pytest.mark.unit
@@ -90,3 +92,29 @@ class TestHeadingRules:
             ]
         )
         assert HeadingEmphasisRule().check(_ctx(doc)) == []
+
+    def test_heading_as_sentence_flags_long_with_period(self):
+        sentence = (
+            "This heading reads exactly like a full grammatical sentence written "
+            "in English with too many words for a heading."
+        )
+        doc = Document(children=[Heading(level=2, content=[Text(content=sentence)])])
+        result = HeadingAsSentenceRule().check(_ctx(doc))
+        assert len(result) == 1
+        assert result[0].rule_code == "HDG006"
+
+    def test_heading_as_sentence_silent_on_short_heading(self):
+        # Short ending in '!' should not fire — only long headings ending in punctuation do.
+        doc = Document(children=[Heading(level=2, content=[Text(content="Stop!")])])
+        assert HeadingAsSentenceRule().check(_ctx(doc)) == []
+
+    def test_heading_as_sentence_silent_when_no_terminal_punct(self):
+        long_no_punct = "This is a long heading with many words but lacks any terminal punctuation"
+        doc = Document(children=[Heading(level=2, content=[Text(content=long_no_punct)])])
+        assert HeadingAsSentenceRule().check(_ctx(doc)) == []
+
+    def test_heading_url_flags_url_in_text(self):
+        doc = Document(children=[Heading(level=2, content=[Text(content="See https://example.com for details")])])
+        result = HeadingUrlRule().check(_ctx(doc))
+        assert len(result) == 1
+        assert result[0].rule_code == "HDG007"

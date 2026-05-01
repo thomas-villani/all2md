@@ -4450,7 +4450,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x00000207EEBBCC70>``
+   :Default: ``<object object at 0x00000247329ECC70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4460,7 +4460,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000207EEBBCC70>``
+   :Default: ``<object object at 0x00000247329ECC70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -10068,7 +10068,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x00000207EEBBCC70>``
+   :Default: ``<object object at 0x00000247329ECC70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -10078,7 +10078,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000207EEBBCC70>``
+   :Default: ``<object object at 0x00000247329ECC70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

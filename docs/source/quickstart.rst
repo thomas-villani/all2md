@@ -350,9 +350,10 @@ For programmatic control, you can process files manually:
 7. Linting Converted Documents
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run 20 built-in rules against any document all2md can parse. The linter
+Run 47 built-in rules against any document all2md can parse. The linter
 operates on the AST, so PDF, DOCX, HTML, and Markdown inputs all share the
-same ruleset.
+same ruleset. A subset of rules carry safe auto-fixes that ``--fix`` applies
+in place.
 
 .. code-block:: bash
 
@@ -365,19 +366,29 @@ same ruleset.
    # Loosen the gate: only warnings and errors count toward CI exit status
    all2md lint docs/ --severity warning
 
+   # Apply safe auto-fixes in place (or preview with --dry-run)
+   all2md lint --fix handbook.md
+   all2md lint --fix --dry-run handbook.md
+
 Or from Python:
 
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.linter import lint_document
+   from all2md.linter import lint_and_fix_document, lint_document
 
    doc = to_ast('handbook.md')
    result = lint_document(doc)
    print(f"{result.error_count} errors, {result.warning_count} warnings")
 
-See :doc:`cli` for the full rule catalogue, output formats, and severity
-handling, and :doc:`configuration` for the ``[tool.all2md.lint]`` schema.
+   # Apply auto-fixes (mutates doc in place)
+   fix_result = lint_and_fix_document(doc)
+   print(f"Applied {len(fix_result.applied)} fixes; "
+         f"{fix_result.final.total} violations remaining")
+
+See :doc:`cli` for the full rule catalogue, ``--fix`` documentation, output
+formats, and severity handling, and :doc:`configuration` for the
+``[tool.all2md.lint]`` schema.
 
 8. Working with File Objects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

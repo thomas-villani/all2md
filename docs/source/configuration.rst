@@ -402,8 +402,51 @@ command-line usage.
    * - ``rules``
      - table of tables
      - Per-rule option dictionaries, keyed by rule code. Forwarded to the rule
-       via the ``LintContext.config`` parameter. Currently only ``HDG002``
-       reads options (``max_length``).
+       via the ``LintContext.config`` parameter. See the per-rule options
+       table below.
+
+Per-Rule Options
+^^^^^^^^^^^^^^^^
+
+A handful of rules read options from ``[tool.all2md.lint.rules.<CODE>]``.
+Rules not listed here ignore the ``rules`` table.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 25 15 45
+
+   * - Rule
+     - Option
+     - Default
+     - Meaning
+   * - ``HDG002``
+     - ``max_length``
+     - 80
+     - Maximum heading length in characters.
+   * - ``HDG006``
+     - ``max_words``
+     - 12
+     - Heading word-count threshold above which a sentence-ending heading is flagged.
+   * - ``STR006``
+     - ``min_words``
+     - 10
+     - Minimum word count for a section before it's flagged as too short.
+   * - ``STR008``
+     - ``max_depth``
+     - 4
+     - Maximum block-level nesting depth (blockquotes / list items).
+   * - ``LST004``
+     - ``max_depth``
+     - 4
+     - Maximum list-nesting depth.
+   * - ``TBL006``
+     - ``max_columns``
+     - 12
+     - Maximum table column count.
+   * - ``IMG004``
+     - ``max_bytes``
+     - 1048576
+     - Maximum decoded size of a base64-inlined image.
 
 Example ``pyproject.toml`` block:
 
@@ -419,6 +462,12 @@ Example ``pyproject.toml`` block:
 
    [tool.all2md.lint.rules.HDG002]
    max_length = 100
+
+   [tool.all2md.lint.rules.STR006]
+   min_words = 25
+
+   [tool.all2md.lint.rules.IMG004]
+   max_bytes = 524288  # 512 KiB
 
 Equivalent ``.all2md.toml`` block (no ``tool.all2md`` prefix):
 
@@ -436,8 +485,9 @@ Equivalent ``.all2md.toml`` block (no ``tool.all2md`` prefix):
    max_length = 100
 
 Command-line flags layer on top of the config file: ``--rule``/``--disable``
-extend the whitelist/blacklist, and ``--severity`` overrides
-``severity_threshold``.
+extend the whitelist/blacklist, ``--severity`` overrides
+``severity_threshold``, and ``--fix`` applies safe auto-fixes in place
+(``--dry-run`` previews without writing).
 
 Managing Configuration
 ----------------------

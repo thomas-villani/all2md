@@ -17,6 +17,7 @@ from all2md.linter.violations import Severity, Violation
 
 if TYPE_CHECKING:
     from all2md.ast import Document
+    from all2md.linter.fixes import LintFix
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +57,7 @@ class LintRule(ABC):
         node_type: Optional[str] = None,
         suggestion: Optional[str] = None,
         context: Optional[str] = None,
+        fix: Optional["LintFix"] = None,
     ) -> Violation:
         """Construct a ``Violation`` pre-populated with this rule's metadata."""
         return Violation(
@@ -68,4 +70,5 @@ class LintRule(ABC):
             node_type=node_type,
             suggestion=suggestion,
             context=context,
+            fix=fix,
         )

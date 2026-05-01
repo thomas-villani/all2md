@@ -9,6 +9,13 @@ The runner owns three responsibilities:
 3. Apply the severity threshold and sort the resulting violations into a
    stable, reportable order.
 
+When ``--fix`` is requested, :meth:`LintRunner.lint_and_fix_document`
+runs the lint pass, applies attached fixes via
+:func:`all2md.linter.fixes.apply_fixes`, and re-lints the mutated AST so
+reporters can show "fixed N, M remaining". :meth:`lint_and_fix_file`
+additionally serialises the mutated AST back to disk via the markdown
+renderer.
+
 Top-level convenience wrappers ``lint_document`` and ``lint_file`` are
 exposed via the ``all2md.linter`` package.
 """
@@ -21,6 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional, Union
 
 from all2md.linter.config import LintConfig
+from all2md.linter.fixes import AppliedFix, FixSafety, apply_fixes
 from all2md.linter.registry import RuleRegistry, rule_registry
 from all2md.linter.rule import LintContext, LintRule
 from all2md.linter.violations import Severity, Violation
@@ -60,6 +68,52 @@ class LintResult:
         return len(self.violations)
 
 
+@dataclass
+class LintFixResult:
+    """Result of running ``lint --fix`` against a single document.
+
+    Carries both the pre-fix and post-fix lint results so reporters can
+    show "applied N fixes, M remaining" without recomputing.
+    """
+
+    file_path: Optional[str]
+    initial: LintResult
+    final: LintResult
+    applied: list[AppliedFix] = field(default_factory=list)
+    skipped_conflicts: list[AppliedFix] = field(default_factory=list)
+    rewritten: bool = False
+
+    @property
+    def violations(self) -> list[Violation]:
+        """Post-fix violations — the ones the user still needs to address."""
+        return self.final.violations
+
+    @property
+    def rules_checked(self) -> int:
+        """Forward to the post-fix lint result."""
+        return self.final.rules_checked
+
+    @property
+    def error_count(self) -> int:
+        """Forward to the post-fix lint result."""
+        return self.final.error_count
+
+    @property
+    def warning_count(self) -> int:
+        """Forward to the post-fix lint result."""
+        return self.final.warning_count
+
+    @property
+    def info_count(self) -> int:
+        """Forward to the post-fix lint result."""
+        return self.final.info_count
+
+    @property
+    def total(self) -> int:
+        """Forward to the post-fix lint result."""
+        return self.final.total
+
+
 class LintRunner:
     """Run a ``LintConfig`` over one or more documents."""
 
@@ -95,8 +149,8 @@ class LintRunner:
             column=violation.column,
             node_type=violation.node_type,
             suggestion=violation.suggestion,
-            fixable=violation.fixable,
             context=violation.context,
+            fix=violation.fix,
         )
 
     def lint_document(self, doc: "Document", file_path: Optional[str] = None) -> LintResult:
@@ -152,6 +206,80 @@ class LintRunner:
         """Run ``lint_file()`` against every path in the list."""
         return [self.lint_file(p) for p in file_paths]
 
+    def lint_and_fix_document(
+        self,
+        doc: "Document",
+        *,
+        file_path: Optional[str] = None,
+        max_safety: FixSafety = FixSafety.SAFE,
+        max_passes: int = 5,
+    ) -> LintFixResult:
+        """Lint ``doc``, apply attached fixes (in place) to fixpoint, re-lint.
+
+        When two fixes target the same node, :func:`apply_fixes` skips the
+        later one — so a single pass may leave correctable violations
+        untouched. The runner re-runs the lint+fix cycle until no fixes
+        apply (or ``max_passes`` is reached), which converts the per-call
+        "first-wins" policy into "run to fixpoint" at the user level.
+
+        ``max_passes`` is a safety cap that surfaces non-idempotent fixes
+        (the loop would otherwise oscillate forever). Five passes is
+        plenty for the v2.0 SAFE fixes — the deepest natural cascade is
+        TYP001 → TYP002 on the same node, which converges in two.
+
+        The document is mutated in place. Callers that need to write the
+        result back to disk should serialise via the markdown renderer
+        when ``LintFixResult.rewritten`` is true.
+        """
+        initial = self.lint_document(doc, file_path=file_path)
+        all_applied: list[AppliedFix] = []
+        all_skipped: list[AppliedFix] = []
+        current = initial
+        for _ in range(max_passes):
+            applied, skipped = apply_fixes(doc, current.violations, max_safety)
+            all_applied.extend(applied)
+            if not applied:
+                all_skipped = skipped
+                break
+            current = self.lint_document(doc, file_path=file_path)
+            all_skipped = skipped
+        final = current
+        return LintFixResult(
+            file_path=file_path,
+            initial=initial,
+            final=final,
+            applied=all_applied,
+            skipped_conflicts=all_skipped,
+            rewritten=bool(all_applied),
+        )
+
+    def lint_and_fix_file(
+        self,
+        file_path: Union[str, Path],
+        *,
+        max_safety: FixSafety = FixSafety.SAFE,
+        write: bool = True,
+    ) -> LintFixResult:
+        """Parse ``file_path``, lint+fix, and (optionally) rewrite the file.
+
+        When ``write=True`` (the default) and at least one fix was
+        applied, the mutated AST is serialised back to ``file_path`` via
+        :class:`all2md.renderers.markdown.MarkdownRenderer`. A clean file
+        (no fixes applied) is never rewritten, sidestepping spurious
+        renderer-canonicalisation drift.
+        """
+        from all2md.api import to_ast
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        path_str = str(file_path)
+        doc = to_ast(file_path)
+        result = self.lint_and_fix_document(doc, file_path=path_str, max_safety=max_safety)
+        if write and result.rewritten:
+            renderer = MarkdownRenderer()
+            rendered = renderer.render_to_string(doc)
+            Path(path_str).write_text(rendered, encoding="utf-8")
+        return result
+
 
 def lint_document(
     doc: "Document",
@@ -167,3 +295,27 @@ def lint_file(file_path: Union[str, Path], config: Optional[LintConfig] = None) 
     """Parse ``file_path`` into an AST and lint it with ``config``."""
     runner = LintRunner(config=config)
     return runner.lint_file(file_path)
+
+
+def lint_and_fix_document(
+    doc: "Document",
+    config: Optional[LintConfig] = None,
+    *,
+    file_path: Optional[str] = None,
+    max_safety: FixSafety = FixSafety.SAFE,
+) -> LintFixResult:
+    """Lint and fix ``doc`` in place; re-lint and return the combined result."""
+    runner = LintRunner(config=config)
+    return runner.lint_and_fix_document(doc, file_path=file_path, max_safety=max_safety)
+
+
+def lint_and_fix_file(
+    file_path: Union[str, Path],
+    config: Optional[LintConfig] = None,
+    *,
+    max_safety: FixSafety = FixSafety.SAFE,
+    write: bool = True,
+) -> LintFixResult:
+    """Parse, lint+fix, and rewrite ``file_path``."""
+    runner = LintRunner(config=config)
+    return runner.lint_and_fix_file(file_path, max_safety=max_safety, write=write)

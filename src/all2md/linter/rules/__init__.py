@@ -6,6 +6,14 @@ global :data:`all2md.linter.registry.rule_registry`.
 
 from __future__ import annotations
 
-from all2md.linter.rules import headings, links, structure, typography  # noqa: F401
+from all2md.linter.rules import (  # noqa: F401
+    headings,
+    images,
+    links,
+    lists,
+    structure,
+    tables,
+    typography,
+)
 
 __all__: list[str] = []

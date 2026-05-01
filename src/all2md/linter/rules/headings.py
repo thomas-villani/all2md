@@ -1,11 +1,13 @@
-"""Heading content rules (HDG001-HDG005).
+"""Heading content rules (HDG001-HDG007).
 
 Checks the text of each heading: punctuation, length, duplication,
-capitalization consistency, and emphasis-wrapped headings.
+capitalization consistency, emphasis-wrapped headings, sentence-shaped
+headings, and URLs in heading text.
 """
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -15,7 +17,9 @@ from all2md.linter.rule import LintContext, LintRule
 from all2md.linter.violations import Severity, Violation
 
 _DEFAULT_MAX_HEADING_LENGTH = 80
+_DEFAULT_HEADING_SENTENCE_MAX_WORDS = 12
 _TRAILING_PUNCTUATION = ".,;:"
+_HEADING_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
 
 
 def _collect_headings(doc: Document) -> list[Heading]:
@@ -243,11 +247,87 @@ def _coerce_positive_int(value: Any, default: int) -> int:
     return result if result > 0 else default
 
 
+class HeadingAsSentenceRule(LintRule):
+    """HDG006: Flag headings that read like a full sentence.
+
+    A heading is sentence-shaped if it both (a) has more words than the
+    configured threshold (default 12), and (b) ends with a sentence-final
+    punctuation mark (``.``, ``!``, ``?``). Either alone is unreliable —
+    short imperative headings sometimes end with ``!``, and long noun
+    phrases without punctuation are perfectly valid headings.
+    """
+
+    code = "HDG006"
+    name = "heading-as-sentence"
+    category = "headings"
+    description = "Headings should not read like full sentences."
+    default_severity = Severity.INFO
+
+    def check(self, ctx: LintContext) -> list[Violation]:
+        """Return a violation for each heading that looks like a sentence."""
+        max_words = _coerce_positive_int(
+            ctx.config.get("max_words", _DEFAULT_HEADING_SENTENCE_MAX_WORDS),
+            default=_DEFAULT_HEADING_SENTENCE_MAX_WORDS,
+        )
+        violations: list[Violation] = []
+        for heading in _collect_headings(ctx.document):
+            text = _heading_text(heading)
+            if not text:
+                continue
+            words = text.split()
+            ends_in_sentence_punct = text[-1] in ".!?"
+            if len(words) > max_words and ends_in_sentence_punct:
+                violations.append(
+                    self.build_violation(
+                        message=(
+                            f"Heading reads like a sentence ({len(words)} words ending in {text[-1]!r}): {text!r}"
+                        ),
+                        line=_line(heading),
+                        column=_column(heading),
+                        node_type="Heading",
+                        suggestion="Rewrite as a noun phrase or split into multiple headings",
+                        context=text[:80] or None,
+                    )
+                )
+        return violations
+
+
+class HeadingUrlRule(LintRule):
+    """HDG007: Flag headings whose text contains a URL."""
+
+    code = "HDG007"
+    name = "heading-url"
+    category = "headings"
+    description = "Headings should not contain raw URLs."
+    default_severity = Severity.WARNING
+
+    def check(self, ctx: LintContext) -> list[Violation]:
+        """Return a violation for each heading whose plain text contains a URL."""
+        violations: list[Violation] = []
+        for heading in _collect_headings(ctx.document):
+            text = _heading_text(heading)
+            match = _HEADING_URL_RE.search(text)
+            if match:
+                violations.append(
+                    self.build_violation(
+                        message=f"Heading contains a URL: {match.group(0)!r}",
+                        line=_line(heading),
+                        column=_column(heading),
+                        node_type="Heading",
+                        suggestion="Move the URL out of the heading and into the section body",
+                        context=text[:80] or None,
+                    )
+                )
+        return violations
+
+
 for _rule_cls in (
     HeadingTrailingPunctuationRule,
     HeadingLengthRule,
     DuplicateHeadingsRule,
     HeadingCapitalizationRule,
     HeadingEmphasisRule,
+    HeadingAsSentenceRule,
+    HeadingUrlRule,
 ):
     rule_registry.register(_rule_cls)

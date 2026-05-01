@@ -11,9 +11,9 @@ from typing import Any
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import collect_input_files
 from all2md.cli.config import load_config_with_priority
-from all2md.linter import LintConfig, LintRunner, Severity
-from all2md.linter.reporters import get_reporter
-from all2md.linter.runner import LintResult
+from all2md.linter import FixSafety, LintConfig, LintRunner, Severity
+from all2md.linter.reporters import ReportableResult, get_reporter
+from all2md.linter.runner import LintFixResult, LintResult
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,10 @@ def handle_lint_command(args: list[str] | None = None) -> int:
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else EXIT_ERROR
 
+    if parsed.dry_run and not parsed.fix:
+        print("Error: --dry-run requires --fix", file=sys.stderr)
+        return EXIT_ERROR
+
     try:
         config = _build_lint_config(parsed)
     except (ValueError, argparse.ArgumentTypeError) as exc:
@@ -50,7 +54,7 @@ def handle_lint_command(args: list[str] | None = None) -> int:
         return EXIT_FILE_ERROR
 
     runner = LintRunner(config=config)
-    results: list[LintResult] = []
+    results: list[ReportableResult] = []
     had_runtime_error = False
 
     for item in items:
@@ -64,8 +68,24 @@ def handle_lint_command(args: list[str] | None = None) -> int:
                 return EXIT_FILE_ERROR
             continue
 
+        if parsed.fix and (item.is_stdin() or item.is_remote()):
+            print(
+                f"Error: --fix requires file inputs; {item.display_name} is not supported",
+                file=sys.stderr,
+            )
+            return EXIT_FILE_ERROR
+
         try:
-            results.append(runner.lint_file(path))
+            if parsed.fix:
+                results.append(
+                    runner.lint_and_fix_file(
+                        path,
+                        max_safety=FixSafety.SAFE,
+                        write=not parsed.dry_run,
+                    )
+                )
+            else:
+                results.append(runner.lint_file(path))
         except FileNotFoundError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return EXIT_FILE_ERROR
@@ -93,18 +113,27 @@ def handle_lint_command(args: list[str] | None = None) -> int:
     if had_runtime_error:
         return EXIT_ERROR
 
-    total_remaining = sum(r.total for r in results)
+    total_remaining = sum(_post_total(r) for r in results)
     if total_remaining > 0:
         return EXIT_VALIDATION_ERROR
     return EXIT_SUCCESS
+
+
+def _post_total(result: ReportableResult) -> int:
+    """Return the count of violations to gate the exit code on."""
+    if isinstance(result, LintFixResult):
+        return result.final.total
+    assert isinstance(result, LintResult)
+    return result.total
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="all2md lint",
         description=(
-            "Lint converted documents for structural, heading, link, and typography issues. "
-            "Runs 20 built-in rules across four categories and reports violations."
+            "Lint converted documents for structural, heading, link, list, table, image, "
+            "and typography issues. Runs 47 built-in rules across seven categories. "
+            "Use --fix to apply safe auto-fixes in place."
         ),
     )
     parser.add_argument("inputs", nargs="+", help="Files, directories, or globs to lint")
@@ -149,6 +178,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "Minimum severity to report. Filters both output AND exit code: "
             "with --severity warning, INFO violations are dropped and do not affect the exit code."
         ),
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help=(
+            "Apply SAFE auto-fixes in place. Modifies the input file. "
+            "Only file inputs are supported (stdin/remote inputs are rejected)."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=("Used with --fix: report what would be fixed without writing the file. " "Has no effect without --fix."),
     )
     return parser
 

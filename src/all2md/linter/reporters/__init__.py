@@ -12,16 +12,19 @@ currently dispatches on short format names only.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Sequence, Union
 
-from all2md.linter.runner import LintResult
+from all2md.linter.runner import LintFixResult, LintResult
+
+ReportableResult = Union[LintResult, LintFixResult]
 
 
 class Reporter(ABC):
     """Abstract base for reporters."""
 
     @abstractmethod
-    def render(self, results: list[LintResult]) -> str:
-        """Render a list of lint results to a single string."""
+    def render(self, results: Sequence[ReportableResult]) -> str:
+        """Render a list of lint results (or lint+fix results) to a single string."""
 
 
 def get_reporter(name: str) -> Reporter:
@@ -45,4 +48,4 @@ def get_reporter(name: str) -> Reporter:
     raise ValueError(f"Unknown reporter format: {name!r}")
 
 
-__all__ = ["Reporter", "get_reporter"]
+__all__ = ["Reporter", "ReportableResult", "get_reporter"]

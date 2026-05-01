@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from all2md.linter.fixes import LintFix
 
 
 class Severity(IntEnum):
@@ -46,8 +49,13 @@ class Violation:
     column: Optional[int] = None
     node_type: Optional[str] = None
     suggestion: Optional[str] = None
-    fixable: bool = False
     context: Optional[str] = None
+    fix: Optional["LintFix"] = None
+
+    @property
+    def fixable(self) -> bool:
+        """True iff an auto-fix is attached to this violation."""
+        return self.fix is not None
 
     def to_dict(self) -> dict:
         """Serialize the violation to a plain dict (used by the JSON reporter)."""
@@ -61,5 +69,6 @@ class Violation:
             "node_type": self.node_type,
             "suggestion": self.suggestion,
             "fixable": self.fixable,
+            "fix_safety": self.fix.safety.label if self.fix is not None else None,
             "context": self.context,
         }

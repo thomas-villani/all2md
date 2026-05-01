@@ -1,7 +1,8 @@
-"""Link rules (LNK001-LNK005).
+"""Link rules (LNK001-LNK007).
 
 Checks link structure (empty text, missing URLs), duplicated URLs, bare URLs
-in plain text, and low-quality link labels like "click here".
+in plain text, low-quality link labels like "click here", insecure ``http://``
+links, and links whose text is the raw URL.
 """
 
 from __future__ import annotations
@@ -218,11 +219,85 @@ def _iter_text_nodes(doc: Document) -> Iterator[tuple[Text, bool]]:
     yield from walk(doc, False)
 
 
+class InsecureLinkRule(LintRule):
+    """LNK006: Flag links that use ``http://`` instead of ``https://``.
+
+    No auto-fix in v2.0 — blindly upgrading to HTTPS can break a fraction
+    of legitimate hosts. The lint output points the user at the link;
+    they decide whether to upgrade.
+    """
+
+    code = "LNK006"
+    name = "insecure-link"
+    category = "links"
+    description = "Links should use HTTPS where possible."
+    default_severity = Severity.INFO
+
+    def check(self, ctx: LintContext) -> list[Violation]:
+        """Return a violation for each ``http://`` Link URL."""
+        violations: list[Violation] = []
+        for link in _collect_links(ctx.document):
+            url = (link.url or "").strip()
+            if not url.lower().startswith("http://"):
+                continue
+            text = _link_text(link) or url
+            violations.append(
+                self.build_violation(
+                    message=f"Insecure HTTP link: {url!r}",
+                    line=_line(link),
+                    column=_column(link),
+                    node_type="Link",
+                    suggestion="Upgrade to HTTPS if the destination supports it",
+                    context=text[:80],
+                )
+            )
+        return violations
+
+
+class LinkTextIsUrlRule(LintRule):
+    """LNK007: Flag links whose visible text equals the URL itself.
+
+    Distinct from :class:`BareUrlRule` (LNK004): LNK004 catches raw URLs in
+    prose that aren't wrapped in link syntax at all; LNK007 catches links
+    of the form ``[https://x](https://x)`` where the markup is correct but
+    the visible text adds nothing.
+    """
+
+    code = "LNK007"
+    name = "link-text-is-url"
+    category = "links"
+    description = "Link text should describe the destination, not duplicate the URL."
+    default_severity = Severity.INFO
+
+    def check(self, ctx: LintContext) -> list[Violation]:
+        """Return a violation for each link whose text equals its URL."""
+        violations: list[Violation] = []
+        for link in _collect_links(ctx.document):
+            url = (link.url or "").strip()
+            text = _link_text(link).strip()
+            if not url or not text:
+                continue
+            if text.rstrip("/") == url.rstrip("/"):
+                violations.append(
+                    self.build_violation(
+                        message=f"Link text duplicates URL: {url!r}",
+                        line=_line(link),
+                        column=_column(link),
+                        node_type="Link",
+                        suggestion="Replace the link text with a descriptive phrase",
+                        context=text[:80],
+                    )
+                )
+        return violations
+
+
 for _rule_cls in (
     EmptyLinkTextRule,
     MissingUrlRule,
     DuplicateUrlsRule,
     BareUrlRule,
     LinkTextQualityRule,
+    InsecureLinkRule,
+    LinkTextIsUrlRule,
 ):
     rule_registry.register(_rule_cls)

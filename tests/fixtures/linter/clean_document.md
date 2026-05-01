@@ -15,8 +15,13 @@ Configuration lives in the standard locations. Refer to the
 
 ### Environment Variables
 
-Set the variables described below before running any commands.
+Set the variables described below before running any commands. Each
+variable controls a distinct aspect of the runtime, so review the full
+list rather than copying defaults from another project.
 
 ## Troubleshooting
 
-If something goes wrong, read the [FAQ](https://example.com/faq).
+If something goes wrong, read the [FAQ](https://example.com/faq) and
+then check the application logs. Most issues come from missing
+dependencies or stale configuration; rebuilding from a clean state
+resolves the majority of reports.

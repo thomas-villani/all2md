@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Linter v2: 27 new rules across three new categories and four expanded ones, bringing the total to 47 built-in rules. New categories: **LST** (lists), **TBL** (tables), **IMG** (images). Expanded categories: STR (`short-section`, `empty-document`, `excessive-nesting`), HDG (`heading-as-sentence`, `heading-url`), LNK (`insecure-link`, `link-text-is-url`), TYP (`ellipsis-character`, `space-before-punctuation`, `consecutive-punctuation`).
+- Auto-fix framework: `all2md lint --fix` applies safe auto-fixes in place. Seven rules ship with safe fixes attached: TYP001 (trailing-spaces), TYP002 (multiple-spaces), TYP003 (straight-quotes), TYP004 (double-hyphens), TYP006 (ellipsis-character), TYP007 (space-before-punctuation), and STR004 (empty-heading).
+- `--dry-run` flag for `lint --fix`: report what would be changed without writing the file.
+- Public API: `all2md.linter.lint_and_fix_document()`, `lint_and_fix_file()`, `LintFixResult`, `LintFix`, `FixSafety`, `FixContext`, `apply_fixes`.
+- Reporters now surface auto-fix results: the text reporter prints per-file `applied N fix(es)` plus deferred-conflict counts; the JSON reporter adds `applied_fixes`, `skipped_fixes`, `pre_fix_violations`, and `rewritten` keys per result entry.
+
+### Changed
+- `Violation.fixable` is now a derived `@property` (`fix is not None`) rather than a stored field. Code that constructs `Violation(..., fixable=True)` will need to pass a `LintFix` instead.
+- `LintRule.build_violation()` accepts an optional `fix=` keyword to attach a `LintFix` to a violation.
+
 ## [1.0.6] - 2026-04-10
 
 ### Added

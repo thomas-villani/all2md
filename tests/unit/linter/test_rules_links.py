@@ -1,4 +1,4 @@
-"""Happy-path coverage for LNK001-LNK005."""
+"""Happy-path coverage for LNK001-LNK007."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ from all2md.linter.rules.links import (
     BareUrlRule,
     DuplicateUrlsRule,
     EmptyLinkTextRule,
+    InsecureLinkRule,
+    LinkTextIsUrlRule,
     LinkTextQualityRule,
     MissingUrlRule,
 )
@@ -77,3 +79,27 @@ class TestLinkRules:
         result = LinkTextQualityRule().check(_ctx(doc))
         assert len(result) == 1
         assert result[0].rule_code == "LNK005"
+
+    def test_insecure_link_flags_http(self):
+        doc = Document(children=[_para_with_link(Link(url="http://example.com", content=[Text(content="docs")]))])
+        result = InsecureLinkRule().check(_ctx(doc))
+        assert len(result) == 1
+        assert result[0].rule_code == "LNK006"
+
+    def test_insecure_link_silent_for_https(self):
+        doc = Document(children=[_para_with_link(Link(url="https://example.com", content=[Text(content="docs")]))])
+        assert InsecureLinkRule().check(_ctx(doc)) == []
+
+    def test_link_text_is_url_flags_duplicates(self):
+        doc = Document(
+            children=[_para_with_link(Link(url="https://example.com", content=[Text(content="https://example.com")]))]
+        )
+        result = LinkTextIsUrlRule().check(_ctx(doc))
+        assert len(result) == 1
+        assert result[0].rule_code == "LNK007"
+
+    def test_link_text_is_url_silent_for_descriptive_text(self):
+        doc = Document(
+            children=[_para_with_link(Link(url="https://example.com", content=[Text(content="example.com homepage")]))]
+        )
+        assert LinkTextIsUrlRule().check(_ctx(doc)) == []
