@@ -17,7 +17,7 @@ import sys
 logger = logging.getLogger(__name__)
 
 
-def dispatch_command(args: list[str] | None = None) -> int | None:
+def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
     """Handle dependency management commands.
 
     Parameters
@@ -60,6 +60,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:
         from all2md.cli.commands.server import handle_serve_command
 
         return handle_serve_command(args[1:])
+
+    # Check for edit command
+    if args[0] == "edit":
+        from all2md.cli.commands.edit import handle_edit_command
+
+        return handle_edit_command(args[1:])
 
     # Check for generate-site command
     if args[0] == "generate-site":

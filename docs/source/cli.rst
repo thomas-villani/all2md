@@ -2293,6 +2293,153 @@ See Also
 - ``all2md view`` - For single-file browser preview
 - ``all2md --help`` - Built-in help
 
+Document Editing
+----------------
+
+The ``all2md edit`` command launches a local web-based editor (Toast UI Editor with both a Markdown source view and a WYSIWYG view) pre-loaded with any supported document converted to Markdown. After editing, the result can be saved back to disk in any installed target format. When an existing file would be overwritten a ``.bak`` copy is created automatically.
+
+.. code-block:: bash
+
+   all2md edit FILE [OPTIONS]
+
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Edit a Markdown file in-place (default: overwrite original, .bak created on save)
+   all2md edit notes.md
+
+   # Edit a DOCX (default save target is notes.md next to the original; original is untouched)
+   all2md edit report.docx
+
+   # Open without auto-launching a browser tab
+   all2md edit report.docx --no-browser
+
+The command will:
+
+1. Detect the input format and convert it to Markdown for the editor's initial value
+2. Bind to ``127.0.0.1`` on an OS-assigned ephemeral port (override with ``--port``)
+3. Open the editor URL in your default browser (unless ``--no-browser`` is set)
+4. Wait until you press Ctrl+C
+
+Arguments
+~~~~~~~~~
+
+**Required Argument:**
+
+``FILE``
+   Path to the file to edit. Stdin (``-``) is **not** accepted because saving back to stdin is meaningless.
+
+**Optional Arguments:**
+
+``--port PORT``
+   Port to bind. Default: ``0`` (OS-assigned ephemeral port). The chosen port is printed at startup.
+
+   .. code-block:: bash
+
+      all2md edit report.docx --port 8765
+
+``--host HOST``
+   Host address to bind to. Default: ``127.0.0.1`` (localhost only).
+
+``--no-browser``
+   Do not auto-open a browser tab. Useful for headless environments and tests.
+
+``--default-format FMT``
+   Pre-select a target format in the save dropdown. Must be a format whose renderer is installed (see ``all2md list-formats --available-only``). If unavailable, the default is used and a warning is printed.
+
+   .. code-block:: bash
+
+      all2md edit notes.md --default-format html
+
+Save Behavior
+~~~~~~~~~~~~~
+
+The editor's save controls (format dropdown, path field, overwrite checkbox) start with sensible defaults that depend on the original file's format:
+
+* **Markdown source** (``.md``): default target is the original path with overwrite **enabled** — saving creates a ``.bak`` next to the file before the new content lands.
+* **Any other source** (``.docx``, ``.pdf``, ``.html``, ``.eml`` …): default target is a sibling file with the same stem and the ``.md`` extension, with overwrite **disabled** — you must tick the checkbox to overwrite an existing file.
+
+The format dropdown is filtered at runtime: only target formats whose renderer is actually loadable (i.e. the relevant optional dependency is installed) are shown. ``markdown`` is always available and listed first.
+
+When the format is changed in the dropdown, the path field's extension is updated to match.
+
+The save endpoint behaves as follows:
+
+* ``200`` — file written; response includes the resolved path and the backup path (if any).
+* ``409`` — target file already exists and overwrite is unchecked. Either tick "Overwrite" or change the path.
+* ``400`` — target format is not available, or the request payload is malformed.
+* ``500`` — the underlying conversion (e.g. Markdown → DOCX) failed; the error message is shown inline.
+
+Examples
+~~~~~~~~
+
+**Edit a markdown file with overwrite-and-backup workflow:**
+
+.. code-block:: bash
+
+   all2md edit README.md
+   # Default: save → README.md is overwritten, README.md.bak holds the previous version
+
+**Convert a DOCX to Markdown via interactive cleanup:**
+
+.. code-block:: bash
+
+   all2md edit annual-report.docx
+   # Default save target: annual-report.md (sibling, never touches the .docx)
+
+**Round-trip a DOCX through the editor (lossy — see notes below):**
+
+.. code-block:: bash
+
+   all2md edit annual-report.docx --default-format docx
+   # Save dropdown pre-selects docx; tick "Overwrite" to replace the original
+   # (a .bak is still created)
+
+**Headless port-pinned use (e.g. Docker, remote dev):**
+
+.. code-block:: bash
+
+   all2md edit notes.md --no-browser --port 8765 --host 0.0.0.0
+
+Editing Workflow
+~~~~~~~~~~~~~~~~
+
+The Toast UI Editor offers two modes accessible via the toolbar tabs:
+
+* **Markdown** — split-pane source/preview. Best for technical documents, tables, math, and code blocks where you want exact control over the underlying syntax.
+* **WYSIWYG** — rich-text view with formatting toolbar. Best for prose, where you do not care about the underlying Markdown.
+
+You can switch freely between the two; the editor maintains a single source of truth.
+
+The status line beneath the save controls reports the result of the last save: the absolute path written, the backup path (if any), or the error message returned by the server.
+
+Round-Trip Fidelity
+~~~~~~~~~~~~~~~~~~~
+
+Editing a non-Markdown source and saving it back to its original format is a **lossy round-trip**: the file is parsed → AST → Markdown → AST → original format. Constructs that the converter pipeline does not preserve (advanced styles, embedded objects, merged-cell tables, custom layouts, etc.) will be normalized away. For this reason:
+
+* Saving over a non-Markdown original is **never** the default — you must tick "Overwrite".
+* A ``.bak`` is always created when overwriting, regardless of source format.
+* If you only need to read or annotate a binary document, prefer ``all2md view`` (no save round-trip).
+
+Markdown → Markdown editing is loss-free for the constructs Markdown can express, and is the recommended workflow.
+
+Security Notes
+~~~~~~~~~~~~~~
+
+* The editor server is **for development use on localhost**. Like ``all2md serve``, it is single-threaded and exposes a write-capable HTTP endpoint (``POST /api/save``).
+* The save endpoint accepts an arbitrary path and writes wherever your user has filesystem permission, so do not bind to ``0.0.0.0`` on shared networks.
+* The Toast UI Editor JavaScript and CSS are vendored under ``src/all2md/cli/commands/themes/assets/`` (MIT licensed) and served from ``/assets/`` with an explicit allow-list — there is no general static-file route and no path traversal is possible.
+
+See Also
+~~~~~~~~
+
+- ``all2md serve`` - Read-only browser preview of a directory of documents
+- ``all2md view`` - One-shot single-file browser preview
+- :doc:`python_api` - For programmatic conversion (no editor)
+
 Global Options
 --------------
 

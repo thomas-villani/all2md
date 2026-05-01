@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `all2md edit FILE` command — launches a local web-based editor (Toast UI Editor with Markdown and WYSIWYG modes) pre-loaded with any supported document converted to Markdown. Saves back to disk in any installed target format, with automatic `.bak` creation when overwriting. For `.md` sources the default save target is the original file (overwrite enabled); for any other format the default target is a sibling `.md` file (overwrite disabled). Toast UI assets are vendored under `themes/assets/` and served from `/assets/` with a strict allow-list.
 - Linter v2: 27 new rules across three new categories and four expanded ones, bringing the total to 47 built-in rules. New categories: **LST** (lists), **TBL** (tables), **IMG** (images). Expanded categories: STR (`short-section`, `empty-document`, `excessive-nesting`), HDG (`heading-as-sentence`, `heading-url`), LNK (`insecure-link`, `link-text-is-url`), TYP (`ellipsis-character`, `space-before-punctuation`, `consecutive-punctuation`).
 - Auto-fix framework: `all2md lint --fix` applies safe auto-fixes in place. Seven rules ship with safe fixes attached: TYP001 (trailing-spaces), TYP002 (multiple-spaces), TYP003 (straight-quotes), TYP004 (double-hyphens), TYP006 (ellipsis-character), TYP007 (space-before-punctuation), and STR004 (empty-heading).
 - `--dry-run` flag for `lint --fix`: report what would be changed without writing the file.

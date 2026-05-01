@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>{TITLE}</title>
+    <link rel="stylesheet" href="/assets/toastui-editor.min.css">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #222;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            padding: 0.75rem 1rem;
+            background: #ffffff;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+        }
+        header h1 {
+            font-size: 1rem;
+            margin: 0;
+            font-weight: 600;
+        }
+        header .source-path {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.85rem;
+            color: #666;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #editor {
+            flex: 1;
+            overflow: hidden;
+        }
+        #save-bar {
+            padding: 0.75rem 1rem;
+            background: #ffffff;
+            border-top: 1px solid #e1e4e8;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        #save-bar label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+        }
+        #save-bar input[type="text"], #save-bar select {
+            padding: 0.4rem 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+        #save-bar input[type="text"] {
+            flex: 1 1 280px;
+            min-width: 200px;
+            font-family: "Courier New", Courier, monospace;
+        }
+        #save-bar button {
+            padding: 0.5rem 1.2rem;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        #save-bar button:hover { background: #0052a3; }
+        #save-bar button:disabled { background: #999; cursor: not-allowed; }
+        #status {
+            font-size: 0.85rem;
+            min-height: 1.2rem;
+        }
+        #status.ok { color: #1a7f37; }
+        #status.err { color: #cf222e; }
+        #status.busy { color: #777; }
+        .overwrite-control {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>all2md edit</h1>
+    <span class="source-path" id="source-path"></span>
+</header>
+<div id="editor"></div>
+<div id="save-bar">
+    <label for="format-select">Save as:</label>
+    <select id="format-select"></select>
+    <label for="path-input">Path:</label>
+    <input id="path-input" type="text">
+    <span class="overwrite-control">
+        <input id="overwrite-cb" type="checkbox">
+        <label for="overwrite-cb">Overwrite (keeps a .bak)</label>
+    </span>
+    <button id="save-btn" type="button">Save</button>
+    <span id="status"></span>
+</div>
+<script src="/assets/toastui-editor-all.min.js"></script>
+<script id="initial-state" type="application/json">{INITIAL_STATE_JSON}</script>
+<script>
+(function () {
+    var state = JSON.parse(document.getElementById('initial-state').textContent);
+    document.getElementById('source-path').textContent = state.source_path;
+
+    var editor = new toastui.Editor({
+        el: document.getElementById('editor'),
+        height: '100%',
+        initialEditType: 'markdown',
+        previewStyle: 'vertical',
+        usageStatistics: false,
+        initialValue: state.initial_md
+    });
+
+    var formatSelect = document.getElementById('format-select');
+    state.formats.forEach(function (fmt) {
+        var opt = document.createElement('option');
+        opt.value = fmt.value;
+        opt.textContent = fmt.label;
+        opt.dataset.extension = fmt.extension;
+        if (fmt.value === state.default_target_format) opt.selected = true;
+        formatSelect.appendChild(opt);
+    });
+
+    var pathInput = document.getElementById('path-input');
+    pathInput.value = state.default_target_path;
+
+    var overwriteCb = document.getElementById('overwrite-cb');
+    overwriteCb.checked = !!state.default_overwrite;
+
+    var statusEl = document.getElementById('status');
+    var saveBtn = document.getElementById('save-btn');
+
+    function setStatus(msg, cls) {
+        statusEl.textContent = msg;
+        statusEl.className = cls || '';
+    }
+
+    formatSelect.addEventListener('change', function () {
+        var ext = formatSelect.options[formatSelect.selectedIndex].dataset.extension || '';
+        var current = pathInput.value;
+        var dot = current.lastIndexOf('.');
+        var slash = Math.max(current.lastIndexOf('/'), current.lastIndexOf('\\'));
+        if (dot > slash && ext) {
+            pathInput.value = current.substring(0, dot) + '.' + ext;
+        } else if (ext) {
+            pathInput.value = current + '.' + ext;
+        }
+    });
+
+    saveBtn.addEventListener('click', function () {
+        var payload = {
+            content: editor.getMarkdown(),
+            target_format: formatSelect.value,
+            target_path: pathInput.value,
+            overwrite: overwriteCb.checked
+        };
+        setStatus('Saving...', 'busy');
+        saveBtn.disabled = true;
+        fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function (r) {
+            return r.json().then(function (j) { return { ok: r.ok, body: j }; });
+        }).then(function (res) {
+            if (res.ok && res.body.ok) {
+                var msg = 'Saved to ' + res.body.written;
+                if (res.body.backup) msg += ' (backup: ' + res.body.backup + ')';
+                setStatus(msg, 'ok');
+            } else {
+                setStatus('Error: ' + (res.body.error || 'unknown'), 'err');
+            }
+        }).catch(function (e) {
+            setStatus('Error: ' + e.message, 'err');
+        }).finally(function () {
+            saveBtn.disabled = false;
+        });
+    });
+})();
+</script>
+</body>
+</html>

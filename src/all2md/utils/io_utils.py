@@ -11,6 +11,7 @@ output destinations (files, file-like objects, or returning as file-like objects
 from __future__ import annotations
 
 import io
+import shutil
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import IO, Union, cast
@@ -137,4 +138,36 @@ def write_content(
     raise TypeError(f"Unsupported output type: {type(output)}")
 
 
-__all__ = ["write_content"]
+def backup_file(path: Path) -> Path | None:
+    """Copy ``path`` to a sibling backup file before it is overwritten.
+
+    Tries ``<path>.bak`` first; if that is taken, falls back to
+    ``<path>.bak.1``, ``<path>.bak.2``, ... until a free name is found.
+    Returns the chosen backup path, or ``None`` if ``path`` does not exist
+    (in which case there is nothing to back up).
+
+    Parameters
+    ----------
+    path : Path
+        File that is about to be overwritten.
+
+    Returns
+    -------
+    Path or None
+        Path to the created backup, or None if no backup was needed.
+
+    """
+    if not path.exists():
+        return None
+
+    candidate = path.with_suffix(path.suffix + ".bak")
+    counter = 1
+    while candidate.exists():
+        candidate = path.with_suffix(path.suffix + f".bak.{counter}")
+        counter += 1
+
+    shutil.copy2(path, candidate)
+    return candidate
+
+
+__all__ = ["backup_file", "write_content"]

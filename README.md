@@ -54,6 +54,10 @@ all2md arxiv paper.md -o submission.tar.gz --bib references.bib
 all2md view document.pdf
 all2md view spreadsheet.xlsx --theme docs
 
+# Edit any document in a browser-based Markdown/WYSIWYG editor and save back
+all2md edit notes.md                  # md source: overwrite original (with .bak)
+all2md edit report.docx               # non-md: default save is report.md (sibling)
+
 # Extract specific sections by heading name
 all2md doc.pdf --extract "Introduction"
 all2md view report.docx --extract "Q3 Results"
@@ -163,6 +167,7 @@ Beyond basic conversion, the CLI includes advanced features for production workf
 - **Parallel Processing** - Multi-worker processing for large document sets
 - **Static Site Generation** - Built-in SSG with 5 themes (dark, docs, minimal, newspaper, sidebar)
 - **Quick Preview** - `all2md view` command for instant HTML preview
+- **Web Editor** - `all2md edit` opens any document in a Markdown + WYSIWYG editor and saves back to any supported format with automatic backups
 - **Config Management** - Generate, validate, and manage conversion configs
 - **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
 - **Agent-Friendly** - Clean, intuitive interface that AI agents can use directly, plus pre-built agent skills installable via `all2md install-skills`
