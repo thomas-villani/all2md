@@ -2353,6 +2353,13 @@ Arguments
 
       all2md edit notes.md --default-format html
 
+``--no-preserve-formatting``
+   When the source and target are both ``.docx``, the editor by default uses the original document as a rendering template — page setup, theme, headers/footers, and custom paragraph styles ("Chapter Title", "Caption", etc.) are inherited so the saved file looks like the document you started from. Pass this flag to disable that behavior and render a generic ``.docx`` instead.
+
+   .. code-block:: bash
+
+      all2md edit annual-report.docx --default-format docx --no-preserve-formatting
+
 Save Behavior
 ~~~~~~~~~~~~~
 
@@ -2389,13 +2396,15 @@ Examples
    all2md edit annual-report.docx
    # Default save target: annual-report.md (sibling, never touches the .docx)
 
-**Round-trip a DOCX through the editor (lossy — see notes below):**
+**Round-trip a DOCX through the editor with formatting preserved:**
 
 .. code-block:: bash
 
    all2md edit annual-report.docx --default-format docx
    # Save dropdown pre-selects docx; tick "Overwrite" to replace the original
-   # (a .bak is still created)
+   # (a .bak is still created). The original document is used as a rendering
+   # template, so page setup, theme, headers/footers, and custom paragraph
+   # styles survive the round-trip.
 
 **Headless port-pinned use (e.g. Docker, remote dev):**
 
@@ -2418,13 +2427,24 @@ The status line beneath the save controls reports the result of the last save: t
 Round-Trip Fidelity
 ~~~~~~~~~~~~~~~~~~~
 
-Editing a non-Markdown source and saving it back to its original format is a **lossy round-trip**: the file is parsed → AST → Markdown → AST → original format. Constructs that the converter pipeline does not preserve (advanced styles, embedded objects, merged-cell tables, custom layouts, etc.) will be normalized away. For this reason:
+Editing a non-Markdown source and saving it back to its original format is in general a **lossy round-trip**: the file is parsed → AST → Markdown → AST → original format. Constructs that the converter pipeline does not preserve (embedded objects, merged-cell tables, custom layouts, etc.) will be normalized away. For this reason:
 
 * Saving over a non-Markdown original is **never** the default — you must tick "Overwrite".
 * A ``.bak`` is always created when overwriting, regardless of source format.
 * If you only need to read or annotate a binary document, prefer ``all2md view`` (no save round-trip).
 
 Markdown → Markdown editing is loss-free for the constructs Markdown can express, and is the recommended workflow.
+
+**DOCX round-trip preservation.** When both source and target are ``.docx``, the editor uses the original document as a rendering template by default: the AST replaces the body content, but the document inherits page setup, section properties, default fonts, theme, headers/footers, and the *definitions* of every named style. Paragraphs that originated from a custom style ("Chapter Title", "Caption", "Quote_Custom", …) are tagged on the AST with the source style name and re-applied on output, so they keep that style instead of collapsing to "Heading 1" / "Normal".
+
+What still does not round-trip:
+
+* Run-level character styles (e.g. "Quote Char", "Intense Reference") — only paragraph-level styles are preserved today.
+* Direct/manual run formatting that wasn't a named style (specific colors, highlights, custom fonts at the run level).
+* Content controls, fields, footnotes/endnotes if the AST drops them, drawings/SmartArt, and comments anchored to specific runs.
+* New content the user adds during editing receives the template's default style — markdown's structural model has no concept of the document's custom inline character styles.
+
+Pass ``--no-preserve-formatting`` to disable template inheritance and produce a generic ``.docx`` instead. Other binary targets (``pptx``, ``odt``, ``odp``) do not currently use template-based preservation.
 
 Security Notes
 ~~~~~~~~~~~~~~

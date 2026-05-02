@@ -124,6 +124,21 @@ class DocxRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
+    clear_template_body: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "When template_path is set, remove the template's existing body "
+                "content (paragraphs, tables) before rendering the AST. Section "
+                "properties (margins, page size), headers/footers, and style "
+                "definitions are always preserved. Default False keeps the "
+                "append behavior (useful for letterhead-style templates); set "
+                "True for round-trip 'edit' workflows that want to replace the "
+                "body while preserving the document's look."
+            ),
+            "importance": "core",
+        },
+    )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions,
         metadata={

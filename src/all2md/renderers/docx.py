@@ -158,6 +158,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Create new Word document (with template if specified)
             if self.options.template_path:
                 self.document = self._Document(self.options.template_path)
+                if self.options.clear_template_body:
+                    self._clear_template_body()
             else:
                 self.document = self._Document()
 
@@ -239,6 +241,23 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     def _has_style(self, name: str) -> bool:
         """Check whether the document contains a style with the given name."""
         return name in self._available_styles
+
+    def _clear_template_body(self) -> None:
+        """Strip body block content from a loaded template, preserving sectPr.
+
+        Removes all paragraphs and tables that came from the template so the
+        AST renders into a fresh body. The trailing ``w:sectPr`` element is
+        preserved because it carries page size, margins, and column settings;
+        headers and footers live in separate parts referenced by ``sectPr``,
+        so they are also retained.
+        """
+        if not self.document:
+            return
+        body = self.document.element.body
+        sectPr = body.find(self._qn("w:sectPr"))
+        for child in list(body):
+            if child is not sectPr:
+                body.remove(child)
 
     def _cleanup_temp_files(self) -> None:
         """Remove temporary files created during rendering."""
@@ -520,6 +539,21 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             self._current_paragraph = None
             return
 
+        # Honor source_style metadata when the template defines that style
+        # (e.g. a "Chapter Title" paragraph round-trips back to "Chapter Title"
+        # rather than a generic "Heading 1"). Falls through silently when no
+        # template is in use or the style isn't present.
+        source_style = node.metadata.get("source_style")
+        if self.options.use_styles and source_style and self._has_style(source_style):
+            heading = self.document.add_paragraph(style=source_style)
+            if self._blockquote_depth > 0:
+                heading.paragraph_format.left_indent = self._Inches(0.5 * self._blockquote_depth)
+            self._current_paragraph = heading
+            for child in node.content:
+                child.accept(self)
+            self._current_paragraph = None
+            return
+
         # Add heading with appropriate level
         level = min(9, max(1, node.level))  # Word supports levels 1-9
 
@@ -573,7 +607,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Don't create new paragraph if we're already in one (e.g., heading)
         if self._current_paragraph is None:
-            self._current_paragraph = self.document.add_paragraph()
+            source_style = node.metadata.get("source_style")
+            if self.options.use_styles and source_style and self._has_style(source_style):
+                self._current_paragraph = self.document.add_paragraph(style=source_style)
+            else:
+                self._current_paragraph = self.document.add_paragraph()
 
             # Apply blockquote indentation if inside a blockquote
             if self._blockquote_depth > 0:

@@ -190,6 +190,95 @@ Advanced DOCX Customization
    with open('output.docx', 'wb') as f:
        f.write(docx_bytes)
 
+.. _round-trip-editing-with-template-preservation:
+
+Round-Trip Editing with Template Preservation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A frequent use case — especially for LLM-driven editing — is parsing an
+existing ``.docx``, transforming it via the AST or its Markdown projection,
+and writing it back to a ``.docx`` that still looks like the original
+document. The plain round-trip is lossy (page setup, theme, custom styles
+all collapse to defaults), so all2md exposes two related mechanisms to
+preserve formatting via *template-based rendering*:
+
+* The renderer option ``template_path`` already loaded the template's
+  styles, theme, headers/footers, and section properties (margins, page
+  size). This existed before — it's the foundation.
+* A new ``clear_template_body`` flag (default ``False``) controls whether
+  the template's existing body content is *kept and the AST appended*
+  (letterhead-style, the historical behavior) or *cleared and replaced*
+  by the AST (round-trip-style).
+* A ``preserve_formatting`` kwarg on :func:`from_ast`, :func:`from_markdown`,
+  and :func:`convert` is a one-flag shortcut that picks up the source path
+  ``to_ast`` automatically stashes on ``Document.metadata['source_path']``
+  and applies both ``template_path`` and ``clear_template_body=True``.
+
+The simplest LLM-edit workflow:
+
+.. code-block:: python
+
+   from all2md import to_ast, from_ast
+
+   # Parse the original document. to_ast stashes the absolute file path on
+   # the AST when given a file path (skipped for streams or bytes).
+   doc = to_ast("report.docx")
+   assert doc.metadata["source_path"].endswith("report.docx")
+
+   # ... apply transforms, hand the markdown form to an LLM and replace
+   # the AST, run a NodeTransformer, etc. ...
+
+   # Render back. preserve_formatting=True means the original is used as
+   # the rendering template and its body is replaced by the new AST.
+   from_ast(doc, "docx", output="report.docx", preserve_formatting=True)
+
+The same flag works on ``convert`` for a direct ``.docx`` → ``.docx`` pass
+that has to round-trip through the AST:
+
+.. code-block:: python
+
+   from all2md import convert
+
+   convert("input.docx", "output.docx", preserve_formatting=True)
+
+If you need finer control — for example, you parsed from a stream and want
+to use a *different* docx as the template — pass the renderer options
+explicitly instead:
+
+.. code-block:: python
+
+   from all2md import from_ast
+   from all2md.options.docx import DocxRendererOptions
+
+   options = DocxRendererOptions(
+       template_path="corporate_template.docx",
+       clear_template_body=True,  # replace template body with AST content
+   )
+   from_ast(doc, "docx", output="report.docx", renderer_options=options)
+
+Set ``clear_template_body=False`` (the default) to keep the template's
+body content and *append* the AST after it — the natural fit for a
+letterhead, cover page, or boilerplate-prefix template:
+
+.. code-block:: python
+
+   options = DocxRendererOptions(
+       template_path="letterhead.docx",
+       # clear_template_body=False  (default; template body is preserved)
+   )
+   from_ast(doc, "docx", output="letter.docx", renderer_options=options)
+
+**What round-trips and what doesn't.** When ``preserve_formatting=True``
+or ``template_path`` is set, the parser also stashes the originating Word
+style name on AST nodes via ``metadata['source_style']``. The renderer
+re-applies that style on output if the template defines it, so a
+paragraph with style ``"Chapter Title"`` round-trips as ``"Chapter
+Title"`` rather than collapsing to ``"Heading 1"``. Run-level character
+styles (e.g. ``"Quote Char"``) are *not* yet preserved; only paragraph-
+level styles. Direct/manual run formatting outside named styles, content
+controls, drawings/SmartArt, and run-anchored comments are likewise lost
+on round-trip.
+
 Markdown to HTML
 ----------------
 
@@ -776,6 +865,11 @@ Best Practices
       # Compare (note: formatting may differ)
       assert len(original_md) > 0
       assert len(roundtrip_md) > 0
+
+   For lossless ``.docx`` → ``.docx`` round-trips (page setup, theme, and
+   named paragraph styles preserved), use ``preserve_formatting=True`` —
+   see :ref:`Round-Trip Editing with Template Preservation
+   <round-trip-editing-with-template-preservation>` below.
 
 Markdown to EPUB
 -----------------

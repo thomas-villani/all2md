@@ -467,7 +467,10 @@ class DocxToAstConverter(BaseParser):
         if heading_match:
             level = int(heading_match.group(1))
             content = self._process_paragraph_runs_to_inline(paragraph)
-            return Heading(level=level, content=content)
+            heading = Heading(level=level, content=content)
+            if style_name:
+                heading.metadata["source_style"] = style_name
+            return heading
         return None
 
     def _try_process_code_block(self, paragraph: "Paragraph", style_name: str) -> CodeBlock | None:
@@ -488,17 +491,32 @@ class DocxToAstConverter(BaseParser):
             return ThematicBreak()
         return None
 
+    def _build_paragraph_node(self, content: list[Node], style_name: str) -> AstParagraph:
+        """Build an AstParagraph and stash the source style name when meaningful.
+
+        ``Normal`` is the default Word body style — it carries no extra
+        information for round-tripping, so we skip it to avoid noise in
+        ``Document.metadata``. Custom paragraph styles ("Caption",
+        "Quote_Custom", etc.) are stashed on ``metadata['source_style']``
+        so the renderer can re-apply them when a template is in use.
+        """
+        para = AstParagraph(content=content)
+        if style_name and style_name != "Normal":
+            para.metadata["source_style"] = style_name
+        return para
+
     def _process_regular_paragraph(
-        self, paragraph: "Paragraph", math_blocks: list[MathBlock]
+        self, paragraph: "Paragraph", math_blocks: list[MathBlock], style_name: str = ""
     ) -> Node | list[Node] | None:
         """Process a regular (non-list) paragraph with optional math blocks."""
         content = self._process_paragraph_runs_to_inline(paragraph)
         if content:
             has_non_whitespace = any(not isinstance(node, Text) or node.content.strip() for node in content)
             if has_non_whitespace:
+                para_node = self._build_paragraph_node(content, style_name)
                 if math_blocks:
-                    return [AstParagraph(content=content), *math_blocks]
-                return AstParagraph(content=content)
+                    return [para_node, *math_blocks]
+                return para_node
 
         if math_blocks:
             return math_blocks[0] if len(math_blocks) == 1 else cast(list[Node], math_blocks)
@@ -549,12 +567,12 @@ class DocxToAstConverter(BaseParser):
             if accumulated_list:
                 nodes.append(accumulated_list)
             if content:
-                nodes.append(AstParagraph(content=content))
+                nodes.append(self._build_paragraph_node(content, style_name))
             if math_blocks:
                 nodes.extend(math_blocks)
             return nodes[0] if len(nodes) == 1 else (nodes or None)
 
-        return self._process_regular_paragraph(paragraph, math_blocks)
+        return self._process_regular_paragraph(paragraph, math_blocks, style_name)
 
     def _process_list_item_paragraph(self, paragraph: "Paragraph", list_type: str, level: int) -> Node | None:
         """Process a paragraph that is part of a list.

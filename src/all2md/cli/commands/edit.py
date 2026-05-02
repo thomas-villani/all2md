@@ -126,10 +126,26 @@ def _render_editor_page(
     return html
 
 
-def _convert_md_to_target(content: str, target_format: str, output_path: Path) -> None:
-    """Re-parse edited markdown and render it to the chosen target format."""
+def _convert_md_to_target(
+    content: str,
+    target_format: str,
+    output_path: Path,
+    source_path: Path | None = None,
+) -> None:
+    """Re-parse edited markdown and render it to the chosen target format.
+
+    When ``source_path`` is provided and both source and target are docx, the
+    original document is used as the rendering template (with its body cleared
+    so the AST replaces it). This preserves theme, page setup, headers/
+    footers, and custom paragraph styles on round-trip; pass ``source_path=None``
+    to fall back to a generic render.
+    """
     ast = to_ast(io.BytesIO(content.encode("utf-8")), source_format="markdown")
-    from_ast(ast, cast(DocumentFormat, target_format), output=output_path)
+    kwargs: Dict[str, Any] = {}
+    if source_path is not None and target_format == "docx" and source_path.suffix.lower() == ".docx":
+        kwargs["template_path"] = str(source_path)
+        kwargs["clear_template_body"] = True
+    from_ast(ast, cast(DocumentFormat, target_format), output=output_path, **kwargs)
 
 
 def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
@@ -154,6 +170,16 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
     parser.add_argument(
         "--default-format",
         help="Pre-select this format in the save dropdown (overrides default)",
+    )
+    parser.add_argument(
+        "--no-preserve-formatting",
+        action="store_true",
+        help=(
+            "When the source and target are both .docx, by default the edited "
+            "document inherits the original's theme, page setup, headers/"
+            "footers, and custom styles via template-based rendering. Pass "
+            "this flag to disable that and render a generic .docx instead."
+        ),
     )
 
     try:
@@ -326,8 +352,9 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
 
             backup_path = backup_file(target_path) if overwrite else None
 
+            preserve_source = input_path if not parsed.no_preserve_formatting and source_format == "docx" else None
             try:
-                _convert_md_to_target(content, target_format, target_path)
+                _convert_md_to_target(content, target_format, target_path, source_path=preserve_source)
             except Exception as exc:
                 self._send_json(500, {"ok": False, "error": f"save failed: {exc}"})
                 return

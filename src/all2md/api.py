@@ -721,12 +721,69 @@ def to_ast(
         parser_class = registry.get_parser(actual_format)
         parser = parser_class(options=final_parser_options, progress_callback=progress_callback)
         ast_doc = parser.parse(resolved_payload)
+        # Auto-stash the originating file path on the document so callers
+        # (including LLM-driven edit workflows) can round-trip back to the
+        # same format using preserve_formatting=True without manually
+        # threading the path through. Skipped for streams and bytes.
+        _record_source_path(ast_doc, source)
         return ast_doc
 
     except All2MdError:
         raise
     except Exception as e:
         raise ParsingError(f"AST conversion failed: {e!r}", parsing_stage="ast_conversion", original_error=e) from e
+
+
+def _record_source_path(ast_doc: "Document", source: Any) -> None:
+    """Stash the absolute path of a file-based source onto the AST.
+
+    Populates ``ast_doc.metadata['source_path']`` only when the caller
+    handed in a ``str`` or ``Path`` that resolves to an existing file.
+    Streams, bytes, and content-strings (which look path-like but don't
+    exist on disk) are left alone.
+    """
+    if not isinstance(source, (str, Path)):
+        return
+    try:
+        candidate = Path(source)
+    except (TypeError, ValueError):
+        return
+    try:
+        if candidate.is_file():
+            ast_doc.metadata["source_path"] = str(candidate.resolve())
+    except OSError:
+        # Path may be too long, contain illegal chars, or be unreachable;
+        # treat it the same as a non-file input and skip.
+        return
+
+
+def _maybe_apply_preserve_formatting(
+    preserve_formatting: bool,
+    ast_doc: "Document",
+    target_format: str,
+    renderer_options: Optional[BaseRendererOptions],
+    kwargs: dict,
+) -> None:
+    """When enabled, route a template-based round-trip through render kwargs.
+
+    Sets ``template_path`` to the AST's stashed source path and
+    ``clear_template_body=True`` so the AST replaces the template's body
+    while inheriting page setup, theme, headers/footers, and style
+    definitions. No-ops if the target isn't docx, the AST has no
+    ``source_path``, or the caller already specified a ``template_path``
+    via ``renderer_options`` or kwargs.
+    """
+    if not preserve_formatting or target_format != "docx":
+        return
+    source_path = ast_doc.metadata.get("source_path") if ast_doc.metadata else None
+    if not source_path:
+        return
+    if "template_path" in kwargs:
+        return
+    if renderer_options is not None and getattr(renderer_options, "template_path", None):
+        return
+    kwargs["template_path"] = source_path
+    kwargs.setdefault("clear_template_body", True)
 
 
 def from_ast(
@@ -738,6 +795,7 @@ def from_ast(
     transforms: Optional[list] = None,
     hooks: Optional[dict] = None,
     progress_callback: Optional[ProgressCallback] = None,
+    preserve_formatting: bool = False,
     **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Render AST document to a target format.
@@ -765,6 +823,13 @@ def from_ast(
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
+    preserve_formatting : bool, default False
+        When True and ``target_format`` is ``"docx"``, use the AST's stashed
+        ``source_path`` (populated by ``to_ast`` for file-based inputs) as the
+        rendering template and clear its body before rendering. This preserves
+        page setup, theme, headers/footers, and custom style definitions from
+        the original document on a docx round-trip. Ignored if no source path
+        is stashed or the caller already specified a ``template_path``.
     kwargs : Any
         Additional renderer options that override renderer_options
 
@@ -806,6 +871,9 @@ def from_ast(
         >>> markdown_text = from_ast(ast_doc, "markdown", renderer_options=md_opts)
 
     """
+    # Inject template_path / clear_template_body when preserve_formatting=True
+    _maybe_apply_preserve_formatting(preserve_formatting, ast_doc, target_format, renderer_options, kwargs)
+
     # Prepare renderer options
     final_renderer_options: Optional[BaseRendererOptions]
     if kwargs and renderer_options:
@@ -843,6 +911,7 @@ def from_markdown(
     transforms: Optional[list] = None,
     hooks: Optional[dict] = None,
     progress_callback: Optional[ProgressCallback] = None,
+    preserve_formatting: bool = False,
     **kwargs: Any,
 ) -> Union[None, str, bytes]:
     r"""Convert Markdown content to another format.
@@ -872,6 +941,12 @@ def from_markdown(
         Optional callback function for progress updates. Receives ProgressEvent
         objects with event_type, message, current/total counts, and metadata.
         See all2md.progress for details.
+    preserve_formatting : bool, default False
+        When True and ``target_format`` is ``"docx"``, use the AST's stashed
+        ``source_path`` as a rendering template and clear its body. Only useful
+        when the markdown source was originally derived from a docx file whose
+        path is still available; in that case pass ``template_path`` explicitly
+        instead. See ``from_ast`` for details.
     kwargs : Any
         Additional options split between parser and renderer
 
@@ -923,6 +998,7 @@ def from_markdown(
         transforms=transforms,
         hooks=hooks,
         progress_callback=progress_callback,
+        preserve_formatting=preserve_formatting,
         **kwargs,
     )
 
@@ -941,6 +1017,7 @@ def convert(
     flavor: Optional[str] = None,
     progress_callback: Optional[ProgressCallback] = None,
     remote_input_options: Optional[RemoteInputOptions] = None,
+    preserve_formatting: bool = False,
     **kwargs: Any,
 ) -> Union[None, str, bytes]:
     """Convert between document formats.
@@ -979,6 +1056,13 @@ def convert(
     remote_input_options : RemoteInputOptions, optional
         Controls remote retrieval behaviour for the source input. Defaults to None
         (remote fetching disabled).
+    preserve_formatting : bool, default False
+        When True and the target is ``"docx"`` and the source is a docx file,
+        the rendered output uses the source as its template and the source's
+        body is cleared before rendering. This makes a docx round-trip
+        (e.g. ``convert("in.docx", "out.docx")``) preserve page setup, theme,
+        headers/footers, and custom paragraph styles instead of regenerating
+        a generic-looking document.
     kwargs : Any
         Additional options split between parser and renderer
 
@@ -1087,6 +1171,15 @@ def convert(
     # Prepare renderer options
     if flavor:
         renderer_kwargs["flavor"] = flavor
+
+    # Inject template_path / clear_template_body when preserve_formatting=True
+    _maybe_apply_preserve_formatting(
+        preserve_formatting,
+        ast_document,
+        actual_target_format,
+        renderer_options,
+        renderer_kwargs,
+    )
 
     final_renderer_options: Optional[BaseRendererOptions]
     if renderer_kwargs and renderer_options:
