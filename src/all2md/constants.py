@@ -702,6 +702,7 @@ DEFAULT_HEADER_DEBUG_OUTPUT = False  # Enable debug output for header detection 
 DEFAULT_DETECT_COLUMNS = True
 DEFAULT_MERGE_HYPHENATED_WORDS = True
 DEFAULT_HANDLE_ROTATED_TEXT = True
+DEFAULT_ANNOTATE_ROTATED_TEXT = False
 DEFAULT_COLUMN_GAP_THRESHOLD = 20  # Minimum gap between columns in points
 DEFAULT_COLUMN_DETECTION_MODE: ColumnDetectionMode = "auto"
 DEFAULT_USE_COLUMN_CLUSTERING = False  # Use k-means clustering for column detection

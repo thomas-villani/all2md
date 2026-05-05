@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from all2md.constants import (
+    DEFAULT_ANNOTATE_ROTATED_TEXT,
     DEFAULT_AUTO_TRIM_HEADERS_FOOTERS,
     DEFAULT_COLUMN_DETECTION_MODE,
     DEFAULT_COLUMN_GAP_THRESHOLD,
@@ -104,6 +105,11 @@ class PdfOptions(PaginatedParserOptions):
         Merge words split by hyphens at line breaks.
     handle_rotated_text : bool, default True
         Process rotated text blocks.
+    annotate_rotated_text : bool, default False
+        Append a marker like ``*[rotated 90° counter-clockwise]*`` after rotated
+        text. Off by default — most documents (e.g. figure axis labels) produce
+        only noise. Consecutive same-direction rotated lines are grouped into
+        a single paragraph regardless of this setting.
     column_gap_threshold : float, default 20
         Minimum gap between columns in points.
     column_detection_mode : str, default "auto"
@@ -323,6 +329,13 @@ class PdfOptions(PaginatedParserOptions):
         metadata={
             "help": "Process rotated text blocks",
             "cli_name": "no-handle-rotated-text",  # default=True, use --no-*
+            "importance": "advanced",
+        },
+    )
+    annotate_rotated_text: bool = field(
+        default=DEFAULT_ANNOTATE_ROTATED_TEXT,
+        metadata={
+            "help": "Append a rotation marker (e.g. *[rotated 90° counter-clockwise]*) after rotated text",
             "importance": "advanced",
         },
     )

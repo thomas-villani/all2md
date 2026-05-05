@@ -78,7 +78,11 @@ from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
 from all2md.parsers._pdf_tables import detect_tables_by_ruling_lines
-from all2md.parsers._pdf_text import handle_rotated_text
+from all2md.parsers._pdf_text import (
+    classify_line_rotation,
+    extract_rotated_text,
+    format_rotation_note,
+)
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
@@ -110,6 +114,8 @@ class _BlockProcessingState:
     paragraph_is_list: bool = False
     paragraph_list_type: str | None = None
     previous_y: float = 0.0
+    pending_rotated_text: list[str] = field(default_factory=list)
+    pending_rotated_key: str | None = None
 
     def reset_paragraph(self) -> None:
         """Reset paragraph accumulation state."""
@@ -122,6 +128,11 @@ class _BlockProcessingState:
         """Reset code block state."""
         self.in_code_block = False
         self.code_block_lines = []
+
+    def reset_rotated(self) -> None:
+        """Reset accumulated rotated-text run."""
+        self.pending_rotated_text = []
+        self.pending_rotated_key = None
 
 
 def _check_pymupdf_version() -> None:
@@ -1093,6 +1104,7 @@ class PdfToAstConverter(BaseParser):
                         nodes.append(table_node)
 
         # Post-processing
+        nodes = self._merge_rotated_paragraphs(nodes)
         nodes = self._merge_adjacent_paragraphs(nodes)
         nodes = self._convert_paragraphs_to_lists(nodes)
 
@@ -1366,13 +1378,13 @@ class PdfToAstConverter(BaseParser):
             previous_y = 0.0
 
             for line in block["lines"]:
-                # Handle rotated text
+                # Handle rotated text — group consecutive same-direction lines
                 if line.get("dir", (0, 0))[1] != 0:
                     if self.options.handle_rotated_text:
-                        rotated_text = handle_rotated_text(line, None)
-                        if rotated_text.strip():
-                            state.nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+                        self._accumulate_rotated_line(line, state, page_num)
                     continue
+                # Horizontal line: flush any pending rotated run before continuing
+                self._flush_rotated_text(state, page_num)
 
                 spans = list(line["spans"])
                 if not spans:
@@ -1399,6 +1411,9 @@ class PdfToAstConverter(BaseParser):
         # Finalize any remaining code block
         if state.in_code_block:
             self._finalize_code_block(state, page_num)
+
+        # Flush any trailing rotated-text run
+        self._flush_rotated_text(state, page_num)
 
         return state.nodes
 
@@ -1643,16 +1658,46 @@ class PdfToAstConverter(BaseParser):
             )
         state.reset_code_block()
 
+    def _flush_rotated_text(self, state: _BlockProcessingState, page_num: int) -> None:
+        """Emit accumulated rotated-text run as a single paragraph and reset.
+
+        Same-direction rotated lines within one block are joined with spaces.
+        The paragraph is tagged with the rotation key in source-location metadata
+        so :meth:`_merge_rotated_paragraphs` can join runs that span multiple
+        blocks (common when PyMuPDF puts each rotated label in its own block).
+        """
+        if not state.pending_rotated_text:
+            return
+        combined = " ".join(state.pending_rotated_text)
+        source_loc = SourceLocation(
+            format="pdf",
+            page=page_num + 1,
+            metadata={"rotated": state.pending_rotated_key or ""},
+        )
+        state.nodes.append(AstParagraph(content=[Text(content=combined)], source_location=source_loc))
+        state.reset_rotated()
+
+    def _accumulate_rotated_line(self, line: dict, state: _BlockProcessingState, page_num: int) -> None:
+        """Append a rotated line to the in-progress run, flushing on direction change."""
+        text = extract_rotated_text(line, None)
+        if not text.strip():
+            return
+        key = classify_line_rotation(line)
+        if state.pending_rotated_key is not None and state.pending_rotated_key != key:
+            self._flush_rotated_text(state, page_num)
+        if state.pending_rotated_key is None:
+            self._flush_state_paragraph(state, page_num)
+            state.pending_rotated_key = key
+        state.pending_rotated_text.append(text)
+
     def _handle_rotated_line(self, line: dict, state: _BlockProcessingState, page_num: int) -> bool:
         """Handle rotated text line. Returns True if line was processed (should skip further processing)."""
         if line["dir"][1] == 0:  # Horizontal line
+            self._flush_rotated_text(state, page_num)
             return False
 
         if self.options.handle_rotated_text:
-            rotated_text = handle_rotated_text(line, None)
-            if rotated_text.strip():
-                self._flush_state_paragraph(state, page_num)
-                state.nodes.append(AstParagraph(content=[Text(content=rotated_text)]))
+            self._accumulate_rotated_line(line, state, page_num)
         return True  # Skip non-horizontal lines
 
     def _handle_monospace_line(
@@ -1881,6 +1926,7 @@ class PdfToAstConverter(BaseParser):
             )
 
         # Finalize remaining content
+        self._flush_rotated_text(state, page_num)
         self._flush_state_paragraph(state, page_num)
         if state.in_code_block:
             self._finalize_code_block(state, page_num)
@@ -2500,6 +2546,53 @@ class PdfToAstConverter(BaseParser):
 
         # Only merge if gap is small
         return vertical_gap < merge_threshold
+
+    def _merge_rotated_paragraphs(self, nodes: list[Node]) -> list[Node]:
+        """Merge consecutive paragraphs that came from same-direction rotated runs.
+
+        Each rotated paragraph is tagged with its rotation key in
+        ``source_location.metadata['rotated']`` by :meth:`_flush_rotated_text`.
+        This pass joins adjacent paragraphs with the same key (which can be
+        produced by separate PyMuPDF blocks within a column) and appends the
+        rotation marker once per merged run when ``annotate_rotated_text`` is on.
+        """
+        if not nodes:
+            return nodes
+
+        merged: list[Node] = []
+        pending_text: list[str] = []
+        pending_key: str | None = None
+        pending_loc: SourceLocation | None = None
+
+        def flush() -> None:
+            nonlocal pending_text, pending_key, pending_loc
+            if pending_text:
+                combined = " ".join(pending_text)
+                if self.options.annotate_rotated_text and pending_key:
+                    combined += format_rotation_note(pending_key)
+                merged.append(AstParagraph(content=[Text(content=combined)], source_location=pending_loc))
+            pending_text = []
+            pending_key = None
+            pending_loc = None
+
+        for node in nodes:
+            rot_key: str | None = None
+            if isinstance(node, AstParagraph) and node.source_location and node.source_location.metadata:
+                rot_key = node.source_location.metadata.get("rotated") or None
+
+            if rot_key and isinstance(node, AstParagraph):
+                text = "".join(c.content for c in node.content if isinstance(c, Text))
+                if pending_key is not None and pending_key != rot_key:
+                    flush()
+                if pending_key is None:
+                    pending_key = rot_key
+                    pending_loc = node.source_location
+                pending_text.append(text)
+            else:
+                flush()
+                merged.append(node)
+        flush()
+        return merged
 
     def _merge_adjacent_paragraphs(self, nodes: list[Node]) -> list[Node]:
         """Merge consecutive paragraph nodes that should be combined.

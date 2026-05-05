@@ -19,29 +19,41 @@ from all2md.utils.inputs import escape_markdown_special
 if TYPE_CHECKING:
     pass
 
-__all__ = ["handle_rotated_text", "resolve_links"]
+__all__ = [
+    "classify_line_rotation",
+    "extract_rotated_text",
+    "format_rotation_note",
+    "handle_rotated_text",
+    "resolve_links",
+]
 
 
-def handle_rotated_text(line: dict, md_options: MarkdownRendererOptions | None = None) -> str:
-    """Process rotated text blocks and convert to readable format.
+_ROTATION_NOTES = {
+    "cw": " *[rotated 90° clockwise]*",
+    "ccw": " *[rotated 90° counter-clockwise]*",
+    "180": " *[rotated 180°]*",
+    "arbitrary": " *[rotated text]*",
+    "": "",
+}
 
-    Handles text that is rotated 90°, 180°, or 270° by extracting the text
-    and marking it appropriately for inclusion in the markdown output.
 
-    Parameters
-    ----------
-    line : dict
-        Line dictionary from PyMuPDF containing direction and span information
-    md_options : MarkdownRendererOptions or None, optional
-        Markdown formatting options for escaping special characters
+def classify_line_rotation(line: dict) -> str:
+    """Classify a PyMuPDF line's rotation from its direction vector.
 
-    Returns
-    -------
-    str
-        Processed text from the rotated line, with rotation indicator
-
+    Returns one of ``"cw"``, ``"ccw"``, ``"180"``, ``"arbitrary"``, or ``""``
+    (horizontal). The key is stable across lines with the same orientation, so
+    callers can group consecutive same-direction rotated lines.
     """
-    # Extract text from all spans in the rotated line
+    dir_x, dir_y = line.get("dir", (1, 0))
+    if abs(dir_x) < 0.1 and abs(dir_y) > 0.9:
+        return "cw" if dir_y > 0 else "ccw"
+    if abs(dir_x) > 0.9 and abs(dir_y) < 0.1:
+        return "180" if dir_x < 0 else ""
+    return "arbitrary"
+
+
+def extract_rotated_text(line: dict, md_options: MarkdownRendererOptions | None = None) -> str:
+    """Return the joined, optionally escaped text from a rotated line's spans."""
     text_parts = []
     for span in line.get("spans", []):
         span_text = span.get("text", "").strip()
@@ -49,31 +61,26 @@ def handle_rotated_text(line: dict, md_options: MarkdownRendererOptions | None =
             if md_options and md_options.escape_special:
                 span_text = escape_markdown_special(span_text)
             text_parts.append(span_text)
+    return " ".join(text_parts)
 
-    if not text_parts:
+
+def format_rotation_note(rotation_key: str) -> str:
+    """Return the markdown rotation marker for a rotation key, or ``""``."""
+    return _ROTATION_NOTES.get(rotation_key, "")
+
+
+def handle_rotated_text(line: dict, md_options: MarkdownRendererOptions | None = None) -> str:
+    """Extract rotated text and append a rotation marker.
+
+    Retained for callers that want the legacy single-line behavior (text plus
+    inline marker). Most call sites should use :func:`extract_rotated_text` and
+    :func:`format_rotation_note` so they can group consecutive lines and decide
+    whether to emit the marker.
+    """
+    text = extract_rotated_text(line, md_options)
+    if not text:
         return ""
-
-    combined_text = " ".join(text_parts)
-
-    # Determine rotation type based on direction vector
-    dir_x, dir_y = line.get("dir", (1, 0))
-
-    if abs(dir_x) < 0.1 and abs(dir_y) > 0.9:
-        # Vertical text (90° or 270°)
-        if dir_y > 0:
-            rotation_note = " *[rotated 90° clockwise]*"
-        else:
-            rotation_note = " *[rotated 90° counter-clockwise]*"
-    elif abs(dir_x) > 0.9 and abs(dir_y) < 0.1:
-        if dir_x < 0:
-            rotation_note = " *[rotated 180°]*"
-        else:
-            rotation_note = ""  # Normal horizontal text
-    else:
-        # Arbitrary angle rotation
-        rotation_note = " *[rotated text]*"
-
-    return combined_text + rotation_note if rotation_note else combined_text
+    return text + format_rotation_note(classify_line_rotation(line))
 
 
 def resolve_links(
