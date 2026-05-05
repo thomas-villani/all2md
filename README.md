@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.svg" alt="all2md logo" width="120" />
+</p>
+
 # `all2md`: The Universal Document Conversion Library
 
 [![PyPI version](https://img.shields.io/pypi/v/all2md.svg)](https://pypi.org/project/all2md/)

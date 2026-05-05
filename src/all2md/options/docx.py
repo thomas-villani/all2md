@@ -139,13 +139,6 @@ class DocxRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
-    network: NetworkFetchOptions = field(
-        default_factory=NetworkFetchOptions,
-        metadata={
-            "help": "Network security settings for remote image fetching",
-            "cli_flatten": True,  # Nested, handled separately
-        },
-    )
     comment_mode: DocxCommentMode = field(
         default=DEFAULT_DOCX_COMMENT_MODE,
         metadata={
@@ -164,6 +157,13 @@ class DocxRendererOptions(BaseRendererOptions):
             "Disable with --no-promote-title to keep all H1s as Heading 1.",
             "cli_name": "no-promote-title",
             "importance": "core",
+        },
+    )
+    network: NetworkFetchOptions = field(
+        default_factory=NetworkFetchOptions,
+        metadata={
+            "help": "Network security settings for remote image fetching",
+            "cli_flatten": True,  # Nested, handled separately
         },
     )
 
