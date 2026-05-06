@@ -10,15 +10,22 @@ PDF font sizes and determining header levels.
 
 from __future__ import annotations
 
+import re
 import string
+from dataclasses import dataclass
 from typing import Any
 
 from all2md.options.pdf import PdfOptions
 
-__all__ = ["IdentifyHeaders", "SPACES"]
+__all__ = ["IdentifyHeaders", "LineStyle", "SPACES", "compute_line_style"]
 
 # Used to check relevance of text pieces
 SPACES = set(string.whitespace)
+
+# Mid-line sentence boundary: lowercase letter, then `.`/`!`/`?`, whitespace,
+# then a capital letter. Catches multi-sentence body text while ignoring
+# acronyms like "U.S. Department".
+_INTERNAL_SENTENCE_BOUNDARY_RE = re.compile(r"[a-z][.!?]\s+[A-Z]")
 
 
 class IdentifyHeaders:
@@ -102,7 +109,7 @@ class IdentifyHeaders:
         sizes = self._calculate_header_sizes(fontsizes, body_limit)
 
         # Step 6: Add style-based headers (bold, all-caps)
-        sizes = self._add_style_based_headers(sizes, fontweight_sizes, allcaps_sizes, body_limit)
+        sizes = self._add_style_based_headers(sizes, fontweight_sizes, allcaps_sizes, body_limit, fontsizes)
 
         # Step 7: Build the header level mapping
         self._build_header_mapping(sizes)
@@ -138,8 +145,46 @@ class IdentifyHeaders:
         if pages is not None:
             return pages if isinstance(pages, list) else list(pages)
 
-        # Default: sample first 5 pages for performance on large PDFs
-        return list(range(min(5, doc.page_count)))
+        # Default: stratified sample so heading sizes that only appear past
+        # the front matter (appendices, signature blocks, supplementary
+        # sections) still get picked up.
+        return self._stratified_sample_pages(doc.page_count)
+
+    @staticmethod
+    def _stratified_sample_pages(page_count: int, target: int = 12) -> list[int]:
+        """Pick a representative sample of page indices for font analysis.
+
+        For documents up to ``target`` pages, every page is sampled. Beyond
+        that the sample is the union of:
+
+            * the first 5 pages (front matter — title, TOC, intro)
+            * the last 3 pages (signatures, references, version history)
+            * a uniform interior stride filling the rest up to ``target``
+
+        Returns sorted, deduplicated 0-based indices. Keeps the sample
+        small (default 12 pages) so analysis stays cheap on long PDFs
+        while no longer being blind to anything past page 5.
+        """
+        if page_count <= 0:
+            return []
+        if page_count <= target:
+            return list(range(page_count))
+
+        front = min(5, page_count)
+        back = min(3, page_count)
+        sampled: set[int] = set(range(front)) | set(range(page_count - back, page_count))
+
+        remaining = max(0, target - len(sampled))
+        if remaining > 0 and page_count > front + back:
+            interior_start = front
+            interior_end = page_count - back
+            stride_count = remaining
+            # Evenly space `stride_count` picks across the interior.
+            for i in range(stride_count):
+                idx = interior_start + (i + 1) * (interior_end - interior_start) // (stride_count + 1)
+                sampled.add(idx)
+
+        return sorted(sampled)
 
     def _collect_font_statistics(
         self,
@@ -333,8 +378,18 @@ class IdentifyHeaders:
         fontweight_sizes: dict[int, int],
         allcaps_sizes: dict[int, int],
         body_limit: float,
+        size_totals: dict[int, int],
     ) -> list[int]:
         """Add bold and all-caps font sizes as potential headers.
+
+        Two cases produce a style requirement:
+            1. The size is admitted *only* because of bold/all-caps statistics
+               (size alone wouldn't pass ``header_font_size_ratio``).
+            2. The size also passes by size, but the vast majority of its
+               characters are bold (or all-caps). This catches the common
+               case where a size is shared between regular-weight body
+               labels and bold subheadings — without a style requirement,
+               the regular labels would be promoted as headings too.
 
         Parameters
         ----------
@@ -346,6 +401,8 @@ class IdentifyHeaders:
             All-caps font size statistics
         body_limit : float
             Body text font size threshold
+        size_totals : dict[int, int]
+            Total character count per size (for style-dominance ratios)
 
         Returns
         -------
@@ -354,17 +411,35 @@ class IdentifyHeaders:
 
         """
         min_header_size = body_limit * self.options.header_font_size_ratio
+        # Sizes within this multiple of body are "close to body" — they're
+        # likely shared between body labels and bold subheadings, so we
+        # demand a style hint to disambiguate. Sizes well above body
+        # (>=1.2x) are confidently heading-like and qualify on size alone.
+        ambiguous_size_ceiling = body_limit * 1.2
 
         if self.options.header_use_font_weight:
+            # Case 1: size only passes via bold
             for size in fontweight_sizes:
                 if size not in sizes and size >= min_header_size:
                     sizes.append(size)
                     self.bold_header_sizes.add(size)
+            # Case 2: size passes by size but is close enough to body that
+            # we can't tell heading from label without a style hint.
+            for size in list(sizes):
+                if size < ambiguous_size_ceiling:
+                    self.bold_header_sizes.add(size)
 
         if self.options.header_use_all_caps:
+            # Case 1: size only passes via all-caps
             for size in allcaps_sizes:
                 if size not in sizes and size >= min_header_size:
                     sizes.append(size)
+                    self.allcaps_header_sizes.add(size)
+            # Case 2: size passes by size but is close to body and has
+            # meaningful all-caps presence at that size — combine with the
+            # bold check to allow EITHER style as a heading marker.
+            for size in list(sizes):
+                if size < ambiguous_size_ceiling and allcaps_sizes.get(size, 0) > 0:
                     self.allcaps_header_sizes.add(size)
 
         return sorted(set(sizes), reverse=True)
@@ -372,14 +447,28 @@ class IdentifyHeaders:
     def _build_header_mapping(self, sizes: list[int]) -> None:
         """Build the font size to header level mapping.
 
+        Headings are ranked by descending size: the biggest size becomes h1,
+        the next h2, and so on. There's one structural exception: if the
+        document only ever surfaces a *single* heading size and that size
+        requires bold styling, treat it as h2 rather than h1. Single-size
+        heading documents in this shape are almost always "body + bold
+        section heads" — not "body + display title". Reserving h1 for the
+        layout-model TITLE (which would override via the layout path) keeps
+        the heading hierarchy meaningful when an actual title appears.
+
         Parameters
         ----------
         sizes : list[int]
             Font sizes to map to header levels
 
         """
+        single_style_restricted = len(sizes) == 1 and (
+            sizes[0] in self.bold_header_sizes or sizes[0] in self.allcaps_header_sizes
+        )
         for i, size in enumerate(sizes):
             level = min(i + 1, 6)  # Limit to h6
+            if single_style_restricted:
+                level = 2
             self.header_id[size] = level
 
     def _store_debug_info(
@@ -430,53 +519,62 @@ class IdentifyHeaders:
     def get_header_level(self, span: dict) -> int:
         """Return header level for a text span, or 0 if not a header.
 
-        Analyzes the font size of a text span and returns the corresponding
-        header level (1-6) or 0 if the span should be treated as body text.
-        Includes content-based validation to reduce false positives.
-
-        Parameters
-        ----------
-        span : dict
-            Text span dictionary from PyMuPDF extraction containing 'size' key
-
-        Returns
-        -------
-        int
-            Header level (1-6) or 0 if not a header
-
+        Backwards-compatible wrapper: extracts size, weight, and casing from a
+        single span and delegates to :meth:`classify_line_style`. Most parser
+        code paths should construct a ``LineStyle`` from all spans on a line
+        and call :meth:`classify_line_style` directly so mixed-format lines
+        classify correctly.
         """
-        fontsize = round(span["size"])  # compute fontsize
-        level = self.header_id.get(fontsize, 0)
+        text = span.get("text", "").strip()
+        is_bold = bool(span.get("flags", 0) & 16)
+        is_allcaps = bool(text) and text.isupper() and any(c.isalpha() for c in text)
+        return self.classify_line_style(
+            size=round(span["size"]),
+            text=text,
+            is_bold=is_bold,
+            is_allcaps=is_allcaps,
+        )
 
-        # Check for additional header indicators if no size-based header found
-        if not level and self.options:
-            text = span.get("text", "").strip()
+    def classify_line_style(
+        self,
+        *,
+        size: int,
+        text: str,
+        is_bold: bool,
+        is_allcaps: bool,
+    ) -> int:
+        """Return header level for a line described by ``size``/``text``/style.
 
-            # Check for bold header
-            if self.options.header_use_font_weight and (span.get("flags", 0) & 16):
-                if fontsize in self.bold_header_sizes:
-                    level = self.header_id.get(fontsize, 0)
+        Encapsulates the size lookup, style-requirement enforcement, and
+        content validation in one place. The decoupled signature lets callers
+        compute a single representative style across all spans on a line and
+        avoid mis-classifying lines whose first span is whitespace, a glyph,
+        or a numbering prefix that doesn't match the heading's font.
+        """
+        level = self.header_id.get(size, 0)
+        if level <= 0:
+            return 0
 
-            # Check for all-caps header
-            if self.options.header_use_all_caps and text.isupper() and text.isalpha():
-                if fontsize in self.allcaps_header_sizes:
-                    level = self.header_id.get(fontsize, 0)
-
-        # Apply content-based validation if we detected a potential header
-        if level > 0:
-            text = span.get("text", "").strip()
-
-            # Skip if text is too long to be a realistic header
-            if len(text) > self.options.header_max_line_length:
+        # Sizes admitted only via bold/allcaps statistics must satisfy at
+        # least one of those style requirements. A size with no entry in
+        # either set is unconditional (size alone qualifies it).
+        requires_bold = size in self.bold_header_sizes
+        requires_allcaps = size in self.allcaps_header_sizes
+        if requires_bold or requires_allcaps:
+            satisfied = (requires_bold and is_bold) or (requires_allcaps and is_allcaps)
+            if not satisfied:
                 return 0
 
-            # Skip if text is mostly whitespace or empty
-            if not text or len(text.strip()) == 0:
-                return 0
-
-            # Skip if text looks like a paragraph (ends with typical sentence punctuation and is long)
-            if len(text) > 50 and text.endswith((".", "!", "?")):
-                return 0
+        # Content-based validation
+        if not text:
+            return 0
+        if len(text) > self.options.header_max_line_length:
+            return 0
+        # Multi-sentence body text isn't a heading. Detected via lowercase
+        # letter immediately preceding `.`/`!`/`?`, then whitespace, then a
+        # capital letter — sidesteps acronyms like "U.S. Department".
+        if _INTERNAL_SENTENCE_BOUNDARY_RE.search(text):
+            return 0
 
         return level
 
@@ -512,3 +610,63 @@ class IdentifyHeaders:
 
         """
         return self.debug_info
+
+
+@dataclass(frozen=True)
+class LineStyle:
+    """Aggregate style of a PDF text line, derived from its non-whitespace spans.
+
+    Carries the dominant font size (by character count), majority bold and
+    all-caps flags, and the joined line text. Used by
+    :meth:`IdentifyHeaders.classify_line_style` so heading classification
+    sees the line as a whole rather than only its first span.
+    """
+
+    size: int
+    text: str
+    is_bold: bool
+    is_allcaps: bool
+
+
+def compute_line_style(spans: list[dict]) -> LineStyle | None:
+    """Build a :class:`LineStyle` from a PyMuPDF line's spans.
+
+    Returns ``None`` if the line has no non-whitespace text. The dominant
+    integer size is the size with the most non-whitespace characters; bold
+    and all-caps are decided by majority character count among non-empty
+    text. Whitespace-only spans are skipped — they otherwise distort the
+    "first span" view that classifiers used to rely on.
+    """
+    total_chars = 0
+    size_chars: dict[int, int] = {}
+    bold_chars = 0
+    allcaps_chars = 0
+    text_parts: list[str] = []
+
+    for span in spans:
+        raw_text = span.get("text", "")
+        text_parts.append(raw_text)
+        stripped = raw_text.strip()
+        if not stripped:
+            continue
+        n = len(stripped)
+        size = round(span.get("size", 0))
+        size_chars[size] = size_chars.get(size, 0) + n
+        total_chars += n
+        if span.get("flags", 0) & 16:
+            bold_chars += n
+        if stripped.isupper() and any(c.isalpha() for c in stripped):
+            allcaps_chars += n
+
+    if total_chars == 0:
+        return None
+
+    dominant_size = max(size_chars.items(), key=lambda kv: kv[1])[0]
+    line_text = "".join(text_parts).strip()
+
+    return LineStyle(
+        size=dominant_size,
+        text=line_text,
+        is_bold=(bold_chars * 2 >= total_chars),  # majority by char count
+        is_allcaps=(allcaps_chars * 2 >= total_chars),
+    )

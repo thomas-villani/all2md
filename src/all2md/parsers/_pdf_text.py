@@ -10,8 +10,10 @@ including handling rotated text and resolving hyperlinks.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import re
+from typing import TYPE_CHECKING, Iterable
 
+from all2md.ast import Code, Emphasis, Link, Node, Strong, Text
 from all2md.constants import DEFAULT_OVERLAP_THRESHOLD_PERCENT
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.utils.inputs import escape_markdown_special
@@ -21,11 +23,49 @@ if TYPE_CHECKING:
 
 __all__ = [
     "classify_line_rotation",
+    "collapse_whitespace_runs",
     "extract_rotated_text",
     "format_rotation_note",
     "handle_rotated_text",
+    "inline_has_text",
     "resolve_links",
 ]
+
+
+# Run of two or more horizontal-whitespace characters (no newlines, so we don't
+# accidentally splice paragraph breaks together).
+_EXCESS_HSPACE_RE = re.compile(r"[ \t ]{2,}")
+
+
+def collapse_whitespace_runs(text: str) -> str:
+    """Collapse runs of 2+ horizontal whitespace characters into a single space.
+
+    Used to clean up the long space runs PDF text spans often carry as layout
+    padding (e.g. ``"Policy Title:                  "``). Newlines and other
+    line-break whitespace are preserved so that intentional line structure is
+    not disturbed.
+    """
+    if not text:
+        return text
+    return _EXCESS_HSPACE_RE.sub(" ", text)
+
+
+def inline_has_text(nodes: Iterable[Node]) -> bool:
+    """Return True if any Text/Code descendant contains non-whitespace content.
+
+    Walks Strong/Emphasis/Link wrappers transparently. Used to suppress empty
+    headings/paragraphs that would otherwise be emitted from PDF lines whose
+    spans are all whitespace (a common artifact of layout-padded text or
+    layout-model header zones that include blank lines).
+    """
+    for node in nodes:
+        if isinstance(node, (Text, Code)):
+            if node.content and node.content.strip():
+                return True
+        elif isinstance(node, (Strong, Emphasis, Link)):
+            if inline_has_text(node.content):
+                return True
+    return False
 
 
 _ROTATION_NOTES = {

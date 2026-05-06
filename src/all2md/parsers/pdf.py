@@ -62,7 +62,7 @@ from all2md.exceptions import DependencyError, MalformedFileError, PasswordProte
 
 # Import from private submodules
 from all2md.parsers._pdf_columns import detect_columns
-from all2md.parsers._pdf_headers import IdentifyHeaders
+from all2md.parsers._pdf_headers import IdentifyHeaders, compute_line_style
 from all2md.parsers._pdf_images import extract_page_images
 from all2md.parsers._pdf_layout import (
     PageLayoutPredictions,
@@ -71,6 +71,7 @@ from all2md.parsers._pdf_layout import (
     match_predictions_to_blocks,
     predict_page_layout,
 )
+from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
     detect_page_language as _detect_page_language,
 )
@@ -80,8 +81,10 @@ from all2md.parsers._pdf_ocr import (
 from all2md.parsers._pdf_tables import detect_tables_by_ruling_lines
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
+    collapse_whitespace_runs,
     extract_rotated_text,
     format_rotation_note,
+    inline_has_text,
 )
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
@@ -95,6 +98,156 @@ from all2md.utils.metadata import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _collapse_text_whitespace_in_place(node: Node) -> None:
+    """Collapse 2+ horizontal-whitespace runs in every Text descendant.
+
+    Skips ``Code`` and ``CodeBlock`` content (whitespace-significant) and
+    table cells (table layout uses its own spacing). Walks all other
+    container nodes recursively, mutating Text.content in place.
+    """
+    if isinstance(node, (Code, CodeBlock)):
+        return
+    if isinstance(node, Text):
+        node.content = collapse_whitespace_runs(node.content)
+        return
+    if isinstance(node, AstTable):
+        # Tables are rendered with their own pipe-aligned spacing — leave
+        # cell content alone so we don't collapse intentional padding.
+        return
+    children = getattr(node, "content", None)
+    if isinstance(children, list):
+        for child in children:
+            _collapse_text_whitespace_in_place(child)
+    block_children = getattr(node, "children", None)
+    if isinstance(block_children, list):
+        for child in block_children:
+            _collapse_text_whitespace_in_place(child)
+
+
+def _heading_text(heading: Heading) -> str:
+    """Recursively extract plain text from a Heading's inline content."""
+    parts: list[str] = []
+
+    def _walk(nodes: list[Node]) -> None:
+        for node in nodes:
+            if isinstance(node, Text):
+                parts.append(node.content)
+            elif isinstance(node, Code):
+                parts.append(node.content)
+            elif isinstance(node, (Strong, Emphasis, Link)):
+                _walk(node.content)
+
+    _walk(heading.content)
+    return "".join(parts).strip()
+
+
+def _normalize_heading_for_dedup(text: str) -> str:
+    """Normalize heading text for running-title comparison.
+
+    Lowercases and collapses internal whitespace runs to single spaces so
+    cosmetic differences (extra spaces from layout, capitalization changes
+    between page templates) don't prevent matching.
+    """
+    return " ".join(text.lower().split())
+
+
+def _demote_running_headings(doc: "Document", total_pages: int) -> None:
+    """Convert headings that recur on >50% of pages into paragraphs.
+
+    A real document section usually appears once. Headings that recur on
+    page after page are almost always running titles, form-label headers,
+    or per-page footers misclassified by the layout model. Convert them
+    to paragraphs in place so downstream readers don't see fake section
+    breaks.
+    """
+    if total_pages < 3:
+        return
+
+    # First pass: count distinct pages each normalized heading appears on.
+    pages_per_heading: dict[str, set[int]] = {}
+    for child in doc.children:
+        if not isinstance(child, Heading):
+            continue
+        norm = _normalize_heading_for_dedup(_heading_text(child))
+        if not norm:
+            continue
+        page = child.source_location.page if child.source_location else None
+        pages_per_heading.setdefault(norm, set()).add(page if page is not None else 0)
+
+    threshold = max(2, total_pages // 2 + 1)
+    running_headings = {norm for norm, pages in pages_per_heading.items() if len(pages) >= threshold}
+    if not running_headings:
+        return
+
+    # Second pass: rebuild children, demoting matched headings.
+    new_children: list[Node] = []
+    for child in doc.children:
+        if isinstance(child, Heading):
+            norm = _normalize_heading_for_dedup(_heading_text(child))
+            if norm in running_headings:
+                new_children.append(
+                    AstParagraph(
+                        content=child.content,
+                        metadata=child.metadata.copy(),
+                        source_location=child.source_location,
+                    )
+                )
+                continue
+        new_children.append(child)
+    doc.children = new_children
+
+
+def _strip_leading_whitespace_in_place(nodes: list[Node]) -> None:
+    """Trim leading whitespace from the first Text-bearing leaf in ``nodes``.
+
+    Walks through Strong/Emphasis/Link wrappers (since heading content is
+    often a wrapped Text node like ``Strong([Text(' I.')])``). Leaves the
+    rest of the content alone — only the very first Text leaf is touched,
+    so a heading like ``" **I.** **Background**"`` becomes
+    ``"**I.** **Background**"`` without disturbing internal spacing.
+    """
+    for node in nodes:
+        if isinstance(node, Text):
+            node.content = node.content.lstrip()
+            if node.content:
+                return
+            # Empty after strip — keep walking to the next leaf.
+            continue
+        if isinstance(node, (Strong, Emphasis, Link)):
+            if node.content:
+                _strip_leading_whitespace_in_place(node.content)
+                # Only stop walking if the wrapper now carries text.
+                first_text = next(
+                    (c for c in node.content if isinstance(c, Text) and c.content),
+                    None,
+                )
+                if first_text is not None:
+                    return
+            continue
+        if isinstance(node, Code):
+            return  # Code preserves whitespace; don't trim.
+
+
+def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
+    """Return True if the last Text-bearing leaf in ``nodes`` ends with whitespace.
+
+    Walks Strong/Emphasis/Link wrappers to find the actual Text content.
+    Used to decide whether an inter-line separator space would create a
+    redundant whitespace run.
+    """
+    for node in reversed(nodes):
+        if isinstance(node, Text):
+            return bool(node.content) and node.content[-1] in (" ", "\t")
+        if isinstance(node, (Strong, Emphasis, Link)):
+            if node.content and _trailing_text_is_whitespace(node.content):
+                return True
+            # Wrapper had no Text leaves — keep walking outward.
+            continue
+        if isinstance(node, Code):
+            return False
+    return False
 
 
 @dataclass
@@ -116,6 +269,13 @@ class _BlockProcessingState:
     previous_y: float = 0.0
     pending_rotated_text: list[str] = field(default_factory=list)
     pending_rotated_key: str | None = None
+    # A heading whose entire text is a numbering prefix (e.g. "I.", "1.1")
+    # is buffered here rather than emitted immediately, so it can be merged
+    # with the next heading line on the same block. Flushed as its own
+    # heading on block end if no follow-up appears.
+    pending_heading_prefix_content: list[Node] | None = None
+    pending_heading_prefix_level: int = 0
+    pending_heading_prefix_page: int = 0
 
     def reset_paragraph(self) -> None:
         """Reset paragraph accumulation state."""
@@ -192,6 +352,11 @@ class PdfToAstConverter(BaseParser):
         self._hdr_identifier: Optional[IdentifyHeaders] = None
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
         self._use_layout: bool = False
+        # Most recent heading level emitted (any path). Used by
+        # `_handle_header_line_with_layout` to pick a sibling-or-deeper level
+        # when the layout model says section-header but the font heuristic
+        # has nothing to anchor against.
+        self._last_heading_level: int = 0
 
     @requires_dependencies("pdf", DEPS_PDF)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -308,6 +473,7 @@ class PdfToAstConverter(BaseParser):
         self._hdr_identifier = IdentifyHeaders(
             doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=self.options
         )
+        self._last_heading_level = 0
 
         # Auto-detect header/footer zones if requested
         if self.options.auto_trim_headers_footers:
@@ -690,6 +856,19 @@ class PdfToAstConverter(BaseParser):
             consolidated = consolidator.transform(ast_doc)
             if isinstance(consolidated, Document):
                 ast_doc = consolidated
+
+        # Collapse whitespace runs that the consolidator may have produced when
+        # it merged adjacent Text nodes carrying span-boundary spaces. Runs at
+        # span level were already collapsed in `_process_text_spans_to_inline`,
+        # but text-merging during consolidation can re-introduce them.
+        if self.options.collapse_excess_whitespace:
+            _collapse_text_whitespace_in_place(ast_doc)
+
+        # Demote headings that recur on more than half the document pages —
+        # those are running titles or per-page form labels masquerading as
+        # section headings, not real document structure.
+        if self.options.dedup_running_headings and total_pages >= 3:
+            _demote_running_headings(ast_doc, total_pages)
 
         return ast_doc
 
@@ -1148,14 +1327,6 @@ class PdfToAstConverter(BaseParser):
         """
         import fitz
 
-        # Extract images if needed
-        page_images: list[Any] = []
-        if self.options.attachment_mode != "skip":
-            page_images, page_footnotes = extract_page_images(
-                page, page_num, self.options, base_filename, attachment_sequencer
-            )
-            self._attachment_footnotes.update(page_footnotes)
-
         # Detect tables on the page
         table_info, _, _ = self._detect_page_tables(page, page_num, total_pages)
 
@@ -1169,7 +1340,9 @@ class PdfToAstConverter(BaseParser):
         except (AttributeError, KeyError, Exception):
             return []
 
-        # Run layout analysis if enabled (before any filtering so indices match)
+        # Run layout analysis if enabled (before any filtering so indices match).
+        # Done before image extraction so that page-header / page-footer regions
+        # can be used to filter out repeating decorative images.
         layout: PageLayoutPredictions | None = None
         if self._use_layout:
             try:
@@ -1179,6 +1352,22 @@ class PdfToAstConverter(BaseParser):
             except Exception as e:
                 logger.warning("Layout analysis failed for page %d: %s", page_num + 1, e)
                 layout = None
+
+        # Extract images if needed. Pass page-header/footer regions so we don't
+        # emit placeholders for the recurring decorations / signature artifacts
+        # those zones tend to contain.
+        page_images: list[Any] = []
+        if self.options.attachment_mode != "skip":
+            excluded_regions = self._collect_image_exclusion_regions(layout)
+            page_images, page_footnotes = extract_page_images(
+                page,
+                page_num,
+                self.options,
+                base_filename,
+                attachment_sequencer,
+                excluded_regions=excluded_regions,
+            )
+            self._attachment_footnotes.update(page_footnotes)
 
         # Extract plain text for OCR detection
         extracted_text = "".join(
@@ -1331,22 +1520,28 @@ class PdfToAstConverter(BaseParser):
         state: _BlockProcessingState,
     ) -> None:
         """Process text line (heading or paragraph) in blocks processing."""
-        first_span = spans[0]
-        header_level = self._hdr_identifier.get_header_level(first_span) if self._hdr_identifier else 0
+        header_level = 0
+        if self._hdr_identifier:
+            line_style = compute_line_style(spans)
+            if line_style is not None:
+                header_level = self._hdr_identifier.classify_line_style(
+                    size=line_style.size,
+                    text=line_style.text,
+                    is_bold=line_style.is_bold,
+                    is_allcaps=line_style.is_allcaps,
+                )
         inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
 
-        if not inline_content:
+        if not inline_content or not inline_has_text(inline_content):
             return
 
         if header_level > 0:
-            state.nodes.append(
-                Heading(
-                    level=header_level,
-                    content=inline_content,
-                    source_location=SourceLocation(format="pdf", page=page_num + 1),
-                )
-            )
+            line_text = "".join(s.get("text", "") for s in spans).strip()
+            self._emit_heading(state, header_level, line_text, inline_content, page_num)
         else:
+            # Paragraph emission orphans any buffered numbering prefix —
+            # flush it as its own heading so the marker isn't lost.
+            self._flush_pending_heading_prefix(state)
             state.nodes.append(
                 AstParagraph(content=inline_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
             )
@@ -1414,6 +1609,10 @@ class PdfToAstConverter(BaseParser):
 
         # Flush any trailing rotated-text run
         self._flush_rotated_text(state, page_num)
+
+        # Drop any unmerged numbering prefix as a standalone heading rather
+        # than silently swallowing it.
+        self._flush_pending_heading_prefix(state)
 
         return state.nodes
 
@@ -1493,6 +1692,10 @@ class PdfToAstConverter(BaseParser):
 
         """
         result: list[Node] = []
+        # Tracks whether the most recently emitted Text-bearing span ended
+        # with whitespace, so we can avoid creating multi-space runs at span
+        # boundaries when collapse_excess_whitespace is enabled.
+        prev_text_ends_ws = False
 
         for span in spans:
             span_text = span["text"]
@@ -1513,7 +1716,8 @@ class PdfToAstConverter(BaseParser):
 
             # Build the inline node
             if mono and not is_list_bullet:
-                # Inline code
+                # Inline code — preserve whitespace as-is, don't update the
+                # running whitespace state.
                 inline_node: Node = Code(content=span_text)
             else:
                 # Regular text with optional formatting
@@ -1527,13 +1731,30 @@ class PdfToAstConverter(BaseParser):
                     .replace(chr(9679), "-")
                 )
 
+                # Collapse layout-padded whitespace runs in non-mono spans.
+                # PDF spans frequently encode visual spacing as long runs of
+                # ascii spaces (e.g. "Policy Title:                  ") that
+                # do not carry meaning in markdown.
+                if self.options.collapse_excess_whitespace:
+                    span_text = collapse_whitespace_runs(span_text)
+                    if prev_text_ends_ws and span_text.startswith((" ", "\t")):
+                        span_text = span_text.lstrip(" \t")
+                    if not span_text:
+                        # Span was nothing but redundant whitespace — drop it.
+                        continue
+                    prev_text_ends_ws = span_text[-1] in (" ", "\t")
+
                 inline_node = Text(content=span_text)
 
-                # Apply formatting layers
-                if bold:
-                    inline_node = Strong(content=[inline_node])
-                if italic:
-                    inline_node = Emphasis(content=[inline_node])
+                # Apply formatting layers — but skip bold/italic wrapping
+                # for whitespace-only spans, since "**  **" or "* *" carries
+                # no meaning and tends to confuse the inline-formatting
+                # consolidator into emitting redundant marker pairs.
+                if span_text.strip():
+                    if bold:
+                        inline_node = Strong(content=[inline_node])
+                    if italic:
+                        inline_node = Emphasis(content=[inline_node])
 
             # Wrap in link if URL present
             if link_url:
@@ -1638,7 +1859,16 @@ class PdfToAstConverter(BaseParser):
             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
 
     def _flush_state_paragraph(self, state: _BlockProcessingState, page_num: int) -> None:
-        """Flush paragraph from state to nodes and reset paragraph state."""
+        """Flush paragraph from state to nodes and reset paragraph state.
+
+        If the state has accumulated paragraph content, also drain any
+        buffered numbering-prefix heading first so the prefix is emitted
+        as its own heading rather than disappearing behind the paragraph.
+        Empty-paragraph flushes leave the buffer alone — heading lines may
+        still arrive on the same block and want to absorb the prefix.
+        """
+        if state.paragraph_content:
+            self._flush_pending_heading_prefix(state)
         self._flush_paragraph(
             state.paragraph_content,
             state.paragraph_bbox,
@@ -1648,6 +1878,79 @@ class PdfToAstConverter(BaseParser):
             state.nodes,
         )
         state.reset_paragraph()
+
+    def _emit_heading(
+        self,
+        state: _BlockProcessingState,
+        level: int,
+        line_text: str,
+        inline_content: list[Node],
+        page_num: int,
+    ) -> None:
+        """Emit a heading or buffer a numbering-only prefix for merging.
+
+        Lines whose entire text is a numbering prefix (``"I."``, ``"1.1"``,
+        ``"(a)"``) are deferred — the next heading line on the same block
+        will absorb them and emit a single ``"I. Background"``-style
+        heading. PDFs often visually break Roman-numeral section markers
+        onto their own line above the actual heading text, and emitting
+        them as separate headings produced obviously-wrong output before.
+        """
+        if parse_numbering_prefix(line_text) is not None:
+            # If we *already* have a buffered prefix and this is also one,
+            # flush the older one first so neither gets lost (rare in real
+            # documents but cheap to handle).
+            if state.pending_heading_prefix_content is not None:
+                self._flush_pending_heading_prefix(state)
+            state.pending_heading_prefix_content = inline_content
+            state.pending_heading_prefix_level = level
+            state.pending_heading_prefix_page = page_num
+            return
+
+        if state.pending_heading_prefix_content is not None:
+            # Merge: prepend pending prefix content with a single space,
+            # using the prefix's level (which represented the section depth).
+            merged = state.pending_heading_prefix_content + [Text(content=" ")] + inline_content
+            merged_level = state.pending_heading_prefix_level
+            page = state.pending_heading_prefix_page
+            state.pending_heading_prefix_content = None
+            state.pending_heading_prefix_level = 0
+            _strip_leading_whitespace_in_place(merged)
+            state.nodes.append(
+                Heading(
+                    level=merged_level,
+                    content=merged,
+                    source_location=SourceLocation(format="pdf", page=page + 1),
+                )
+            )
+            self._last_heading_level = merged_level
+            return
+
+        _strip_leading_whitespace_in_place(inline_content)
+        state.nodes.append(
+            Heading(
+                level=level,
+                content=inline_content,
+                source_location=SourceLocation(format="pdf", page=page_num + 1),
+            )
+        )
+        self._last_heading_level = level
+
+    def _flush_pending_heading_prefix(self, state: _BlockProcessingState) -> None:
+        """Emit any buffered numbering-prefix heading as a standalone heading."""
+        if state.pending_heading_prefix_content is None:
+            return
+        _strip_leading_whitespace_in_place(state.pending_heading_prefix_content)
+        state.nodes.append(
+            Heading(
+                level=state.pending_heading_prefix_level,
+                content=state.pending_heading_prefix_content,
+                source_location=SourceLocation(format="pdf", page=state.pending_heading_prefix_page + 1),
+            )
+        )
+        self._last_heading_level = state.pending_heading_prefix_level
+        state.pending_heading_prefix_content = None
+        state.pending_heading_prefix_level = 0
 
     def _finalize_code_block(self, state: _BlockProcessingState, page_num: int) -> None:
         """Finalize code block from state and reset code block state."""
@@ -1727,24 +2030,29 @@ class PdfToAstConverter(BaseParser):
         average_line_height: float | None,
     ) -> bool:
         """Handle header line. Returns True if line was processed as header."""
-        first_span = spans[0]
         header_level = 0
         if self._hdr_identifier:
-            header_level = self._hdr_identifier.get_header_level(first_span)
+            line_style = compute_line_style(spans)
+            if line_style is not None:
+                header_level = self._hdr_identifier.classify_line_style(
+                    size=line_style.size,
+                    text=line_style.text,
+                    is_bold=line_style.is_bold,
+                    is_allcaps=line_style.is_allcaps,
+                )
 
         if header_level <= 0:
             return False
 
-        self._flush_state_paragraph(state, page_num)
         inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-        if inline_content:
-            state.nodes.append(
-                Heading(
-                    level=header_level,
-                    content=inline_content,
-                    source_location=SourceLocation(format="pdf", page=page_num + 1),
-                )
-            )
+        if not inline_content or not inline_has_text(inline_content):
+            # Whitespace-only line at header-sized font: drop it, don't promote
+            # to a heading and don't fall through to paragraph treatment.
+            return True
+
+        self._flush_state_paragraph(state, page_num)
+        line_text = "".join(s.get("text", "") for s in spans).strip()
+        self._emit_heading(state, header_level, line_text, inline_content, page_num)
         return True
 
     def _handle_header_line_with_layout(
@@ -1785,34 +2093,57 @@ class PdfToAstConverter(BaseParser):
             True if the line was emitted as a heading.
 
         """
+        # The layout model labels whole blocks as section-header / title, which
+        # means every line in the block (including blank/whitespace lines) hits
+        # this path. Reject whitespace-only lines up front so we don't emit
+        # empty `## ` headings; return True so the caller doesn't fall through
+        # to paragraph treatment.
+        line_style = compute_line_style(spans)
+        if line_style is None:
+            return True
+
+        # Ask the font heuristic at line level — used to corroborate or
+        # override the layout label.
+        font_level = 0
+        if self._hdr_identifier:
+            font_level = self._hdr_identifier.classify_line_style(
+                size=line_style.size,
+                text=line_style.text,
+                is_bold=line_style.is_bold,
+                is_allcaps=line_style.is_allcaps,
+            )
+
         if layout_label == "title":
-            level = 1
+            # Layout's "title" is often noisy: it fires for the first
+            # heading-styled line on each page even when the document has
+            # only one heading style and the line is really a section
+            # heading. Defer to the font heuristic when it has an opinion.
+            level = font_level if font_level > 0 else 1
         else:
-            # section-header: check font-size heuristic first
-            level = 0
-            if self._hdr_identifier:
-                level = self._hdr_identifier.get_header_level(spans[0])
-            if level <= 0:
-                # Heuristic disagrees - only trust layout if text looks like a header
-                text = "".join(s["text"] for s in spans).strip()
+            # section-header: trust the font heuristic when it speaks; cap
+            # at h2 so a doc with a single heading size doesn't promote
+            # every section-header to h1 against the structural signal.
+            if font_level > 0:
+                level = max(font_level, 2)
+            else:
+                # Font heuristic has nothing to say. Trust the layout label
+                # only if the text plausibly looks like a header.
+                text = line_style.text
                 if text.endswith((".", ",", ";", ":", "!", "?")):
-                    return False  # Sentences aren't headers
+                    return False  # Trailing punctuation: usually a sentence, not a heading
                 if len(text) > self.options.header_max_line_length:
                     return False  # Too long for a header
-                level = 2
+                # Pick a level from context rather than the old hard-coded 2:
+                # sibling of the most recent emitted heading; fall back to h2
+                # when nothing has been emitted yet.
+                level = self._last_heading_level if self._last_heading_level > 0 else 2
+
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+        if not inline_content or not inline_has_text(inline_content):
+            return True
 
         self._flush_state_paragraph(state, page_num)
-        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-        if not inline_content:
-            return False
-
-        state.nodes.append(
-            Heading(
-                level=level,
-                content=inline_content,
-                source_location=SourceLocation(format="pdf", page=page_num + 1),
-            )
-        )
+        self._emit_heading(state, level, line_style.text, inline_content, page_num)
         return True
 
     def _accumulate_paragraph_line(
@@ -1836,7 +2167,11 @@ class PdfToAstConverter(BaseParser):
             return
 
         if state.paragraph_content:
-            state.paragraph_content.append(Text(content=" "))
+            # Add an inter-line separator unless the previous line already
+            # ended with whitespace (collapse_excess_whitespace would
+            # otherwise leave us with a 2-space run at the line boundary).
+            if not (self.options.collapse_excess_whitespace and _trailing_text_is_whitespace(state.paragraph_content)):
+                state.paragraph_content.append(Text(content=" "))
         else:
             # Starting new paragraph
             state.paragraph_bbox = line["bbox"]
@@ -1930,6 +2265,9 @@ class PdfToAstConverter(BaseParser):
         self._flush_state_paragraph(state, page_num)
         if state.in_code_block:
             self._finalize_code_block(state, page_num)
+        # Flush any unmerged numbering prefix at block end so it surfaces
+        # as a standalone heading rather than vanishing.
+        self._flush_pending_heading_prefix(state)
 
         return state.nodes
 
@@ -2288,6 +2626,24 @@ class PdfToAstConverter(BaseParser):
 
         cells = [cell.strip() for cell in row_line.split("|")]
         return cells
+
+    def _collect_image_exclusion_regions(self, layout: "PageLayoutPredictions | None") -> list[Any]:
+        """Return regions where images should be skipped during extraction.
+
+        Currently only the layout model's ``page-header`` and ``page-footer``
+        predictions are used. Returns an empty list when layout analysis is
+        unavailable or the option is disabled, leaving image extraction
+        unchanged.
+        """
+        if layout is None or not self.options.filter_header_footer_images:
+            return []
+        import fitz
+
+        regions: list[Any] = []
+        for label in ("page-header", "page-footer"):
+            for pred in layout.get_predictions_by_label(label):
+                regions.append(fitz.Rect(pred.x0, pred.y0, pred.x1, pred.y1))
+        return regions
 
     def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
         """Create an image node from image info.

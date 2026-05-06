@@ -11,10 +11,13 @@ from typing import Literal
 from all2md.constants import (
     DEFAULT_ANNOTATE_ROTATED_TEXT,
     DEFAULT_AUTO_TRIM_HEADERS_FOOTERS,
+    DEFAULT_COLLAPSE_EXCESS_WHITESPACE,
     DEFAULT_COLUMN_DETECTION_MODE,
     DEFAULT_COLUMN_GAP_THRESHOLD,
+    DEFAULT_DEDUP_RUNNING_HEADINGS,
     DEFAULT_DETECT_COLUMNS,
     DEFAULT_DETECT_MERGED_CELLS,
+    DEFAULT_FILTER_HEADER_FOOTER_IMAGES,
     DEFAULT_FOOTER_HEIGHT,
     DEFAULT_HANDLE_ROTATED_TEXT,
     DEFAULT_HEADER_DEBUG_OUTPUT,
@@ -34,6 +37,7 @@ from all2md.constants import (
     DEFAULT_LAYOUT_IOU_THRESHOLD,
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
+    DEFAULT_MIN_IMAGE_DIMENSION,
     DEFAULT_PDF_CODE_FONT,
     DEFAULT_PDF_COMMENT_MODE,
     DEFAULT_PDF_FONT_FAMILY,
@@ -306,6 +310,17 @@ class PdfOptions(PaginatedParserOptions):
             "importance": "advanced",
         },
     )
+    dedup_running_headings: bool = field(
+        default=DEFAULT_DEDUP_RUNNING_HEADINGS,
+        metadata={
+            "help": (
+                "Demote headings whose text recurs on >50%% of pages (running titles "
+                "and per-page form labels). Only applies to documents with 3+ pages."
+            ),
+            "cli_name": "no-dedup-running-headings",  # default=True, use --no-*
+            "importance": "advanced",
+        },
+    )
 
     # Reading order and layout parameters
     detect_columns: bool = field(
@@ -452,6 +467,40 @@ class PdfOptions(PaginatedParserOptions):
             "help": "JPEG quality (1-100, only used when image_format='jpeg')",
             "type": int,
             "importance": "advanced",
+        },
+    )
+    min_image_dimension: float = field(
+        default=DEFAULT_MIN_IMAGE_DIMENSION,
+        metadata={
+            "help": (
+                "Skip images whose width or height (in points) is below this threshold. "
+                "Filters tiny decorative glyphs and signature artifacts. Set to 0 to disable."
+            ),
+            "type": float,
+            "importance": "advanced",
+        },
+    )
+    filter_header_footer_images: bool = field(
+        default=DEFAULT_FILTER_HEADER_FOOTER_IMAGES,
+        metadata={
+            "help": (
+                "When layout analysis is available, drop images that fall inside detected "
+                "page-header / page-footer regions (e.g. recurring logos, signature blocks)."
+            ),
+            "cli_name": "no-filter-header-footer-images",  # default=True, use --no-*
+            "importance": "advanced",
+        },
+    )
+    collapse_excess_whitespace: bool = field(
+        default=DEFAULT_COLLAPSE_EXCESS_WHITESPACE,
+        metadata={
+            "help": (
+                "Collapse runs of 2+ horizontal whitespace characters in extracted text spans "
+                "to a single space. Affects flowing paragraphs and headings only; tables and "
+                "code blocks are left intact."
+            ),
+            "cli_name": "no-collapse-excess-whitespace",  # default=True, use --no-*
+            "importance": "core",
         },
     )
 

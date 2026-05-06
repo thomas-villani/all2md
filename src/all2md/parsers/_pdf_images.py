@@ -11,7 +11,7 @@ and detecting image captions.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from all2md.options.pdf import PdfOptions
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
@@ -20,6 +20,23 @@ if TYPE_CHECKING:
     import fitz
 
 __all__ = ["extract_page_images", "detect_image_caption"]
+
+
+def _bbox_in_any_region(bbox: Any, regions: list[Any], coverage: float = 0.7) -> bool:
+    """Return True if ``bbox`` is mostly inside any of the given regions.
+
+    Uses fractional coverage of the image rect rather than full containment so
+    images that overlap the boundary of a header/footer band by a few points
+    still get filtered.
+    """
+    bbox_area = abs(bbox)
+    if bbox_area <= 0:
+        return False
+    for region in regions:
+        intersection = bbox & region
+        if abs(intersection) >= coverage * bbox_area:
+            return True
+    return False
 
 
 def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | None:
@@ -81,6 +98,7 @@ def extract_page_images(
     options: PdfOptions | None = None,
     base_filename: str = "document",
     attachment_sequencer: Callable | None = None,
+    excluded_regions: list[Any] | None = None,
 ) -> tuple[list[dict], dict[str, str]]:
     """Extract images from a PDF page with their positions.
 
@@ -99,6 +117,10 @@ def extract_page_images(
         Base filename stem for generating standardized image names
     attachment_sequencer : object, optional
         Sequencer for generating unique attachment names
+    excluded_regions : list of fitz.Rect, optional
+        Regions on the page where images should be skipped (e.g. page-header
+        and page-footer zones from layout analysis). An image is dropped if
+        its bbox is mostly contained in any excluded region.
 
     Returns
     -------
@@ -133,6 +155,9 @@ def extract_page_images(
 
     import fitz
 
+    min_dim = float(options.min_image_dimension or 0.0)
+    exclusion_rects = list(excluded_regions or [])
+
     images = []
     image_list = page.get_images()
 
@@ -143,6 +168,25 @@ def extract_page_images(
         try:
             # Get image data
             xref = img[0]
+
+            # Get image position on page (cheap; do this before decoding the
+            # pixmap so tiny / excluded images can be skipped without paying
+            # the decode cost).
+            img_rects = page.get_image_rects(xref)
+            if not img_rects:
+                continue
+
+            bbox = img_rects[0]  # Use first occurrence
+
+            # Filter out tiny decorations (logo strokes, signature artifacts).
+            if min_dim > 0 and (bbox.width < min_dim or bbox.height < min_dim):
+                continue
+
+            # Filter out images that sit inside layout-detected page-header /
+            # page-footer regions.
+            if exclusion_rects and _bbox_in_any_region(bbox, exclusion_rects):
+                continue
+
             pix = fitz.Pixmap(page.parent, xref)
 
             # Convert to RGB if needed
@@ -150,13 +194,6 @@ def extract_page_images(
                 pix_rgb = pix
             else:
                 pix_rgb = fitz.Pixmap(fitz.csRGB, pix)
-
-            # Get image position on page
-            img_rects = page.get_image_rects(xref)
-            if not img_rects:
-                continue
-
-            bbox = img_rects[0]  # Use first occurrence
 
             # Determine image format and convert pixmap to bytes
             img_format = options.image_format if options.image_format else "png"

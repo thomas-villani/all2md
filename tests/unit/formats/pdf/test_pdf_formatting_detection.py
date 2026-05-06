@@ -4,9 +4,11 @@ These tests focus on the core formatting detection algorithms without mocking,
 using real PDF fixtures to test font flag interpretation and emphasis mapping.
 """
 
+import fitz
 import pytest
 from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
+from all2md.parsers._pdf_headers import compute_line_style
 from all2md.parsers.pdf import IdentifyHeaders
 
 
@@ -275,3 +277,239 @@ class TestPdfTextAssembly:
         assert normalize_whitespace("line\nbreaks\tand\ttabs") == "line breaks and tabs"
         assert normalize_whitespace("\n\t  \n") == ""
         assert normalize_whitespace("normal text") == "normal text"
+
+
+def _make_pdf(spans: list[tuple[str, float, bool]]) -> fitz.Document:
+    """Build a single-page PDF where each (text, size, bold) spans onto its own line.
+
+    Used by the regression tests below to construct documents with
+    precisely-controlled font distributions.
+    """
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    y = 60.0
+    for text, size, bold in spans:
+        # "hebo" / "helv" are the PyMuPDF builtin Helvetica Bold / Regular
+        # font shortcuts that don't require an external font file.
+        font = "hebo" if bold else "helv"
+        page.insert_text((50, y), text, fontsize=size, fontname=font)
+        y += size * 1.4
+    return doc
+
+
+@pytest.mark.unit
+class TestHeaderRatioDefault:
+    """Round 1: lower default ratio so body=11/header=12 docs detect headings."""
+
+    def test_body_11_header_12_classifies_size_12_as_heading(self):
+        """body=11pt regular and header=12pt bold should map size 12 to a level.
+
+        Previously the default header_font_size_ratio=1.2 set min_header_size
+        to 13.2pt, which silently rejected the very common 11/12 publishing
+        convention.
+        """
+        body_lines = [(f"Body sentence number {i}.", 11.0, False) for i in range(40)]
+        header_lines = [(f"Heading {i}", 12.0, True) for i in range(8)]
+        doc = _make_pdf(body_lines + header_lines)
+        try:
+            hdr = IdentifyHeaders(doc)
+            assert hdr.header_id, "size 12 should be admitted as a header size"
+            assert 12 in hdr.header_id
+
+            # And size 12 should require bold (close-to-body sizes always do)
+            assert 12 in hdr.bold_header_sizes
+        finally:
+            doc.close()
+
+
+@pytest.mark.unit
+class TestStyleRequirementsEnforced:
+    """Round 1: style-only header sizes really require that style."""
+
+    def test_bold_required_size_rejects_regular_span(self):
+        """A bold-required header size must not classify regular-weight spans."""
+        body_lines = [(f"Body sentence number {i}.", 11.0, False) for i in range(40)]
+        header_lines = [(f"Heading {i}", 12.0, True) for i in range(8)]
+        # Plus one regular-weight 12pt label that should NOT classify as heading
+        labels = [("Policy Title:", 12.0, False)]
+        doc = _make_pdf(body_lines + header_lines + labels)
+        try:
+            hdr = IdentifyHeaders(doc)
+            # Bold span at the heading size: should classify
+            bold_span = {"size": 12.0, "flags": 16, "text": "Heading 1"}
+            assert hdr.get_header_level(bold_span) > 0
+            # Regular span at the same size: should NOT classify
+            regular_span = {"size": 12.0, "flags": 0, "text": "Policy Title:"}
+            assert hdr.get_header_level(regular_span) == 0
+        finally:
+            doc.close()
+
+
+@pytest.mark.unit
+class TestSentenceBoundaryDemoter:
+    """Round 1: replace `len > 50 and ends with .` with sentence-boundary check."""
+
+    def test_short_period_terminated_heading_kept(self):
+        """`Definitions.` should still classify as a heading."""
+        body_lines = [(f"Body sentence number {i}.", 11.0, False) for i in range(40)]
+        header_lines = [("Heading X", 12.0, True), ("Definitions.", 12.0, True)]
+        doc = _make_pdf(body_lines + header_lines)
+        try:
+            hdr = IdentifyHeaders(doc)
+            span = {"size": 12.0, "flags": 16, "text": "Definitions."}
+            assert hdr.get_header_level(span) > 0
+        finally:
+            doc.close()
+
+    def test_multi_sentence_text_demoted(self):
+        """Body-style text with an internal sentence boundary is not a heading."""
+        body_lines = [(f"Body sentence number {i}.", 11.0, False) for i in range(40)]
+        header_lines = [("Heading", 12.0, True)]
+        doc = _make_pdf(body_lines + header_lines)
+        try:
+            hdr = IdentifyHeaders(doc)
+            multi_sentence = {
+                "size": 12.0,
+                "flags": 16,
+                "text": "First sentence here. Second sentence follows.",
+            }
+            assert hdr.get_header_level(multi_sentence) == 0
+        finally:
+            doc.close()
+
+    def test_acronym_period_does_not_demote(self):
+        """Internal acronym dots like "U.S. Department" must not look like sentence boundaries."""
+        body_lines = [(f"Body sentence number {i}.", 11.0, False) for i in range(40)]
+        header_lines = [("Heading", 12.0, True)]
+        doc = _make_pdf(body_lines + header_lines)
+        try:
+            hdr = IdentifyHeaders(doc)
+            span = {"size": 12.0, "flags": 16, "text": "U.S. Department"}
+            assert hdr.get_header_level(span) > 0
+        finally:
+            doc.close()
+
+
+@pytest.mark.unit
+class TestLineStyleClassification:
+    """Round 2: classify lines by aggregated span style, not just spans[0]."""
+
+    def test_dominant_size_wins_over_first_span(self):
+        """A leading whitespace or numbering span shouldn't change classification."""
+        spans = [
+            {"size": 11.0, "flags": 0, "text": " "},  # whitespace, regular
+            {"size": 12.0, "flags": 16, "text": "Background"},  # bold heading
+        ]
+        style = compute_line_style(spans)
+        assert style is not None
+        assert style.size == 12  # dominant by char count
+        assert style.is_bold is True
+
+    def test_majority_bold_decides_line(self):
+        """A line with majority-bold characters classifies as bold."""
+        spans = [
+            {"size": 12.0, "flags": 0, "text": "Label: "},
+            {"size": 12.0, "flags": 16, "text": "Bold Value Here"},
+        ]
+        style = compute_line_style(spans)
+        assert style is not None
+        assert style.is_bold is True  # 15 bold > 7 regular
+
+    def test_minority_bold_does_not_flip(self):
+        """A mostly-regular line with one bold word stays regular."""
+        spans = [
+            {"size": 12.0, "flags": 0, "text": "This is a long line of regular text "},
+            {"size": 12.0, "flags": 16, "text": "bold"},
+        ]
+        style = compute_line_style(spans)
+        assert style is not None
+        assert style.is_bold is False
+
+    def test_whitespace_only_returns_none(self):
+        """A line with only whitespace spans yields no LineStyle."""
+        spans = [
+            {"size": 12.0, "flags": 0, "text": "  "},
+            {"size": 11.0, "flags": 0, "text": "\t"},
+        ]
+        assert compute_line_style(spans) is None
+
+
+@pytest.mark.unit
+class TestNumberingPrefixDetection:
+    """Round 3: detect numbering prefixes for split-line heading merge."""
+
+    def test_roman_numeral_detected(self):
+        from all2md.parsers._pdf_numbering import parse_numbering_prefix
+
+        m = parse_numbering_prefix("I.")
+        assert m is not None and m.kind == "roman" and m.depth == 1
+
+        m = parse_numbering_prefix("XV.")
+        assert m is not None and m.kind == "roman"
+
+    def test_decimal_depth_increases_with_dots(self):
+        from all2md.parsers._pdf_numbering import parse_numbering_prefix
+
+        assert parse_numbering_prefix("1.").depth == 1  # type: ignore[union-attr]
+        assert parse_numbering_prefix("1.1").depth == 2  # type: ignore[union-attr]
+        assert parse_numbering_prefix("1.1.1").depth == 3  # type: ignore[union-attr]
+
+    def test_letter_and_paren(self):
+        from all2md.parsers._pdf_numbering import parse_numbering_prefix
+
+        assert parse_numbering_prefix("A.").kind == "letter"  # type: ignore[union-attr]
+        assert parse_numbering_prefix("(a)").kind == "paren"  # type: ignore[union-attr]
+        assert parse_numbering_prefix("(1)").kind == "paren"  # type: ignore[union-attr]
+
+    def test_bullet_recognized(self):
+        from all2md.parsers._pdf_numbering import parse_numbering_prefix
+
+        # Standalone dash / bullet glyph counts as a prefix worth merging
+        # so "- Section Name" split across two lines reassembles cleanly.
+        for sym in ("-", "•", "–", "—"):
+            m = parse_numbering_prefix(sym)
+            assert m is not None and m.kind == "bullet", f"{sym!r} should match"
+
+    def test_text_with_content_does_not_match(self):
+        from all2md.parsers._pdf_numbering import parse_numbering_prefix
+
+        # Lines with actual heading text after the prefix don't match here —
+        # they're handled by the merge path, not the buffer path.
+        assert parse_numbering_prefix("I. Background") is None
+        assert parse_numbering_prefix("Background") is None
+        assert parse_numbering_prefix("1.1 Overview") is None
+        assert parse_numbering_prefix("Hello world.") is None
+
+
+@pytest.mark.unit
+class TestHeadingPrefixMerge:
+    """Round 3: split-line numbering merges with the next heading."""
+
+    def test_roman_numeral_merges_with_following_heading(self, tmp_path):
+        """A line of just "I." followed by a heading line emits one merged heading."""
+        from all2md import to_markdown
+
+        pdf_path = tmp_path / "merged.pdf"
+        body_lines = [(f"Body sentence number {i}.", 11.0, False) for i in range(40)]
+        # "I." on its own line, "Background" on the next, then more body
+        sequence = (
+            body_lines[:5]
+            + [
+                ("I.", 12.0, True),
+                ("Background", 12.0, True),
+            ]
+            + body_lines[5:]
+        )
+        doc = _make_pdf(sequence)
+        doc.save(str(pdf_path))
+        doc.close()
+
+        out = to_markdown(str(pdf_path))
+        # The "I." should not appear as its own heading; should be merged.
+        heading_lines = [line for line in out.splitlines() if line.startswith("#")]
+        assert any(
+            "I." in line and "Background" in line for line in heading_lines
+        ), f"expected merged 'I. Background' heading, got {heading_lines!r}"
+        assert not any(
+            line.strip() in ("# I.", "## I.", "# **I.**", "## **I.**") for line in heading_lines
+        ), f"'I.' should not appear as standalone heading: {heading_lines!r}"

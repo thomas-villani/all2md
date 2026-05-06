@@ -694,9 +694,16 @@ DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives
 DEFAULT_HEADER_USE_FONT_WEIGHT = True
 DEFAULT_HEADER_USE_ALL_CAPS = True
 DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
-DEFAULT_HEADER_FONT_SIZE_RATIO = 1.2  # Minimum ratio between header and body text font size
+DEFAULT_HEADER_FONT_SIZE_RATIO = 1.05  # Minimum ratio between header and body text font size.
+# 1.05 catches the common publishing convention of body=11pt / header=12pt
+# (ratio ≈ 1.09). The previous 1.2 default missed the bottom rung of heading
+# sizes on documents that don't use a big jump for sections.
 DEFAULT_HEADER_MAX_LINE_LENGTH = 100  # Maximum character length for text to be considered a header
 DEFAULT_HEADER_DEBUG_OUTPUT = False  # Enable debug output for header detection analysis
+# Demote headings whose normalized text recurs on >50% of document pages,
+# treating them as running titles or per-page form labels rather than real
+# section markers. Only applied to documents with 3+ pages.
+DEFAULT_DEDUP_RUNNING_HEADINGS = True
 
 # Column detection
 DEFAULT_DETECT_COLUMNS = True
@@ -728,6 +735,19 @@ DEFAULT_IMAGE_PLACEMENT_MARKERS = True
 DEFAULT_INCLUDE_IMAGE_CAPTIONS = True
 DEFAULT_IMAGE_FORMAT: ImageFormat = "png"
 DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
+# Skip images smaller than this many points on either dimension. Catches the
+# tiny (≈4×10pt) decorative glyphs and signature-line slivers that DocuSign-
+# stamped PDFs scatter through the page-header strip.
+DEFAULT_MIN_IMAGE_DIMENSION = 20.0
+# When the layout model is available, also drop images that fall inside a
+# page-header / page-footer region (recurring logos, signature blocks).
+DEFAULT_FILTER_HEADER_FOOTER_IMAGES = True
+
+# Whitespace cleanup
+# PDF text spans frequently encode visual layout as long runs of spaces
+# (e.g. "Policy Title:                  "). Collapse runs of 2+ spaces in
+# non-monospace text spans to a single space.
+DEFAULT_COLLAPSE_EXCESS_WHITESPACE = True
 
 # Page structure
 DEFAULT_INCLUDE_PAGE_NUMBERS = False
