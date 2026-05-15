@@ -149,8 +149,11 @@ def extract_page_images(
     if not options or options.attachment_mode == "skip":
         return [], collected_footnotes
 
-    # For alt_text mode, only extract if we need image placement markers
-    if options.attachment_mode == "alt_text" and not options.image_placement_markers:
+    # In alt_text mode there is no URL to point markers at, so emitting
+    # ``![alt]()`` placeholders is just noise. Skip extraction entirely —
+    # this also avoids decoding every pixmap only to throw the bytes away.
+    # ``image_placement_markers`` remains meaningful for ``save`` / ``base64``.
+    if options.attachment_mode == "alt_text":
         return [], collected_footnotes
 
     import fitz

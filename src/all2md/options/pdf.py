@@ -144,7 +144,10 @@ class PdfOptions(PaginatedParserOptions):
         false positives but may miss valid links.
 
     image_placement_markers : bool, default True
-        Add markers showing image positions.
+        Add markers showing image positions. Only applies when
+        ``attachment_mode`` is ``save`` or ``base64`` (modes that produce a
+        real URL/path). In ``alt_text`` mode no markers are emitted because
+        they would have no target.
     include_image_captions : bool, default True
         Try to extract image captions.
 
