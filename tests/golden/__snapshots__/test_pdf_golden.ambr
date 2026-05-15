@@ -73,15 +73,15 @@
   
   Here’s some underlined text. 
   
-  Here we want a longer paragraph that can span a few lines in a document. It should be like 3 or 4 sentences, which is the normal length of a paragraph. We can even include some **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done.
+  Here we want a longer paragraph that can span a few lines in a document. It should be like 3 or 4 sentences, which is the normal length of a paragraph. We can even include some **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done. 
   
   First Section Heading 
   
-  Right before this was the equivalent of an “h2” heading. Now we have some more stuff in this section. I think a [hyperlink](https://example.com/) would be cool.
+  Right before this was the equivalent of an “h2” heading. Now we have some more stuff in this section. I think a [hyperlink](https://example.com/) would be cool. 
   
   Now for an unordered list: 
   
-  *  First item on unordered list - Second item - Third
+  *  First item on unordered list - Second item - Third 
   
   Let’s add some more stuff 
   
@@ -97,19 +97,19 @@
   
   And now a multilevel list: 
   
-  *  First level - First level 2
+  *  First level - First level 2 
   
   o Second level 1 
   
   o Second level 2 
   
-  *  First level 3 - First level 4
+  *  First level 3 - First level 4 
   
   o Second level 3 
   
   o Second level 4 
   
-  *  First level 5
+  *  First level 5 
   
    
   
