@@ -10,12 +10,73 @@ using ruling lines (horizontal and vertical lines that form table borders).
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import fitz
 
-__all__ = ["detect_tables_by_ruling_lines"]
+__all__ = [
+    "MAX_DOT_LEADER_CELL_RATIO",
+    "MAX_TABLE_COLS",
+    "MAX_TABLE_EMPTY_RATIO",
+    "MAX_TABLE_ROWS",
+    "MIN_FILLED_FOR_UNIFORMITY_CHECK",
+    "detect_tables_by_ruling_lines",
+    "is_dot_leader_cell",
+]
+
+# Hard caps and guards applied to detected tables. Real prose tables rarely
+# exceed these bounds; "tables" outside them are almost always misfires on
+# non-tabular content (decorative frames, callout boxes, TOC dot-leader
+# regions, layout grids). The same caps apply to both PyMuPDF's
+# find_tables() output and our ruling-line detector since both can fire
+# on the same false-positive shapes.
+MAX_TABLE_COLS = 25
+MAX_TABLE_ROWS = 200
+MAX_TABLE_EMPTY_RATIO = 0.70
+MIN_FILLED_FOR_UNIFORMITY_CHECK = 5
+# When more than this fraction of non-empty cells are dot-leader cells
+# (only dots, or a value with trailing dot-leader bleeding from the next
+# visual row), the table is treated as a TOC region and rejected.
+MAX_DOT_LEADER_CELL_RATIO = 0.30
+
+# A pure dot-leader cell is all dots/whitespace. A mixed cell is dot-leader
+# noise only when the trailing line has multiple dots (a section name plus
+# its dot-leader run). A single trailing dot is more likely a benign font-
+# baseline artifact (e.g. ``$10.99`` extracted as ``$1099\n.``) and is left
+# alone.
+_DOT_ONLY = re.compile(r"^[.…\s]+$")
+_DOT_LEADER_TAIL = re.compile(r"\n\s*[.…](?:\s*[.…]){2,}\s*$")
+
+
+def is_dot_leader_cell(text: str) -> bool:
+    """Detect cells that are dot-leader noise rather than real content.
+
+    Two shapes count: cells that are entirely dot characters (TOC dot-
+    leaders that PyMuPDF allocated to their own column), and cells whose
+    final line is a run of three-or-more dots (a section name with its
+    dot-leader trailing into the bbox).
+
+    Parameters
+    ----------
+    text : str
+        Cell text to test.
+
+    Returns
+    -------
+    bool
+        True if the cell is dot-leader noise.
+
+    """
+    if not text:
+        return False
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if _DOT_ONLY.match(stripped):
+        return True
+    return bool(_DOT_LEADER_TAIL.search(stripped))
 
 
 def _extract_ruling_lines(
@@ -195,4 +256,15 @@ def detect_tables_by_ruling_lines(
     # Collect lines for each table
     table_lines = _collect_lines_for_tables(table_rects, h_lines, v_lines)
 
-    return table_rects, table_lines
+    # Drop rects whose internal line count would produce an absurdly large
+    # grid - those are essentially always bordered non-tabular content.
+    filtered_rects: list["fitz.Rect"] = []
+    filtered_lines: list[tuple[list[tuple], list[tuple]]] = []
+    for rect, (th, tv) in zip(table_rects, table_lines, strict=True):
+        # cols = len(v_lines) - 1, rows = len(h_lines) - 1
+        if len(tv) - 1 > MAX_TABLE_COLS or len(th) - 1 > MAX_TABLE_ROWS:
+            continue
+        filtered_rects.append(rect)
+        filtered_lines.append((th, tv))
+
+    return filtered_rects, filtered_lines

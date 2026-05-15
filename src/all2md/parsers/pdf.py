@@ -78,7 +78,15 @@ from all2md.parsers._pdf_ocr import (
 from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
-from all2md.parsers._pdf_tables import detect_tables_by_ruling_lines
+from all2md.parsers._pdf_tables import (
+    MAX_DOT_LEADER_CELL_RATIO,
+    MAX_TABLE_COLS,
+    MAX_TABLE_EMPTY_RATIO,
+    MAX_TABLE_ROWS,
+    MIN_FILLED_FOR_UNIFORMITY_CHECK,
+    detect_tables_by_ruling_lines,
+    is_dot_leader_cell,
+)
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
     collapse_whitespace_runs,
@@ -1207,7 +1215,7 @@ class PdfToAstConverter(BaseParser):
 
         """
         if item_data["type"] == "pymupdf":
-            return self._process_table_to_ast(item_data["table_obj"], page_num)
+            return self._process_table_to_ast(item_data["table_obj"], page, page_num)
         elif item_data["type"] == "fallback":
             h_lines, v_lines = item_data["lines"]
             return self._extract_table_from_ruling_rect(page, item_data["bbox"], h_lines, v_lines, page_num)
@@ -2337,9 +2345,9 @@ class PdfToAstConverter(BaseParser):
 
         return None
 
-    @staticmethod
-    def _extract_cell_text(cell_text: Any) -> str:
-        """Extract and normalize text from a table cell.
+    @classmethod
+    def _extract_cell_text(cls, cell_text: Any) -> str:
+        """Normalize a table cell value to a stripped string.
 
         Parameters
         ----------
@@ -2349,12 +2357,14 @@ class PdfToAstConverter(BaseParser):
         Returns
         -------
         str
-            Normalized cell text as string, empty string if None
+            Stripped cell text, empty string if None
 
         """
-        return str(cell_text).strip() if cell_text is not None else ""
+        if cell_text is None:
+            return ""
+        return str(cell_text).strip()
 
-    def _process_table_to_ast(self, table: Any, page_num: int) -> AstTable | None:
+    def _process_table_to_ast(self, table: Any, page: "fitz.Page", page_num: int) -> AstTable | None:
         """Process a PyMuPDF table to AST Table node.
 
         Directly accesses table cell data from PyMuPDF table object instead of
@@ -2364,6 +2374,9 @@ class PdfToAstConverter(BaseParser):
         ----------
         table : PyMuPDF Table
             Table object from find_tables()
+        page : fitz.Page
+            Page containing the table (accepted for API symmetry with the
+            ruling-line and layout extraction paths).
         page_num : int
             Page number for source tracking
 
@@ -2373,6 +2386,7 @@ class PdfToAstConverter(BaseParser):
             Table node if table has content
 
         """
+        del page  # accepted for API symmetry with other extraction paths
         try:
             # Try to extract cells directly from PyMuPDF table object
             # PyMuPDF tables have a `extract()` method that returns cell data
@@ -2382,26 +2396,53 @@ class PdfToAstConverter(BaseParser):
                 logger.debug("Table has no data")
                 return None
 
+            # Reject pathological detections (PyMuPDF's find_tables() can fire on
+            # decorative frames / TOC dot-leader regions / non-tabular content,
+            # the same way our ruling-line fallback can). Same caps as ruling.
+            n_rows = len(table_data)
+            n_cols = max((len(r) for r in table_data), default=0)
+            n_cells = sum(len(r) for r in table_data)
+            if n_cells == 0:
+                return None
+            if n_cols > MAX_TABLE_COLS or n_rows > MAX_TABLE_ROWS:
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: " f"{n_rows}x{n_cols} grid exceeds size caps"
+                )
+                return None
+            n_empty = sum(1 for r in table_data for c in r if c is None or not str(c).strip())
+            if n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: "
+                    f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
+                )
+                return None
+            unique_texts = {str(c).strip() for r in table_data for c in r if c is not None and str(c).strip()}
+            n_filled = n_cells - n_empty
+            if len(unique_texts) == 1 and n_filled >= MIN_FILLED_FOR_UNIFORMITY_CHECK:
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: "
+                    f"all {n_filled} non-empty cells have identical content"
+                )
+                return None
+            n_dot_leader = sum(1 for r in table_data for c in r if c is not None and is_dot_leader_cell(str(c)))
+            if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: "
+                    f"{n_dot_leader}/{n_filled} ({n_dot_leader / n_filled:.0%}) cells are "
+                    f"dot-leader noise (looks like TOC region)"
+                )
+                return None
+
             # Separate header row (first row) from data rows
             header_row_data = table_data[0] if table_data else []
             data_rows_data = table_data[1:] if len(table_data) > 1 else []
 
-            # Build AST header row
-            header_cells = []
-            for cell_text in header_row_data:
-                cell_content = self._extract_cell_text(cell_text)
-                header_cells.append(TableCell(content=[Text(content=cell_content)]))
-
+            header_cells = [TableCell(content=[Text(content=self._extract_cell_text(c))]) for c in header_row_data]
             header_row = TableRow(cells=header_cells, is_header=True)
 
-            # Build AST data rows
             data_rows = []
             for row_data in data_rows_data:
-                row_cells = []
-                for cell_text in row_data:
-                    cell_content = self._extract_cell_text(cell_text)
-                    row_cells.append(TableCell(content=[Text(content=cell_content)]))
-
+                row_cells = [TableCell(content=[Text(content=self._extract_cell_text(c))]) for c in row_data]
                 data_rows.append(TableRow(cells=row_cells))
 
             return AstTable(
@@ -2522,21 +2563,29 @@ class PdfToAstConverter(BaseParser):
         # Extract x-coordinates for columns (between consecutive v_lines)
         col_x_coords = [(v_lines_sorted[i][0], v_lines_sorted[i + 1][0]) for i in range(len(v_lines_sorted) - 1)]
 
+        n_rows = len(row_y_coords)
+        n_cols = len(col_x_coords)
+        n_cells = n_rows * n_cols
+
         import fitz
+
+        n_empty = 0
+        n_dot_leader = 0
+        unique_texts: set[str] = set()
 
         for row_idx, (y0, y1) in enumerate(row_y_coords):
             cells: list[TableCell] = []
 
             for _col_idx, (x0, x1) in enumerate(col_x_coords):
-                # Create cell rectangle
                 cell_rect = fitz.Rect(x0, y0, x1, y1)
+                cell_text = page.get_textbox(cell_rect).strip()
 
-                # Extract text from cell
-                cell_text = page.get_textbox(cell_rect)
                 if cell_text:
-                    cell_text = cell_text.strip()
+                    unique_texts.add(cell_text)
+                    if is_dot_leader_cell(cell_text):
+                        n_dot_leader += 1
                 else:
-                    cell_text = ""
+                    n_empty += 1
 
                 cells.append(TableCell(content=[Text(content=cell_text)]))
 
@@ -2545,6 +2594,34 @@ class PdfToAstConverter(BaseParser):
             rows.append(TableRow(cells=cells, is_header=is_header))
 
         if not rows:
+            return None
+
+        # Sparsity guard: real tables are not mostly empty. A "table" with
+        # >70% empty cells is almost always a misfire on a bordered region.
+        if n_cells > 0 and n_empty / n_cells > 0.70:
+            logger.debug(
+                f"Rejecting ruling-line table on page {page_num + 1}: "
+                f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
+            )
+            return None
+
+        # Uniformity guard: a "table" where every non-empty cell has the same
+        # content is the prompt-callout pattern (decorative box with a
+        # repeated title fragment scattered across cells).
+        n_filled = n_cells - n_empty
+        if len(unique_texts) == 1 and n_filled >= 5:
+            logger.debug(
+                f"Rejecting ruling-line table on page {page_num + 1}: "
+                f"all {n_filled} non-empty cells have identical content"
+            )
+            return None
+
+        if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
+            logger.debug(
+                f"Rejecting ruling-line table on page {page_num + 1}: "
+                f"{n_dot_leader}/{n_filled} ({n_dot_leader / n_filled:.0%}) cells are "
+                f"dot-leader noise (looks like TOC region)"
+            )
             return None
 
         # Separate header and data rows
@@ -2583,7 +2660,7 @@ class PdfToAstConverter(BaseParser):
         try:
             tabs = page.find_tables(clip=table_rect)
             if tabs.tables:
-                return self._process_table_to_ast(tabs.tables[0], page_num)
+                return self._process_table_to_ast(tabs.tables[0], page, page_num)
         except Exception:
             pass
 
