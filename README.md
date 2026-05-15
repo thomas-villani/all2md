@@ -810,6 +810,27 @@ A: Use parallel processing: `all2md ./docs -r -o ./output --parallel 8` or in Py
 - **Examples:** Browse [15+ examples](examples/) organized by complexity and use case
 - **Issues:** Report bugs or request features on [GitHub Issues](https://github.com/thomas-villani/all2md/issues)
 
+## Performance Benchmarking
+
+For contributors evaluating parser changes, all2md ships a corpus benchmark harness in [`benchmarks/corpus/`](benchmarks/corpus/) that pulls a deterministic sample from public document corpora (arxiv, PubMed Central, govdocs1, Apache POI test data, the Enron email release), times conversion of each doc, and emits a stratified markdown report.
+
+```bash
+# Full pipeline: download, benchmark, generate report
+python -m benchmarks.corpus.run
+
+# Targeted run: PDFs from arxiv only, capped at 20 docs
+python -m benchmarks.corpus.run --sources arxiv --formats pdf --max-docs 20
+```
+
+A companion `inspect` helper saves converted markdown next to copies of the source files so you can manually review conversion quality for a curated subset (slowest, largest, or random):
+
+```bash
+python -m benchmarks.corpus.inspect --criteria slowest --n 10
+python -m benchmarks.corpus.inspect --criteria random --sources pmc --n 5 --seed 1
+```
+
+See [`benchmarks/corpus/README.md`](benchmarks/corpus/README.md) for the full configuration reference and the [Performance Tuning docs](https://all2md.readthedocs.io/en/latest/performance.html#corpus-benchmark-harness) for an overview.
+
 ## Contributing
 
 Contributions are welcome! We appreciate bug reports, feature requests, documentation improvements, and code contributions.

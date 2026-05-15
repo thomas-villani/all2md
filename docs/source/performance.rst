@@ -829,6 +829,100 @@ Create custom benchmarks:
    print(f"  Std Dev: {results['stdev']:.3f}s")
    print(f"  Range: {results['min']:.3f}s - {results['max']:.3f}s")
 
+Corpus Benchmark Harness
+------------------------
+
+For stress testing across a wider variety of real-world documents than ad-hoc
+benchmarks can cover, all2md ships a corpus benchmark harness in
+``benchmarks/corpus/``. It pulls a deterministic sample from public corpora
+(arxiv, PubMed Central, Digital Corpora govdocs1, Apache POI test data, the
+Enron email release), times conversion of each doc, and produces a stratified
+markdown report.
+
+The harness is intentionally separate from the unit-style ``tests/performance``
+benchmarks - it focuses on real-world coverage rather than fixture-level
+regression tracking, and is most useful for catching format-specific
+regressions or finding pathological docs that trip up a parser change.
+
+Running the Corpus Benchmark
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+From the repository root, with ``all2md`` installed in your environment:
+
+.. code-block:: bash
+
+   # Full pipeline: download, benchmark, generate report
+   python -m benchmarks.corpus.run
+
+   # Subset: only PDFs from arxiv and PubMed Central, max 20 docs
+   python -m benchmarks.corpus.run --sources arxiv,pmc --formats pdf --max-docs 20
+
+   # Skip docs above a size cutoff (useful for quick smoke runs)
+   python -m benchmarks.corpus.run --max-size-mb 5
+
+   # Re-render the report from the latest results JSON
+   python -m benchmarks.corpus.run report
+
+The first invocation downloads roughly 1 GB of corpus into
+``benchmarks/corpus/.cache/`` (gitignored). Subsequent runs are no-ops on the
+cache. The Enron tarball (~423 MB) and the govdocs1 zip shard (~250 MB) are
+the bulk of the download.
+
+Sample sizes, seeds, and source-specific configuration live in
+``benchmarks/corpus/corpus.toml``. Adjust them for stress runs.
+
+Reading the Report
+~~~~~~~~~~~~~~~~~~
+
+Each run writes a ``results_<timestamp>.json`` plus a paired
+``results_<timestamp>.md``. The markdown report contains:
+
+* **Per-source / per-format tables** with counts, success rate, p50/p95 wall
+  time, and MB/s throughput - the primary regression signal.
+* **Top-N slowest** documents - usually worth profiling.
+* **Failures** grouped by exception type - a new error type appearing here
+  after a code change is the loudest possible regression signal.
+
+Inspecting Conversion Quality
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Timing tells you whether a doc is fast; only reading the markdown tells you
+whether it is *correct*. The companion ``inspect`` helper saves the markdown
+output for a curated subset of docs alongside a copy of the source so you can
+flip through them:
+
+.. code-block:: bash
+
+   # 10 slowest from latest results JSON (default)
+   python -m benchmarks.corpus.inspect
+
+   # 15 largest cached PDFs, regardless of timing
+   python -m benchmarks.corpus.inspect --criteria largest --n 15 --formats pdf
+
+   # Random sample from a specific source
+   python -m benchmarks.corpus.inspect --criteria random --sources pmc --n 5 --seed 1
+
+   # Wipe previous output before writing
+   python -m benchmarks.corpus.inspect --clean
+
+Output lands in ``benchmarks/corpus/inspect/<source>/`` with paired
+``<doc>.<ext>`` (copy of the source) and ``<doc>.md`` (the converted output)
+files, plus a top-level ``_summary.md`` index that links to each pair.
+
+Reproducibility Caveats
+~~~~~~~~~~~~~~~~~~~~~~~
+
+* The arxiv and PubMed Central pools come from live APIs and shift over time.
+  The seed controls sampling within the pool, but the pool itself drifts -
+  two runs on different days will pick a comparable mix, not the same papers.
+* govdocs1, Enron, and Apache POI samples are stable: same shard, same git
+  ref, same tarball content.
+* Wall-clock timings depend on hardware and load - compare across runs on the
+  same machine, not across machines.
+
+See ``benchmarks/corpus/README.md`` in the source tree for the full
+configuration reference and notes on adding a new source.
+
 See Also
 --------
 

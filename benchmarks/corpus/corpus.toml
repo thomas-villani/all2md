@@ -1,0 +1,66 @@
+# Corpus manifest for all2md performance benchmarks.
+#
+# Each [sources.<name>] block describes one corpus to pull. The CLI in run.py
+# can subset by name (--sources arxiv,enron) or by format (--formats pdf).
+#
+# All sources are HTTP-only - no AWS credentials required.
+# Sample sizes are deliberately modest so a full run completes in roughly an
+# hour and the cache stays under ~1 GB. Bump them if you want a stress run.
+
+[sources.arxiv]
+description = "arxiv academic papers (text- and math-heavy, single column)"
+type        = "arxiv-api"
+formats     = ["pdf"]
+sample_size = 30
+seed        = 42
+# arxiv API search query - see https://arxiv.org/help/api/user-manual
+query       = "cat:cs.CL"
+# How many results to list before sampling sample_size from the pool.
+# Larger pool = more variety, longer listing call.
+pool_size   = 200
+
+# PMC is currently disabled. NCBI's OA web service is not reliable for
+# programmatic PDF retrieval - the per-id endpoint serves an HTML interstitial
+# (not a PDF), the list endpoint returns tgz packages rather than PDFs, and
+# both are intermittently rate-limited. The fetcher code in download.py
+# (fetch_pmc) is kept for reference and can be re-enabled by uncommenting
+# the block below if NCBI's API behavior improves.
+#
+# [sources.pmc]
+# description = "PubMed Central open-access biomedical articles (multi-column, figures, tables)"
+# type        = "pmc-oa"
+# formats     = ["pdf"]
+# sample_size = 30
+# seed        = 42
+
+[sources.govdocs1]
+description = "Digital Corpora govdocs1 - real-world docs harvested from .gov sites"
+type        = "govdocs1-shard"
+formats     = ["pdf", "docx"]
+sample_size = 50
+seed        = 42
+# Each shard is a ~250 MB zip with ~1000 mixed-format files.
+# Shard 0 is the smallest sample; later shards have similar character.
+shard       = 0
+
+[sources.poi]
+description = "Apache POI test corpus - known-tricky office docs collected by the POI maintainers"
+type        = "github-tree"
+formats     = ["docx", "pptx"]
+sample_size = 30
+seed        = 42
+repo        = "apache/poi"
+ref         = "trunk"
+# Subdirectories of the repo to scan for files.
+paths       = ["test-data/document", "test-data/slideshow"]
+# Skip files matching these glob patterns. clusterfuzz testcases are
+# deliberately malformed inputs designed to crash parsers - they are a fuzz
+# corpus, not a quality corpus, and not what we want to benchmark against.
+exclude_patterns = ["*clusterfuzz*"]
+
+[sources.enron]
+description = "Enron email corpus - 500k real-world EMLs from the public release"
+type        = "enron-tarball"
+formats     = ["eml"]
+sample_size = 50
+seed        = 42

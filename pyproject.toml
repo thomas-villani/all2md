@@ -338,6 +338,15 @@ max-complexity = 28
     "E402",  # Module level import not at top (common with pytest.skip)
     "E501",  # Line too long (tests often have long assertion lines)
 ]
+"benchmarks/**/*.py" = [
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in __init__
+]
 
 
 [tool.mypy]
@@ -393,7 +402,7 @@ exclude = '\.git|\.mypy_cache|\.pytest_cache|build|dist'
 skip-string-normalization = false
 
 [tool.bandit]
-exclude_dirs = ["tests", "build", "dist", ".venv", "examples", "scripts"]
+exclude_dirs = ["tests", "build", "dist", ".venv", "examples", "scripts", "benchmarks"]
 skips = [
     "B101",  # assert_used - asserts are fine in non-test code for invariants
     "B105",  # hardcoded_password_string - false positives on non-password strings

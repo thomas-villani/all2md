@@ -97,3 +97,9 @@ docs/out.txt
 *.tmp
 .temp/
 temp/
+
+# Corpus benchmark
+benchmarks/corpus/.cache/
+benchmarks/corpus/results/
+benchmarks/corpus/inspect/
+benchmarks/corpus/.test/
