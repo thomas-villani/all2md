@@ -138,6 +138,7 @@ Guides & References
    security
    threat_model
    performance
+   optimizations
    recipes
 
 .. toctree::

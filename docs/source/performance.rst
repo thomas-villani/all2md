@@ -926,6 +926,7 @@ configuration reference and notes on adding a new source.
 See Also
 --------
 
+* :doc:`optimizations` - Profile-driven PDF performance work between 1.1.0 and 1.1.1 (case study, methodology, committed reference benchmarks)
 * :doc:`cli` - Command-line performance options
 * :doc:`troubleshooting` - Performance issue troubleshooting
 * :doc:`integrations` - Integration-specific optimizations

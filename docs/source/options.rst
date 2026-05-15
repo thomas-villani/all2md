@@ -1554,6 +1554,34 @@ including fonts, styles, and formatting preferences.
    :Default: ``None``
    :Importance: core
 
+**clear_template_body**
+
+   When template_path is set, remove the template's existing body content (paragraphs, tables) before rendering the AST. Section properties (margins, page size), headers/footers, and style definitions are always preserved. Default False keeps the append behavior (useful for letterhead-style templates); set True for round-trip 'edit' workflows that want to replace the body while preserving the document's look.
+
+   :Type: ``bool``
+   :CLI flag: ``--docx-renderer-clear-template-body``
+   :Default: ``False``
+   :Importance: core
+
+**comment_mode**
+
+   How to render Comment and CommentInline nodes: native (Word comments API), visible (text paragraphs with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX source files and other format annotations.
+
+   :Type: ``Literal['native', 'visible', 'ignore']``
+   :CLI flag: ``--docx-renderer-comment-mode``
+   :Default: ``'native'``
+   :Choices: ``native``, ``visible``, ``ignore``
+   :Importance: core
+
+**promote_title**
+
+   Promote a leading H1 to Word's Title style and shift subsequent headings up one level. Disable with --no-promote-title to keep all H1s as Heading 1.
+
+   :Type: ``bool``
+   :CLI flag: ``--docx-renderer-no-promote-title``
+   :Default: ``True``
+   :Importance: core
+
 Network Options
 +++++++++++++++
 
@@ -1644,25 +1672,6 @@ to prevent SSRF attacks.
    :CLI flag: ``--docx-renderer-network-max-concurrent-requests``
    :Default: ``5``
    :Importance: security
-
-**comment_mode**
-
-   How to render Comment and CommentInline nodes: native (Word comments API), visible (text paragraphs with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX source files and other format annotations.
-
-   :Type: ``Literal['native', 'visible', 'ignore']``
-   :CLI flag: ``--docx-renderer-comment-mode``
-   :Default: ``'native'``
-   :Choices: ``native``, ``visible``, ``ignore``
-   :Importance: core
-
-**promote_title**
-
-   Promote a leading H1 to Word's Title style and shift subsequent headings up one level. Disable with --no-promote-title to keep all H1s as Heading 1.
-
-   :Type: ``bool``
-   :CLI flag: ``--docx-renderer-no-promote-title``
-   :Default: ``True``
-   :Importance: core
 
 DOKUWIKI Options
 ~~~~~~~~~~~~~~~~
@@ -4450,7 +4459,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x00000247329ECC70>``
+   :Default: ``<object object at 0x0000020443EDCC70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4460,7 +4469,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000247329ECC70>``
+   :Default: ``<object object at 0x0000020443EDCC70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -7008,7 +7017,7 @@ including page selection, image handling, and formatting preferences.
 
    :Type: ``float``
    :CLI flag: ``--pdf-header-font-size-ratio``
-   :Default: ``1.2``
+   :Default: ``1.05``
    :Importance: advanced
 
 **header_max_line_length**
@@ -7027,6 +7036,15 @@ including page selection, image handling, and formatting preferences.
    :Type: ``bool``
    :CLI flag: ``--pdf-header-debug-output``
    :Default: ``False``
+   :Importance: advanced
+
+**dedup_running_headings**
+
+   Demote headings whose text recurs on >50%% of pages (running titles and per-page form labels). Only applies to documents with 3+ pages.
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-no-dedup-running-headings``
+   :Default: ``True``
    :Importance: advanced
 
 **detect_columns**
@@ -7054,6 +7072,15 @@ including page selection, image handling, and formatting preferences.
    :Type: ``bool``
    :CLI flag: ``--pdf-no-handle-rotated-text``
    :Default: ``True``
+   :Importance: advanced
+
+**annotate_rotated_text**
+
+   Append a rotation marker (e.g. \*[rotated 90° counter-clockwise]\*) after rotated text
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-annotate-rotated-text``
+   :Default: ``False``
    :Importance: advanced
 
 **column_gap_threshold**
@@ -7185,6 +7212,33 @@ including page selection, image handling, and formatting preferences.
    :CLI flag: ``--pdf-image-quality``
    :Default: ``90``
    :Importance: advanced
+
+**min_image_dimension**
+
+   Skip images whose width or height (in points) is below this threshold. Filters tiny decorative glyphs and signature artifacts. Set to 0 to disable.
+
+   :Type: ``float``
+   :CLI flag: ``--pdf-min-image-dimension``
+   :Default: ``20.0``
+   :Importance: advanced
+
+**filter_header_footer_images**
+
+   When layout analysis is available, drop images that fall inside detected page-header / page-footer regions (e.g. recurring logos, signature blocks).
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-no-filter-header-footer-images``
+   :Default: ``True``
+   :Importance: advanced
+
+**collapse_excess_whitespace**
+
+   Collapse runs of 2+ horizontal whitespace characters in extracted text spans to a single space. Affects flowing paragraphs and headings only; tables and code blocks are left intact.
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-no-collapse-excess-whitespace``
+   :Default: ``True``
+   :Importance: core
 
 **trim_headers_footers**
 
@@ -10068,7 +10122,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x00000247329ECC70>``
+   :Default: ``<object object at 0x0000020443EDCC70>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -10078,7 +10132,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000247329ECC70>``
+   :Default: ``<object object at 0x0000020443EDCC70>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
