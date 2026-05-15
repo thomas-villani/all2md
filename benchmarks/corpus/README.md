@@ -56,21 +56,29 @@ From the repo root, with the `.venv` active and `all2md` installed:
 
 # Re-render the report from the latest results JSON
 .venv/Scripts/python.exe -m benchmarks.corpus.run report
+
+# Delete the cached corpus (~1 GB)
+.venv/Scripts/python.exe -m benchmarks.corpus.run purge
+
+# Full pipeline, then clean up the cache (useful in CI / ephemeral disks)
+.venv/Scripts/python.exe -m benchmarks.corpus.run --purge-after
 ```
 
 ## Flags
 
-| Flag             | Effect                                                    |
-| ---------------- | --------------------------------------------------------- |
-| `mode`           | `download`, `benchmark`, `report`, or `all` (default).    |
-| `--sources`      | Comma-separated source names. Subset of `corpus.toml`.    |
-| `--formats`      | Comma-separated formats (e.g. `pdf,docx`).                |
-| `--max-docs`     | Cap total docs benchmarked.                               |
-| `--max-size-mb`  | Skip docs larger than this size.                          |
-| `--manifest`     | Override path to `corpus.toml`.                           |
-| `--cache-dir`    | Override cache location.                                  |
-| `--results-dir`  | Override results location.                                |
-| `--results-file` | (report mode) Render a specific results JSON.             |
+| Flag                 | Effect                                                              |
+| -------------------- | ------------------------------------------------------------------- |
+| `mode`               | `download`, `benchmark`, `report`, `all` (default), or `purge`.     |
+| `--sources`          | Comma-separated source names. Subset of `corpus.toml`.              |
+| `--formats`          | Comma-separated formats (e.g. `pdf,docx`).                          |
+| `--max-docs`         | Cap total docs benchmarked.                                         |
+| `--max-size-mb`      | Skip docs larger than this size.                                    |
+| `--manifest`         | Override path to `corpus.toml`.                                     |
+| `--cache-dir`        | Override cache location.                                            |
+| `--results-dir`      | Override results location.                                          |
+| `--results-file`     | (report mode) Render a specific results JSON.                       |
+| `--use-layout-model` | Enable pymupdf-layout for PDF parsing (off by default; see below).  |
+| `--purge-after`      | Delete the corpus cache after the benchmark / pipeline finishes.    |
 
 ## Inspecting conversion quality
 

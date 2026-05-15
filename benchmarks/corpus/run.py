@@ -18,6 +18,14 @@ Re-render the report from the latest results JSON:
 
     python -m benchmarks.corpus.run report
 
+Delete the cached corpus (~1 GB):
+
+    python -m benchmarks.corpus.run purge
+
+Run the full pipeline and clean up the cache afterward (useful in CI):
+
+    python -m benchmarks.corpus.run --purge-after
+
 """
 
 from __future__ import annotations
@@ -48,9 +56,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "mode",
         nargs="?",
-        choices=("all", "download", "benchmark", "report"),
+        choices=("all", "download", "benchmark", "report", "purge"),
         default="all",
-        help="Stage of the pipeline to run (default: all).",
+        help=("Stage of the pipeline to run (default: all). " "'purge' deletes the corpus cache directory and exits."),
     )
     p.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST, help="Path to corpus.toml")
     p.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE, help="Where to cache downloaded docs")
@@ -64,6 +72,24 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="(report mode) Specific results JSON to render. Defaults to the most recent.",
+    )
+    p.add_argument(
+        "--use-layout-model",
+        action="store_true",
+        help=(
+            "Enable pymupdf-layout ONNX-based block classification for PDF parsing. "
+            "Off by default in the benchmark for cleaner perf numbers; on uses "
+            "layout_analysis_mode='auto' (active only if pymupdf-layout is installed)."
+        ),
+    )
+    p.add_argument(
+        "--purge-after",
+        action="store_true",
+        help=(
+            "Delete the corpus cache directory after the benchmark / pipeline finishes. "
+            "Use this for CI runs on ephemeral disks where you don't want the ~1 GB "
+            "cache sticking around. Results JSON / Markdown are kept either way."
+        ),
     )
     return p
 
@@ -84,12 +110,38 @@ def _do_benchmark(args: argparse.Namespace, items_by_source: dict) -> Path:
         cache_root=args.cache_dir,
         max_size_mb=args.max_size_mb,
         max_docs=args.max_docs,
+        use_layout_model=args.use_layout_model,
     )
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out = args.results_dir / f"results_{timestamp}.json"
-    write_results(results, out)
+    write_results(results, out, use_layout_model=args.use_layout_model)
     print(f"Wrote {len(results)} result(s) to {out}", flush=True)
     return out
+
+
+def _dir_size_bytes(path: Path) -> int:
+    total = 0
+    for p in path.rglob("*"):
+        if p.is_file():
+            try:
+                total += p.stat().st_size
+            except OSError:
+                pass
+    return total
+
+
+def _do_purge(args: argparse.Namespace) -> int:
+    import shutil
+
+    cache = args.cache_dir
+    if not cache.exists():
+        print(f"No cache at {cache}", flush=True)
+        return 0
+    size_mb = _dir_size_bytes(cache) / 1024 / 1024
+    print(f"Purging {cache} ({size_mb:.1f} MB)...", flush=True)
+    shutil.rmtree(cache)
+    print("Done.", flush=True)
+    return 0
 
 
 def _do_report(args: argparse.Namespace, results_path: Path | None = None) -> Path:
@@ -106,6 +158,10 @@ def _do_report(args: argparse.Namespace, results_path: Path | None = None) -> Pa
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+
+    if args.mode == "purge":
+        return _do_purge(args)
+
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     args.results_dir.mkdir(parents=True, exist_ok=True)
 
@@ -128,6 +184,8 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     if args.mode == "download":
+        if args.purge_after:
+            print("--purge-after ignored: download mode populates the cache.", flush=True)
         return 0
 
     results_path: Path | None = None
@@ -136,6 +194,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.mode in ("report", "all"):
         _do_report(args, results_path)
+
+    if args.purge_after and args.mode in ("benchmark", "all"):
+        _do_purge(args)
 
     return 0
 

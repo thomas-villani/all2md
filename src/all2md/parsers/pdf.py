@@ -86,6 +86,7 @@ from all2md.parsers._pdf_tables import (
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
     detect_tables_by_ruling_lines,
     is_dot_leader_cell,
+    page_has_table_signals,
 )
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
@@ -1015,11 +1016,20 @@ class PdfToAstConverter(BaseParser):
             )
             tabs = EmptyTables()
         else:
-            tabs = page.find_tables()
-            if self.options.enable_table_fallback_detection and not tabs.tables:
-                fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
-                    page, self.options.table_ruling_line_threshold
-                )
+            # Default ("both"): gate ``find_tables()`` behind a cheap drawings
+            # scan. On prose-only pages ``find_tables()`` does ~1s of wasted
+            # work per page and either returns nothing useful or fires on
+            # decorative frames that our guards then have to reject. Skip it
+            # when there's no ruling-line evidence; the ruling-line fallback
+            # would also find nothing on those pages.
+            if page_has_table_signals(page):
+                tabs = page.find_tables()
+                if self.options.enable_table_fallback_detection and not tabs.tables:
+                    fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
+                        page, self.options.table_ruling_line_threshold
+                    )
+            else:
+                tabs = EmptyTables()
 
         # Build table info list
         table_info = []

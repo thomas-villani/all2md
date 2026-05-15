@@ -22,8 +22,10 @@ __all__ = [
     "MAX_TABLE_EMPTY_RATIO",
     "MAX_TABLE_ROWS",
     "MIN_FILLED_FOR_UNIFORMITY_CHECK",
+    "TABLE_SIGNAL_RULING_THRESHOLD",
     "detect_tables_by_ruling_lines",
     "is_dot_leader_cell",
+    "page_has_table_signals",
 ]
 
 # Hard caps and guards applied to detected tables. Real prose tables rarely
@@ -40,6 +42,13 @@ MIN_FILLED_FOR_UNIFORMITY_CHECK = 5
 # (only dots, or a value with trailing dot-leader bleeding from the next
 # visual row), the table is treated as a TOC region and rejected.
 MAX_DOT_LEADER_CELL_RATIO = 0.30
+
+# Ruling-line length threshold (as a fraction of page width/height) used by
+# the cheap pre-flight gate that decides whether to call ``page.find_tables()``.
+# Smaller than the fallback threshold (0.5) on purpose: the gate just needs to
+# answer "are there any ruling-line drawings on this page", so we accept much
+# shorter lines as evidence of possible tabular structure.
+TABLE_SIGNAL_RULING_THRESHOLD = 0.15
 
 # A pure dot-leader cell is all dots/whitespace. A mixed cell is dot-leader
 # noise only when the trailing line has multiple dots (a section name plus
@@ -127,6 +136,65 @@ def _extract_ruling_lines(
                     v_lines.append((p1.x, min(p1.y, p2.y), p2.x, max(p1.y, p2.y)))
 
     return h_lines, v_lines
+
+
+def page_has_table_signals(
+    page: "fitz.Page",
+    threshold: float = TABLE_SIGNAL_RULING_THRESHOLD,
+) -> bool:
+    """Return True if the page has drawings that could indicate a table.
+
+    Used to gate the expensive ``page.find_tables()`` call. The check looks
+    for ruling-line drawings or a sufficiently large closed rectangle, both
+    of which are common table indicators. Returns ``False`` for pages that
+    contain only text or only decorative drawings — those pages are the bulk
+    of typical prose documents and ``find_tables()`` produces no real output
+    on them, only wasted CPU.
+
+    On error (PyMuPDF failing to enumerate drawings), returns ``True`` so the
+    caller falls back to the existing always-run behavior rather than silently
+    losing real tables.
+
+    Parameters
+    ----------
+    page : PyMuPDF Page
+        Page to inspect.
+    threshold : float
+        Minimum ruling-line length as a fraction of the page width (horizontal)
+        or height (vertical). Smaller than the ``detect_tables_by_ruling_lines``
+        threshold because the gate only needs evidence that *something*
+        table-shaped exists, not a fully-formed grid.
+
+    Returns
+    -------
+    bool
+        ``True`` if ``find_tables()`` should run, ``False`` to skip it.
+
+    """
+    try:
+        drawings = page.get_drawings()
+    except Exception:
+        return True
+    if not drawings:
+        return False
+
+    page_rect = page.rect
+    min_hline_len = page_rect.width * threshold
+    min_vline_len = page_rect.height * threshold * 0.3
+
+    h_lines, v_lines = _extract_ruling_lines(drawings, min_hline_len, min_vline_len)
+    if len(h_lines) + len(v_lines) >= 2:
+        return True
+
+    for item in drawings:
+        for cmd in item.get("items", []):
+            if cmd[0] != "re":
+                continue
+            rect = cmd[1]
+            if rect.width >= min_hline_len and rect.height >= min_vline_len:
+                return True
+
+    return False
 
 
 def _check_table_overlap(table_rect: "fitz.Rect", existing_rects: list["fitz.Rect"]) -> bool:

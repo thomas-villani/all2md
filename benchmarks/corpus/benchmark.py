@@ -60,13 +60,14 @@ def _all2md_version() -> str:
         return "unknown"
 
 
-def _machine_info() -> dict:
+def _machine_info(use_layout_model: bool = False) -> dict:
     return {
         "platform": platform.platform(),
         "python": platform.python_version(),
         "processor": platform.processor() or platform.machine(),
         "all2md_version": _all2md_version(),
         "git_commit": _git_commit(),
+        "use_layout_model": use_layout_model,
     }
 
 
@@ -79,6 +80,7 @@ def run_benchmark(
     cache_root: Path,
     max_size_mb: float | None = None,
     max_docs: int | None = None,
+    use_layout_model: bool = False,
 ) -> list[DocResult]:
     # Warm up: importing all2md + pymupdf is expensive and would skew the first doc.
     print("Warming up all2md...", flush=True)
@@ -94,7 +96,10 @@ def run_benchmark(
     if max_docs is not None and len(items) > max_docs:
         items = items[:max_docs]
 
-    print(f"Benchmarking {len(items)} document(s)...", flush=True)
+    print(
+        f"Benchmarking {len(items)} document(s) " f"(layout model: {'on' if use_layout_model else 'off'})...",
+        flush=True,
+    )
     results: list[DocResult] = []
     for i, item in enumerate(items, 1):
         path = item.resolve(cache_root)
@@ -115,16 +120,25 @@ def run_benchmark(
                 )
             )
             continue
-        results.append(_time_one(item, path))
+        results.append(_time_one(item, path, use_layout_model=use_layout_model))
     return results
 
 
-def _time_one(item: CorpusItem, path: Path) -> DocResult:
+def _pdf_options(use_layout_model: bool):
+    """Build PdfOptions with the requested layout mode. Imported lazily."""
+    from all2md.options.pdf import PdfOptions
+
+    return PdfOptions(layout_analysis_mode="auto" if use_layout_model else "disabled")
+
+
+def _time_one(item: CorpusItem, path: Path, use_layout_model: bool = False) -> DocResult:
     from all2md import to_markdown
+
+    parser_options = _pdf_options(use_layout_model) if item.format == "pdf" else None
 
     start = time.perf_counter()
     try:
-        out = to_markdown(path)
+        out = to_markdown(path, parser_options=parser_options) if parser_options else to_markdown(path)
         elapsed = time.perf_counter() - start
         chars = len(out) if isinstance(out, str) else None
         return DocResult(
@@ -154,12 +168,12 @@ def _time_one(item: CorpusItem, path: Path) -> DocResult:
         )
 
 
-def write_results(results: Iterable[DocResult], out_path: Path) -> Path:
+def write_results(results: Iterable[DocResult], out_path: Path, use_layout_model: bool = False) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "run": {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "machine": _machine_info(),
+            "machine": _machine_info(use_layout_model),
         },
         "results": [asdict(r) for r in results],
     }
