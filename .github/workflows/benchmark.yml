@@ -1,0 +1,111 @@
+name: Corpus Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Comma-separated sources (e.g. arxiv,govdocs1). Empty = all in corpus.toml"
+        required: false
+        type: string
+      formats:
+        description: "Comma-separated formats (e.g. pdf,docx). Empty = all"
+        required: false
+        type: string
+      max_docs:
+        description: "Cap total docs benchmarked. Empty = no cap"
+        required: false
+        type: string
+      max_size_mb:
+        description: "Skip docs larger than this many MB. Empty = no cap"
+        required: false
+        type: string
+
+concurrency:
+  group: corpus-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Corpus Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Restore corpus cache
+        uses: actions/cache@v4
+        with:
+          path: benchmarks/corpus/.cache
+          key: corpus-${{ hashFiles('benchmarks/corpus/corpus.toml') }}
+          restore-keys: |
+            corpus-
+
+      - name: Record runner info
+        run: |
+          {
+            echo "## Runner info"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Run: \`${{ github.run_number }}\`"
+            echo "- Ref: \`${{ github.ref }}\`"
+            echo "- CPU: \`$(nproc) cores\`"
+            echo ""
+            echo "<details><summary>Memory</summary>"
+            echo ""
+            echo '```'
+            free -h
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run benchmark
+        env:
+          SOURCES: ${{ inputs.sources }}
+          FORMATS: ${{ inputs.formats }}
+          MAX_DOCS: ${{ inputs.max_docs }}
+          MAX_SIZE_MB: ${{ inputs.max_size_mb }}
+        run: |
+          ARGS=()
+          [ -n "$SOURCES" ] && ARGS+=(--sources "$SOURCES")
+          [ -n "$FORMATS" ] && ARGS+=(--formats "$FORMATS")
+          [ -n "$MAX_DOCS" ] && ARGS+=(--max-docs "$MAX_DOCS")
+          [ -n "$MAX_SIZE_MB" ] && ARGS+=(--max-size-mb "$MAX_SIZE_MB")
+          python -m benchmarks.corpus.run "${ARGS[@]}"
+
+      - name: Append report to job summary
+        if: always()
+        run: |
+          LATEST=$(ls -t benchmarks/corpus/results/results_*.md 2>/dev/null | head -n 1 || true)
+          if [ -n "$LATEST" ]; then
+            {
+              echo ""
+              echo "## Benchmark report"
+              echo ""
+              cat "$LATEST"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No report file found under benchmarks/corpus/results/" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-benchmark-${{ github.run_number }}-${{ github.sha }}
+          path: benchmarks/corpus/results/
+          retention-days: 90
+          if-no-files-found: error
