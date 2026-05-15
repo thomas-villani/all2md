@@ -54,13 +54,17 @@ jobs:
             corpus-
 
       - name: Record runner info
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
+          REF: ${{ github.ref }}
         run: |
           {
             echo "## Runner info"
             echo ""
-            echo "- Commit: \`${{ github.sha }}\`"
-            echo "- Run: \`${{ github.run_number }}\`"
-            echo "- Ref: \`${{ github.ref }}\`"
+            echo "- Commit: \`$COMMIT_SHA\`"
+            echo "- Run: \`$RUN_NUMBER\`"
+            echo "- Ref: \`$REF\`"
             echo "- CPU: \`$(nproc) cores\`"
             echo ""
             echo "<details><summary>Memory</summary>"

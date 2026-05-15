@@ -144,12 +144,13 @@ def page_has_table_signals(
 ) -> bool:
     """Return True if the page has drawings that could indicate a table.
 
-    Used to gate the expensive ``page.find_tables()`` call. The check looks
-    for ruling-line drawings or a sufficiently large closed rectangle, both
-    of which are common table indicators. Returns ``False`` for pages that
-    contain only text or only decorative drawings — those pages are the bulk
-    of typical prose documents and ``find_tables()`` produces no real output
-    on them, only wasted CPU.
+    Used to gate the expensive ``page.find_tables()`` call. Three signals
+    count as evidence of tabular structure: two or more ruling lines, a
+    single page-proportional closed rectangle (a framed region), or three
+    or more smaller closed rectangles (a cell grid). Returns ``False`` for
+    pages that contain only text, no drawings, or one-to-two decorative
+    drawings — those are the bulk of typical prose documents and
+    ``find_tables()`` produces no real output on them, only wasted CPU.
 
     On error (PyMuPDF failing to enumerate drawings), returns ``True`` so the
     caller falls back to the existing always-run behavior rather than silently
@@ -186,12 +187,16 @@ def page_has_table_signals(
     if len(h_lines) + len(v_lines) >= 2:
         return True
 
+    rect_count = 0
     for item in drawings:
         for cmd in item.get("items", []):
             if cmd[0] != "re":
                 continue
             rect = cmd[1]
             if rect.width >= min_hline_len and rect.height >= min_vline_len:
+                return True
+            rect_count += 1
+            if rect_count >= 3:
                 return True
 
     return False

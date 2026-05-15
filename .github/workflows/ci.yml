@@ -124,10 +124,14 @@ jobs:
           # - non-literal-import: Our imports use hardcoded internal mappings, not user input
           # - render-template-string: Example file uses constant template, not user input
           # - direct-use-of-jinja2: Renderers output Markdown (no XSS) or use proper autoescape
+          # - dynamic-urllib-use-detected: benchmarks/corpus/download.py fetches from a
+          #   vetted public URL list in corpus.toml (dev-only tooling). bandit already
+          #   passes via per-line ``# noqa: S310``; this rule is the semgrep equivalent.
           semgrepArgs: >-
             --exclude-rule python.lang.security.audit.non-literal-import.non-literal-import
             --exclude-rule python.flask.security.audit.render-template-string.render-template-string
             --exclude-rule python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            --exclude-rule python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 

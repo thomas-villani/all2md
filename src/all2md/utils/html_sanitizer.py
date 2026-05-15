@@ -218,8 +218,8 @@ def sanitize_html_string(content: str) -> str:
     """
     # Try to use bleach if available for better sanitization
     try:
-        import bleach  # type: ignore[import-untyped]
-        from bleach.css_sanitizer import CSSSanitizer  # type: ignore[import-untyped]
+        import bleach
+        from bleach.css_sanitizer import CSSSanitizer
 
         # Define allowed tags (basic safe HTML)
         allowed_tags = [
