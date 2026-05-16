@@ -2057,6 +2057,41 @@ Arguments
 
    **Performance note**: Disabling cache means documents are re-converted on every request, which may be slower for large files or complex conversions.
 
+``--poll-interval SECONDS``
+   Seconds between background directory rescans. When serving a directory, a daemon thread periodically rescans for added, removed, or modified files; if the file set changes, the cached index page is invalidated so the next visit reflects the new contents. Default: ``2.0``. Set to ``0`` to disable polling (the index then only updates on server restart or when ``--no-cache`` is in effect). No-op in single-file mode.
+
+   .. code-block:: bash
+
+      # Faster pickup of new files (1s polling)
+      all2md serve ./drafts --poll-interval 1
+
+      # Disable polling entirely (static directory)
+      all2md serve ./archive --poll-interval 0
+
+``--force-auto-index``
+   Always render the auto-generated directory listing, even when an ``index.html``, ``index.md``, or ``README.md`` file is present in the directory being served. See :ref:`serve-index-files` below for the default behavior.
+
+   .. code-block:: bash
+
+      # Ignore the repo's README.md and show the file listing instead
+      all2md serve . --recursive --force-auto-index
+
+.. _serve-index-files:
+
+Index Files
+~~~~~~~~~~~
+
+When a request resolves to a directory, ``all2md serve`` first looks for an index file in that directory and, if one is present, renders it through the current theme instead of generating a file listing. Candidate names (case-insensitive, in priority order):
+
+#. ``index.html``
+#. ``index.htm``
+#. ``index.md``
+#. ``README.md``
+
+This applies to every directory the server can reach — root and subdirectories alike — so you can drop a ``README.md`` into any folder to get a hand-authored landing page. Recurse-mode (``--recursive``) is fully supported: each subdirectory can have its own index file, and the auto-generated listing is used wherever no index file exists.
+
+Pass ``--force-auto-index`` to opt out and always show the generated listing.
+
 Examples
 ~~~~~~~~
 
@@ -2135,16 +2170,18 @@ The serve command uses lazy loading for optimal performance:
 * **Startup:** Instant - only scans filenames and creates index
 * **First request:** Converts document on-demand
 * **Subsequent requests:** Served from in-memory cache (instant)
+* **Concurrency:** Requests are handled on per-connection threads, so a slow conversion doesn't block other visitors
 * **Memory:** Efficient - only caches accessed documents
+* **Live updates:** A background poller (``--poll-interval``, default 2.0s) rescans the directory; when files appear, disappear, or change, the cached index page is invalidated so the next visit picks up the new state without needing ``--no-cache``
 
 This makes it practical to serve directories with hundreds or thousands of documents.
 
 **With ``--no-cache`` flag:**
 
 * **Every request:** Re-converts document from source
-* **Directory index:** Re-scans for new/removed files
+* **Directory index:** Re-scans for new/removed files on each root request (background polling is skipped)
 * **Memory:** Minimal - no caching
-* **Use case:** Live editing and development
+* **Use case:** Live editing of file *contents* (the regular cached mode already picks up added/removed files via polling)
 
 The ``--no-cache`` mode trades performance for live updates, making it ideal for active development but slower for large files or frequent requests.
 
@@ -2280,11 +2317,13 @@ Notes
 ~~~~~
 
 * Documents are converted on first access and cached in memory
-* The server runs until interrupted with Ctrl+C
+* The server runs until interrupted with Ctrl+C (shutdown is now prompt — no need to nudge it with another request)
 * Unsupported file types are automatically excluded from the index
 * Directory index shows file sizes and organizes by subdirectory
+* A directory containing an ``index.html``, ``index.md``, or ``README.md`` is rendered through the theme instead of an auto-generated listing (override with ``--force-auto-index``)
+* New, removed, or modified files in a served directory are picked up automatically by a background poller (configurable via ``--poll-interval``)
 * All conversion errors are shown in the console and as HTTP 500 responses
-* The server is single-threaded but suitable for local use and small teams
+* Requests are handled on per-connection threads, suitable for local use and small teams
 
 See Also
 ~~~~~~~~
@@ -2449,7 +2488,7 @@ Pass ``--no-preserve-formatting`` to disable template inheritance and produce a 
 Security Notes
 ~~~~~~~~~~~~~~
 
-* The editor server is **for development use on localhost**. Like ``all2md serve``, it is single-threaded and exposes a write-capable HTTP endpoint (``POST /api/save``).
+* The editor server is **for development use on localhost**. It is single-threaded and exposes a write-capable HTTP endpoint (``POST /api/save``).
 * The save endpoint accepts an arbitrary path and writes wherever your user has filesystem permission, so do not bind to ``0.0.0.0`` on shared networks.
 * The Toast UI Editor JavaScript and CSS are vendored under ``src/all2md/cli/commands/themes/assets/`` (MIT licensed) and served from ``/assets/`` with an explicit allow-list — there is no general static-file route and no path traversal is possible.
 

@@ -15,14 +15,25 @@ import io
 import json
 import socketserver
 import sys
+import threading
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote
 
 from all2md.api import from_ast, to_ast
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.converter_registry import registry
 from all2md.options.html import HtmlRendererOptions
+
+# Filenames that can stand in for an auto-generated directory listing,
+# in descending priority order.
+INDEX_FILE_NAMES: Tuple[str, ...] = (
+    "index.html",
+    "index.htm",
+    "index.md",
+    "README.md",
+    "readme.md",
+)
 
 
 def _get_content_type_for_format(format_name: str) -> str:
@@ -175,6 +186,56 @@ def _scan_directory_for_documents(directory: Path, recursive: bool) -> List[Path
     return supported_files
 
 
+def _find_index_file(directory: Path) -> Optional[Path]:
+    """Return an index file inside ``directory``, if one exists.
+
+    Looks for ``index.html``, ``index.htm``, ``index.md``, ``README.md`` (case-
+    insensitive) in descending priority order. Returns ``None`` if no candidate
+    is present or the directory cannot be read.
+    """
+    if not directory.is_dir():
+        return None
+    try:
+        entries = {entry.name.lower(): entry for entry in directory.iterdir() if entry.is_file()}
+    except OSError:
+        return None
+    for candidate in INDEX_FILE_NAMES:
+        match = entries.get(candidate.lower())
+        if match is not None:
+            return match
+    return None
+
+
+def _compute_directory_state(base_dir: Path, recursive: bool) -> Tuple[List[Path], set, Dict[str, Path], set]:
+    """Scan ``base_dir`` and derive everything the serve loop tracks.
+
+    Returns a tuple of ``(files, known_subdirs, file_mapping, signature)``,
+    where ``signature`` is a set of ``(path, size, mtime)`` triples used to
+    cheaply detect changes between polls.
+    """
+    files = _scan_directory_for_documents(base_dir, recursive)
+    subdirs: set = set()
+    mapping: Dict[str, Path] = {}
+    signature: set = set()
+    for file in files:
+        rel_path = file.relative_to(base_dir)
+        parent = str(rel_path.parent).replace("\\", "/")
+        if parent == ".":
+            parent = ""
+        if parent:
+            parts = parent.split("/")
+            for i in range(len(parts)):
+                subdirs.add("/".join(parts[: i + 1]))
+        url_path = "/" + quote(str(rel_path).replace("\\", "/"))
+        mapping[url_path] = file
+        try:
+            stat = file.stat()
+            signature.add((str(file), stat.st_size, stat.st_mtime))
+        except OSError:
+            pass
+    return files, subdirs, mapping, signature
+
+
 def _generate_directory_index(
     all_files: List[Path],
     theme_path: Path,
@@ -282,8 +343,11 @@ def _generate_directory_index(
         for file in sorted(current_files, key=lambda f: f.name.lower()):
             rel_path = file.relative_to(base_dir)
             url = "/" + quote(str(rel_path).replace("\\", "/"))
-            file_size = file.stat().st_size
-            size_str = _format_file_size(file_size)
+            try:
+                file_size = file.stat().st_size
+                size_str = _format_file_size(file_size)
+            except OSError:
+                size_str = "?"
             content += "<li style='margin: 5px 0;'>"
             content += f"<a href='{url}' style='text-decoration: none; font-size: 1.0em;'>{file.name}</a>"
             content += f" <span style='color: #888; font-size: 0.9em;'>({size_str})</span>"
@@ -434,6 +498,17 @@ def _parse_multipart_form_data(body: bytes, content_type: str) -> Dict[str, Any]
     return result
 
 
+class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    """HTTPServer that handles each request in a daemon thread.
+
+    Daemon threads let the process exit promptly on shutdown even if a
+    long-running conversion is still in flight.
+    """
+
+    daemon_threads = True
+    allow_reuse_address = True
+
+
 def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     """Handle serve command to serve documents via HTTP server.
 
@@ -485,6 +560,23 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         action="store_true",
         help="Disable caching - always render fresh content (useful for live editing)",
     )
+    parser.add_argument(
+        "--poll-interval",
+        type=float,
+        default=2.0,
+        help=(
+            "Seconds between directory rescans for live index updates "
+            "(directory mode only; set to 0 to disable; default: 2.0)"
+        ),
+    )
+    parser.add_argument(
+        "--force-auto-index",
+        action="store_true",
+        help=(
+            "Always use the auto-generated directory listing, even when an "
+            "index.html, index.md, or README.md is present in the directory"
+        ),
+    )
 
     try:
         parsed = parser.parse_args(args or [])
@@ -527,72 +619,121 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # Determine if input is file or directory
     is_directory = input_path.is_dir()
 
-    # Content cache: maps URL path to HTML content
-    content_cache: Dict[str, str] = {}
-    # File mapping: maps URL path to actual file path (for lazy loading)
+    # Shared state guarded by state_lock so the polling thread and request
+    # handler threads can coexist safely.
+    state_lock = threading.Lock()
+    file_cache: Dict[str, str] = {}
+    index_cache: Dict[str, str] = {}
     file_mapping: Dict[str, Path] = {}
-    # Tracked files and known subdirectories (for directory mode)
     supported_files: List[Path] = []
-    known_subdirs: set[str] = set()
+    known_subdirs: set = set()
+    scan_signature: set = set()
+
+    def _convert_to_html(file_path: Path, breadcrumb_path: Optional[str] = None) -> str:
+        """Convert a single document to themed HTML, optionally injecting breadcrumbs."""
+        doc = to_ast(str(file_path), attachment_mode="base64")
+        doc.metadata["title"] = f"{file_path.name} - all2md"
+        html_opts = HtmlRendererOptions(
+            template_mode="replace",
+            template_file=str(theme_path),
+            include_toc=parsed.toc,
+        )
+        html_content = from_ast(doc, "html", renderer_options=html_opts)
+        if not isinstance(html_content, str):
+            raise RuntimeError("Expected string result from HTML rendering")
+        if breadcrumb_path:
+            breadcrumbs = _generate_breadcrumbs(breadcrumb_path)
+            html_content = html_content.replace("<body>", "<body>\n" + breadcrumbs, 1)
+        return html_content
+
+    def _rescan_directory(initial: bool = False) -> bool:
+        """Rescan the served directory; update state and drop stale caches.
+
+        Returns ``True`` when the file set has actually changed (or on the
+        initial scan), ``False`` otherwise.
+        """
+        if not is_directory:
+            return False
+        new_files, new_subdirs, new_mapping, new_signature = _compute_directory_state(input_path, parsed.recursive)
+        with state_lock:
+            if not initial and new_signature == scan_signature:
+                return False
+            old_url_paths = set(file_mapping.keys())
+            scan_signature.clear()
+            scan_signature.update(new_signature)
+            supported_files[:] = new_files
+            known_subdirs.clear()
+            known_subdirs.update(new_subdirs)
+            file_mapping.clear()
+            file_mapping.update(new_mapping)
+            # Any cached directory listing might now be stale.
+            index_cache.clear()
+            # Drop file-cache entries for files that vanished from disk.
+            for removed in old_url_paths - set(new_mapping.keys()):
+                file_cache.pop(removed, None)
+        return True
 
     # Setup based on input type
     if is_directory:
         print(f"Preparing directory: {input_path.name}")
+        _rescan_directory(initial=True)
 
-        # Scan directory for supported documents
-        supported_files = _scan_directory_for_documents(input_path, parsed.recursive)
-
-        if not supported_files:
+        # Empty directories are still legitimate if they ship an index.html /
+        # index.md / README.md the user wants served.
+        if not supported_files and (parsed.force_auto_index or _find_index_file(input_path) is None):
             print(f"Error: No supported document files found in {input_path}", file=sys.stderr)
             return EXIT_ERROR
 
         mode_str = "recursively" if parsed.recursive else "in directory"
         print(f"Found {len(supported_files)} document(s) {mode_str} - will convert on demand")
-
-        # Compute known subdirectories for index page generation
-        for file in supported_files:
-            rel_path = file.relative_to(input_path)
-            parent = str(rel_path.parent).replace("\\", "/")
-            if parent == ".":
-                parent = ""
-            if parent:
-                parts = parent.split("/")
-                for i in range(len(parts)):
-                    known_subdirs.add("/".join(parts[: i + 1]))
-
-        # Generate root directory index page
-        index_html = _generate_directory_index(
-            supported_files, theme_path, input_path, current_subdir="", enable_upload=parsed.enable_upload
-        )
-        content_cache["/"] = index_html
-
-        # Create file mapping for lazy loading (using relative paths)
-        for file in supported_files:
-            # Get relative path from base directory
-            rel_path = file.relative_to(input_path)
-            # Convert to URL path (using forward slashes)
-            url_path = "/" + quote(str(rel_path).replace("\\", "/"))
-            file_mapping[url_path] = file
     else:
         print(f"Converting {input_path.name}...")
         try:
-            doc = to_ast(str(input_path), attachment_mode="base64")
-            doc.metadata["title"] = f"{input_path.name} - all2md"
-
-            html_opts = HtmlRendererOptions(
-                template_mode="replace",
-                template_file=str(theme_path),
-                include_toc=parsed.toc,
-            )
-            html_content = from_ast(doc, "html", renderer_options=html_opts)
-
-            if not isinstance(html_content, str):
-                raise RuntimeError("Expected string result from HTML rendering")
-
-            content_cache["/"] = html_content
+            html_content = _convert_to_html(input_path)
+            with state_lock:
+                file_cache["/"] = html_content
+                file_mapping["/"] = input_path
         except Exception as e:
             print(f"Error: Could not convert {input_path.name}: {e}", file=sys.stderr)
             return EXIT_ERROR
+
+    def _is_directory_index_path(path: str) -> bool:
+        """Return ``True`` when ``path`` addresses a directory listing in directory mode."""
+        if not is_directory:
+            return False
+        if path == "/":
+            return True
+        subdir = unquote(path.strip("/"))
+        with state_lock:
+            return subdir in known_subdirs
+
+    def _render_directory_index(path: str) -> Optional[str]:
+        """Render the index for ``path``, preferring a hand-authored index file.
+
+        Returns ``None`` if rendering fails outright.
+        """
+        subdir = unquote(path.strip("/")) if path != "/" else ""
+        target_dir = input_path / subdir if subdir else input_path
+
+        if not parsed.force_auto_index:
+            index_file = _find_index_file(target_dir)
+            if index_file is not None:
+                breadcrumb_path: Optional[str] = ("/" + subdir + "/") if subdir else None
+                try:
+                    return _convert_to_html(index_file, breadcrumb_path=breadcrumb_path)
+                except Exception as e:
+                    # Fall back to the auto-generated listing on failure.
+                    print(f"Error rendering index file {index_file}: {e}", file=sys.stderr)
+
+        with state_lock:
+            files_snapshot = list(supported_files)
+        return _generate_directory_index(
+            files_snapshot,
+            theme_path,
+            input_path,
+            current_subdir=subdir,
+            enable_upload=parsed.enable_upload,
+        )
 
     # Create custom request handler
     class ServeHandler(http.server.BaseHTTPRequestHandler):
@@ -603,127 +744,78 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             # Handle upload form route
             if path == "/upload" and parsed.enable_upload:
                 upload_form = _generate_upload_form(theme_path)
-                self.send_response(200)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(upload_form.encode("utf-8"))
+                self._send_html(upload_form)
                 return
 
-            # Check if already cached (skip cache if --no-cache is enabled)
-            if not parsed.no_cache and path in content_cache:
-                self.send_response(200)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                self.wfile.write(content_cache[path].encode("utf-8"))
+            # Directory index requests (root or known subdirectory)
+            if _is_directory_index_path(path):
+                cached: Optional[str] = None
+                if not parsed.no_cache:
+                    with state_lock:
+                        cached = index_cache.get(path)
+                if cached is not None:
+                    self._send_html(cached)
+                    return
+                # In --no-cache mode the polling thread is off, so force a
+                # rescan on root requests to keep the listing fresh.
+                if parsed.no_cache and path == "/":
+                    _rescan_directory()
+                html_content = _render_directory_index(path)
+                if html_content is None:
+                    self._send_500("Failed to render directory index")
+                    return
+                if not parsed.no_cache:
+                    with state_lock:
+                        index_cache[path] = html_content
+                self._send_html(html_content)
                 return
 
-            # Handle single file re-conversion when --no-cache is enabled
-            if parsed.no_cache and path == "/" and not is_directory:
-                try:
-                    doc = to_ast(str(input_path), attachment_mode="base64")
-                    doc.metadata["title"] = f"{input_path.name} - all2md"
-                    html_opts = HtmlRendererOptions(
-                        template_mode="replace",
-                        template_file=str(theme_path),
-                        include_toc=parsed.toc,
-                    )
-                    html_content = from_ast(doc, "html", renderer_options=html_opts)
-                    if not isinstance(html_content, str):
-                        raise RuntimeError("Expected string result from HTML rendering")
-                    self.send_response(200)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(html_content.encode("utf-8"))
-                    return
-                except Exception as e:
-                    print(f"Error: Could not convert {input_path.name}: {e}", file=sys.stderr)
-                    self.send_response(500)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    error_html = f"<html><body><h1>Error</h1><p>{e}</p></body></html>"
-                    self.wfile.write(error_html.encode("utf-8"))
-                    return
+            # File request
+            with state_lock:
+                file_path = file_mapping.get(path)
+                cached_file: Optional[str] = file_cache.get(path) if file_path else None
 
-            # Check if we can lazy-load this file
-            if path in file_mapping:
-                file_path = file_mapping[path]
-                print(f"Converting {file_path.name}...")
+            if file_path is None:
+                self._send_404()
+                return
 
-                try:
-                    # Convert document on demand
-                    doc = to_ast(str(file_path), attachment_mode="base64")
-                    doc.metadata["title"] = f"{file_path.name} - all2md"
+            if cached_file is not None and not parsed.no_cache:
+                self._send_html(cached_file)
+                return
 
-                    html_opts = HtmlRendererOptions(
-                        template_mode="replace",
-                        template_file=str(theme_path),
-                        include_toc=parsed.toc,
-                    )
-                    html_content = from_ast(doc, "html", renderer_options=html_opts)
+            print(f"Converting {file_path.name}...")
+            try:
+                breadcrumb_path = unquote(path) if is_directory else None
+                html_content = _convert_to_html(file_path, breadcrumb_path=breadcrumb_path)
+            except Exception as e:
+                print(f"Error converting {file_path.name}: {e}", file=sys.stderr)
+                self._send_500(f"Error converting document: {e}")
+                return
 
-                    if not isinstance(html_content, str):
-                        raise RuntimeError("Expected string result from HTML rendering")
+            if not parsed.no_cache:
+                with state_lock:
+                    file_cache[path] = html_content
+            self._send_html(html_content)
 
-                    # Inject breadcrumbs for navigating back to directory index
-                    if is_directory:
-                        breadcrumbs = _generate_breadcrumbs(unquote(path))
-                        html_content = html_content.replace("<body>", "<body>\n" + breadcrumbs, 1)
+        def _send_html(self, html: str) -> None:
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(html.encode("utf-8"))
 
-                    # Cache for future requests (unless --no-cache is enabled)
-                    if not parsed.no_cache:
-                        content_cache[path] = html_content
-
-                    # Serve the converted content
-                    self.send_response(200)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(html_content.encode("utf-8"))
-                    return
-
-                except Exception as e:
-                    # Conversion error - send 500
-                    print(f"Error converting {file_path.name}: {e}", file=sys.stderr)
-                    self.send_response(500)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    error_html = (
-                        f"<html><body><h1>500 Internal Server Error</h1>"
-                        f"<p>Error converting document: {e}</p></body></html>"
-                    )
-                    self.wfile.write(error_html.encode("utf-8"))
-                    return
-
-            # Handle directory index requests (root or subdirectory)
-            if is_directory:
-                subdir = unquote(path.strip("/"))
-                if path == "/" or subdir in known_subdirs:
-                    # Rescan directory for root in --no-cache mode
-                    if parsed.no_cache and path == "/":
-                        files_for_index = _scan_directory_for_documents(input_path, parsed.recursive)
-                    else:
-                        files_for_index = supported_files
-
-                    index_html = _generate_directory_index(
-                        files_for_index,
-                        theme_path,
-                        input_path,
-                        current_subdir=subdir,
-                        enable_upload=parsed.enable_upload,
-                    )
-                    if not parsed.no_cache:
-                        content_cache[path] = index_html
-
-                    self.send_response(200)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(index_html.encode("utf-8"))
-                    return
-
-            # Not found
+        def _send_404(self) -> None:
             self.send_response(404)
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
-            error_html = "<html><body><h1>404 Not Found</h1><p>The requested document was not found.</p></body></html>"
+            self.wfile.write(
+                b"<html><body><h1>404 Not Found</h1>" b"<p>The requested document was not found.</p></body></html>"
+            )
+
+        def _send_500(self, message: str) -> None:
+            self.send_response(500)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.end_headers()
+            error_html = f"<html><body><h1>500 Internal Server Error</h1><p>{message}</p></body></html>"
             self.wfile.write(error_html.encode("utf-8"))
 
         def log_message(self, format: str, *args: Any) -> None:
@@ -933,34 +1025,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
     # Start server
     try:
-        with socketserver.TCPServer((parsed.host, parsed.port), ServeHandler) as httpd:
-            url = f"http://{parsed.host}:{parsed.port}/"
-            print(f"\nServing at {url}")
-
-            # Print development warning if upload or API is enabled
-            if parsed.enable_upload or parsed.enable_api:
-                print("\n" + "=" * 70)
-                print("WARNING: Development features enabled")
-                print("=" * 70)
-                if parsed.enable_upload:
-                    print(f"  - File upload form: {url}upload")
-                if parsed.enable_api:
-                    print(f"  - REST API endpoint: {url}api/convert")
-                print(f"  - Maximum upload size: {parsed.max_upload_size}MB")
-                print("\nThis server is for DEVELOPMENT USE ONLY.")
-                print("DO NOT expose to untrusted networks or use in production.")
-                print("=" * 70 + "\n")
-
-            print("Press Ctrl+C to stop")
-
-            try:
-                httpd.serve_forever()
-            except KeyboardInterrupt:
-                print("\n\nShutting down server...")
-                return EXIT_SUCCESS
-
-            # If serve_forever exits normally (shouldn't happen), exit successfully
-            return EXIT_SUCCESS
+        httpd = _ThreadingHTTPServer((parsed.host, parsed.port), ServeHandler)
     except OSError as e:
         if e.errno == 98 or "Address already in use" in str(e):
             print(f"Error: Port {parsed.port} is already in use", file=sys.stderr)
@@ -970,3 +1035,68 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_ERROR
+
+    url = f"http://{parsed.host}:{parsed.port}/"
+    print(f"\nServing at {url}")
+
+    # Print development warning if upload or API is enabled
+    if parsed.enable_upload or parsed.enable_api:
+        print("\n" + "=" * 70)
+        print("WARNING: Development features enabled")
+        print("=" * 70)
+        if parsed.enable_upload:
+            print(f"  - File upload form: {url}upload")
+        if parsed.enable_api:
+            print(f"  - REST API endpoint: {url}api/convert")
+        print(f"  - Maximum upload size: {parsed.max_upload_size}MB")
+        print("\nThis server is for DEVELOPMENT USE ONLY.")
+        print("DO NOT expose to untrusted networks or use in production.")
+        print("=" * 70 + "\n")
+
+    print("Press Ctrl+C to stop")
+
+    stop_event = threading.Event()
+
+    # Background polling for live directory updates. Skipped in single-file
+    # mode, when polling is disabled, or when caching is off (rescan happens
+    # inline on each request anyway).
+    poll_thread: Optional[threading.Thread] = None
+    if is_directory and parsed.poll_interval > 0 and not parsed.no_cache:
+
+        def _poll_loop() -> None:
+            while not stop_event.is_set():
+                if stop_event.wait(timeout=parsed.poll_interval):
+                    return
+                try:
+                    if _rescan_directory():
+                        with state_lock:
+                            count = len(supported_files)
+                        print(f"Directory changed: {count} document(s) tracked")
+                except Exception as exc:
+                    print(f"Directory poll error: {exc}", file=sys.stderr)
+
+        poll_thread = threading.Thread(target=_poll_loop, name="all2md-poll", daemon=True)
+        poll_thread.start()
+
+    # Run the server in a background thread so the main thread can react to
+    # SIGINT without waiting for the next inbound request to unblock select().
+    server_thread = threading.Thread(target=httpd.serve_forever, name="all2md-serve", daemon=True)
+    server_thread.start()
+
+    try:
+        # stop_event.wait with a periodic timeout keeps Python returning to
+        # the interpreter so KeyboardInterrupt can fire on Windows.
+        while not stop_event.is_set():
+            if stop_event.wait(timeout=0.5):
+                break
+    except KeyboardInterrupt:
+        print("\n\nShutting down server...")
+    finally:
+        stop_event.set()
+        httpd.shutdown()
+        httpd.server_close()
+        if poll_thread is not None:
+            poll_thread.join(timeout=2.0)
+        server_thread.join(timeout=5.0)
+
+    return EXIT_SUCCESS

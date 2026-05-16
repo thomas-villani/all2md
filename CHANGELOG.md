@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `all2md serve` now auto-renders an `index.html`, `index.htm`, `index.md`, or `README.md` (case-insensitive, priority order) from the served directory through the active theme instead of the generated file listing. Applies to every directory the server can reach, including subdirectories in `--recursive` mode. New `--force-auto-index` flag opts back into the generated listing.
+- `all2md serve` directory mode now picks up newly added, removed, and modified files automatically via a background polling thread. New `--poll-interval SECONDS` flag (default `2.0`, set `0` to disable) controls the rescan cadence; on detected change the cached index page is invalidated and stale file-cache entries for vanished files are dropped.
+
+### Changed
+- `all2md serve` now handles requests on per-connection threads (`ThreadingHTTPServer`), so a slow conversion no longer blocks other visitors.
+
+### Fixed
+- `all2md serve` Ctrl+C shutdown was previously delayed until the next inbound request arrived to unblock `select()` on Windows. The server now runs `serve_forever()` in a background daemon thread and the main thread reacts to SIGINT immediately, calling `httpd.shutdown()` for a prompt clean exit.
+
 ## [1.1.1] - 2026-05-15
 
 ### Added
