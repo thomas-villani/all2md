@@ -52,6 +52,7 @@ class CorpusItem:
 
 def _open_url(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> Any:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
     return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 - vetted public URLs
 
 
