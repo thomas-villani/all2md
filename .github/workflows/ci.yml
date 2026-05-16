@@ -11,8 +11,7 @@ on:
       - main
 
 permissions:
-  contents: write
-  id-token: write  # Required for PyPI trusted publishing
+  contents: write  # Required for `gh release create` in the release job
 
 jobs:
   lint-and-typecheck:
@@ -160,11 +159,15 @@ jobs:
           bandit -c pyproject.toml -r src/
 
   release:
-    name: Release to PyPI
+    name: Create GitHub Release
+    # On tag push, after all CI checks pass: verify the version, build the
+    # package as a sanity check, and create a published GitHub Release. The
+    # actual PyPI publish is handled by `release.yml`, which is triggered by
+    # the GitHub Release `published` event and is the workflow registered
+    # with PyPI's trusted publisher.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [lint-and-typecheck, docs, test, security-semgrep, security-bandit]
     runs-on: ubuntu-latest
-    environment: pypi
 
     steps:
       - name: Check out code
@@ -198,8 +201,3 @@ jobs:
         run: gh release create "$GITHUB_REF_NAME" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          print-hash: true
