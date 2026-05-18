@@ -46,7 +46,7 @@ jobs:
           pip install -e ".[all,dev]"
 
       - name: Restore corpus cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: benchmarks/corpus/.cache
           key: corpus-${{ hashFiles('benchmarks/corpus/corpus.toml') }}
