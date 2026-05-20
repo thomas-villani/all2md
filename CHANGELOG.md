@@ -7,15 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-05-20
+
 ### Added
 - `all2md serve` now auto-renders an `index.html`, `index.htm`, `index.md`, or `README.md` (case-insensitive, priority order) from the served directory through the active theme instead of the generated file listing. Applies to every directory the server can reach, including subdirectories in `--recursive` mode. New `--force-auto-index` flag opts back into the generated listing.
 - `all2md serve` directory mode now picks up newly added, removed, and modified files automatically via a background polling thread. New `--poll-interval SECONDS` flag (default `2.0`, set `0` to disable) controls the rescan cadence; on detected change the cached index page is invalidated and stale file-cache entries for vanished files are dropped.
+- Line-number navigation for the CLI. `--line-numbers`/`-ln` annotates Markdown output with line numbers: `--outline --line-numbers` labels each heading with the line it occupies in the full conversion, a normal conversion numbers every line (`cat -n` style), and `--extract` keeps the returned lines' original numbers. Line numbers reference the Markdown rendering and are ignored for other targets.
+- `--extract line:X-Y` selects content by output line range (`line:42`, `line:42-87`, `line:42-`, or `line:1-10,42-87`; 1-based, inclusive). The selection is taken on the Markdown rendering and re-parsed so it can still render to any `--to` target. Paired with `--outline --line-numbers`, this lets a reader (or an LLM/agent) map a document then pull back just the range it needs.
 
 ### Changed
 - `all2md serve` now handles requests on per-connection threads (`ThreadingHTTPServer`), so a slow conversion no longer blocks other visitors.
 
 ### Fixed
 - `all2md serve` Ctrl+C shutdown was previously delayed until the next inbound request arrived to unblock `select()` on Windows. The server now runs `serve_forever()` in a background daemon thread and the main thread reacts to SIGINT immediately, calling `httpd.shutdown()` for a prompt clean exit.
+- `--to`/`--output-format` was silently ignored when converting to stdout (e.g. `all2md doc.md --to html` printed Markdown). The option is now tracked as explicitly provided, so it is honored for stdout and takes precedence over output-path extension inference; `ALL2MD_OUTPUT_FORMAT` also works as a default.
+- Short UTF-8 files could be mojibaked when chardet misdetected rare multi-byte characters (en-dash, em-dash, smart quotes) as Windows-1252 (e.g. turning "–" into "â€""). A strict UTF-8 decode is now attempted first; since invalid UTF-8 byte sequences raise rather than mis-decode, a successful decode is definitively correct.
 
 ## [1.1.1] - 2026-05-15
 
