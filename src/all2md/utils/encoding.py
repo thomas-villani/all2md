@@ -138,7 +138,21 @@ def read_text_with_encoding_detection(
     if fallback_encodings is None:
         fallback_encodings = ["utf-8", "utf-8-sig", "latin-1"]
 
-    # Try chardet detection first if enabled
+    # Try strict UTF-8 first. UTF-8 is byte-prefix-aware: invalid sequences
+    # raise rather than silently producing mojibake, so a successful decode
+    # is definitively correct. This guards against chardet false-positives
+    # on short UTF-8 files where rare multi-byte characters (en-dash 0xE2
+    # 0x80 0x93, em-dash, smart quotes) clear the confidence threshold as
+    # Windows-1252 and turn "–" into "â€"".
+    try:
+        # utf-8-sig handles UTF-8 with or without a BOM.
+        text = data.decode("utf-8-sig")
+        logger.debug("Successfully decoded as UTF-8")
+        return text
+    except UnicodeDecodeError:
+        logger.debug("Data is not valid UTF-8, falling back to detection")
+
+    # Try chardet detection for legacy / non-UTF-8 encodings
     if use_chardet:
         detected_encoding = detect_encoding(
             data,
