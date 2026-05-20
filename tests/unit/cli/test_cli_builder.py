@@ -557,6 +557,23 @@ class TestCLIParser:
         args = parser.parse_args(["test.pdf", "--extract", "line:10-25"])
         assert args.extract == "line:10-25"
 
+    def test_parser_output_format_is_tracked(self):
+        """An explicit --to/--output-format is recorded in _provided_args.
+
+        Regression guard: without tracking, the target format resolvers fall
+        back to auto-detection and silently ignore an explicit --to to stdout.
+        """
+        parser = create_parser()
+
+        args = parser.parse_args(["test.md", "--to", "html"])
+        assert args.output_format == "html"
+        assert "output_format" in getattr(args, "_provided_args", set())
+
+        # Default (not provided) must NOT be tracked, so extension/auto wins.
+        args = parser.parse_args(["test.md"])
+        assert args.output_format == "markdown"
+        assert "output_format" not in getattr(args, "_provided_args", set())
+
     def test_parser_log_level_choices(self):
         """Test log level argument choices."""
         parser = create_parser()

@@ -592,6 +592,41 @@ def test_resolve_section_indices_matches_extract_sections() -> None:
 
 
 @pytest.mark.unit
+def test_determine_target_format_honors_explicit_to() -> None:
+    """_determine_target_format (stdout path) returns an explicit --to value."""
+    from all2md.cli.builder import create_parser
+    from all2md.cli.processors import _determine_target_format
+
+    parser = create_parser()
+
+    args = parser.parse_args(["doc.md", "--to", "html"])
+    assert _determine_target_format(args) == "html"
+
+    # No explicit --to -> auto (lets downstream detect/default).
+    args = parser.parse_args(["doc.md"])
+    assert _determine_target_format(args) == "auto"
+
+
+@pytest.mark.unit
+def test_determine_output_format_explicit_to_overrides_extension() -> None:
+    """An explicit --to wins over output-path extension inference."""
+    from pathlib import Path
+
+    from all2md.cli.builder import create_parser
+    from all2md.cli.processors import _determine_output_format
+
+    parser = create_parser()
+
+    # Explicit --to markdown beats a .html output path.
+    args = parser.parse_args(["doc.md", "--to", "markdown"])
+    assert _determine_output_format(args, Path("out.html")) == "markdown"
+
+    # Without --to, the extension drives the target.
+    args = parser.parse_args(["doc.md"])
+    assert _determine_output_format(args, Path("out.html")) == "html"
+
+
+@pytest.mark.unit
 def test_validation_outline_and_extract_mutually_exclusive() -> None:
     """Test validation catches when both --outline and --extract are used."""
     from all2md.cli.validation import ValidationSeverity, collect_argument_problems

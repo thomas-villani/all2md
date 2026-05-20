@@ -1252,6 +1252,7 @@ Examples:
         parser.add_argument(
             "--output-format",
             "--to",
+            action=TrackingStoreAction,
             choices=format_choices,
             default="markdown",
             help="Target format for conversion (default: markdown)",
