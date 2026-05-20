@@ -460,9 +460,7 @@ def query_sections(
         return matching_sections
 
     else:
-        raise TypeError(
-            f"Invalid spec type: {type(spec).__name__}. " "Expected str, int, list[int], callable, or None."
-        )
+        raise TypeError(f"Invalid spec type: {type(spec).__name__}. Expected str, int, list[int], callable, or None.")
 
 
 def find_heading(
@@ -545,6 +543,108 @@ def count_sections(doc: Document, level: int | None = None) -> int:
     return len(sections)
 
 
+def resolve_section_indices(
+    sections: list[Section],
+    spec: str | int | list[int],
+    *,
+    case_sensitive: bool = False,
+) -> list[int]:
+    """Resolve an extraction spec to 0-based indices into ``sections``.
+
+    This is the selection core shared by :func:`extract_sections` (which builds
+    a new Document) and the CLI line-number mapping (which slices the rendered
+    output by section span). Centralizing it keeps the two in lockstep.
+
+    Parameters
+    ----------
+    sections : list of Section
+        Sections to select from, in document order.
+    spec : str or int or list of int
+        Extraction specification:
+        - Name: "Introduction" (exact match)
+        - Pattern: "Intro*", "*Results*" (uses fnmatch)
+        - Single index: 0 (0-based) or "#:1" (1-based with #:)
+        - Range: "#:1-3", "#:3-" (1-based, inclusive)
+        - Multiple: "#:1,3,5" or [0, 2, 4]
+    case_sensitive : bool, default False
+        Whether name matching is case-sensitive.
+
+    Returns
+    -------
+    list of int
+        0-based indices into ``sections``. Ordering follows the spec kind:
+        index ranges are sorted ascending; explicit lists keep their order;
+        name patterns are returned in document order.
+
+    Raises
+    ------
+    ValueError
+        If the spec is invalid or matches no sections.
+    TypeError
+        If the spec is of an unsupported type.
+
+    """
+    if not sections:
+        raise ValueError("Document contains no sections (headings)")
+
+    if isinstance(spec, list):
+        indices = [i for i in spec if 0 <= i < len(sections)]
+        if not indices:
+            raise ValueError(f"No valid sections in index list: {spec}")
+        return indices
+
+    if isinstance(spec, int):
+        if not 0 <= spec < len(sections):
+            raise ValueError(f"Section index {spec} out of range (0-{len(sections) - 1})")
+        return [spec]
+
+    if isinstance(spec, str):
+        if spec.startswith("#:"):
+            # Index-based extraction (1-based input -> 0-based indices)
+            index_spec = spec[2:]
+            try:
+                indices = parse_section_ranges(index_spec, len(sections))
+            except (ValueError, IndexError) as e:
+                raise ValueError(f"Invalid section index specification '{spec}': {e}") from e
+            if not indices:
+                raise ValueError(f"No valid sections in range: {spec}")
+            return indices
+
+        # Name/pattern-based extraction (fnmatch wildcards)
+        pattern = spec
+        pattern_to_match = pattern if case_sensitive else pattern.lower()
+        all_heading_texts = [section.get_heading_text() for section in sections]
+
+        indices = []
+        for i, heading_text in enumerate(all_heading_texts):
+            text_to_match = heading_text if case_sensitive else heading_text.lower()
+            if fnmatch.fnmatch(text_to_match, pattern_to_match):
+                indices.append(i)
+
+        if indices:
+            return indices
+
+        # No match: offer fuzzy suggestions for plain (non-wildcard) names.
+        has_wildcards = "*" in pattern or "?" in pattern
+        if not has_wildcards and all_heading_texts:
+            suggestions = difflib.get_close_matches(
+                pattern.lower(), [h.lower() for h in all_heading_texts], n=3, cutoff=0.6
+            )
+            if suggestions:
+                original_suggestions = []
+                for suggestion in suggestions:
+                    for original in all_heading_texts:
+                        if original.lower() == suggestion:
+                            original_suggestions.append(original)
+                            break
+                suggestion_text = ", ".join(original_suggestions)
+                raise ValueError(f"No sections match pattern: {pattern}\nDid you mean: {suggestion_text}?")
+
+        raise ValueError(f"No sections match pattern: {pattern}")
+
+    raise TypeError(f"Invalid spec type: {type(spec).__name__}. Expected str, int, or list of int.")
+
+
 def extract_sections(
     doc: Document,
     spec: str | int | list[int],
@@ -612,88 +712,9 @@ def extract_sections(
     if not sections:
         raise ValueError("Document contains no sections (headings)")
 
-    # Determine extraction type and get matched sections
-    extracted_sections: list[Section] = []
-
-    if isinstance(spec, list):
-        # List of 0-based indices
-        try:
-            extracted_sections = [sections[i] for i in spec if 0 <= i < len(sections)]
-            if not extracted_sections:
-                raise ValueError(f"No valid sections in index list: {spec}")
-        except IndexError as e:
-            raise ValueError(f"Invalid section index in list: {e}") from e
-
-    elif isinstance(spec, int):
-        # Single 0-based index
-        if not 0 <= spec < len(sections):
-            raise ValueError(f"Section index {spec} out of range (0-{len(sections) - 1})")
-        extracted_sections = [sections[spec]]
-
-    elif isinstance(spec, str):
-        # String specification
-        if spec.startswith("#:"):
-            # Index-based extraction (1-based)
-            index_spec = spec[2:]  # Remove "#:" prefix
-
-            try:
-                # Parse section indices (returns 0-based)
-                section_indices = parse_section_ranges(index_spec, len(sections))
-
-                if not section_indices:
-                    raise ValueError(f"No valid sections in range: {spec}")
-
-                # Extract sections by index
-                extracted_sections = [sections[i] for i in section_indices]
-
-            except (ValueError, IndexError) as e:
-                raise ValueError(f"Invalid section index specification '{spec}': {e}") from e
-        else:
-            # Name pattern-based extraction (use fnmatch for wildcards)
-            pattern = spec
-
-            # Collect all heading texts for pattern matching and fuzzy suggestions
-            all_heading_texts = []
-            for section in sections:
-                heading_text = section.get_heading_text()
-                all_heading_texts.append(heading_text)
-
-                # Match against pattern
-                pattern_to_match = pattern if case_sensitive else pattern.lower()
-                text_to_match = heading_text if case_sensitive else heading_text.lower()
-
-                if fnmatch.fnmatch(text_to_match, pattern_to_match):
-                    extracted_sections.append(section)
-
-            if not extracted_sections:
-                # Check if wildcards were used in the pattern
-                has_wildcards = "*" in pattern or "?" in pattern
-
-                # If no wildcards, try fuzzy matching to provide helpful suggestions
-                if not has_wildcards and all_heading_texts:
-                    # Find close matches (case-insensitive comparison)
-                    suggestions = difflib.get_close_matches(
-                        pattern.lower(), [h.lower() for h in all_heading_texts], n=3, cutoff=0.6
-                    )
-
-                    # Map back to original case
-                    if suggestions:
-                        original_suggestions = []
-                        for suggestion in suggestions:
-                            for original in all_heading_texts:
-                                if original.lower() == suggestion:
-                                    original_suggestions.append(original)
-                                    break
-
-                        error_msg = (
-                            f"No sections match pattern: {pattern}\nDid you mean: {', '.join(original_suggestions)}?"
-                        )
-                        raise ValueError(error_msg)
-
-                # Fallback to simple error message
-                raise ValueError(f"No sections match pattern: {pattern}")
-    else:
-        raise TypeError(f"Invalid spec type: {type(spec).__name__}. Expected str, int, or list of int.")
+    # Resolve the spec to concrete section indices (shared selection core).
+    indices = resolve_section_indices(sections, spec, case_sensitive=case_sensitive)
+    extracted_sections: list[Section] = [sections[i] for i in indices]
 
     # If not combining, return just the first section
     if not combine:
@@ -1087,6 +1108,7 @@ __all__ = [
     "parse_section_ranges",
     "query_sections",
     "find_heading",
+    "resolve_section_indices",
     "extract_sections",
     "count_sections",
     "section_or_doc_to_nodes",

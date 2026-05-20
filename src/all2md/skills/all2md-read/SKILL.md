@@ -107,6 +107,30 @@ all2md document.pdf --extract "#:1-3"
 all2md document.pdf --outline
 ```
 
+### Navigating by Line Number
+
+When you don't want the whole document, map it first, then pull only the
+range you need. Line numbers refer to the full Markdown conversion and are
+consistent across all three commands below.
+
+```bash
+# 1. Outline annotated with the line each heading sits on
+all2md document.pdf --outline --line-numbers      # or -ln
+
+# 2. Pull an exact line range (1-based, inclusive)
+all2md document.pdf --extract line:42-87
+
+# 3. Same range, keeping the original line numbers for further refinement
+all2md document.pdf --extract line:42-87 --line-numbers
+
+# Number every line of a full conversion (cat -n style)
+all2md document.pdf --line-numbers
+```
+
+`line:` ranges accept a single line (`line:42`), a closed range (`line:42-87`),
+an open-ended range (`line:42-`), or several (`line:1-10,42-87`). This is the
+most token-efficient way to read just the relevant part of a large document.
+
 ### Batch Processing
 
 ```bash

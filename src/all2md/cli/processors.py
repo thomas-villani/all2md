@@ -89,7 +89,13 @@ def extract_sections_from_document(doc: Document, extract_spec: str) -> Document
     return extract_sections(doc, extract_spec, case_sensitive=False, combine=True)
 
 
-def generate_outline_from_document(doc: Document, max_level: int = 6) -> str:
+def generate_outline_from_document(
+    doc: Document,
+    max_level: int = 6,
+    *,
+    line_numbers: bool = False,
+    rendered_markdown: Optional[str] = None,
+) -> str:
     """Generate a markdown-formatted outline from document headings.
 
     Parameters
@@ -98,6 +104,13 @@ def generate_outline_from_document(doc: Document, max_level: int = 6) -> str:
         Source document to extract outline from
     max_level : int
         Maximum heading level to include (1-6, default: 6)
+    line_numbers : bool, default False
+        If True, prefix each heading with the 1-based line number it occupies
+        in the rendered Markdown (see ``rendered_markdown``). This gives callers
+        a heading -> line map to feed back into ``--extract line:X-Y``.
+    rendered_markdown : str, optional
+        Markdown rendering of ``doc``, used to resolve line numbers. Required
+        when ``line_numbers`` is True.
 
     Returns
     -------
@@ -115,28 +128,227 @@ def generate_outline_from_document(doc: Document, max_level: int = 6) -> str:
     * Methods
       * Data Collection
 
+    With line numbers:
+        >>> print(generate_outline_from_document(doc, line_numbers=True, rendered_markdown=md))
+         1: * Introduction
+         5:   * Background
+        12: * Methods
+
     """
     from all2md.ast.sections import get_all_sections
 
-    # Get all sections from document
-    sections = get_all_sections(doc, min_level=1, max_level=max_level)
+    if not line_numbers:
+        # Get all sections from document
+        sections = get_all_sections(doc, min_level=1, max_level=max_level)
 
-    if not sections:
+        if not sections:
+            return "No headings found in document"
+
+        # Build markdown list with proper indentation
+        lines = []
+        for section in sections:
+            # Calculate indentation: 2 spaces per level beyond first
+            indent = "  " * (section.level - 1)
+
+            # Get heading text
+            heading_text = section.get_heading_text()
+
+            # Format as markdown list item
+            lines.append(f"{indent}* {heading_text}")
+
+        return "\n".join(lines)
+
+    # Line-numbered outline: map every heading (full level range) to its line in
+    # the rendered Markdown, then display those at or above max_level. Using the
+    # full range keeps the mapping aligned one-to-one with the rendered headings.
+    from all2md.ast.line_map import map_sections_to_lines
+
+    all_sections = get_all_sections(doc, min_level=1, max_level=6)
+
+    if not all_sections:
         return "No headings found in document"
 
-    # Build markdown list with proper indentation
+    line_map = map_sections_to_lines(all_sections, rendered_markdown or "")
+    paired = zip(all_sections, line_map, strict=True)
+    displayed = [(section, ln) for section, ln in paired if section.level <= max_level]
+
+    width = max((len(str(ln)) for _section, ln in displayed if ln is not None), default=1)
+
     lines = []
-    for section in sections:
-        # Calculate indentation: 2 spaces per level beyond first
+    for section, ln in displayed:
         indent = "  " * (section.level - 1)
-
-        # Get heading text
-        heading_text = section.get_heading_text()
-
-        # Format as markdown list item
-        lines.append(f"{indent}* {heading_text}")
+        # Unmappable headings (rare) show "?" instead of a misleading number.
+        gutter = f"{ln:>{width}}: " if ln is not None else f"{'?':>{width}}: "
+        lines.append(f"{gutter}{indent}* {section.get_heading_text()}")
 
     return "\n".join(lines)
+
+
+# Prefix that selects content by output line range, e.g. ``--extract line:10-25``.
+LINE_EXTRACT_PREFIX = "line:"
+
+
+def is_line_extract_spec(extract_spec: Optional[str]) -> bool:
+    """Return True when an --extract spec selects by output line range."""
+    return isinstance(extract_spec, str) and extract_spec.strip().lower().startswith(LINE_EXTRACT_PREFIX)
+
+
+def _render_reference_markdown(doc: Document, effective_options: Dict[str, Any]) -> str:
+    """Render ``doc`` to Markdown to serve as the line-number reference frame."""
+    rendered = from_ast(doc, cast(DocumentFormat, "markdown"), **effective_options)
+    assert isinstance(rendered, str), "Markdown renderer should return str"
+    return rendered
+
+
+def _outline_output(
+    doc: Document,
+    max_level: int,
+    line_numbers: bool,
+    effective_options: Dict[str, Any],
+) -> str:
+    """Produce outline text, optionally annotated with output line numbers."""
+    rendered_markdown = _render_reference_markdown(doc, effective_options) if line_numbers else None
+    return generate_outline_from_document(
+        doc, max_level=max_level, line_numbers=line_numbers, rendered_markdown=rendered_markdown
+    )
+
+
+def _extraction_output(
+    doc: Document,
+    extract_spec: str,
+    render_target: str,
+    line_numbers: bool,
+    effective_options: Dict[str, Any],
+    transforms: Optional[list],
+) -> Any:
+    """Produce extraction output for a name/index spec or a ``line:`` range.
+
+    Returns a str (text targets) or bytes (binary targets). Line numbering is
+    only meaningful for Markdown output and references the full Markdown render.
+    """
+    if is_line_extract_spec(extract_spec):
+        return _extract_by_lines(doc, extract_spec, render_target, line_numbers, effective_options, transforms)
+
+    if line_numbers and render_target == "markdown":
+        # Slice the original rendered lines for each selected section so the
+        # reported numbers are the document's true line numbers (matching what
+        # --outline -ln and full -ln report), not extract-relative ones.
+        return _extract_sections_with_line_numbers(doc, extract_spec, effective_options)
+
+    extracted = extract_sections_from_document(doc, extract_spec)
+    if transforms:
+        for transform in transforms:
+            extracted = transform.transform(extracted)
+    return from_ast(extracted, cast(DocumentFormat, render_target), **effective_options)
+
+
+def _parse_line_indices(spec_body: str, total_lines: int, original_spec: str) -> List[int]:
+    """Parse the body of a ``line:`` spec into sorted 0-based line indices."""
+    from all2md.ast.sections import parse_section_ranges
+
+    try:
+        indices = parse_section_ranges(spec_body, total_lines)
+    except (ValueError, IndexError) as exc:
+        raise ValueError(f"Invalid line range specification '{original_spec}': {exc}") from exc
+
+    if not indices:
+        raise ValueError(f"No lines selected by '{original_spec}' (document has {total_lines} lines)")
+    return indices
+
+
+def _gather_selected_lines(md_lines: List[str], indices: List[int]) -> Tuple[List[str], List[Optional[int]]]:
+    """Collect selected lines and their 1-based numbers, blank-separating gaps."""
+    out_lines: List[str] = []
+    out_numbers: List[Optional[int]] = []
+    prev: Optional[int] = None
+    for i in indices:
+        if prev is not None and i != prev + 1:
+            # Non-adjacent selection: insert an unnumbered blank so re-parsing
+            # keeps the two runs as separate blocks.
+            out_lines.append("")
+            out_numbers.append(None)
+        out_lines.append(md_lines[i])
+        out_numbers.append(i + 1)
+        prev = i
+    return out_lines, out_numbers
+
+
+def _extract_by_lines(
+    doc: Document,
+    extract_spec: str,
+    render_target: str,
+    line_numbers: bool,
+    effective_options: Dict[str, Any],
+    transforms: Optional[list],
+) -> Any:
+    """Extract content by output line range (``line:X-Y``)."""
+    from all2md.ast.line_map import number_text_lines
+
+    rendered_markdown = _render_reference_markdown(doc, effective_options)
+    md_lines = rendered_markdown.split("\n")
+
+    spec_body = extract_spec.strip()[len(LINE_EXTRACT_PREFIX) :].strip()
+    indices = _parse_line_indices(spec_body, len(md_lines), extract_spec)
+
+    out_lines, out_numbers = _gather_selected_lines(md_lines, indices)
+    selected_text = "\n".join(out_lines)
+
+    if render_target == "markdown":
+        if line_numbers:
+            return number_text_lines(selected_text, out_numbers)
+        return selected_text
+
+    # Re-parse the selected Markdown so it can be rendered to any --to target.
+    reparsed = to_ast(selected_text.encode("utf-8"), source_format=cast(DocumentFormat, "markdown"))
+    if transforms:
+        for transform in transforms:
+            reparsed = transform.transform(reparsed)
+    return from_ast(reparsed, cast(DocumentFormat, render_target), **effective_options)
+
+
+def _extract_sections_with_line_numbers(
+    doc: Document,
+    extract_spec: str,
+    effective_options: Dict[str, Any],
+) -> str:
+    """Render a name/index extraction as numbered original Markdown lines."""
+    from all2md.ast.line_map import map_sections_to_lines, number_text_lines
+    from all2md.ast.sections import get_all_sections, resolve_section_indices
+
+    rendered_markdown = _render_reference_markdown(doc, effective_options)
+    md_lines = rendered_markdown.split("\n")
+
+    all_sections = get_all_sections(doc, min_level=1, max_level=6)
+    if not all_sections:
+        raise ValueError("Document contains no sections (headings)")
+
+    selected = resolve_section_indices(all_sections, extract_spec)
+    line_map = map_sections_to_lines(all_sections, rendered_markdown)
+
+    # Each selected section spans from its heading line up to the next heading.
+    spans: List[Tuple[int, int]] = []
+    for i in sorted(set(selected)):
+        start = line_map[i]
+        if start is None:
+            continue
+        end = next((line_map[j] for j in range(i + 1, len(all_sections)) if line_map[j] is not None), None)
+        if end is None:
+            end = len(md_lines) + 1
+        spans.append((start, end))
+
+    out_lines: List[str] = []
+    out_numbers: List[Optional[int]] = []
+    prev_end: Optional[int] = None
+    for start, end in spans:
+        if prev_end is not None and start != prev_end:
+            out_lines.append("")
+            out_numbers.append(None)
+        for line_no in range(start, end):
+            out_lines.append(md_lines[line_no - 1] if 1 <= line_no <= len(md_lines) else "")
+            out_numbers.append(line_no)
+        prev_end = end
+
+    return number_text_lines("\n".join(out_lines), out_numbers)
 
 
 def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
@@ -2032,6 +2244,30 @@ def _output_result_to_stdout(result: Any) -> None:
         print(result)
 
 
+def _write_result_to_path(result: Any, output_path: Path) -> None:
+    """Write a conversion result (str or bytes) to a file path."""
+    if isinstance(result, bytes):
+        output_path.write_bytes(result)
+    elif isinstance(result, str):
+        output_path.write_text(result, encoding="utf-8")
+
+
+def _line_numbers_for_target(line_numbers: bool, render_target: str) -> bool:
+    """Disable line numbering for non-Markdown targets, warning once if requested.
+
+    Line numbers reference the Markdown rendering, so they are meaningless for
+    binary or alternate text targets. Selection by ``line:`` still works there
+    (it slices Markdown then re-renders); only the numbered display is dropped.
+    """
+    if line_numbers and render_target != "markdown":
+        logger.warning(
+            "--line-numbers only applies to Markdown output; ignoring it for target '%s'.",
+            render_target,
+        )
+        return False
+    return line_numbers
+
+
 def _handle_outline_conversion(
     source_value: Any,
     format_arg: str,
@@ -2040,6 +2276,7 @@ def _handle_outline_conversion(
     output_path: Optional[Path],
     outline_max_level: int,
     display_name: str,
+    line_numbers: bool = False,
 ) -> Tuple[int, str, Optional[str]]:
     """Handle outline mode conversion.
 
@@ -2056,7 +2293,7 @@ def _handle_outline_conversion(
         **effective_options,
     )
 
-    outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
+    outline_text = _outline_output(doc, outline_max_level, line_numbers, effective_options)
 
     if output_path:
         output_path.write_text(outline_text, encoding="utf-8")
@@ -2076,6 +2313,7 @@ def _handle_extraction_conversion(
     extract_spec: str,
     local_transforms: Optional[list],
     display_name: str,
+    line_numbers: bool = False,
 ) -> Tuple[int, str, Optional[str]]:
     """Handle extraction mode conversion.
 
@@ -2092,21 +2330,13 @@ def _handle_extraction_conversion(
         **effective_options,
     )
 
-    doc = extract_sections_from_document(doc, extract_spec)
-
-    if local_transforms:
-        for transform in local_transforms:
-            doc = transform.transform(doc)
-
     render_target = target_format if target_format != "auto" else "markdown"
-    result = from_ast(
-        doc,
-        target_format=cast(DocumentFormat, render_target),
-        output=output_path,
-        **effective_options,
-    )
+    line_numbers = _line_numbers_for_target(line_numbers, render_target)
+    result = _extraction_output(doc, extract_spec, render_target, line_numbers, effective_options, local_transforms)
 
-    if output_path is None:
+    if output_path is not None:
+        _write_result_to_path(result, output_path)
+    else:
         _output_result_to_stdout(result)
 
     return EXIT_SUCCESS, display_name, None
@@ -2121,6 +2351,7 @@ def _handle_normal_conversion(
     target_format: str,
     local_transforms: Optional[list],
     display_name: str,
+    line_numbers: bool = False,
 ) -> Tuple[int, str, Optional[str]]:
     """Handle normal conversion path.
 
@@ -2131,6 +2362,25 @@ def _handle_normal_conversion(
 
     """
     render_target = target_format if target_format != "auto" else "markdown"
+
+    if _line_numbers_for_target(line_numbers, render_target):
+        # Number every line of the Markdown rendering (cat -n style) so callers
+        # can pick a range to feed back into --extract line:X-Y.
+        from all2md.ast.line_map import number_text_lines
+
+        markdown_content = to_markdown(
+            source_value,
+            source_format=cast(DocumentFormat, format_arg),
+            transforms=local_transforms,
+            progress_callback=progress_callback,
+            **effective_options,
+        )
+        numbered = number_text_lines(markdown_content)
+        if output_path is not None:
+            output_path.write_text(numbered, encoding="utf-8")
+        else:
+            print(numbered)
+        return EXIT_SUCCESS, display_name, None
 
     result = convert(
         source_value,
@@ -2161,6 +2411,7 @@ def convert_single_file(
     extract_spec: Optional[str] = None,
     outline: bool = False,
     outline_max_level: int = 6,
+    line_numbers: bool = False,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2190,6 +2441,9 @@ def convert_single_file(
         Whether to output document outline instead of full content
     outline_max_level : int, default 6
         Maximum heading level to include in outline (1-6)
+    line_numbers : bool, default False
+        Whether to annotate Markdown output with line numbers (outline headings,
+        extracted lines, or every line of a full conversion)
 
     Returns
     -------
@@ -2221,6 +2475,7 @@ def convert_single_file(
                 output_path,
                 outline_max_level,
                 input_item.display_name,
+                line_numbers,
             )
 
         if extract_spec:
@@ -2234,6 +2489,7 @@ def convert_single_file(
                 extract_spec,
                 local_transforms,
                 input_item.display_name,
+                line_numbers,
             )
 
         return _handle_normal_conversion(
@@ -2245,6 +2501,7 @@ def convert_single_file(
             renderer_hint,
             local_transforms,
             input_item.display_name,
+            line_numbers,
         )
 
     except Exception as exc:
@@ -2413,6 +2670,7 @@ def _execute_tasks_parallel(
     extract_spec = getattr(args, "extract", None)
     outline = getattr(args, "outline", False)
     outline_max_level = getattr(args, "outline_max_level", 6)
+    line_numbers = getattr(args, "line_numbers", False)
     max_workers = args.parallel if args.parallel else os.cpu_count()
 
     with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
@@ -2432,6 +2690,7 @@ def _execute_tasks_parallel(
                     extract_spec,
                     outline,
                     outline_max_level,
+                    line_numbers,
                 ): (item, output_path)
                 for item, output_path, target_format, _ in planned_tasks
             }
@@ -2483,6 +2742,7 @@ def _execute_tasks_sequential(
     extract_spec = getattr(args, "extract", None)
     outline = getattr(args, "outline", False)
     outline_max_level = getattr(args, "outline_max_level", 6)
+    line_numbers = getattr(args, "line_numbers", False)
 
     with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
         progress_callback = create_progress_context_callback(progress) if show_progress else None
@@ -2503,6 +2763,7 @@ def _execute_tasks_sequential(
                 extract_spec,
                 outline,
                 outline_max_level,
+                line_numbers,
             )
 
             _log_task_result(progress, item, output_path, exit_code, error)
@@ -2611,8 +2872,9 @@ def _render_outline_mode(
 ) -> int:
     """Handle outline mode rendering."""
     outline_max_level = getattr(args, "outline_max_level", 6)
+    line_numbers = getattr(args, "line_numbers", False)
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-    outline_text = generate_outline_from_document(doc, max_level=outline_max_level)
+    outline_text = _outline_output(doc, outline_max_level, line_numbers, effective_options)
     _apply_formatting_and_output(outline_text, args, should_use_rich)
     return EXIT_SUCCESS
 
@@ -2624,14 +2886,11 @@ def _convert_with_extraction(
     extract_spec: str,
     transforms: Optional[list],
     render_target: str,
+    line_numbers: bool = False,
 ) -> Any:
-    """Convert with section extraction."""
+    """Convert with section extraction (name/index or ``line:`` range)."""
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-    doc = extract_sections_from_document(doc, extract_spec)
-    if transforms:
-        for transform in transforms:
-            doc = transform.transform(doc)
-    return from_ast(doc, cast(DocumentFormat, render_target), **effective_options)
+    return _extraction_output(doc, extract_spec, render_target, line_numbers, effective_options, transforms)
 
 
 def _render_markdown_mode(
@@ -2644,9 +2903,10 @@ def _render_markdown_mode(
     extract_spec: Optional[str],
 ) -> int:
     """Handle markdown format rendering."""
+    line_numbers = getattr(args, "line_numbers", False)
     if extract_spec:
         markdown_content = _convert_with_extraction(
-            item, effective_options, format_arg, extract_spec, transforms, "markdown"
+            item, effective_options, format_arg, extract_spec, transforms, "markdown", line_numbers
         )
     else:
         markdown_content = to_markdown(
@@ -2655,6 +2915,10 @@ def _render_markdown_mode(
             transforms=transforms,
             **effective_options,
         )
+        if line_numbers:
+            from all2md.ast.line_map import number_text_lines
+
+            markdown_content = number_text_lines(markdown_content)
     assert isinstance(markdown_content, str), "Markdown renderer should return str"
     _apply_formatting_and_output(markdown_content, args, should_use_rich)
     return EXIT_SUCCESS
@@ -2671,6 +2935,10 @@ def _render_other_format_mode(
     extract_spec: Optional[str],
 ) -> int:
     """Handle non-markdown format rendering."""
+    # Line numbers reference the Markdown rendering, so they do not apply to
+    # other targets; warn once if requested (selection by line: still works).
+    _line_numbers_for_target(getattr(args, "line_numbers", False), render_target)
+
     if extract_spec:
         result = _convert_with_extraction(item, effective_options, format_arg, extract_spec, transforms, render_target)
     else:

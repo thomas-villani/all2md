@@ -1101,6 +1101,11 @@ Examples:
   all2md document.pdf --extract "Materials and Methods"
   all2md document.pdf --extract "#:3"
 
+  # Line-numbered navigation (handy for LLMs/agents picking a range)
+  all2md document.pdf --outline --line-numbers
+  all2md document.pdf --extract line:42-87
+  all2md document.pdf --extract line:42-87 --line-numbers
+
   # Image handling
   all2md document.html --attachment-mode save --attachment-output-dir ./images
   all2md book.epub --attachment-mode base64
@@ -1163,6 +1168,8 @@ Examples:
             "Supports: name pattern ('Introduction', 'Chapter*'), "
             "single index ('#:1'), range ('#:1-3'), "
             "multiple ('#:1,3,5'), or open-ended ('#:3-'). "
+            "Also supports output line ranges: 'line:10-25', 'line:10-', 'line:5,8-12' "
+            "(1-based, inclusive; numbers as reported by --line-numbers). "
             "Sections are 1-indexed. Pattern matching is case-insensitive with wildcard support.",
         )
 
@@ -1180,6 +1187,18 @@ Examples:
             metavar="LEVEL",
             default=6,
             help="Maximum heading level to include in outline (1-6, default: 6). Only applies when --outline is used.",
+        )
+
+        # Line-number annotation (Markdown output only)
+        parser.add_argument(
+            "--line-numbers",
+            "-ln",
+            action="store_true",
+            dest="line_numbers",
+            help="Annotate Markdown output with line numbers. With --outline, each heading is "
+            "labelled with the line it occupies in the full conversion; on a normal conversion "
+            "every line is numbered; with --extract, returned lines keep their original numbers. "
+            "Pair with '--extract line:X-Y' to pull back an exact range. Ignored for non-Markdown output.",
         )
 
         # Document splitting options
@@ -1805,6 +1824,7 @@ Examples:
             "extract",
             "outline",
             "outline_max_level",
+            "line_numbers",
         } | global_attachment_fields  # Union with global attachment fields
 
         # Process each argument

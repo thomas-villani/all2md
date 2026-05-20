@@ -1741,6 +1741,29 @@ Options
       # Show only top-level headings
       all2md report.docx --outline --outline-max-level 1
 
+``--line-numbers`` / ``-ln``
+   Annotate each heading with the line number it occupies in the full Markdown
+   conversion. This turns the outline into a *heading → line* map, which pairs
+   directly with ``--extract line:X-Y`` (see :ref:`line-range-extraction`) so a
+   reader -- or an LLM/agent -- can jump straight to the range it cares about.
+
+   .. code-block:: bash
+
+      all2md document.pdf --outline --line-numbers
+
+   .. code-block:: text
+
+       1: * Introduction
+       5:   * Background
+      19: * Methods
+      23:   * Data Collection
+      27: * Conclusion
+
+   The same flag also numbers a normal conversion (every line, ``cat -n`` style)
+   and, with ``--extract``, keeps the returned lines' original numbers. Line
+   numbers reference the Markdown rendering and are ignored for other output
+   formats.
+
 Output Options
 ~~~~~~~~~~~~~~
 
@@ -1887,6 +1910,40 @@ See Also
 - ``--extract`` - Extract specific sections from documents
 - ``all2md view --toc`` - View document with visual table of contents
 - :doc:`python_api` - For programmatic outline extraction using ``get_all_sections()``
+
+.. _line-range-extraction:
+
+Extracting by Line Range
+------------------------
+
+In addition to section names and indices, ``--extract`` accepts an output
+**line range** with the ``line:`` prefix. Line numbers refer to the full
+Markdown conversion -- exactly the numbers reported by ``--outline --line-numbers``
+or by a ``--line-numbers`` conversion -- so the typical workflow is *inspect,
+then pull*:
+
+.. code-block:: bash
+
+   # 1. See where everything is
+   all2md report.pdf --outline --line-numbers
+
+   # 2. Pull back an exact range (1-based, inclusive)
+   all2md report.pdf --extract line:42-87
+
+   # 3. Pull it back with its original line numbers, for further refinement
+   all2md report.pdf --extract line:42-87 --line-numbers
+
+The range syntax mirrors index ranges: a single line (``line:42``), a closed
+range (``line:42-87``), an open-ended range (``line:42-``), or several at once
+(``line:1-10,42-87``). Non-adjacent selections are separated by a blank line.
+
+Because the range is selected on the Markdown rendering, it can still be
+re-rendered to any target format -- the selected lines are re-parsed before
+conversion:
+
+.. code-block:: bash
+
+   all2md report.pdf --extract line:42-87 --out excerpt.html
 
 Document Serving
 ----------------

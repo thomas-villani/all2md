@@ -537,6 +537,26 @@ class TestCLIParser:
         with pytest.raises(SystemExit):
             parser.parse_args(["test.pdf", "--format", "invalid"])
 
+    def test_parser_line_numbers_flag(self):
+        """Test that --line-numbers/-ln sets line_numbers and defaults to False."""
+        parser = create_parser()
+
+        args = parser.parse_args(["test.pdf"])
+        assert args.line_numbers is False
+
+        args = parser.parse_args(["test.pdf", "--line-numbers"])
+        assert args.line_numbers is True
+
+        args = parser.parse_args(["test.pdf", "-ln"])
+        assert args.line_numbers is True
+
+    def test_parser_extract_accepts_line_spec(self):
+        """Test that --extract accepts a line: range spec."""
+        parser = create_parser()
+
+        args = parser.parse_args(["test.pdf", "--extract", "line:10-25"])
+        assert args.extract == "line:10-25"
+
     def test_parser_log_level_choices(self):
         """Test log level argument choices."""
         parser = create_parser()

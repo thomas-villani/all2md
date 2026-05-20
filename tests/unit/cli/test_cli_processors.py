@@ -451,6 +451,146 @@ def test_generate_outline_from_empty_document() -> None:
     assert outline == "No headings found in document"
 
 
+def _outline_doc():
+    """Build a small document used by the line-number tests."""
+    from all2md.ast.nodes import Document, Heading, Paragraph, Text
+
+    return Document(
+        children=[
+            Heading(level=1, content=[Text(content="Introduction")]),
+            Paragraph(content=[Text(content="Intro body.")]),
+            Heading(level=2, content=[Text(content="Background")]),
+            Paragraph(content=[Text(content="Background body.")]),
+            Heading(level=1, content=[Text(content="Methods")]),
+            Paragraph(content=[Text(content="Methods body.")]),
+        ],
+        metadata={},
+    )
+
+
+@pytest.mark.unit
+def test_outline_with_line_numbers() -> None:
+    """--outline --line-numbers annotates each heading with its output line."""
+    from all2md.cli.processors import _outline_output
+
+    out = _outline_output(_outline_doc(), max_level=6, line_numbers=True, effective_options={})
+
+    expected = "\n".join(
+        [
+            "1: * Introduction",
+            "5:   * Background",
+            "9: * Methods",
+        ]
+    )
+    assert out == expected
+
+
+@pytest.mark.unit
+def test_outline_line_numbers_match_full_render() -> None:
+    """Outline line numbers point at the same lines as the full Markdown render."""
+    from all2md.api import from_ast
+    from all2md.cli.processors import _outline_output
+
+    doc = _outline_doc()
+    rendered = from_ast(doc, "markdown")
+    assert isinstance(rendered, str)
+    md_lines = rendered.split("\n")
+
+    out = _outline_output(doc, max_level=6, line_numbers=True, effective_options={})
+    for entry in out.splitlines():
+        number, _, heading = entry.partition(": ")
+        text = heading.lstrip(" *")
+        # The reported line in the full render is the heading carrying that text.
+        assert text in md_lines[int(number) - 1]
+
+
+@pytest.mark.unit
+def test_outline_line_numbers_max_level_filter() -> None:
+    """max_level hides deeper headings but keeps true line numbers for the rest."""
+    from all2md.cli.processors import _outline_output
+
+    out = _outline_output(_outline_doc(), max_level=1, line_numbers=True, effective_options={})
+
+    assert out == "1: * Introduction\n9: * Methods"
+
+
+@pytest.mark.unit
+def test_extract_by_line_range_markdown() -> None:
+    """--extract line:X-Y slices the rendered Markdown by line range."""
+    from all2md.cli.processors import _extraction_output
+
+    result = _extraction_output(_outline_doc(), "line:9-11", "markdown", False, {}, None)
+
+    assert result == "# Methods\n\nMethods body."
+
+
+@pytest.mark.unit
+def test_extract_by_line_range_with_line_numbers() -> None:
+    """line: extraction with --line-numbers keeps the original line numbers."""
+    from all2md.cli.processors import _extraction_output
+
+    result = _extraction_output(_outline_doc(), "line:9-11", "markdown", True, {}, None)
+
+    assert result == " 9: # Methods\n10: \n11: Methods body."
+
+
+@pytest.mark.unit
+def test_extract_by_line_range_noncontiguous() -> None:
+    """A non-contiguous line: selection is separated by an unnumbered blank line."""
+    from all2md.cli.processors import _extraction_output
+
+    result = _extraction_output(_outline_doc(), "line:1,9", "markdown", True, {}, None)
+
+    assert result == "1: # Introduction\n\n9: # Methods"
+
+
+@pytest.mark.unit
+def test_extract_by_lines_out_of_range_raises() -> None:
+    """A line: spec selecting no real lines raises a helpful error."""
+    from all2md.cli.processors import _extraction_output
+
+    with pytest.raises(ValueError, match="No lines selected"):
+        _extraction_output(_outline_doc(), "line:500-600", "markdown", False, {}, None)
+
+
+@pytest.mark.unit
+def test_extract_name_with_line_numbers_uses_original_lines() -> None:
+    """Name extraction with --line-numbers reports the document's true line numbers."""
+    from all2md.cli.processors import _extraction_output
+
+    result = _extraction_output(_outline_doc(), "Methods", "markdown", True, {}, None)
+
+    # The Methods section starts at line 9 in the full render (width 2: lines 9-11).
+    assert result.splitlines()[0] == " 9: # Methods"
+
+
+@pytest.mark.unit
+def test_is_line_extract_spec() -> None:
+    """The line: prefix is detected case-insensitively and tolerant of whitespace."""
+    from all2md.cli.processors import is_line_extract_spec
+
+    assert is_line_extract_spec("line:1-3")
+    assert is_line_extract_spec("  LINE:5 ")
+    assert not is_line_extract_spec("#:1-3")
+    assert not is_line_extract_spec("Introduction")
+    assert not is_line_extract_spec(None)
+
+
+@pytest.mark.unit
+def test_resolve_section_indices_matches_extract_sections() -> None:
+    """resolve_section_indices selects the same sections extract_sections builds from."""
+    from all2md.ast.sections import get_all_sections, resolve_section_indices
+
+    sections = get_all_sections(_outline_doc(), min_level=1, max_level=6)
+
+    assert resolve_section_indices(sections, "#:1-2") == [0, 1]
+    assert resolve_section_indices(sections, "Methods") == [2]
+    assert resolve_section_indices(sections, "*round*") == [1]  # matches "Background"
+
+    with pytest.raises(ValueError, match="No sections match"):
+        resolve_section_indices(sections, "Nonexistent")
+
+
 @pytest.mark.unit
 def test_validation_outline_and_extract_mutually_exclusive() -> None:
     """Test validation catches when both --outline and --extract are used."""
