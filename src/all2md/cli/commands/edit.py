@@ -292,17 +292,25 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
             self._send_text(status, json.dumps(payload), "application/json")
 
         def _serve_asset(self, name: str) -> None:
-            if name not in ASSET_FILES:
-                self._send_json(404, {"ok": False, "error": "asset not found"})
-                return
-            asset_path = assets_dir / name
-            if not asset_path.is_file():
+            # Resolve the request name through a fixed allowlist -> path map so
+            # the served path is built from constants, never from request input.
+            allowed = {asset: assets_dir / asset for asset in ASSET_FILES}
+            asset_path = allowed.get(name)
+            if asset_path is None or not asset_path.is_file():
                 self._send_json(404, {"ok": False, "error": "asset not found"})
                 return
             ctype = ASSET_CONTENT_TYPES.get(asset_path.suffix, "application/octet-stream")
             self._send_bytes(200, asset_path.read_bytes(), ctype)
 
         def _handle_save(self) -> None:
+            # Require a JSON content type. Beyond correctness, this rejects the
+            # cross-origin "simple request" CSRF vector: a browser sends a
+            # text/plain/form POST without a CORS preflight, so a malicious page
+            # could otherwise drive /api/save against a localhost editor.
+            ctype = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+            if ctype != "application/json":
+                self._send_json(415, {"ok": False, "error": "Content-Type must be application/json"})
+                return
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 body = self.rfile.read(length).decode("utf-8") if length else ""
@@ -334,11 +342,22 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
                 )
                 return
 
-            target_path = Path(target_path_raw)
-            if not target_path.is_absolute():
-                target_path = (input_path.parent / target_path).resolve()
+            # Confine writes to the directory of the document being edited.
+            # ``target_path`` arrives from the request body, so without this an
+            # absolute path or a ``..`` sequence would be an arbitrary-file-write.
+            allowed_root = input_path.parent.resolve()
+            candidate = Path(target_path_raw)
+            if candidate.is_absolute():
+                target_path = candidate.resolve()
             else:
-                target_path = target_path.resolve()
+                target_path = (allowed_root / candidate).resolve()
+
+            if not target_path.is_relative_to(allowed_root):
+                self._send_json(
+                    403,
+                    {"ok": False, "error": "target_path must stay within the document's directory"},
+                )
+                return
 
             if target_path.exists() and not overwrite:
                 self._send_json(

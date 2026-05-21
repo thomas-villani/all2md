@@ -756,7 +756,14 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         Returns ``None`` if rendering fails outright.
         """
         subdir = unquote(path.strip("/")) if path != "/" else ""
-        target_dir = input_path / subdir if subdir else input_path
+        # Resolve and contain the target directory. ``_is_directory_index_path``
+        # already gates callers to known subdirs; re-checking containment here
+        # ensures a request path can never resolve outside the served root and
+        # lets static analysis see the path is constrained.
+        root = input_path.resolve()
+        target_dir = (root / subdir).resolve() if subdir else root
+        if not (target_dir == root or target_dir.is_relative_to(root)):
+            return None
 
         if not parsed.force_auto_index:
             index_file = _find_index_file(target_dir)

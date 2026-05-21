@@ -198,3 +198,74 @@ class TestEditCLIEndToEnd:
         assert status == 400
         assert body["ok"] is False
         assert not out.exists()
+
+    def test_save_relative_traversal_rejected(self, tmp_path: Path) -> None:
+        md = tmp_path / "doc.md"
+        md.write_text("# original\n", encoding="utf-8")
+        escaped = tmp_path.parent / "escape.md"
+        port = _free_port()
+        base = self._start(md, port)
+
+        status, body = self._post_json(
+            base + "api/save",
+            {
+                "content": "# pwned\n",
+                "target_format": "markdown",
+                "target_path": "../escape.md",
+                "overwrite": True,
+            },
+        )
+        assert status == 403, body
+        assert body["ok"] is False
+        assert not escaped.exists()
+
+    def test_save_absolute_path_outside_root_rejected(self, tmp_path: Path) -> None:
+        md = tmp_path / "doc.md"
+        md.write_text("# original\n", encoding="utf-8")
+        outside = tmp_path.parent / "abs-escape.md"
+        port = _free_port()
+        base = self._start(md, port)
+
+        status, body = self._post_json(
+            base + "api/save",
+            {
+                "content": "# pwned\n",
+                "target_format": "markdown",
+                "target_path": str(outside),
+                "overwrite": True,
+            },
+        )
+        assert status == 403, body
+        assert body["ok"] is False
+        assert not outside.exists()
+
+    def test_save_requires_json_content_type(self, tmp_path: Path) -> None:
+        md = tmp_path / "doc.md"
+        md.write_text("# original\n", encoding="utf-8")
+        out = tmp_path / "csrf.md"
+        port = _free_port()
+        base = self._start(md, port)
+
+        # Mimic a cross-origin "simple request": a valid JSON body but a
+        # text/plain content type, which a browser sends without a CORS
+        # preflight. The server must refuse it before writing anything.
+        req = Request(
+            base + "api/save",
+            data=json.dumps(
+                {
+                    "content": "# pwned\n",
+                    "target_format": "markdown",
+                    "target_path": str(out),
+                    "overwrite": True,
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "text/plain"},
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=5) as resp:
+                status = resp.status
+        except HTTPError as e:
+            status = e.code
+        assert status == 415
+        assert not out.exists()
