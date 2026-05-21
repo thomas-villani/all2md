@@ -161,10 +161,12 @@ jobs:
   release:
     name: Create GitHub Release
     # On tag push, after all CI checks pass: verify the version, build the
-    # package as a sanity check, and create a published GitHub Release. The
-    # actual PyPI publish is handled by `release.yml`, which is triggered by
-    # the GitHub Release `published` event and is the workflow registered
-    # with PyPI's trusted publisher.
+    # package as a sanity check, and create a GitHub Release for the notes.
+    # The PyPI publish is handled by `release.yml` (the workflow registered
+    # with PyPI's trusted publisher), which triggers via `workflow_run` when
+    # this CI run completes successfully — so publishing is gated on CI.
+    # (The Release created here uses GITHUB_TOKEN, whose `release: published`
+    # event would not start release.yml anyway.)
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [lint-and-typecheck, docs, test, security-semgrep, security-bandit]
     runs-on: ubuntu-latest

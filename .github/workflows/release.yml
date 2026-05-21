@@ -1,6 +1,18 @@
-name: Release to PyPI (manual fallback)
+name: Release to PyPI
 
+# Primary trigger: the CI workflow completing for a `v*` tag. Gating on the CI
+# run means a tag publishes only after lint/type/test/security all pass. We
+# can't trigger on the tag push directly (that wouldn't wait for CI), nor on
+# the `release: published` event (ci.yml creates that Release with
+# GITHUB_TOKEN, and events from GITHUB_TOKEN don't start workflow runs).
+# `release: published` is kept for releases made manually in the UI;
+# `workflow_dispatch` is the manual re-publish fallback.
 on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches:
+      - 'v*'
   release:
     types: [published]
   workflow_dispatch:
@@ -18,15 +30,22 @@ jobs:
     name: Build and publish to PyPI
     runs-on: ubuntu-latest
     environment: pypi
+    # On a CI-completion trigger, publish only when CI succeeded for a pushed
+    # version tag. Manual dispatch and UI-release events run unconditionally.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
 
     steps:
       - name: Check out code
         uses: actions/checkout@v6
         with:
-          # On `release: published` events, github.event.release.tag_name is
-          # set; on `workflow_dispatch` (the manual fallback), only inputs.tag
-          # is available. The `||` fallback expression handles both.
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          # Resolve the tag from whichever event fired: a published release via
+          # github.event.release.tag_name, a manual run via inputs.tag, and a
+          # CI-completion run via the upstream run's head_branch (the tag name).
+          ref: ${{ github.event.release.tag_name || inputs.tag || github.event.workflow_run.head_branch }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -40,7 +59,7 @@ jobs:
 
       - name: Verify version matches release tag
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.event.workflow_run.head_branch }}
         run: |
           # Extract version from pyproject.toml
           PROJECT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
@@ -65,3 +84,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           print-hash: true
+          # Idempotent: if this version is already on PyPI (e.g. a tag push and
+          # a manual UI release both fired), skip instead of failing the run.
+          skip-existing: true
