@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-05-21
+
+### Added
+- `rcat` — a standalone "rich cat" command equivalent to `all2md --rich`. Renders any supported document with rich terminal formatting (syntax highlighting, colors) and automatically falls back to plain Markdown when output is piped or redirected, so `rcat doc.pdf` pretty-prints while `rcat doc.pdf | grep ...` stays parseable.
+- `all2md serve` now accepts glob patterns (e.g. `all2md serve "docs/*.docx"`). The pattern's anchor directory is served as a listing filtered to matching files; a `**` segment enables recursive matching. The background live-rescan continues to honor the filter, and a hand-authored `index.html`/`README.md` no longer overrides the filtered listing.
+- `--include-hidden` flag for both conversion and `all2md serve`. Dot-files and dot-folders are now skipped by default when scanning directories or expanding globs; pass `--include-hidden` to include them. Explicitly named files (even hidden ones) are always converted.
+- `-f` as a short alias for `--force-rich`.
+- `install-skills`, `edit`, `lint`, and `arxiv` subcommands now appear in the `all2md --help` listing (previously hidden).
+
+### Fixed
+- `--force-rich` now actually emits ANSI styling when stdout is not a TTY, so piping forced rich output to a pager works (e.g. `rcat file --force-rich | less -R`). Previously the forced-rich path still produced plain text because the Rich console was not placed into terminal mode.
+
 ## [1.1.2] - 2026-05-20
 
 ### Added

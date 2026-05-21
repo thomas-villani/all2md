@@ -46,6 +46,7 @@ Beyond basic conversion, all2md provides powerful commands for working with any 
 ```bash
 # View documents in terminal with rich formatting (like fancy cat)
 all2md doc.pdf --rich
+rcat doc.pdf                          # `rcat` = shorthand for `all2md --rich`
 
 # Rapidly convert Markdown to DOCX, PDF, or other formats
 all2md report.md --out report.docx
@@ -57,6 +58,10 @@ all2md arxiv paper.md -o submission.tar.gz --bib references.bib
 # View any document in your web browser with instant HTML preview
 all2md view document.pdf
 all2md view spreadsheet.xlsx --theme docs
+
+# Serve a directory (or a glob) over HTTP with live HTML preview
+all2md serve ./docs --recursive
+all2md serve "reports/*.docx"         # serve only files matching the glob
 
 # Edit any document in a browser-based Markdown/WYSIWYG editor and save back
 all2md edit notes.md                  # md source: overwrite original (with .bak)
