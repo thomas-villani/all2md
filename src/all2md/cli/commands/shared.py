@@ -21,6 +21,54 @@ from all2md.cli.input_items import CLIInputItem
 from all2md.converter_registry import registry
 from all2md.utils.packages import check_version_requirement, get_package_version
 
+_GLOB_CHARS = "*?["
+
+
+def split_glob_pattern(raw: str) -> tuple[Path, str, bool]:
+    """Split a glob pattern into ``(anchor_dir, name_pattern, recursive)``.
+
+    The anchor is the longest leading run of path components that contain no
+    glob metacharacters; it is the concrete directory the pattern is rooted in.
+    ``name_pattern`` is the trailing filename component (an ``fnmatch`` pattern),
+    and ``recursive`` is ``True`` when the pattern contains a ``**`` segment.
+
+    Examples
+    --------
+    ``subdir/*.docx``     -> ``(Path('subdir'), '*.docx', False)``
+    ``subdir/**/*.docx``  -> ``(Path('subdir'), '*.docx', True)``
+    ``*.docx``            -> ``(Path('.'), '*.docx', False)``
+
+    """
+    parts = Path(raw).parts
+    anchor_parts: list[str] = []
+    remainder: list[str] = []
+    hit_wildcard = False
+    for part in parts:
+        if not hit_wildcard and not any(char in part for char in _GLOB_CHARS):
+            anchor_parts.append(part)
+        else:
+            hit_wildcard = True
+            remainder.append(part)
+
+    anchor = Path(*anchor_parts) if anchor_parts else Path(".")
+    name_pattern = Path(raw).name or "*"
+    recursive = "**" in remainder
+    return anchor, name_pattern, recursive
+
+
+def has_hidden_component(path: Path, root: Path) -> bool:
+    """Return ``True`` if ``path`` has a dot-prefixed component below ``root``.
+
+    Only components *discovered* relative to ``root`` are considered, so an
+    explicitly provided hidden root (e.g. ``.config/``) does not by itself mark
+    everything underneath as hidden.
+    """
+    try:
+        rel = path.relative_to(root)
+    except ValueError:
+        rel = Path(path.name)
+    return any(part.startswith(".") for part in rel.parts)
+
 
 def _handle_stdin_input(stdin_data_ref: list[bytes | None], raw_argument: str) -> Optional[CLIInputItem]:
     """Process stdin input and return CLIInputItem if valid.
@@ -89,6 +137,7 @@ def _handle_local_path_input(
     raw_argument: str,
     recursive: bool,
     extension_allowed: Any,
+    include_hidden: bool = False,
 ) -> List[Path]:
     """Process local path input (file, directory, or glob) and return matched files.
 
@@ -100,6 +149,9 @@ def _handle_local_path_input(
         Whether to process directories recursively
     extension_allowed : callable
         Function to check if path extension is allowed
+    include_hidden : bool
+        Whether to include dot-files/dot-folders discovered during directory or
+        glob expansion. Explicitly named files are always included.
 
     Returns
     -------
@@ -111,8 +163,12 @@ def _handle_local_path_input(
     matched_paths: List[Path] = []
 
     # Handle glob patterns
-    if any(char in raw_argument for char in "*?["):
-        matched_paths.extend(Path.cwd().glob(raw_argument))
+    if any(char in raw_argument for char in _GLOB_CHARS):
+        anchor, _, _ = split_glob_pattern(raw_argument)
+        hidden_root = Path.cwd() / anchor
+        for match in Path.cwd().glob(raw_argument):
+            if include_hidden or not has_hidden_component(match, hidden_root):
+                matched_paths.append(match)
     # Handle single file
     elif input_path.is_file():
         matched_paths.append(input_path)
@@ -120,7 +176,7 @@ def _handle_local_path_input(
     elif input_path.is_dir():
         iterator = input_path.rglob("*") if recursive else input_path.iterdir()
         for child in iterator:
-            if child.is_file():
+            if child.is_file() and (include_hidden or not has_hidden_component(child, input_path)):
                 matched_paths.append(child)
     else:
         logging.warning(f"Path does not exist: {input_path}")
@@ -179,6 +235,7 @@ def collect_input_files(
     recursive: bool = False,
     extensions: Optional[List[str]] = None,
     exclude_patterns: Optional[List[str]] = None,
+    include_hidden: bool = False,
 ) -> List[CLIInputItem]:
     """Collect CLI input items from provided arguments.
 
@@ -186,6 +243,10 @@ def collect_input_files(
     Local paths are expanded to files, filtered by extension when requested, and
     deduplicated. Remote inputs are preserved as strings to maintain compatibility
     with the document loader infrastructure.
+
+    Dot-files and dot-folders discovered while scanning directories or expanding
+    globs are skipped unless ``include_hidden`` is ``True``. Explicitly named
+    files are always included.
     """
     if extensions is None:
         # Get all supported extensions dynamically from registry
@@ -216,7 +277,7 @@ def collect_input_files(
             continue
 
         # Handle local paths (files, directories, globs)
-        matched_files = _handle_local_path_input(raw_argument, recursive, extension_allowed)
+        matched_files = _handle_local_path_input(raw_argument, recursive, extension_allowed, include_hidden)
         local_candidates.extend(matched_files)
 
     # Deduplicate and create items

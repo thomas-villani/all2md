@@ -262,6 +262,7 @@ langdetect = [
 [project.scripts]
 all2md = "all2md.cli:main"
 all2md-mcp = "all2md.mcp.server:main"
+rcat = "all2md.cli:rcat_main"
 
 [project.entry-points."all2md.converters"]
 # Entry points for third-party converter plugins

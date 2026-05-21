@@ -10,6 +10,7 @@ themes, file upload forms, and REST API endpoints for development use.
 
 import argparse
 import base64
+import fnmatch
 import http.server
 import io
 import json
@@ -22,6 +23,7 @@ from urllib.parse import quote, unquote
 
 from all2md.api import from_ast, to_ast
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
+from all2md.cli.commands.shared import has_hidden_component, split_glob_pattern
 from all2md.converter_registry import registry
 from all2md.options.html import HtmlRendererOptions
 
@@ -151,7 +153,12 @@ def _generate_upload_form(theme_path: Path) -> str:
     return html
 
 
-def _scan_directory_for_documents(directory: Path, recursive: bool) -> List[Path]:
+def _scan_directory_for_documents(
+    directory: Path,
+    recursive: bool,
+    pattern: Optional[str] = None,
+    include_hidden: bool = False,
+) -> List[Path]:
     """Scan directory for supported document files.
 
     Parameters
@@ -160,6 +167,11 @@ def _scan_directory_for_documents(directory: Path, recursive: bool) -> List[Path
         Directory to scan
     recursive : bool
         Whether to scan subdirectories recursively
+    pattern : str, optional
+        ``fnmatch`` pattern applied to filenames (e.g. ``*.docx``). When given,
+        only matching files are kept (used for glob inputs like ``dir/*.docx``).
+    include_hidden : bool
+        Whether to include dot-files/dot-folders discovered during the scan.
 
     Returns
     -------
@@ -172,6 +184,12 @@ def _scan_directory_for_documents(directory: Path, recursive: bool) -> List[Path
         files = [f for f in directory.rglob("*") if f.is_file()]
     else:
         files = [f for f in directory.iterdir() if f.is_file()]
+
+    if not include_hidden:
+        files = [f for f in files if not has_hidden_component(f, directory)]
+
+    if pattern is not None:
+        files = [f for f in files if fnmatch.fnmatch(f.name, pattern)]
 
     # Filter to only supported formats by checking if they can be parsed
     supported_files = []
@@ -206,14 +224,19 @@ def _find_index_file(directory: Path) -> Optional[Path]:
     return None
 
 
-def _compute_directory_state(base_dir: Path, recursive: bool) -> Tuple[List[Path], set, Dict[str, Path], set]:
+def _compute_directory_state(
+    base_dir: Path,
+    recursive: bool,
+    pattern: Optional[str] = None,
+    include_hidden: bool = False,
+) -> Tuple[List[Path], set, Dict[str, Path], set]:
     """Scan ``base_dir`` and derive everything the serve loop tracks.
 
     Returns a tuple of ``(files, known_subdirs, file_mapping, signature)``,
     where ``signature`` is a set of ``(path, size, mtime)`` triples used to
     cheaply detect changes between polls.
     """
-    files = _scan_directory_for_documents(base_dir, recursive)
+    files = _scan_directory_for_documents(base_dir, recursive, pattern, include_hidden)
     subdirs: set = set()
     mapping: Dict[str, Path] = {}
     signature: set = set()
@@ -527,11 +550,16 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         prog="all2md serve",
         description="Serve document(s) as HTML via HTTP server with theme support.",
     )
-    parser.add_argument("input", help="File or directory to serve")
+    parser.add_argument("input", help="File, directory, or glob pattern (e.g. 'docs/*.pdf') to serve")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
     parser.add_argument("--host", default="127.0.0.1", help="Host to serve on (default: 127.0.0.1)")
     parser.add_argument(
         "-r", "--recursive", action="store_true", help="Recursively serve subdirectories (for directory input)"
+    )
+    parser.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="Include dot-files and dot-folders when scanning a directory or glob (skipped by default)",
     )
     parser.add_argument("--toc", action="store_true", help="Include table of contents")
     parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
@@ -583,11 +611,24 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
 
-    # Validate input exists
-    input_path = Path(parsed.input)
-    if not input_path.exists():
-        print(f"Error: Input path not found: {parsed.input}", file=sys.stderr)
-        return EXIT_FILE_ERROR
+    # Resolve the input: a glob pattern, a directory, or a single file.
+    # A glob is served as a directory listing restricted to matching files, so
+    # live rescans continue to pick up newly added matches.
+    serve_pattern: Optional[str] = None
+    if any(char in parsed.input for char in "*?["):
+        input_path, serve_pattern, glob_recursive = split_glob_pattern(parsed.input)
+        if not input_path.is_dir():
+            print(f"Error: No directory to serve for pattern: {parsed.input}", file=sys.stderr)
+            return EXIT_FILE_ERROR
+        if glob_recursive:
+            parsed.recursive = True
+        # Show the filtered listing, not a hand-authored index in the directory.
+        parsed.force_auto_index = True
+    else:
+        input_path = Path(parsed.input)
+        if not input_path.exists():
+            print(f"Error: Input path not found: {parsed.input}", file=sys.stderr)
+            return EXIT_FILE_ERROR
 
     # Select theme template
     if parsed.theme:
@@ -616,8 +657,8 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         print(f"Error: Theme template not found: {theme_path}", file=sys.stderr)
         return EXIT_FILE_ERROR
 
-    # Determine if input is file or directory
-    is_directory = input_path.is_dir()
+    # Determine if input is file or directory (a glob always serves a listing).
+    is_directory = serve_pattern is not None or input_path.is_dir()
 
     # Shared state guarded by state_lock so the polling thread and request
     # handler threads can coexist safely.
@@ -654,7 +695,9 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         """
         if not is_directory:
             return False
-        new_files, new_subdirs, new_mapping, new_signature = _compute_directory_state(input_path, parsed.recursive)
+        new_files, new_subdirs, new_mapping, new_signature = _compute_directory_state(
+            input_path, parsed.recursive, serve_pattern, parsed.include_hidden
+        )
         with state_lock:
             if not initial and new_signature == scan_signature:
                 return False
@@ -808,7 +851,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             self.send_header("Content-type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(
-                b"<html><body><h1>404 Not Found</h1>" b"<p>The requested document was not found.</p></body></html>"
+                b"<html><body><h1>404 Not Found</h1><p>The requested document was not found.</p></body></html>"
             )
 
         def _send_500(self, message: str) -> None:

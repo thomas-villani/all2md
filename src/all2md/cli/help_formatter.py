@@ -150,11 +150,15 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("config", "Configuration utilities (generate/show/validate)"),
     ("completion", "Generate shell completion scripts (bash/zsh/powershell)"),
     ("view", "Convert and view document in browser with HTML themes"),
+    ("edit", "Edit a document in a browser-based editor and save back"),
     ("diff", "Compare two documents and generate diff output (unified/HTML/JSON)"),
     ("serve", "Serve documents via HTTP server with on-demand conversion"),
     ("search", "Search documents using keyword, vector, or hybrid retrieval"),
     ("grep", "Search for text patterns in documents (like grep for any format)"),
+    ("lint", "Lint converted documents for structural, heading, link, list, table, and typography issues"),
     ("generate-site", "Generate Hugo or Jekyll static site from documents"),
+    ("arxiv", "Generate an ArXiv-ready LaTeX submission package from a document"),
+    ("install-skills", "Install bundled agent skills to a skills directory"),
 )
 
 

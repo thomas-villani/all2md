@@ -628,7 +628,11 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
         from rich.console import Console
         from rich.markdown import Markdown
 
-        console = Console()
+        # When --force-rich is set, stdout may be a pipe/redirect (e.g. piping to
+        # a pager). Force terminal mode so the captured output keeps ANSI styling
+        # instead of being stripped by Rich's non-TTY detection.
+        force_terminal = True if getattr(args, "force_rich", False) else None
+        console = Console(force_terminal=force_terminal)
         rich_kwargs = _get_rich_markdown_kwargs(args)
         no_wrap = getattr(args, "rich_no_word_wrap", False)
         with console.capture() as capture:
@@ -690,7 +694,9 @@ def _render_rich_text_output(text: str, args: argparse.Namespace, target_format:
         print(text)
         return False
 
-    console = Console()
+    # Force terminal mode under --force-rich so ANSI survives a pipe/redirect.
+    force_terminal = True if getattr(args, "force_rich", False) else None
+    console = Console(force_terminal=force_terminal)
     console.print(syntax, no_wrap=no_wrap)
     return True
 

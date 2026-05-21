@@ -205,7 +205,7 @@ def test_apply_rich_formatting_honours_no_wrap(monkeypatch: pytest.MonkeyPatch) 
 
     dummy_console = DummyConsole()
 
-    monkeypatch.setattr("rich.console.Console", lambda: dummy_console)
+    monkeypatch.setattr("rich.console.Console", lambda **_kwargs: dummy_console)
     monkeypatch.setattr("rich.markdown.Markdown", DummyMarkdown)
 
     args = argparse.Namespace(rich_no_word_wrap=True)
@@ -314,6 +314,9 @@ def test_apply_rich_formatting_success(monkeypatch: pytest.MonkeyPatch) -> None:
             return "RICH_RENDERED_CONTENT"
 
     class MockConsole:
+        def __init__(self, **kwargs):
+            pass
+
         def capture(self):
             return MockCapture()
 

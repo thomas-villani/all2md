@@ -31,6 +31,31 @@ def mock_convert_with_file_write(return_value="# Test\n\nContent"):
     return side_effect
 
 
+@pytest.mark.unit
+class TestRcatMain:
+    """Tests for the rcat (rich cat) console-script entry point."""
+
+    def test_rcat_prepends_rich(self):
+        """rcat_main forwards args to main() with --rich injected."""
+        from all2md.cli import rcat_main
+
+        with patch("all2md.cli.main", return_value=0) as mock_main:
+            rc = rcat_main(["doc.pdf", "--toc"])
+
+        assert rc == 0
+        mock_main.assert_called_once_with(["--rich", "doc.pdf", "--toc"])
+
+    def test_rcat_empty_args(self):
+        """rcat_main with no args still injects --rich."""
+        from all2md.cli import rcat_main
+
+        with patch("all2md.cli.main", return_value=2) as mock_main:
+            rc = rcat_main([])
+
+        assert rc == 2
+        mock_main.assert_called_once_with(["--rich"])
+
+
 @pytest.mark.integration
 @pytest.mark.cli
 class TestCLIIntegration:

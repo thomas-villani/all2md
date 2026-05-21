@@ -5,6 +5,19 @@ import pytest
 from all2md.cli import create_parser, handle_help_command
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize("subcommand", ["install-skills", "edit", "lint", "arxiv"])
+def test_help_lists_previously_hidden_subcommands(capsys, subcommand):
+    """Previously hidden subcommands appear in the quick-help listing."""
+    parser = create_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--help"])
+
+    captured = capsys.readouterr()
+    assert subcommand in captured.out
+
+
 def test_tiered_help_action_quick(capsys):
     """Invoking --help without selector prints quick help and exits."""
     parser = create_parser()

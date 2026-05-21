@@ -37,6 +37,10 @@ Use rich formatting::
 
     $ all2md document.pdf --rich
 
+Rich "cat" shortcut (equivalent to ``all2md document.pdf --rich``)::
+
+    $ rcat document.pdf
+
 Process directory recursively::
 
     $ all2md ./documents --recursive --output-dir ./markdown
@@ -83,6 +87,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "main",
+    "rcat_main",
     "DynamicCLIBuilder",
     "create_parser",
     "collect_argument_problems",
@@ -127,7 +132,6 @@ def _handle_batch_list_expansion(parsed_args: argparse.Namespace) -> int | None:
     """
     if hasattr(parsed_args, "batch_from_list") and parsed_args.batch_from_list:
         try:
-
             batch_paths = parse_batch_list(parsed_args.batch_from_list)
             parsed_args.input.extend(batch_paths)
         except argparse.ArgumentTypeError as e:
@@ -152,8 +156,15 @@ def _collect_and_filter_inputs(parsed_args: argparse.Namespace, has_merge_list: 
         Tuple of (items, exit_code). Exit code is None if successful.
 
     """
+    include_hidden = getattr(parsed_args, "include_hidden", False)
+
     # Initial file collection
-    items = collect_input_files(parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude)
+    items = collect_input_files(
+        parsed_args.input,
+        parsed_args.recursive,
+        exclude_patterns=parsed_args.exclude,
+        include_hidden=include_hidden,
+    )
 
     if not items and not has_merge_list:
         if parsed_args.exclude:
@@ -174,7 +185,10 @@ def _collect_and_filter_inputs(parsed_args: argparse.Namespace, has_merge_list: 
             if updated_patterns:
                 parsed_args.exclude = updated_patterns
                 items = collect_input_files(
-                    parsed_args.input, parsed_args.recursive, exclude_patterns=parsed_args.exclude
+                    parsed_args.input,
+                    parsed_args.recursive,
+                    exclude_patterns=parsed_args.exclude,
+                    include_hidden=include_hidden,
                 )
 
                 if not items and not has_merge_list:
@@ -314,6 +328,16 @@ def main(args: list[str] | None = None) -> int:
 
     # Delegate to multi-file processor
     return process_multi_file(items, parsed_args, options, format_arg, transforms)
+
+
+def rcat_main(args: list[str] | None = None) -> int:
+    """Console-script entry point for ``rcat`` (rich cat).
+
+    Equivalent to ``all2md <args> --rich``: renders documents with rich terminal
+    formatting, automatically falling back to plain Markdown when output is piped.
+    """
+    argv = list(sys.argv[1:] if args is None else args)
+    return main(["--rich", *argv])
 
 
 if __name__ == "__main__":

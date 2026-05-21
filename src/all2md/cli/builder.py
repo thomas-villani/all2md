@@ -2096,6 +2096,12 @@ def create_parser() -> argparse.ArgumentParser:
         help="Exclude files matching this glob pattern (can be specified multiple times)",
     )
 
+    parser.add_argument(
+        "--include-hidden",
+        action=TrackingStoreTrueAction,
+        help="Include dot-files and dot-folders when scanning directories/globs (skipped by default)",
+    )
+
     # File merging and collation options
     parser.add_argument(
         "--collate", action=TrackingStoreTrueAction, help="Combine multiple files into a single output (stdout or file)"
@@ -2241,6 +2247,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
     rich_group.add_argument(
         "--force-rich",
+        "-f",
         action=TrackingStoreTrueAction,
         help="Force rich output even when stdout is piped or redirected. By default, rich formatting "
         "is automatically disabled when output is piped to preserve clean parseable content.",

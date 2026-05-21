@@ -237,6 +237,48 @@ class TestScanDirectoryForDocuments:
         assert len(files) == 1
         assert files[0].name == "root.md"
 
+    @patch("all2md.cli.commands.server.registry")
+    def test_scan_directory_with_pattern(self, mock_registry, tmp_path):
+        """A glob pattern restricts results to matching filenames."""
+        (tmp_path / "a.md").write_text("# A")
+        (tmp_path / "b.md").write_text("# B")
+        (tmp_path / "c.txt").write_text("c")
+
+        mock_registry.detect_format = lambda x: "markdown"
+
+        files = _scan_directory_for_documents(tmp_path, recursive=False, pattern="*.md")
+
+        file_names = sorted(f.name for f in files)
+        assert file_names == ["a.md", "b.md"]
+
+    @patch("all2md.cli.commands.server.registry")
+    def test_scan_directory_skips_hidden_by_default(self, mock_registry, tmp_path):
+        """Dot-files and dot-folders are skipped unless include_hidden is set."""
+        (tmp_path / "visible.md").write_text("# V")
+        (tmp_path / ".hidden.md").write_text("# H")
+        hidden_dir = tmp_path / ".git"
+        hidden_dir.mkdir()
+        (hidden_dir / "buried.md").write_text("# B")
+
+        mock_registry.detect_format = lambda x: "markdown"
+
+        files = _scan_directory_for_documents(tmp_path, recursive=True)
+        assert sorted(f.name for f in files) == ["visible.md"]
+
+    @patch("all2md.cli.commands.server.registry")
+    def test_scan_directory_include_hidden(self, mock_registry, tmp_path):
+        """include_hidden=True surfaces dot-files and dot-folders."""
+        (tmp_path / "visible.md").write_text("# V")
+        (tmp_path / ".hidden.md").write_text("# H")
+        hidden_dir = tmp_path / ".git"
+        hidden_dir.mkdir()
+        (hidden_dir / "buried.md").write_text("# B")
+
+        mock_registry.detect_format = lambda x: "markdown"
+
+        files = _scan_directory_for_documents(tmp_path, recursive=True, include_hidden=True)
+        assert sorted(f.name for f in files) == [".hidden.md", "buried.md", "visible.md"]
+
 
 @pytest.mark.unit
 class TestHandleServeCommand:
