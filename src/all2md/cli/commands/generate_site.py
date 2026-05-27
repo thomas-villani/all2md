@@ -16,6 +16,7 @@ from pathlib import Path
 
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import collect_input_files
+from all2md.cli.config import apply_config_to_parser
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.utils.attachments import ensure_unique_attachment_path
 from all2md.utils.static_site import (
@@ -30,19 +31,11 @@ from all2md.utils.static_site import (
 logger = logging.getLogger(__name__)
 
 
-def handle_generate_site_command(args: list[str] | None = None) -> int:
-    """Handle generate-site command for Hugo/Jekyll static site generation.
+def _create_generate_site_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the ``generate-site`` command.
 
-    Parameters
-    ----------
-    args : list[str], optional
-        Command line arguments (beyond 'generate-site')
-
-    Returns
-    -------
-    int
-        Exit code (0 for success)
-
+    Exposed as a factory so ``config generate`` can introspect the command's
+    options to emit a ``[generate-site]`` config-template section.
     """
     parser = argparse.ArgumentParser(
         prog="all2md generate-site",
@@ -66,8 +59,40 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
     )
     parser.add_argument("--recursive", action="store_true", help="Process directories recursively")
     parser.add_argument("--exclude", action="append", help="Glob patterns to exclude (can be used multiple times)")
+    parser.add_argument(
+        "--config",
+        help="Path to a configuration file. Values in its [generate-site] section provide defaults "
+        "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Disable configuration file loading for this command.",
+    )
+    return parser
+
+
+def handle_generate_site_command(args: list[str] | None = None) -> int:
+    """Handle generate-site command for Hugo/Jekyll static site generation.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'generate-site')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    parser = _create_generate_site_parser()
 
     try:
+        # Pre-parse to discover config flags, fold the [generate-site] config section
+        # in as defaults, then parse for real so explicit CLI flags win over config.
+        pre_args, _ = parser.parse_known_args(args or [])
+        apply_config_to_parser(parser, "generate-site", explicit_path=pre_args.config, no_config=pre_args.no_config)
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0

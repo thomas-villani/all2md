@@ -460,6 +460,16 @@ def _filter_options_for_formats(
     parser_fallback: Dict[str, Any] = {}
     renderer_fallback: Dict[str, Any] = {}
 
+    # Prefixes that name a real parser/renderer. Used to gate the unknown-format
+    # fallback below so that non-format config sections (e.g. [view], [serve],
+    # [diff], [search]) never have their terminals injected as parser kwargs.
+    known_formats = set(registry.list_formats())
+
+    def _is_known_format_prefix(prefix: str) -> bool:
+        if prefix in known_formats:
+            return True
+        return prefix.startswith("renderer_") and prefix[len("renderer_") :] in known_formats
+
     for key, value in options.items():
         if "." not in key:
             filtered[key] = value
@@ -474,6 +484,11 @@ def _filter_options_for_formats(
 
         if renderer_format and prefix in (renderer_format, f"renderer_{renderer_format}"):
             filtered[terminal] = value
+            continue
+
+        # Only format-qualified options participate in the unknown-format
+        # fallback; unrecognized prefixes are dropped rather than guessed at.
+        if not _is_known_format_prefix(prefix):
             continue
 
         if not parser_format:

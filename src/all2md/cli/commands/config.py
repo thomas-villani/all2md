@@ -21,7 +21,12 @@ from typing import Any, Dict, List, Optional
 import yaml
 
 from all2md.cli.builder import DynamicCLIBuilder
-from all2md.cli.config import get_config_search_paths, load_config_file, load_config_with_priority
+from all2md.cli.config import (
+    SUBCOMMAND_CONFIG_SECTIONS,
+    get_config_search_paths,
+    load_config_file,
+    load_config_with_priority,
+)
 from all2md.options.search import SearchOptions
 
 logger = logging.getLogger(__name__)
@@ -99,6 +104,50 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
     return defaults
 
 
+def _collect_defaults_from_parser(parser: argparse.ArgumentParser) -> Dict[str, Any]:
+    """Extract config-relevant defaults from a subcommand's argparse parser.
+
+    Skips positionals, ``-h/--help``, and the CLI-only ``--config``/``--no-config``
+    controls. ``None`` defaults are dropped so the generated template only lists
+    options that have a concrete value to show.
+    """
+    skip_dests = {"help", "config", "no_config"}
+    defaults: Dict[str, Any] = {}
+    for action in parser._actions:
+        if not action.option_strings:  # positional argument
+            continue
+        if action.dest in skip_dests or action.dest == argparse.SUPPRESS:
+            continue
+        serialized = _serialize_config_value(action.default)
+        if serialized is None:
+            continue
+        defaults[action.dest] = serialized
+    return defaults
+
+
+def _subcommand_parser_factories() -> Dict[str, Any]:
+    """Map each config-aware subcommand section to its parser factory.
+
+    Imported lazily to avoid pulling the subcommand modules (and their heavier
+    dependencies) into the CLI startup path.
+    """
+    from all2md.cli.commands.arxiv import _create_arxiv_parser
+    from all2md.cli.commands.diff import _create_diff_parser
+    from all2md.cli.commands.edit import _create_edit_parser
+    from all2md.cli.commands.generate_site import _create_generate_site_parser
+    from all2md.cli.commands.server import _create_serve_parser
+    from all2md.cli.commands.view import _create_view_parser
+
+    return {
+        "view": _create_view_parser,
+        "serve": _create_serve_parser,
+        "edit": _create_edit_parser,
+        "diff": _create_diff_parser,
+        "arxiv": _create_arxiv_parser,
+        "generate-site": _create_generate_site_parser,
+    }
+
+
 def _build_default_config_data() -> Dict[str, Any]:
     """Assemble default configuration from registered option classes."""
     builder = DynamicCLIBuilder()
@@ -118,6 +167,22 @@ def _build_default_config_data() -> Dict[str, Any]:
             config[key] = defaults
 
     config["search"] = _serialize_config_value(SearchOptions())
+
+    # Subcommand sections (view/serve/diff/edit/arxiv/generate-site). These are
+    # consumed only by their own command via apply_config_to_parser; the main
+    # converter ignores them.
+    factories = _subcommand_parser_factories()
+    for section in SUBCOMMAND_CONFIG_SECTIONS:
+        factory = factories.get(section)
+        if factory is None:
+            continue
+        try:
+            defaults = _collect_defaults_from_parser(factory())
+        except Exception:
+            logger.debug("Skipping config section %s: parser unavailable", section, exc_info=True)
+            continue
+        if defaults:
+            config[section] = defaults
 
     return config
 

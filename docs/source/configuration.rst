@@ -368,6 +368,79 @@ Each input format has its own configuration section. See :doc:`options` for the 
 * ``[pptx]`` - PowerPoint options (slide handling)
 * ``[eml]`` - Email options (chain detection, attachment handling)
 
+Subcommand Options
+~~~~~~~~~~~~~~~~~~
+
+Besides the main ``all2md <file>`` converter, several subcommands read their own
+configuration section, so you can set their flags once instead of typing them
+on every invocation. Each command reads a table named after the command:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 22 53
+
+   * - Command
+     - Config section
+     - Example keys
+   * - ``all2md view``
+     - ``[view]``
+     - ``no_wait``, ``toc``, ``dark``, ``theme``, ``keep``
+   * - ``all2md serve``
+     - ``[serve]``
+     - ``port``, ``host``, ``theme``, ``no_cache``, ``poll_interval``
+   * - ``all2md diff``
+     - ``[diff]``
+     - ``format``, ``granularity``, ``context``, ``color``
+   * - ``all2md edit``
+     - ``[edit]``
+     - ``port``, ``host``, ``no_browser``, ``default_format``
+   * - ``all2md arxiv``
+     - ``[arxiv]``
+     - ``document_class``, ``figure_format``, ``output_format``, ``bib_style``
+   * - ``all2md generate-site``
+     - ``[generate-site]``
+     - ``generator``, ``output_dir``, ``scaffold``, ``content_subdir``
+
+Example:
+
+.. code-block:: toml
+
+   # .all2md.toml
+
+   [view]
+   no_wait = true        # don't wait for Enter before cleaning up the temp file
+   theme = "sidebar"
+
+   [serve]
+   port = 9123
+   host = "0.0.0.0"
+
+   [diff]
+   granularity = "word"
+   format = "json"
+
+A few things to know:
+
+* **Keys are the option name**, with hyphens or underscores accepted (``no-wait``
+  and ``no_wait`` are equivalent). For the handful of flags whose stored name
+  differs from the flag spelling — notably ``diff``'s ``--no-context`` — use the
+  underlying field name (``show_context = false``).
+* **Precedence is** built-in default < config section < explicit CLI flag, so a
+  flag on the command line always wins.
+* **Only the matching section is read.** Subcommand sections never affect the
+  main converter, and top-level or format options never leak into a subcommand.
+  (A top-level ``format`` — the converter's *input* format — is unrelated to
+  ``[diff]``'s ``format``.)
+* **Config can supply required options.** For example,
+  ``[arxiv]`` with ``output = "paper.tar.gz"`` lets ``all2md arxiv paper.tex``
+  run without ``-o`` on the command line.
+* Every one of these commands also accepts ``--config <path>`` and
+  ``--no-config``, mirroring the main converter.
+
+``all2md config generate`` emits a template section for each of these commands,
+so generating a config and editing it is the quickest way to see every
+available key and its default.
+
 .. _lint-configuration:
 
 Lint Options

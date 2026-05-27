@@ -28,6 +28,7 @@ from all2md.cli.builder import (
     EXIT_SUCCESS,
     EXIT_VALIDATION_ERROR,
 )
+from all2md.cli.config import apply_config_to_parser
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.utils.io_utils import backup_file
@@ -148,8 +149,12 @@ def _convert_md_to_target(
     from_ast(ast, cast(DocumentFormat, target_format), output=output_path, **kwargs)
 
 
-def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
-    """Handle the ``edit`` subcommand."""
+def _create_edit_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the ``edit`` command.
+
+    Exposed as a factory so ``config generate`` can introspect the command's
+    options to emit an ``[edit]`` config-template section.
+    """
     parser = argparse.ArgumentParser(
         prog="all2md edit",
         description="Edit a document in a browser-based editor and save back.",
@@ -181,8 +186,28 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
             "this flag to disable that and render a generic .docx instead."
         ),
     )
+    parser.add_argument(
+        "--config",
+        help="Path to a configuration file. Values in its [edit] section provide defaults "
+        "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Disable configuration file loading for this command.",
+    )
+    return parser
+
+
+def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
+    """Handle the ``edit`` subcommand."""
+    parser = _create_edit_parser()
 
     try:
+        # Pre-parse to discover config flags, fold the [edit] config section in as
+        # defaults, then parse for real so explicit CLI flags win over config.
+        pre_args, _ = parser.parse_known_args(args or [])
+        apply_config_to_parser(parser, "edit", explicit_path=pre_args.config, no_config=pre_args.no_config)
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
@@ -238,7 +263,7 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
             default_overwrite = Path(default_path) == input_path
         else:
             print(
-                f"Warning: --default-format '{parsed.default_format}' is not " f"available; using '{default_format}'",
+                f"Warning: --default-format '{parsed.default_format}' is not available; using '{default_format}'",
                 file=sys.stderr,
             )
 
@@ -364,7 +389,7 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
                     409,
                     {
                         "ok": False,
-                        "error": (f"{target_path} already exists; tick 'Overwrite' " "or choose a different path."),
+                        "error": (f"{target_path} already exists; tick 'Overwrite' or choose a different path."),
                     },
                 )
                 return

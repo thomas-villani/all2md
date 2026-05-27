@@ -690,3 +690,18 @@ class TestOptionPreparation:
 
         assert result["pages"] == [3, 4]
         assert any("Parser format unknown" in record.message for record in caplog.records)
+
+    def test_prepare_options_does_not_leak_subcommand_sections(self):
+        """Non-format sections (e.g. [serve]/[view]) must never become parser kwargs.
+
+        These config sections are consumed only by their own subcommand. On the
+        unknown-format path (stdin / failed detection) the fallback must drop them
+        rather than inject terminals like ``port``/``no_wait`` into the parser.
+        """
+        options = {"serve.port": 9123, "view.no_wait": True, "pdf.pages": [1, 2]}
+
+        result = prepare_options_for_execution(options, None, "auto", "markdown")
+
+        assert result["pages"] == [1, 2]  # real format still falls back
+        assert "port" not in result
+        assert "no_wait" not in result

@@ -24,6 +24,7 @@ from urllib.parse import quote, unquote
 from all2md.api import from_ast, to_ast
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import has_hidden_component, split_glob_pattern
+from all2md.cli.config import apply_config_to_parser
 from all2md.converter_registry import registry
 from all2md.options.html import HtmlRendererOptions
 
@@ -532,19 +533,11 @@ class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
-    """Handle serve command to serve documents via HTTP server.
+def _create_serve_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the ``serve`` command.
 
-    Parameters
-    ----------
-    args : list[str], optional
-        Command line arguments (beyond 'serve')
-
-    Returns
-    -------
-    int
-        Exit code (0 for success)
-
+    Exposed as a factory so ``config generate`` can introspect the command's
+    options to emit a ``[serve]`` config-template section.
     """
     parser = argparse.ArgumentParser(
         prog="all2md serve",
@@ -605,8 +598,40 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             "index.html, index.md, or README.md is present in the directory"
         ),
     )
+    parser.add_argument(
+        "--config",
+        help="Path to a configuration file. Values in its [serve] section provide defaults "
+        "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Disable configuration file loading for this command.",
+    )
+    return parser
+
+
+def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
+    """Handle serve command to serve documents via HTTP server.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'serve')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    parser = _create_serve_parser()
 
     try:
+        # Pre-parse to discover config flags, fold the [serve] config section in as
+        # defaults, then parse for real so explicit CLI flags win over config.
+        pre_args, _ = parser.parse_known_args(args or [])
+        apply_config_to_parser(parser, "serve", explicit_path=pre_args.config, no_config=pre_args.no_config)
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR

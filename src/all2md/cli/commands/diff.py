@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR
+from all2md.cli.config import apply_config_to_parser
 from all2md.diff.renderers.html import HtmlDiffRenderer
 from all2md.diff.renderers.json import JsonDiffRenderer
 from all2md.diff.renderers.unified import UnifiedDiffRenderer
@@ -115,6 +116,18 @@ def _create_diff_parser() -> argparse.ArgumentParser:
         help="Hide context lines in HTML output",
     )
 
+    # Configuration file
+    parser.add_argument(
+        "--config",
+        help="Path to a configuration file. Values in its [diff] section provide defaults "
+        "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Disable configuration file loading for this command.",
+    )
+
     return parser
 
 
@@ -135,6 +148,10 @@ def handle_diff_command(args: list[str] | None = None) -> int:
     # Parse arguments
     parser = _create_diff_parser()
     try:
+        # Pre-parse to discover config flags, fold the [diff] config section in as
+        # defaults, then parse for real so explicit CLI flags win over config.
+        pre_args, _ = parser.parse_known_args(args or [])
+        apply_config_to_parser(parser, "diff", explicit_path=pre_args.config, no_config=pre_args.no_config)
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0

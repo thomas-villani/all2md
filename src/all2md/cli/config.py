@@ -9,6 +9,8 @@ priority handling.
 
 import argparse
 import json
+import logging
+import os
 import sys
 from pathlib import Path
 
@@ -20,7 +22,22 @@ from typing import Any, Dict, Optional
 
 import yaml
 
+logger = logging.getLogger(__name__)
+
 CONFIG_FILENAMES = [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json", "pyproject.toml"]
+
+# Subcommands whose flags can be set from a same-named config section
+# (e.g. ``[view]``, ``[serve]``). Each section is applied to that command's
+# argparse parser via ``apply_config_to_parser``; ``config generate`` emits a
+# template section for each. Keep this in sync with the wired handlers.
+SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
+    "view",
+    "serve",
+    "edit",
+    "diff",
+    "arxiv",
+    "generate-site",
+)
 
 
 def _load_pyproject_all2md_section(pyproject_path: Path) -> Dict[str, Any]:
@@ -482,3 +499,101 @@ def get_config_search_paths() -> list[Path]:
         paths.append(home / filename)
 
     return paths
+
+
+def apply_config_to_parser(
+    parser: argparse.ArgumentParser,
+    section: str,
+    *,
+    explicit_path: Optional[str] = None,
+    no_config: bool = False,
+) -> Dict[str, Any]:
+    """Apply a config-file section as argparse defaults for a subcommand.
+
+    Loads configuration with the standard priority chain (explicit ``--config``
+    path, then ``ALL2MD_CONFIG``, then auto-discovery) and applies values from
+    the ``[section]`` table as defaults on ``parser``. Because they are applied
+    as defaults, explicit CLI arguments still override them, and the config in
+    turn overrides the parser's hard-coded defaults.
+
+    This is the bridge that lets standalone subcommands (``view``, ``serve``,
+    ``diff``) honor config files the same way the main converter command does.
+    Subcommand parsers use plain argparse actions rather than the converter's
+    tracking actions, so applying values as defaults before parsing is the
+    correct way to get "config < CLI" precedence.
+
+    Config keys are matched against argument *destination* names (snake_case),
+    so ``--no-wait`` is configured as ``no_wait`` and ``--max-upload-size`` as
+    ``max_upload_size``. Hyphens in keys are accepted and normalized to
+    underscores. For flags whose dest differs from the flag spelling (e.g.
+    ``--no-context`` stores ``show_context``), use the dest name. Keys that do
+    not match an optional argument are logged as warnings and ignored.
+
+    Only the named ``[section]`` table is consulted; top-level keys (which the
+    main converter uses) are deliberately ignored to avoid collisions such as a
+    top-level ``format`` (input format) leaking into a subcommand's ``--format``.
+
+    Intended usage (call after all add_argument calls, before the final parse)::
+
+        pre_args, _ = parser.parse_known_args(args)
+        apply_config_to_parser(
+            parser, "view", explicit_path=pre_args.config, no_config=pre_args.no_config
+        )
+        parsed = parser.parse_args(args)
+
+    Parameters
+    ----------
+    parser : argparse.ArgumentParser
+        Parser to apply defaults to.
+    section : str
+        Config section name to read (e.g. ``"view"``, ``"serve"``, ``"diff"``).
+    explicit_path : str, optional
+        Explicit config path (typically from a ``--config`` flag).
+    no_config : bool
+        If True, skip all config loading and return an empty dict.
+
+    Returns
+    -------
+    dict
+        Mapping of dest -> value that was applied (useful for testing).
+
+    """
+    if no_config:
+        return {}
+
+    env_var_path = os.environ.get("ALL2MD_CONFIG")
+    try:
+        config = load_config_with_priority(explicit_path=explicit_path, env_var_path=env_var_path)
+    except argparse.ArgumentTypeError as e:
+        # Surface the problem but don't crash the subcommand over a bad config file.
+        print(f"Warning: could not load configuration: {e}", file=sys.stderr)
+        return {}
+
+    raw_section = config.get(section)
+    if not isinstance(raw_section, dict) or not raw_section:
+        return {}
+
+    # Configurable destinations are optional arguments only; positionals and
+    # suppressed actions (e.g. -h/--help) are never set from config.
+    dest_to_action = {
+        action.dest: action for action in parser._actions if action.option_strings and action.dest != argparse.SUPPRESS
+    }
+
+    applied: Dict[str, Any] = {}
+    for key, value in raw_section.items():
+        dest = str(key).replace("-", "_")
+        if dest in dest_to_action:
+            applied[dest] = value
+        else:
+            logger.warning("Ignoring unknown key '%s' in [%s] config section", key, section)
+
+    if applied:
+        parser.set_defaults(**applied)
+        # A config-supplied value satisfies a required option, so drop the
+        # required flag; otherwise argparse would still demand it on the CLI.
+        for dest in applied:
+            action = dest_to_action[dest]
+            if getattr(action, "required", False):
+                action.required = False
+
+    return applied

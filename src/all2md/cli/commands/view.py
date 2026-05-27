@@ -19,21 +19,14 @@ from pathlib import Path
 from all2md import HtmlRendererOptions, from_ast, to_ast
 from all2md.cli import EXIT_FILE_ERROR
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
+from all2md.cli.config import apply_config_to_parser
 
 
-def handle_view_command(args: list[str] | None = None) -> int:
-    """Handle view command to display document in browser.
+def _create_view_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the ``view`` command.
 
-    Parameters
-    ----------
-    args : list[str], optional
-        Command line arguments (beyond 'view')
-
-    Returns
-    -------
-    int
-        Exit code (0 for success)
-
+    Exposed as a factory so ``config generate`` can introspect the command's
+    options to emit a ``[view]`` config-template section.
     """
     parser = argparse.ArgumentParser(
         prog="all2md view",
@@ -68,8 +61,40 @@ def handle_view_command(args: list[str] | None = None) -> int:
         action="store_true",
         help="Skip waiting for confirmation before cleaning up (useful for scripts)",
     )
+    parser.add_argument(
+        "--config",
+        help="Path to a configuration file. Values in its [view] section provide defaults "
+        "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
+    )
+    parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Disable configuration file loading for this command.",
+    )
+    return parser
+
+
+def handle_view_command(args: list[str] | None = None) -> int:
+    """Handle view command to display document in browser.
+
+    Parameters
+    ----------
+    args : list[str], optional
+        Command line arguments (beyond 'view')
+
+    Returns
+    -------
+    int
+        Exit code (0 for success)
+
+    """
+    parser = _create_view_parser()
 
     try:
+        # Pre-parse to discover config flags, fold the [view] config section in as
+        # defaults, then parse for real so explicit CLI flags win over config.
+        pre_args, _ = parser.parse_known_args(args or [])
+        apply_config_to_parser(parser, "view", explicit_path=pre_args.config, no_config=pre_args.no_config)
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR

@@ -947,3 +947,233 @@ class TestConfigIntegration:
 
         assert args.config == "custom.toml"
         assert args.preset == "quality"
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestApplyConfigToParser:
+    """Test apply_config_to_parser, the subcommand (view/serve/diff) config bridge."""
+
+    def _diff_parser(self):
+        from all2md.cli.commands.diff import _create_diff_parser
+
+        return _create_diff_parser()
+
+    def _write(self, tmp_path: Path, body: str) -> str:
+        cfg = tmp_path / ".all2md.toml"
+        cfg.write_text(body, encoding="utf-8")
+        return str(cfg)
+
+    def test_section_values_applied_as_defaults(self, tmp_path):
+        """A [diff] section supplies defaults when no CLI flags are given."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[diff]\ngranularity = "word"\ncontext = 7\nshow_context = false\n')
+        parser = self._diff_parser()
+        applied = apply_config_to_parser(parser, "diff", explicit_path=cfg)
+
+        assert applied == {"granularity": "word", "context": 7, "show_context": False}
+        parsed = parser.parse_args(["a.md", "b.md"])
+        assert parsed.granularity == "word"
+        assert parsed.context == 7
+        assert parsed.show_context is False
+
+    def test_cli_overrides_config(self, tmp_path):
+        """Explicit CLI flags win over config-provided defaults."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[diff]\ngranularity = "word"\ncontext = 7\n')
+        parser = self._diff_parser()
+        apply_config_to_parser(parser, "diff", explicit_path=cfg)
+
+        parsed = parser.parse_args(["a.md", "b.md", "--granularity", "block", "--context", "2"])
+        assert parsed.granularity == "block"
+        assert parsed.context == 2
+
+    def test_no_config_skips_loading(self, tmp_path):
+        """no_config=True ignores the file and keeps hard-coded defaults."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[diff]\ngranularity = "word"\n')
+        parser = self._diff_parser()
+        applied = apply_config_to_parser(parser, "diff", explicit_path=cfg, no_config=True)
+
+        assert applied == {}
+        assert parser.parse_args(["a.md", "b.md"]).granularity == "block"
+
+    def test_unknown_keys_ignored_with_warning(self, tmp_path, caplog):
+        """Keys that don't match an argument dest are skipped (and logged)."""
+        import logging
+
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[diff]\ngranularity = "word"\nbogus_key = "x"\n')
+        parser = self._diff_parser()
+        with caplog.at_level(logging.WARNING, logger="all2md.cli.config"):
+            applied = apply_config_to_parser(parser, "diff", explicit_path=cfg)
+
+        assert "bogus_key" not in applied
+        assert applied == {"granularity": "word"}
+        assert "bogus_key" in caplog.text
+
+    def test_hyphenated_keys_normalized(self, tmp_path):
+        """Config keys may use hyphens; they map to the snake_case dest."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, "[diff]\nignore-whitespace = true\n")
+        parser = self._diff_parser()
+        applied = apply_config_to_parser(parser, "diff", explicit_path=cfg)
+
+        assert applied == {"ignore_whitespace": True}
+        assert parser.parse_args(["a.md", "b.md"]).ignore_whitespace is True
+
+    def test_only_named_section_is_read(self, tmp_path):
+        """Top-level keys and other sections never leak into the parser."""
+        from all2md.cli.config import apply_config_to_parser
+
+        # Top-level 'format' is the converter's input-format key; it must not
+        # become diff's --format default.
+        cfg = self._write(tmp_path, 'format = "pdf"\n[view]\nno_wait = true\n')
+        parser = self._diff_parser()
+        applied = apply_config_to_parser(parser, "diff", explicit_path=cfg)
+
+        assert applied == {}
+        assert parser.parse_args(["a.md", "b.md"]).format == "unified"
+
+    def test_positionals_are_not_configurable(self, tmp_path):
+        """Positional args (e.g. diff's 'original') cannot be set from config."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[diff]\noriginal = "sneaky.md"\n')
+        parser = self._diff_parser()
+        applied = apply_config_to_parser(parser, "diff", explicit_path=cfg)
+
+        assert "original" not in applied
+
+    def test_view_no_wait_and_serve_port(self, tmp_path):
+        """The documented examples: [view] no_wait and [serve] port resolve correctly."""
+        import argparse
+
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, "[view]\nno_wait = true\n[serve]\nport = 9123\n")
+
+        view_parser = argparse.ArgumentParser()
+        view_parser.add_argument("input")
+        view_parser.add_argument("--no-wait", action="store_true")
+        apply_config_to_parser(view_parser, "view", explicit_path=cfg)
+        assert view_parser.parse_args(["x.md"]).no_wait is True
+
+        serve_parser = argparse.ArgumentParser()
+        serve_parser.add_argument("input")
+        serve_parser.add_argument("--port", type=int, default=8000)
+        apply_config_to_parser(serve_parser, "serve", explicit_path=cfg)
+        assert serve_parser.parse_args(["x.md"]).port == 9123
+
+    def test_missing_section_is_a_noop(self, tmp_path):
+        """A config without the requested section changes nothing."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, "[pdf]\ndetect_columns = true\n")
+        parser = self._diff_parser()
+        assert apply_config_to_parser(parser, "diff", explicit_path=cfg) == {}
+
+    def test_invalid_config_warns_and_returns_empty(self, tmp_path, capsys):
+        """A malformed config file is reported but does not crash the subcommand."""
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = tmp_path / ".all2md.toml"
+        cfg.write_text("this is not valid toml = = =\n", encoding="utf-8")
+        parser = self._diff_parser()
+        applied = apply_config_to_parser(parser, "diff", explicit_path=str(cfg))
+
+        assert applied == {}
+        assert "could not load configuration" in capsys.readouterr().err
+
+    def test_edit_section(self, tmp_path):
+        """The [edit] section configures the edit command, CLI still overrides."""
+        from all2md.cli.commands.edit import _create_edit_parser
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, "[edit]\nport = 7777\nno_browser = true\n")
+        parser = _create_edit_parser()
+        apply_config_to_parser(parser, "edit", explicit_path=cfg)
+
+        assert parser.parse_args(["doc.md"]).port == 7777
+        assert parser.parse_args(["doc.md"]).no_browser is True
+        assert parser.parse_args(["doc.md", "--port", "8001"]).port == 8001
+
+    def test_generate_site_section(self, tmp_path):
+        """The [generate-site] section (hyphenated) configures generate-site."""
+        from all2md.cli.commands.generate_site import _create_generate_site_parser
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[generate-site]\nscaffold = true\ncontent_subdir = "docs"\n')
+        parser = _create_generate_site_parser()
+        applied = apply_config_to_parser(parser, "generate-site", explicit_path=cfg)
+
+        assert applied == {"scaffold": True, "content_subdir": "docs"}
+        parsed = parser.parse_args(["a.md", "--output-dir", "site", "--generator", "hugo"])
+        assert parsed.scaffold is True
+        assert parsed.content_subdir == "docs"
+
+    def test_config_can_satisfy_required_option(self, tmp_path):
+        """A config value for a required option drops argparse's CLI requirement."""
+        from all2md.cli.commands.arxiv import _create_arxiv_parser
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[arxiv]\noutput = "paper.tar.gz"\ndocument_class = "report"\n')
+        parser = _create_arxiv_parser()
+        apply_config_to_parser(parser, "arxiv", explicit_path=cfg)
+
+        # --output is required=True, but the config value satisfies it.
+        parsed = parser.parse_args(["paper.tex"])
+        assert parsed.output == "paper.tar.gz"
+        assert parsed.document_class == "report"
+        # CLI still overrides the config-provided value.
+        assert parser.parse_args(["paper.tex", "-o", "other.tar.gz"]).output == "other.tar.gz"
+
+    def test_required_option_still_enforced_without_config(self, tmp_path):
+        """When neither config nor CLI supply a required option, it still errors."""
+        from all2md.cli.commands.arxiv import _create_arxiv_parser
+        from all2md.cli.config import apply_config_to_parser
+
+        cfg = self._write(tmp_path, '[arxiv]\ndocument_class = "report"\n')
+        parser = _create_arxiv_parser()
+        apply_config_to_parser(parser, "arxiv", explicit_path=cfg)
+
+        with pytest.raises(SystemExit):
+            parser.parse_args(["paper.tex"])  # --output not provided anywhere
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+class TestConfigGenerateSubcommandSections:
+    """config generate emits a template section for each config-aware subcommand."""
+
+    def test_all_subcommand_sections_present(self):
+        from all2md.cli.commands.config import _build_default_config_data
+        from all2md.cli.config import SUBCOMMAND_CONFIG_SECTIONS
+
+        config = _build_default_config_data()
+        for section in SUBCOMMAND_CONFIG_SECTIONS:
+            assert section in config, f"missing [{section}] section"
+
+    def test_serve_port_and_view_no_wait_defaults(self):
+        from all2md.cli.commands.config import _build_default_config_data
+
+        config = _build_default_config_data()
+        assert config["serve"]["port"] == 8000
+        assert config["view"]["no_wait"] is False
+
+    def test_required_and_cli_only_keys_omitted(self):
+        """Required options (None default) and --config/--no-config are not templated."""
+        from all2md.cli.commands.config import _build_default_config_data
+
+        config = _build_default_config_data()
+        # arxiv --output is required (no default) and must not appear.
+        assert "output" not in config["arxiv"]
+        # The CLI-only config controls are never emitted.
+        for section in ("view", "serve", "arxiv"):
+            assert "config" not in config[section]
+            assert "no_config" not in config[section]
