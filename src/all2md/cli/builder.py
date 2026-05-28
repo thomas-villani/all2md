@@ -1082,6 +1082,11 @@ Supported formats:
   images (PNG, JPEG, GIF), and 200+ text formats
 
 Examples:
+  # Print a CLI usage guide written for LLMs/agents (stdout)
+  all2md llm-help
+  all2md llm-help read          # just one topic
+  all2md llm-help --list        # list available topics
+
   # Basic conversions
   all2md document.pdf
   all2md document.docx --out output.md

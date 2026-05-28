@@ -72,3 +72,20 @@ def test_help_subcommand_handles_selector(capsys):
 def test_handle_help_command_passthrough():
     """Non-help commands return None so other handlers can process them."""
     assert handle_help_command(["convert"]) is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("selector", ["quick", "full"])
+def test_help_advertises_llm_help(capsys, selector):
+    """Quick and full help surface the prominent llm-help callout and subcommand."""
+    args = ["--help"] if selector == "quick" else ["--help", "full"]
+    parser = create_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(args)
+
+    captured = capsys.readouterr()
+    # Prominent callout near the top...
+    assert "run `all2md llm-help`" in captured.out
+    # ...and a discoverable subcommand listing.
+    assert "llm-help" in captured.out

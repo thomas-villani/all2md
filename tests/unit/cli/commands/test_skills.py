@@ -15,7 +15,10 @@ from all2md.cli.commands.skills import (
     _discover_skills,
     _get_bundled_skills_dir,
     _read_skill_description,
+    _skill_topic,
+    _strip_frontmatter,
     handle_install_skills_command,
+    handle_llm_help_command,
 )
 
 EXPECTED_SKILLS = [
@@ -289,3 +292,138 @@ class TestSkillFrontmatter:
             text = skill_md.read_text(encoding="utf-8")
             line_count = len(text.splitlines())
             assert line_count < 500, f"{name}/SKILL.md has {line_count} lines (max 500)"
+
+
+# Short topic aliases (the skill name without the "all2md-" prefix).
+EXPECTED_TOPICS = [name[len("all2md-") :] for name in EXPECTED_SKILLS]
+
+
+@pytest.mark.unit
+class TestSkillTopic:
+    """Test _skill_topic()."""
+
+    def test_strips_all2md_prefix(self):
+        """Test that the all2md- prefix is dropped."""
+        assert _skill_topic("all2md-read") == "read"
+        assert _skill_topic("all2md-generate") == "generate"
+
+    def test_leaves_unprefixed_names_unchanged(self):
+        """Test that names without the prefix are returned as-is."""
+        assert _skill_topic("read") == "read"
+        assert _skill_topic("custom-skill") == "custom-skill"
+
+
+@pytest.mark.unit
+class TestStripFrontmatter:
+    """Test _strip_frontmatter()."""
+
+    def test_strips_leading_frontmatter(self):
+        """Test that a leading YAML frontmatter block is removed."""
+        text = "---\nname: x\ndescription: y\n---\n# Heading\n\nBody text.\n"
+        assert _strip_frontmatter(text) == "# Heading\n\nBody text."
+
+    def test_returns_text_without_frontmatter_unchanged(self):
+        """Test that text with no frontmatter is returned unchanged."""
+        text = "# Heading\n\nBody text."
+        assert _strip_frontmatter(text) == text
+
+    def test_handles_text_with_no_closing_fence(self):
+        """Test that an unterminated frontmatter block leaves text unchanged."""
+        text = "---\nname: x\nno closing fence here\n"
+        assert _strip_frontmatter(text) == text
+
+
+@pytest.mark.unit
+class TestHandleLlmHelpCommand:
+    """Test handle_llm_help_command()."""
+
+    def test_default_dumps_full_guide(self, capsys):
+        """Test that no args prints every topic concatenated."""
+        result = handle_llm_help_command([])
+        assert result == EXIT_SUCCESS
+
+        output = capsys.readouterr().out
+        assert "CLI guide for LLMs and agents" in output
+        # Every topic appears as a divider header...
+        for topic in EXPECTED_TOPICS:
+            assert f"TOPIC: {topic}" in output
+        # ...and content from multiple distinct skills is present.
+        assert "Reading Documents with all2md" in output
+        assert "Format Conversion with all2md" in output
+
+    def test_default_has_no_yaml_frontmatter(self, capsys):
+        """Test that the concatenated guide strips per-skill YAML frontmatter."""
+        handle_llm_help_command([])
+        output = capsys.readouterr().out
+        assert "metadata:" not in output
+        assert "author: all2md" not in output
+
+    def test_single_topic_short_alias(self, capsys):
+        """Test that a short topic alias prints just that skill's body."""
+        result = handle_llm_help_command(["read"])
+        assert result == EXIT_SUCCESS
+
+        output = capsys.readouterr().out
+        assert "Reading Documents with all2md" in output
+        # Other skills are not included.
+        assert "Format Conversion with all2md" not in output
+        # Frontmatter is stripped.
+        assert not output.startswith("---")
+
+    def test_single_topic_full_name(self, capsys):
+        """Test that the full skill name also resolves as a topic."""
+        result = handle_llm_help_command(["all2md-diff"])
+        assert result == EXIT_SUCCESS
+
+        output = capsys.readouterr().out
+        assert "Comparing Documents with all2md" in output
+
+    def test_topic_is_case_insensitive(self, capsys):
+        """Test that topic matching ignores case."""
+        result = handle_llm_help_command(["READ"])
+        assert result == EXIT_SUCCESS
+        assert "Reading Documents with all2md" in capsys.readouterr().out
+
+    def test_list_topics(self, capsys):
+        """Test that --list prints all topics with descriptions."""
+        result = handle_llm_help_command(["--list"])
+        assert result == EXIT_SUCCESS
+
+        output = capsys.readouterr().out
+        assert "6" in output
+        for topic in EXPECTED_TOPICS:
+            assert topic in output
+
+    def test_unknown_topic_errors(self, capsys):
+        """Test that an unknown topic returns an error with suggestions."""
+        result = handle_llm_help_command(["bogus"])
+        assert result == EXIT_ERROR
+
+        err = capsys.readouterr().err
+        assert "Unknown topic 'bogus'" in err
+        for topic in EXPECTED_TOPICS:
+            assert topic in err
+
+
+@pytest.mark.unit
+class TestDispatchLlmHelp:
+    """Test dispatch_command routes llm-help."""
+
+    def test_dispatch_llm_help_command(self):
+        """Test dispatch routes the llm-help command."""
+        with patch("all2md.cli.commands.skills.handle_llm_help_command") as mock_handler:
+            mock_handler.return_value = 0
+            result = dispatch_command(["llm-help", "--list"])
+
+            mock_handler.assert_called_once_with(["--list"])
+            assert result == 0
+
+    def test_dispatch_llm_help_strips_command(self):
+        """Test that llm-help is stripped from the forwarded args."""
+        with patch("all2md.cli.commands.skills.handle_llm_help_command") as mock_handler:
+            mock_handler.return_value = 0
+            dispatch_command(["llm-help", "read"])
+
+            args_passed = mock_handler.call_args[0][0]
+            assert args_passed == ["read"]
+            assert "llm-help" not in args_passed

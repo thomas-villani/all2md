@@ -120,6 +120,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_install_skills_command(args[1:])
 
+    # Check for llm-help command (prints the bundled CLI guide for LLMs/agents)
+    if args[0] == "llm-help":
+        from all2md.cli.commands.skills import handle_llm_help_command
+
+        return handle_llm_help_command(args[1:])
+
     # Check for dependency management commands
     if args[0] == "check-deps":
         from all2md.dependencies import main as deps_main

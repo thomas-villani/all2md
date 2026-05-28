@@ -142,8 +142,13 @@ class HelpCatalog:
         return self.format_sections.get(selector.lower(), [])
 
 
+# Prominent pointer shown at the top of quick/full help so an LLM or agent
+# driving the CLI immediately finds the machine-readable usage guide.
+LLM_HELP_CALLOUT = "For LLMs & agents: run `all2md llm-help` for a CLI usage guide written for you."
+
 _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("help", "Show tiered CLI help (all2md help [section])"),
+    ("llm-help", "Print the all2md CLI guide for LLMs/agents (full guide or a single topic)"),
     ("list-formats", "List available input formats"),
     ("list-transforms", "List registered AST transforms"),
     ("check-deps", "Check optional dependencies for converters"),
@@ -529,6 +534,8 @@ class HelpRenderer:
 
         lines.append(self.catalog.usage)
         lines.append("")
+        lines.append(LLM_HELP_CALLOUT)
+        lines.append("")
         lines.append("Subcommands:")
         for name, summary in self.catalog.subcommands:
             lines.append(f"  {name:<15} {summary}")
@@ -564,6 +571,8 @@ class HelpRenderer:
             lines.append(self.catalog.description)
 
         lines.append(self.catalog.usage)
+        lines.append("")
+        lines.append(LLM_HELP_CALLOUT)
         lines.append("")
         lines.append("Subcommands:")
         for name, summary in self.catalog.subcommands:
@@ -749,6 +758,10 @@ class HelpRenderer:
         text = Text(indent)
 
         if not stripped:
+            return text
+
+        if stripped == LLM_HELP_CALLOUT:
+            text.append(stripped, style="bold green")
             return text
 
         if stripped.startswith("usage:"):
