@@ -72,7 +72,10 @@ Thumbs.db
 review/
 ideas/
 
+
 # Development and debugging files
+.claude/
+broken/
 AGENTS.md
 CLAUDE.md
 todo.md
