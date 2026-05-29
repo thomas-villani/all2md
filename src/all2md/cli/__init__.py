@@ -96,6 +96,23 @@ __all__ = [
 ]
 
 
+def _stdin_is_piped() -> bool:
+    """Return ``True`` when stdin has piped/redirected data rather than a terminal.
+
+    Used to auto-read stdin when no input argument is given, so ``head file.md |
+    rcat`` works like ``... | rcat -``. Defensive against a missing or closed
+    stdin (e.g. under ``pythonw``), in which case we report "not piped" so the
+    normal "input required" error path runs.
+    """
+    isatty = getattr(sys.stdin, "isatty", None)
+    if not callable(isatty):
+        return False
+    try:
+        return not isatty()
+    except (ValueError, OSError):  # closed/detached stdin
+        return False
+
+
 def _setup_logging_level(parsed_args: argparse.Namespace) -> None:
     """Set up logging level based on command-line arguments.
 
@@ -295,8 +312,14 @@ def main(args: list[str] | None = None) -> int:
     has_batch_list = hasattr(parsed_args, "batch_from_list") and parsed_args.batch_from_list
     has_merge_list = hasattr(parsed_args, "merge_from_list") and parsed_args.merge_from_list
     if not parsed_args.input and not has_batch_list and not has_merge_list:
-        print("Error: Input file is required", file=sys.stderr)
-        return EXIT_VALIDATION_ERROR
+        # No explicit input given. If stdin is piped (not a TTY), read from it
+        # automatically so `head file.md | rcat` / `... | all2md` work without an
+        # explicit "-". An interactive terminal still gets the usage error.
+        if _stdin_is_piped():
+            parsed_args.input = ["-"]
+        else:
+            print("Error: Input file is required", file=sys.stderr)
+            return EXIT_VALIDATION_ERROR
 
     # Set up logging
     _setup_logging_level(parsed_args)

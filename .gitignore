@@ -101,3 +101,6 @@ benchmarks/corpus/.cache/
 benchmarks/corpus/results/
 benchmarks/corpus/inspect/
 benchmarks/corpus/.test/
+
+.claude/
+broken/

@@ -4,12 +4,17 @@ This module tests the serve command handler directly,
 providing coverage for argument parsing, setup, and helper functions.
 """
 
+import errno
+from datetime import datetime
 from unittest.mock import patch
 
 import pytest
 
+from all2md.cli.commands import server as server_mod
 from all2md.cli.commands.server import (
+    _bind_http_server,
     _format_file_size,
+    _format_timestamp,
     _generate_breadcrumbs,
     _generate_directory_index,
     _generate_upload_form,
@@ -74,6 +79,85 @@ class TestServerHelpers:
     def test_format_file_size_zero(self):
         """Test formatting zero bytes."""
         assert _format_file_size(0) == "0.0 B"
+
+    def test_format_timestamp(self):
+        """Timestamps render as compact local YYYY-MM-DD HH:MM."""
+        # Build from a local datetime so the assertion is timezone-independent.
+        ts = datetime(2021, 1, 2, 3, 4, 5).timestamp()
+        assert _format_timestamp(ts) == "2021-01-02 03:04"
+
+
+@pytest.mark.unit
+class TestBindHttpServer:
+    """Test the port-binding fallback for the serve command."""
+
+    def _fake_server_factory(self, calls, *, in_use_ports):
+        """Build a fake _ThreadingHTTPServer that raises EADDRINUSE for given ports."""
+
+        class FakeServer:
+            def __init__(self, addr, handler):
+                calls.append(addr)
+                if addr[1] in in_use_ports:
+                    raise OSError(errno.EADDRINUSE, "Address already in use")
+                # Port 0 -> OS would assign a real port; simulate one.
+                assigned = 54321 if addr[1] == 0 else addr[1]
+                self.server_address = (addr[0], assigned)
+
+        return FakeServer
+
+    def test_no_fallback_when_port_free(self):
+        """A free port binds directly without falling back."""
+        calls: list = []
+        fake = self._fake_server_factory(calls, in_use_ports=set())
+        with patch.object(server_mod, "_ThreadingHTTPServer", fake):
+            httpd, fell_back = _bind_http_server("127.0.0.1", 8000, object)  # type: ignore[arg-type]
+
+        assert fell_back is False
+        assert httpd.server_address == ("127.0.0.1", 8000)
+        assert calls == [("127.0.0.1", 8000)]
+
+    def test_falls_back_to_random_port_when_in_use(self):
+        """A taken port triggers a second bind to port 0 (OS-assigned)."""
+        calls: list = []
+        fake = self._fake_server_factory(calls, in_use_ports={8000})
+        with patch.object(server_mod, "_ThreadingHTTPServer", fake):
+            httpd, fell_back = _bind_http_server("127.0.0.1", 8000, object)  # type: ignore[arg-type]
+
+        assert fell_back is True
+        assert httpd.server_address == ("127.0.0.1", 54321)
+        assert calls == [("127.0.0.1", 8000), ("127.0.0.1", 0)]
+
+    def test_falls_back_on_windows_access_denied(self):
+        """On Windows an in-use port surfaces as WinError 10013; that still falls back."""
+        calls: list = []
+
+        class FakeServer:
+            def __init__(self, addr, handler):
+                calls.append(addr)
+                if addr[1] != 0:
+                    err = OSError(errno.EACCES, "access forbidden")
+                    err.winerror = 10013  # type: ignore[attr-defined]
+                    raise err
+                self.server_address = (addr[0], 54321)
+
+        with patch.object(server_mod, "_ThreadingHTTPServer", FakeServer):
+            httpd, fell_back = _bind_http_server("127.0.0.1", 8000, object)  # type: ignore[arg-type]
+
+        assert fell_back is True
+        assert httpd.server_address == ("127.0.0.1", 54321)
+
+    def test_reraises_unrelated_oserror(self):
+        """OSErrors unrelated to port availability propagate (no silent fallback)."""
+
+        class FakeServer:
+            def __init__(self, addr, handler):
+                raise OSError(errno.EADDRNOTAVAIL, "Cannot assign requested address")
+
+        with patch.object(server_mod, "_ThreadingHTTPServer", FakeServer):
+            with pytest.raises(OSError) as excinfo:
+                _bind_http_server("203.0.113.1", 8000, object)  # type: ignore[arg-type]
+
+        assert excinfo.value.errno == errno.EADDRNOTAVAIL
 
     def test_get_content_type_md(self):
         """Test getting content type for md alias."""
@@ -340,6 +424,13 @@ class TestHandleServeCommand:
         assert exit_code == 0
         captured = capsys.readouterr()
         assert "--host" in captured.out
+
+    def test_serve_browse_flag_in_help(self, capsys):
+        """Test serve --browse flag is advertised in help."""
+        exit_code = handle_serve_command(["--help"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "--browse" in captured.out
 
 
 @pytest.mark.unit
@@ -635,6 +726,23 @@ class TestGenerateDirectoryIndex:
 
         # Should contain file size
         assert "B" in html  # Size in bytes
+
+    def test_generate_directory_index_shows_modified_time(self, tmp_path):
+        """Test that the directory index shows each file's last-modified time."""
+        file1 = tmp_path / "doc.md"
+        file1.write_text("# Doc")
+
+        theme_path = tmp_path / "theme.html"
+        theme_path.write_text("{TITLE} {CONTENT}")
+
+        html = _generate_directory_index(
+            [file1],
+            theme_path,
+            tmp_path,
+            enable_upload=False,
+        )
+
+        assert "modified" in html
 
     def test_generate_directory_index_empty_files(self, tmp_path):
         """Test directory index with empty file list."""
