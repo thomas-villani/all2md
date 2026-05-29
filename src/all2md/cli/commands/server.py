@@ -10,13 +10,17 @@ themes, file upload forms, and REST API endpoints for development use.
 
 import argparse
 import base64
+import errno
 import fnmatch
 import http.server
 import io
 import json
+import os
 import socketserver
 import sys
 import threading
+import webbrowser
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote, unquote
@@ -367,14 +371,21 @@ def _generate_directory_index(
         for file in sorted(current_files, key=lambda f: f.name.lower()):
             rel_path = file.relative_to(base_dir)
             url = "/" + quote(str(rel_path).replace("\\", "/"))
+            modified_str: Optional[str] = None
+            created_str: Optional[str] = None
             try:
-                file_size = file.stat().st_size
-                size_str = _format_file_size(file_size)
+                stat_result = file.stat()
+                size_str = _format_file_size(stat_result.st_size)
+                modified_str = f"modified {_format_timestamp(stat_result.st_mtime)}"
+                created_ts = _file_created_timestamp(stat_result)
+                if created_ts is not None:
+                    created_str = f"created {_format_timestamp(created_ts)}"
             except OSError:
                 size_str = "?"
+            details = " · ".join(part for part in (size_str, modified_str, created_str) if part)
             content += "<li style='margin: 5px 0;'>"
             content += f"<a href='{url}' style='text-decoration: none; font-size: 1.0em;'>{file.name}</a>"
-            content += f" <span style='color: #888; font-size: 0.9em;'>({size_str})</span>"
+            content += f" <span style='color: #888; font-size: 0.9em;'>({details})</span>"
             content += "</li>"
         content += "</ul></div>"
 
@@ -384,6 +395,57 @@ def _generate_directory_index(
     html = html.replace("{CONTENT}", content)
 
     return html
+
+
+def _format_timestamp(timestamp: float) -> str:
+    """Format an epoch timestamp as a compact local ``YYYY-MM-DD HH:MM`` string."""
+    return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
+
+
+def _file_created_timestamp(stat_result: os.stat_result) -> Optional[float]:
+    """Best-effort file creation time, or ``None`` when it isn't reliably available.
+
+    Uses ``st_birthtime`` when the platform provides it (macOS, *BSD, and Windows
+    on Python 3.12+). On Windows without ``st_birthtime``, ``st_ctime`` is the
+    creation time. On Linux ``st_ctime`` is the inode-change time (not creation),
+    so we return ``None`` there rather than display a misleading value.
+    """
+    birthtime = getattr(stat_result, "st_birthtime", None)
+    if birthtime is not None:
+        return float(birthtime)
+    # os.name (not sys.platform) avoids mypy's platform-specific narrowing, which
+    # would otherwise flag one branch as unreachable depending on the OS mypy runs on.
+    if os.name == "nt":
+        return stat_result.st_ctime
+    return None
+
+
+def _bind_http_server(
+    host: str, port: int, handler: type[http.server.BaseHTTPRequestHandler]
+) -> Tuple["_ThreadingHTTPServer", bool]:
+    """Bind the serve HTTP server, falling back to a random free port if taken.
+
+    Returns ``(httpd, fell_back)`` where ``fell_back`` is ``True`` when the
+    requested ``port`` was unavailable and the OS assigned a random free port
+    (bind to port 0) instead. Re-raises the original ``OSError`` for failures
+    other than "address in use".
+    """
+    try:
+        return _ThreadingHTTPServer((host, port), handler), False
+    except OSError as e:
+        # Treat the port as unavailable when it is already in use (EADDRINUSE) or
+        # access is denied (EACCES) -- on Windows, an in-use listening port with
+        # SO_REUSEADDR set surfaces as WSAEACCES (WinError 10013) rather than
+        # WSAEADDRINUSE (10048), and privileged ports raise EACCES everywhere.
+        # In all of these cases, fall back to an OS-assigned free port.
+        winerror = getattr(e, "winerror", None)
+        if (
+            e.errno in (errno.EADDRINUSE, errno.EACCES)
+            or winerror in (10048, 10013)
+            or "Address already in use" in str(e)
+        ):
+            return _ThreadingHTTPServer((host, 0), handler), True
+        raise
 
 
 def _format_file_size(size_bytes: int) -> str:
@@ -559,6 +621,11 @@ def _create_serve_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--theme",
         help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
+    )
+    parser.add_argument(
+        "--browse",
+        action="store_true",
+        help="Open the served URL in the default web browser once the server starts",
     )
     parser.add_argument(
         "--enable-upload",
@@ -1098,20 +1165,23 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                 error = {"error": "Internal server error", "message": str(e)}
                 self.wfile.write(json.dumps(error).encode("utf-8"))
 
-    # Start server
+    # Start server. If the requested port is taken, fall back to an OS-assigned
+    # random free port instead of giving up (port 8000 is frequently in use).
     try:
-        httpd = _ThreadingHTTPServer((parsed.host, parsed.port), ServeHandler)
+        httpd, fell_back = _bind_http_server(parsed.host, parsed.port, ServeHandler)
     except OSError as e:
-        if e.errno == 98 or "Address already in use" in str(e):
-            print(f"Error: Port {parsed.port} is already in use", file=sys.stderr)
-        else:
-            print(f"Error: Could not start server: {e}", file=sys.stderr)
+        print(f"Error: Could not start server: {e}", file=sys.stderr)
         return EXIT_ERROR
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_ERROR
 
-    url = f"http://{parsed.host}:{parsed.port}/"
+    # Use the port we actually bound (differs from --port when we fell back).
+    bound_port = httpd.server_address[1]
+    if fell_back:
+        print(f"Port {parsed.port} is unavailable; bound a random free port instead.", file=sys.stderr)
+
+    url = f"http://{parsed.host}:{bound_port}/"
     print(f"\nServing at {url}")
 
     # Print development warning if upload or API is enabled
@@ -1129,6 +1199,21 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         print("=" * 70 + "\n")
 
     print("Press Ctrl+C to stop")
+
+    # Open the served URL in the browser when requested (skipped under test mode,
+    # matching `all2md view`). Use a loopback host for the browser when bound to a
+    # wildcard address, which browsers can't navigate to directly.
+    if parsed.browse and not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+        # nosec B104: not binding here -- detecting a wildcard bind host so the
+        # browser is pointed at a reachable loopback address instead.
+        wildcard_hosts = ("0.0.0.0", "::", "")  # nosec B104
+        browse_host = "127.0.0.1" if parsed.host in wildcard_hosts else parsed.host
+        browse_url = f"http://{browse_host}:{bound_port}/"
+        print(f"Opening {browse_url} in browser...")
+        try:
+            webbrowser.open(browse_url)
+        except Exception as e:  # pragma: no cover - browser launch is best-effort
+            print(f"Could not open browser: {e}", file=sys.stderr)
 
     stop_event = threading.Event()
 
