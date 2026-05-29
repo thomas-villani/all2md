@@ -22,6 +22,9 @@ wheels/
 *.egg
 MANIFEST
 
+# MCPB bundle build artifact (built in CI, never committed)
+*.mcpb
+
 # Virtual environments
 .venv/
 venv/

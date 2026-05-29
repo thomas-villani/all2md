@@ -435,3 +435,20 @@ replace = '__version__ = "{new_version}"'
 filename = "docs/source/conf.py"
 search = 'release = "{current_version}"'
 replace = 'release = "{new_version}"'
+
+# MCPB bundle: keep the bundle metadata in sync with the package version so the
+# .mcpb built on release declares the matching version and dependency pin.
+[[tool.bumpversion.files]]
+filename = "mcpb/manifest.json"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "mcpb/pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "mcpb/pyproject.toml"
+search = '>={current_version}'
+replace = '>={new_version}'

@@ -199,7 +199,22 @@ jobs:
       - name: Build package
         run: python -m build
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build MCPB bundle
+        # Package the built-in MCP server as a .mcpb for one-click install in
+        # Claude Desktop. The bundle only declares `all2md` as a dependency
+        # (resolved by uv on the user's machine at install time), so packing
+        # before the PyPI publish in release.yml is fine.
+        run: |
+          npm install -g @anthropic-ai/mcpb
+          mcpb validate mcpb/manifest.json
+          mcpb pack mcpb all2md.mcpb
+
       - name: Create GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes all2md.mcpb
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

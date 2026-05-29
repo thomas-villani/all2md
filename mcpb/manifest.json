@@ -1,0 +1,72 @@
+{
+  "manifest_version": "0.4",
+  "name": "all2md",
+  "display_name": "all2md",
+  "version": "1.1.3",
+  "description": "Convert PDFs, Office files, HTML, email, and 40+ formats to Markdown and back, directly inside Claude.",
+  "long_description": "all2md's built-in MCP server, packaged for one-click install. Lets AI assistants read and convert documents across 40+ formats via an AST-based conversion pipeline, render Markdown back out to PDF/DOCX/PPTX/EPUB/HTML/RST, and edit documents section-by-section. Includes smart source auto-detection (file path, data URI, base64, plain text), section extraction, and security controls (a user-chosen workspace folder, network off by default, and path validation).",
+  "author": {
+    "name": "Tom Villani, Ph.D.",
+    "url": "https://github.com/thomas-villani"
+  },
+  "homepage": "https://all2md.readthedocs.io",
+  "documentation": "https://all2md.readthedocs.io/en/latest/mcp.html",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thomas-villani/all2md"
+  },
+  "license": "MIT",
+  "keywords": ["markdown", "document-conversion", "pdf", "docx", "all2md"],
+  "server": {
+    "type": "uv",
+    "entry_point": "src/server.py",
+    "mcp_config": {
+      "command": "uv",
+      "args": ["run", "--directory", "${__dirname}", "src/server.py"],
+      "env": {
+        "ALL2MD_MCP_ALLOWED_READ_DIRS": "${user_config.workspace_directory}",
+        "ALL2MD_MCP_ALLOWED_WRITE_DIRS": "${user_config.workspace_directory}",
+        "ALL2MD_MCP_ENABLE_FROM_MD": "${user_config.enable_write}",
+        "ALL2MD_MCP_ENABLE_DOC_EDIT": "${user_config.enable_edit}",
+        "ALL2MD_DISABLE_NETWORK": "${user_config.disable_network}"
+      }
+    }
+  },
+  "user_config": {
+    "workspace_directory": {
+      "type": "directory",
+      "title": "Workspace folder",
+      "description": "Folder all2md may read documents from and write converted files to. Files outside this folder are rejected. Defaults to your Documents folder.",
+      "required": true,
+      "default": "${DOCUMENTS}",
+      "multiple": false
+    },
+    "enable_write": {
+      "type": "boolean",
+      "title": "Allow writing/rendering documents",
+      "description": "Enable converting Markdown back out to PDF, DOCX, PPTX, EPUB, HTML, and RST (writes files into the workspace folder).",
+      "required": false,
+      "default": true
+    },
+    "enable_edit": {
+      "type": "boolean",
+      "title": "Allow in-place document editing",
+      "description": "Enable editing documents section-by-section (add, replace, remove, and insert content in files within the workspace folder).",
+      "required": false,
+      "default": true
+    },
+    "disable_network": {
+      "type": "boolean",
+      "title": "Disable network access",
+      "description": "Block all outbound network requests (e.g. fetching remote images referenced by HTML). Recommended on. Embedded images in PDF/DOCX/PPTX still work.",
+      "required": false,
+      "default": true
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  }
+}

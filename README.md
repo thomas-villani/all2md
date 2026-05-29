@@ -227,7 +227,32 @@ all2md-mcp --temp --enable-from-md
 - **Security First**: File allowlists, network controls, and path validation
 - **vLLM Image Support**: Optionally embed images as base64 for vision-enabled models
 
-Configure in Claude Desktop (`claude_desktop_config.json`):
+### One-click install (Claude Desktop)
+
+Install the prebuilt MCPB bundle — no manual config or separate Python install
+required (the bundle pulls in all2md via `uv` on first run):
+
+1. Download `all2md.mcpb` from the [latest release](https://github.com/thomas-villani/all2md/releases/latest).
+2. Open **Claude Desktop → Settings → Extensions** (the gear icon, or `Ctrl+,` / `Cmd+,`).
+3. **Drag `all2md.mcpb` onto the Extensions pane** (or use the **Install
+   Extension** / **Advanced** button to browse for it). Double-clicking the file
+   also works if your OS has the `.mcpb` association registered, but the drag
+   path doesn't depend on it.
+4. In the install dialog, choose a **workspace folder** that all2md may read from
+   and write to (defaults to your Documents folder; files outside it are
+   rejected), and optionally adjust the toggles for writing/rendering,
+   in-place editing, and network access.
+5. The `read_document_as_markdown`, `save_document_from_markdown`, and
+   `edit_document` tools then appear under the **"+" → Connectors** panel in a
+   chat, ready to use on files in your workspace folder.
+
+> Requires a Claude Desktop build with MCPB extension support (late-2025 or
+> newer). To rebuild the bundle yourself, see [`mcpb/README.md`](mcpb/README.md).
+
+### Manual configuration (developers / other MCP clients)
+
+For development or non-Desktop MCP clients, configure the server directly in
+`claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
