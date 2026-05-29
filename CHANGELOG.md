@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-29
+
 ### Added
 - Config-file support for the `view`, `serve`, `diff`, `edit`, `arxiv`, and `generate-site` subcommands. Each command reads its own same-named section — `[view]`, `[serve]`, `[diff]`, `[edit]`, `[arxiv]`, `[generate-site]` — from `.all2md.toml`/`.yaml`/`.json` (or the equivalent `[tool.all2md.<command>]` block in `pyproject.toml`), so flags like `view --no-wait` or `serve --port` can be set once instead of typed every time. Precedence is built-in default < config section < explicit CLI flag, and every one of these commands now also accepts `--config <path>` and `--no-config`, mirroring the main converter. Keys are the option name (hyphens or underscores both work); only the matching section is read, so subcommand config never affects a normal conversion and vice versa. A config value can also satisfy an otherwise-required option (e.g. `[arxiv]` with `output = "paper.tar.gz"` lets `all2md arxiv paper.tex` run without `-o`).
 - `all2md config generate` now emits a template section for each of those subcommands alongside the format sections, so generating a config is the quickest way to discover every available subcommand key and its default. See the new "Subcommand Options" section in `docs/source/configuration.rst`.
