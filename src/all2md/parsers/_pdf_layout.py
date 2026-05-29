@@ -20,9 +20,11 @@ Commercial use requires an Artifex license.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import sys
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
     import fitz
@@ -34,9 +36,59 @@ __all__ = [
     "predict_page_layout",
     "match_predictions_to_blocks",
     "is_layout_available",
+    "native_find_tables",
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def native_find_tables() -> Iterator[None]:
+    """Force PyMuPDF's native ``find_tables()`` within the block.
+
+    Importing ``pymupdf.layout`` runs its module-level ``activate()``, which
+    installs a *process-global* hook (``pymupdf._get_layout``). PyMuPDF's
+    ``find_tables()`` consults that hook and, when present, reroutes table
+    detection through the GNN layout model instead of its native ruling-line
+    algorithm. On many real documents that model path is worse for our
+    purposes: it overdetects tables (spurious sub-grids) and reconstructs cell
+    text with dropped inter-word spaces and punctuation, because the model's
+    predicted cell boundaries disagree with the ruling-line grid that
+    ``Table.extract()`` then reads against.
+
+    all2md drives layout analysis explicitly via :func:`predict_page_layout`
+    and merges those predictions itself (header/footer trimming, list and
+    table-region supplementation), so the implicit ``find_tables()`` hook is
+    redundant and actively harmful. The whole table pipeline — and the corpus
+    benchmark it was tuned against — assumes native ``find_tables()`` output.
+
+    This context manager nulls the hook for the duration of the block and
+    restores the prior value on exit, so it both guarantees native behavior
+    for our ``find_tables()`` / ``Table.extract()`` calls and leaves global
+    state untouched for any other consumer in the same process. It is a no-op
+    when the hook was never installed (``pymupdf.layout`` not imported).
+
+    The hook is read off the canonical ``pymupdf`` module, but ``fitz`` (the
+    legacy alias) can be a distinct module object in some installs, so both are
+    neutralized defensively.
+    """
+    sentinel = object()
+    saved: list[tuple[Any, Any]] = []
+    for name in ("pymupdf", "fitz"):
+        mod: Any = sys.modules.get(name)
+        if mod is None:
+            continue
+        saved.append((mod, getattr(mod, "_get_layout", sentinel)))
+        mod._get_layout = None
+    try:
+        yield
+    finally:
+        for mod, prev in saved:
+            if prev is sentinel:
+                with contextlib.suppress(AttributeError):
+                    delattr(mod, "_get_layout")
+            else:
+                mod._get_layout = prev
 
 
 @dataclass(frozen=True)
