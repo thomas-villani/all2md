@@ -69,6 +69,7 @@ from all2md.parsers._pdf_layout import (
     annotate_blocks_with_layout,
     is_layout_available,
     match_predictions_to_blocks,
+    native_find_tables,
     predict_page_layout,
 )
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
@@ -793,44 +794,51 @@ class PdfToAstConverter(BaseParser):
         attachment_sequencer = create_attachment_sequencer()
 
         pages_list = list(pages_to_use)
-        for idx, pno in enumerate(pages_list):
-            try:
-                page = doc[pno]
-                page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer, total_pages)
-                if page_nodes:
-                    children.extend(page_nodes)
+        # Suppress pymupdf-layout's global find_tables() hook for the whole
+        # page loop. We call predict_page_layout() explicitly inside
+        # _process_page_to_ast and merge its predictions ourselves; the
+        # implicit hook would additionally reroute find_tables()/Table.extract()
+        # through the layout model, overdetecting tables and garbling cell text.
+        # See native_find_tables() for the full rationale.
+        with native_find_tables():
+            for idx, pno in enumerate(pages_list):
+                try:
+                    page = doc[pno]
+                    page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer, total_pages)
+                    if page_nodes:
+                        children.extend(page_nodes)
 
-                # Add page separator between pages (but not after the last page)
-                if idx < len(pages_list) - 1 and self.options.include_page_numbers:
-                    # Add page separator as Comment node - renderers decide whether to display it
-                    # Format using page_separator_template with placeholders
-                    separator_text = self.options.page_separator_template.format(
-                        page_num=pno + 1, total_pages=total_pages
+                    # Add page separator between pages (but not after the last page)
+                    if idx < len(pages_list) - 1 and self.options.include_page_numbers:
+                        # Add page separator as Comment node - renderers decide whether to display it
+                        # Format using page_separator_template with placeholders
+                        separator_text = self.options.page_separator_template.format(
+                            page_num=pno + 1, total_pages=total_pages
+                        )
+                        children.append(Comment(content=separator_text, metadata={"comment_type": "page_separator"}))
+
+                    # Emit page done event
+                    self._emit_progress(
+                        "item_done",
+                        f"Page {pno + 1} of {total_pages} processed",
+                        current=idx + 1,
+                        total=total_pages,
+                        item_type="page",
+                        page=pno + 1,
                     )
-                    children.append(Comment(content=separator_text, metadata={"comment_type": "page_separator"}))
-
-                # Emit page done event
-                self._emit_progress(
-                    "item_done",
-                    f"Page {pno + 1} of {total_pages} processed",
-                    current=idx + 1,
-                    total=total_pages,
-                    item_type="page",
-                    page=pno + 1,
-                )
-            except Exception as e:
-                # Emit error event but continue processing
-                self._emit_progress(
-                    "error",
-                    f"Error processing page {pno + 1}: {str(e)}",
-                    current=idx + 1,
-                    total=total_pages,
-                    error=str(e),
-                    stage="page_processing",
-                    page=pno + 1,
-                )
-                # Re-raise to maintain existing error handling
-                raise
+                except Exception as e:
+                    # Emit error event but continue processing
+                    self._emit_progress(
+                        "error",
+                        f"Error processing page {pno + 1}: {str(e)}",
+                        current=idx + 1,
+                        total=total_pages,
+                        error=str(e),
+                        stage="page_processing",
+                        page=pno + 1,
+                    )
+                    # Re-raise to maintain existing error handling
+                    raise
 
         # Extract and attach metadata
         metadata = self.extract_metadata(doc)
