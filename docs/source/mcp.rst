@@ -594,6 +594,45 @@ the latter two off in the dialog). Requires a Claude Desktop build with MCPB
 extension support (late-2025 or newer). The bundle sources live in the
 ``mcpb/`` directory of the repository if you want to rebuild it.
 
+Building the bundle from source
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Releases ship a prebuilt ``all2md.mcpb`` automatically (CI packs and attaches it
+to every GitHub release), so most users never need to build it. To produce one
+yourself — for testing local changes, or to bundle a different set of format
+extras — you need `Node.js <https://nodejs.org>`_ and the MCPB CLI:
+
+.. code-block:: bash
+
+   # Install the MCPB CLI (one-time)
+   npm install -g @anthropic-ai/mcpb
+
+   # From the repository root: validate, then pack
+   mcpb validate mcpb/manifest.json
+   mcpb pack mcpb all2md.mcpb
+
+This writes ``all2md.mcpb`` (a small archive containing only the manifest, a
+``pyproject.toml``, and a thin launcher — the ``all2md`` package itself is
+resolved by ``uv`` on the end user's machine at install time). Install the
+result with the drag-and-drop steps above.
+
+A few things worth knowing when building or modifying the bundle:
+
+* **Dependency extras.** ``mcpb/pyproject.toml`` declares which all2md format
+  extras get installed (PDF, DOCX, render targets, etc.). Edit that dependency
+  line and re-pack to bundle a different set — e.g. ``all2md[all]`` for every
+  format.
+* **Version sync.** The version in ``mcpb/manifest.json`` and
+  ``mcpb/pyproject.toml`` is managed by the project's ``bumpversion`` config —
+  bump the package version rather than hand-editing those strings, or the
+  release job's version check will fail.
+* **CLI version.** CI pins a known-good MCPB CLI version for reproducible
+  builds; if your locally installed CLI is much newer, the manifest schema it
+  validates against may differ slightly.
+
+See ``mcpb/README.md`` in the repository for the full rebuild and dependency
+notes.
+
 Claude Desktop (manual configuration)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
