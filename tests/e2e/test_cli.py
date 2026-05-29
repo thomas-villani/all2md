@@ -1683,12 +1683,41 @@ class TestExitCodes:
         assert result.returncode == 4
         assert "Error" in result.stderr
 
-    def test_exit_code_input_error_no_input(self):
-        """Test exit code 3 (VALIDATION_ERROR) when no input provided."""
-        result = self._run_cli([])
+    def test_exit_code_input_error_no_input_empty_pipe(self):
+        """No input arg with an empty stdin pipe is auto-read, then fails as no usable input.
 
-        assert result.returncode == 3
-        assert "Input file is required" in result.stderr
+        With no input argument and piped (non-TTY) stdin, the CLI auto-reads
+        stdin (so ``head file.md | all2md`` works without an explicit ``-``).
+        Feeding an empty pipe therefore reaches the converter with nothing to
+        convert and exits with FILE_ERROR (4). An interactive TTY instead reports
+        "Input file is required" (covered by unit tests, since a subprocess
+        cannot fake a TTY).
+        """
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "all2md"],
+            capture_output=True,
+            text=True,
+            input="",  # force a real, empty stdin pipe (deterministic across platforms)
+        )
+
+        assert result.returncode == 4
+        assert "No valid input files found" in result.stderr
+
+    def test_stdin_auto_read_without_dash(self):
+        """Piped content is converted even without an explicit ``-`` argument."""
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "all2md"],
+            capture_output=True,
+            text=True,
+            input="<h1>Piped Heading</h1><p>body</p>",
+        )
+
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "Piped Heading" in result.stdout
 
     def test_exit_code_input_error_invalid_config(self, tmp_path):
         """Test exit code 3 (VALIDATION_ERROR) for invalid config file."""
