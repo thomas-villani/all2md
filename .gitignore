@@ -76,15 +76,7 @@ ideas/
 AGENTS.md
 CLAUDE.md
 todo.md
-qa-*.txt
-helptxt*.txt
-orgmode.org
-out.txt
-claude-*.md
-gpt-*.md
-REFACTOR-STATUS.md
 completions*.ps1
-resume.pdf
 
 # Documentation builds
 docs/_build/
@@ -106,3 +98,6 @@ benchmarks/corpus/.cache/
 benchmarks/corpus/results/
 benchmarks/corpus/inspect/
 benchmarks/corpus/.test/
+
+.claude/
+broken/

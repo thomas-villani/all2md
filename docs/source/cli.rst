@@ -1999,7 +1999,10 @@ Arguments
 **Optional Arguments:**
 
 ``--port PORT``
-   Port to serve on. Default: ``8000``.
+   Port to serve on. Default: ``8000``. If the requested port is unavailable
+   (already in use, or access denied), the server automatically binds an
+   OS-assigned random free port instead and prints the actual URL, rather than
+   failing.
 
    .. code-block:: bash
 
@@ -2016,6 +2019,16 @@ Arguments
 
       # Localhost only (default)
       all2md serve ./docs --host 127.0.0.1
+
+``--browse``
+   Open the served URL in your default web browser once the server has started.
+   When bound to a wildcard host (e.g. ``0.0.0.0``), the browser is pointed at
+   ``127.0.0.1``.
+
+   .. code-block:: bash
+
+      # Serve and open in the browser
+      all2md serve ./docs --browse
 
 ``-r``, ``--recursive``
    Recursively serve subdirectories. When enabled, scans all nested folders for documents and generates a per-subdirectory index page for each folder. Each index lists immediate files and child directories, with breadcrumb navigation (e.g., ``Home > reports > 2026``) for easy traversal of the directory tree.
