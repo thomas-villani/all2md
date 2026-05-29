@@ -149,6 +149,8 @@ doctest_default_flags = 0
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+html_logo = "_static/logo.svg"
+html_favicon = "_static/logo.svg"
 
 from generate_options_doc import generate_options_document  # noqa: E402
 

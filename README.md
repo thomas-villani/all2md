@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" alt="all2md logo" width="120" />
+  <img src="https://raw.githubusercontent.com/thomas-villani/all2md/main/docs/source/_static/logo.svg" alt="all2md logo" width="120" />
 </p>
 
 # `all2md`: The Universal Document Conversion Library
