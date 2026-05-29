@@ -346,3 +346,51 @@ class TestPdfLayoutAdvanced:
         )
 
         doc.close()
+
+
+class TestNativeFindTablesHook:
+    """``native_find_tables()`` neutralizes pymupdf-layout's global find_tables hook.
+
+    Importing ``pymupdf.layout`` installs a process-global ``pymupdf._get_layout``
+    hook that reroutes PyMuPDF's ``find_tables()`` through the GNN model, which
+    garbles table cell text (dropped spaces/punctuation) and mis-detects grids.
+    The parser wraps its page loop in ``native_find_tables()`` to force native
+    behavior. These tests pin that suppress-and-restore contract without needing
+    the (noncommercial, optional) plugin installed.
+    """
+
+    def test_hook_suppressed_inside_and_restored_after(self):
+        import sys
+
+        from all2md.parsers._pdf_layout import native_find_tables
+
+        pymupdf = sys.modules.get("pymupdf")
+        assert pymupdf is not None, "pymupdf should already be imported by the parser"
+
+        def fake_hook(*args, **kwargs):  # stand-in for activate()'s installed hook
+            return []
+
+        sentinel = object()
+        had_attr = hasattr(pymupdf, "_get_layout")
+        prev = getattr(pymupdf, "_get_layout", sentinel)
+        pymupdf._get_layout = fake_hook
+        try:
+            with native_find_tables():
+                assert pymupdf._get_layout is None, "hook must be suppressed inside the block"
+            assert pymupdf._get_layout is fake_hook, "prior hook must be restored on exit"
+        finally:
+            if had_attr and prev is not sentinel:
+                pymupdf._get_layout = prev
+            else:
+                # Attribute did not exist before this test; remove what we added.
+                try:
+                    delattr(pymupdf, "_get_layout")
+                except AttributeError:
+                    pass
+
+    def test_noop_when_hook_absent(self):
+        """Must not raise when the plugin was never imported (no hook installed)."""
+        from all2md.parsers._pdf_layout import native_find_tables
+
+        with native_find_tables():
+            pass
