@@ -565,10 +565,40 @@ Integration Examples
 
 .. TODO: add examples using uv to launch in isolated environment
 
-Claude Desktop
-~~~~~~~~~~~~~~
+Claude Desktop (one-click bundle)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Add to your Claude Desktop configuration (``claude_desktop_config.json``):
+The easiest way to use all2md in Claude Desktop is the prebuilt MCPB bundle
+(``.mcpb``), which installs the server in one click — no manual config and no
+separate Python install (the bundle resolves all2md via ``uv`` on first run).
+
+#. Download ``all2md.mcpb`` from the `latest release
+   <https://github.com/thomas-villani/all2md/releases/latest>`_.
+#. Open **Claude Desktop → Settings → Extensions** (gear icon, or
+   :kbd:`Ctrl+,` / :kbd:`Cmd+,`).
+#. **Drag** ``all2md.mcpb`` onto the Extensions pane, or use the **Install
+   Extension** / **Advanced** button to browse for it. (Double-clicking the
+   file also works if your OS has the ``.mcpb`` association registered, but the
+   drag path does not depend on it.)
+#. In the install dialog, choose a **workspace folder** all2md may read from and
+   write to (defaults to your Documents folder; files outside it are rejected),
+   and optionally adjust the toggles for writing/rendering, in-place editing,
+   and network access.
+#. The tools then appear under the **"+" → Connectors** panel in a chat, ready
+   to use on files in your workspace folder.
+
+The bundle configures the server entirely through environment variables set
+from your dialog choices, so it enables ``read_document_as_markdown``,
+``save_document_from_markdown``, and ``edit_document`` by default (you can turn
+the latter two off in the dialog). Requires a Claude Desktop build with MCPB
+extension support (late-2025 or newer). The bundle sources live in the
+``mcpb/`` directory of the repository if you want to rebuild it.
+
+Claude Desktop (manual configuration)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For development, or to control the exact flags, configure the server directly
+in ``claude_desktop_config.json``:
 
 .. code-block:: json
 

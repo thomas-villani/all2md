@@ -195,6 +195,15 @@ jobs:
             echo "Error: pyproject.toml version ($PROJECT_VERSION) does not match tag ($RELEASE_VERSION)"
             exit 1
           fi
+          # The MCPB bundle version is bumpversion-managed; verify it kept in
+          # sync so we never ship a stale-versioned .mcpb.
+          MCPB_VERSION=$(python -c "import json; print(json.load(open('mcpb/manifest.json'))['version'])")
+          echo "MCPB manifest version: $MCPB_VERSION"
+          if [ "$MCPB_VERSION" != "$RELEASE_VERSION" ]; then
+            echo "Error: mcpb/manifest.json version ($MCPB_VERSION) does not match tag ($RELEASE_VERSION)"
+            echo "Run 'bumpversion' to sync it (see [tool.bumpversion] in pyproject.toml)."
+            exit 1
+          fi
 
       - name: Build package
         run: python -m build
@@ -208,9 +217,10 @@ jobs:
         # Package the built-in MCP server as a .mcpb for one-click install in
         # Claude Desktop. The bundle only declares `all2md` as a dependency
         # (resolved by uv on the user's machine at install time), so packing
-        # before the PyPI publish in release.yml is fine.
+        # before the PyPI publish in release.yml is fine. Pin the CLI version
+        # for reproducible releases — bump deliberately after testing locally.
         run: |
-          npm install -g @anthropic-ai/mcpb
+          npm install -g @anthropic-ai/mcpb@2.1.2
           mcpb validate mcpb/manifest.json
           mcpb pack mcpb all2md.mcpb
 
