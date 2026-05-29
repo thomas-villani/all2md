@@ -56,6 +56,52 @@ class TestRcatMain:
         mock_main.assert_called_once_with(["--rich"])
 
 
+@pytest.mark.unit
+class TestStdinAutoRead:
+    """Tests for stdin auto-detection when no input argument is given."""
+
+    def _fake_stdin(self, *, isatty=None):
+        from unittest.mock import MagicMock
+
+        fake = MagicMock()
+        if isatty is None:
+            fake.isatty.side_effect = ValueError("closed")
+        else:
+            fake.isatty.return_value = isatty
+        return fake
+
+    def test_stdin_is_piped_true_when_not_tty(self):
+        """A non-TTY stdin (pipe/redirect) is reported as piped."""
+        from all2md.cli import _stdin_is_piped
+
+        with patch("all2md.cli.sys.stdin", self._fake_stdin(isatty=False)):
+            assert _stdin_is_piped() is True
+
+    def test_stdin_is_piped_false_when_tty(self):
+        """An interactive TTY stdin is not treated as piped."""
+        from all2md.cli import _stdin_is_piped
+
+        with patch("all2md.cli.sys.stdin", self._fake_stdin(isatty=True)):
+            assert _stdin_is_piped() is False
+
+    def test_stdin_is_piped_false_when_isatty_raises(self):
+        """A closed/detached stdin falls back to 'not piped' rather than raising."""
+        from all2md.cli import _stdin_is_piped
+
+        with patch("all2md.cli.sys.stdin", self._fake_stdin(isatty=None)):
+            assert _stdin_is_piped() is False
+
+    def test_main_no_input_with_tty_errors(self, capsys):
+        """With no input and an interactive TTY, the usage error still fires."""
+        from all2md.cli import main
+
+        with patch("all2md.cli.sys.stdin", self._fake_stdin(isatty=True)):
+            rc = main([])
+
+        assert rc != 0
+        assert "Input file is required" in capsys.readouterr().err
+
+
 @pytest.mark.integration
 @pytest.mark.cli
 class TestCLIIntegration:
