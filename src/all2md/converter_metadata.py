@@ -6,6 +6,7 @@ requirements, and registration information for the plugin registry system.
 
 from __future__ import annotations
 
+import importlib
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,6 +35,13 @@ class ConverterMetadata:
     content_detector : Callable[[bytes], bool], optional
         Custom content-based detection function that receives file content bytes
         and returns True if this converter should handle the content
+    content_detector_path : str, optional
+        Fully-qualified dotted path to a content-detection function (e.g.
+        ``"all2md.parsers.json._detect_json_content"``). Used by the generated
+        converter manifest so detection metadata can be registered without
+        importing the parser module; the function is imported lazily the first
+        time detection actually needs it. Prefer ``content_detector`` when you
+        already hold the callable (e.g. plugins).
     parser_class : Union[str, type, None], optional
         Parser class specification. Can be:
         - Simple class name (e.g., "DocxParser") - looks in all2md.parsers.{format}
@@ -87,6 +95,7 @@ class ConverterMetadata:
     mime_types: list[str] = field(default_factory=list)
     magic_bytes: list[tuple[bytes, int]] = field(default_factory=list)
     content_detector: Optional[Callable[[bytes], bool]] = None
+    content_detector_path: Optional[str] = None
     parser_class: Optional[Union[str, type]] = None
     renderer_class: Optional[Union[str, type]] = None
     parser_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
@@ -207,6 +216,39 @@ class ConverterMetadata:
 
         return False
 
+    def resolve_content_detector(self) -> Optional[Callable[[bytes], bool]]:
+        """Return the content-detection callable, importing it lazily if needed.
+
+        Prefers a live ``content_detector`` callable when present (e.g. set
+        directly by a plugin). Otherwise, if ``content_detector_path`` is set,
+        the function is imported on first use and cached so subsequent calls are
+        cheap. Returns ``None`` when this converter has no content detector.
+
+        This lazy resolution is what lets the converter manifest register
+        detection metadata without importing the parser module: the detector
+        module is only imported when an ambiguous extension or content-based
+        detection actually requires running it.
+
+        Returns
+        -------
+        Callable[[bytes], bool] or None
+            The content detector, or None if this converter has none.
+
+        """
+        if self.content_detector is not None:
+            return self.content_detector
+        if not self.content_detector_path:
+            return None
+        cached = getattr(self, "_resolved_content_detector", None)
+        if cached is not None:
+            return cached
+        module_path, func_name = self.content_detector_path.rsplit(".", 1)
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
+        module = importlib.import_module(module_path)
+        detector: Callable[[bytes], bool] = getattr(module, func_name)
+        self._resolved_content_detector = detector
+        return detector
+
     def get_required_packages_for_content(
         self,
         content: Optional[bytes] = None,
@@ -304,6 +346,40 @@ class ConverterMetadata:
 
         # Fallback for any other type
         return str(self.renderer_class)  # type: ignore[unreachable]
+
+    @staticmethod
+    def normalize_class_spec(class_spec: Union[str, type, None], default_module: str) -> Optional[str]:
+        """Normalize a class specification to a fully-qualified dotted path.
+
+        Mirrors the resolution rules used by ``converter_registry._load_class``,
+        producing the unambiguous string form used in the generated manifest:
+
+        - ``None`` -> ``None``
+        - a class object -> ``"<module>.<qualname>"``
+        - a dotted string -> returned unchanged (already fully qualified)
+        - a simple name -> ``"<default_module>.<name>"``
+
+        Parameters
+        ----------
+        class_spec : str, type, or None
+            The class specification to normalize.
+        default_module : str
+            Module path used to qualify a simple (dot-less) name, e.g.
+            ``"all2md.options"`` or ``"all2md.parsers.markdown"``.
+
+        Returns
+        -------
+        str or None
+            Fully-qualified dotted path, or None if ``class_spec`` is None.
+
+        """
+        if class_spec is None:
+            return None
+        if isinstance(class_spec, type):
+            return f"{class_spec.__module__}.{class_spec.__qualname__}"
+        if "." in class_spec:
+            return class_spec
+        return f"{default_module}.{class_spec}"
 
     def get_converter_display_string(self) -> str:
         """Get combined display string showing both parser and renderer.
