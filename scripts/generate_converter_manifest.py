@@ -85,6 +85,7 @@ def _assert_resolvable(dotted: str | None, what: str, fmt: str) -> None:
         return
     module_path, name = dotted.rsplit(".", 1)
     try:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
         module = importlib.import_module(module_path)
         getattr(module, name)
     except (ImportError, AttributeError) as exc:
