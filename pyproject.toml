@@ -64,6 +64,7 @@ Changelog = "https://github.com/thomas-villani/all2md/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/all2md"]
+artifacts = ["src/all2md/assets/*.ico"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/**", "pyproject.toml", "README.md", "LICENSE"]
@@ -262,6 +263,11 @@ langdetect = [
 [project.scripts]
 all2md = "all2md.cli:main"
 all2md-mcp = "all2md.mcp.server:main"
+
+[project.gui-scripts]
+# Console-less viewer used by the Windows "View with all2md" context menu so
+# right-click launches open a browser without flashing a console window.
+all2mdw = "all2md.cli.viewer_launch:main"
 rcat = "all2md.cli:rcat_main"
 
 [project.entry-points."all2md.converters"]

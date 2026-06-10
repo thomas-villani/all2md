@@ -158,6 +158,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("edit", "Edit a document in a browser-based editor and save back"),
     ("diff", "Compare two documents and generate diff output (unified/HTML/JSON)"),
     ("serve", "Serve documents via HTTP server with on-demand conversion"),
+    ("context-menu", 'Manage the Windows right-click "View with all2md" entry (install/uninstall/status)'),
     ("search", "Search documents using keyword, vector, or hybrid retrieval"),
     ("grep", "Search for text patterns in documents (like grep for any format)"),
     ("lint", "Lint converted documents for structural, heading, link, list, table, and typography issues"),
