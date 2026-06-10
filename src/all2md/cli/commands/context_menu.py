@@ -19,7 +19,10 @@ import os
 import re
 import shutil
 import sys
-from importlib.resources import as_file, files
+from importlib.resources import (  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
+    as_file,
+    files,
+)
 from pathlib import Path
 
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
