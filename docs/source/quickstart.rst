@@ -263,8 +263,8 @@ Extract and convert multiple files from ZIP archives:
    # Command line with filtering
    all2md archive.zip --zip-include "*.md" --zip-exclude "__MACOSX/*"
 
-   # Flatten directory structure
-   all2md archive.zip --zip-flatten --out combined.md
+   # Flatten directory structure (disable directory preservation)
+   all2md archive.zip --zip-no-preserve-directory --out combined.md
 
 5. Progress Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~

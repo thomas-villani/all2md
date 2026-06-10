@@ -1,12 +1,10 @@
----
-name: all2md-convert
-description: "Use this skill when you need to convert a document from one format to another (not just reading to markdown). Triggers: converting PDF to Word, HTML to DOCX, DOCX to PDF, any-to-any format conversion, changing file formats, reformatting documents. Use when the user says 'convert to', 'change format', 'save as', or needs a document in a different format."
-metadata:
-  author: all2md
-  version: "1.0"
----
-
 # Format Conversion with all2md
+
+## Contents
+- [CLI Quick Reference](#cli-quick-reference) — common conversions, output options, AST transforms, listing formats
+- [Python API](#python-api) — `convert`, `from_markdown`, AST pipeline, options
+- [Supported Output Formats](#supported-output-formats)
+- [Tips](#tips)
 
 ## Overview
 
@@ -45,14 +43,14 @@ all2md input.epub --output-format rst -o output.rst
 ### Output Format Options
 
 ```bash
-# HTML output options
-all2md doc.pdf --output-format html --html-standalone -o doc.html
+# HTML output options (standalone page by default; --html-renderer-no-standalone for a fragment)
+all2md doc.pdf --output-format html -o doc.html
 
 # DOCX output options
-all2md doc.md --output-format docx --docx-template custom.docx -o doc.docx
+all2md doc.md --output-format docx --docx-renderer-template-path custom.docx -o doc.docx
 
 # PDF output options
-all2md doc.md --output-format pdf --pdf-page-size letter -o doc.pdf
+all2md doc.md --output-format pdf --pdf-renderer-page-size letter -o doc.pdf
 ```
 
 ### AST Transforms During Conversion
@@ -62,7 +60,7 @@ all2md doc.md --output-format pdf --pdf-page-size letter -o doc.pdf
 all2md doc.pdf --output-format docx --transform remove-images -o doc.docx
 
 # Shift heading levels
-all2md doc.html --output-format md --transform heading-offset -o doc.md
+all2md doc.html --output-format markdown --transform heading-offset -o doc.md
 
 # Chain multiple transforms
 all2md doc.pdf --output-format html --transform remove-images --transform heading-offset -o doc.html
@@ -107,8 +105,8 @@ from all2md import to_ast, from_ast
 doc = to_ast("document.pdf")
 
 # Apply transforms
-from all2md.transforms import apply_transforms
-doc = apply_transforms(doc, ["remove-images", "heading-offset"])
+from all2md.transforms import apply
+doc = apply(doc, ["remove-images", "heading-offset"])
 
 # Render to any format
 from_ast(doc, "docx", output="output.docx")
@@ -127,7 +125,7 @@ convert(
     "input.pdf",
     "output.docx",
     target_format="docx",
-    parser_options=PdfOptions(pages="1-5", detect_tables=True),
+    parser_options=PdfOptions(pages="1-5", table_detection_mode="both"),
     renderer_options=DocxRendererOptions(),
 )
 ```

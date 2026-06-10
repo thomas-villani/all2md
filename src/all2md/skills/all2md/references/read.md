@@ -1,12 +1,10 @@
----
-name: all2md-read
-description: "Use this skill when you need to read, extract text from, or parse a document file. Triggers: reading PDFs, Word docs, PowerPoint, Excel, HTML, emails, images, or any other document format; extracting text or tables; getting the markdown content of a file; parsing document structure. Use when the user says 'read this', 'what does this say', 'extract text', or provides a document file."
-metadata:
-  author: all2md
-  version: "1.0"
----
-
 # Reading Documents with all2md
+
+## Contents
+- [CLI Quick Reference](#cli-quick-reference) — PDF, DOCX, HTML, email, Excel, and notebook options; section extraction; line-range navigation; batch processing
+- [Python API](#python-api) — `to_markdown`, `to_ast`, parser/renderer options, transforms
+- [Supported Input Formats](#supported-input-formats)
+- [Tips](#tips)
 
 ## Overview
 
@@ -41,24 +39,24 @@ all2md ambiguous_file --format pdf
 # Specific pages
 all2md document.pdf --pdf-pages "1-3,5,10-15"
 
-# Table detection
-all2md document.pdf --pdf-detect-tables
+# Table detection (on by default; pick the strategy)
+all2md document.pdf --pdf-table-detection-mode both
 
 # OCR for scanned documents
 all2md scanned.pdf --pdf-ocr-enabled --pdf-ocr-mode auto
 
 # Combined
-all2md document.pdf --pdf-pages "1-5" --pdf-detect-tables --pdf-ocr-enabled
+all2md document.pdf --pdf-pages "1-5" --pdf-table-detection-mode both --pdf-ocr-enabled
 ```
 
 ### DOCX Options
 
 ```bash
-# Preserve formatting hints
-all2md report.docx --docx-preserve-formatting
+# Include comments in the output
+all2md report.docx --docx-include-comments
 
-# Extract comments and tracked changes
-all2md report.docx --docx-extract-comments
+# Choose where comments appear (inline or as footnotes)
+all2md report.docx --docx-include-comments --docx-comments-position inline
 ```
 
 ### HTML Options
@@ -77,21 +75,21 @@ all2md page.html --attachment-mode base64
 ### Email Options
 
 ```bash
-# Include attachment content
-all2md message.eml --eml-include-attachments
+# Save attachments to a directory
+all2md message.eml --eml-attachment-mode save --eml-attachment-output-dir ./attachments
 
-# Detect email chains
-all2md thread.eml --eml-detect-chains
+# Keep the raw email headers in the output
+all2md message.eml --eml-preserve-raw-headers
 ```
 
 ### Excel and Notebooks
 
 ```bash
-# Specific sheet
-all2md data.xlsx --xlsx-sheet "Sheet2"
+# Specific sheet(s) — names or regex, comma-separated (default: all)
+all2md data.xlsx --xlsx-sheets "Sheet2"
 
-# Notebook with outputs
-all2md notebook.ipynb --ipynb-include-outputs
+# Notebook without cell outputs (outputs are included by default)
+all2md notebook.ipynb --ipynb-no-include-outputs
 ```
 
 ### Section Extraction
@@ -185,7 +183,7 @@ from all2md import to_markdown
 from all2md.options.pdf import PdfOptions
 from all2md.options.markdown import MarkdownRendererOptions
 
-pdf_opts = PdfOptions(pages="1-5", detect_tables=True)
+pdf_opts = PdfOptions(pages="1-5", table_detection_mode="both")
 md_opts = MarkdownRendererOptions(flavor="gfm")
 
 markdown = to_markdown(
@@ -223,5 +221,5 @@ Run `all2md list-formats` to see all formats with dependency status.
 
 - Use `--verbose` or `--trace` for debugging conversion issues
 - Use `all2md check-deps` to verify optional dependencies are installed
-- Format-specific CLI flags follow the pattern `--<format>-<option>` (e.g., `--pdf-pages`, `--docx-preserve-formatting`)
+- Format-specific CLI flags follow the pattern `--<format>-<option>` (e.g., `--pdf-pages`, `--docx-include-comments`)
 - All CLI options support environment variables: `ALL2MD_<OPTION>` (e.g., `ALL2MD_PDF_OCR_ENABLED=true`)
