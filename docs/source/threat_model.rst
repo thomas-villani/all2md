@@ -3,6 +3,13 @@ Threat Model and Security Architecture
 
 This document describes all2md's security architecture, threat model, and defense mechanisms for processing untrusted documents. It complements the :doc:`security` guide by providing deeper insight into the security design philosophy and attack surface analysis.
 
+.. note::
+
+   For the exact option names, defaults, and configuration syntax, see the
+   :doc:`security` guide — it is the canonical reference. This page focuses on
+   the attack vectors and how each control mitigates them; code samples here
+   are illustrative.
+
 .. contents::
    :local:
    :depth: 3

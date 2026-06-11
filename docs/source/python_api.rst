@@ -1256,6 +1256,13 @@ Complete round-trip conversion example:
 Custom Formats with Jinja2 Templates
 -------------------------------------
 
+.. note::
+
+   :doc:`templates` is the canonical reference for the Jinja2 renderer — the
+   full template context, filters, helper functions, and feature flags live
+   there. This section is a Python-API-focused summary; if anything here and
+   the template guide ever disagree, the template guide is authoritative.
+
 The Jinja2 template renderer allows you to create **any text-based output format** using templates, without writing Python code. This is perfect for custom formats like DocBook XML, YAML metadata extraction, ANSI terminal output, or proprietary markup languages.
 
 Quick Start

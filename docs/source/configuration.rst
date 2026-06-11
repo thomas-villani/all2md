@@ -258,12 +258,24 @@ Configuration Priority
 
 When multiple configuration sources exist, they are merged with the following priority (highest to lowest):
 
-1. **CLI arguments** - Command-line flags always win
-2. **Preset** - The ``--preset`` flag (e.g., ``--preset quality``)
-3. **Explicit config** - The ``--config`` flag
-4. **Environment variable** - ``ALL2MD_CONFIG`` environment variable
-5. **Auto-discovered config** - ``.all2md.toml`` etc. found via directory search
-6. **Default values** - Built-in defaults
+1. **CLI arguments** - Explicitly provided command-line flags always win
+2. **Presets** - The ``--preset`` flag (e.g., ``--preset quality``) and the
+   security presets (``--safe-mode``, ``--paranoid-mode``, ``--strict-html-sanitize``)
+3. **Configuration file** - a single file resolved in this order: the
+   ``--config`` flag, else the ``ALL2MD_CONFIG`` environment variable, else an
+   auto-discovered ``.all2md.toml``/``.all2md.json`` (or ``[tool.all2md]`` in
+   ``pyproject.toml``)
+4. **Built-in defaults** - including any default supplied by a per-option
+   ``ALL2MD_<OPTION>`` environment variable (these set the default for a flag you
+   do not pass explicitly; see :doc:`environment_variables`)
+
+.. note::
+
+   ``ALL2MD_CONFIG`` (which *points at* a config file) is distinct from the
+   per-option ``ALL2MD_<OPTION>`` variables (which set individual option
+   defaults). The two precedence pages — this one and
+   :doc:`environment_variables` — describe the same ordering from opposite
+   ends (highest-first here, lowest-first there).
 
 **Example:**
 

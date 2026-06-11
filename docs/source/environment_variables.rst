@@ -654,14 +654,22 @@ Development vs Production
 Environment Variable Precedence
 --------------------------------
 
-When multiple configuration sources are present, they are applied in this order (later sources override earlier):
+When multiple configuration sources are present, they are applied in this order (later sources override earlier). This is the same ordering described — highest-first — in :doc:`configuration`:
 
-1. **Default values** (defined in code)
-2. **Auto-discovered config files** (``.all2md.toml`` or ``.all2md.json``)
-3. **Environment variables** (``ALL2MD_*``)
-4. **Configuration file** (``ALL2MD_CONFIG``)
-5. **Preset** (``--preset``)
-6. **CLI arguments** (highest precedence)
+1. **Built-in defaults**, including any default supplied by a per-option
+   ``ALL2MD_<OPTION>`` environment variable (these set the default for a flag
+   you do not pass explicitly)
+2. **Configuration file** — a single file resolved as: the ``--config`` flag,
+   else the ``ALL2MD_CONFIG`` environment variable, else an auto-discovered
+   ``.all2md.toml``/``.all2md.json``
+3. **Presets** (``--preset`` and the security presets)
+4. **CLI arguments** (explicitly provided flags; highest precedence)
+
+.. note::
+
+   ``ALL2MD_CONFIG`` *points at* a configuration file, whereas the per-option
+   ``ALL2MD_<OPTION>`` variables supply individual option defaults — they are
+   different mechanisms.
 
 **Example:**
 
