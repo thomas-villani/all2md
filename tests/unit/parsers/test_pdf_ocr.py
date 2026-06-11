@@ -30,6 +30,7 @@ class TestOCROptions:
         assert opts.auto_detect_language is False
         assert opts.dpi == 300
         assert opts.text_threshold == 50
+        assert opts.doc_text_threshold == 16
         assert opts.image_area_threshold == 0.5
         assert opts.preserve_existing_text is False
         assert opts.tesseract_config == ""
@@ -171,6 +172,33 @@ class TestShouldUseOCR:
         # Text above threshold should not trigger OCR
         result = _should_use_ocr(mock_page, "A" * 100, options)
         assert result is False
+
+    def test_should_use_ocr_auto_whitespace_only_text(self) -> None:
+        """Whitespace/invisible text triggers OCR even when raw length is high."""
+        mock_page = Mock()
+        mock_page.rect.width = 612
+        mock_page.rect.height = 792
+        mock_page.get_images.return_value = []
+
+        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=10))
+
+        # 90 chars of whitespace/punctuation but zero meaningful characters.
+        result = _should_use_ocr(mock_page, "   \n\t . . . \n   " * 6, options)
+        assert result is True
+
+    def test_should_use_ocr_auto_counts_alnum_not_length(self) -> None:
+        """Punctuation padding must not mask a near-empty page (meaningful-char count)."""
+        mock_page = Mock()
+        mock_page.rect.width = 612
+        mock_page.rect.height = 792
+        mock_page.get_images.return_value = []
+
+        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=10))
+
+        # 5 meaningful chars padded with punctuation -> below threshold -> OCR.
+        assert _should_use_ocr(mock_page, "abcde" + "-" * 100, options) is True
+        # 20 meaningful chars -> above threshold -> no OCR.
+        assert _should_use_ocr(mock_page, "a" * 20 + "  ...", options) is False
 
     @patch("all2md.parsers._pdf_ocr.calculate_image_coverage")
     def test_should_use_ocr_auto_high_image_coverage(self, mock_coverage: Mock) -> None:
