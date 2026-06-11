@@ -3084,6 +3084,15 @@ including document structure, styling, templating, and feature toggles.
    :Default: ``'en'``
    :Importance: advanced
 
+**external_links_new_tab**
+
+   Open external links (absolute http/https/ftp/mailto URLs) in a new tab via target="_blank" rel="noopener noreferrer"
+
+   :Type: ``bool``
+   :CLI flag: ``--html-renderer-external-links-new-tab``
+   :Default: ``False``
+   :Importance: advanced
+
 **template_mode**
 
    Template mode: inject, replace, jinja, or none
@@ -3195,7 +3204,9 @@ INI Parser Options
 
 Configuration options for INI to AST parsing.
 
-The parser converts INI structures into human-readable document format:
+By default the parser emits the INI as a fenced code block (``literal_block``).
+Set ``literal_block=False`` to convert INI structures into a human-readable
+document instead:
 - Sections become headings
 - Key-value pairs become definition lists (bullet lists with bold keys)
 - Comments are preserved
@@ -3211,11 +3222,11 @@ The parser converts INI structures into human-readable document format:
 
 **literal_block**
 
-   Render as code block instead of structured document
+   Render as a fenced code block (default) instead of a structured document
 
    :Type: ``bool``
-   :CLI flag: ``--ini-literal-block``
-   :Default: ``False``
+   :CLI flag: ``--ini-no-literal-block``
+   :Default: ``True``
    :Importance: core
 
 **pretty_format_numbers**
@@ -3827,7 +3838,9 @@ JSON Parser Options
 
 Configuration options for JSON to AST parsing.
 
-The parser converts JSON structures into human-readable document format:
+By default the parser emits the JSON as a fenced code block (``literal_block``).
+Set ``literal_block=False`` to convert JSON structures into a human-readable
+document instead:
 - Objects/dicts become heading hierarchies
 - Arrays of objects become tables
 - Arrays of primitives become lists
@@ -3844,11 +3857,11 @@ The parser converts JSON structures into human-readable document format:
 
 **literal_block**
 
-   Render as code block instead of structured document
+   Render as a fenced code block (default) instead of a structured document
 
    :Type: ``bool``
-   :CLI flag: ``--json-literal-block``
-   :Default: ``False``
+   :CLI flag: ``--json-no-literal-block``
+   :Default: ``True``
    :Importance: core
 
 **max_heading_depth**
@@ -4459,7 +4472,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x0000020443EDCC70>``
+   :Default: ``<object object at 0x00000273DFA18BB0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4469,7 +4482,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000020443EDCC70>``
+   :Default: ``<object object at 0x00000273DFA18BB0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -7300,8 +7313,9 @@ Ocr Options
 Configuration options for OCR (Optical Character Recognition).
 
 This dataclass contains settings for detecting and extracting text from
-images using Tesseract OCR engine. Can be used by any parser that needs
-to extract text from images (PDF scanned pages, standalone images, etc.).
+images. Can be used by any parser that needs to extract text from images
+(PDF scanned pages, standalone images, etc.). Two OCR backends are
+supported via ``engine``: Tesseract (default) and EasyOCR.
 
 **enabled**
 
@@ -7311,6 +7325,25 @@ to extract text from images (PDF scanned pages, standalone images, etc.).
    :CLI flag: ``--pdf-ocr-enabled``
    :Default: ``False``
    :Importance: core
+
+**engine**
+
+   OCR backend: 'tesseract' (needs system binary) or 'easyocr' (pip-only, no binary)
+
+   :Type: ``Literal['tesseract', 'easyocr']``
+   :CLI flag: ``--pdf-ocr-engine``
+   :Default: ``'tesseract'``
+   :Choices: ``tesseract``, ``easyocr``
+   :Importance: core
+
+**gpu**
+
+   easyocr only: use GPU acceleration if available (ignored by tesseract)
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-ocr-gpu``
+   :Default: ``False``
+   :Importance: advanced
 
 **mode**
 
@@ -7356,6 +7389,15 @@ to extract text from images (PDF scanned pages, standalone images, etc.).
    :Type: ``int``
    :CLI flag: ``--pdf-ocr-text-threshold``
    :Default: ``50``
+   :Importance: advanced
+
+**doc_text_threshold**
+
+   Whole-document meaningful-character floor below which auto mode retries with OCR forced
+
+   :Type: ``int``
+   :CLI flag: ``--pdf-ocr-doc-text-threshold``
+   :Default: ``16``
    :Importance: advanced
 
 **image_area_threshold**
@@ -8811,7 +8853,9 @@ TOML Parser Options
 
 Configuration options for TOML to AST parsing.
 
-The parser converts TOML structures into human-readable document format:
+By default the parser emits the TOML as a fenced code block (``literal_block``).
+Set ``literal_block=False`` to convert TOML structures into a human-readable
+document instead:
 - Sections/tables become heading hierarchies
 - Arrays of tables become markdown tables
 - Arrays of primitives become lists
@@ -8828,11 +8872,11 @@ The parser converts TOML structures into human-readable document format:
 
 **literal_block**
 
-   Render as code block instead of structured document
+   Render as a fenced code block (default) instead of a structured document
 
    :Type: ``bool``
-   :CLI flag: ``--toml-literal-block``
-   :Default: ``False``
+   :CLI flag: ``--toml-no-literal-block``
+   :Default: ``True``
    :Importance: core
 
 **max_heading_depth**
@@ -9494,7 +9538,9 @@ YAML Parser Options
 
 Configuration options for YAML to AST parsing.
 
-The parser converts YAML structures into human-readable document format:
+By default the parser emits the YAML as a fenced code block (``literal_block``).
+Set ``literal_block=False`` to convert YAML structures into a human-readable
+document instead:
 - Objects/dicts become heading hierarchies
 - Arrays of objects become tables
 - Arrays of primitives become lists
@@ -9511,11 +9557,11 @@ The parser converts YAML structures into human-readable document format:
 
 **literal_block**
 
-   Render as code block instead of structured document
+   Render as a fenced code block (default) instead of a structured document
 
    :Type: ``bool``
-   :CLI flag: ``--yaml-literal-block``
-   :Default: ``False``
+   :CLI flag: ``--yaml-no-literal-block``
+   :Default: ``True``
    :Importance: core
 
 **max_heading_depth**
@@ -10122,7 +10168,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x0000020443EDCC70>``
+   :Default: ``<object object at 0x00000273DFA18BB0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -10132,7 +10178,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x0000020443EDCC70>``
+   :Default: ``<object object at 0x00000273DFA18BB0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

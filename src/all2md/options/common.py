@@ -545,6 +545,7 @@ class OCROptions(CloneFrozenMixin):
         processing is skipped regardless of other settings.
     engine : {"tesseract", "easyocr"}, default "tesseract"
         OCR backend to use:
+
         - "tesseract": Thin wrapper over the Tesseract engine. Requires the
           system Tesseract binary to be installed and on PATH (plus the
           ``pytesseract`` Python package via ``pip install all2md[ocr]``).
@@ -557,13 +558,16 @@ class OCROptions(CloneFrozenMixin):
         available. Ignored by the Tesseract engine.
     mode : {"auto", "force", "off"}, default "auto"
         OCR triggering mode:
+
         - "auto": Automatically detect when OCR is needed (format-specific logic)
         - "force": Apply OCR unconditionally
         - "off": Disable OCR (same as enabled=False)
     languages : str or list[str], default "eng"
         Tesseract language code(s) for OCR. Can be:
+
         - Single language: "eng", "fra", "deu", "spa", "chi_sim", etc.
         - Multiple languages: "eng+fra" or ["eng", "fra"]
+
         See Tesseract documentation for available language codes.
     auto_detect_language : bool, default False
         Attempt to automatically detect the document language before OCR.
@@ -585,6 +589,7 @@ class OCROptions(CloneFrozenMixin):
         content as image-based. Used by parsers in "auto" mode.
     preserve_existing_text : bool, default False
         Whether to preserve existing text when OCR is applied:
+
         - False: Replace existing text entirely with OCR results
         - True: Combine existing text with OCR results
     tesseract_config : str, default ""

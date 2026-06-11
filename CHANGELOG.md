@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Corrected stale OCR CLI flags in the README (`--ocr-*` → `--pdf-ocr-*`).
+- `rcat` opened a transient console window that closed instantly on Windows
+  instead of rendering in the terminal (regression in 1.3.0). When the Windows
+  context-menu integration added a `[project.gui-scripts]` table, the `rcat`
+  entry point was inadvertently absorbed into it, so its launcher used the GUI
+  subsystem and detached from the console. Moved `rcat` back to
+  `[project.scripts]`; it renders in the terminal again.
 
 ## [1.3.0] - 2026-06-11
 

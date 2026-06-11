@@ -154,7 +154,7 @@
      - ✓
      - ✓
      - ``.pdf``
-     - pymupdf, reportlab, pytesseract, Pillow
+     - pymupdf, reportlab, pytesseract, easyocr, Pillow
    * - ``plaintext``
      - ✓
      - ✓
