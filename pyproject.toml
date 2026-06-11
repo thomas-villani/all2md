@@ -64,6 +64,7 @@ Changelog = "https://github.com/thomas-villani/all2md/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/all2md"]
+artifacts = ["src/all2md/assets/*.ico"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/**", "pyproject.toml", "README.md", "LICENSE"]
@@ -262,6 +263,11 @@ langdetect = [
 [project.scripts]
 all2md = "all2md.cli:main"
 all2md-mcp = "all2md.mcp.server:main"
+
+[project.gui-scripts]
+# Console-less viewer used by the Windows "View with all2md" context menu so
+# right-click launches open a browser without flashing a console window.
+all2mdw = "all2md.cli.viewer_launch:main"
 rcat = "all2md.cli:rcat_main"
 
 [project.entry-points."all2md.converters"]
@@ -394,6 +400,15 @@ cache_dir = ".mypy_cache"
 [[tool.mypy.overrides]]
 module = "docx.*"
 ignore_missing_imports = false
+
+# context_menu.py is Windows-only (winreg registry plumbing). The CI type check
+# runs on Linux, where the stdlib `winreg` module exposes no attributes
+# (attr-defined) and the `sys.platform != "win32"` guard makes the Windows code
+# path look unreachable. Relax those two checks for this module only; it is
+# exercised by the Windows-gated tests in tests/unit/cli/test_context_menu.py.
+[[tool.mypy.overrides]]
+module = "all2md.cli.commands.context_menu"
+disable_error_code = ["attr-defined", "unreachable"]
 
 [tool.black]
 line-length = 120

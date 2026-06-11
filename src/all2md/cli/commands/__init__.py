@@ -61,6 +61,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_serve_command(args[1:])
 
+    # Check for context-menu command (Windows shell integration)
+    if args[0] == "context-menu":
+        from all2md.cli.commands.context_menu import handle_context_menu_command
+
+        return handle_context_menu_command(args[1:])
+
     # Check for edit command
     if args[0] == "edit":
         from all2md.cli.commands.edit import handle_edit_command
