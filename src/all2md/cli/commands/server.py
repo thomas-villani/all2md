@@ -770,6 +770,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             template_mode="replace",
             template_file=str(theme_path),
             include_toc=parsed.toc,
+            external_links_new_tab=True,
         )
         html_content = from_ast(doc, "html", renderer_options=html_opts)
         if not isinstance(html_content, str):

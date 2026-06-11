@@ -220,6 +220,41 @@ class TestLinkAndImageRendering:
         result = renderer.render_to_string(doc)
         assert 'title="Example Site"' in result
 
+    def test_external_links_new_tab_disabled_by_default(self):
+        """Without the option, external links are not given target=_blank."""
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Example")])])]
+        )
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
+        result = renderer.render_to_string(doc)
+        assert "target=" not in result
+
+    def test_external_links_new_tab_external(self):
+        """With the option enabled, external links open in a new tab."""
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://example.com", content=[Text(content="Example")])])]
+        )
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, external_links_new_tab=True))
+        result = renderer.render_to_string(doc)
+        assert 'target="_blank"' in result
+        assert 'rel="noopener noreferrer"' in result
+
+    def test_external_links_new_tab_internal_unaffected(self):
+        """Relative/anchor links stay in-place even when the option is enabled."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Link(url="#section", content=[Text(content="Anchor")]),
+                        Link(url="./other.html", content=[Text(content="Relative")]),
+                    ]
+                )
+            ]
+        )
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, external_links_new_tab=True))
+        result = renderer.render_to_string(doc)
+        assert "target=" not in result
+
     def test_image(self):
         """Test image rendering."""
         doc = Document(children=[Paragraph(content=[Image(url="image.png", alt_text="Description")])])
