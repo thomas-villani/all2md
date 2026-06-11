@@ -110,6 +110,48 @@ High-Level Data Flow
 Core Components
 ---------------
 
+Package Layout
+~~~~~~~~~~~~~~
+
+.. code-block:: text
+
+   all2md/
+   ├── ast/                 # Abstract Syntax Tree module
+   │   ├── __init__.py      # AST public API
+   │   ├── builder.py       # AST construction helpers
+   │   ├── nodes.py         # AST node definitions with document methods
+   │   ├── sections.py      # Section primitives, query functions, operations
+   │   ├── splitting.py     # Document splitting strategies
+   │   ├── serialization.py # JSON serialization
+   │   ├── transforms.py    # AST transformation utilities
+   │   ├── utils.py         # AST utility functions
+   │   └── visitors.py      # Visitor pattern for traversal
+   ├── cli/                 # Command-line interface package
+   │   ├── builder.py       # Argument parser construction
+   │   ├── commands.py      # CLI command implementations
+   │   ├── config.py        # Configuration management
+   │   ├── custom_actions.py # Custom argparse actions
+   │   ├── presets.py       # Configuration presets
+   │   ├── processors.py    # File processing and batch operations
+   │   ├── progress.py      # Progress display
+   │   ├── validation.py    # Input validation
+   │   └── watch.py         # File watching for auto-conversion
+   ├── mcp/                 # Model Context Protocol server and tools
+   ├── options/             # Format-specific options dataclasses
+   ├── parsers/             # Input format → AST converters
+   ├── renderers/           # AST → output format renderers
+   ├── transforms/          # AST transform pipeline and registry
+   ├── utils/               # Shared utilities (attachments, metadata, security, etc.)
+   ├── api.py               # Core conversion functions
+   ├── constants.py         # Default values and configuration
+   ├── converter_metadata.py # Metadata and dependency management
+   ├── converter_registry.py # Registry system for converters
+   ├── dependencies.py      # Dependency checking utilities
+   ├── exceptions.py        # Custom exception hierarchy
+   └── progress.py          # Progress callback system
+
+The sections below describe each component layer in the order data flows through it.
+
 1. Public API Layer
 ~~~~~~~~~~~~~~~~~~~
 
@@ -225,7 +267,7 @@ Core Components
 * ``ipynb.py`` – Jupyter notebooks via nbformat
 * ``rtf.py`` – RTF via pyth3
 * ``chm.py`` – Compiled HTML Help archives
-* ``sourcecode.py`` / ``plaintext.py`` – Code and plain-text lexers (200+ formats)
+* ``sourcecode.py`` / ``plaintext.py`` – Code and plain-text lexers (100+ source-code and config file types)
 * ``zip.py`` – Mixed archives with per-entry detection
 * ``ast_json.py`` – Developer-facing AST JSON interchange
 
@@ -409,6 +451,9 @@ All nodes inherit from ``Node`` base class:
 * ``AddConversionTimestampTransform`` - Add timestamp to metadata
 * ``CalculateWordCountTransform`` - Calculate word count
 * ``AddAttachmentFootnotesTransform`` - Add footnote definitions
+* ``TitlePromotionTransform`` - Promote a leading title paragraph to a heading
+
+See :doc:`transforms` for the full registry, CLI flags, and parameters.
 
 **Pipeline Example:**
 
@@ -569,11 +614,15 @@ Some options are themselves dataclasses:
        local_file_allowlist: list[str] | None = None
        local_file_denylist: list[str] | None = None
 
-**Options Cascade:**
+**Options Cascade (lowest to highest precedence):**
 
 1. **Defaults:** Defined in dataclass field defaults
-2. **Config File:** Loaded from ``--config`` file (JSON or TOML)
-3. **CLI Arguments:** Highest priority, override config/defaults
+2. **Per-option environment variables:** ``ALL2MD_<DEST>`` set each flag's default
+3. **Config file:** Loaded from ``--config`` (or ``ALL2MD_CONFIG`` / auto-discovered) JSON or TOML
+4. **Presets:** ``--preset`` bundles override the config file
+5. **CLI arguments:** Explicitly-provided flags win over everything
+
+See :doc:`configuration` and :doc:`environment_variables` for the full precedence rules and naming conventions.
 
 **CLI Mapping:**
 
@@ -688,42 +737,86 @@ See :doc:`plugins` for detailed plugin development guide.
 Dependency Management
 ---------------------
 
-all2md uses optional dependencies grouped by format:
-
-**Core (always installed):**
-
-* None - core uses only stdlib
-
-**Optional Groups:**
-
-* ``[pdf]`` - PyMuPDF
-* ``[docx]`` - python-docx, lxml
-* ``[pptx]`` - python-pptx
-* ``[html]`` - beautifulsoup4, httpx, readability-lxml
-* ``[excel]`` - openpyxl
-* ``[odf]`` - odfpy
-* ``[epub]`` - ebooklib
-* ``[eml]`` - (stdlib email package)
-* ``[rtf]`` - pyth3
-* ``[markdown]`` - mistune
-* ``[all]`` - All of the above
+all2md keeps the base install minimal and groups every format's third-party
+packages behind an optional extra (``all2md[pdf]``, ``all2md[html]``,
+``all2md[xlsx]``, …). For the complete list of extras and what each pulls in,
+see :doc:`installation`.
 
 **Lazy Loading:**
 
-Parsers are only imported when used. If a format's dependencies aren't installed, a helpful error message is shown:
+Parsers and renderers are only imported when a format is actually used. If a
+format's dependencies aren't installed, a :class:`DependencyError` is raised
+with the exact install command:
 
 .. code-block:: python
 
    from all2md.exceptions import DependencyError
 
    try:
-       import PyMuPDF
+       import fitz  # PyMuPDF
    except ImportError as e:
        raise DependencyError(
            converter_name="pdf",
-           missing_packages=[("PyMuPDF", ">=1.23.0")],
+           missing_packages=[("pymupdf", ">=1.26.4")],
            install_command="pip install 'all2md[pdf]'"
        ) from e
+
+Programmatic Dependency Checks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For automated setups, CI/CD pipelines, or installation scripts, all2md exposes
+the dependency state programmatically:
+
+.. code-block:: python
+
+   from all2md.dependencies import (
+       check_all_dependencies,
+       get_missing_dependencies,
+       generate_install_command,
+       print_dependency_report,
+   )
+
+   # Check all format dependencies
+   # Returns: dict[format_name -> dict[package_name -> is_installed]]
+   results = check_all_dependencies()
+   for format_name, packages in results.items():
+       all_installed = all(packages.values())
+       status = "available" if all_installed else "missing dependencies"
+       print(f"{format_name}: {status}")
+
+   # Check a specific format -> list[(package_name, version_spec)]
+   missing_pdf = get_missing_dependencies("pdf")
+   if missing_pdf:
+       cmd = generate_install_command(missing_pdf)
+       print(f"Install with: {cmd}")  # e.g. pip install "pymupdf>=1.26.4"
+
+   # Print a comprehensive dependency report
+   print(print_dependency_report())
+
+Registry Introspection
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``ConverterRegistry`` provides runtime awareness of every registered parser
+and renderer, including dependencies and capabilities — useful for applications
+that adapt to whatever formats are installed:
+
+.. code-block:: python
+
+   from all2md.converter_registry import registry
+
+   # Discover all registered converters (parsers + renderers)
+   registry.auto_discover()
+
+   for format_name in registry.list_formats():
+       # check_dependencies returns missing packages for the operation, or {} if all present
+       missing = registry.check_dependencies(format_name, operation="parse")
+       if not missing:
+           metadata = registry.get_format_info(format_name)[0]
+           print(
+               f"{format_name}: extensions={metadata.extensions}, "
+               f"parser={metadata.parser_class is not None}, "
+               f"renderer={metadata.renderer_class is not None}"
+           )
 
 ---
 
