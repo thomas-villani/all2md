@@ -8,7 +8,6 @@ from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import IO, Any, Optional, TypeVar, Union, cast, get_type_hints
 
-import all2md.transforms as transforms_module
 from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
@@ -26,6 +25,20 @@ from all2md.utils.input_sources import (
 from all2md.utils.io_utils import write_content
 
 logger = logging.getLogger(__name__)
+
+
+def _transforms() -> Any:
+    """Lazily import the transforms package.
+
+    The transforms package (pipeline + all built-in transforms) is only needed
+    when actually rendering, not at import time. Deferring it keeps ``import
+    all2md`` fast for callers that never render. ``sys.modules`` caches the
+    module, so repeated calls are cheap.
+    """
+    import all2md.transforms as transforms_module
+
+    return transforms_module
+
 
 # TypeVar for generic options creation
 OptionsT = TypeVar("OptionsT", BaseParserOptions, BaseRendererOptions)
@@ -501,7 +514,7 @@ def to_markdown(
 
         # Apply transforms and render using pipeline
         with debug_timer(logger, "Rendering (markdown from AST)"):
-            render_result = transforms_module.render(
+            render_result = _transforms().render(
                 ast_doc,
                 transforms=transforms or [],
                 hooks=hooks or {},
@@ -583,7 +596,7 @@ def to_markdown(
 
     # Apply transforms and render using pipeline
     with debug_timer(logger, "Rendering (markdown)"):
-        render_result = transforms_module.render(
+        render_result = _transforms().render(
             ast_doc,
             transforms=transforms or [],
             hooks=hooks or {},
@@ -884,7 +897,7 @@ def from_ast(
         final_renderer_options = renderer_options
 
     # Use transform pipeline to render
-    content = transforms_module.render(
+    content = _transforms().render(
         ast_doc,
         transforms=transforms or [],
         hooks=hooks or {},
@@ -1194,7 +1207,7 @@ def convert(
     # Render AST to target format
     renderer_spec = renderer or actual_target_format
 
-    rendered = transforms_module.render(
+    rendered = _transforms().render(
         ast_document,
         transforms=transforms,
         hooks=hooks,

@@ -23,7 +23,12 @@ from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationE
 from all2md.options import CloneFrozenMixin
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.network_security import fetch_content_securely, is_network_disabled
-from all2md.utils.robots_txt import get_global_checker
+
+# Note: robots_txt is imported lazily inside the remote-fetch path below. It pulls
+# in urllib.robotparser, which a local file conversion never needs, so deferring it
+# keeps CLI startup fast. network_security is imported eagerly above: it is
+# lightweight (stdlib only) and several tests patch its functions as module-level
+# attributes of this module.
 
 InputType = Union[str, Path, IO[bytes], IO[str], bytes]
 
@@ -358,6 +363,8 @@ class HttpRetriever(DocumentSourceRetriever):
             If httpx is not installed
 
         """
+        from all2md.utils.robots_txt import get_global_checker
+
         if is_network_disabled():
             raise ValidationError(
                 "Network access is disabled via ALL2MD_DISABLE_NETWORK.",
