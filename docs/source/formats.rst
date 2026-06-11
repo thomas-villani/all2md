@@ -14,6 +14,20 @@ most important options, and points you to the right reference guides for deeper 
    :local:
    :depth: 1
 
+Format Matrix
+-------------
+
+The table below is generated directly from the converter registry, so it always
+reflects the parsers and renderers shipped in this build. **Input** means the
+format can be parsed into Markdown/AST; **Output** means the AST can be rendered
+to that format. The *Dependencies* column lists the third-party packages a
+converter needs (``built-in`` formats need none).
+
+.. include:: _generated_formats.rst.inc
+
+The narrative sections below describe the most important format families in more
+detail.
+
 Document & Presentation Formats
 -------------------------------
 
