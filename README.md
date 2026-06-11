@@ -480,7 +480,7 @@ all2md report.pdf --pdf-pages "1-3,5"
 # Convert a scanned PDF using OCR (Tesseract engine; requires the Tesseract binary)
 all2md scanned.pdf --pdf-ocr-enabled --pdf-ocr-mode auto --pdf-ocr-languages eng
 
-# Same, using the binary-free EasyOCR engine
+# Same, using the binary-free EasyOCR engine (add --pdf-ocr-gpu for GPU acceleration when available)
 all2md scanned.pdf --pdf-ocr-enabled --pdf-ocr-engine easyocr --pdf-ocr-languages eng
 
 # Convert an HTML file, extracting the <title> as the main heading
@@ -605,7 +605,8 @@ markdown_content = to_markdown(
 from all2md.options.common import OCROptions
 
 # engine="tesseract" (default, needs the Tesseract binary) or engine="easyocr"
-# (binary-free; pip install all2md[ocr-easyocr])
+# (binary-free; pip install all2md[ocr-easyocr]). easyocr also supports gpu=True
+# for GPU acceleration when a compatible device is available (ignored by tesseract).
 ocr_opts = OCROptions(enabled=True, mode="auto", engine="tesseract", languages="eng", dpi=300)
 pdf_opts_with_ocr = PdfOptions(ocr=ocr_opts)
 markdown_content = to_markdown('scanned.pdf', parser_options=pdf_opts_with_ocr)

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-11
+
 ### Added
 
 - **EasyOCR engine for PDF OCR.** A new binary-free OCR backend, selectable via
