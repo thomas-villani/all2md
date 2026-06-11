@@ -3716,23 +3716,26 @@ For common security scenarios, all2md provides convenient preset flags that conf
       all2md webpage.html --safe-mode --attachment-mode save
 
 ``--paranoid-mode``
-   Maximum security preset: like safe-mode but with stricter size limits and host validation.
+   Maximum security preset: sanitizes HTML, blocks all remote and local file access, and caps asset size.
 
    **Applies the following settings:**
-      * All settings from ``--safe-mode``
-      * ``allowed_hosts=[]`` - Denies all remote hosts by default (use ``--html-network-allowed-hosts`` to add specific trusted hosts)
-      * ``max_attachment_size_bytes=5242880`` - Reduces max size to 5MB (from default 20MB)
-      * ``max_remote_asset_bytes=5242880`` - Reduces max remote asset size to 5MB
+      * ``strip_dangerous_elements=True`` - Removes dangerous HTML elements
+      * ``allow_remote_fetch=False`` - Blocks ALL remote URL fetching
+      * ``allow_local_files=False`` - Blocks local file access
+      * ``allow_cwd_files=False`` - Blocks current directory file access
+      * ``max_asset_size_bytes=5242880`` - Caps each asset at 5MB (default 50MB)
 
    .. note::
 
-      **Host Allowlist Semantics:**
+      Paranoid mode disables remote fetching entirely (``allow_remote_fetch=False``),
+      so a host allowlist has no effect. If you need to fetch from specific trusted
+      hosts, use ``--safe-mode`` together with ``--html-network-allowed-hosts`` instead.
+
+      **Host Allowlist Semantics** (for ``--safe-mode`` / manual configuration):
 
       * ``allowed_hosts=[]`` (empty list) - Blocks ALL remote hosts
       * ``allowed_hosts=None`` (not set) - Allows all hosts subject to other constraints (HTTPS requirement, size limits, etc.)
       * ``allowed_hosts=["example.com"]`` (specific hosts) - Only allows listed hosts
-
-      In paranoid mode, you must explicitly add trusted hosts using ``--html-network-allowed-hosts`` to allow any remote fetching.
 
    .. code-block:: bash
 

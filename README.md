@@ -132,7 +132,7 @@ While tools like Pandoc excel at document conversion, all2md is designed specifi
 
 ## Key Features
 
--   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages.
+-   **Comprehensive Format Support**: Convert between dozens of formats, including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 100 source-code and config file types.
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
 -   **Document Comparison**: Built-in `diff` command that works like Unix `diff` but for any document format. Compare PDFs, Word docs, or mixed formats with text-based, symmetric comparison.
 -   **Custom Template Rendering**: Use Jinja2 templates to create any text-based output format (DocBook XML, YAML, ANSI terminal, custom markup) without writing Python code.
@@ -202,7 +202,7 @@ See [MCP Server](#mcp-server-for-ai-assistants) and [Agent Skills](#agent-skills
 
 ### Additional Strengths
 
--   **Comprehensive Format Support** - 40+ input formats and 25+ output formats including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 200 source code languages
+-   **Comprehensive Format Support** - 35+ input formats and 20+ output formats including PDF, DOCX, PPTX, HTML, EML, EPUB, XLSX, IPYNB, RST, Org-Mode, ZIP archives, and over 100 source-code and config file types
 -   **Advanced PDF Parsing** - Intelligent table detection, multi-column layout analysis, optional GNN-based semantic layout classification, header/footer removal, OCR support for scanned documents, powered by PyMuPDF
 -   **Highly Configurable** - Fine-tune every aspect of conversion using clean, type-safe dataclass options for each format
 -   **Security-Conscious** - Built-in SSRF protection, archive validation (ZIP bombs, path traversal), and sandboxed HTML rendering
@@ -340,7 +340,7 @@ After installation, agents automatically discover the skills and use them when r
 | **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
 | **OpenAPI/Swagger**           | `.yaml`, `.yml`, `.json`                      |       ✅       |       (N/A)    | `openapi`          |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
-| **Source Code**               | 200+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
+| **Source Code**               | 100+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 | **Jinja2 Templates (Custom)** | User-defined (`.jinja2`, `.j2`)               |       ❌       |        ✅      | `jinja2`           |

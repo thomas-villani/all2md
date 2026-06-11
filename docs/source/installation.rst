@@ -369,7 +369,7 @@ Excel Spreadsheets
 
 .. code-block:: bash
 
-   pip install all2md[spreadsheet]
+   pip install all2md[xlsx]
 
 **Dependencies:** openpyxl
 
@@ -398,7 +398,7 @@ Install Multiple Formats
    pip install all2md[pdf,docx,html]
 
    # Office suite formats
-   pip install all2md[pdf,docx,pptx,spreadsheet]
+   pip install all2md[pdf,docx,pptx,xlsx]
 
    # All supported formats
    pip install all2md[all]
@@ -406,19 +406,23 @@ Install Multiple Formats
 All Dependencies
 ~~~~~~~~~~~~~~~~
 
-The ``all`` extra includes every optional dependency:
+The ``all`` extra pulls in every optional runtime dependency across all
+supported formats and features:
 
 .. code-block:: bash
 
    pip install all2md[all]
 
-This is equivalent to:
+This covers PDF, the Office formats (DOCX/PPTX/XLSX), OpenDocument, web/HTML
+(including readability extraction), e-books (EPUB/FB2), RTF, reStructuredText,
+Org, Outlook/MSG, wiki formats, LaTeX, OCR, document rendering, ranked search,
+Jinja templates, the MCP server, and archive extraction.
 
-.. code-block:: bash
-
-   pip install all2md[pdf,docx,pptx,html,epub,rtf,rst,org,odf,spreadsheet]
-
-**Note:** The ``eml`` and ``ipynb`` extras are not needed as these formats use built-in Python libraries.
+**Note:** The ``eml`` and ``ipynb`` extras are not listed because these formats
+use built-in Python libraries. The ``pdf_layout`` extra is intentionally
+**excluded** from ``all`` because its dependency (``pymupdf-layout``) uses the
+Polyform Noncommercial license; install it separately with
+``pip install all2md[pdf_layout]`` if you need advanced PDF layout analysis.
 
 Dependency Management
 ---------------------

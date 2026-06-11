@@ -559,7 +559,8 @@ Some options are themselves dataclasses:
        allowed_hosts: list[str] | None = None
        require_https: bool = True
        network_timeout: float = 10.0
-       max_remote_asset_bytes: int = 10 * 1024 * 1024
+       max_requests_per_second: float = 10.0
+       max_concurrent_requests: int = 5
 
    @dataclass
    class LocalFileAccessOptions:

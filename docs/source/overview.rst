@@ -491,12 +491,12 @@ HTML processing includes sophisticated network security features to prevent SSRF
 
    # Secure configuration for web applications
    secure_options = HtmlOptions(
+       max_asset_size_bytes=2 * 1024 * 1024,  # 2MB cap per asset
        network=NetworkFetchOptions(
            allow_remote_fetch=True,       # Enable remote fetching
            allowed_hosts=["example.com", "cdn.example.com"],  # Whitelist specific hosts
            require_https=True,            # Force HTTPS for all requests
            network_timeout=5.0,           # 5-second timeout
-           max_remote_asset_bytes=2 * 1024 * 1024  # 2MB image limit
        ),
        attachment_mode="save",
        attachment_output_dir="./secure_images"

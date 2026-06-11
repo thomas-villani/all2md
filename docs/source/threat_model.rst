@@ -130,12 +130,12 @@ all2md provides multiple SSRF defenses via ``NetworkFetchOptions``:
 
 **Implementation Details:**
 
-* ``utils/network_security.py``: ``fetch_image_securely()`` validates URLs before fetching
+* ``utils/network_security.py``: ``validate_url_security()`` validates URLs before fetching (invoked by ``fetch_image_securely()``)
 * Blocks private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
 * Blocks localhost (127.0.0.0/8, ::1)
 * Blocks cloud metadata IPs (169.254.169.254)
 * Enforces HTTPS when ``require_https=True``
-* Enforces size limits via ``max_remote_asset_bytes``
+* Enforces size limits via ``max_asset_size_bytes``
 * Enforces timeouts via ``network_timeout``
 
 **Risk Level:** High (without protections)
@@ -246,17 +246,17 @@ all2md provides built-in ZIP validation:
    # Automatically called by DOCX, PPTX, EPUB, ODT parsers
    validate_zip_archive(
        zip_path,
-       max_files=10000,        # Limit number of files
-       max_file_size=100*1024*1024,  # 100MB per file
-       max_compression_ratio=100.0    # 100:1 max ratio
+       max_entries=10000,                       # Limit number of entries
+       max_uncompressed_size=100*1024*1024,     # 100MB total uncompressed
+       max_compression_ratio=100.0              # 100:1 max ratio
    )
 
 **Validation Checks:**
 
-1. **File Count Limit:** Prevents ZIP files with excessive number of entries
-2. **Individual File Size:** Limits size of each file within archive
-3. **Compression Ratio:** Detects suspiciously high compression (potential bomb)
-4. **Path Traversal:** Blocks files with ``../`` in paths (zip slip attack)
+1. **Entry Count Limit:** Prevents ZIP files with excessive number of entries
+2. **Total Uncompressed Size:** Caps the combined uncompressed size of all entries
+3. **Compression Ratio:** Detects suspiciously high aggregate compression (potential bomb)
+4. **Path Traversal:** Blocks entries with ``../`` paths, leading ``/``, or Windows drive letters (zip slip attack)
 
 **Implementation Details:**
 
@@ -296,10 +296,11 @@ all2md provides multiple resource limits:
       from all2md import to_markdown, HtmlOptions
 
       limited_config = HtmlOptions(
-          max_asset_bytes=5*1024*1024,  # 5MB max for images
+          max_asset_size_bytes=5*1024*1024,  # 5MB cap per asset (local or remote)
           network=NetworkFetchOptions(
-              max_remote_asset_bytes=2*1024*1024  # 2MB max for remote
-          )
+              allow_remote_fetch=True,
+              require_https=True,
+          ),
       )
 
 2. **Network Timeouts:**
@@ -322,9 +323,8 @@ all2md provides multiple resource limits:
 
 **Implementation Details:**
 
-* ``max_asset_bytes``: Enforced during image processing
+* ``max_asset_size_bytes``: Enforced for every asset (images, downloads, attachments); default 50MB
 * ``network_timeout``: Enforced during HTTP requests
-* ``max_remote_asset_bytes``: Enforced during downloads
 * Application should add additional limits (file size, processing time)
 
 **Risk Level:** Medium
@@ -496,7 +496,7 @@ This table maps each attack vector to the relevant security options:
      - Automatic (max_compression_ratio=100)
    * - Resource Exhaustion
      - Size/Timeout Limits
-     - ``max_asset_bytes``, ``network_timeout``
+     - ``max_asset_size_bytes``, ``network_timeout``
    * - Path Traversal
      - validate_zip_archive
      - Automatic (blocks ``../``)
@@ -544,12 +544,12 @@ When processing documents from trusted sources (internal systems):
 
    # Trusted mode: enable features with safeguards
    trusted_config = HtmlOptions(
+       max_asset_size_bytes=10*1024*1024,  # 10MB cap per asset
        network=NetworkFetchOptions(
            allow_remote_fetch=True,
            allowed_hosts=["cdn.mycompany.com"],  # Limit to known CDN
            require_https=True,
            network_timeout=10.0,
-           max_remote_asset_bytes=10*1024*1024  # 10MB limit
        ),
        local_files=LocalFileAccessOptions(
            allow_local_files=True,
@@ -623,7 +623,7 @@ Use this checklist when deploying all2md for untrusted input:
    [ ] Set allow_local_files=False (or strict allowlist)
    [ ] Set strip_dangerous_elements=True for HTML (removes script, style, event handlers)
    [ ] Set strip_framework_attributes=True if re-rendering HTML with frameworks
-   [ ] Set max_asset_bytes to reasonable limit
+   [ ] Set max_asset_size_bytes to reasonable limit
    [ ] Set network_timeout to prevent hangs
    [ ] Implement application-level file size limits
    [ ] Implement processing timeouts

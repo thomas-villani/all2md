@@ -183,7 +183,7 @@ Additional supported formats:
      - Plain text files
    * - Source Code
      - :doc:`all2md.parsers.sourcecode`
-     - 200+ programming languages
+     - 100+ source-code and config file extensions
    * - BBCode
      - :doc:`all2md.parsers.bbcode`
      - Forum BBCode markup

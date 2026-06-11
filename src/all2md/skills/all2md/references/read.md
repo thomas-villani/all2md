@@ -8,7 +8,7 @@
 
 ## Overview
 
-`all2md` reads any document and outputs clean Markdown. It supports 40+ input formats including PDF, DOCX, PPTX, HTML, XLSX, EML, images, notebooks, and 200+ programming languages.
+`all2md` reads any document and outputs clean Markdown. It supports 35+ input formats including PDF, DOCX, PPTX, HTML, XLSX, EML, images, notebooks, and 100+ source-code and config file types.
 
 ## CLI Quick Reference
 
@@ -212,7 +212,7 @@ markdown = to_markdown(
 **Data**: XLSX, CSV, TSV, JSON, YAML, TOML, INI
 **Markup**: Markdown, reStructuredText, AsciiDoc, LaTeX, Org-Mode, MediaWiki, Textile
 **Notebooks**: Jupyter (.ipynb)
-**Code**: 200+ programming languages
+**Code**: 100+ source-code and config file types
 **Other**: FB2, CHM, OpenAPI, ZIP/TAR/7Z archives
 
 Run `all2md list-formats` to see all formats with dependency status.

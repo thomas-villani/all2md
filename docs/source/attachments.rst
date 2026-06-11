@@ -462,8 +462,8 @@ Email Files (EML)
    options = EmlOptions(
        attachment_mode='save',
        attachment_output_dir='./email_attachments',
-       # EML-specific: limit attachment size
-       max_email_attachment_bytes=10 * 1024 * 1024  # 10 MB max
+       # Cap the size of any single attachment/asset
+       max_asset_size_bytes=10 * 1024 * 1024  # 10 MB max
    )
    markdown = to_markdown('message.eml', parser_options=options)
 
@@ -658,11 +658,11 @@ HTML documents can reference remote resources. This poses security risks:
    options = HtmlOptions(
        attachment_mode='save',
        attachment_output_dir='./images',
+       max_asset_size_bytes=5 * 1024 * 1024,  # 5 MB cap per asset
        network=NetworkFetchOptions(
            allow_remote_fetch=True,
            require_https=True,              # HTTPS only
            allowed_hosts=['example.com'],   # Whitelist specific domains
-           max_remote_asset_bytes=5 * 1024 * 1024  # 5 MB limit
        )
    )
 

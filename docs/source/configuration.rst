@@ -69,8 +69,8 @@ TOML is the recommended format because it supports comments and is easy to read 
    [markdown]
    flavor = "gfm"
    emphasis_symbol = "*"
-   strong_symbol = "**"
-   bullet_list_marker = "-"
+   bullet_symbols = "-"
+   use_hash_headings = true
 
    # PDF-specific options
    [pdf]
@@ -110,7 +110,7 @@ YAML provides similar readability to TOML with a different syntax style.
    markdown:
      flavor: gfm
      emphasis_symbol: "*"
-     strong_symbol: "**"
+     bullet_symbols: "-"
 
    # PDF-specific options
    pdf:
@@ -350,12 +350,12 @@ Control the Markdown output format under the ``[markdown]`` section:
    * - ``emphasis_symbol``
      - string
      - Character for emphasis: ``*`` or ``_``
-   * - ``strong_symbol``
+   * - ``bullet_symbols``
      - string
-     - Characters for strong: ``**`` or ``__``
-   * - ``bullet_list_marker``
-     - string
-     - Bullet character: ``-``, ``*``, or ``+``
+     - Characters to cycle through for nested bullet lists (default ``*-+``)
+   * - ``use_hash_headings``
+     - bool
+     - Use ``#`` ATX headings (``true``) instead of Setext underline headings (``false``)
 
 Format-Specific Options
 ~~~~~~~~~~~~~~~~~~~~~~~

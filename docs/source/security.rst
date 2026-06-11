@@ -113,12 +113,12 @@ When you need remote assets, ``NetworkFetchOptions`` controls how fetching occur
 
    # With size, timeout, and rate limits
    limited_config = HtmlOptions(
+       max_asset_size_bytes=2*1024*1024,   # 2MB cap per asset (parser-level)
        network=NetworkFetchOptions(
            allow_remote_fetch=True,
            allowed_hosts=["trusted-cdn.com"],
            require_https=True,
            network_timeout=5.0,          # 5 second timeout
-           max_remote_asset_bytes=2*1024*1024,  # 2MB limit
            max_requests_per_second=3.0,
            max_concurrent_requests=2,
        )
@@ -191,12 +191,14 @@ Protect against resource exhaustion with limits and throttling:
 
 .. code-block:: python
 
-   network_opts = NetworkFetchOptions(
-       allow_remote_fetch=True,
-       network_timeout=10.0,       # Timeout after 10 seconds
-       max_remote_asset_bytes=5*1024*1024,  # 5MB max per asset (default: 20MB)
-       max_requests_per_second=2.0,
-       max_concurrent_requests=1,
+   html_opts = HtmlOptions(
+       max_asset_size_bytes=5*1024*1024,   # 5MB max per asset (default: 50MB)
+       network=NetworkFetchOptions(
+           allow_remote_fetch=True,
+           network_timeout=10.0,       # Timeout after 10 seconds
+           max_requests_per_second=2.0,
+           max_concurrent_requests=1,
+       ),
    )
 
 Global Network Disable
@@ -250,15 +252,18 @@ Quick reference for ``HtmlOptions.network.*`` settings:
    * - ``network_timeout``
      - ``10.0``
      - Timeout in seconds for network requests
-   * - ``max_remote_asset_bytes``
-     - ``20971520``
-     - Max download size per asset (20MB default)
    * - ``max_requests_per_second``
      - ``10.0``
      - Rate limit for remote asset fetching
    * - ``max_concurrent_requests``
      - ``5``
      - Maximum concurrent network requests
+
+.. note::
+
+   The per-asset download size cap is **not** a network setting. It is
+   ``HtmlOptions.max_asset_size_bytes`` (default 50 MB), which applies to any
+   single asset — local or remote — across all formats.
 
 Remote Document Fetching
 ------------------------
@@ -569,17 +574,19 @@ Many office formats (``.docx``, ``.pptx``, ``.xlsx``) and EPUB bundles are ZIP a
 
    from all2md import to_markdown
    from all2md.utils.security import validate_zip_archive
+   from all2md.exceptions import ZipFileSecurityError
 
    # Validate before processing
    try:
        validate_zip_archive(
-           archive_path="suspicious.epub",  # EPUB files are ZIP archives
+           file_path="suspicious.epub",  # EPUB files are ZIP archives
            max_uncompressed_size=100*1024*1024,  # 100MB limit
-           max_compression_ratio=100  # Flag if compression > 100:1
+           max_compression_ratio=100,  # Flag if compression > 100:1
+           max_entries=10000,  # Cap on number of archive members
        )
        # Safe to process
        markdown = to_markdown("suspicious.epub")
-   except SecurityError as e:
+   except ZipFileSecurityError as e:
        print(f"Archive validation failed: {e}")
 
 Quick facts:
@@ -678,9 +685,9 @@ Balanced security for general use:
 Safe mode enables:
 
 * HTML sanitization (``strip_dangerous_elements=True``)
-* HTTPS enforcement (``require_https=True``)
+* Remote fetching allowed, but HTTPS-only (``allow_remote_fetch=True``, ``require_https=True``)
 * Blocks local file access (``allow_local_files=False``)
-* Allows CWD files only (``allow_cwd_files=True``)
+* Blocks current-directory file access (``allow_cwd_files=False``)
 
 Paranoid Mode
 ~~~~~~~~~~~~~
@@ -694,12 +701,17 @@ Maximum security for untrusted input:
 
 Paranoid mode enables:
 
-* All safe mode protections
-* Blocks ALL network requests (``allow_remote_fetch=False``)
-* Blocks ALL local files including CWD (``allow_cwd_files=False``)
-* Strips JavaScript framework attributes (``strip_framework_attributes=True``)
-* Strict timeouts and size limits
-* Attachment mode set to ``skip`` (no file writes)
+* HTML sanitization (``strip_dangerous_elements=True``)
+* Blocks ALL remote fetching (``allow_remote_fetch=False``)
+* Blocks ALL local and current-directory file access (``allow_local_files=False``, ``allow_cwd_files=False``)
+* Caps each asset at 5 MB (``max_asset_size_bytes=5*1024*1024``)
+
+.. note::
+
+   Paranoid mode does **not** set ``strip_framework_attributes`` or change the
+   attachment mode. If you are re-rendering to HTML and need framework
+   directives removed, set ``HtmlOptions(strip_framework_attributes=True)``
+   explicitly.
 
 Recommended Secure Configurations
 ---------------------------------
@@ -714,11 +726,11 @@ Use the following starting points and adjust to match your threat model:
      - How to enable
      - Highlights
    * - Locked-down HTML ingestion
-     - ``HtmlOptions`` with ``allow_remote_fetch=False``, ``allow_local_files=False``, ``strip_dangerous_elements=True``, ``strip_framework_attributes=True``; CLI ``--paranoid-mode``
-     - Maximizes isolation by blocking network/local files and stripping all risky markup including event handlers and framework attributes
+     - CLI ``--paranoid-mode``, or ``HtmlOptions`` with ``allow_remote_fetch=False``, ``allow_local_files=False``, ``strip_dangerous_elements=True`` (add ``strip_framework_attributes=True`` to also strip framework directives)
+     - Maximizes isolation by blocking network/local files and stripping risky markup including event handlers
    * - Balanced safe defaults
-     - CLI ``--safe-mode`` or preset ``security.safe``
-     - Keeps HTTPS-only remote fetch, sanitizes HTML, and limits attachments while allowing opt-in flexibility
+     - CLI ``--safe-mode``
+     - Keeps HTTPS-only remote fetch, sanitizes HTML, and blocks local file access while allowing opt-in flexibility
    * - Trusted-source pipeline
      - Allowlist trusted hosts/directories, enable attachments with output dir
      - Maintains protections against private IPs and dangerous schemes but relaxes access for vetted content
@@ -879,7 +891,7 @@ When processing documents from untrusted sources, ensure:
 - [ ] Set ``allow_remote_fetch=False`` or use strict allowlist
 - [ ] Enable ``require_https=True`` if fetching allowed
 - [ ] Set reasonable ``network_timeout`` values
-- [ ] Limit ``max_remote_asset_bytes`` appropriately
+- [ ] Limit ``max_asset_size_bytes`` appropriately
 - [ ] Consider ``ALL2MD_DISABLE_NETWORK`` environment variable in production
 - [ ] Monitor request rate with ``max_requests_per_second`` and ``max_concurrent_requests``
 

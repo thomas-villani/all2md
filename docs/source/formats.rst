@@ -267,7 +267,7 @@ Source Code & Plain Text
 
 *Parsers:* ``SourceCodeToAstConverter`` & ``PlainTextToAstConverter`` — *Renderer:* ``PlainTextRenderer``
 
-- ``sourcecode`` uses Pygments lexers to normalise more than 200 programming and config formats
+- ``sourcecode`` recognises over 100 source-code and config file extensions (69 distinct languages) via a built-in extension-to-language map, wrapping the content in a fenced code block tagged with the detected language
 - ``plaintext`` handles everything else, mapping headings and simple structure where possible
 
 ZIP Archives
