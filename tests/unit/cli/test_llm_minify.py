@@ -33,6 +33,20 @@ def test_squeeze_whitespace_collapses_blank_lines() -> None:
     assert out == "a\n\nb\n\nc\n"
 
 
+def test_squeeze_whitespace_collapses_interior_spaces_outside_code() -> None:
+    text = "Some  text   with    gaps.\n\n```py\nx  =  1   #  keep\n```\n"
+    out = _squeeze_whitespace(text)
+    assert "Some text with gaps." in out
+    # Code fence contents are preserved verbatim.
+    assert "x  =  1   #  keep" in out
+
+
+def test_squeeze_whitespace_preserves_leading_indentation() -> None:
+    out = _squeeze_whitespace("- item\n    nested  continuation\n")
+    # Leading indentation kept; interior double space collapsed.
+    assert "    nested continuation" in out
+
+
 def test_default_preset_keeps_markdown_drops_filler(sample_md: Path, capsys: pytest.CaptureFixture[str]) -> None:
     rc = handle_llm_minify_command([str(sample_md), "--no-config"])
     assert rc == 0
@@ -44,6 +58,16 @@ def test_default_preset_keeps_markdown_drops_filler(sample_md: Path, capsys: pyt
     assert "a comment" not in out
     assert "<div>" not in out
     assert "\n\n\n" not in out
+
+
+def test_default_preset_placeholders_data_uri_images(sample_md: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rc = handle_llm_minify_command([str(sample_md), "--no-config"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    # Base64 blob dropped, but the image reference and alt text survive.
+    assert "data:image" not in out
+    assert "AAAA" not in out
+    assert "![img]" in out
 
 
 def test_aggressive_preset_strips_formatting(sample_md: Path, capsys: pytest.CaptureFixture[str]) -> None:

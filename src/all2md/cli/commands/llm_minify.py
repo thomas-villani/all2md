@@ -8,7 +8,8 @@ default ``all2md <file>`` command does, but strips filler that wastes LLM
 tokens. Two presets are available:
 
 - **compact Markdown** (default): keep Markdown structure (headings, lists,
-  code, tables) while dropping comments, frontmatter, raw HTML and collapsing
+  code, tables) while dropping comments, frontmatter, raw HTML, replacing
+  embedded base64 image data with an alt-text-only reference, and collapsing
   redundant blank lines/whitespace.
 - **plain text** (``--aggressive`` / ``--text``): strip all formatting down to
   bare text via the plain-text renderer.
@@ -82,14 +83,25 @@ class _MinifyTransformer(NodeTransformer):
     concatenated text so the result stays a valid inline child.
     """
 
-    def __init__(self, strip_links: bool, strip_images: bool, strip_formatting: bool) -> None:
+    def __init__(
+        self,
+        strip_links: bool,
+        strip_images: bool,
+        strip_formatting: bool,
+        placeholder_data_uris: bool = True,
+    ) -> None:
         self._strip_links = strip_links
         self._strip_images = strip_images
         self._strip_formatting = strip_formatting
+        self._placeholder_data_uris = placeholder_data_uris
 
     def visit_image(self, node: Image) -> Node | None:  # type: ignore[override]
         if self._strip_images:
             return None
+        if self._placeholder_data_uris and node.url.startswith("data:"):
+            # Drop the (often huge) base64 blob; keep the alt text as the
+            # only signal an LLM can actually use.
+            return Image(url="", alt_text=node.alt_text)
         return super().visit_image(node)
 
     def visit_link(self, node: Link) -> Node:  # type: ignore[override]
@@ -119,12 +131,33 @@ class _MinifyTransformer(NodeTransformer):
         return self._unwrap(node) if self._strip_formatting else super().visit_subscript(node)  # type: ignore[arg-type]
 
 
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+
+
 def _squeeze_whitespace(text: str) -> str:
-    """Collapse filler whitespace: trailing spaces, runs of blank lines, edges."""
-    # Strip trailing spaces/tabs on each line.
-    text = re.sub(r"[ \t]+(\r?\n)", r"\1", text)
+    """Collapse filler whitespace while preserving fenced code blocks.
+
+    Trims trailing whitespace and collapses interior runs of spaces (so prose
+    pulled from PDFs/Word loses the double-spacing and column gaps), but leaves
+    leading indentation and the contents of fenced code blocks untouched.
+    Runs of blank lines collapse to a single blank line.
+    """
+    in_fence = False
+    out_lines: list[str] = []
+    for line in text.splitlines():
+        if _FENCE_RE.match(line):
+            in_fence = not in_fence
+            out_lines.append(line.rstrip())
+            continue
+        if in_fence:
+            # Preserve code verbatim — interior spacing may be significant.
+            out_lines.append(line)
+            continue
+        # Collapse interior runs of 2+ spaces, keeping leading indentation.
+        out_lines.append(re.sub(r"(?<=\S) {2,}", " ", line).rstrip())
+    text = "\n".join(out_lines)
     # Collapse two or more blank lines into a single blank line.
-    text = re.sub(r"(\r?\n){3,}", "\n\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
     # Trim leading/trailing blank lines and ensure a single trailing newline.
     return text.strip("\n") + "\n"
 
@@ -171,15 +204,16 @@ def handle_llm_minify_command(args: list[str] | None = None) -> int:
     try:
         doc = to_ast(input_source)  # type: ignore[arg-type]
 
-        if parsed.strip_links or parsed.strip_images or parsed.strip_formatting:
-            transformer = _MinifyTransformer(
-                strip_links=parsed.strip_links,
-                strip_images=parsed.strip_images,
-                strip_formatting=parsed.strip_formatting,
-            )
-            transformed = transformer.transform(doc)
-            if transformed is not None:
-                doc = transformed  # type: ignore[assignment]
+        # Always run the transformer: even with no --strip-* flags it replaces
+        # embedded base64 image data with an alt-text-only reference.
+        transformer = _MinifyTransformer(
+            strip_links=parsed.strip_links,
+            strip_images=parsed.strip_images,
+            strip_formatting=parsed.strip_formatting,
+        )
+        transformed = transformer.transform(doc)
+        if transformed is not None:
+            doc = transformed  # type: ignore[assignment]
 
         if parsed.aggressive:
             result = from_ast(

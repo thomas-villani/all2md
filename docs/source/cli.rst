@@ -5367,8 +5367,10 @@ it when you only need the content, not the formatting or spacing.
 Two presets are available:
 
 * **Compact Markdown** (default) — keeps Markdown structure (headings, lists,
-  code, tables) while dropping comments, frontmatter and raw HTML, and collapsing
-  redundant blank lines/whitespace.
+  code, tables) while dropping comments, frontmatter and raw HTML, replacing
+  embedded base64 image data with an alt-text-only reference (so a single
+  screenshot no longer costs tens of thousands of tokens), and collapsing
+  redundant blank lines and interior whitespace.
 * **Plain text** (``--aggressive`` / ``--text``) — strips *all* formatting down to
   bare text.
 
