@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-11
+
+### Added
+- `all2md llm-minify` — a token-lean conversion command for feeding documents to LLMs. The default preset keeps Markdown structure (headings, lists, code, tables) while dropping comments, frontmatter, and raw HTML, replacing embedded base64 image data with an alt-text-only reference (so a single inlined screenshot no longer costs tens of thousands of tokens), and collapsing redundant blank lines and interior whitespace. `--aggressive` (alias `--text`) strips all formatting down to bare text, and `--strip-links`/`--strip-images`/`--strip-formatting` layer additional pruning on top of either preset.
+- Windows right-click context-menu integration via `all2md context-menu` (per-user, no administrator rights). It installs a **View** entry on files (browser preview), an **Edit** entry on files (in-browser editor), and a **Serve** entry on folders (local server). `install` registers View by default; add `--edit`, `--serve`, or `--all` for the others. `status` reports which entries are installed and `uninstall` removes them all. The file entries honor `--extensions`/`--all-text` for which file types they appear on; the folder Serve entry is unaffected.
+- `generate-site` gained MkDocs, Zola, and Eleventy generators, joining the existing static-site backends.
+
 ### Changed
+- JSON, YAML, TOML, and INI inputs now convert to a fenced, syntax-highlighted code block by default instead of a table/definition-list document (comments are preserved for the formats that have them). This is easier to read and round-trips cleanly. Pass `--<fmt>-no-literal-block` (e.g. `--json-no-literal-block`) to restore the previous structured-document output.
+- In `all2md view` and `all2md serve`, external links now open in a new browser tab (`target="_blank" rel="noopener noreferrer"`) so clicking an off-site link no longer navigates away from the document; internal and relative links are unchanged. Plain `--to html` output is unaffected.
 - Restructured the bundled agent skills into a single `all2md` skill following Anthropic's progressive-disclosure pattern: a lean `SKILL.md` overview that routes to per-task guides under `references/` (`read`, `convert`, `generate`, `grep`, `search`, `diff`), replacing the previous six top-level `all2md-*` skills. `install-skills` installs the one skill tree; `llm-help <topic>` maps to the reference files (topics unchanged, plus `overview`).
+- Faster CLI startup: a generated converter manifest lets the CLI resolve formats without importing every converter module at launch.
 
 ### Fixed
+- `auto` OCR mode now recovers scanned PDFs that previously came back empty. The per-page heuristic counts meaningful (alphanumeric) characters instead of raw string length, so pages whose extracted "text" is only whitespace or invisible glyphs now trigger OCR; a document-level safety net additionally re-runs OCR when the entire document renders near-empty under `auto`. When OCR is disabled, a hint now suggests `--pdf-ocr-mode force`.
 - Corrected stale/renamed CLI flags throughout the bundled skills and docs (GitHub issue #16). Notably `--html-standalone` (HTML is standalone by default; use `--html-renderer-no-standalone` for a fragment), `--docx-template` → `--docx-renderer-template-path`, `--pdf-page-size` → `--pdf-renderer-page-size`, `--jinja-template*` → `--jinja-renderer-template*`, `--pdf-detect-tables` → `--pdf-table-detection-mode`, search `--semantic`/`--mode bm25` → `--vector`/`--keyword`, and several others. Added a regression test that fails if any removed flag reappears in bundled skill content.
+
+### Documentation
+- Comprehensive documentation audit: split the overview into a user-facing guide and a separate architecture-internals page, reconciled configuration-precedence docs, removed overlapping/duplicated guidance, and fixed a range of accuracy and correctness errors across the guides. The supported-format matrix is now auto-generated from the converter registry during the Sphinx build, so it can no longer drift from the code.
 
 ## [1.2.0] - 2026-05-29
 
