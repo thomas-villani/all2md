@@ -675,7 +675,7 @@ Zola Frontmatter
 
 Zola validates page frontmatter against a fixed schema and **errors on unknown top-level keys**. ``generate-site`` handles this by nesting tags/categories under ``[taxonomies]`` and non-standard fields (such as ``author``) under ``[extra]``:
 
-.. code-block:: toml
+.. code-block:: text
 
    +++
    title = "Getting Started with all2md"
