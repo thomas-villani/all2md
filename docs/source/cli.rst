@@ -5241,3 +5241,59 @@ Options
      - Remove ``all2md-*`` skills from target
 
 The completion scripts are static and self-contained, requiring no runtime calls to ``all2md``. If you add new formats via plugins, regenerate the completion script to include the new options.
+
+LLM Help Command
+----------------
+
+The ``all2md llm-help`` command prints the bundled agent-skill reference files to
+stdout. It is handy when driving the CLI from an LLM or script without installing
+the skill into an assistant. The topics are auto-discovered from the skill's
+``references/*.md`` files.
+
+.. code-block:: bash
+
+   # List available topics
+   all2md llm-help --list
+
+   # Print a single topic
+   all2md llm-help convert
+
+   # Print every topic (the full reference)
+   all2md llm-help
+
+Available topics are ``overview``, ``read``, ``convert``, ``generate``, ``grep``,
+``search``, and ``diff``.
+
+Context Menu Command (Windows)
+------------------------------
+
+On Windows, ``all2md context-menu`` manages a per-user right-click
+"View with all2md" shell entry (no administrator rights required).
+
+.. code-block:: bash
+
+   # Install the right-click entry
+   all2md context-menu install
+
+   # Show whether the entry is installed
+   all2md context-menu status
+
+   # Remove the entry
+   all2md context-menu uninstall
+
+   # Limit the entry to specific extensions
+   all2md context-menu install --extensions "md,pdf,docx"
+
+   # Also show the entry on all text files
+   all2md context-menu install --all-text
+
+Command Aliases
+---------------
+
+A few commands accept short aliases:
+
+* ``all2md formats`` is an alias for ``all2md list-formats``
+* ``all2md transforms`` is an alias for ``all2md list-transforms``
+
+The ``config`` subcommands (``generate``/``show``) also accept ``--format yaml``
+in addition to ``toml`` and ``json``.

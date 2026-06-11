@@ -115,7 +115,13 @@ Block nodes represent block-level elements:
        TableRow,      # Table rows
        TableCell,     # Table cells
        ThematicBreak, # Horizontal rules
-       HTMLBlock      # Raw HTML blocks
+       HTMLBlock,     # Raw HTML blocks
+       MathBlock,     # Display math blocks
+       FootnoteDefinition,    # Footnote definitions
+       DefinitionList,        # Definition lists
+       DefinitionTerm,        # Definition list terms
+       DefinitionDescription, # Definition list descriptions
+       Comment        # Block-level comments
    )
 
    # Example: Create heading programmatically
@@ -145,7 +151,10 @@ Inline nodes represent inline formatting:
        Underline,     # Underlined text
        Superscript,   # Superscript
        Subscript,     # Subscript
-       HTMLInline     # Inline HTML
+       HTMLInline,    # Inline HTML
+       MathInline,        # Inline math
+       FootnoteReference, # Footnote references
+       CommentInline      # Inline comments
    )
 
    # Example: Create link programmatically

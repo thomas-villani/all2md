@@ -338,6 +338,14 @@ After installation, agents automatically discover the skills and use them when r
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
 | **MediaWiki**                 | `.wiki`, `.mw`                                |       ✅       |        ✅      | `wiki`             |
 | **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
+| **BBCode**                    | `.bbcode`, `.bb`                              |       ✅       |       (N/A)    | (built-in)         |
+| **DokuWiki**                  | `.doku`, `.dokuwiki`                          |       ✅       |        ✅      | (built-in)         |
+| **Evernote Export**           | `.enex`                                       |       ✅       |       (N/A)    | `enex`             |
+| **Safari Web Archive**        | `.webarchive`                                 |       ✅       |       (N/A)    | `html`             |
+| **JSON**                      | `.json`                                       |       ✅       |        ✅      | (built-in)         |
+| **YAML**                      | `.yaml`, `.yml`                               |       ✅       |        ✅      | (built-in)         |
+| **TOML**                      | `.toml`                                       |       ✅       |        ✅      | (built-in)         |
+| **INI / Config**              | `.ini`, `.cfg`, `.conf`                       |       ✅       |        ✅      | (built-in)         |
 | **OpenAPI/Swagger**           | `.yaml`, `.yml`, `.json`                      |       ✅       |       (N/A)    | `openapi`          |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
 | **Source Code**               | 100+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |

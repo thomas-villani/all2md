@@ -250,10 +250,11 @@ Spreadsheets (XLSX & ODS)
 Delimited Files (CSV/TSV)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*Parser:* ``CsvToAstConverter``
+*Parser & Renderer:* ``CsvToAstConverter`` / ``CsvRenderer``
 
 - Dialect detection, encoding handling, and size guards for large datasets
 - Shares spreadsheet options such as ``max_rows`` and ``max_cols``
+- Renderer emits CSV from tabular AST content, enabling table extraction round-trips
 
 Jupyter Notebooks (IPYNB)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -275,6 +276,29 @@ Archive Formats (TAR/7Z/RAR)
 - Extracts resource files (images, binaries) to attachment directory when configured
 - Creates structured document with headings for each archive member
 - Handles compressed archives transparently with automatic decompression
+
+Data & Configuration Formats (JSON/YAML/TOML/INI)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Parsers & Renderers:* ``JsonParser``/``JsonRenderer``, ``YamlParser``/``YamlRenderer``,
+``TomlParser``/``TomlRenderer``, ``IniParser``/``IniRenderer``
+
+- Bidirectional conversion between structured data files and the common AST
+- JSON and INI are built-in; YAML uses ``pyyaml`` and TOML uses ``tomli-w`` for writing
+- Useful for turning configuration and data files into readable Markdown tables/sections,
+  or rendering AST content back out to a structured-data format
+
+Other Built-in Formats
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Several additional parsers ship in the box and appear in the Format Matrix above:
+
+- **BBCode** (``BBCodeParser``) — forum BBCode markup (input only)
+- **DokuWiki** (``DokuWikiParser`` / ``DokuWikiRenderer``) — bidirectional DokuWiki markup
+- **Evernote ENEX** (``EnexToAstConverter``) — Evernote export notes (input only)
+- **Safari WebArchive** (``WebArchiveToAstConverter``) — ``.webarchive`` bundles (input only)
+- **MBOX / Outlook** (``MboxToAstConverter`` / ``OutlookToAstConverter``) — mailbox and
+  MSG/PST/OST email stores (input only)
 
 Source Code & Plain Text
 ~~~~~~~~~~~~~~~~~~~~~~~~~
