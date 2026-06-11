@@ -1,10 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 #
 # src/all2md/utils/static_site.py
-"""Static site generator utilities for Hugo and Jekyll.
+"""Static site generator utilities for Hugo, Jekyll, MkDocs, Zola, and Eleventy.
 
 This module provides utilities for converting documents to static site
-generator formats (Hugo, Jekyll). It handles:
+generator formats (Hugo, Jekyll, MkDocs, Zola, Eleventy). It handles:
 - Frontmatter generation from document metadata
 - Site structure scaffolding
 - Asset management for static sites
@@ -12,7 +12,7 @@ generator formats (Hugo, Jekyll). It handles:
 Functions
 ---------
 - generate_frontmatter: Convert Document metadata to frontmatter
-- create_site_scaffold: Create Hugo/Jekyll site directory structure
+- create_site_scaffold: Create static site directory structure
 - process_document_for_static_site: Convert document with frontmatter and assets
 """
 
@@ -40,6 +40,9 @@ class StaticSiteGenerator(str, Enum):
 
     HUGO = "hugo"
     JEKYLL = "jekyll"
+    MKDOCS = "mkdocs"
+    ZOLA = "zola"
+    ELEVENTY = "eleventy"
 
 
 class FrontmatterFormat(str, Enum):
@@ -84,7 +87,8 @@ class FrontmatterGenerator:
         generator : StaticSiteGenerator
             Target static site generator
         format : FrontmatterFormat, optional
-            Frontmatter format. If None, uses TOML for Hugo and YAML for Jekyll.
+            Frontmatter format. If None, uses TOML for Hugo and Zola, and
+            YAML for Jekyll, MkDocs, and Eleventy.
 
         """
         self.generator = generator
@@ -105,7 +109,8 @@ class FrontmatterGenerator:
             Default format for the generator
 
         """
-        if generator == StaticSiteGenerator.HUGO:
+        # Hugo and Zola both default to TOML (+++); the rest default to YAML (---).
+        if generator in (StaticSiteGenerator.HUGO, StaticSiteGenerator.ZOLA):
             return FrontmatterFormat.TOML
         return FrontmatterFormat.YAML
 
@@ -209,6 +214,26 @@ class FrontmatterGenerator:
                 normalized["layout"] = "post"  # Default Jekyll layout
             if "permalink" in metadata:
                 normalized["permalink"] = metadata["permalink"]
+        elif self.generator == StaticSiteGenerator.ZOLA:
+            # Zola validates front matter against a fixed schema and errors on
+            # unknown top-level keys: tags/categories must live under
+            # [taxonomies] and non-standard fields (author) under [extra].
+            taxonomies: Dict[str, Any] = {}
+            if "tags" in normalized:
+                taxonomies["tags"] = normalized.pop("tags")
+            if "categories" in normalized:
+                taxonomies["categories"] = normalized.pop("categories")
+            extra: Dict[str, Any] = {}
+            if "author" in normalized:
+                extra["author"] = normalized.pop("author")
+            normalized["draft"] = metadata.get("draft", False)
+            if "weight" in metadata:
+                normalized["weight"] = metadata["weight"]
+            if taxonomies:
+                normalized["taxonomies"] = taxonomies
+            if extra:
+                normalized["extra"] = extra
+        # Eleventy and MkDocs use the common fields as-is (no schema constraints).
 
         return normalized
 
@@ -275,7 +300,7 @@ class SiteScaffolder:
     """Create directory structure for static site generators.
 
     This class handles creation of the basic directory structure and
-    configuration files for Hugo and Jekyll sites.
+    configuration files for Hugo, Jekyll, MkDocs, Zola, and Eleventy sites.
 
     Parameters
     ----------
@@ -308,6 +333,12 @@ class SiteScaffolder:
             self._scaffold_hugo(output_dir)
         elif self.generator == StaticSiteGenerator.JEKYLL:
             self._scaffold_jekyll(output_dir)
+        elif self.generator == StaticSiteGenerator.MKDOCS:
+            self._scaffold_mkdocs(output_dir)
+        elif self.generator == StaticSiteGenerator.ZOLA:
+            self._scaffold_zola(output_dir)
+        elif self.generator == StaticSiteGenerator.ELEVENTY:
+            self._scaffold_eleventy(output_dir)
 
     def _scaffold_hugo(self, output_dir: Path) -> None:
         """Create Hugo site structure.
@@ -401,6 +432,103 @@ This site was generated using all2md.
 
         logger.info(f"Created Jekyll site structure at {output_dir}")
 
+    def _scaffold_mkdocs(self, output_dir: Path) -> None:
+        """Create MkDocs site structure.
+
+        Parameters
+        ----------
+        output_dir : Path
+            Root directory for the MkDocs site
+
+        """
+        # Create directory structure. MkDocs keeps all content (and assets)
+        # under the docs/ directory; mkdocs.yml lives at the project root.
+        (output_dir / "docs" / "images").mkdir(parents=True, exist_ok=True)
+
+        # Create mkdocs.yml
+        config_content = self._get_mkdocs_config()
+        (output_dir / "mkdocs.yml").write_text(config_content, encoding="utf-8")
+
+        # Create homepage (MkDocs uses docs/index.md as the site root)
+        index_content = """# Welcome
+
+This site was generated using all2md.
+"""
+        (output_dir / "docs" / "index.md").write_text(index_content, encoding="utf-8")
+
+        logger.info(f"Created MkDocs site structure at {output_dir}")
+
+    def _scaffold_zola(self, output_dir: Path) -> None:
+        """Create Zola site structure.
+
+        Parameters
+        ----------
+        output_dir : Path
+            Root directory for the Zola site
+
+        """
+        # Create directory structure. Zola uses content/ for pages, static/
+        # for assets (served at the site root), and templates/ for Tera templates.
+        (output_dir / "content").mkdir(parents=True, exist_ok=True)
+        (output_dir / "static" / "images").mkdir(parents=True, exist_ok=True)
+        (output_dir / "templates").mkdir(parents=True, exist_ok=True)
+
+        # Create config.toml
+        (output_dir / "config.toml").write_text(self._get_zola_config(), encoding="utf-8")
+
+        # Create section index (Zola renders content/_index.md via templates/index.html)
+        index_content = """+++
+title = "Home"
++++
+
+# Welcome
+
+This site was generated using all2md.
+"""
+        (output_dir / "content" / "_index.md").write_text(index_content, encoding="utf-8")
+
+        # Create minimal Tera templates so `zola build` works out of the box
+        templates = {
+            "base.html": self._get_zola_base_template(),
+            "index.html": self._get_zola_index_template(),
+            "section.html": self._get_zola_index_template(),
+            "page.html": self._get_zola_page_template(),
+        }
+        for name, content in templates.items():
+            (output_dir / "templates" / name).write_text(content, encoding="utf-8")
+
+        logger.info(f"Created Zola site structure at {output_dir}")
+
+    def _scaffold_eleventy(self, output_dir: Path) -> None:
+        """Create Eleventy (11ty) site structure.
+
+        Parameters
+        ----------
+        output_dir : Path
+            Root directory for the Eleventy site
+
+        """
+        # Create directory structure. Eleventy reads content from the input
+        # directory (src/) and passes src/images/ straight through to the output.
+        (output_dir / "src" / "images").mkdir(parents=True, exist_ok=True)
+
+        # Create config and package.json
+        (output_dir / ".eleventy.js").write_text(self._get_eleventy_config(), encoding="utf-8")
+        (output_dir / "package.json").write_text(self._get_eleventy_package_json(), encoding="utf-8")
+
+        # Create homepage
+        index_content = """---
+title: Home
+---
+
+# Welcome
+
+This site was generated using all2md.
+"""
+        (output_dir / "src" / "index.md").write_text(index_content, encoding="utf-8")
+
+        logger.info(f"Created Eleventy site structure at {output_dir}")
+
     @staticmethod
     def _get_hugo_config() -> str:
         """Get Hugo configuration template.
@@ -456,6 +584,151 @@ defaults:
       type: "posts"
     values:
       layout: "post"
+"""
+
+    @staticmethod
+    def _get_mkdocs_config() -> str:
+        """Get MkDocs configuration template.
+
+        Returns
+        -------
+        str
+            MkDocs mkdocs.yml content
+
+        """
+        return """site_name: My Site
+site_description: Site generated with all2md
+
+# The Material theme is recommended (pip install mkdocs-material).
+# Switch to the built-in "readthedocs" or "mkdocs" theme to avoid the extra dependency.
+theme:
+  name: material
+
+markdown_extensions:
+  - admonition
+  - tables
+  - fenced_code
+  - toc:
+      permalink: true
+"""
+
+    @staticmethod
+    def _get_zola_config() -> str:
+        """Get Zola configuration template.
+
+        Returns
+        -------
+        str
+            Zola config.toml content
+
+        """
+        return """base_url = "https://example.org"
+title = "My Site"
+description = "Site generated with all2md"
+
+compile_sass = false
+build_search_index = false
+
+[markdown]
+highlight_code = true
+
+[taxonomies]
+tags = []
+categories = []
+
+[extra]
+"""
+
+    @staticmethod
+    def _get_zola_base_template() -> str:
+        """Get the base Tera template for a scaffolded Zola site."""
+        return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ config.title }}{% endblock title %}</title>
+</head>
+<body>
+    <header>
+        <h1><a href="{{ config.base_url }}">{{ config.title }}</a></h1>
+    </header>
+    <main>
+        {% block content %}{% endblock content %}
+    </main>
+</body>
+</html>
+"""
+
+    @staticmethod
+    def _get_zola_index_template() -> str:
+        """Get the section (index) Tera template for a scaffolded Zola site."""
+        return """{% extends "base.html" %}
+{% block content %}
+{{ section.content | safe }}
+<ul>
+{% for page in section.pages %}
+    <li><a href="{{ page.permalink }}">{{ page.title }}</a></li>
+{% endfor %}
+</ul>
+{% endblock content %}
+"""
+
+    @staticmethod
+    def _get_zola_page_template() -> str:
+        """Get the page Tera template for a scaffolded Zola site."""
+        return """{% extends "base.html" %}
+{% block title %}{{ page.title }} - {{ config.title }}{% endblock title %}
+{% block content %}
+<article>
+    <h1>{{ page.title }}</h1>
+    {{ page.content | safe }}
+</article>
+{% endblock content %}
+"""
+
+    @staticmethod
+    def _get_eleventy_config() -> str:
+        """Get Eleventy configuration template.
+
+        Returns
+        -------
+        str
+            Eleventy .eleventy.js content
+
+        """
+        return """module.exports = function (eleventyConfig) {
+  // Copy images straight through to the output directory
+  eleventyConfig.addPassthroughCopy("src/images");
+
+  return {
+    dir: {
+      input: "src",
+      output: "_site",
+      includes: "_includes",
+    },
+    // Don't run converted Markdown through a template engine, which avoids
+    // clashes with any literal {{ }} in the document content.
+    markdownTemplateEngine: false,
+  };
+};
+"""
+
+    @staticmethod
+    def _get_eleventy_package_json() -> str:
+        """Get the package.json template for a scaffolded Eleventy site."""
+        return """{
+  "name": "my-site",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "eleventy",
+    "serve": "eleventy --serve"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.0.0"
+  }
+}
 """
 
     @staticmethod
@@ -598,7 +871,7 @@ def copy_document_assets(
     output_dir : Path
         Root output directory for the static site
     generator : StaticSiteGenerator
-        Target static site generator (Hugo or Jekyll)
+        Target static site generator (Hugo, Jekyll, MkDocs, Zola, or Eleventy)
     source_file : Path, optional
         Source file path (used to resolve relative image paths)
 
@@ -621,8 +894,15 @@ def copy_document_assets(
 
     """
     # Determine static directory based on generator
-    if generator == StaticSiteGenerator.HUGO:
+    if generator in (StaticSiteGenerator.HUGO, StaticSiteGenerator.ZOLA):
+        # Hugo and Zola both serve the static/ directory at the site root.
         static_dir = output_dir / "static" / "images"
+    elif generator == StaticSiteGenerator.MKDOCS:
+        # MkDocs serves everything under docs/, so assets live there too.
+        static_dir = output_dir / "docs" / "images"
+    elif generator == StaticSiteGenerator.ELEVENTY:
+        # Eleventy reads from src/ and passes src/images/ through to the output.
+        static_dir = output_dir / "src" / "images"
     else:  # Jekyll
         static_dir = output_dir / "assets" / "images"
 
@@ -667,13 +947,14 @@ def copy_document_assets(
             logger.debug(f"Copied asset: {image_path} -> {dest_path}")
 
             # Update image URL in AST to reference static location
-            # Use relative path from content directory
-            if generator == StaticSiteGenerator.HUGO:
-                # Hugo uses /static/ prefix
-                image.url = f"/images/{dest_path.name}"
-            else:  # Jekyll
-                # Jekyll uses /assets/ prefix
+            # Use root-relative path served by the generator
+            if generator == StaticSiteGenerator.JEKYLL:
+                # Jekyll serves assets/ at /assets/
                 image.url = f"/assets/images/{dest_path.name}"
+            else:
+                # Hugo/Zola (static/images), MkDocs (docs/images), and Eleventy
+                # (src/images via passthrough) all serve images at /images/
+                image.url = f"/images/{dest_path.name}"
 
             copied_assets.append(str(dest_path))
 

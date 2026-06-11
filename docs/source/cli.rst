@@ -1096,7 +1096,7 @@ group.
 Static Site Generation
 -----------------------
 
-The ``all2md generate-site`` subcommand converts document collections into Hugo or Jekyll static sites with proper frontmatter, asset organization, and directory structures.
+The ``all2md generate-site`` subcommand converts document collections into Hugo, Jekyll, MkDocs, Zola, or Eleventy static sites with proper frontmatter, asset organization, and directory structures.
 
 .. code-block:: bash
 
@@ -1124,6 +1124,16 @@ Convert blog posts to a Jekyll site:
        --generator jekyll \
        --scaffold
 
+Convert a directory of documents to an MkDocs site:
+
+.. code-block:: bash
+
+   all2md generate-site docs/ \
+       --output-dir my-mkdocs-site \
+       --generator mkdocs \
+       --scaffold \
+       --recursive
+
 Arguments
 ~~~~~~~~~
 
@@ -1135,8 +1145,8 @@ Arguments
 ``--output-dir DIR``
    Output directory for the generated site
 
-``--generator {hugo,jekyll}``
-   Static site generator to target (hugo or jekyll)
+``--generator {hugo,jekyll,mkdocs,zola,eleventy}``
+   Static site generator to target (hugo, jekyll, mkdocs, zola, or eleventy)
 
 **Optional Arguments:**
 
@@ -1145,7 +1155,7 @@ Arguments
 
 ``--frontmatter-format {yaml,toml}``
    Override default frontmatter format
-   (Hugo defaults to TOML, Jekyll to YAML)
+   (Hugo and Zola default to TOML; Jekyll, MkDocs, and Eleventy to YAML)
 
 ``--content-subdir PATH``
    Subdirectory within content dir for output
@@ -1208,6 +1218,73 @@ Examples
    # │   └── post.html
    # └── _includes/
 
+**MkDocs Site with Scaffolding:**
+
+.. code-block:: bash
+
+   # Create complete MkDocs site structure
+   all2md generate-site documentation/ \
+       --output-dir my-mkdocs-site \
+       --generator mkdocs \
+       --scaffold \
+       --recursive
+
+   # Result:
+   # my-mkdocs-site/
+   # ├── mkdocs.yml
+   # └── docs/
+   #     ├── index.md
+   #     ├── page1.md
+   #     ├── page2.md
+   #     └── images/
+   #         └── (copied images)
+
+**Zola Site with Scaffolding:**
+
+.. code-block:: bash
+
+   # Create complete Zola site structure (TOML frontmatter, like Hugo)
+   all2md generate-site documentation/ \
+       --output-dir my-zola-site \
+       --generator zola \
+       --scaffold \
+       --recursive
+
+   # Result:
+   # my-zola-site/
+   # ├── config.toml
+   # ├── content/
+   # │   ├── _index.md
+   # │   └── page1.md
+   # ├── static/images/
+   # │   └── (copied images)
+   # └── templates/
+   #     ├── base.html
+   #     ├── index.html
+   #     ├── section.html
+   #     └── page.html
+
+**Eleventy (11ty) Site with Scaffolding:**
+
+.. code-block:: bash
+
+   # Create complete Eleventy site structure
+   all2md generate-site documentation/ \
+       --output-dir my-eleventy-site \
+       --generator eleventy \
+       --scaffold \
+       --recursive
+
+   # Result:
+   # my-eleventy-site/
+   # ├── .eleventy.js
+   # ├── package.json
+   # └── src/
+   #     ├── index.md
+   #     ├── page1.md
+   #     └── images/
+   #         └── (copied images)
+
 **Without Scaffolding (Content Only):**
 
 .. code-block:: bash
@@ -1264,6 +1341,16 @@ The command automatically generates frontmatter from document metadata:
 - ``layout: post`` (default)
 - ``permalink`` (if present in metadata)
 
+*MkDocs:*
+- Common fields only (``title``, ``date``, ``author``, ``description``, ``tags``); no generator-specific fields are added
+
+*Zola:*
+- ``draft: false`` (always set), ``weight`` (if present in metadata)
+- ``tags``/``categories`` nested under ``[taxonomies]`` and ``author`` under ``[extra]`` (Zola rejects unknown top-level keys)
+
+*Eleventy:*
+- Common fields only; ``tags`` double as Eleventy collection names
+
 **Example frontmatter output (Hugo/TOML):**
 
 .. code-block:: text
@@ -1304,6 +1391,12 @@ Images and other assets are automatically:
 **Hugo:** Assets → ``static/images/``, referenced as ``/images/filename``
 
 **Jekyll:** Assets → ``assets/images/``, referenced as ``/assets/images/filename``
+
+**MkDocs:** Assets → ``docs/images/``, referenced as ``/images/filename``
+
+**Zola:** Assets → ``static/images/``, referenced as ``/images/filename``
+
+**Eleventy:** Assets → ``src/images/`` (passthrough-copied), referenced as ``/images/filename``
 
 See Also
 ~~~~~~~~

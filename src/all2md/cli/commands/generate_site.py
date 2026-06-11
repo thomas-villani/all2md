@@ -4,9 +4,9 @@
 """Static site generation command for all2md CLI.
 
 This module provides the generate-site command for converting documents
-to Hugo or Jekyll static site formats. It handles frontmatter generation,
-asset copying, and site scaffolding to create ready-to-deploy static sites
-from various document formats.
+to Hugo, Jekyll, MkDocs, Zola, or Eleventy static site formats. It handles
+frontmatter generation, asset copying, and site scaffolding to create
+ready-to-deploy static sites from various document formats.
 """
 
 import argparse
@@ -39,12 +39,15 @@ def _create_generate_site_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="all2md generate-site",
-        description="Generate Hugo or Jekyll static site from documents.",
+        description="Generate Hugo, Jekyll, MkDocs, Zola, or Eleventy static site from documents.",
     )
     parser.add_argument("input", nargs="+", help="Input files or directories to convert")
     parser.add_argument("--output-dir", required=True, help="Output directory for the static site")
     parser.add_argument(
-        "--generator", choices=["hugo", "jekyll"], required=True, help="Static site generator (hugo or jekyll)"
+        "--generator",
+        choices=["hugo", "jekyll", "mkdocs", "zola", "eleventy"],
+        required=True,
+        help="Static site generator (hugo, jekyll, mkdocs, zola, or eleventy)",
     )
     parser.add_argument(
         "--scaffold", action="store_true", help="Create full site structure with config files and layouts"
@@ -73,7 +76,7 @@ def _create_generate_site_parser() -> argparse.ArgumentParser:
 
 
 def handle_generate_site_command(args: list[str] | None = None) -> int:
-    """Handle generate-site command for Hugo/Jekyll static site generation.
+    """Handle generate-site command for Hugo/Jekyll/MkDocs/Zola/Eleventy static site generation.
 
     Parameters
     ----------
@@ -100,11 +103,13 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
     # Parse generator type
     generator = StaticSiteGenerator(parsed.generator)
 
-    # Determine frontmatter format
+    # Determine frontmatter format (Hugo and Zola default to TOML, the rest to YAML)
     if parsed.frontmatter_format:
         fm_format = FrontmatterFormat(parsed.frontmatter_format)
+    elif generator in (StaticSiteGenerator.HUGO, StaticSiteGenerator.ZOLA):
+        fm_format = FrontmatterFormat.TOML
     else:
-        fm_format = FrontmatterFormat.TOML if generator == StaticSiteGenerator.HUGO else FrontmatterFormat.YAML
+        fm_format = FrontmatterFormat.YAML
 
     # Create output directory
     output_dir = Path(parsed.output_dir)
@@ -124,8 +129,16 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
         return EXIT_VALIDATION_ERROR
 
     # Determine content directory
-    if generator == StaticSiteGenerator.HUGO:
+    if generator in (StaticSiteGenerator.HUGO, StaticSiteGenerator.ZOLA):
         content_dir = output_dir / "content"
+        if parsed.content_subdir:
+            content_dir = content_dir / parsed.content_subdir
+    elif generator == StaticSiteGenerator.MKDOCS:
+        content_dir = output_dir / "docs"
+        if parsed.content_subdir:
+            content_dir = content_dir / parsed.content_subdir
+    elif generator == StaticSiteGenerator.ELEVENTY:
+        content_dir = output_dir / "src"
         if parsed.content_subdir:
             content_dir = content_dir / parsed.content_subdir
     else:  # Jekyll
@@ -196,6 +209,19 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
         print("\nTo preview your Hugo site:")
         print(f"  cd {output_dir}")
         print("  hugo server")
+    elif generator == StaticSiteGenerator.MKDOCS:
+        print("\nTo preview your MkDocs site:")
+        print(f"  cd {output_dir}")
+        print("  mkdocs serve")
+    elif generator == StaticSiteGenerator.ZOLA:
+        print("\nTo preview your Zola site:")
+        print(f"  cd {output_dir}")
+        print("  zola serve")
+    elif generator == StaticSiteGenerator.ELEVENTY:
+        print("\nTo preview your Eleventy site:")
+        print(f"  cd {output_dir}")
+        print("  npm install")
+        print("  npx @11ty/eleventy --serve")
     else:
         print("\nTo preview your Jekyll site:")
         print(f"  cd {output_dir}")

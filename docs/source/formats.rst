@@ -92,7 +92,7 @@ HTML & Web Archives
 - Optional readability extraction (``--html-extract-readable``) removes navigation chrome using readability-lxml
 - Secure remote fetching through ``NetworkFetchOptions`` (rate limiting, host allowlists, HTTPS enforcement)
 - Template modes (inject/replace/jinja) in the renderer support custom HTML generation
-- Native Hugo/Jekyll site generation via ``generate-site`` command (:doc:`static_sites`)
+- Native Hugo, Jekyll, MkDocs, Zola, and Eleventy site generation via ``generate-site`` command (:doc:`static_sites`)
 
 Email Messages (EML/MSG)
 ~~~~~~~~~~~~~~~~~~~~~~~~
