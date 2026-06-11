@@ -304,14 +304,13 @@ all2md provides commonly-used transformers:
 
    doc = to_ast("document.md")
 
-   # Rewrite all links matching a pattern
+   # Rewrite all links under /old-docs/ to /new-docs/
    transformer = LinkRewriter(
-       pattern=r'^/old-docs/',
-       replacement='/new-docs/'
+       url_mapper=lambda url: url.replace('/old-docs/', '/new-docs/')
    )
    new_doc = transformer.transform(doc)
 
-   # Or use a custom function
+   # Or use a named function
    def rewrite_link(url: str) -> str:
        if url.startswith('http://'):
            return url.replace('http://', 'https://')
@@ -332,7 +331,8 @@ all2md provides commonly-used transformers:
    # Replace text across all text nodes
    transformer = TextReplacer(
        pattern=r'\bcompany_name\b',
-       replacement='Acme Corporation'
+       replacement='Acme Corporation',
+       use_regex=True
    )
    new_doc = transformer.transform(doc)
 
@@ -645,7 +645,7 @@ Split documents into multiple parts using various strategies:
    for result in results:
        print(f"Title: {result.title}")
        print(f"Words: {result.word_count}")
-       print(f"Sections: {result.section_count}")
+       print(f"Index: {result.index}")
 
        # Render each part
        renderer = MarkdownRenderer()
@@ -656,10 +656,10 @@ Split documents into multiple parts using various strategies:
 .. code-block:: python
 
    # Split at H1 boundaries (chapters)
-   chapters = DocumentSplitter.split_by_level(doc, level=1)
+   chapters = DocumentSplitter.split_by_heading_level(doc, level=1)
 
    # Split at H2 boundaries (sections)
-   sections = DocumentSplitter.split_by_level(doc, level=2, include_preamble=True)
+   sections = DocumentSplitter.split_by_heading_level(doc, level=2, include_preamble=True)
 
 **Split by Word Count:**
 
@@ -668,9 +668,7 @@ Split documents into multiple parts using various strategies:
    # Split into chunks of approximately 500 words
    chunks = DocumentSplitter.split_by_word_count(
        doc,
-       target_words=500,
-       min_words=400,  # Minimum chunk size
-       max_words=600   # Maximum chunk size
+       target_words=500   # Approximate words per chunk (section boundaries preserved)
    )
 
    for i, chunk in enumerate(chunks, 1):
@@ -681,17 +679,17 @@ Split documents into multiple parts using various strategies:
 .. code-block:: python
 
    # Split document into 5 equal parts
-   parts = DocumentSplitter.split_into_parts(doc, num_parts=5)
+   parts = DocumentSplitter.split_by_parts(doc, num_parts=5)
 
    for i, part in enumerate(parts, 1):
-       print(f"Part {i}: {part.word_count} words, {part.section_count} sections")
+       print(f"Part {i}: {part.word_count} words")
 
 **Split by Thematic Breaks:**
 
 .. code-block:: python
 
    # Split on horizontal rules (---, ***, ___)
-   parts = DocumentSplitter.split_by_breaks(doc)
+   parts = DocumentSplitter.split_by_break(doc)
 
 Working with Preamble
 ~~~~~~~~~~~~~~~~~~~~~

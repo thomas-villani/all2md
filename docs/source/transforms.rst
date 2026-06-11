@@ -270,11 +270,11 @@ Add conversion timestamp to document metadata.
    transform = AddConversionTimestampTransform()
 
    # Unix timestamp
-   transform = AddConversionTimestampTransform(format="unix")
+   transform = AddConversionTimestampTransform(timestamp_format="unix")
 
    # Custom strftime format
    transform = AddConversionTimestampTransform(
-       format="%Y-%m-%d %H:%M:%S",
+       timestamp_format="%Y-%m-%d %H:%M:%S",
        field_name="converted_at"
    )
 
@@ -421,7 +421,7 @@ Visitor methods follow the pattern ``visit_<node_type_lowercase>``:
 - ``CodeBlock`` → ``visit_code_block()``
 - ``TableCell`` → ``visit_table_cell()``
 
-Available node types include: Document, Heading, Paragraph, Text, Strong, Emphasis, Link, Image, CodeBlock, CodeSpan, BlockQuote, List, ListItem, Table, TableRow, TableCell, ThematicBreak, LineBreak, and more.
+Available node types include: Document, Heading, Paragraph, Text, Strong, Emphasis, Link, Image, CodeBlock, Code, BlockQuote, List, ListItem, Table, TableRow, TableCell, ThematicBreak, LineBreak, and more.
 
 Example: Watermark Transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

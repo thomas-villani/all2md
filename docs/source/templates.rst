@@ -88,7 +88,7 @@ Core Variables
 Pre-computed Collections
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These collections are only available if ``enable_traversal_helpers=True`` (default is ``False`` for performance).
+These collections are only available if ``enable_traversal_helpers=True`` (enabled by default).
 
 ``headings``
    List of all heading nodes in the document. Each heading has:
@@ -160,7 +160,7 @@ Filter Reference
 Node Rendering Filters
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-These filters are only available if ``enable_render_filter=True`` (default is ``False``).
+These filters are only available if ``enable_render_filter=True`` (enabled by default).
 
 ``render``
    Recursively renders a node or list of nodes to the target format.
@@ -194,7 +194,7 @@ These filters are only available if ``enable_render_filter=True`` (default is ``
 Escape Filters
 ~~~~~~~~~~~~~~
 
-These filters are only available if ``enable_escape_filters=True`` (default is ``False``).
+These filters are only available if ``enable_escape_filters=True`` (enabled by default).
 
 ``escape_xml``
    Escapes text for XML output (``&``, ``<``, ``>``, ``"``, ``'``).
@@ -237,13 +237,15 @@ Function Reference
 Helper Functions
 ~~~~~~~~~~~~~~~~
 
-These functions are only available if ``enable_traversal_helpers=True`` (default is ``False``).
+These functions are only available if ``enable_traversal_helpers=True`` (enabled by default).
 
-``find_nodes_by_type(node_type)``
-   Finds all nodes of a specific type in the document.
+``find_nodes(document, node_type)``
+   Finds all nodes of a specific type in the document. ``document`` is available
+   in the template context.
 
    **Parameters:**
 
+   - ``document`` - The document being rendered (the ``document`` context variable)
    - ``node_type`` (str) - Node type name (e.g., "Heading", "Link", "Image")
 
    **Returns:** List of matching nodes
@@ -253,7 +255,7 @@ These functions are only available if ``enable_traversal_helpers=True`` (default
    .. code-block:: jinja
 
       {# Find all code blocks #}
-      {% set code_blocks = find_nodes_by_type("CodeBlock") %}
+      {% set code_blocks = find_nodes(document, "CodeBlock") %}
       Code blocks: {{ code_blocks|length }}
 
 ``node_type``
@@ -404,7 +406,7 @@ Performance Optimization
 
 1. **Disable unused features:** Set ``enable_render_filter=False``, ``enable_escape_filters=False``, and ``enable_traversal_helpers=False`` if you don't need them.
 
-2. **Use pre-computed collections:** Access ``headings``, ``links``, ``images``, and ``footnotes`` instead of calling ``find_nodes_by_type()`` repeatedly.
+2. **Use pre-computed collections:** Access ``headings``, ``links``, ``images``, and ``footnotes`` instead of calling ``find_nodes()`` repeatedly.
 
 3. **Cache expensive operations:** Use Jinja2's ``{% set %}`` to cache computed values.
 

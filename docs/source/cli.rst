@@ -102,19 +102,22 @@ Example output:
 
 .. code-block:: text
 
-   Available Formats:
+   All2MD Supported Formats
+   ================================================================================
+   Format       Parser   Renderer   Extensions
+   --------------------------------------------------------------------------------
+   ARCHIVE      [OK]     N/A        .tar, .tgz, .tar.gz, .tbz2 +6
+   ASCIIDOC     [OK]     [OK]       .adoc, .asciidoc, .asc
+   DOCX         [OK]     [OK]       .docx
+   HTML         [OK]     [OK]       .html, .htm, .xhtml
+   PDF          [OK]     [OK]       .pdf
+   XLSX         [OK]     N/A        .xlsx
+   ...
 
-   Format: pdf
-     Extensions: .pdf
-     MIME Types: application/pdf
-     Status: Available
-     Dependencies: PyMuPDF (fitz)
+   Total: 40 formats
 
-   Format: docx
-     Extensions: .docx
-     MIME Types: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-     Status: Available
-     Dependencies: python-docx
+   Legend: [OK] = Available, [X] = Dependencies missing, N/A = Not implemented
+   Use 'all2md list-formats <format>' for detailed information
 
 List Available Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,18 +139,19 @@ Example output:
 
 .. code-block:: text
 
-   Available Transforms:
+   Available Transforms
+   ============================================================
+     add-heading-ids      Generate and add unique IDs to heading nodes for anchors [headings, anchors, ids]
+     add-timestamp        Add conversion timestamp to document metadata [metadata, timestamp]
+     heading-offset       Shift heading levels by a specified offset [headings, structure]
+     remove-images        Remove all Image nodes from the AST [images, cleanup]
+     text-replacer        Find and replace text in Text nodes [text, replace]
+     title-promotion      Promote a leading H1 to document title and shift subsequent headings up one level [headings, title, structure]
+     word-count           Calculate word and character counts and add to metadata [metadata, statistics]
+   ...
 
-   Transform: RemoveImagesTransform
-     Module: all2md.transforms.builtin
-     Description: Remove all image nodes from the AST
-     Status: Available
-
-   Transform: HeadingOffsetTransform
-     Module: all2md.transforms.builtin
-   Description: Adjust heading levels by a specified offset
-     Status: Available
-     Options: offset (int)
+   Total: 11 transforms
+   Use 'all2md list-transforms <transform>' for details
 
 Search Command
 --------------
@@ -479,63 +483,55 @@ Create a configuration file with all available options:
    all2md config generate --format json
 
 The generated configuration includes:
-* Helpful comments explaining each option (TOML only)
-* All available options with their default values
-* Format-specific settings organized by section
+* A short header comment (TOML only)
+* Every available option with its current default value
+* Format-specific settings organized into one section per format
 
 **Example Generated Configuration (TOML):**
 
 .. code-block:: toml
 
    # all2md configuration file
-   # Automatically generated default configuration
+   # Generated from current converter defaults
+   # Edit values as needed and remove sections you do not use.
+   extract_metadata = false
 
-   # Attachment handling mode: "skip", "save", or "base64"
-   attachment_mode = "skip"
-
-   # PDF conversion options
-   [pdf]
-   # Detect multi-column layouts
-   detect_columns = true
-   # Skip extracting images from PDFs
-   skip_image_extraction = false
-   # Enable fallback table detection
-   enable_table_fallback_detection = true
-   # Merge hyphenated words at line breaks
-   merge_hyphenated_words = false
-
-   # HTML conversion options
    [html]
-   # Strip potentially dangerous HTML elements
-   strip_dangerous_elements = true
-   # Extract title from HTML
    extract_title = false
+   strip_dangerous_elements = false
 
-   # Markdown output options
    [markdown]
-   # Symbol to use for emphasis: "*" or "_"
+   bullet_symbols = "*-+"
    emphasis_symbol = "*"
+   use_hash_headings = true
 
-   # ... (additional format sections)
+   [pdf]
+   detect_columns = true
+   enable_table_fallback_detection = true
+   merge_hyphenated_words = true
+   skip_image_extraction = false
+
+   # ... (one section per supported format)
 
 **Example Generated Configuration (JSON):**
 
 .. code-block:: json
 
    {
-     "attachment_mode": "skip",
-     "pdf": {
-       "detect_columns": false,
-       "skip_image_extraction": false,
-       "enable_table_fallback_detection": true,
-       "merge_hyphenated_words": false
-     },
      "html": {
-       "strip_dangerous_elements": true,
-       "extract_title": false
+       "extract_title": false,
+       "strip_dangerous_elements": false
      },
      "markdown": {
-       "emphasis_symbol": "*"
+       "bullet_symbols": "*-+",
+       "emphasis_symbol": "*",
+       "use_hash_headings": true
+     },
+     "pdf": {
+       "detect_columns": true,
+       "enable_table_fallback_detection": true,
+       "merge_hyphenated_words": true,
+       "skip_image_extraction": false
      }
    }
 

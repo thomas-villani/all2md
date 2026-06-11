@@ -84,7 +84,7 @@ MCP Server Variables
 ALL2MD_MCP_ENABLE_TO_MD
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-**Purpose:** Enable/disable the ``convert_to_markdown`` tool in MCP server.
+**Purpose:** Enable/disable the ``read_document_as_markdown`` tool in MCP server.
 
 **Type:** Boolean
 
@@ -103,7 +103,7 @@ ALL2MD_MCP_ENABLE_TO_MD
 ALL2MD_MCP_ENABLE_FROM_MD
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Purpose:** Enable/disable the ``render_from_markdown`` tool in MCP server.
+**Purpose:** Enable/disable the ``save_document_from_markdown`` tool in MCP server.
 
 **Type:** Boolean
 
@@ -708,10 +708,10 @@ Some environment variables require specific formats:
 
 .. code-block:: bash
 
-   # Invalid JSON
-   export ALL2MD_CONFIG_JSON='{ bad json'
+   # Invalid page range
+   export ALL2MD_PDF_PAGES='abc'
    all2md document.pdf
-   # Error: Invalid JSON in ALL2MD_CONFIG_JSON
+   # Error: Invalid page range specification: abc
 
 Type Mismatches
 ~~~~~~~~~~~~~~~

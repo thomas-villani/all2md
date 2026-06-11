@@ -536,21 +536,29 @@ Simple Flask application with document conversion:
        if not allowed_file(file.filename):
            return jsonify({'error': 'File type not allowed'}), 400
 
+       tmp_path = None
        try:
-           # Convert document
-           markdown = to_markdown(file, attachment_mode='skip')
+           # Save the upload to a temp file so the format is detected by extension
+           suffix = Path(secure_filename(file.filename)).suffix
+           with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+               file.save(tmp.name)
+               tmp_path = tmp.name
+
+           markdown = to_markdown(tmp_path, attachment_mode='skip')
+           download_name = Path(secure_filename(file.filename)).stem
 
            return Response(
                markdown,
                mimetype='text/markdown',
-               headers={'Content-Disposition': f'attachment; filename="{filename}.md"'}
+               headers={'Content-Disposition': f'attachment; filename="{download_name}.md"'}
            )
 
        except All2MdError as e:
            return jsonify({'error': str(e)}), 500
 
        finally:
-           Path(tmp_path).unlink(missing_ok=True)
+           if tmp_path:
+               Path(tmp_path).unlink(missing_ok=True)
 
    if __name__ == '__main__':
        app.run(debug=True)
@@ -587,8 +595,8 @@ Organize as a Flask blueprint:
    @converter_bp.route('/formats', methods=['GET'])
    def supported_formats():
        """List supported formats."""
-       from all2md.constants import SUPPORTED_FORMATS
-       return jsonify({'formats': list(SUPPORTED_FORMATS.keys())})
+       from all2md.dependencies import get_all_dependencies
+       return jsonify({'formats': sorted(get_all_dependencies().keys())})
 
    # app.py
    from flask import Flask

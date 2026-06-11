@@ -324,7 +324,7 @@ After installation, agents automatically discover the skills and use them when r
 | **Outlook Message/Archive**   | `.msg`, `.pst`, `.ost`                        |       ✅       |       (N/A)    | `outlook`          |
 | **Jupyter Notebook**          | `.ipynb`                                      |       ✅       |        ✅      | (built-in)         |
 | **EPUB E-book**               | `.epub`                                       |       ✅       |        ✅      | `epub`             |
-| **FictionBook 2.0 (FB2)**     | `.fb2`, `.fb2.zip`                            |       ✅       |       (N/A)    | (built-in)         |
+| **FictionBook 2.0 (FB2)**     | `.fb2`                                        |       ✅       |       (N/A)    | `fb2`              |
 | **CHM (Compiled HTML Help)** | `.chm`                                        |       ✅       |       (N/A)    | `chm`              |
 | **OpenDocument Text**         | `.odt`                                        |       ✅       |        ✅      | `odf`              |
 | **OpenDocument Presentation** | `.odp`                                        |       ✅       |        ✅      | `odf`              |
@@ -336,7 +336,7 @@ After installation, agents automatically discover the skills and use them when r
 | **AsciiDoc**                  | `.adoc`, `.asciidoc`, `.asc`                  |       ✅       |        ✅      | (built-in)         |
 | **reStructuredText**          | `.rst`                                        |       ✅       |        ✅      | `rst`              |
 | **Org-Mode**                  | `.org`                                        |       ✅       |        ✅      | `org`              |
-| **MediaWiki**                 | `.wiki`, `.mediawiki`                         |       ✅       |        ✅      | `wiki`             |
+| **MediaWiki**                 | `.wiki`, `.mw`                                |       ✅       |        ✅      | `wiki`             |
 | **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
 | **OpenAPI/Swagger**           | `.yaml`, `.yml`, `.json`                      |       ✅       |       (N/A)    | `openapi`          |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
@@ -833,7 +833,7 @@ A: Yes! Use Jinja2 templates to create any text-based output format. See [exampl
 
 **Q: Is all2md production-ready?**
 
-A: Yes! Version 1.0.0 is stable and production-ready. The library includes comprehensive tests, extensive documentation, and is actively maintained.
+A: Yes! all2md is stable and production-ready. The library includes comprehensive tests, extensive documentation, and is actively maintained.
 
 **Q: How do I handle large document batches efficiently?**
 
