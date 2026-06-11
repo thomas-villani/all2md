@@ -449,17 +449,17 @@ all2md ./reports/*.docx --output-dir ./markdown_reports
 all2md ./source_docs --recursive --output-dir ./converted_docs
 
 # Preserve the source directory structure in the output
-all2md ./source_docs -r -o ./converted_docs --preserve-structure
+all2md ./source_docs -r --output-dir ./converted_docs --preserve-structure
 ```
 
 **Advanced Processing**
 
 ```bash
 # Process files in parallel using 4 worker processes
-all2md ./large_docs -r -o ./output -p 4
+all2md ./large_docs -r --output-dir ./output -p 4
 
 # Watch a directory for changes and convert automatically
-all2md ./watched_folder -r -o ./output --watch
+all2md ./watched_folder -r --output-dir ./output --watch
 
 # Pipe content from stdin
 cat report.html | all2md - > report.md
@@ -516,11 +516,11 @@ all2md list-formats
 # Check which optional dependencies are installed
 all2md check-deps
 
-# Quick HTML preview with themes (dark, docs, minimal, newspaper, sidebar)
-all2md document.pdf view --theme docs
+# Quick HTML preview with themes (minimal, dark, newspaper, docs, sidebar)
+all2md view document.pdf --theme docs
 
-# Generate a static website from markdown files
-all2md generate-site ./content --output ./site --theme newspaper
+# Generate a static site (Hugo, Jekyll, MkDocs, Zola, or Eleventy) from markdown files
+all2md generate-site ./content --output-dir ./site --generator hugo
 
 # Package a document for ArXiv submission
 all2md arxiv paper.md -o submission.tar.gz
@@ -537,21 +537,30 @@ all2md config validate all2md.toml
 
 **Static Site Generation**
 
-all2md includes a built-in static site generator for creating documentation sites and blogs from Markdown:
+The `generate-site` command converts document collections into ready-to-deploy [Hugo](https://gohugo.io/), [Jekyll](https://jekyllrb.com/), [MkDocs](https://www.mkdocs.org/), [Zola](https://www.getzola.org/), or [Eleventy](https://www.11ty.dev/) sites:
 
 ```bash
-# Generate a site from markdown files with frontmatter support
-all2md generate-site ./content --output ./public --theme docs
+# Generate a Hugo site (default frontmatter: TOML)
+all2md generate-site ./content --output-dir ./site --generator hugo
 
-# The generator supports:
-# - Markdown with YAML frontmatter (title, date, author, etc.)
-# - Multiple built-in themes
-# - Automatic navigation generation
-# - Blog-style post listings
-# - Custom styling via CSS
+# Generate a Jekyll blog (date-prefixed posts, YAML frontmatter)
+all2md generate-site ./posts --output-dir ./blog --generator jekyll --scaffold
+
+# Generate an MkDocs documentation site
+all2md generate-site ./docs --output-dir ./public --generator mkdocs --scaffold --recursive
+
+# Also supported: Zola (TOML, Rust) and Eleventy/11ty (YAML, JS)
+all2md generate-site ./docs --output-dir ./site --generator zola --scaffold
+all2md generate-site ./docs --output-dir ./site --generator eleventy --scaffold
+
+# The command handles:
+# - Frontmatter generated from document metadata (title, date, author, tags, ...)
+# - Generator-specific directory structure and config (--scaffold)
+# - Image/asset collection, copying, and path rewriting
+# - Recursive batch conversion with exclusion patterns (--recursive, --exclude)
 ```
 
-See [examples/flask_markdown_site.py](examples/flask_markdown_site.py) for a complete Flask integration example.
+For a dynamic, Flask-served Markdown site instead, see [examples/flask_markdown_site.py](examples/flask_markdown_site.py).
 
 ## Python API Usage
 
@@ -760,10 +769,10 @@ convert("output.md", "final_report.docx", target_format="docx")
 
 ```bash
 # Watch a directory and convert new documents automatically
-all2md ./incoming -r -o ./processed --watch
+all2md ./incoming -r --output-dir ./processed --watch
 
 # Batch process with parallel workers
-all2md ./documents/*.pdf -o ./markdown --parallel 8
+all2md ./documents/*.pdf --output-dir ./markdown --parallel 8
 
 # Integrate into CI/CD pipeline
 for doc in ./docs/*.docx; do
@@ -771,10 +780,10 @@ for doc in ./docs/*.docx; do
 done
 
 # Generate documentation site from markdown files
-all2md generate-site ./docs --output ./public --theme docs
+all2md generate-site ./docs --output-dir ./public --generator mkdocs
 
 # Quick preview before committing
-all2md README.md view --theme minimal
+all2md view README.md --theme minimal
 ```
 
 **Examples:** [vcs-converter/](examples/vcs-converter/) (Git pre-commit hook integration)
@@ -785,13 +794,19 @@ all2md README.md view --theme minimal
 
 ```python
 from all2md import to_markdown, to_ast
-from all2md.ast import Document, Table
+from all2md.ast import Table, CodeBlock
+
+# Recursively yield every node in the document AST
+def iter_nodes(node):
+    yield node
+    for attr in ("children", "content"):
+        for child in getattr(node, attr, None) or []:
+            yield from iter_nodes(child)
 
 # Extract tables from PDFs for analysis
 def extract_tables(pdf_path):
     doc = to_ast(pdf_path)
-    tables = [node for node in doc.walk() if isinstance(node, Table)]
-    return tables
+    return [node for node in iter_nodes(doc) if isinstance(node, Table)]
 
 # Process email archives for NLP
 def process_email_archive(mbox_path):
@@ -806,9 +821,7 @@ def process_email_archive(mbox_path):
 # Extract code examples from documentation
 def extract_code_blocks(doc_path):
     doc = to_ast(doc_path)
-    from all2md.ast import CodeBlock
-    code_blocks = [node for node in doc.walk() if isinstance(node, CodeBlock)]
-    return code_blocks
+    return [node for node in iter_nodes(doc) if isinstance(node, CodeBlock)]
 ```
 
 **Examples:** [api_doc_extractor.py](examples/api_doc_extractor.py), [code_example_generator.py](examples/code_example_generator.py)
@@ -845,7 +858,7 @@ A: Yes! all2md is stable and production-ready. The library includes comprehensiv
 
 **Q: How do I handle large document batches efficiently?**
 
-A: Use parallel processing: `all2md ./docs -r -o ./output --parallel 8` or in Python use multiprocessing with `to_markdown()` calls. For very large batches, consider the watch mode for incremental processing.
+A: Use parallel processing: `all2md ./docs -r --output-dir ./output --parallel 8` or in Python use multiprocessing with `to_markdown()` calls. For very large batches, consider the watch mode for incremental processing.
 
 ## Getting Help
 

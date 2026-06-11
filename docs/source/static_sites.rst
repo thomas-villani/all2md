@@ -1,7 +1,7 @@
 Static Site Generation
 ======================
 
-all2md includes a powerful ``generate-site`` command that converts document collections into production-ready Hugo or Jekyll static sites. The command handles frontmatter generation, asset copying, directory scaffolding, and metadata mapping, enabling you to transform documentation folders or blog posts into fully-functional static sites.
+all2md includes a powerful ``generate-site`` command that converts document collections into production-ready Hugo, Jekyll, MkDocs, Zola, or Eleventy static sites. The command handles frontmatter generation, asset copying, directory scaffolding, and metadata mapping, enabling you to transform documentation folders or blog posts into fully-functional static sites.
 
 .. contents::
    :local:
@@ -10,12 +10,12 @@ all2md includes a powerful ``generate-site`` command that converts document coll
 Overview
 --------
 
-The ``generate-site`` command is purpose-built for creating static sites from document collections. Unlike the HTML template-based approach (which remains available for custom HTML generation), ``generate-site`` produces complete Hugo or Jekyll site structures with proper frontmatter, asset organization, and configuration files.
+The ``generate-site`` command is purpose-built for creating static sites from document collections. Unlike the HTML template-based approach (which remains available for custom HTML generation), ``generate-site`` produces complete Hugo, Jekyll, MkDocs, Zola, or Eleventy site structures with proper frontmatter, asset organization, and configuration files.
 
 Key Features
 ~~~~~~~~~~~~
 
-- **Hugo and Jekyll Support** - Target either static site generator with appropriate directory structures and frontmatter formats
+- **Hugo, Jekyll, MkDocs, Zola, and Eleventy Support** - Target any of the five static site generators with appropriate directory structures and frontmatter formats
 - **Automatic Frontmatter** - Intelligently maps document metadata to frontmatter fields (title, date, author, tags, categories)
 - **Asset Management** - Collects images from documents, copies them to the correct static directories, and updates references
 - **Scaffolding** - Optionally creates complete site structures with config files and layout templates
@@ -27,7 +27,7 @@ When to Use generate-site
 
 Choose ``generate-site`` when you want to:
 
-- Convert documentation folders to Hugo or Jekyll sites
+- Convert documentation folders to Hugo, Jekyll, MkDocs, Zola, or Eleventy sites
 - Migrate blog posts to a static site generator
 - Create a documentation site from markdown files
 - Build a knowledge base with proper categorization
@@ -92,6 +92,30 @@ Convert blog posts to a Jekyll site:
    # │   └── post.html
    # └── _includes/
 
+Basic MkDocs Example
+~~~~~~~~~~~~~~~~~~~~~
+
+Convert a documentation folder to an MkDocs site:
+
+.. code-block:: bash
+
+   # Create a complete MkDocs site with scaffolding
+   all2md generate-site docs/ \
+       --output-dir my-mkdocs-site \
+       --generator mkdocs \
+       --scaffold \
+       --recursive
+
+   # Result:
+   # my-mkdocs-site/
+   # ├── mkdocs.yml
+   # └── docs/
+   #     ├── index.md
+   #     ├── getting-started.md
+   #     ├── api-reference.md
+   #     └── images/
+   #         └── (copied images)
+
 Command Syntax
 ~~~~~~~~~~~~~~
 
@@ -99,7 +123,7 @@ Command Syntax
 
    all2md generate-site INPUT... \
        --output-dir DIR \
-       --generator {hugo|jekyll} \
+       --generator {hugo|jekyll|mkdocs|zola|eleventy} \
        [--scaffold] \
        [--frontmatter-format {yaml|toml}] \
        [--content-subdir PATH] \
@@ -120,7 +144,7 @@ Command Reference
 ``--output-dir DIR``
    Output directory for the generated site. Will be created if it doesn't exist.
 
-``--generator {hugo|jekyll}``
+``--generator {hugo|jekyll|mkdocs|zola|eleventy}``
    Target static site generator. Determines directory structure, frontmatter defaults, and asset paths.
 
 **Optional Arguments:**
@@ -129,7 +153,7 @@ Command Reference
    Create complete site structure including config files, layouts, and directory placeholders. Without this flag, only the content and static assets are generated.
 
 ``--frontmatter-format {yaml|toml}``
-   Override default frontmatter format. Hugo defaults to TOML (``+++`` delimiters), Jekyll to YAML (``---`` delimiters).
+   Override default frontmatter format. Hugo and Zola default to TOML (``+++`` delimiters); Jekyll, MkDocs, and Eleventy default to YAML (``---`` delimiters).
 
 ``--content-subdir PATH``
    Subdirectory within the content directory for output files. For example, ``--content-subdir posts`` with Hugo creates files in ``content/posts/``.
@@ -516,6 +540,209 @@ Jekyll requires blog posts to use date-prefixed filenames in the format ``YYYY-M
    # Source: tutorial.md (no date metadata)
    # Output: _posts/tutorial.md (no date prefix)
 
+MkDocs Static Sites
+-------------------
+
+MkDocs Overview
+~~~~~~~~~~~~~~~
+
+MkDocs is a fast, Python-based static site generator geared toward project documentation. All content lives under a single ``docs/`` directory, and the site is configured by a ``mkdocs.yml`` file at the project root.
+
+**Standard MkDocs Directory Structure:**
+
+.. code-block:: text
+
+   mkdocs-site/
+   ├── mkdocs.yml           # Site configuration
+   └── docs/                # Content directory (site root)
+       ├── index.md         # Homepage
+       ├── guide.md         # Content pages
+       └── images/          # Image files
+
+Generating an MkDocs Site
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**With Scaffolding:**
+
+.. code-block:: bash
+
+   # Create complete MkDocs site structure
+   all2md generate-site documentation/ \
+       --output-dir my-docs \
+       --generator mkdocs \
+       --scaffold \
+       --recursive
+
+This creates:
+
+- ``mkdocs.yml`` with basic site configuration
+- ``docs/index.md`` homepage placeholder
+- Converted markdown files in ``docs/``
+- Copied images in ``docs/images/``
+
+**Without Scaffolding:**
+
+.. code-block:: bash
+
+   # Only convert content and copy assets
+   all2md generate-site docs/*.md \
+       --output-dir my-docs \
+       --generator mkdocs
+
+This creates only:
+
+- Converted markdown files in ``docs/``
+- Copied images in ``docs/images/``
+
+MkDocs Frontmatter
+~~~~~~~~~~~~~~~~~~
+
+MkDocs reads page metadata from YAML frontmatter with ``---`` delimiters (the same ``meta`` convention used by the Material theme):
+
+.. code-block:: yaml
+
+   ---
+   title: Getting Started with all2md
+   date: 2025-01-22 10:00:00
+   author: Jane Developer
+   description: A comprehensive guide to document conversion
+   tags:
+     - tutorial
+     - documentation
+   ---
+
+Only the common metadata fields (``title``, ``date``, ``author``, ``description``, ``tags``) are emitted; MkDocs does not use Hugo's ``draft``/``weight`` or Jekyll's ``layout``/``permalink`` fields.
+
+MkDocs Asset Organization
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Because MkDocs serves everything under ``docs/``, images are copied to ``docs/images/`` and referenced with the ``/images/`` path prefix:
+
+**Before conversion** (in source document):
+
+.. code-block:: markdown
+
+   ![Architecture Diagram](./diagrams/architecture.png)
+
+**After conversion** (in MkDocs content):
+
+.. code-block:: markdown
+
+   ![Architecture Diagram](/images/architecture.png)
+
+The actual file is copied to ``docs/images/architecture.png``.
+
+**MkDocs Theme Note:**
+
+The scaffolded ``mkdocs.yml`` references the popular Material theme (``theme: name: material``), which requires ``pip install mkdocs-material``. Switch to the built-in ``readthedocs`` or ``mkdocs`` theme if you prefer no extra dependency.
+
+Zola Static Sites
+-----------------
+
+Zola Overview
+~~~~~~~~~~~~~
+
+Zola is a fast, single-binary static site generator written in Rust. Like Hugo, it keeps pages in a ``content/`` directory and assets in ``static/`` (served at the site root), and it defaults to **TOML** ``+++`` frontmatter. Tera templates live in ``templates/``.
+
+**Standard Zola Directory Structure:**
+
+.. code-block:: text
+
+   zola-site/
+   ├── config.toml          # Site configuration
+   ├── content/             # Markdown content (with _index.md sections)
+   ├── static/              # Static assets (served at the root)
+   │   └── images/
+   └── templates/           # Tera templates
+
+Generating a Zola Site
+~~~~~~~~~~~~~~~~~~~~~~
+
+**With Scaffolding:**
+
+.. code-block:: bash
+
+   all2md generate-site documentation/ \
+       --output-dir my-docs \
+       --generator zola \
+       --scaffold \
+       --recursive
+
+This creates ``config.toml``, a ``content/_index.md`` homepage, minimal working Tera templates (``base.html``, ``index.html``, ``section.html``, ``page.html``), converted pages in ``content/``, and copied images in ``static/images/``.
+
+Zola Frontmatter
+~~~~~~~~~~~~~~~~
+
+Zola validates page frontmatter against a fixed schema and **errors on unknown top-level keys**. ``generate-site`` handles this by nesting tags/categories under ``[taxonomies]`` and non-standard fields (such as ``author``) under ``[extra]``:
+
+.. code-block:: text
+
+   +++
+   title = "Getting Started with all2md"
+   date = 2025-01-22T10:00:00
+   description = "A comprehensive guide to document conversion"
+   draft = false
+
+   [taxonomies]
+   tags = ["tutorial", "documentation"]
+
+   [extra]
+   author = "Jane Developer"
+   +++
+
+Zola Asset Organization
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Images are copied to ``static/images/`` and referenced with the ``/images/`` path prefix (Zola serves ``static/`` at the site root), identical to Hugo.
+
+Eleventy Static Sites
+---------------------
+
+Eleventy Overview
+~~~~~~~~~~~~~~~~~
+
+Eleventy (11ty) is a flexible JavaScript static site generator. ``generate-site`` scaffolds a conventional layout that reads content from a ``src/`` input directory and uses **YAML** ``---`` frontmatter.
+
+**Standard Eleventy Directory Structure:**
+
+.. code-block:: text
+
+   eleventy-site/
+   ├── .eleventy.js         # Site configuration
+   ├── package.json         # Declares the @11ty/eleventy dependency
+   └── src/                 # Input directory
+       ├── index.md         # Homepage
+       └── images/          # Passthrough-copied to the output
+
+Generating an Eleventy Site
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**With Scaffolding:**
+
+.. code-block:: bash
+
+   all2md generate-site documentation/ \
+       --output-dir my-docs \
+       --generator eleventy \
+       --scaffold \
+       --recursive
+
+This creates ``.eleventy.js`` (input ``src/``, output ``_site/``, with ``src/images`` passthrough copy), a ``package.json`` declaring the Eleventy dependency, a ``src/index.md`` homepage, converted pages in ``src/``, and copied images in ``src/images/``.
+
+Eleventy Frontmatter
+~~~~~~~~~~~~~~~~~~~~
+
+Eleventy imposes no frontmatter schema, so only the common fields are emitted (``title``, ``date``, ``author``, ``description``, ``tags``). Note that ``tags`` also double as Eleventy collection names.
+
+Eleventy Asset Organization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Images are copied to ``src/images/`` and referenced with the ``/images/`` path prefix. The scaffolded ``.eleventy.js`` configures a passthrough copy so ``src/images/`` is emitted to ``/images/`` in the built site.
+
+**Eleventy Dependency Note:**
+
+Eleventy is an npm package. After scaffolding, run ``npm install`` (which installs ``@11ty/eleventy`` from the generated ``package.json``) before ``npx @11ty/eleventy --serve``.
+
 Frontmatter Generation
 -----------------------
 
@@ -745,6 +972,21 @@ Generator-Specific Paths
 
 - Static directory: ``assets/images/``
 - Markdown reference: ``/assets/images/filename``
+
+**MkDocs:**
+
+- Static directory: ``docs/images/``
+- Markdown reference: ``/images/filename``
+
+**Zola:**
+
+- Static directory: ``static/images/``
+- Markdown reference: ``/images/filename``
+
+**Eleventy:**
+
+- Static directory: ``src/images/`` (passthrough-copied)
+- Markdown reference: ``/images/filename``
 
 Output File Naming
 ------------------
@@ -1030,6 +1272,75 @@ After generating the scaffolded structure:
    cd output-dir
    bundle exec jekyll serve  # Start development server
    bundle exec jekyll build  # Build for production
+
+MkDocs Scaffolding
+~~~~~~~~~~~~~~~~~~
+
+With ``--scaffold``, a complete MkDocs site structure is created:
+
+**Directory Structure:**
+
+.. code-block:: text
+
+   output-dir/
+   ├── mkdocs.yml           # Site configuration
+   └── docs/                # Content directory
+       ├── index.md         # Homepage placeholder
+       └── images/          # Image directory
+
+**mkdocs.yml Contents:**
+
+.. code-block:: yaml
+
+   site_name: My Site
+   site_description: Site generated with all2md
+
+   theme:
+     name: material
+
+   markdown_extensions:
+     - admonition
+     - tables
+     - fenced_code
+     - toc:
+         permalink: true
+
+**Building the Site:**
+
+After generating the scaffolded structure:
+
+.. code-block:: bash
+
+   cd output-dir
+   mkdocs serve  # Start development server
+   mkdocs build  # Build for production
+
+Zola Scaffolding
+~~~~~~~~~~~~~~~~
+
+With ``--scaffold``, a complete Zola site structure is created (``config.toml``, ``content/_index.md``, ``static/images/``, and minimal Tera templates under ``templates/``).
+
+**Building the Site:**
+
+.. code-block:: bash
+
+   cd output-dir
+   zola serve  # Start development server
+   zola build  # Build for production
+
+Eleventy Scaffolding
+~~~~~~~~~~~~~~~~~~~~
+
+With ``--scaffold``, a complete Eleventy site structure is created (``.eleventy.js``, ``package.json``, ``src/index.md``, and ``src/images/``).
+
+**Building the Site:**
+
+.. code-block:: bash
+
+   cd output-dir
+   npm install                  # Install @11ty/eleventy
+   npx @11ty/eleventy --serve   # Start development server
+   npx @11ty/eleventy           # Build for production
 
 Complete Examples
 -----------------
@@ -1333,14 +1644,14 @@ generate-site Command (This Document)
 
 **Best for:**
 
-- Creating Hugo or Jekyll sites quickly
+- Creating Hugo, Jekyll, MkDocs, Zola, or Eleventy sites quickly
 - Migrating documentation to static site generators
 - Working with established static site ecosystems
 - Batch converting document collections
 
 **Features:**
 
-- Purpose-built for Hugo/Jekyll
+- Purpose-built for Hugo, Jekyll, MkDocs, Zola, and Eleventy
 - Automatic frontmatter generation
 - Site scaffolding
 - Generator-specific conventions
