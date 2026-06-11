@@ -16,7 +16,7 @@ class TestJsonParserBasic:
     def test_parse_simple_object(self):
         """Test parsing a simple JSON object."""
         json_str = '{"name": "John", "age": 30}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -35,7 +35,7 @@ class TestJsonParserBasic:
     def test_parse_simple_array(self):
         """Test parsing a simple JSON array."""
         json_str = '["apple", "banana", "cherry"]'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -63,7 +63,7 @@ class TestJsonParserBasic:
             }
         }
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -81,7 +81,7 @@ class TestJsonParserBasic:
             ]
         }
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -99,7 +99,7 @@ class TestJsonParserBasic:
     def test_parse_empty_object(self):
         """Test parsing empty JSON object."""
         json_str = "{}"
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -108,7 +108,7 @@ class TestJsonParserBasic:
     def test_parse_invalid_json(self):
         """Test parsing invalid JSON raises error."""
         json_str = '{"invalid": json}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError):
             parser.parse(json_str)
@@ -132,7 +132,7 @@ class TestJsonParserComplex:
             }
         }
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -153,7 +153,7 @@ class TestJsonParserComplex:
             "object": {"nested": "value"}
         }
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -162,7 +162,7 @@ class TestJsonParserComplex:
     def test_parse_large_numbers(self):
         """Test parsing large numbers with formatting."""
         json_str = '{"population": 7800000000, "small": 100}'
-        parser = JsonParser(JsonParserOptions(pretty_format_numbers=True))
+        parser = JsonParser(JsonParserOptions(literal_block=False, pretty_format_numbers=True))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -180,7 +180,7 @@ class TestJsonParserComplex:
     def test_parse_multiline_string(self):
         """Test parsing multiline strings."""
         json_str = '{"description": "Line 1\\nLine 2\\nLine 3"}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -196,7 +196,7 @@ class TestJsonParserComplex:
         }
         """
         # With default threshold=1, single item should become a table
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -205,7 +205,7 @@ class TestJsonParserComplex:
         assert len(tables) == 1  # Should have one table
 
         # Test with higher threshold - should NOT become table
-        parser_high_threshold = JsonParser(JsonParserOptions(array_as_table_threshold=2))
+        parser_high_threshold = JsonParser(JsonParserOptions(literal_block=False, array_as_table_threshold=2))
         doc_high = parser_high_threshold.parse(json_str)
         tables_high = [child for child in doc_high.children if isinstance(child, Table)]
         assert len(tables_high) == 0  # Should not have a table with threshold=2
@@ -229,7 +229,7 @@ class TestJsonParserOptions:
     def test_sort_keys(self):
         """Test sorting keys alphabetically."""
         json_str = '{"zebra": 1, "apple": 2, "monkey": 3}'
-        parser = JsonParser(JsonParserOptions(sort_keys=True))
+        parser = JsonParser(JsonParserOptions(literal_block=False, sort_keys=True))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -239,7 +239,7 @@ class TestJsonParserOptions:
     def test_flatten_single_keys(self):
         """Test flattening single-key objects."""
         json_str = '{"wrapper": {"data": {"value": 42}}}'
-        parser = JsonParser(JsonParserOptions(flatten_single_keys=True))
+        parser = JsonParser(JsonParserOptions(literal_block=False, flatten_single_keys=True))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -260,7 +260,7 @@ class TestJsonParserOptions:
             }
         }
         """
-        parser = JsonParser(JsonParserOptions(max_heading_depth=2))
+        parser = JsonParser(JsonParserOptions(literal_block=False, max_heading_depth=2))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -278,7 +278,7 @@ class TestJsonParserEdgeCases:
         json_file = tmp_path / "test.json"
         json_file.write_text('{"name": "John"}', encoding="utf-8")
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_file)
 
         assert isinstance(doc, Document)
@@ -286,7 +286,7 @@ class TestJsonParserEdgeCases:
     def test_parse_from_bytes(self):
         """Test parsing from bytes."""
         json_bytes = b'{"name": "John"}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_bytes)
 
         assert isinstance(doc, Document)
@@ -294,7 +294,7 @@ class TestJsonParserEdgeCases:
     def test_parse_unicode(self):
         """Test parsing Unicode content."""
         json_str = '{"name": "José", "greeting": "你好"}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -302,7 +302,7 @@ class TestJsonParserEdgeCases:
     def test_parse_special_characters(self):
         """Test parsing special characters."""
         json_str = r'{"text": "Line with \"quotes\" and \\ backslash"}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -310,7 +310,7 @@ class TestJsonParserEdgeCases:
     def test_metadata_extraction(self):
         """Test metadata extraction."""
         json_str = '{"title": "My Document", "data": {"value": 42}}'
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -332,7 +332,7 @@ class TestJsonParserTableConversion:
             {"id": 3, "name": "Charlie", "status": "active"}
         ]
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -355,7 +355,7 @@ class TestJsonParserTableConversion:
             {"different": "keys"}
         ]
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)
@@ -371,7 +371,7 @@ class TestJsonParserTableConversion:
             {"name": "Bob", "tags": ["user"]}
         ]
         """
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json_str)
 
         assert isinstance(doc, Document)

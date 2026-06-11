@@ -394,10 +394,12 @@ class TestJsonRendererComplexCases:
             "users": [{"name": "Alice", "age": 30, "active": True}, {"name": "Bob", "age": 25, "active": False}]
         }
 
-        # Parse
+        # Parse in structured mode so the renderer can reconstruct the data
+        # (the default literal_block=True emits a code block, not a table).
+        from all2md.options.json import JsonParserOptions
         from all2md.parsers.json import JsonParser
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(original_data))
 
         # Render back

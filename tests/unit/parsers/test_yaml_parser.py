@@ -20,13 +20,13 @@ class TestYamlParserInitialization:
 
     def test_default_initialization(self):
         """Test parser initializes with default options."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         assert parser.options is not None
         assert isinstance(parser.options, YamlParserOptions)
 
     def test_initialization_with_options(self):
         """Test parser initializes with custom options."""
-        options = YamlParserOptions(max_heading_depth=3, sort_keys=True)
+        options = YamlParserOptions(literal_block=False, max_heading_depth=3, sort_keys=True)
         parser = YamlParser(options)
         assert parser.options.max_heading_depth == 3
         assert parser.options.sort_keys is True
@@ -93,7 +93,7 @@ class TestYamlParserPrimitiveTypes:
 
     def test_parse_null_value(self):
         """Test parsing null values."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("value: null")
 
         assert isinstance(doc, Document)
@@ -102,28 +102,28 @@ class TestYamlParserPrimitiveTypes:
 
     def test_parse_boolean_true(self):
         """Test parsing boolean true."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("enabled: true")
 
         assert isinstance(doc, Document)
 
     def test_parse_boolean_false(self):
         """Test parsing boolean false."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("enabled: false")
 
         assert isinstance(doc, Document)
 
     def test_parse_integer(self):
         """Test parsing integer values."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("count: 42")
 
         assert isinstance(doc, Document)
 
     def test_parse_large_integer_with_formatting(self):
         """Test parsing large integers with thousand separators."""
-        options = YamlParserOptions(pretty_format_numbers=True)
+        options = YamlParserOptions(literal_block=False, pretty_format_numbers=True)
         parser = YamlParser(options)
         doc = parser.parse("count: 1000000")
 
@@ -132,7 +132,7 @@ class TestYamlParserPrimitiveTypes:
 
     def test_parse_large_integer_without_formatting(self):
         """Test parsing large integers without formatting."""
-        options = YamlParserOptions(pretty_format_numbers=False)
+        options = YamlParserOptions(literal_block=False, pretty_format_numbers=False)
         parser = YamlParser(options)
         doc = parser.parse("count: 1000000")
 
@@ -140,14 +140,14 @@ class TestYamlParserPrimitiveTypes:
 
     def test_parse_float(self):
         """Test parsing float values."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("pi: 3.14159")
 
         assert isinstance(doc, Document)
 
     def test_parse_string(self):
         """Test parsing string values."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("name: John Doe")
 
         assert isinstance(doc, Document)
@@ -160,21 +160,21 @@ description: |
   Line 2
   Line 3
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
 
     def test_parse_datetime(self):
         """Test parsing datetime values."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("timestamp: 2024-06-15T12:30:00")
 
         assert isinstance(doc, Document)
 
     def test_parse_date(self):
         """Test parsing date values."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("birthday: 2024-06-15")
 
         assert isinstance(doc, Document)
@@ -191,7 +191,7 @@ items:
   - banana
   - cherry
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -213,7 +213,7 @@ users:
   - name: Bob
     role: user
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -225,7 +225,7 @@ users:
   - name: Alice
     role: admin
 """
-        options = YamlParserOptions(array_as_table_threshold=2)
+        options = YamlParserOptions(literal_block=False, array_as_table_threshold=2)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -234,7 +234,7 @@ users:
 
     def test_parse_empty_array(self):
         """Test parsing empty array."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("items: []")
 
         assert isinstance(doc, Document)
@@ -247,7 +247,7 @@ matrix:
   - [4, 5, 6]
   - [7, 8, 9]
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -263,7 +263,7 @@ server:
   host: localhost
   port: 8080
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -273,7 +273,7 @@ server:
 
     def test_parse_empty_object(self):
         """Test parsing empty object."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("config: {}")
 
         assert isinstance(doc, Document)
@@ -285,7 +285,7 @@ zebra: last
 apple: first
 banana: second
 """
-        options = YamlParserOptions(sort_keys=True)
+        options = YamlParserOptions(literal_block=False, sort_keys=True)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -298,7 +298,7 @@ zebra: last
 apple: first
 banana: second
 """
-        options = YamlParserOptions(sort_keys=False)
+        options = YamlParserOptions(literal_block=False, sort_keys=False)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -315,7 +315,7 @@ database:
     host: db2.example.com
     port: 5432
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -329,7 +329,7 @@ config:
   enabled: true
   timeout: 30
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -345,7 +345,7 @@ wrapper:
   actual_data:
     value: 123
 """
-        options = YamlParserOptions(flatten_single_keys=True)
+        options = YamlParserOptions(literal_block=False, flatten_single_keys=True)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -358,7 +358,7 @@ wrapper:
   actual_data:
     value: 123
 """
-        options = YamlParserOptions(flatten_single_keys=False)
+        options = YamlParserOptions(literal_block=False, flatten_single_keys=False)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -369,7 +369,7 @@ wrapper:
         yaml_content = """
 wrapper: simple_value
 """
-        options = YamlParserOptions(flatten_single_keys=True)
+        options = YamlParserOptions(literal_block=False, flatten_single_keys=True)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -390,7 +390,7 @@ level1:
           level6:
             level7: value
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -403,7 +403,7 @@ level1:
     level3:
       level4: value
 """
-        options = YamlParserOptions(max_heading_depth=2)
+        options = YamlParserOptions(literal_block=False, max_heading_depth=2)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -418,7 +418,7 @@ level1:
       level4:
         level5: value
 """
-        options = YamlParserOptions(max_heading_depth=3)
+        options = YamlParserOptions(literal_block=False, max_heading_depth=3)
         parser = YamlParser(options)
         doc = parser.parse(yaml_content)
 
@@ -430,14 +430,14 @@ class TestYamlParserInputTypes:
 
     def test_parse_string_input(self):
         """Test parsing string input."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("key: value")
 
         assert isinstance(doc, Document)
 
     def test_parse_bytes_input(self):
         """Test parsing bytes input."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(b"key: value")
 
         assert isinstance(doc, Document)
@@ -447,7 +447,7 @@ class TestYamlParserInputTypes:
         yaml_file = tmp_path / "test.yaml"
         yaml_file.write_text("key: value\n", encoding="utf-8")
 
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_file)
 
         assert isinstance(doc, Document)
@@ -457,7 +457,7 @@ class TestYamlParserInputTypes:
         yaml_file = tmp_path / "test.yaml"
         yaml_file.write_text("key: value\n", encoding="utf-8")
 
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(str(yaml_file))
 
         assert isinstance(doc, Document)
@@ -467,7 +467,7 @@ class TestYamlParserInputTypes:
         yaml_bytes = b"key: value\n"
         file_like = BytesIO(yaml_bytes)
 
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(file_like)
 
         assert isinstance(doc, Document)
@@ -480,7 +480,7 @@ class TestYamlParserErrorHandling:
         """Test parsing invalid YAML raises ParsingError."""
         # YAML with invalid structure - unclosed flow sequence
         invalid_yaml = "key: [value1, value2"
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError) as excinfo:
             parser.parse(invalid_yaml)
@@ -489,7 +489,7 @@ class TestYamlParserErrorHandling:
     def test_parse_malformed_yaml(self):
         """Test parsing malformed YAML."""
         malformed = "key: [unclosed list"
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError):
             parser.parse(malformed)
@@ -497,7 +497,7 @@ class TestYamlParserErrorHandling:
     def test_parse_nonexistent_file(self, tmp_path):
         """Test parsing nonexistent file."""
         nonexistent = tmp_path / "nonexistent.yaml"
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
 
         with pytest.raises(Exception):
             parser.parse(nonexistent)
@@ -514,7 +514,7 @@ author: John Doe
 data:
   key: value
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -522,7 +522,7 @@ data:
 
     def test_metadata_with_empty_document(self):
         """Test metadata with empty document."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("")
 
         assert isinstance(doc, Document)
@@ -554,7 +554,7 @@ application:
     retries: 3
     debug: false
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -570,7 +570,7 @@ mixed:
   - null
   - 3.14
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -621,7 +621,7 @@ logging:
     - type: console
       format: json
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -633,7 +633,7 @@ class TestYamlParserEdgeCases:
 
     def test_parse_empty_string(self):
         """Test parsing empty string."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse("")
 
         assert isinstance(doc, Document)
@@ -644,14 +644,14 @@ class TestYamlParserEdgeCases:
 # This is a comment
 # Another comment
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
 
     def test_parse_whitespace_only(self):
         """Test parsing whitespace-only content."""
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         # Spaces and newlines only (no tabs which can cause YAML scan errors)
         doc = parser.parse("   \n\n     \n")
 
@@ -663,7 +663,7 @@ class TestYamlParserEdgeCases:
 message: Hello, 世界! 🌍
 emoji: 🎉🎊🎈
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -684,7 +684,7 @@ folded: >
   This is a
   folded string
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)
@@ -720,7 +720,7 @@ sections:
   - name: Section 2
     content: Content 2
 """
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_content)
 
         assert isinstance(doc, Document)

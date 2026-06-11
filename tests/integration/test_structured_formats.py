@@ -6,6 +6,10 @@ import json
 
 import pytest
 
+from all2md.options.ini import IniParserOptions
+from all2md.options.json import JsonParserOptions
+from all2md.options.toml import TomlParserOptions
+from all2md.options.yaml import YamlParserOptions
 from all2md.parsers.ini import IniParser
 from all2md.parsers.json import JsonParser
 from all2md.parsers.toml import TomlParser
@@ -27,7 +31,7 @@ class TestRoundTripConversion:
         }
 
         # Parse
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(original))
 
         # Render
@@ -59,7 +63,7 @@ users:
         """
 
         # Parse
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(original_yaml)
 
         # Render
@@ -95,7 +99,7 @@ active = false
         """
 
         # Parse
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(original_toml)
 
         # Render
@@ -129,7 +133,7 @@ timeout = 30
         """
 
         # Parse
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(original_ini)
 
         # Render
@@ -156,7 +160,7 @@ class TestCrossFormatConversion:
         json_str = '{"name": "John", "age": 30}'
 
         # Parse JSON
-        json_parser = JsonParser()
+        json_parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = json_parser.parse(json_str)
 
         # Render as YAML
@@ -175,7 +179,7 @@ class TestCrossFormatConversion:
         yaml_str = "name: John\nage: 30"
 
         # Parse YAML
-        yaml_parser = YamlParser()
+        yaml_parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = yaml_parser.parse(yaml_str)
 
         # Render as JSON
@@ -192,7 +196,7 @@ class TestCrossFormatConversion:
         toml_str = '[section]\nkey = "value"'
 
         # Parse TOML
-        toml_parser = TomlParser()
+        toml_parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = toml_parser.parse(toml_str)
 
         # Render as JSON
@@ -208,7 +212,7 @@ class TestCrossFormatConversion:
         ini_str = "[section]\nkey = value"
 
         # Parse INI
-        ini_parser = IniParser()
+        ini_parser = IniParser(IniParserOptions(literal_block=False))
         doc = ini_parser.parse(ini_str)
 
         # Render as JSON
@@ -227,7 +231,7 @@ class TestComplexDataStructures:
         """Test deeply nested JSON structures."""
         nested = {"level1": {"level2": {"level3": {"level4": {"level5": {"value": "deep"}}}}}}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(nested))
 
         renderer = JsonRenderer()
@@ -242,7 +246,7 @@ class TestComplexDataStructures:
         users = [{"id": i, "name": f"User{i}", "active": i % 2 == 0} for i in range(100)]
         data = {"users": users}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         renderer = JsonRenderer()
@@ -256,7 +260,7 @@ class TestComplexDataStructures:
         """Test arrays with mixed primitive types."""
         data = {"values": [1, "two", 3.14, True, None]}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         # Should handle mixed types gracefully
@@ -266,7 +270,7 @@ class TestComplexDataStructures:
         """Test Unicode content across formats."""
         data = {"chinese": "你好世界", "emoji": "🎉🎊", "greek": "Γεια σου κόσμε", "arabic": "مرحبا بالعالم"}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data, ensure_ascii=False))
 
         renderer = JsonRenderer()
@@ -284,7 +288,7 @@ class TestEdgeCases:
         """Test empty objects and arrays."""
         data = {"empty_obj": {}, "empty_arr": [], "null": None}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         # Should handle empty structures
@@ -294,7 +298,7 @@ class TestEdgeCases:
         """Test arrays with single values."""
         data = {"single": [{"key": "value"}]}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         renderer = JsonRenderer()
@@ -307,7 +311,7 @@ class TestEdgeCases:
         """Test special characters in object keys."""
         data = {"key-with-dash": 1, "key.with.dots": 2, "key_with_underscore": 3, "key with spaces": 4}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         renderer = JsonRenderer()
@@ -320,7 +324,7 @@ class TestEdgeCases:
         """Test numeric strings as keys."""
         data = {"123": "numeric key", "456": "another"}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         # Should treat as strings
@@ -331,7 +335,7 @@ class TestEdgeCases:
         long_text = "x" * 10000
         data = {"long": long_text}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         # Should handle long strings
@@ -345,7 +349,7 @@ class TestFormatSpecificFeatures:
         """Test JSON null value support."""
         data = {"value": None}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         renderer = JsonRenderer()
@@ -360,7 +364,7 @@ class TestFormatSpecificFeatures:
         pytest.importorskip("yaml", reason="pyyaml not installed")
         yaml_str = "date: 2025-01-15\ntime: 14:30:00"
 
-        parser = YamlParser()
+        parser = YamlParser(YamlParserOptions(literal_block=False))
         doc = parser.parse(yaml_str)
 
         # Should handle dates
@@ -372,7 +376,7 @@ class TestFormatSpecificFeatures:
         # TOML doesn't have null values
         toml_str = '[section]\nkey = "value"'
 
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_str)
 
         # Should work without null
@@ -382,7 +386,7 @@ class TestFormatSpecificFeatures:
         """Test INI flat structure (no nesting)."""
         ini_str = "[section]\nkey1 = value1\nkey2 = value2"
 
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(ini_str)
 
         renderer = IniRenderer()
@@ -400,7 +404,7 @@ class TestPerformance:
         # Create a large structure
         data = {"items": [{"id": i, "value": f"item_{i}"} for i in range(1000)]}
 
-        parser = JsonParser()
+        parser = JsonParser(JsonParserOptions(literal_block=False))
         doc = parser.parse(json.dumps(data))
 
         renderer = JsonRenderer()
@@ -417,7 +421,7 @@ class TestPerformance:
         ini_parts = [f"[section{i}]\nkey = value{i}\n" for i in range(100)]
         ini_str = "\n".join(ini_parts)
 
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(ini_str)
 
         renderer = IniRenderer()

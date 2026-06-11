@@ -549,6 +549,6 @@ CONVERTER_METADATA = ConverterMetadata(
     import_error_message="JSON conversion uses Python standard library (no dependencies)",
     parser_options_class=JsonParserOptions,
     renderer_options_class="all2md.options.json.JsonRendererOptions",
-    description="Convert JSON structures to/from readable documents with tables and lists",
+    description="Convert JSON to/from a fenced code block (default) or a structured document",
     priority=10,
 )

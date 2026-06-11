@@ -20,7 +20,9 @@ from all2md.options.base import BaseParserOptions, BaseRendererOptions
 class JsonParserOptions(BaseParserOptions):
     """Configuration options for JSON to AST parsing.
 
-    The parser converts JSON structures into human-readable document format:
+    By default the parser emits the JSON as a fenced code block (``literal_block``).
+    Set ``literal_block=False`` to convert JSON structures into a human-readable
+    document instead:
     - Objects/dicts become heading hierarchies
     - Arrays of objects become tables
     - Arrays of primitives become lists
@@ -46,16 +48,20 @@ class JsonParserOptions(BaseParserOptions):
         If True, format large numbers with thousand separators for readability.
     sort_keys : bool, default = False
         If True, sort object keys alphabetically when rendering.
-    literal_block : bool, default = False
-        If True, render JSON as a literal code block instead of converting to
-        structured document format. Useful when you want to preserve the original
-        JSON formatting or show it as example code.
+    literal_block : bool, default = True
+        If True (the default), render JSON as a literal fenced code block,
+        preserving the native syntax. Set to False to convert into a structured
+        document (headings, tables for arrays of objects, lists).
 
     """
 
     literal_block: bool = field(
-        default=False,
-        metadata={"help": "Render as code block instead of structured document", "importance": "core"},
+        default=True,
+        metadata={
+            "help": "Render as a fenced code block (default) instead of a structured document",
+            "cli_name": "no-literal-block",
+            "importance": "core",
+        },
     )
     max_heading_depth: int = field(
         default=6,
