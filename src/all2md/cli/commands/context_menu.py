@@ -193,6 +193,8 @@ def _uninstall() -> int:
             winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
             removed = True
         except FileNotFoundError:
+            # Subkey already absent (entry not installed or partially removed) —
+            # that's the desired end state, so leave `removed` as-is and move on.
             pass
 
     target = _icon_target()
@@ -200,6 +202,8 @@ def _uninstall() -> int:
         try:
             target.unlink()
         except OSError:
+            # Best-effort cleanup; a leftover icon in %LOCALAPPDATA% is harmless
+            # and must not abort uninstalling the registry entry.
             pass
 
     if removed:
