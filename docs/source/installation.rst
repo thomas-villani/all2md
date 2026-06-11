@@ -254,6 +254,30 @@ PDF Support
 
 **Formats:** PDF documents with advanced table detection, image extraction, and text formatting
 
+OCR for Scanned PDFs
+~~~~~~~~~~~~~~~~~~~~~
+
+Scanned or image-only PDFs need OCR to extract text. all2md ships two engines,
+selected with ``OCROptions(engine=...)`` or ``--pdf-ocr-engine``:
+
+.. code-block:: bash
+
+   # Tesseract engine (default) — small Python wrapper, but needs the
+   # Tesseract binary installed separately on your system.
+   pip install all2md[pdf,ocr]
+
+   # EasyOCR engine — no system binary required. Pulls in PyTorch (a large
+   # download) and fetches recognition models on first use.
+   pip install all2md[pdf,ocr-easyocr]
+
+**Dependencies:** ``ocr`` → pytesseract, Pillow (plus the system Tesseract
+binary); ``ocr-easyocr`` → easyocr, Pillow (PyTorch is pulled in transitively).
+
+Enable OCR with ``--pdf-ocr-enabled`` (auto-detection runs in ``--pdf-ocr-mode
+auto``). The Tesseract Python packages are part of the ``all`` extra (you must
+still install the Tesseract binary yourself), but ``ocr-easyocr`` is **not** —
+it pulls in PyTorch, so install it explicitly when you want the EasyOCR engine.
+
 Word Documents
 ~~~~~~~~~~~~~~
 
@@ -423,6 +447,10 @@ use built-in Python libraries. The ``pdf_layout`` extra is intentionally
 **excluded** from ``all`` because its dependency (``pymupdf-layout``) uses the
 Polyform Noncommercial license; install it separately with
 ``pip install all2md[pdf_layout]`` if you need advanced PDF layout analysis.
+The ``ocr-easyocr`` extra is likewise **excluded** from ``all`` because it pulls
+in PyTorch (a large download); install it with ``pip install all2md[ocr-easyocr]``
+if you want the binary-free EasyOCR engine. The default Tesseract OCR engine *is*
+included in ``all``.
 
 Dependency Management
 ---------------------

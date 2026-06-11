@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **EasyOCR engine for PDF OCR.** A new binary-free OCR backend, selectable via
+  `OCROptions(engine="easyocr")` or `--pdf-ocr-engine easyocr`. Unlike the
+  default Tesseract engine it needs no system binary (`pip install
+  all2md[ocr-easyocr]`); it pulls in PyTorch and downloads recognition models on
+  first use. Added an `OCROptions.gpu` flag (EasyOCR only). Tesseract remains
+  the default with unchanged behavior.
+
+### Fixed
+
+- Corrected stale OCR CLI flags in the README (`--ocr-*` → `--pdf-ocr-*`).
+- `rcat` opened a transient console window that closed instantly on Windows
+  instead of rendering in the terminal (regression in 1.3.0). When the Windows
+  context-menu integration added a `[project.gui-scripts]` table, the `rcat`
+  entry point was inadvertently absorbed into it, so its launcher used the GUI
+  subsystem and detached from the console. Moved `rcat` back to
+  `[project.scripts]`; it renders in the terminal again.
+
 ## [1.3.0] - 2026-06-11
 
 ### Added

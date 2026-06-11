@@ -10,10 +10,14 @@ import pytest
 
 from all2md.options.common import OCROptions
 from all2md.options.pdf import PdfOptions
-from all2md.parsers._pdf_ocr import calculate_image_coverage
+from all2md.parsers._pdf_ocr import (
+    calculate_image_coverage,
+)
+from all2md.parsers._pdf_ocr import (
+    detect_page_language as _detect_page_language,
+)
 from all2md.parsers.pdf import (
     PdfToAstConverter,
-    _detect_page_language,
     _should_use_ocr,
 )
 

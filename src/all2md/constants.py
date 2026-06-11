@@ -75,6 +75,7 @@ TableExtractionMode = Literal["none", "grid", "text_clustering"]
 TableDetectionMode = Literal["pymupdf", "ruling", "both", "none"]
 ImageFormat = Literal["png", "jpeg"]
 OCRMode = Literal["auto", "force", "off"]
+OCREngine = Literal["tesseract", "easyocr"]
 LayoutAnalysisMode = Literal["auto", "enabled", "disabled"]
 
 # Email-specific types
@@ -237,6 +238,7 @@ DEPS_ENEX = [("lxml", "lxml", "")]
 # PDF-specific optional dependencies (beyond base pymupdf)
 DEPS_PDF_LANGDETECT = [("langdetect", "langdetect", ">=1.0.9")]
 DEPS_PDF_OCR = [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")]
+DEPS_PDF_OCR_EASYOCR = [("easyocr", "easyocr", ">=1.7.0"), ("Pillow", "PIL", ">=9.0.0")]
 DEPS_PDF_LAYOUT = [("pymupdf-layout", "pymupdf.layout", "")]
 
 # Document renderers (may have different version requirements than parsers)
@@ -783,6 +785,8 @@ PDF_DEFAULT_MARGINS = (50, 50, 50, 50)  # top, right, bottom, left
 
 # OCR settings
 DEFAULT_OCR_ENABLED = False
+DEFAULT_OCR_ENGINE: OCREngine = "tesseract"  # OCR backend: "tesseract" (system binary) or "easyocr" (pip-only)
+DEFAULT_OCR_GPU = False  # easyocr only: use GPU acceleration if available
 DEFAULT_OCR_MODE = "auto"
 DEFAULT_OCR_LANGUAGES = "eng"
 DEFAULT_OCR_AUTO_DETECT_LANGUAGE = False

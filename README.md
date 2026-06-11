@@ -396,8 +396,11 @@ pip install "all2md[pdf,docx,html]"
 # Install support for spreadsheets and ODF documents
 pip install "all2md[xlsx,odf]"
 
-# Install PDF support with OCR for scanned documents
+# Install PDF support with OCR for scanned documents (Tesseract engine; needs the system binary)
 pip install "all2md[pdf,ocr]"
+
+# ...or the binary-free EasyOCR engine instead (no system binary; downloads models on first use)
+pip install "all2md[pdf,ocr-easyocr]"
 
 # Install PDF support with GNN-based layout analysis
 pip install "all2md[pdf_layout]"
@@ -474,8 +477,11 @@ All conversion options are available as CLI flags. Use `--help` to see them all.
 # Convert only pages 1-3 and 5 from a PDF
 all2md report.pdf --pdf-pages "1-3,5"
 
-# Convert a scanned PDF using OCR (requires Tesseract)
-all2md scanned.pdf --ocr-enabled --ocr-mode auto --ocr-languages eng
+# Convert a scanned PDF using OCR (Tesseract engine; requires the Tesseract binary)
+all2md scanned.pdf --pdf-ocr-enabled --pdf-ocr-mode auto --pdf-ocr-languages eng
+
+# Same, using the binary-free EasyOCR engine
+all2md scanned.pdf --pdf-ocr-enabled --pdf-ocr-engine easyocr --pdf-ocr-languages eng
 
 # Convert an HTML file, extracting the <title> as the main heading
 all2md page.html --html-extract-title
@@ -598,7 +604,9 @@ markdown_content = to_markdown(
 # Convert a scanned PDF with OCR
 from all2md.options.common import OCROptions
 
-ocr_opts = OCROptions(enabled=True, mode="auto", languages="eng", dpi=300)
+# engine="tesseract" (default, needs the Tesseract binary) or engine="easyocr"
+# (binary-free; pip install all2md[ocr-easyocr])
+ocr_opts = OCROptions(enabled=True, mode="auto", engine="tesseract", languages="eng", dpi=300)
 pdf_opts_with_ocr = PdfOptions(ocr=ocr_opts)
 markdown_content = to_markdown('scanned.pdf', parser_options=pdf_opts_with_ocr)
 
@@ -846,7 +854,7 @@ A: Create a parser class, define a `ConverterMetadata` object, and register it v
 
 **Q: Does all2md work with scanned PDFs?**
 
-A: Yes! Install with OCR support: `pip install "all2md[pdf,ocr]"` and use `--ocr-enabled` flag or `OCROptions(enabled=True)` in Python. Requires Tesseract to be installed on your system.
+A: Yes! Install with OCR support (`pip install "all2md[pdf,ocr]"`) and use the `--pdf-ocr-enabled` flag or `OCROptions(enabled=True)` in Python. The default Tesseract engine requires the Tesseract binary on your system; alternatively use the binary-free EasyOCR engine with `pip install "all2md[pdf,ocr-easyocr]"` and `--pdf-ocr-engine easyocr` (it downloads models on first use and is heavier).
 
 **Q: Can I customize the output format beyond Markdown?**
 

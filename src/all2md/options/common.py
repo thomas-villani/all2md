@@ -33,6 +33,8 @@ from all2md.constants import (
     DEFAULT_OCR_DOC_TEXT_THRESHOLD,
     DEFAULT_OCR_DPI,
     DEFAULT_OCR_ENABLED,
+    DEFAULT_OCR_ENGINE,
+    DEFAULT_OCR_GPU,
     DEFAULT_OCR_IMAGE_AREA_THRESHOLD,
     DEFAULT_OCR_LANGUAGES,
     DEFAULT_OCR_PRESERVE_EXISTING_TEXT,
@@ -53,6 +55,7 @@ from all2md.constants import (
     ChartMode,
     HeaderCaseOption,
     MergedCellMode,
+    OCREngine,
     OCRMode,
     TrimEmptyMode,
 )
@@ -531,23 +534,40 @@ class OCROptions(CloneFrozenMixin):
     """Configuration options for OCR (Optical Character Recognition).
 
     This dataclass contains settings for detecting and extracting text from
-    images using Tesseract OCR engine. Can be used by any parser that needs
-    to extract text from images (PDF scanned pages, standalone images, etc.).
+    images. Can be used by any parser that needs to extract text from images
+    (PDF scanned pages, standalone images, etc.). Two OCR backends are
+    supported via ``engine``: Tesseract (default) and EasyOCR.
 
     Parameters
     ----------
     enabled : bool, default False
         Master switch to enable/disable OCR functionality. When False, all OCR
         processing is skipped regardless of other settings.
+    engine : {"tesseract", "easyocr"}, default "tesseract"
+        OCR backend to use:
+
+        - "tesseract": Thin wrapper over the Tesseract engine. Requires the
+          system Tesseract binary to be installed and on PATH (plus the
+          ``pytesseract`` Python package via ``pip install all2md[ocr]``).
+        - "easyocr": Pure-pip backend requiring no system binary. Pulls in
+          PyTorch transitively (a large download) and fetches recognition
+          models on first use (network access needed once). Install with
+          ``pip install all2md[ocr-easyocr]``.
+    gpu : bool, default False
+        EasyOCR only: enable GPU acceleration when a compatible device is
+        available. Ignored by the Tesseract engine.
     mode : {"auto", "force", "off"}, default "auto"
         OCR triggering mode:
+
         - "auto": Automatically detect when OCR is needed (format-specific logic)
         - "force": Apply OCR unconditionally
         - "off": Disable OCR (same as enabled=False)
     languages : str or list[str], default "eng"
         Tesseract language code(s) for OCR. Can be:
+
         - Single language: "eng", "fra", "deu", "spa", "chi_sim", etc.
         - Multiple languages: "eng+fra" or ["eng", "fra"]
+
         See Tesseract documentation for available language codes.
     auto_detect_language : bool, default False
         Attempt to automatically detect the document language before OCR.
@@ -569,6 +589,7 @@ class OCROptions(CloneFrozenMixin):
         content as image-based. Used by parsers in "auto" mode.
     preserve_existing_text : bool, default False
         Whether to preserve existing text when OCR is applied:
+
         - False: Replace existing text entirely with OCR results
         - True: Combine existing text with OCR results
     tesseract_config : str, default ""
@@ -577,12 +598,20 @@ class OCROptions(CloneFrozenMixin):
 
     Notes
     -----
-    OCR requires the optional dependencies pytesseract and Pillow, plus the
-    Tesseract OCR engine installed on your system. Install with::
+    The default ``tesseract`` engine requires the optional dependencies
+    pytesseract and Pillow, plus the Tesseract OCR engine installed on your
+    system. Install with::
 
         pip install all2md[ocr]
 
-    Then install Tesseract system package (platform-specific).
+    Then install the Tesseract system package (platform-specific).
+
+    The ``easyocr`` engine needs no system binary; install with::
+
+        pip install all2md[ocr-easyocr]
+
+    It downloads recognition models on first use and is considerably heavier
+    (PyTorch) than Tesseract.
 
     Examples
     --------
@@ -611,6 +640,21 @@ class OCROptions(CloneFrozenMixin):
         metadata={
             "help": "Enable OCR for image-based content",
             "importance": "core",
+        },
+    )
+    engine: OCREngine = field(
+        default=DEFAULT_OCR_ENGINE,
+        metadata={
+            "help": "OCR backend: 'tesseract' (needs system binary) or 'easyocr' (pip-only, no binary)",
+            "choices": ["tesseract", "easyocr"],
+            "importance": "core",
+        },
+    )
+    gpu: bool = field(
+        default=DEFAULT_OCR_GPU,
+        metadata={
+            "help": "easyocr only: use GPU acceleration if available (ignored by tesseract)",
+            "importance": "advanced",
         },
     )
     mode: OCRMode = field(

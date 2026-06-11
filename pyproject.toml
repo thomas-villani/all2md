@@ -200,6 +200,12 @@ ocr = [
     "pillow>=11.3.0",
     "pytesseract>=0.3.10",
 ]
+ocr-easyocr = [
+    # Binary-free OCR engine. Pulls in PyTorch transitively (large download) and
+    # fetches recognition models on first use; no system Tesseract binary needed.
+    "pillow>=11.3.0",
+    "easyocr>=1.7.0",
+]
 outlook = [
     # Note: PST/OST support requires libpff-python (pypff) which is not included
     # due to platform-specific installation challenges. Install manually if needed:
@@ -263,12 +269,12 @@ langdetect = [
 [project.scripts]
 all2md = "all2md.cli:main"
 all2md-mcp = "all2md.mcp.server:main"
+rcat = "all2md.cli:rcat_main"
 
 [project.gui-scripts]
 # Console-less viewer used by the Windows "View with all2md" context menu so
 # right-click launches open a browser without flashing a console window.
 all2mdw = "all2md.cli.viewer_launch:main"
-rcat = "all2md.cli:rcat_main"
 
 [project.entry-points."all2md.converters"]
 # Entry points for third-party converter plugins
