@@ -3,9 +3,10 @@
 This package provides a Model Context Protocol (MCP) server that exposes
 all2md's document conversion functionality to LLMs like Claude.
 
-The server runs over stdio transport and provides two main tools:
-- convert_to_markdown: Convert documents to Markdown
-- render_from_markdown: Render Markdown to other formats
+The server runs over stdio transport and provides three main tools:
+- read_document_as_markdown: Convert a document to Markdown
+- save_document_from_markdown: Render Markdown to another format and save it
+- edit_document: Apply structured edits to a document
 
 Security features include:
 - Path allowlists for read/write operations

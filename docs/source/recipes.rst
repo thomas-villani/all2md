@@ -1023,6 +1023,7 @@ Secure Web Scraping and Conversion
            self.html_options = HtmlOptions(
                strip_dangerous_elements=True,
                extract_title=True,
+               max_asset_size_bytes=5*1024*1024,  # 5MB cap per asset
                network=NetworkFetchOptions(
                    allow_remote_fetch=True,
                    # Only allow images from trusted CDNs
@@ -1033,7 +1034,6 @@ Secure Web Scraping and Conversion
                    ],
                    require_https=True,
                    network_timeout=10.0,
-                   max_remote_asset_bytes=5*1024*1024  # 5MB limit
                ),
                local_files=LocalFileAccessOptions(
                    allow_local_files=False,  # Block file:// URLs
@@ -1353,11 +1353,7 @@ Production Readiness Checker
    import sys
 
    # Import dependency checking utilities
-   from all2md.dependencies import (
-       check_package_installed,
-       get_missing_packages_for_format,
-       check_format_available
-   )
+   from all2md.dependencies import is_valid_format, get_missing_dependencies
 
    class DependencyValidator:
        """Validate converter dependencies for production."""
@@ -1370,19 +1366,24 @@ Production Readiness Checker
                'html': ['beautifulsoup4', 'lxml'],
                'xlsx': ['openpyxl'],
                'epub': ['ebooklib'],
-               'odf': ['odfpy'],
+               'odt': ['odfpy'],
                'rtf': ['pyth3']
            }
 
        def check_format(self, format_name: str) -> Dict:
-           """Check if a specific format is available."""
-           available = check_format_available(format_name)
-           missing = get_missing_packages_for_format(format_name) if not available else []
+           """Check if a specific format's dependencies are installed."""
+           if not is_valid_format(format_name):
+               return {'format': format_name, 'available': False,
+                       'missing_packages': [], 'unknown_format': True}
+
+           # get_missing_dependencies returns a list of (package, version) tuples;
+           # an empty list means every required dependency is installed.
+           missing = get_missing_dependencies(format_name)
 
            return {
                'format': format_name,
-               'available': available,
-               'missing_packages': missing
+               'available': len(missing) == 0,
+               'missing_packages': [pkg for pkg, _version in missing]
            }
 
        def check_all_formats(self) -> Dict:
@@ -1402,10 +1403,10 @@ Production Readiness Checker
                '.html': 'html',
                '.htm': 'html',
                '.xlsx': 'xlsx',
-               '.csv': 'spreadsheet',
+               '.csv': 'csv',
                '.epub': 'epub',
-               '.odt': 'odf',
-               '.odp': 'odf',
+               '.odt': 'odt',
+               '.odp': 'odp',
                '.rtf': 'rtf'
            }
 
@@ -1672,13 +1673,8 @@ Batch Document Transformation
 .. code-block:: python
 
    from pathlib import Path
-   from all2md import to_ast
-   from all2md.ast import (
-       HeadingLevelTransformer,
-       LinkRewriter,
-       MarkdownRenderer,
-       GFMFlavor
-   )
+   from all2md import to_ast, from_ast
+   from all2md.ast import HeadingLevelTransformer, LinkRewriter
 
    class DocumentTransformationPipeline:
        """Apply consistent transformations to document collections."""
@@ -1686,7 +1682,6 @@ Batch Document Transformation
        def __init__(self, output_dir: str):
            self.output_dir = Path(output_dir)
            self.output_dir.mkdir(parents=True, exist_ok=True)
-           self.renderer = MarkdownRenderer(flavor=GFMFlavor())
 
        def transform_document(
            self,
@@ -1701,8 +1696,8 @@ Batch Document Transformation
            for transformer in transformers:
                doc = transformer.transform(doc)
 
-           # Render back to Markdown
-           return self.renderer.render(doc)
+           # Render the transformed AST back to Markdown (GFM by default)
+           return from_ast(doc, "markdown")
 
        def batch_transform(
            self,
@@ -1772,8 +1767,7 @@ Batch Document Transformation
    transformers = [
        HeadingLevelTransformer(offset=1),
        LinkRewriter(
-           pattern=r'^/old-docs/',
-           replacement='/new-docs/'
+           url_mapper=lambda url: url.replace('/old-docs/', '/new-docs/')
        )
    ]
 

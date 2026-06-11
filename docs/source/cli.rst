@@ -102,19 +102,22 @@ Example output:
 
 .. code-block:: text
 
-   Available Formats:
+   All2MD Supported Formats
+   ================================================================================
+   Format       Parser   Renderer   Extensions
+   --------------------------------------------------------------------------------
+   ARCHIVE      [OK]     N/A        .tar, .tgz, .tar.gz, .tbz2 +6
+   ASCIIDOC     [OK]     [OK]       .adoc, .asciidoc, .asc
+   DOCX         [OK]     [OK]       .docx
+   HTML         [OK]     [OK]       .html, .htm, .xhtml
+   PDF          [OK]     [OK]       .pdf
+   XLSX         [OK]     N/A        .xlsx
+   ...
 
-   Format: pdf
-     Extensions: .pdf
-     MIME Types: application/pdf
-     Status: Available
-     Dependencies: PyMuPDF (fitz)
+   Total: 40 formats
 
-   Format: docx
-     Extensions: .docx
-     MIME Types: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-     Status: Available
-     Dependencies: python-docx
+   Legend: [OK] = Available, [X] = Dependencies missing, N/A = Not implemented
+   Use 'all2md list-formats <format>' for detailed information
 
 List Available Transforms
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,18 +139,19 @@ Example output:
 
 .. code-block:: text
 
-   Available Transforms:
+   Available Transforms
+   ============================================================
+     add-heading-ids      Generate and add unique IDs to heading nodes for anchors [headings, anchors, ids]
+     add-timestamp        Add conversion timestamp to document metadata [metadata, timestamp]
+     heading-offset       Shift heading levels by a specified offset [headings, structure]
+     remove-images        Remove all Image nodes from the AST [images, cleanup]
+     text-replacer        Find and replace text in Text nodes [text, replace]
+     title-promotion      Promote a leading H1 to document title and shift subsequent headings up one level [headings, title, structure]
+     word-count           Calculate word and character counts and add to metadata [metadata, statistics]
+   ...
 
-   Transform: RemoveImagesTransform
-     Module: all2md.transforms.builtin
-     Description: Remove all image nodes from the AST
-     Status: Available
-
-   Transform: HeadingOffsetTransform
-     Module: all2md.transforms.builtin
-   Description: Adjust heading levels by a specified offset
-     Status: Available
-     Options: offset (int)
+   Total: 11 transforms
+   Use 'all2md list-transforms <transform>' for details
 
 Search Command
 --------------
@@ -479,63 +483,55 @@ Create a configuration file with all available options:
    all2md config generate --format json
 
 The generated configuration includes:
-* Helpful comments explaining each option (TOML only)
-* All available options with their default values
-* Format-specific settings organized by section
+* A short header comment (TOML only)
+* Every available option with its current default value
+* Format-specific settings organized into one section per format
 
 **Example Generated Configuration (TOML):**
 
 .. code-block:: toml
 
    # all2md configuration file
-   # Automatically generated default configuration
+   # Generated from current converter defaults
+   # Edit values as needed and remove sections you do not use.
+   extract_metadata = false
 
-   # Attachment handling mode: "skip", "save", or "base64"
-   attachment_mode = "skip"
-
-   # PDF conversion options
-   [pdf]
-   # Detect multi-column layouts
-   detect_columns = true
-   # Skip extracting images from PDFs
-   skip_image_extraction = false
-   # Enable fallback table detection
-   enable_table_fallback_detection = true
-   # Merge hyphenated words at line breaks
-   merge_hyphenated_words = false
-
-   # HTML conversion options
    [html]
-   # Strip potentially dangerous HTML elements
-   strip_dangerous_elements = true
-   # Extract title from HTML
    extract_title = false
+   strip_dangerous_elements = false
 
-   # Markdown output options
    [markdown]
-   # Symbol to use for emphasis: "*" or "_"
+   bullet_symbols = "*-+"
    emphasis_symbol = "*"
+   use_hash_headings = true
 
-   # ... (additional format sections)
+   [pdf]
+   detect_columns = true
+   enable_table_fallback_detection = true
+   merge_hyphenated_words = true
+   skip_image_extraction = false
+
+   # ... (one section per supported format)
 
 **Example Generated Configuration (JSON):**
 
 .. code-block:: json
 
    {
-     "attachment_mode": "skip",
-     "pdf": {
-       "detect_columns": false,
-       "skip_image_extraction": false,
-       "enable_table_fallback_detection": true,
-       "merge_hyphenated_words": false
-     },
      "html": {
-       "strip_dangerous_elements": true,
-       "extract_title": false
+       "extract_title": false,
+       "strip_dangerous_elements": false
      },
      "markdown": {
-       "emphasis_symbol": "*"
+       "bullet_symbols": "*-+",
+       "emphasis_symbol": "*",
+       "use_hash_headings": true
+     },
+     "pdf": {
+       "detect_columns": true,
+       "enable_table_fallback_detection": true,
+       "merge_hyphenated_words": true,
+       "skip_image_extraction": false
      }
    }
 
@@ -3809,23 +3805,26 @@ For common security scenarios, all2md provides convenient preset flags that conf
       all2md webpage.html --safe-mode --attachment-mode save
 
 ``--paranoid-mode``
-   Maximum security preset: like safe-mode but with stricter size limits and host validation.
+   Maximum security preset: sanitizes HTML, blocks all remote and local file access, and caps asset size.
 
    **Applies the following settings:**
-      * All settings from ``--safe-mode``
-      * ``allowed_hosts=[]`` - Denies all remote hosts by default (use ``--html-network-allowed-hosts`` to add specific trusted hosts)
-      * ``max_attachment_size_bytes=5242880`` - Reduces max size to 5MB (from default 20MB)
-      * ``max_remote_asset_bytes=5242880`` - Reduces max remote asset size to 5MB
+      * ``strip_dangerous_elements=True`` - Removes dangerous HTML elements
+      * ``allow_remote_fetch=False`` - Blocks ALL remote URL fetching
+      * ``allow_local_files=False`` - Blocks local file access
+      * ``allow_cwd_files=False`` - Blocks current directory file access
+      * ``max_asset_size_bytes=5242880`` - Caps each asset at 5MB (default 50MB)
 
    .. note::
 
-      **Host Allowlist Semantics:**
+      Paranoid mode disables remote fetching entirely (``allow_remote_fetch=False``),
+      so a host allowlist has no effect. If you need to fetch from specific trusted
+      hosts, use ``--safe-mode`` together with ``--html-network-allowed-hosts`` instead.
+
+      **Host Allowlist Semantics** (for ``--safe-mode`` / manual configuration):
 
       * ``allowed_hosts=[]`` (empty list) - Blocks ALL remote hosts
       * ``allowed_hosts=None`` (not set) - Allows all hosts subject to other constraints (HTTPS requirement, size limits, etc.)
       * ``allowed_hosts=["example.com"]`` (specific hosts) - Only allows listed hosts
-
-      In paranoid mode, you must explicitly add trusted hosts using ``--html-network-allowed-hosts`` to allow any remote fetching.
 
    .. code-block:: bash
 
@@ -5335,3 +5334,59 @@ Options
      - Remove ``all2md-*`` skills from target
 
 The completion scripts are static and self-contained, requiring no runtime calls to ``all2md``. If you add new formats via plugins, regenerate the completion script to include the new options.
+
+LLM Help Command
+----------------
+
+The ``all2md llm-help`` command prints the bundled agent-skill reference files to
+stdout. It is handy when driving the CLI from an LLM or script without installing
+the skill into an assistant. The topics are auto-discovered from the skill's
+``references/*.md`` files.
+
+.. code-block:: bash
+
+   # List available topics
+   all2md llm-help --list
+
+   # Print a single topic
+   all2md llm-help convert
+
+   # Print every topic (the full reference)
+   all2md llm-help
+
+Available topics are ``overview``, ``read``, ``convert``, ``generate``, ``grep``,
+``search``, and ``diff``.
+
+Context Menu Command (Windows)
+------------------------------
+
+On Windows, ``all2md context-menu`` manages a per-user right-click
+"View with all2md" shell entry (no administrator rights required).
+
+.. code-block:: bash
+
+   # Install the right-click entry
+   all2md context-menu install
+
+   # Show whether the entry is installed
+   all2md context-menu status
+
+   # Remove the entry
+   all2md context-menu uninstall
+
+   # Limit the entry to specific extensions
+   all2md context-menu install --extensions "md,pdf,docx"
+
+   # Also show the entry on all text files
+   all2md context-menu install --all-text
+
+Command Aliases
+---------------
+
+A few commands accept short aliases:
+
+* ``all2md formats`` is an alias for ``all2md list-formats``
+* ``all2md transforms`` is an alias for ``all2md list-transforms``
+
+The ``config`` subcommands (``generate``/``show``) also accept ``--format yaml``
+in addition to ``toml`` and ``json``.

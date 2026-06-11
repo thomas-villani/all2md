@@ -1,8 +1,8 @@
 """FastMCP server for all2md document conversion.
 
 This module implements the main MCP server using FastMCP with stdio transport.
-It exposes convert_to_markdown and render_from_markdown tools to LLMs
-with comprehensive security controls.
+It exposes read_document_as_markdown, save_document_from_markdown, and
+edit_document tools to LLMs with comprehensive security controls.
 
 Functions
 ---------

@@ -37,9 +37,9 @@ class MCPConfig(CloneFrozenMixin):
     Attributes
     ----------
     enable_to_md : bool
-        Whether to enable convert_to_markdown tool (default: True)
+        Whether to enable read_document_as_markdown tool (default: True)
     enable_from_md : bool
-        Whether to enable render_from_markdown tool (default: False for security)
+        Whether to enable save_document_from_markdown tool (default: False for security)
     enable_doc_edit : bool
         Whether to enable edit_document tool (default: False for security)
     read_allowlist : list[str | Path] | None
@@ -260,8 +260,8 @@ def create_argument_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Environment Variables:
-  ALL2MD_MCP_ENABLE_TO_MD          Enable convert_to_markdown tool (default: true)
-  ALL2MD_MCP_ENABLE_FROM_MD        Enable render_from_markdown tool (default: false)
+  ALL2MD_MCP_ENABLE_TO_MD          Enable read_document_as_markdown tool (default: true)
+  ALL2MD_MCP_ENABLE_FROM_MD        Enable save_document_from_markdown tool (default: false)
   ALL2MD_MCP_ENABLE_DOC_EDIT       Enable edit_document tool (default: false)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
@@ -310,10 +310,10 @@ Examples:
         "--enable-to-md",
         action="store_true",
         dest="enable_to_md",
-        help="Enable convert_to_markdown tool (default: true unless --no-to-md)",
+        help="Enable read_document_as_markdown tool (default: true unless --no-to-md)",
     )
     to_md_group.add_argument(
-        "--no-to-md", action="store_false", dest="enable_to_md", help="Disable convert_to_markdown tool"
+        "--no-to-md", action="store_false", dest="enable_to_md", help="Disable read_document_as_markdown tool"
     )
     parser.set_defaults(enable_to_md=None)  # None = use env default
 
@@ -322,10 +322,10 @@ Examples:
         "--enable-from-md",
         action="store_true",
         dest="enable_from_md",
-        help="Enable render_from_markdown tool (default: false for security)",
+        help="Enable save_document_from_markdown tool (default: false for security)",
     )
     from_md_group.add_argument(
-        "--no-from-md", action="store_false", dest="enable_from_md", help="Disable render_from_markdown tool"
+        "--no-from-md", action="store_false", dest="enable_from_md", help="Disable save_document_from_markdown tool"
     )
     parser.set_defaults(enable_from_md=None)  # None = use env default
 

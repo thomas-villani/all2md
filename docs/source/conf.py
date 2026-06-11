@@ -152,6 +152,7 @@ html_static_path = ["_static"]
 html_logo = "_static/logo.svg"
 html_favicon = "_static/logo.svg"
 
+from generate_formats_doc import generate_formats_document  # noqa: E402
 from generate_options_doc import generate_options_document  # noqa: E402
 
 
@@ -162,7 +163,14 @@ def _generate_options_reference(_app) -> None:
     generate_options_document(output_path, narrative_path)
 
 
+def _generate_formats_reference(_app) -> None:
+    """Build the generated supported-format matrix before the documentation build."""
+    output_path = DOCS_SOURCE_DIR / "_generated_formats.rst.inc"
+    generate_formats_document(output_path)
+
+
 def setup(app):
     """Configure Sphinx application with custom hooks."""
     app.connect("autodoc-skip-member", skip_dataclass_fields)
     app.connect("builder-inited", _generate_options_reference)
+    app.connect("builder-inited", _generate_formats_reference)

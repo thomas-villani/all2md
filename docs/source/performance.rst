@@ -188,10 +188,10 @@ For very large files, use chunked processing:
 
    def process_large_pdf_in_chunks(pdf_path: str, chunk_size: int = 10) -> str:
        """Process large PDF in chunks to manage memory."""
-       # First, determine total pages (quick metadata read)
-       from all2md.utils.metadata import extract_metadata
-       metadata = extract_metadata(pdf_path)
-       total_pages = metadata.get('page_count', 0)
+       # First, determine total pages (quick metadata read via PyMuPDF)
+       import fitz  # PyMuPDF, already required for PDF support
+       with fitz.open(pdf_path) as pdf:
+           total_pages = pdf.page_count
 
        all_markdown = []
 
@@ -441,7 +441,7 @@ Cache expensive metadata extraction:
 
    import pickle
    from pathlib import Path
-   from all2md.utils.metadata import extract_metadata
+   from all2md import to_ast
 
    def get_metadata_cached(file_path: Path, cache_dir: Path) -> dict:
        """Get file metadata with caching."""
@@ -456,8 +456,8 @@ Cache expensive metadata extraction:
                with open(cache_file, 'rb') as f:
                    return pickle.load(f)
 
-       # Extract fresh metadata
-       metadata = extract_metadata(str(file_path))
+       # Extract fresh metadata from the parsed document
+       metadata = to_ast(str(file_path)).metadata
 
        # Cache it
        cache_dir.mkdir(parents=True, exist_ok=True)
@@ -587,7 +587,7 @@ Fast Configuration Presets
        detect_columns=True,
        enable_table_fallback_detection=True,
        extract_metadata=True,
-       preserve_text_formatting=True  # Preserve bold/italic
+       consolidate_inline_formatting=True  # Merge adjacent bold/italic runs
    )
 
 CLI Performance Flags
@@ -692,7 +692,8 @@ Optimize for web service deployment:
                    options = HtmlOptions(
                        strip_dangerous_elements=True,
                        attachment_mode='skip',
-                       network=None  # Network disabled by env var
+                       # Remote fetching is off by default; set
+                       # ALL2MD_DISABLE_NETWORK=1 to hard-disable globally
                    )
                else:
                    options = None

@@ -371,10 +371,10 @@ Command-Line Arguments
 
 **Tool Toggles:**
 
-* ``--enable-to-md`` - Enable convert_to_markdown tool (default: true)
-* ``--no-to-md`` - Disable convert_to_markdown tool
-* ``--enable-from-md`` - Enable render_from_markdown tool (default: false)
-* ``--no-from-md`` - Disable render_from_markdown tool
+* ``--enable-to-md`` - Enable the read_document_as_markdown tool (default: true)
+* ``--no-to-md`` - Disable the read_document_as_markdown tool
+* ``--enable-from-md`` - Enable the save_document_from_markdown tool (default: false)
+* ``--no-from-md`` - Disable the save_document_from_markdown tool
 
 **Path Allowlists:**
 
@@ -383,7 +383,7 @@ Command-Line Arguments
 
 **Image Inclusion:**
 
-* ``--include-images`` - Include images in output for vLLM visibility (default: true)
+* ``--include-images`` - Include images in output for vLLM visibility (default: false)
 * ``--no-include-images`` - Do not include images, use alt text only
 
 **Markdown Flavor:**
@@ -535,7 +535,7 @@ The server supports a simple boolean flag for image handling:
    * - ``include_images=false``
      - Include alt text only (no image data)
 
-When ``include_images=true`` (default):
+When ``include_images=true``:
 
 * Images from PDF, DOCX, PPTX are embedded as base64
 * FastMCP automatically converts images to content blocks
@@ -719,7 +719,8 @@ Embedding all2md-mcp in your own MCP server:
 
 .. code-block:: python
 
-   from all2md.mcp import create_server, MCPConfig
+   from all2md.mcp import MCPConfig
+   from all2md.mcp.server import create_server
    from all2md.mcp.document_tools import edit_document_impl
    from all2md.mcp.security import prepare_allowlist_dirs
    from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl

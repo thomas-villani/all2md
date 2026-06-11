@@ -14,6 +14,20 @@ most important options, and points you to the right reference guides for deeper 
    :local:
    :depth: 1
 
+Format Matrix
+-------------
+
+The table below is generated directly from the converter registry, so it always
+reflects the parsers and renderers shipped in this build. **Input** means the
+format can be parsed into Markdown/AST; **Output** means the AST can be rendered
+to that format. The *Dependencies* column lists the third-party packages a
+converter needs (``built-in`` formats need none).
+
+.. include:: _generated_formats.rst.inc
+
+The narrative sections below describe the most important format families in more
+detail.
+
 Document & Presentation Formats
 -------------------------------
 
@@ -236,10 +250,11 @@ Spreadsheets (XLSX & ODS)
 Delimited Files (CSV/TSV)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-*Parser:* ``CsvToAstConverter``
+*Parser & Renderer:* ``CsvToAstConverter`` / ``CsvRenderer``
 
 - Dialect detection, encoding handling, and size guards for large datasets
 - Shares spreadsheet options such as ``max_rows`` and ``max_cols``
+- Renderer emits CSV from tabular AST content, enabling table extraction round-trips
 
 Jupyter Notebooks (IPYNB)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -262,12 +277,35 @@ Archive Formats (TAR/7Z/RAR)
 - Creates structured document with headings for each archive member
 - Handles compressed archives transparently with automatic decompression
 
+Data & Configuration Formats (JSON/YAML/TOML/INI)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Parsers & Renderers:* ``JsonParser``/``JsonRenderer``, ``YamlParser``/``YamlRenderer``,
+``TomlParser``/``TomlRenderer``, ``IniParser``/``IniRenderer``
+
+- Bidirectional conversion between structured data files and the common AST
+- JSON and INI are built-in; YAML uses ``pyyaml`` and TOML uses ``tomli-w`` for writing
+- Useful for turning configuration and data files into readable Markdown tables/sections,
+  or rendering AST content back out to a structured-data format
+
+Other Built-in Formats
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Several additional parsers ship in the box and appear in the Format Matrix above:
+
+- **BBCode** (``BBCodeParser``) — forum BBCode markup (input only)
+- **DokuWiki** (``DokuWikiParser`` / ``DokuWikiRenderer``) — bidirectional DokuWiki markup
+- **Evernote ENEX** (``EnexToAstConverter``) — Evernote export notes (input only)
+- **Safari WebArchive** (``WebArchiveToAstConverter``) — ``.webarchive`` bundles (input only)
+- **MBOX / Outlook** (``MboxToAstConverter`` / ``OutlookToAstConverter``) — mailbox and
+  MSG/PST/OST email stores (input only)
+
 Source Code & Plain Text
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *Parsers:* ``SourceCodeToAstConverter`` & ``PlainTextToAstConverter`` — *Renderer:* ``PlainTextRenderer``
 
-- ``sourcecode`` uses Pygments lexers to normalise more than 200 programming and config formats
+- ``sourcecode`` recognises over 100 source-code and config file extensions (69 distinct languages) via a built-in extension-to-language map, wrapping the content in a fenced code block tagged with the detected language
 - ``plaintext`` handles everything else, mapping headings and simple structure where possible
 
 ZIP Archives

@@ -1,6 +1,6 @@
 ---
 name: all2md
-description: "Convert, read, generate, search, and compare documents with the all2md CLI and Python library. Use whenever a task involves reading or extracting text/tables from a document (PDF, Word, PowerPoint, Excel, HTML, email, EPUB, Jupyter, images, or 200+ code/text formats); converting between formats (PDF→Markdown, Markdown→DOCX/PDF/PPTX/HTML/EPUB, any-to-any); generating documents or static sites from Markdown; grepping for patterns inside non-plaintext files; ranked keyword or semantic search across a document collection; or diffing two documents. Triggers include 'read this PDF', 'extract text/tables', 'convert to Word/PDF', 'make slides', 'export to EPUB', 'search these documents', 'grep this docx', or 'what changed between these files'."
+description: "Convert, read, generate, search, and compare documents with the all2md CLI and Python library. Use whenever a task involves reading or extracting text/tables from a document (PDF, Word, PowerPoint, Excel, HTML, email, EPUB, Jupyter, images, or 100+ source-code and text file types); converting between formats (PDF→Markdown, Markdown→DOCX/PDF/PPTX/HTML/EPUB, any-to-any); generating documents or static sites from Markdown; grepping for patterns inside non-plaintext files; ranked keyword or semantic search across a document collection; or diffing two documents. Triggers include 'read this PDF', 'extract text/tables', 'convert to Word/PDF', 'make slides', 'export to EPUB', 'search these documents', 'grep this docx', or 'what changed between these files'."
 metadata:
   author: all2md
   version: "2.0"
@@ -8,7 +8,7 @@ metadata:
 
 # all2md
 
-`all2md` converts between 40+ document formats and Markdown, from both the command line and a Python API. It reads PDF, DOCX, PPTX, XLSX, HTML, EML, EPUB, ODT/ODP/ODS, RTF, Jupyter notebooks, images, and 200+ programming languages; renders Markdown back out to DOCX, PDF, PPTX, HTML, EPUB, LaTeX, RST, and more; and ships task commands for search, grep, diff, and static-site generation.
+`all2md` converts between 40+ document formats and Markdown, from both the command line and a Python API. It reads PDF, DOCX, PPTX, XLSX, HTML, EML, EPUB, ODT/ODP/ODS, RTF, Jupyter notebooks, images, and 100+ source-code and config file types; renders Markdown back out to DOCX, PDF, PPTX, HTML, EPUB, LaTeX, RST, and more; and ships task commands for search, grep, diff, and static-site generation.
 
 This file is the overview and index. Pick the task below and read the matching reference file for full CLI flags, Python API, and examples.
 
@@ -65,6 +65,7 @@ from_ast(doc, "html", output="report.html")   # render
 
 - `all2md list-formats` shows every input/output format with dependency status.
 - `all2md check-deps` verifies optional dependencies (PyMuPDF for PDF, etc.).
+- Beyond the task families above, the CLI also has: `all2md view <file>` (preview in a browser), `all2md serve` (local HTTP API), `all2md edit <file>` (web editor), `all2md lint <file>` (Markdown linter with `--fix`), and `all2md config generate|show` (configuration files). Run `all2md <command> --help` for flags.
 - `all2md --help full` prints the complete flag reference, including all format-specific options.
 - `all2md llm-help [topic]` prints these references to stdout (topics: read, convert, generate, grep, search, diff) — handy when driving the CLI without installing the skill.
 - Every CLI option also reads an environment variable: `ALL2MD_<OPTION>` (e.g. `ALL2MD_PDF_OCR_ENABLED=true`).

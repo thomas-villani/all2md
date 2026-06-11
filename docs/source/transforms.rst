@@ -51,6 +51,18 @@ Or use transform names (requires entry point registration):
    doc = to_ast('document.pdf')
    markdown = render(doc, transforms=['remove-images', 'heading-offset'])
 
+To apply transforms **without** rendering — returning the transformed
+``Document`` so you can inspect or further process the AST — use ``apply``:
+
+.. code-block:: python
+
+   from all2md import to_ast
+   from all2md.transforms import apply
+
+   doc = to_ast('document.pdf')
+   transformed = apply(doc, transforms=['remove-images', 'heading-offset'])
+   # `transformed` is a Document; render it later with from_ast(...) if needed
+
 From the CLI:
 
 .. code-block:: bash
@@ -140,6 +152,25 @@ CLI usage:
 .. code-block:: bash
 
    all2md document.pdf --transform heading-offset --heading-offset 1
+
+title-promotion
+~~~~~~~~~~~~~~~
+
+Promote a leading H1 into the document title metadata and shift the remaining
+headings up one level. Useful when a converter emits the document title as an
+ordinary H1 but the target format expects it as front-matter/title metadata.
+
+.. code-block:: python
+
+   from all2md.transforms import TitlePromotionTransform
+
+   transform = TitlePromotionTransform()
+
+CLI usage:
+
+.. code-block:: bash
+
+   all2md document.docx --transform title-promotion
 
 link-rewriter
 ~~~~~~~~~~~~~
@@ -270,11 +301,11 @@ Add conversion timestamp to document metadata.
    transform = AddConversionTimestampTransform()
 
    # Unix timestamp
-   transform = AddConversionTimestampTransform(format="unix")
+   transform = AddConversionTimestampTransform(timestamp_format="unix")
 
    # Custom strftime format
    transform = AddConversionTimestampTransform(
-       format="%Y-%m-%d %H:%M:%S",
+       timestamp_format="%Y-%m-%d %H:%M:%S",
        field_name="converted_at"
    )
 
@@ -362,19 +393,15 @@ Generate a table of contents from document headings.
 * ``add_links`` (bool, default=True) - Whether to create links to headings (requires heading IDs)
 * ``separator`` (str, default="-") - Separator for generating heading IDs when not present
 
-CLI usage:
+.. note::
 
-.. code-block:: bash
-
-   # Generate TOC at top of document
-   all2md document.pdf --transform generate-toc
-
-   # Custom TOC configuration
-   all2md document.pdf \
-       --transform generate-toc \
-       --toc-title "Contents" \
-       --toc-max-depth 2 \
-       --toc-position bottom
+   ``generate-toc`` is available through the Python ``GenerateTocTransform``
+   class but is **not** registered as a named CLI transform, so it cannot be
+   selected with ``--transform generate-toc``. Apply it programmatically (e.g.
+   via :func:`all2md.transforms.apply`) instead. On the CLI, the separate
+   ``--generate-toc`` flag (with ``--toc-title``/``--toc-depth``/
+   ``--toc-position``) builds a table of contents when merging or collating
+   multiple files — see :doc:`cli`.
 
 Creating Custom Transforms
 ---------------------------
@@ -421,7 +448,7 @@ Visitor methods follow the pattern ``visit_<node_type_lowercase>``:
 - ``CodeBlock`` → ``visit_code_block()``
 - ``TableCell`` → ``visit_table_cell()``
 
-Available node types include: Document, Heading, Paragraph, Text, Strong, Emphasis, Link, Image, CodeBlock, CodeSpan, BlockQuote, List, ListItem, Table, TableRow, TableCell, ThematicBreak, LineBreak, and more.
+Available node types include: Document, Heading, Paragraph, Text, Strong, Emphasis, Link, Image, CodeBlock, Code, BlockQuote, List, ListItem, Table, TableRow, TableCell, ThematicBreak, LineBreak, and more.
 
 Example: Watermark Transform
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

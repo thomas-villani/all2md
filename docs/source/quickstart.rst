@@ -494,111 +494,31 @@ Error Handling
    except All2MdError as e:
        print(f"Conversion error: {e}")
 
-Advanced: Working with AST
---------------------------
+Advanced: Working with the AST
+------------------------------
 
-For advanced use cases, all2md provides an Abstract Syntax Tree (AST) API that enables document analysis and transformation:
+For document analysis and programmatic transformation, convert to an Abstract
+Syntax Tree instead of Markdown:
 
 .. code-block:: python
 
    from all2md import to_ast
-   from all2md.ast import NodeVisitor, Heading
-   from all2md.renderers.markdown import MarkdownRenderer
 
-   # Convert to AST instead of Markdown
-   doc_ast = to_ast('document.pdf')
+   doc = to_ast('document.pdf')   # a Document node you can traverse and transform
 
-   # Extract all headings
-   class HeadingExtractor(NodeVisitor):
-       def __init__(self):
-           self.headings = []
+The AST lets you extract elements (headings, links, tables), transform documents
+(shift heading levels, rewrite links), and re-render to any output format using
+visitors and transformers. See :doc:`ast_guide` for the full guide and
+:doc:`transforms` for the built-in transform pipeline.
 
-       def visit_heading(self, node: Heading):
-           # Extract heading text
-           text = ''.join(
-               child.content for child in node.content
-               if hasattr(child, 'content') and isinstance(child.content, str)
-           )
-           self.headings.append(f"{'#' * node.level} {text}")
-           self.generic_visit(node)
+More CLI Features
+-----------------
 
-   # Use the visitor
-   extractor = HeadingExtractor()
-   doc_ast.accept(extractor)
-
-   print("Document Headings:")
-   for heading in extractor.headings:
-       print(f"  {heading}")
-
-   # Transform the AST (e.g., increase heading levels)
-   from all2md.ast import HeadingLevelTransformer
-
-   transformer = HeadingLevelTransformer(offset=1)  # H1 → H2, H2 → H3, etc.
-   transformed_ast = transformer.transform(doc_ast)
-
-   # Render to Markdown
-   renderer = MarkdownRenderer()
-   markdown = renderer.render_to_string(transformed_ast)
-
-**Why use the AST?**
-
-* Analyze document structure without parsing Markdown text
-* Transform documents programmatically (change headings, rewrite links, etc.)
-* Render same document to different Markdown flavors
-* Extract specific elements (headings, links, tables, code blocks)
-
-For complete AST documentation, see :doc:`ast_guide`.
-
-Developer Productivity Features
---------------------------------
-
-Watch Mode for Live Conversion
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Monitor files for changes and automatically reconvert them (requires ``pip install all2md[cli_extras]``):
-
-.. code-block:: bash
-
-   # Watch a directory for changes
-   all2md ./docs --watch --recursive --output-dir ./markdown
-
-   # Watch with shorter debounce for fast iteration
-   all2md report.docx --watch --watch-debounce 0.3 --output-dir ./preview
-
-Perfect for documentation development and live previewing your conversions!
-
-Creating Shareable Bundles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Package converted documents with organized assets into ZIP archives:
-
-.. code-block:: bash
-
-   # Create a ZIP bundle with organized assets
-   all2md ./project-docs --recursive --zip docs.zip --assets-layout by-stem
-
-   # Auto-named ZIP with flat asset organization
-   all2md *.pdf --output-dir ./converted --zip --assets-layout flat
-
-Great for distributing documentation or archiving converted content.
-
-Debugging and Logging
-~~~~~~~~~~~~~~~~~~~~~~
-
-Enhanced logging and debugging tools for troubleshooting:
-
-.. code-block:: bash
-
-   # Detailed trace logging with timing
-   all2md complex-doc.pdf --trace --log-file trace.log
-
-   # Save logs while processing
-   all2md *.pdf --log-file conversion.log --output-dir ./converted
-
-   # Get system info for bug reports
-   all2md --about
-
-See :doc:`cli` for complete details on all CLI features.
+The command line also supports live **watch mode** (``--watch`` /
+``--watch-debounce``), **ZIP bundles** with organised assets (``--zip`` /
+``--assets-layout``), and **trace logging** for troubleshooting
+(``--trace --log-file``). See :doc:`cli` for the complete command reference and
+:doc:`recipes` for end-to-end examples.
 
 Next Steps
 ----------
