@@ -200,6 +200,12 @@ ocr = [
     "pillow>=11.3.0",
     "pytesseract>=0.3.10",
 ]
+ocr-easyocr = [
+    # Binary-free OCR engine. Pulls in PyTorch transitively (large download) and
+    # fetches recognition models on first use; no system Tesseract binary needed.
+    "pillow>=11.3.0",
+    "easyocr>=1.7.0",
+]
 outlook = [
     # Note: PST/OST support requires libpff-python (pypff) which is not included
     # due to platform-specific installation challenges. Install manually if needed:

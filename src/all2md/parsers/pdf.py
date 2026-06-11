@@ -57,7 +57,6 @@ from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PX,
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
-    DEPS_PDF_OCR,
     PDF_MIN_PYMUPDF_VERSION,
 )
 from all2md.converter_metadata import ConverterMetadata
@@ -76,9 +75,6 @@ from all2md.parsers._pdf_layout import (
     predict_page_layout,
 )
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
-from all2md.parsers._pdf_ocr import (
-    detect_page_language as _detect_page_language,
-)
 from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
@@ -977,12 +973,13 @@ class PdfToAstConverter(BaseParser):
         return children
 
     @staticmethod
-    @requires_dependencies("pdf", DEPS_PDF_OCR)
     def _ocr_page_to_text(page: "fitz.Page", options: PdfOptions) -> str:
         """Extract text from a PDF page using OCR (Optical Character Recognition).
 
-        This method renders the PDF page as an image and uses Tesseract OCR
-        to extract text from it. Useful for scanned documents or image-based PDFs.
+        Renders the page to an image at the configured DPI and hands it to the
+        OCR backend selected by ``options.ocr.engine`` ("tesseract" or
+        "easyocr"). Rendering needs only PyMuPDF; the per-engine Python
+        dependencies are checked inside the engine adapters.
 
         Parameters
         ----------
@@ -994,73 +991,30 @@ class PdfToAstConverter(BaseParser):
         Returns
         -------
         str
-            Text extracted via OCR
+            Text extracted via OCR (empty string on failure)
 
         Raises
         ------
         DependencyError
-            If pytesseract or Pillow are not installed
+            If the selected engine's Python packages are not installed
         RuntimeError
-            If Tesseract is not properly installed on the system
-
-        Notes
-        -----
-        This method requires:
-        1. Python packages: pytesseract and Pillow (pip install all2md[ocr])
-        2. Tesseract OCR engine installed on the system (platform-specific)
+            If the Tesseract binary is missing, or EasyOCR cannot initialize
 
         """
-        import pytesseract
-        from PIL import Image
-
-        # Get OCR configuration
-        ocr_opts = options.ocr
-        dpi = ocr_opts.dpi
-
-        # Determine language to use
-        if ocr_opts.auto_detect_language:
-            lang = _detect_page_language(page, options)
-        else:
-            # Convert list to string if needed
-            if isinstance(ocr_opts.languages, list):
-                lang = "+".join(ocr_opts.languages)
-            else:
-                lang = ocr_opts.languages
-
-        # Render page to image (pixmap) at specified DPI
-        # DPI is specified via the matrix parameter (DPI/72 = zoom factor)
-        zoom = dpi / 72.0
         import fitz
+
+        from all2md.parsers._ocr import ocr_pixmap
+
+        # Render page to image (pixmap) at the configured DPI. DPI is applied via
+        # the zoom matrix (DPI/72 = zoom factor).
+        zoom = options.ocr.dpi / 72.0
 
         # Initialize pixmap reference for proper cleanup in finally block
         pix = None
         try:
             mat = fitz.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
-
-            # Convert PyMuPDF pixmap to PIL Image
-            # PyMuPDF uses RGB format
-            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-
-            # Build custom config if provided
-            config = ocr_opts.tesseract_config if ocr_opts.tesseract_config else ""
-
-            # Extract text using pytesseract
-            ocr_text = pytesseract.image_to_string(img, lang=lang, config=config)
-
-            logger.debug(f"OCR extracted {len(ocr_text)} characters using language '{lang}' at {dpi} DPI")
-
-            return ocr_text
-
-        except pytesseract.TesseractNotFoundError as e:
-            raise RuntimeError(
-                "Tesseract OCR is not installed or not in PATH. "
-                "Please install Tesseract: "
-                "https://github.com/tesseract-ocr/tesseract/wiki"
-            ) from e
-        except Exception as e:
-            logger.warning(f"OCR failed for page: {e}")
-            return ""
+            return ocr_pixmap(pix, page, options)
         finally:
             # Clean up pixmap resources to prevent memory leaks
             # This is critical for long-running OCR operations
@@ -3631,6 +3585,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
     optional_packages=[
         ("pytesseract", "pytesseract"),
+        ("easyocr", "easyocr"),
         ("Pillow", "PIL"),
     ],
     import_error_message=("PDF conversion requires 'PyMuPDF'. Install with: pip install pymupdf"),
