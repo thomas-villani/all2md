@@ -15,10 +15,10 @@ import io
 import logging
 import mimetypes
 from pathlib import Path
-from typing import IO, Dict, List, Optional, Union
+from typing import IO, Dict, List, NoReturn, Optional, Union
 
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import FormatError
+from all2md.exceptions import DependencyError, FormatError
 
 logger = logging.getLogger(__name__)
 
@@ -393,11 +393,8 @@ class ConverterRegistry:
                 )
                 return parser_class
 
-        # No parser could be loaded
-        raise FormatError(
-            f"No parser available for format '{format_name}'. "
-            f"Tried {len(self._converters[format_name])} converter(s)."
-        )
+        # No parser could be loaded — surface a dependency error if that's why.
+        self._raise_converter_unavailable(format_name, "parser", "parse")
 
     def get_renderer(self, format_name: str) -> type:
         """Get renderer class for a format with priority-based selection.
@@ -444,11 +441,47 @@ class ConverterRegistry:
                 )
                 return renderer_class
 
-        # No renderer could be loaded
-        raise FormatError(
-            f"No renderer available for format '{format_name}'. "
-            f"Tried {len(self._converters[format_name])} converter(s)."
-        )
+        # No renderer could be loaded — surface a dependency error if that's why.
+        self._raise_converter_unavailable(format_name, "renderer", "render")
+
+    def _raise_converter_unavailable(self, format_name: str, kind: str, operation: str) -> NoReturn:
+        """Raise the most helpful error when a converter exists but won't load.
+
+        Because converter metadata is now always registered (from the manifest),
+        a parser/renderer class failing to load is usually a missing optional
+        dependency rather than an unknown format. Check dependencies and raise a
+        ``DependencyError`` with install guidance when that's the cause;
+        otherwise fall back to ``FormatError``.
+
+        Parameters
+        ----------
+        format_name : str
+            The format whose converter could not be loaded.
+        kind : str
+            "parser" or "renderer" (for the fallback message).
+        operation : str
+            "parse" or "render" (for dependency checking).
+
+        """
+        metadata_list = self._converters.get(format_name, [])
+        missing = self.check_dependencies(format_name, operation=operation)
+        missing_pkgs = missing.get(format_name)
+        if missing_pkgs and metadata_list:
+            metadata = metadata_list[0]
+            required = (
+                metadata.parser_required_packages if operation == "parse" else metadata.renderer_required_packages
+            )
+            pkg_tuples = [(name, ver) for (name, _import, ver) in required if name in missing_pkgs]
+            if not pkg_tuples:
+                pkg_tuples = [(name, "") for name in missing_pkgs]
+            install_command = metadata.get_install_command()
+            raise DependencyError(
+                converter_name=format_name,
+                missing_packages=pkg_tuples,
+                install_command=install_command if isinstance(install_command, str) else "",
+                message=metadata.import_error_message or None,
+            )
+        raise FormatError(f"No {kind} available for format '{format_name}'. Tried {len(metadata_list)} converter(s).")
 
     def detect_format(
         self,
@@ -571,9 +604,13 @@ class ConverterRegistry:
         # Check extensions with content validation
         for format_name, metadata in sorted_converters:
             if metadata.matches_extension(filename):
-                # If content is available and converter has a content_detector, validate
-                if content and metadata.content_detector:
-                    if metadata.content_detector(content):
+                # If content is available and converter has a content_detector, validate.
+                # resolve_content_detector() imports the detector lazily, so the common
+                # case (extension matches a format with no detector, e.g. markdown) stays
+                # import-free.
+                detector = metadata.resolve_content_detector() if content else None
+                if detector and content is not None:
+                    if detector(content):
                         logger.debug(f"Format '{format_name}' matched extension and validated by content_detector")
                         return format_name
                     else:
@@ -619,9 +656,12 @@ class ConverterRegistry:
             if metadata.matches_magic_bytes(content):
                 return format_name
 
-        # Check custom content detectors
+        # Check custom content detectors. resolve_content_detector() imports each
+        # detector lazily; only the (few) formats that declare one are imported,
+        # and only on this content-based detection path.
         for format_name, metadata in sorted_converters:
-            if metadata.content_detector and metadata.content_detector(content):
+            detector = metadata.resolve_content_detector()
+            if detector and detector(content):
                 logger.debug(f"Format detected via content detector: {format_name}")
                 return format_name
 
@@ -807,18 +847,60 @@ class ConverterRegistry:
         return missing
 
     def auto_discover(self) -> None:
-        """Auto-discover and register parsers and renderers from multiple sources.
+        """Register built-in converters from the manifest, then discover plugins.
 
-        This method:
-        1. Scans the parsers directory for Python modules with CONVERTER_METADATA
-        2. Scans the renderers directory for standalone renderer modules with CONVERTER_METADATA
-        3. Discovers plugins via entry points from installed packages
+        Built-in converter metadata is registered from the generated manifest
+        (``all2md._converter_manifest``), which is a leaf module of pure literals.
+        This avoids importing all ~40 parser/renderer modules at startup just to
+        read their ``CONVERTER_METADATA`` — the parser/renderer/options classes
+        and content detectors are imported lazily on first use instead. This is
+        the primary CLI/import startup optimization.
 
-        This enables a true plug-and-play system for both internal and external converters.
+        External plugins are still discovered eagerly via entry points.
+
+        The manifest is kept in sync with the live modules by
+        ``scripts/generate_converter_manifest.py`` and guarded by a unit test.
+        If the manifest module is entirely absent (e.g. during its own first
+        generation, or a broken install) we fall back to the slow directory
+        scan so the library still works; a present-but-empty manifest is treated
+        as corruption and raises.
         """
         if self._initialized:
             return
 
+        try:
+            # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import
+            from all2md._converter_manifest import get_manifest_records
+        except ModuleNotFoundError:
+            logger.warning(
+                "Converter manifest (all2md._converter_manifest) not found; falling back to "
+                "directory scanning. Generate it with: python scripts/generate_converter_manifest.py --update"
+            )
+            self.discover_by_scanning()
+        else:
+            records = get_manifest_records()
+            if not records:
+                raise RuntimeError(
+                    "Converter manifest (all2md._converter_manifest) is empty. "
+                    "Regenerate it with: python scripts/generate_converter_manifest.py --update"
+                )
+            for metadata in records:
+                self.register(metadata)
+
+        # Discover external plugins via entry points (eager, unchanged)
+        self._discover_plugins()
+
+        self._initialized = True
+
+    def discover_by_scanning(self) -> None:
+        """Discover converters by importing every parser/renderer module.
+
+        This is the original, slow auto-discovery: it scans the ``parsers`` and
+        ``renderers`` packages, imports each module, and reads its
+        ``CONVERTER_METADATA``. It is retained only for the manifest generator
+        script and the manifest sync test, which run it against a fresh
+        registry. It is NOT used during normal startup (see ``auto_discover``).
+        """
         # Discover internal converter modules by scanning the parsers package
         converter_modules = self._discover_converter_modules("parsers")
 
@@ -859,10 +941,10 @@ class ConverterRegistry:
             except Exception as e:
                 logger.warning(f"Error loading renderer {module_name}: {e}")
 
-        # Discover external plugins via entry points
-        self._discover_plugins()
-
-        self._initialized = True
+        # NOTE: plugin discovery and the _initialized flag are intentionally NOT
+        # handled here. Scanning only registers built-in converters (so the
+        # generated manifest never bakes in environment-specific plugins);
+        # auto_discover() owns plugin discovery and the initialized flag.
 
     def _discover_converter_modules(self, package_name: str) -> List[str]:
         """Discover converter modules by scanning a package directory.
