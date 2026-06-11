@@ -268,16 +268,21 @@ See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) fo
 
 ## Agent Skills
 
-all2md ships with **6 pre-built agent skills** — structured instruction files that teach AI coding assistants (Claude Code, Cursor, Windsurf, etc.) how to use all2md effectively. Each skill covers a specific document workflow with CLI examples, Python API patterns, and option references.
+all2md ships with a **pre-built agent skill** — a structured instruction file that teaches AI coding assistants (Claude Code, Cursor, Windsurf, etc.) how to use all2md effectively. Following Anthropic's progressive-disclosure pattern, a lean `SKILL.md` overview routes to focused, on-demand reference guides for each document workflow (CLI examples, Python API patterns, and option references).
 
-| Skill | Purpose |
-|-------|---------|
-| `all2md-read` | Read, extract text from, or parse any document to Markdown |
-| `all2md-convert` | Convert documents between formats (PDF→DOCX, HTML→PDF, etc.) |
-| `all2md-generate` | Create new documents from Markdown (DOCX, PDF, PPTX, EPUB, sites) |
-| `all2md-grep` | Pattern matching inside documents (like `grep` for PDFs) |
-| `all2md-search` | Ranked/semantic search across document collections |
-| `all2md-diff` | Compare any two documents regardless of format |
+```
+all2md/
+├── SKILL.md                # overview + index
+└── references/
+    ├── read.md             # read/extract text & tables from any document
+    ├── convert.md          # convert between formats (PDF→DOCX, HTML→PDF, …)
+    ├── generate.md         # create documents from Markdown (DOCX, PDF, PPTX, EPUB, sites)
+    ├── grep.md             # pattern matching inside documents (grep for PDFs)
+    ├── search.md           # ranked/semantic search across collections
+    └── diff.md             # compare any two documents regardless of format
+```
+
+The same content is available without installing anything via `all2md llm-help [topic]` (topics: `read`, `convert`, `generate`, `grep`, `search`, `diff`, `overview`).
 
 ### Install Skills
 

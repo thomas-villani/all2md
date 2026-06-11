@@ -190,25 +190,54 @@ def _read_skill_description(skill_md: Path) -> str:
     return ""
 
 
-def _skill_topic(skill_name: str) -> str:
-    """Return the short topic alias for a skill directory.
+# The bundled skill is a single ``all2md`` skill whose per-task guides live in a
+# ``references/`` subdirectory (progressive-disclosure layout). ``llm-help``
+# topics map one-to-one to those reference files.
+_PRIMARY_SKILL = "all2md"
+_OVERVIEW_TOPIC = "overview"
 
-    Drops the ``all2md-`` prefix so ``all2md-read`` becomes ``read``. Names
-    without the prefix are returned unchanged.
+
+def _primary_skill_dir(skills_dir: Path) -> Path:
+    """Return the directory of the single bundled ``all2md`` skill."""
+    return skills_dir / _PRIMARY_SKILL
+
+
+def _discover_reference_topics(skill_dir: Path) -> list[str]:
+    """List the reference topics bundled with a skill.
 
     Parameters
     ----------
-    skill_name : str
-        Skill directory name (e.g. ``all2md-read``).
+    skill_dir : Path
+        The skill directory (e.g. ``.../skills/all2md``).
 
     Returns
     -------
-    str
-        Short topic alias (e.g. ``read``).
+    list[str]
+        Sorted reference-file stems (e.g. ``["convert", "diff", ...]``), or an
+        empty list when the skill has no ``references/`` directory.
 
     """
-    prefix = "all2md-"
-    return skill_name[len(prefix) :] if skill_name.startswith(prefix) else skill_name
+    ref_dir = skill_dir / "references"
+    if not ref_dir.is_dir():
+        return []
+    return sorted(path.stem for path in ref_dir.glob("*.md"))
+
+
+def _reference_path(skill_dir: Path, topic: str) -> Path:
+    """Return the path to a reference file for a topic."""
+    return skill_dir / "references" / f"{topic}.md"
+
+
+def _reference_title(skill_dir: Path, topic: str) -> str:
+    """Return a short title for a reference topic (its first ``# `` heading)."""
+    try:
+        text = _reference_path(skill_dir, topic).read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    for line in text.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return ""
 
 
 def _strip_frontmatter(text: str) -> str:
@@ -336,40 +365,47 @@ def _read_skill_body(skill_md: Path) -> str:
     return _strip_frontmatter(skill_md.read_text(encoding="utf-8"))
 
 
-def _build_llm_help_guide(skills_dir: Path, skill_names: list[str]) -> str:
+def _build_llm_help_guide(skill_dir: Path, topics: list[str]) -> str:
     """Build the concatenated CLI guide printed by ``all2md llm-help``.
+
+    The guide leads with the skill's SKILL.md overview, then appends each
+    reference topic in order.
 
     Parameters
     ----------
-    skills_dir : Path
-        Directory containing the bundled skills.
-    skill_names : list[str]
-        Skill directory names to include, in order.
+    skill_dir : Path
+        Directory of the bundled ``all2md`` skill.
+    topics : list[str]
+        Reference topics to include, in order.
 
     Returns
     -------
     str
-        A single Markdown document combining every skill body.
+        A single Markdown document combining the overview and every reference.
 
     """
-    topics = [_skill_topic(name) for name in skill_names]
     divider = "-" * 76
 
     parts: list[str] = [
         "# all2md - CLI guide for LLMs and agents",
         "",
         "all2md converts between 40+ document formats and Markdown from the command line. "
-        "This guide concatenates the bundled task references listed below.",
+        "This guide leads with an overview, then concatenates the per-task references listed below.",
         "",
         f"Topics: {', '.join(topics)}",
         "  - Print one topic:      all2md llm-help <topic>",
         "  - List topics:          all2md llm-help --list",
         "  - Full flag reference:  all2md --help full",
+        "",
+        divider,
+        f"OVERVIEW  (print alone with: all2md llm-help {_OVERVIEW_TOPIC})",
+        divider,
+        "",
+        _read_skill_body(skill_dir / "SKILL.md"),
     ]
 
-    for name in skill_names:
-        topic = _skill_topic(name)
-        body = _read_skill_body(skills_dir / name / "SKILL.md")
+    for topic in topics:
+        body = _reference_path(skill_dir, topic).read_text(encoding="utf-8").strip()
         parts.extend(
             [
                 "",
@@ -387,9 +423,10 @@ def _build_llm_help_guide(skills_dir: Path, skill_names: list[str]) -> str:
 def handle_llm_help_command(args: list[str] | None = None) -> int:
     """Print the bundled all2md CLI guide for LLMs/agents to stdout.
 
-    With no TOPIC, prints every bundled skill concatenated into one guide.
-    With a TOPIC (e.g. ``read``, ``convert``, ``diff``, ``grep``, ``search``,
-    ``generate``), prints just that skill. ``--list`` lists available topics.
+    With no TOPIC, prints the overview followed by every reference concatenated
+    into one guide. With a TOPIC (e.g. ``read``, ``convert``, ``diff``,
+    ``grep``, ``search``, ``generate``), prints just that reference; ``overview``
+    prints the SKILL.md overview. ``--list`` lists available topics.
 
     Parameters
     ----------
@@ -406,7 +443,7 @@ def handle_llm_help_command(args: list[str] | None = None) -> int:
         prog="all2md llm-help",
         description=(
             "Print the all2md CLI guide for LLMs and agents to stdout. "
-            "With no TOPIC, prints the full guide (all topics concatenated)."
+            "With no TOPIC, prints the full guide (overview + all topics concatenated)."
         ),
     )
     parser.add_argument(
@@ -414,7 +451,7 @@ def handle_llm_help_command(args: list[str] | None = None) -> int:
         nargs="?",
         default=None,
         metavar="TOPIC",
-        help="Optional topic to print on its own (e.g. read, convert, diff, grep, search, generate).",
+        help="Optional topic to print on its own (e.g. read, convert, generate, grep, search, diff, overview).",
     )
     parser.add_argument(
         "--list",
@@ -431,32 +468,32 @@ def handle_llm_help_command(args: list[str] | None = None) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_ERROR
 
-    skill_names = _discover_skills(skills_dir)
-    if not skill_names:
+    skill_dir = _primary_skill_dir(skills_dir)
+    topics = _discover_reference_topics(skill_dir)
+    if not skill_dir.is_dir() or not topics:
         print("Error: No bundled CLI guide found.", file=sys.stderr)
         return EXIT_ERROR
 
-    # Map both short aliases ("read") and full names ("all2md-read") to skill dirs.
-    topic_to_skill = {_skill_topic(name): name for name in skill_names}
-    topic_to_skill.update({name: name for name in skill_names})
-
     if parsed.list_:
-        print(f"Available llm-help topics ({len(skill_names)}):")
-        for name in skill_names:
-            description = _read_skill_description(skills_dir / name / "SKILL.md")
-            print(f"  {_skill_topic(name)}: {description}")
+        print(f"Available llm-help topics ({len(topics)}):")
+        print(f"  {_OVERVIEW_TOPIC}: all2md overview and index")
+        for topic in topics:
+            print(f"  {topic}: {_reference_title(skill_dir, topic)}")
         print("\nPrint one topic with:  all2md llm-help <topic>")
         print("Print everything with: all2md llm-help")
         return EXIT_SUCCESS
 
     if parsed.topic is not None:
-        skill_name = topic_to_skill.get(parsed.topic.lower())
-        if skill_name is None:
-            topics = ", ".join(sorted(_skill_topic(name) for name in skill_names))
-            print(f"Error: Unknown topic '{parsed.topic}'. Available topics: {topics}", file=sys.stderr)
+        requested = parsed.topic.lower()
+        if requested in (_OVERVIEW_TOPIC, _PRIMARY_SKILL):
+            print(_read_skill_body(skill_dir / "SKILL.md"))
+            return EXIT_SUCCESS
+        if requested not in topics:
+            available = ", ".join([_OVERVIEW_TOPIC, *topics])
+            print(f"Error: Unknown topic '{parsed.topic}'. Available topics: {available}", file=sys.stderr)
             return EXIT_ERROR
-        print(_read_skill_body(skills_dir / skill_name / "SKILL.md"))
+        print(_reference_path(skill_dir, requested).read_text(encoding="utf-8").strip())
         return EXIT_SUCCESS
 
-    print(_build_llm_help_guide(skills_dir, skill_names))
+    print(_build_llm_help_guide(skill_dir, topics))
     return EXIT_SUCCESS

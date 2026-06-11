@@ -1,11 +1,3 @@
----
-name: all2md-grep
-description: "Use this skill when you need to search for a pattern or text inside documents. Triggers: searching inside PDFs, grepping Word documents, finding text in PowerPoint slides, pattern matching in non-plaintext files. Use when the user says 'find in this PDF', 'search this document for', 'grep', or when you need to locate specific content inside a document file without converting the whole thing."
-metadata:
-  author: all2md
-  version: "1.0"
----
-
 # Grep Documents with all2md
 
 ## Overview
@@ -39,26 +31,26 @@ all2md grep -i "important" document.pdf
 # Show line numbers
 all2md grep -n "section 4" document.pdf
 
-# Count matches
-all2md grep -c "warning" *.pdf
-
-# Invert match (lines NOT matching)
-all2md grep -v "draft" report.docx
+# Treat the pattern as a regular expression
+all2md grep -e "error|warning|fatal" document.pdf
 
 # Context lines (before/after/both)
 all2md grep -B 2 "error" document.pdf
 all2md grep -A 3 "conclusion" document.pdf
 all2md grep -C 2 "important" document.pdf
+
+# Truncate very long matching lines
+all2md grep -M 200 "pattern" document.pdf
 ```
 
 ### Output Formats
 
 ```bash
-# Default: terminal output with highlighted matches
+# Default: plain terminal output with matching lines
 all2md grep "pattern" document.pdf
 
-# JSON output (machine-readable)
-all2md grep "pattern" *.pdf --output json
+# Rich-formatted output with highlighted matches
+all2md grep "pattern" *.pdf --rich
 ```
 
 ### Stdin
@@ -96,4 +88,4 @@ for pdf_file in Path("./documents").glob("*.pdf"):
 - `grep` is best for quick pattern matching across a few files
 - For ranked relevance results across many documents, use `all2md search` instead (see `all2md-search` skill)
 - Both commands work with any format all2md can read (40+ formats)
-- Use `--output json` when you need structured results for scripting
+- Use `-e`/`--regex` to match with a regular expression instead of a literal string

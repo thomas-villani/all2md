@@ -126,8 +126,8 @@ Use ``all2md list-transforms`` to see all available AST transforms. For detailed
    # List all transforms
    all2md list-transforms
 
-   # Show only installed transforms
-   all2md list-transforms --available-only
+   # Show details for a single transform
+   all2md list-transforms heading-offset
 
    # Display with rich formatting
    all2md list-transforms --rich

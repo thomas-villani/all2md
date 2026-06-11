@@ -89,7 +89,7 @@ HTML & Web Archives
 *Parsers:* ``HtmlToAstConverter`` & ``MhtmlToAstConverter`` — *Renderer:* ``HtmlRenderer``
 
 - Sanitisation-aware HTML conversion with configurable handling of inline tags and raw HTML blocks
-- Optional readability extraction (``--html-use-readability``) removes navigation chrome using readability-lxml
+- Optional readability extraction (``--html-extract-readable``) removes navigation chrome using readability-lxml
 - Secure remote fetching through ``NetworkFetchOptions`` (rate limiting, host allowlists, HTTPS enforcement)
 - Template modes (inject/replace/jinja) in the renderer support custom HTML generation
 - Native Hugo/Jekyll site generation via ``generate-site`` command (:doc:`static_sites`)
@@ -217,10 +217,10 @@ Essentials:
    all2md api-spec.yaml
 
    # Exclude deprecated endpoints
-   all2md api-spec.yaml --no-openapi-include-deprecated
+   all2md api-spec.yaml --openapi-no-include-deprecated
 
    # Disable tag grouping for sequential listing
-   all2md swagger.json --no-openapi-group-by-tag
+   all2md swagger.json --openapi-no-group-by-tag
 
 Data, Code, and Archives
 ------------------------

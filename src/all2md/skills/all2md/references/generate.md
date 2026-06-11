@@ -1,12 +1,9 @@
----
-name: all2md-generate
-description: "Use this skill when the user wants to create, generate, or produce a new document from Markdown or text content. Triggers: creating Word documents, generating PDFs, making PowerPoint slides, producing EPUB ebooks, building static documentation sites, rendering reports, exporting content. Use when the user says 'create a document', 'generate a PDF', 'make slides', 'export to Word', or 'build a site'."
-metadata:
-  author: all2md
-  version: "1.0"
----
-
 # Generating Documents with all2md
+
+## Contents
+- [CLI Quick Reference](#cli-quick-reference) — DOCX, PDF, PPTX, EPUB, HTML, templates, static sites, ArXiv, batch
+- [Python API](#python-api) — `from_markdown`, renderer options, AST pipeline, ArXiv packaging
+- [Tips](#tips)
 
 ## Overview
 
@@ -23,8 +20,8 @@ all2md report.md --output-format docx -o report.docx
 # Markdown to PDF
 all2md report.md --output-format pdf -o report.pdf
 
-# Markdown to HTML (standalone page)
-all2md report.md --output-format html --html-standalone -o report.html
+# Markdown to HTML (standalone page is the default)
+all2md report.md --output-format html -o report.html
 
 # Markdown to PowerPoint slides
 all2md slides.md --output-format pptx -o presentation.pptx
@@ -43,15 +40,15 @@ all2md docs.md --output-format rst -o docs.rst
 
 ```bash
 # Use a custom template
-all2md report.md --output-format docx --docx-template company.docx -o report.docx
+all2md report.md --output-format docx --docx-renderer-template-path company.docx -o report.docx
 ```
 
 ### PDF Generation Options
 
 ```bash
 # Page size
-all2md report.md --output-format pdf --pdf-page-size letter -o report.pdf
-all2md report.md --output-format pdf --pdf-page-size a4 -o report.pdf
+all2md report.md --output-format pdf --pdf-renderer-page-size letter -o report.pdf
+all2md report.md --output-format pdf --pdf-renderer-page-size a4 -o report.pdf
 ```
 
 ### PPTX Generation Options
@@ -71,25 +68,28 @@ all2md book.md --output-format epub -o book.epub
 ### HTML Standalone Pages
 
 ```bash
-# Self-contained HTML with embedded styles
-all2md report.md --output-format html --html-standalone -o report.html
+# Self-contained HTML with embedded styles (standalone is the default)
+all2md report.md --output-format html -o report.html
+
+# Emit only the content fragment instead of a full page
+all2md report.md --output-format html --html-renderer-no-standalone -o fragment.html
 ```
 
 ### Template Rendering
 
 ```bash
 # Render with Jinja2 template
-all2md data.md --output-format jinja --jinja-template template.html -o output.html
+all2md data.md --output-format jinja --jinja-renderer-template-file template.html -o output.html
 ```
 
 ### Static Site Generation
 
 ```bash
-# Generate a documentation site
+# Generate a documentation site (Hugo)
 all2md generate-site ./docs --output-dir site --generator hugo
 
-# Generate with specific theme
-all2md generate-site ./docs --output-dir site --generator mkdocs
+# Generate a Jekyll site instead
+all2md generate-site ./docs --output-dir site --generator jekyll
 ```
 
 ### ArXiv Packaging
@@ -154,8 +154,8 @@ from all2md import to_ast, from_ast
 doc = to_ast("content.md")
 
 # Apply transforms
-from all2md.transforms import apply_transforms
-doc = apply_transforms(doc, ["heading-offset", "add-heading-ids"])
+from all2md.transforms import apply
+doc = apply(doc, ["heading-offset", "add-heading-ids"])
 
 # Render to target format
 from_ast(doc, "docx", output="output.docx")
@@ -179,7 +179,7 @@ result = packager.package(doc, "submission.tar.gz", bib_file="references.bib")
 ## Tips
 
 - Use Markdown headings to structure slides (each `# Heading` becomes a new slide in PPTX)
-- Use `--html-standalone` for self-contained HTML pages that work offline
+- HTML output is a self-contained, offline-ready page by default; pass `--html-renderer-no-standalone` for just the content fragment
 - The ArXiv packager automatically extracts figures and generates proper LaTeX
 - Use `all2md list-formats` to check which output renderers are available
 - Use `all2md check-deps` to verify dependencies for your target format

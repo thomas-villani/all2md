@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Restructured the bundled agent skills into a single `all2md` skill following Anthropic's progressive-disclosure pattern: a lean `SKILL.md` overview that routes to per-task guides under `references/` (`read`, `convert`, `generate`, `grep`, `search`, `diff`), replacing the previous six top-level `all2md-*` skills. `install-skills` installs the one skill tree; `llm-help <topic>` maps to the reference files (topics unchanged, plus `overview`).
+
+### Fixed
+- Corrected stale/renamed CLI flags throughout the bundled skills and docs (GitHub issue #16). Notably `--html-standalone` (HTML is standalone by default; use `--html-renderer-no-standalone` for a fragment), `--docx-template` → `--docx-renderer-template-path`, `--pdf-page-size` → `--pdf-renderer-page-size`, `--jinja-template*` → `--jinja-renderer-template*`, `--pdf-detect-tables` → `--pdf-table-detection-mode`, search `--semantic`/`--mode bm25` → `--vector`/`--keyword`, and several others. Added a regression test that fails if any removed flag reappears in bundled skill content.
+
 ## [1.2.0] - 2026-05-29
 
 ### Added

@@ -54,8 +54,8 @@ Quick Start
 
 .. code-block:: bash
 
-   all2md document.pdf --format jinja \
-       --jinja-template-file outline.txt.jinja2 \
+   all2md document.pdf --output-format jinja \
+       --jinja-renderer-template-file outline.txt.jinja2 \
        --out outline.txt
 
 Template Context Reference
@@ -594,23 +594,24 @@ All template options are available from the command line:
 .. code-block:: bash
 
    # Basic usage
-   all2md doc.pdf --format jinja --jinja-template-file template.xml.jinja2
+   all2md doc.pdf --output-format jinja --jinja-renderer-template-file template.xml.jinja2
 
    # With escape strategy
-   all2md doc.pdf --format jinja \
-       --jinja-template-file template.xml.jinja2 \
-       --jinja-escape-strategy xml
+   all2md doc.pdf --output-format jinja \
+       --jinja-renderer-template-file template.xml.jinja2 \
+       --jinja-renderer-escape-strategy xml
 
-   # Enable all features
-   all2md doc.pdf --format jinja \
-       --jinja-template-file template.jinja2 \
-       --jinja-enable-render-filter \
-       --jinja-enable-escape-filters \
-       --jinja-enable-traversal-helpers
+   # The render filter, escape filters, and traversal helpers are enabled by
+   # default; pass the negative flags to turn any of them off
+   all2md doc.pdf --output-format jinja \
+       --jinja-renderer-template-file template.jinja2 \
+       --jinja-renderer-no-enable-render-filter \
+       --jinja-renderer-no-enable-escape-filters \
+       --jinja-renderer-no-enable-traversal-helpers
 
    # With inline template string
-   all2md doc.pdf --format jinja \
-       --jinja-template-string "# {{ title }}"
+   all2md doc.pdf --output-format jinja \
+       --jinja-renderer-template-string "# {{ title }}"
 
 See Also
 --------

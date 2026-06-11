@@ -1,11 +1,3 @@
----
-name: all2md-diff
-description: "Use this skill when the user wants to compare two documents or see what changed between document versions. Triggers: comparing documents, diffing files, 'what changed', version comparison, finding differences between documents. Works across formats — compare a PDF against a Word doc, or two versions of an HTML page."
-metadata:
-  author: all2md
-  version: "1.0"
----
-
 # Comparing Documents with all2md
 
 ## Overview
