@@ -49,6 +49,9 @@ from all2md.ast import (
 from all2md.ast import (
     Table as AstTable,
 )
+from all2md.ast import (
+    extract_text as extract_node_text,
+)
 from all2md.ast.transforms import InlineFormattingConsolidator
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PX,
@@ -361,6 +364,7 @@ class PdfToAstConverter(BaseParser):
         self.options: PdfOptions = options
         self._hdr_identifier: Optional[IdentifyHeaders] = None
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
+        self._ocr_pages_applied: int = 0  # pages OCR was applied to in the current parse
         self._use_layout: bool = False
         # Most recent heading level emitted (any path). Used by
         # `_handle_header_line_with_layout` to pick a sibling-or-deeper level
@@ -779,9 +783,11 @@ class PdfToAstConverter(BaseParser):
         """
         # Reset footnote collection for this conversion
         self._attachment_footnotes = {}
+        # Count pages OCR was applied to this conversion (drives the doc-level
+        # OCR safety net below).
+        self._ocr_pages_applied = 0
 
         total_pages = len(list(pages_to_use))
-        children: list[Node] = []
 
         # Emit started event
         self._emit_progress(
@@ -794,51 +800,12 @@ class PdfToAstConverter(BaseParser):
         attachment_sequencer = create_attachment_sequencer()
 
         pages_list = list(pages_to_use)
-        # Suppress pymupdf-layout's global find_tables() hook for the whole
-        # page loop. We call predict_page_layout() explicitly inside
-        # _process_page_to_ast and merge its predictions ourselves; the
-        # implicit hook would additionally reroute find_tables()/Table.extract()
-        # through the layout model, overdetecting tables and garbling cell text.
-        # See native_find_tables() for the full rationale.
-        with native_find_tables():
-            for idx, pno in enumerate(pages_list):
-                try:
-                    page = doc[pno]
-                    page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer, total_pages)
-                    if page_nodes:
-                        children.extend(page_nodes)
+        children = self._render_pages(doc, pages_list, base_filename, attachment_sequencer, total_pages)
 
-                    # Add page separator between pages (but not after the last page)
-                    if idx < len(pages_list) - 1 and self.options.include_page_numbers:
-                        # Add page separator as Comment node - renderers decide whether to display it
-                        # Format using page_separator_template with placeholders
-                        separator_text = self.options.page_separator_template.format(
-                            page_num=pno + 1, total_pages=total_pages
-                        )
-                        children.append(Comment(content=separator_text, metadata={"comment_type": "page_separator"}))
-
-                    # Emit page done event
-                    self._emit_progress(
-                        "item_done",
-                        f"Page {pno + 1} of {total_pages} processed",
-                        current=idx + 1,
-                        total=total_pages,
-                        item_type="page",
-                        page=pno + 1,
-                    )
-                except Exception as e:
-                    # Emit error event but continue processing
-                    self._emit_progress(
-                        "error",
-                        f"Error processing page {pno + 1}: {str(e)}",
-                        current=idx + 1,
-                        total=total_pages,
-                        error=str(e),
-                        stage="page_processing",
-                        page=pno + 1,
-                    )
-                    # Re-raise to maintain existing error handling
-                    raise
+        # Document-level OCR safety net: when nothing triggered OCR in auto mode
+        # yet the rendered document is essentially empty, the per-page heuristic
+        # likely missed a scanned/image-only PDF — retry once with OCR forced.
+        children = self._maybe_retry_with_ocr(doc, pages_list, base_filename, total_pages, children)
 
         # Extract and attach metadata
         metadata = self.extract_metadata(doc)
@@ -888,6 +855,126 @@ class PdfToAstConverter(BaseParser):
             _demote_running_headings(ast_doc, total_pages)
 
         return ast_doc
+
+    def _render_pages(
+        self,
+        doc: "fitz.Document",
+        pages_list: list[int],
+        base_filename: str,
+        attachment_sequencer: Any,
+        total_pages: int,
+    ) -> list[Node]:
+        """Process each page to AST nodes, inserting page separators between pages.
+
+        Extracted from ``parse`` so the document-level OCR safety net can re-run
+        the whole page loop with OCR forced.
+        """
+        children: list[Node] = []
+        # Suppress pymupdf-layout's global find_tables() hook for the whole
+        # page loop. We call predict_page_layout() explicitly inside
+        # _process_page_to_ast and merge its predictions ourselves; the
+        # implicit hook would additionally reroute find_tables()/Table.extract()
+        # through the layout model, overdetecting tables and garbling cell text.
+        # See native_find_tables() for the full rationale.
+        with native_find_tables():
+            for idx, pno in enumerate(pages_list):
+                try:
+                    page = doc[pno]
+                    page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer, total_pages)
+                    if page_nodes:
+                        children.extend(page_nodes)
+
+                    # Add page separator between pages (but not after the last page)
+                    if idx < len(pages_list) - 1 and self.options.include_page_numbers:
+                        # Add page separator as Comment node - renderers decide whether to display it
+                        # Format using page_separator_template with placeholders
+                        separator_text = self.options.page_separator_template.format(
+                            page_num=pno + 1, total_pages=total_pages
+                        )
+                        children.append(Comment(content=separator_text, metadata={"comment_type": "page_separator"}))
+
+                    # Emit page done event
+                    self._emit_progress(
+                        "item_done",
+                        f"Page {pno + 1} of {total_pages} processed",
+                        current=idx + 1,
+                        total=total_pages,
+                        item_type="page",
+                        page=pno + 1,
+                    )
+                except Exception as e:
+                    # Emit error event but continue processing
+                    self._emit_progress(
+                        "error",
+                        f"Error processing page {pno + 1}: {str(e)}",
+                        current=idx + 1,
+                        total=total_pages,
+                        error=str(e),
+                        stage="page_processing",
+                        page=pno + 1,
+                    )
+                    # Re-raise to maintain existing error handling
+                    raise
+        return children
+
+    @staticmethod
+    def _count_meaningful_chars(children: list[Node]) -> int:
+        """Count alphanumeric characters across content nodes (ignoring separators)."""
+        content_nodes = [n for n in children if not isinstance(n, Comment)]
+        text = extract_node_text(content_nodes, joiner="")
+        return sum(1 for char in text if char.isalnum())
+
+    def _maybe_retry_with_ocr(
+        self,
+        doc: "fitz.Document",
+        pages_list: list[int],
+        base_filename: str,
+        total_pages: int,
+        children: list[Node],
+    ) -> list[Node]:
+        """Re-run page rendering with OCR forced if an auto-mode doc came out empty.
+
+        Returns the original ``children`` unless a forced-OCR retry produced
+        strictly more text. When OCR is unavailable/disabled, emits a one-line
+        hint instead of retrying.
+        """
+        ocr_opts = self.options.ocr
+        meaningful = self._count_meaningful_chars(children)
+        if meaningful >= ocr_opts.doc_text_threshold:
+            return children
+
+        # Already near-empty. Can we recover with OCR?
+        can_auto_ocr = ocr_opts.enabled and ocr_opts.mode == "auto" and self._ocr_pages_applied == 0
+        if not can_auto_ocr:
+            if not ocr_opts.enabled or ocr_opts.mode == "off":
+                logger.warning(
+                    "PDF produced almost no text (%d meaningful chars) and OCR is disabled. "
+                    "Re-run with --pdf-ocr-enabled --pdf-ocr-mode force (and install OCR extras, "
+                    "e.g. `pip install all2md[ocr]`) to extract scanned content.",
+                    meaningful,
+                )
+            return children
+
+        logger.info(
+            "Document produced almost no text (%d meaningful chars) under auto OCR; retrying with OCR forced.",
+            meaningful,
+        )
+        forced_options = self.options.create_updated(ocr=ocr_opts.create_updated(mode="force"))
+        original_options = self.options
+        self.options = forced_options
+        try:
+            retry_children = self._render_pages(
+                doc, pages_list, base_filename, create_attachment_sequencer(), total_pages
+            )
+        except Exception as e:  # noqa: BLE001 - retry is best-effort; keep the original result
+            logger.warning("Forced-OCR retry failed: %s. Keeping original extraction.", e)
+            return children
+        finally:
+            self.options = original_options
+
+        if self._count_meaningful_chars(retry_children) > meaningful:
+            return retry_children
+        return children
 
     @staticmethod
     @requires_dependencies("pdf", DEPS_PDF_OCR)
@@ -1118,10 +1205,12 @@ class PdfToAstConverter(BaseParser):
                     ],
                 }
                 all_blocks.append(ocr_block)
+                self._ocr_pages_applied += 1
                 return all_blocks, True
             else:
                 logger.debug(f"Replacing PyMuPDF text ({len(extracted_text)} chars) with OCR ({len(ocr_text)} chars)")
                 # Replace with OCR block
+                self._ocr_pages_applied += 1
                 return [
                     {
                         "type": 0,
@@ -2424,7 +2513,7 @@ class PdfToAstConverter(BaseParser):
                 return None
             if n_cols > MAX_TABLE_COLS or n_rows > MAX_TABLE_ROWS:
                 logger.debug(
-                    f"Rejecting pymupdf table on page {page_num + 1}: " f"{n_rows}x{n_cols} grid exceeds size caps"
+                    f"Rejecting pymupdf table on page {page_num + 1}: {n_rows}x{n_cols} grid exceeds size caps"
                 )
                 return None
             n_empty = sum(1 for r in table_data for c in r if c is None or not str(c).strip())

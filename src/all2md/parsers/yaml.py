@@ -165,19 +165,21 @@ class YamlParser(BaseParser):
             if self.options.literal_block:
                 self._emit_progress("completed", "YAML wrapped as code block", current=100, total=100)
 
-                # Optionally pretty-print the YAML
-                try:
-                    data = yaml.safe_load(content)
-                    # Re-serialize with formatting
-                    formatted_yaml = yaml.dump(
-                        data, default_flow_style=False, allow_unicode=True, sort_keys=self.options.sort_keys
-                    )
-                except yaml.YAMLError:
-                    # If invalid YAML, just use the raw content
+                # Preserve the original source verbatim (including comments and
+                # formatting) for native viewing. If sort_keys is requested, fall
+                # back to a normalized re-serialization, since that intentionally
+                # reorders keys.
+                if self.options.sort_keys:
+                    try:
+                        data = yaml.safe_load(content)
+                        formatted_yaml = yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=True)
+                    except yaml.YAMLError:
+                        formatted_yaml = content
+                else:
                     formatted_yaml = content
 
                 # Create code block
-                code_block = CodeBlock(content=formatted_yaml, language="yaml")
+                code_block = CodeBlock(content=formatted_yaml.rstrip("\n"), language="yaml")
                 metadata = DocumentMetadata()
                 return Document(children=[code_block], metadata=metadata.to_dict())
 
@@ -601,6 +603,6 @@ CONVERTER_METADATA = ConverterMetadata(
     import_error_message="YAML conversion requires PyYAML (pip install pyyaml)",
     parser_options_class=YamlParserOptions,
     renderer_options_class="all2md.options.yaml.YamlRendererOptions",
-    description="Convert YAML structures to/from readable documents with tables and lists",
+    description="Convert YAML to/from a fenced code block (default) or a structured document",
     priority=5,
 )

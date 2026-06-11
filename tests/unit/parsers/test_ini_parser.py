@@ -32,7 +32,7 @@ class TestIniBasicParsing:
     def test_parse_simple_ini(self) -> None:
         """Test parsing a simple INI file."""
         ini_content = b"[server]\nhost = localhost\nport = 8080"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -43,7 +43,7 @@ class TestIniBasicParsing:
     def test_parse_multiple_sections(self) -> None:
         """Test parsing INI with multiple sections."""
         ini_content = b"[server]\nhost = localhost\n\n[database]\nname = mydb"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -56,7 +56,7 @@ class TestIniBasicParsing:
         ini_file = tmp_path / "test.ini"
         ini_file.write_text("[section]\nkey = value")
 
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(str(ini_file))
 
         assert isinstance(doc, Document)
@@ -67,7 +67,7 @@ class TestIniBasicParsing:
         ini_file = tmp_path / "test.ini"
         ini_file.write_text("[section]\nkey = value")
 
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(ini_file)
 
         assert isinstance(doc, Document)
@@ -75,7 +75,7 @@ class TestIniBasicParsing:
     def test_parse_from_string(self) -> None:
         """Test parsing INI from string content."""
         ini_content = "[section]\nkey = value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(ini_content)
 
         assert isinstance(doc, Document)
@@ -88,7 +88,7 @@ class TestIniSectionHandling:
     def test_section_becomes_heading(self) -> None:
         """Test that sections are converted to headings."""
         ini_content = b"[my_section]\nkey = value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc.children[0], Heading)
@@ -97,7 +97,7 @@ class TestIniSectionHandling:
     def test_multiple_keys_in_section(self) -> None:
         """Test parsing multiple keys in a section."""
         ini_content = b"[config]\nhost = localhost\nport = 8080\ntimeout = 30"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         # Should have heading + list
@@ -112,7 +112,7 @@ class TestIniCasePreservation:
     def test_preserve_case_option(self) -> None:
         """Test that preserve_case option preserves key case."""
         ini_content = b"[Section]\nMyKey = value"
-        options = IniParserOptions(preserve_case=True)
+        options = IniParserOptions(literal_block=False, preserve_case=True)
         parser = IniParser(options)
         doc = parser.parse(BytesIO(ini_content))
 
@@ -121,7 +121,7 @@ class TestIniCasePreservation:
     def test_case_normalization_default(self) -> None:
         """Test default case handling."""
         ini_content = b"[SECTION]\nKEY = value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -151,7 +151,7 @@ class TestIniAllowNoValue:
     def test_allow_no_value_option(self) -> None:
         """Test parsing keys without values."""
         ini_content = b"[section]\nkey_without_value"
-        options = IniParserOptions(allow_no_value=True)
+        options = IniParserOptions(literal_block=False, allow_no_value=True)
         parser = IniParser(options)
         doc = parser.parse(BytesIO(ini_content))
 
@@ -160,7 +160,7 @@ class TestIniAllowNoValue:
     def test_reject_no_value_default(self) -> None:
         """Test that keys without values fail without option."""
         ini_content = b"[section]\nkey_without_value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError):
             parser.parse(BytesIO(ini_content))
@@ -173,7 +173,7 @@ class TestIniNumberFormatting:
     def test_pretty_format_numbers_enabled(self) -> None:
         """Test pretty number formatting."""
         ini_content = b"[section]\ncount = 1000000"
-        options = IniParserOptions(pretty_format_numbers=True)
+        options = IniParserOptions(literal_block=False, pretty_format_numbers=True)
         parser = IniParser(options)
         doc = parser.parse(BytesIO(ini_content))
 
@@ -182,7 +182,7 @@ class TestIniNumberFormatting:
     def test_pretty_format_numbers_disabled(self) -> None:
         """Test with number formatting disabled."""
         ini_content = b"[section]\ncount = 1000000"
-        options = IniParserOptions(pretty_format_numbers=False)
+        options = IniParserOptions(literal_block=False, pretty_format_numbers=False)
         parser = IniParser(options)
         doc = parser.parse(BytesIO(ini_content))
 
@@ -196,7 +196,7 @@ class TestIniMetadataExtraction:
     def test_extract_title_from_metadata_section(self) -> None:
         """Test extracting title from metadata section."""
         ini_content = b"[metadata]\ntitle = My Document\n\n[config]\nkey = value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         # Metadata should be extracted
@@ -205,7 +205,7 @@ class TestIniMetadataExtraction:
     def test_extract_title_from_info_section(self) -> None:
         """Test extracting title from info section."""
         ini_content = b"[info]\nname = My App\n\n[settings]\nkey = value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -247,7 +247,7 @@ class TestIniEdgeCases:
     def test_empty_section(self) -> None:
         """Test parsing empty section."""
         ini_content = b"[empty_section]"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -255,7 +255,7 @@ class TestIniEdgeCases:
     def test_empty_value(self) -> None:
         """Test parsing key with empty value."""
         ini_content = b"[section]\nkey = "
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -263,7 +263,7 @@ class TestIniEdgeCases:
     def test_multiline_value(self) -> None:
         """Test parsing multiline value (not standard but common)."""
         ini_content = b"[section]\nkey = value"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)
@@ -272,7 +272,7 @@ class TestIniEdgeCases:
         """Test that invalid INI raises ParsingError."""
         # This should cause a configparser error
         invalid_ini = b"[unclosed_section"
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError):
             parser.parse(BytesIO(invalid_ini))
@@ -285,7 +285,7 @@ class TestIniEdgeCases:
     def test_utf8_content(self) -> None:
         """Test parsing UTF-8 content."""
         ini_content = "[section]\nname = Müller".encode("utf-8")
-        parser = IniParser()
+        parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 
         assert isinstance(doc, Document)

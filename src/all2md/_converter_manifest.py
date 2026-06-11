@@ -222,7 +222,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         import_error_message="INI conversion uses Python standard library (no dependencies)",
         parser_options_class="all2md.options.ini.IniParserOptions",
         renderer_options_class="all2md.options.ini.IniRendererOptions",
-        description="Convert INI configuration files to/from readable documents with sections and key-value pairs",
+        description="Convert INI config files to/from a fenced code block (default) or a structured document",
         priority=10,
     ),
     ConverterMetadata(
@@ -258,7 +258,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         import_error_message="JSON conversion uses Python standard library (no dependencies)",
         parser_options_class="all2md.options.json.JsonParserOptions",
         renderer_options_class="all2md.options.json.JsonRendererOptions",
-        description="Convert JSON structures to/from readable documents with tables and lists",
+        description="Convert JSON to/from a fenced code block (default) or a structured document",
         priority=10,
     ),
     ConverterMetadata(
@@ -673,7 +673,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         import_error_message="TOML conversion requires tomli and tomli-w (pip install tomli tomli-w)",
         parser_options_class="all2md.options.toml.TomlParserOptions",
         renderer_options_class="all2md.options.toml.TomlRendererOptions",
-        description="Convert TOML structures to/from readable documents with tables and lists",
+        description="Convert TOML to/from a fenced code block (default) or a structured document",
         priority=10,
     ),
     ConverterMetadata(
@@ -713,7 +713,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         import_error_message="YAML conversion requires PyYAML (pip install pyyaml)",
         parser_options_class="all2md.options.yaml.YamlParserOptions",
         renderer_options_class="all2md.options.yaml.YamlRendererOptions",
-        description="Convert YAML structures to/from readable documents with tables and lists",
+        description="Convert YAML to/from a fenced code block (default) or a structured document",
         priority=5,
     ),
     ConverterMetadata(

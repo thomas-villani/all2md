@@ -1080,7 +1080,23 @@ hr {
         title_attr = f' title="{escape_html(node.title, enabled=self.options.escape_html)}"' if node.title else ""
         css_class = self._get_custom_css_class("Link")
         href = escape_html(node.url, enabled=self.options.escape_html)
-        self._output.append(f'<a href="{href}"{title_attr}{css_class}>{content}</a>')
+        target_attr = ""
+        if self.options.external_links_new_tab and self._is_external_url(node.url):
+            target_attr = ' target="_blank" rel="noopener noreferrer"'
+        self._output.append(f'<a href="{href}"{title_attr}{target_attr}{css_class}>{content}</a>')
+
+    @staticmethod
+    def _is_external_url(url: str) -> bool:
+        """Return True if a link URL points off-site (opens in a new tab).
+
+        Absolute ``http``/``https``/``ftp`` URLs, ``mailto:`` links, and
+        protocol-relative ``//host`` URLs are treated as external. Relative
+        paths and in-page anchors (``#``, ``/path``, ``./x``) are internal.
+        """
+        stripped = url.strip().lower()
+        if stripped.startswith("//"):
+            return True
+        return stripped.startswith(("http://", "https://", "ftp://", "ftps://", "mailto:"))
 
     def visit_image(self, node: Image) -> None:
         """Render an Image node.

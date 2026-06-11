@@ -96,6 +96,10 @@ class HtmlRendererOptions(BaseRendererOptions):
     language : str, default "en"
         Document language code (ISO 639-1) for the <html lang="..."> attribute.
         Can be overridden by document metadata.
+    external_links_new_tab : bool, default False
+        If True, external links (absolute http/https/ftp/mailto URLs) are rendered
+        with target="_blank" rel="noopener noreferrer" so they open in a new tab.
+        Relative and anchor links are unaffected. Used by the view/serve commands.
     template_mode : {"inject", "replace", "jinja"} or None, default None
         Template mode for rendering HTML:
         - None: Use standalone mode (default behavior)
@@ -227,6 +231,14 @@ class HtmlRendererOptions(BaseRendererOptions):
     language: str = field(
         default=DEFAULT_HTML_LANGUAGE,
         metadata={"help": "Document language code (ISO 639-1) for HTML lang attribute", "importance": "advanced"},
+    )
+    external_links_new_tab: bool = field(
+        default=False,
+        metadata={
+            "help": "Open external links (absolute http/https/ftp/mailto URLs) in a new tab "
+            'via target="_blank" rel="noopener noreferrer"',
+            "importance": "advanced",
+        },
     )
     template_mode: TemplateMode | None = field(
         default=None,

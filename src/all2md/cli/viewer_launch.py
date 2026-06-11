@@ -76,6 +76,7 @@ def _render_html(input_path: Path) -> str:
         template_mode="replace",
         template_file=str(theme_path),
         include_toc=False,
+        external_links_new_tab=True,
     )
     result = from_ast(doc, "html", renderer_options=options)
     if not isinstance(result, str):

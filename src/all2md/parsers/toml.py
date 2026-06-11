@@ -175,19 +175,22 @@ class TomlParser(BaseParser):
             if self.options.literal_block:
                 self._emit_progress("completed", "TOML wrapped as code block", current=100, total=100)
 
-                # Optionally pretty-print the TOML
-                try:
-                    data = tomllib.loads(content)
-                    # Re-serialize with formatting using tomli_w
-                    import tomli_w
+                # Preserve the original source verbatim (including comments and
+                # formatting) for native viewing. TOML re-serialization via
+                # tomli_w would drop comments and reorder tables, so we only fall
+                # back to it when sort_keys explicitly asks for normalization.
+                formatted_toml = content
+                if self.options.sort_keys:
+                    try:
+                        data = tomllib.loads(content)
+                        import tomli_w
 
-                    formatted_toml = tomli_w.dumps(data)
-                except Exception:
-                    # If invalid TOML or tomli_w not available, just use the raw content
-                    formatted_toml = content
+                        formatted_toml = tomli_w.dumps(data)
+                    except Exception:
+                        formatted_toml = content
 
                 # Create code block
-                code_block = CodeBlock(content=formatted_toml, language="toml")
+                code_block = CodeBlock(content=formatted_toml.rstrip("\n"), language="toml")
                 metadata = DocumentMetadata()
                 return Document(children=[code_block], metadata=metadata.to_dict())
 
@@ -590,6 +593,6 @@ CONVERTER_METADATA = ConverterMetadata(
     import_error_message="TOML conversion requires tomli and tomli-w (pip install tomli tomli-w)",
     parser_options_class=TomlParserOptions,
     renderer_options_class="all2md.options.toml.TomlRendererOptions",
-    description="Convert TOML structures to/from readable documents with tables and lists",
+    description="Convert TOML to/from a fenced code block (default) or a structured document",
     priority=10,
 )

@@ -116,10 +116,16 @@ def should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) 
 
     # Auto mode: detect based on thresholds
     if ocr_opts.mode == "auto":
-        # Check text threshold
-        text_length = len(extracted_text.strip())
-        if text_length < ocr_opts.text_threshold:
-            logger.debug(f"Page has {text_length} chars (threshold: {ocr_opts.text_threshold}), triggering OCR")
+        # Check text threshold against *meaningful* characters only. Counting raw
+        # length (including whitespace and invisible glyphs) lets near-empty
+        # scanned pages slip past the threshold; alphanumeric characters are a
+        # far better proxy for real extractable text.
+        meaningful_chars = sum(1 for char in extracted_text if char.isalnum())
+        if meaningful_chars < ocr_opts.text_threshold:
+            logger.debug(
+                f"Page has {meaningful_chars} meaningful chars "
+                f"(threshold: {ocr_opts.text_threshold}), triggering OCR"
+            )
             return True
 
         # Check image coverage threshold

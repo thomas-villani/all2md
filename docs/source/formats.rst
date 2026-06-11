@@ -285,8 +285,10 @@ Data & Configuration Formats (JSON/YAML/TOML/INI)
 
 - Bidirectional conversion between structured data files and the common AST
 - JSON and INI are built-in; YAML uses ``pyyaml`` and TOML uses ``tomli-w`` for writing
-- Useful for turning configuration and data files into readable Markdown tables/sections,
-  or rendering AST content back out to a structured-data format
+- By default these formats are rendered as a fenced code block, preserving the native
+  syntax (and, for YAML/TOML/INI, comments) for syntax-highlighted viewing. Set
+  ``literal_block=False`` (CLI: ``--<fmt>-no-literal-block``) to instead convert the
+  data into a structured document with headings, tables for arrays of objects, and lists
 
 Other Built-in Formats
 ~~~~~~~~~~~~~~~~~~~~~~~

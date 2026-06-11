@@ -21,13 +21,13 @@ class TestTomlParserInitialization:
 
     def test_default_initialization(self):
         """Test parser initializes with default options."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         assert parser.options is not None
         assert isinstance(parser.options, TomlParserOptions)
 
     def test_initialization_with_options(self):
         """Test parser initializes with custom options."""
-        options = TomlParserOptions(max_heading_depth=3, sort_keys=True)
+        options = TomlParserOptions(literal_block=False, max_heading_depth=3, sort_keys=True)
         parser = TomlParser(options)
         assert parser.options.max_heading_depth == 3
         assert parser.options.sort_keys is True
@@ -92,21 +92,21 @@ class TestTomlParserPrimitiveTypes:
 
     def test_parse_string(self):
         """Test parsing string values."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse('name = "John Doe"')
 
         assert isinstance(doc, Document)
 
     def test_parse_integer(self):
         """Test parsing integer values."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("count = 42")
 
         assert isinstance(doc, Document)
 
     def test_parse_large_integer_with_formatting(self):
         """Test parsing large integers with thousand separators."""
-        options = TomlParserOptions(pretty_format_numbers=True)
+        options = TomlParserOptions(literal_block=False, pretty_format_numbers=True)
         parser = TomlParser(options)
         doc = parser.parse("count = 1000000")
 
@@ -115,7 +115,7 @@ class TestTomlParserPrimitiveTypes:
 
     def test_parse_large_integer_without_formatting(self):
         """Test parsing large integers without formatting."""
-        options = TomlParserOptions(pretty_format_numbers=False)
+        options = TomlParserOptions(literal_block=False, pretty_format_numbers=False)
         parser = TomlParser(options)
         doc = parser.parse("count = 1000000")
 
@@ -123,21 +123,21 @@ class TestTomlParserPrimitiveTypes:
 
     def test_parse_float(self):
         """Test parsing float values."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("pi = 3.14159")
 
         assert isinstance(doc, Document)
 
     def test_parse_boolean_true(self):
         """Test parsing boolean true."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("enabled = true")
 
         assert isinstance(doc, Document)
 
     def test_parse_boolean_false(self):
         """Test parsing boolean false."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("enabled = false")
 
         assert isinstance(doc, Document)
@@ -151,28 +151,28 @@ Line 2
 Line 3
 """
 '''
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
 
     def test_parse_datetime(self):
         """Test parsing datetime values."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("timestamp = 2024-06-15T12:30:00")
 
         assert isinstance(doc, Document)
 
     def test_parse_date(self):
         """Test parsing date values."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("birthday = 2024-06-15")
 
         assert isinstance(doc, Document)
 
     def test_parse_time(self):
         """Test parsing time values."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("meeting = 14:30:00")
 
         assert isinstance(doc, Document)
@@ -186,7 +186,7 @@ class TestTomlParserArrays:
         toml_content = """
 items = ["apple", "banana", "cherry"]
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -196,14 +196,14 @@ items = ["apple", "banana", "cherry"]
         toml_content = """
 numbers = [1, 2, 3, 4, 5]
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
 
     def test_parse_empty_array(self):
         """Test parsing empty array."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("items = []")
 
         assert isinstance(doc, Document)
@@ -213,7 +213,7 @@ numbers = [1, 2, 3, 4, 5]
         toml_content = """
 matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -223,7 +223,7 @@ matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         toml_content = """
 mixed = ["string", 123, true, 3.14]
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -239,7 +239,7 @@ class TestTomlParserTables:
 host = "localhost"
 port = 8080
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -259,7 +259,7 @@ port = 5432
 host = "db2.example.com"
 port = 5432
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -270,7 +270,7 @@ port = 5432
 database.primary.host = "db1.example.com"
 database.primary.port = 5432
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -280,7 +280,7 @@ database.primary.port = 5432
         toml_content = """
 point = { x = 1, y = 2, z = 3 }
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -300,7 +300,7 @@ role = "admin"
 name = "Bob"
 role = "user"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -318,7 +318,7 @@ name = "Mouse"
 price = 29.99
 specs = { dpi = 1600, buttons = 5 }
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -330,7 +330,7 @@ specs = { dpi = 1600, buttons = 5 }
 name = "Alice"
 role = "admin"
 """
-        options = TomlParserOptions(array_as_table_threshold=2)
+        options = TomlParserOptions(literal_block=False, array_as_table_threshold=2)
         parser = TomlParser(options)
         doc = parser.parse(toml_content)
 
@@ -348,7 +348,7 @@ zebra = "last"
 apple = "first"
 banana = "second"
 """
-        options = TomlParserOptions(sort_keys=True)
+        options = TomlParserOptions(literal_block=False, sort_keys=True)
         parser = TomlParser(options)
         doc = parser.parse(toml_content)
 
@@ -361,7 +361,7 @@ zebra = "last"
 apple = "first"
 banana = "second"
 """
-        options = TomlParserOptions(sort_keys=False)
+        options = TomlParserOptions(literal_block=False, sort_keys=False)
         parser = TomlParser(options)
         doc = parser.parse(toml_content)
 
@@ -374,7 +374,7 @@ banana = "second"
 [wrapper.actual_data]
 value = 123
 """
-        options = TomlParserOptions(flatten_single_keys=True)
+        options = TomlParserOptions(literal_block=False, flatten_single_keys=True)
         parser = TomlParser(options)
         doc = parser.parse(toml_content)
 
@@ -387,7 +387,7 @@ value = 123
 [wrapper.actual_data]
 value = 123
 """
-        options = TomlParserOptions(flatten_single_keys=False)
+        options = TomlParserOptions(literal_block=False, flatten_single_keys=False)
         parser = TomlParser(options)
         doc = parser.parse(toml_content)
 
@@ -402,7 +402,7 @@ value = 123
 [level1.level2.level3.level4]
 value = "deep"
 """
-        options = TomlParserOptions(max_heading_depth=2)
+        options = TomlParserOptions(literal_block=False, max_heading_depth=2)
         parser = TomlParser(options)
         doc = parser.parse(toml_content)
 
@@ -414,14 +414,14 @@ class TestTomlParserInputTypes:
 
     def test_parse_string_input(self):
         """Test parsing string input."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse('key = "value"')
 
         assert isinstance(doc, Document)
 
     def test_parse_bytes_input(self):
         """Test parsing bytes input."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(b'key = "value"')
 
         assert isinstance(doc, Document)
@@ -431,7 +431,7 @@ class TestTomlParserInputTypes:
         toml_file = tmp_path / "test.toml"
         toml_file.write_text('key = "value"\n', encoding="utf-8")
 
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_file)
 
         assert isinstance(doc, Document)
@@ -441,7 +441,7 @@ class TestTomlParserInputTypes:
         toml_file = tmp_path / "test.toml"
         toml_file.write_text('key = "value"\n', encoding="utf-8")
 
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(str(toml_file))
 
         assert isinstance(doc, Document)
@@ -451,7 +451,7 @@ class TestTomlParserInputTypes:
         toml_bytes = b'key = "value"\n'
         file_like = BytesIO(toml_bytes)
 
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(file_like)
 
         assert isinstance(doc, Document)
@@ -466,7 +466,7 @@ class TestTomlParserErrorHandling:
 [section
 key = value
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError) as excinfo:
             parser.parse(invalid_toml)
@@ -475,7 +475,7 @@ key = value
     def test_parse_malformed_toml(self):
         """Test parsing malformed TOML."""
         malformed = '[section]\nkey = "unclosed string'
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError):
             parser.parse(malformed)
@@ -486,7 +486,7 @@ key = value
 key = "value1"
 key = "value2"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
 
         with pytest.raises(ParsingError):
             parser.parse(duplicate)
@@ -494,7 +494,7 @@ key = "value2"
     def test_parse_nonexistent_file(self, tmp_path):
         """Test parsing nonexistent file."""
         nonexistent = tmp_path / "nonexistent.toml"
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
 
         with pytest.raises(Exception):
             parser.parse(nonexistent)
@@ -512,7 +512,7 @@ author = "John Doe"
 [data]
 key = "value"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -520,7 +520,7 @@ key = "value"
 
     def test_metadata_with_empty_document(self):
         """Test metadata with empty document."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("")
 
         assert isinstance(doc, Document)
@@ -561,7 +561,7 @@ hosts = [
   "omega"
 ]
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -586,7 +586,7 @@ version = "6.0"
 pytest = "7.0.0"
 mypy = "0.991"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -640,7 +640,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -652,7 +652,7 @@ class TestTomlParserEdgeCases:
 
     def test_parse_empty_string(self):
         """Test parsing empty string."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("")
 
         assert isinstance(doc, Document)
@@ -663,14 +663,14 @@ class TestTomlParserEdgeCases:
 # This is a comment
 # Another comment
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
 
     def test_parse_whitespace_only(self):
         """Test parsing whitespace-only content."""
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse("   \n\n  \t  \n")
 
         assert isinstance(doc, Document)
@@ -681,7 +681,7 @@ class TestTomlParserEdgeCases:
 message = "Hello, 世界! 🌍"
 emoji = "🎉🎊🎈"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -693,7 +693,7 @@ path = "C:\\Users\\Documents"
 quote = "He said \"hello\""
 newline = "Line 1\nLine 2"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -704,7 +704,7 @@ newline = "Line 1\nLine 2"
 regex = '<\\i\\c*\\s*>'
 path = 'C:\\Users\\Documents'
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -716,7 +716,7 @@ poem = '''
 Roses are red
 Violets are blue'''
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -728,7 +728,7 @@ hex = 0xDEADBEEF
 oct = 0o01234567
 bin = 0b11010110
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -740,7 +740,7 @@ pos_inf = inf
 neg_inf = -inf
 not_a_number = nan
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -780,7 +780,7 @@ content = "Content 1"
 name = "Section 2"
 content = "Content 2"
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)
@@ -809,7 +809,7 @@ criterion = "0.5"
 name = "my_benchmark"
 harness = false
 """
-        parser = TomlParser()
+        parser = TomlParser(TomlParserOptions(literal_block=False))
         doc = parser.parse(toml_content)
 
         assert isinstance(doc, Document)

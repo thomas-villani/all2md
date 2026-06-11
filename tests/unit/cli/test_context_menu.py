@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -45,41 +46,59 @@ def test_build_applies_to() -> None:
     assert with_text.endswith("System.FileExtension:=.md")
 
 
-def test_build_command() -> None:
-    assert context_menu._build_command(r"C:\bin\all2mdw.exe", windowed=True) == r'"C:\bin\all2mdw.exe" "%1"'
-    assert context_menu._build_command(r"C:\bin\all2md.exe", windowed=False) == r'"C:\bin\all2md.exe" view "%1"'
+def test_build_entry_command_view_prefers_windowed() -> None:
+    launchers = {"all2mdw": r"C:\bin\all2mdw.exe", "all2md": r"C:\bin\all2md.exe"}
+    built = context_menu._build_entry_command(context_menu._ENTRIES["view"], launchers)
+    assert built == (r'"C:\bin\all2mdw.exe" "%1"', True)
 
 
-def test_find_launcher_prefers_windowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_which(name: str) -> str | None:
-        return rf"C:\bin\{name}.exe" if name == "all2mdw" else None
-
-    monkeypatch.setattr(context_menu.shutil, "which", fake_which)
-    result = context_menu._find_launcher()
-    assert result == (r"C:\bin\all2mdw.exe", True)
+def test_build_entry_command_view_console_fallback() -> None:
+    launchers = {"all2md": r"C:\bin\all2md.exe"}
+    built = context_menu._build_entry_command(context_menu._ENTRIES["view"], launchers)
+    assert built == (r'"C:\bin\all2md.exe" view "%1"', False)
 
 
-def test_find_launcher_falls_back_to_console(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    def fake_which(name: str) -> str | None:
-        return rf"C:\bin\{name}.exe" if name == "all2md" else None
-
-    monkeypatch.setattr(context_menu.shutil, "which", fake_which)
-    # Neutralize the directory scan so only `which` can resolve a launcher
-    # (otherwise the real all2mdw.exe in this dev env would be found first).
-    monkeypatch.setattr(context_menu.sys, "executable", str(tmp_path / "python.exe"))
-    monkeypatch.delenv("UV_TOOL_BIN_DIR", raising=False)
-    monkeypatch.delenv("USERPROFILE", raising=False)
-    result = context_menu._find_launcher()
-    assert result == (r"C:\bin\all2md.exe", False)
+def test_build_entry_command_edit_and_serve_use_console() -> None:
+    launchers = {"all2mdw": r"C:\bin\all2mdw.exe", "all2md": r"C:\bin\all2md.exe"}
+    edit = context_menu._build_entry_command(context_menu._ENTRIES["edit"], launchers)
+    assert edit == (r'"C:\bin\all2md.exe" edit "%1"', False)
+    serve = context_menu._build_entry_command(context_menu._ENTRIES["serve"], launchers)
+    assert serve == (r'"C:\bin\all2md.exe" serve "%V"', False)
 
 
-def test_find_launcher_none_when_absent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_build_entry_command_edit_requires_console() -> None:
+    # Only the windowed launcher is present → edit/serve cannot be built.
+    launchers = {"all2mdw": r"C:\bin\all2mdw.exe"}
+    assert context_menu._build_entry_command(context_menu._ENTRIES["edit"], launchers) is None
+
+
+def test_select_entries_default() -> None:
+    ns = argparse.Namespace(edit=False, serve=False, all=False)
+    assert context_menu._select_entries(ns) == ["view"]
+
+
+def test_select_entries_flags() -> None:
+    ns = argparse.Namespace(edit=True, serve=True, all=False)
+    assert context_menu._select_entries(ns) == ["view", "edit", "serve"]
+
+
+def test_select_entries_all() -> None:
+    ns = argparse.Namespace(edit=False, serve=False, all=True)
+    assert context_menu._select_entries(ns) == ["view", "edit", "serve"]
+
+
+def test_which_launcher_uses_which(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(context_menu.shutil, "which", lambda name: rf"C:\bin\{name}.exe" if name == "all2mdw" else None)
+    assert context_menu._which_launcher("all2mdw") == r"C:\bin\all2mdw.exe"
+
+
+def test_which_launcher_none_when_absent(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(context_menu.shutil, "which", lambda name: None)
     # Point the interpreter dir at an empty tmp dir and clear install-location envs.
     monkeypatch.setattr(context_menu.sys, "executable", str(tmp_path / "python.exe"))
     monkeypatch.delenv("UV_TOOL_BIN_DIR", raising=False)
     monkeypatch.delenv("USERPROFILE", raising=False)
-    assert context_menu._find_launcher() is None
+    assert context_menu._which_launcher("all2mdw") is None
 
 
 def test_non_windows_returns_error(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -158,29 +177,39 @@ def test_cleanup_stale_previews(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 def test_registry_round_trip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     import winreg
 
+    view_entry = context_menu._ENTRIES["view"]
+    serve_entry = context_menu._ENTRIES["serve"]
+
     # Never clobber a real, pre-existing user entry.
     try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, context_menu._MENU_KEY):
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, view_entry.menu_key):
             pytest.skip("context-menu entry already installed; skipping to avoid clobbering it")
     except FileNotFoundError:
         pass
 
-    fake_launcher = tmp_path / "all2mdw.exe"
-    fake_launcher.write_bytes(b"")
-    monkeypatch.setattr(context_menu, "_find_launcher", lambda: (str(fake_launcher), True))
+    fake_w = tmp_path / "all2mdw.exe"
+    fake_w.write_bytes(b"")
+    fake_c = tmp_path / "all2md.exe"
+    fake_c.write_bytes(b"")
+    monkeypatch.setattr(context_menu, "_resolve_launchers", lambda: {"all2mdw": str(fake_w), "all2md": str(fake_c)})
     # Keep the copied icon out of the real LOCALAPPDATA.
     monkeypatch.setattr(context_menu, "_icon_target", lambda: tmp_path / "icon.ico")
 
     try:
-        assert context_menu._install(("md", "pdf"), include_text=False) == 0
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, context_menu._COMMAND_KEY) as cmd:
+        assert context_menu._install(["view", "serve"], ("md", "pdf"), include_text=False) == 0
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, view_entry.command_key) as cmd:
             command = winreg.QueryValueEx(cmd, "")[0]
-        assert command == f'"{fake_launcher}" "%1"'
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, context_menu._MENU_KEY) as menu:
+        assert command == f'"{fake_w}" "%1"'
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, view_entry.menu_key) as menu:
             applies_to = winreg.QueryValueEx(menu, "AppliesTo")[0]
         assert "System.FileExtension:=.md" in applies_to
+        # The serve entry is a directory entry with a folder command and no AppliesTo.
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, serve_entry.command_key) as cmd:
+            serve_command = winreg.QueryValueEx(cmd, "")[0]
+        assert serve_command == f'"{fake_c}" serve "%V"'
     finally:
         context_menu._uninstall()
 
-    with pytest.raises(FileNotFoundError):
-        winreg.OpenKey(winreg.HKEY_CURRENT_USER, context_menu._MENU_KEY)
+    for entry in (view_entry, serve_entry):
+        with pytest.raises(FileNotFoundError):
+            winreg.OpenKey(winreg.HKEY_CURRENT_USER, entry.menu_key)

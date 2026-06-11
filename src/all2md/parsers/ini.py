@@ -318,6 +318,6 @@ CONVERTER_METADATA = ConverterMetadata(
     import_error_message="INI conversion uses Python standard library (no dependencies)",
     parser_options_class=IniParserOptions,
     renderer_options_class="all2md.options.ini.IniRendererOptions",
-    description="Convert INI configuration files to/from readable documents with sections and key-value pairs",
+    description="Convert INI config files to/from a fenced code block (default) or a structured document",
     priority=10,
 )

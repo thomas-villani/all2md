@@ -30,6 +30,7 @@ from all2md.constants import (
     DEFAULT_MAX_REQUESTS_PER_SECOND,
     DEFAULT_NETWORK_TIMEOUT,
     DEFAULT_OCR_AUTO_DETECT_LANGUAGE,
+    DEFAULT_OCR_DOC_TEXT_THRESHOLD,
     DEFAULT_OCR_DPI,
     DEFAULT_OCR_ENABLED,
     DEFAULT_OCR_IMAGE_AREA_THRESHOLD,
@@ -558,6 +559,11 @@ class OCROptions(CloneFrozenMixin):
     text_threshold : int, default 50
         Minimum number of characters to consider content as text-based.
         Used by parsers in "auto" mode to decide if OCR is needed.
+    doc_text_threshold : int, default 16
+        Whole-document floor on meaningful (alphanumeric) characters. In "auto"
+        mode, if no page triggered OCR yet the rendered document has fewer
+        meaningful characters than this, the PDF parser retries once with OCR
+        forced. Catches scanned/image-only documents the per-page heuristic missed.
     image_area_threshold : float, default 0.5
         Minimum ratio of image area to total area (0.0-1.0) to consider
         content as image-based. Used by parsers in "auto" mode.
@@ -641,6 +647,14 @@ class OCROptions(CloneFrozenMixin):
         default=DEFAULT_OCR_TEXT_THRESHOLD,
         metadata={
             "help": "Minimum characters to consider content text-based (for auto mode)",
+            "type": int,
+            "importance": "advanced",
+        },
+    )
+    doc_text_threshold: int = field(
+        default=DEFAULT_OCR_DOC_TEXT_THRESHOLD,
+        metadata={
+            "help": "Whole-document meaningful-character floor below which auto mode retries with OCR forced",
             "type": int,
             "importance": "advanced",
         },

@@ -170,6 +170,7 @@ def handle_view_command(args: list[str] | None = None) -> int:
             template_mode="replace",
             template_file=str(theme_path),
             include_toc=parsed.toc,
+            external_links_new_tab=True,
         )
         html_result = from_ast(doc, "html", renderer_options=html_opts)
 

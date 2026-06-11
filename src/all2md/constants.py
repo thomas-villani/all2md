@@ -788,6 +788,7 @@ DEFAULT_OCR_LANGUAGES = "eng"
 DEFAULT_OCR_AUTO_DETECT_LANGUAGE = False
 DEFAULT_OCR_DPI = 300
 DEFAULT_OCR_TEXT_THRESHOLD = 50  # Minimum characters to consider page as text-based
+DEFAULT_OCR_DOC_TEXT_THRESHOLD = 16  # Whole-doc meaningful-char floor below which auto OCR retries
 DEFAULT_OCR_IMAGE_AREA_THRESHOLD = 0.5  # Ratio of image area to page area to trigger OCR
 DEFAULT_OCR_PRESERVE_EXISTING_TEXT = False
 DEFAULT_OCR_TESSERACT_CONFIG = ""

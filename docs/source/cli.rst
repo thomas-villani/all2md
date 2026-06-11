@@ -5357,27 +5357,73 @@ the skill into an assistant. The topics are auto-discovered from the skill's
 Available topics are ``overview``, ``read``, ``convert``, ``generate``, ``grep``,
 ``search``, and ``diff``.
 
-Context Menu Command (Windows)
-------------------------------
+LLM Minify Command
+------------------
 
-On Windows, ``all2md context-menu`` manages a per-user right-click
-"View with all2md" shell entry (no administrator rights required).
+The ``all2md llm-minify`` command converts any supported document just like the
+default ``all2md <file>`` command, but strips filler that wastes LLM tokens. Use
+it when you only need the content, not the formatting or spacing.
+
+Two presets are available:
+
+* **Compact Markdown** (default) — keeps Markdown structure (headings, lists,
+  code, tables) while dropping comments, frontmatter and raw HTML, and collapsing
+  redundant blank lines/whitespace.
+* **Plain text** (``--aggressive`` / ``--text``) — strips *all* formatting down to
+  bare text.
 
 .. code-block:: bash
 
-   # Install the right-click entry
+   # Compact Markdown (default preset)
+   all2md llm-minify report.docx
+
+   # Strip all formatting to bare text
+   all2md llm-minify report.docx --aggressive
+
+   # Read from stdin, write to a file
+   cat notes.html | all2md llm-minify - --out notes.min.md
+
+Additional pruning flags layer on top of either preset:
+
+* ``--strip-links`` — drop link URLs, keep the link text
+* ``--strip-images`` — remove images entirely
+* ``--strip-formatting`` — remove inline emphasis/strong/strikethrough markers
+
+Context Menu Command (Windows)
+------------------------------
+
+On Windows, ``all2md context-menu`` manages per-user right-click shell entries
+(no administrator rights required). It can install three entries:
+
+* **View with all2md** — on files; opens the document in the browser preview.
+* **Edit with all2md** — on files; opens the in-browser editor (``all2md edit``).
+* **Serve with all2md** — on folders; serves the directory (``all2md serve``).
+
+``install`` registers the View entry by default. Add ``--edit`` and/or
+``--serve`` to install those entries too, or ``--all`` for all three. (The Edit
+and Serve entries require the ``all2md`` console launcher on PATH.)
+
+.. code-block:: bash
+
+   # Install just the View entry (default)
    all2md context-menu install
 
-   # Show whether the entry is installed
+   # Install View + Edit (files) + Serve (folders)
+   all2md context-menu install --all
+
+   # Install View plus the Edit entry only
+   all2md context-menu install --edit
+
+   # Show which entries are installed
    all2md context-menu status
 
-   # Remove the entry
+   # Remove all all2md entries
    all2md context-menu uninstall
 
-   # Limit the entry to specific extensions
+   # Limit the file entries to specific extensions
    all2md context-menu install --extensions "md,pdf,docx"
 
-   # Also show the entry on all text files
+   # Also show the file entries on all text files
    all2md context-menu install --all-text
 
 Command Aliases
