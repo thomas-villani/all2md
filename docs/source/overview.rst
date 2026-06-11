@@ -942,64 +942,11 @@ New option classes inherit from ``BaseOptions``:
 Integration Patterns
 --------------------
 
-For more practical examples and patterns, see :doc:`recipes`.
+all2md drops into batch pipelines and web services with a few lines of code.
+Rather than duplicate them here, see the dedicated guides:
 
-Batch Processing
-~~~~~~~~~~~~~~~~
-
-For complete CLI batch processing options, see :doc:`cli`.
-
-.. code-block:: python
-
-   from pathlib import Path
-   from all2md import to_markdown
-
-   def process_directory(input_dir, output_dir, file_pattern="*"):
-       input_path = Path(input_dir)
-       output_path = Path(output_dir)
-       output_path.mkdir(exist_ok=True)
-
-       for file_path in input_path.glob(file_pattern):
-           if file_path.is_file():
-               try:
-                   markdown = to_markdown(str(file_path))
-                   output_file = output_path / f"{file_path.stem}.md"
-
-                   with open(output_file, 'w', encoding='utf-8') as f:
-                       f.write(markdown)
-
-                   print(f"✓ {file_path.name} -> {output_file.name}")
-
-               except Exception as e:
-                   print(f"✗ {file_path.name}: {e}")
-
-Web Service Integration
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from flask import Flask, request, jsonify
-   from all2md import to_markdown
-   import tempfile
-
-   app = Flask(__name__)
-
-   @app.route('/convert', methods=['POST'])
-   def convert_document():
-       if 'file' not in request.files:
-           return jsonify({'error': 'No file provided'}), 400
-
-       file = request.files['file']
-
-       try:
-           # Save uploaded file temporarily
-           with tempfile.NamedTemporaryFile() as tmp:
-               file.save(tmp.name)
-               markdown = to_markdown(tmp.name)
-
-           return jsonify({'markdown': markdown})
-
-       except Exception as e:
-           return jsonify({'error': str(e)}), 500
+* :doc:`recipes` — batch directory processing, parallelism, and error handling
+* :doc:`integrations` — Flask, FastAPI, Django, and AWS Lambda examples
+* :doc:`cli` — the complete command-line batch/watch/bundle options
 
 This overview provides the foundation for understanding all2md's capabilities. For specific usage examples, see the :doc:`formats` guide, and for complete configuration options, visit the :doc:`options` reference.

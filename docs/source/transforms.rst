@@ -396,9 +396,12 @@ Generate a table of contents from document headings.
 .. note::
 
    ``generate-toc`` is available through the Python ``GenerateTocTransform``
-   class but is **not** currently registered as a named CLI transform, so it
-   cannot be selected with ``--transform generate-toc``. Apply it
-   programmatically (e.g. via :func:`all2md.transforms.apply`) instead.
+   class but is **not** registered as a named CLI transform, so it cannot be
+   selected with ``--transform generate-toc``. Apply it programmatically (e.g.
+   via :func:`all2md.transforms.apply`) instead. On the CLI, the separate
+   ``--generate-toc`` flag (with ``--toc-title``/``--toc-depth``/
+   ``--toc-position``) builds a table of contents when merging or collating
+   multiple files — see :doc:`cli`.
 
 Creating Custom Transforms
 ---------------------------
