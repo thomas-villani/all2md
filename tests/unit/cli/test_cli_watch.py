@@ -3,6 +3,7 @@
 Tests for --watch, --watch-debounce flags and watch mode functionality.
 """
 
+import os
 import time
 from unittest.mock import Mock, patch
 
@@ -760,9 +761,18 @@ class TestWatchModeIntegration:
         ready_event.wait(timeout=2.0)
         time.sleep(0.5)
 
-        # Make rapid changes
+        # Make rapid changes. Write atomically (temp file + os.replace) so the
+        # watcher only ever observes a complete file: a plain write_text()
+        # truncates before writing its bytes, and on some platforms/runtimes
+        # (notably CPython 3.14's event timing) the watcher can read the file
+        # during that empty window, converting empty content and then debouncing
+        # away the real writes. Atomic replaces surface as a single move event
+        # with the final content, keeping this a test of debounce dedup rather
+        # than of mid-write read races.
         for i in range(5):
-            test_file.write_text(f"Change {i}")
+            tmp_file = test_file.with_suffix(".txt.tmp")
+            tmp_file.write_text(f"Change {i}")
+            os.replace(tmp_file, test_file)
             time.sleep(0.1)  # Much faster than debounce time
 
         # Wait for debounce and one conversion
