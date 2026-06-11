@@ -108,6 +108,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_lint_command(args[1:])
 
+    # Check for llm-minify command
+    if args[0] == "llm-minify":
+        from all2md.cli.commands.llm_minify import handle_llm_minify_command
+
+        return handle_llm_minify_command(args[1:])
+
     # Check for list-formats command
     if args[0] in ("list-formats", "formats"):
         from all2md.cli.commands.formats import handle_list_formats_command
