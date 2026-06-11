@@ -444,6 +444,221 @@ Some content here with **bold** and *italic* text.
         content = generated_files[0].read_text()
         assert "![Test Image](/assets/images/test.png)" in content, "Image path not updated to Jekyll format"
 
+    # MkDocs Tests
+    # ------------
+
+    def test_mkdocs_with_scaffolding(self):
+        """Test generating an MkDocs site with scaffolding."""
+        self._create_test_markdown("test.md")
+
+        output_dir = self.temp_dir / "mkdocs-site"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "mkdocs",
+                "--scaffold",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify directory structure
+        assert (output_dir / "mkdocs.yml").exists(), "mkdocs.yml not created"
+        assert (output_dir / "docs").exists(), "docs directory not created"
+        assert (output_dir / "docs" / "index.md").exists(), "docs/index.md not created"
+        assert (output_dir / "docs" / "images").exists(), "docs/images directory not created"
+
+        # Verify mkdocs.yml contents
+        config_content = (output_dir / "mkdocs.yml").read_text()
+        assert "site_name:" in config_content
+
+        # Verify converted file exists with YAML frontmatter (MkDocs default)
+        content = (output_dir / "docs" / "test-document.md").read_text()
+        assert content.startswith("---"), "YAML frontmatter delimiter not found"
+        assert "title: Test Document" in content or 'title: "Test Document"' in content
+        # MkDocs does not use Hugo draft or Jekyll layout fields
+        assert "draft" not in content
+        assert "layout: post" not in content
+
+    def test_mkdocs_without_scaffolding(self):
+        """Test generating an MkDocs site without scaffolding."""
+        self._create_test_markdown("test.md")
+
+        output_dir = self.temp_dir / "mkdocs-content"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "mkdocs",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify content directory exists but scaffolding does not
+        assert (output_dir / "docs").exists(), "docs directory not created"
+        assert not (output_dir / "mkdocs.yml").exists(), "mkdocs.yml should not be created"
+
+        # Verify converted file exists (slugified from title)
+        assert (output_dir / "docs" / "test-document.md").exists(), "Converted file not created"
+
+    def test_mkdocs_with_images(self):
+        """Test MkDocs site generation with image copying."""
+        self._create_test_image()
+        self._create_test_markdown("test.md", with_image=True)
+
+        output_dir = self.temp_dir / "mkdocs-images"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "mkdocs",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify image was copied under docs/images
+        assert (output_dir / "docs" / "images" / "test.png").exists(), "Image not copied"
+
+        # Verify image reference was updated to MkDocs path
+        content = (output_dir / "docs" / "test-document.md").read_text()
+        assert "![Test Image](/images/test.png)" in content, "Image path not updated"
+
+    # Zola Tests
+    # ----------
+
+    def test_zola_with_scaffolding(self):
+        """Test generating a Zola site with scaffolding."""
+        self._create_test_markdown("test.md")
+
+        output_dir = self.temp_dir / "zola-site"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "zola",
+                "--scaffold",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify directory structure
+        assert (output_dir / "config.toml").exists(), "config.toml not created"
+        assert (output_dir / "content" / "_index.md").exists(), "_index.md not created"
+        assert (output_dir / "static" / "images").exists(), "static/images not created"
+        assert (output_dir / "templates" / "base.html").exists(), "base.html template not created"
+
+        # Verify converted file has TOML frontmatter (Zola default)
+        content = (output_dir / "content" / "test-document.md").read_text()
+        assert content.startswith("+++"), "TOML frontmatter delimiter not found"
+        assert 'title = "Test Document"' in content
+        # author is routed under [extra], not a top-level key
+        assert "[extra]" in content
+        assert 'author = "Test Author"' in content
+
+    def test_zola_with_images(self):
+        """Test Zola site generation with image copying."""
+        self._create_test_image()
+        self._create_test_markdown("test.md", with_image=True)
+
+        output_dir = self.temp_dir / "zola-images"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "zola",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify image copied to static/images and reference rewritten
+        assert (output_dir / "static" / "images" / "test.png").exists(), "Image not copied"
+        content = (output_dir / "content" / "test-document.md").read_text()
+        assert "![Test Image](/images/test.png)" in content, "Image path not updated"
+
+    # Eleventy Tests
+    # --------------
+
+    def test_eleventy_with_scaffolding(self):
+        """Test generating an Eleventy site with scaffolding."""
+        self._create_test_markdown("test.md")
+
+        output_dir = self.temp_dir / "eleventy-site"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "eleventy",
+                "--scaffold",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify directory structure
+        assert (output_dir / ".eleventy.js").exists(), ".eleventy.js not created"
+        assert (output_dir / "package.json").exists(), "package.json not created"
+        assert (output_dir / "src" / "index.md").exists(), "src/index.md not created"
+        assert (output_dir / "src" / "images").exists(), "src/images not created"
+
+        # Verify converted file has YAML frontmatter (Eleventy default)
+        content = (output_dir / "src" / "test-document.md").read_text()
+        assert content.startswith("---"), "YAML frontmatter delimiter not found"
+        assert "title: Test Document" in content or 'title: "Test Document"' in content
+
+    def test_eleventy_with_images(self):
+        """Test Eleventy site generation with image copying."""
+        self._create_test_image()
+        self._create_test_markdown("test.md", with_image=True)
+
+        output_dir = self.temp_dir / "eleventy-images"
+
+        result = self._run_cli(
+            [
+                str(self.source_dir / "test.md"),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "eleventy",
+            ]
+        )
+
+        # Check process succeeded
+        assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
+
+        # Verify image copied to src/images and reference rewritten
+        assert (output_dir / "src" / "images" / "test.png").exists(), "Image not copied"
+        content = (output_dir / "src" / "test-document.md").read_text()
+        assert "![Test Image](/images/test.png)" in content, "Image path not updated"
+
     # Options Tests
     # -------------
 

@@ -162,7 +162,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("search", "Search documents using keyword, vector, or hybrid retrieval"),
     ("grep", "Search for text patterns in documents (like grep for any format)"),
     ("lint", "Lint converted documents for structural, heading, link, list, table, and typography issues"),
-    ("generate-site", "Generate Hugo or Jekyll static site from documents"),
+    ("generate-site", "Generate Hugo, Jekyll, MkDocs, Zola, or Eleventy static site from documents"),
     ("arxiv", "Generate an ArXiv-ready LaTeX submission package from a document"),
     ("install-skills", "Install bundled agent skills to a skills directory"),
 )

@@ -90,6 +90,13 @@ all2md generate-site ./docs --output-dir site --generator hugo
 
 # Generate a Jekyll site instead
 all2md generate-site ./docs --output-dir site --generator jekyll
+
+# Generate an MkDocs site instead
+all2md generate-site ./docs --output-dir site --generator mkdocs
+
+# Other supported generators: Zola and Eleventy (11ty)
+all2md generate-site ./docs --output-dir site --generator zola
+all2md generate-site ./docs --output-dir site --generator eleventy
 ```
 
 ### ArXiv Packaging

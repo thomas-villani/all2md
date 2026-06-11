@@ -98,6 +98,107 @@ class TestHandleGenerateSiteCommand:
         posts_dir = output_dir / "_posts"
         assert posts_dir.exists()
 
+    def test_mkdocs_basic(self, tmp_path: Path, sample_markdown_files):
+        """Test basic MkDocs site generation."""
+        output_dir = tmp_path / "mkdocs_site"
+
+        result = handle_generate_site_command(
+            [str(sample_markdown_files[0]), "--output-dir", str(output_dir), "--generator", "mkdocs"]
+        )
+
+        assert result == 0
+        assert output_dir.exists()
+        # Check docs content directory was created
+        docs_dir = output_dir / "docs"
+        assert docs_dir.exists()
+        assert len(list(docs_dir.glob("*.md"))) >= 1
+
+    def test_mkdocs_scaffold(self, tmp_path: Path, sample_markdown_files):
+        """Test MkDocs site generation with scaffolding."""
+        output_dir = tmp_path / "mkdocs_site"
+
+        result = handle_generate_site_command(
+            [str(sample_markdown_files[0]), "--output-dir", str(output_dir), "--generator", "mkdocs", "--scaffold"]
+        )
+
+        assert result == 0
+        assert (output_dir / "mkdocs.yml").exists()
+        assert (output_dir / "docs").exists()
+
+    def test_mkdocs_content_subdir(self, tmp_path: Path, sample_markdown_files):
+        """Test MkDocs content subdirectory option."""
+        output_dir = tmp_path / "mkdocs_site"
+
+        result = handle_generate_site_command(
+            [
+                str(sample_markdown_files[0]),
+                "--output-dir",
+                str(output_dir),
+                "--generator",
+                "mkdocs",
+                "--content-subdir",
+                "guide",
+            ]
+        )
+
+        assert result == 0
+        # Content should be in docs/guide subdirectory
+        assert (output_dir / "docs" / "guide").exists()
+
+    def test_zola_basic(self, tmp_path: Path, sample_markdown_files):
+        """Test basic Zola site generation."""
+        output_dir = tmp_path / "zola_site"
+
+        result = handle_generate_site_command(
+            [str(sample_markdown_files[0]), "--output-dir", str(output_dir), "--generator", "zola"]
+        )
+
+        assert result == 0
+        content_dir = output_dir / "content"
+        assert content_dir.exists()
+        # Zola defaults to TOML frontmatter
+        md_files = list(content_dir.glob("*.md"))
+        assert md_files
+        assert md_files[0].read_text(encoding="utf-8").startswith("+++")
+
+    def test_zola_scaffold(self, tmp_path: Path, sample_markdown_files):
+        """Test Zola site generation with scaffolding."""
+        output_dir = tmp_path / "zola_site"
+
+        result = handle_generate_site_command(
+            [str(sample_markdown_files[0]), "--output-dir", str(output_dir), "--generator", "zola", "--scaffold"]
+        )
+
+        assert result == 0
+        assert (output_dir / "config.toml").exists()
+        assert (output_dir / "templates" / "base.html").exists()
+
+    def test_eleventy_basic(self, tmp_path: Path, sample_markdown_files):
+        """Test basic Eleventy site generation."""
+        output_dir = tmp_path / "eleventy_site"
+
+        result = handle_generate_site_command(
+            [str(sample_markdown_files[0]), "--output-dir", str(output_dir), "--generator", "eleventy"]
+        )
+
+        assert result == 0
+        # Eleventy content lives under src/
+        src_dir = output_dir / "src"
+        assert src_dir.exists()
+        assert len(list(src_dir.glob("*.md"))) >= 1
+
+    def test_eleventy_scaffold(self, tmp_path: Path, sample_markdown_files):
+        """Test Eleventy site generation with scaffolding."""
+        output_dir = tmp_path / "eleventy_site"
+
+        result = handle_generate_site_command(
+            [str(sample_markdown_files[0]), "--output-dir", str(output_dir), "--generator", "eleventy", "--scaffold"]
+        )
+
+        assert result == 0
+        assert (output_dir / ".eleventy.js").exists()
+        assert (output_dir / "package.json").exists()
+
     def test_hugo_scaffold(self, tmp_path: Path, sample_markdown_files):
         """Test Hugo site generation with scaffolding."""
         output_dir = tmp_path / "hugo_site"
