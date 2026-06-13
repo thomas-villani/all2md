@@ -20,11 +20,17 @@ The Model Context Protocol (MCP) is an open standard that enables AI assistants 
 * Convert Markdown to other formats (HTML, PDF, DOCX, etc.)
 * Process documents with comprehensive security controls
 
-The all2md MCP server exposes three primary tools:
+The all2md MCP server exposes six tools:
 
 1. **read_document_as_markdown** - Read and convert documents to Markdown format
 2. **save_document_from_markdown** - Save Markdown to other formats (disabled by default for security)
 3. **edit_document** - Edit markdown documents by manipulating their structure (disabled by default for security)
+4. **search_documents** - Search a corpus of documents (grep + keyword/BM25) and return ranked snippets
+5. **diff_documents** - Compare two documents and return a unified or JSON diff
+6. **get_document_outline** - List a document's heading structure for navigation
+
+Tools 4-6 are read-only and **enabled by default**. Tools 2 and 3 write or mutate
+files and remain disabled by default.
 
 Features
 ~~~~~~~~
@@ -353,6 +359,192 @@ Replace section content:
      "content": "# Updated Heading\n\nUpdated content."
    }
 
+search_documents
+~~~~~~~~~~~~~~~~~
+
+Search a corpus of documents and return ranked snippets instead of whole files,
+so an agent can locate information across many documents cheaply. Read-only;
+enabled by default.
+
+Two modes are supported:
+
+* ``keyword`` (default) - BM25 relevance ranking. Best for "find the most
+  relevant passages" queries. Requires the optional ``rank-bm25`` dependency
+  (``pip install 'all2md[search]'``).
+* ``grep`` - literal or regex line matching with highlighted spans. Best for
+  "find every occurrence of X". Stateless, no extra dependencies.
+
+Matched text in each snippet is wrapped in ``<<`` / ``>>`` markers.
+
+**Parameters:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``query``
+     - string
+     - **REQUIRED.** Natural-language query (keyword mode) or literal/regex pattern (grep mode).
+   * - ``paths``
+     - list[string]
+     - *Optional.* Files, directories, or globs to search (each validated against the read allowlist). Defaults to the read allowlist.
+   * - ``mode``
+     - string
+     - *Optional.* ``keyword`` (default) or ``grep``.
+   * - ``top_k``
+     - integer
+     - *Optional.* Maximum number of results to return (default: 10).
+   * - ``ignore_case``
+     - boolean
+     - *Optional.* Case-insensitive matching (grep mode only; default: false).
+   * - ``regex``
+     - boolean
+     - *Optional.* Treat the query as a regular expression (grep mode only; default: false).
+   * - ``recursive``
+     - boolean
+     - *Optional.* Recurse into directories when collecting input files (default: true).
+
+**Persistent index (optional):**
+
+By default a fresh index is built in memory on every call. Set
+``--search-index-dir PATH`` (or ``ALL2MD_MCP_SEARCH_INDEX_DIR``) to persist the
+keyword index to disk and reuse it on subsequent calls. The directory must be
+within the write allowlist. Grep mode is always stateless and never persisted.
+
+**Returns:**
+
+A dictionary with:
+
+* ``results``: list of ``{snippet, score, document_path, section_heading, chunk_id}``
+* ``mode``: the search mode used
+* ``total``: number of results returned
+
+**Examples:**
+
+Keyword search across a directory:
+
+.. code-block:: json
+
+   {
+     "query": "data retention policy",
+     "paths": ["/workspace/contracts"],
+     "mode": "keyword",
+     "top_k": 5
+   }
+
+Grep for every occurrence of a pattern (case-insensitive):
+
+.. code-block:: json
+
+   {
+     "query": "TODO|FIXME",
+     "mode": "grep",
+     "regex": true,
+     "ignore_case": true
+   }
+
+diff_documents
+~~~~~~~~~~~~~~
+
+Compare two documents and return their differences. Read-only; enabled by
+default. Each input is auto-detected (file path within the read allowlist, data
+URI, base64, or inline content), so documents in any supported format can be
+compared — even across formats (e.g. a DOCX against its PDF export).
+
+**Parameters:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``old``
+     - string
+     - **REQUIRED.** Original document (path or inline content).
+   * - ``new``
+     - string
+     - **REQUIRED.** Updated document (path or inline content).
+   * - ``format``
+     - string
+     - *Optional.* Output format: ``unified`` (default, plain text) or ``json`` (structured).
+   * - ``context_lines``
+     - integer
+     - *Optional.* Context lines around changes in unified output (default: 3).
+   * - ``granularity``
+     - string
+     - *Optional.* Comparison granularity: ``block`` (default), ``sentence``, or ``word``.
+   * - ``ignore_whitespace``
+     - boolean
+     - *Optional.* Normalize whitespace before comparing (default: false).
+
+**Returns:**
+
+A dictionary with:
+
+* ``diff``: the rendered diff (unified text or JSON string)
+* ``has_changes``: whether any differences were found
+
+**Example:**
+
+Compare two report versions:
+
+.. code-block:: json
+
+   {
+     "old": "/workspace/report_v1.docx",
+     "new": "/workspace/report_v2.docx",
+     "format": "unified"
+   }
+
+get_document_outline
+~~~~~~~~~~~~~~~~~~~~~
+
+Return the heading structure (table of contents) of a document so an agent can
+navigate a large file before extracting specific sections. Read-only; enabled by
+default. The ``doc`` parameter is auto-detected (path, data URI, base64, or
+inline content). The returned indices line up with ``edit_document``'s ``#N``
+target notation.
+
+**Parameters:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``doc``
+     - string
+     - **REQUIRED.** Document to outline (path or inline content).
+   * - ``max_level``
+     - integer
+     - *Optional.* Deepest heading level to include, 1-6 (default: 6 = all levels).
+   * - ``format_hint``
+     - string
+     - *Optional.* Format hint for ambiguous/extensionless sources (``pdf``, ``docx``, ``html``, etc.).
+
+**Returns:**
+
+A dictionary with:
+
+* ``sections``: list of ``{index, level, heading}``
+* ``total``: number of headings returned
+
+**Example:**
+
+.. code-block:: json
+
+   {
+     "doc": "/workspace/manual.pdf",
+     "max_level": 2
+   }
+
 Configuration
 -------------
 
@@ -375,11 +567,19 @@ Command-Line Arguments
 * ``--no-to-md`` - Disable the read_document_as_markdown tool
 * ``--enable-from-md`` - Enable the save_document_from_markdown tool (default: false)
 * ``--no-from-md`` - Disable the save_document_from_markdown tool
+* ``--enable-doc-edit`` / ``--no-doc-edit`` - Toggle the edit_document tool (default: false)
+* ``--enable-search`` / ``--no-search`` - Toggle the search_documents tool (default: true)
+* ``--enable-diff`` / ``--no-diff`` - Toggle the diff_documents tool (default: true)
+* ``--enable-outline`` / ``--no-outline`` - Toggle the get_document_outline tool (default: true)
 
 **Path Allowlists:**
 
 * ``--read-dirs PATHS`` - Semicolon-separated list of allowed read directories
 * ``--write-dirs PATHS`` - Semicolon-separated list of allowed write directories
+
+**Search Index:**
+
+* ``--search-index-dir PATH`` - Persist/load the search keyword index in this directory (must be within the write allowlist). Omit to rebuild a fresh index on every call.
 
 **Image Inclusion:**
 
@@ -418,6 +618,18 @@ Environment Variables
    * - ``ALL2MD_MCP_ENABLE_DOC_EDIT``
      - ``false``
      - Enable edit_document tool
+   * - ``ALL2MD_MCP_ENABLE_SEARCH``
+     - ``true``
+     - Enable search_documents tool
+   * - ``ALL2MD_MCP_ENABLE_DIFF``
+     - ``true``
+     - Enable diff_documents tool
+   * - ``ALL2MD_MCP_ENABLE_OUTLINE``
+     - ``true``
+     - Enable get_document_outline tool
+   * - ``ALL2MD_MCP_SEARCH_INDEX_DIR``
+     - *(none)*
+     - Directory to persist the search keyword index (must be in write allowlist)
    * - ``ALL2MD_MCP_ALLOWED_READ_DIRS``
      - CWD
      - Semicolon-separated read allowlist paths
@@ -722,6 +934,11 @@ Embedding all2md-mcp in your own MCP server:
    from all2md.mcp import MCPConfig
    from all2md.mcp.server import create_server
    from all2md.mcp.document_tools import edit_document_impl
+   from all2md.mcp.query_tools import (
+       diff_documents_impl,
+       get_document_outline_impl,
+       search_documents_impl,
+   )
    from all2md.mcp.security import prepare_allowlist_dirs
    from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
@@ -730,6 +947,9 @@ Embedding all2md-mcp in your own MCP server:
        enable_to_md=True,
        enable_from_md=False,
        enable_doc_edit=False,
+       enable_search=True,
+       enable_diff=True,
+       enable_outline=True,
        read_allowlist=prepare_allowlist_dirs(["/safe/documents"]),
        write_allowlist=prepare_allowlist_dirs(["/safe/output"]),
        include_images=True,
@@ -739,7 +959,15 @@ Embedding all2md-mcp in your own MCP server:
    )
 
    # Create MCP server with custom config
-   mcp = create_server(config, read_document_as_markdown_impl, save_document_from_markdown_impl, edit_document_impl)
+   mcp = create_server(
+       config,
+       read_document_as_markdown_impl,
+       save_document_from_markdown_impl,
+       edit_document_impl,
+       search_documents_impl,
+       diff_documents_impl,
+       get_document_outline_impl,
+   )
 
    # Run server
    mcp.run()

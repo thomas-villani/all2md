@@ -220,10 +220,13 @@ pip install "all2md[mcp]"
 all2md-mcp --temp --enable-from-md
 ```
 
+**Tools:** `read_document_as_markdown`, `save_document_from_markdown`, `edit_document`, plus three read-only query tools enabled by default — `search_documents` (grep + keyword/BM25 across a corpus), `diff_documents` (compare two documents), and `get_document_outline` (heading structure for navigation).
+
 **Key features:**
 - **Smart Auto-Detection**: Automatically detect source type (file path, data URI, base64, or plain text)
-- **Section Extraction**: Extract specific sections by heading name for targeted reading
-- **Simplified API**: Just 2-3 parameters per tool with server-level configuration
+- **Corpus Search**: Grep and keyword/BM25 search across many documents, returning ranked snippets instead of whole files
+- **Section Extraction & Outlines**: Extract sections by heading or list a document's structure for targeted reading
+- **Document Diffing**: Compare two documents (any format) and get a unified or JSON diff
 - **Security First**: File allowlists, network controls, and path validation
 - **vLLM Image Support**: Optionally embed images as base64 for vision-enabled models
 
@@ -242,8 +245,9 @@ required (the bundle pulls in all2md via `uv` on first run):
    and write to (defaults to your Documents folder; files outside it are
    rejected), and optionally adjust the toggles for writing/rendering,
    in-place editing, and network access.
-5. The `read_document_as_markdown`, `save_document_from_markdown`, and
-   `edit_document` tools then appear under the **"+" → Connectors** panel in a
+5. The all2md tools (`read_document_as_markdown`, `save_document_from_markdown`,
+   `edit_document`, `search_documents`, `diff_documents`, and
+   `get_document_outline`) then appear under the **"+" → Connectors** panel in a
    chat, ready to use on files in your workspace folder.
 
 > Requires a Claude Desktop build with MCPB extension support (late-2025 or

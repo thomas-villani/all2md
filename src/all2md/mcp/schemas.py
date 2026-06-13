@@ -11,6 +11,13 @@ Classes
 - SaveDocumentFromMarkdownOutput: Output schema for save_document_from_markdown tool
 - EditDocumentSimpleInput: Input schema for edit_document tool (simplified)
 - EditDocumentSimpleOutput: Output schema for edit_document tool (simplified)
+- SearchDocumentsInput: Input schema for search_documents tool
+- SearchResultItem: Single result entry for search_documents tool
+- SearchDocumentsOutput: Output schema for search_documents tool
+- DiffDocumentsInput: Input schema for diff_documents tool
+- DiffDocumentsOutput: Output schema for diff_documents tool
+- GetDocumentOutlineInput: Input schema for get_document_outline tool
+- GetDocumentOutlineOutput: Output schema for get_document_outline tool
 
 
 Notes
@@ -209,3 +216,195 @@ class EditDocumentSimpleOutput:
     success: bool
     message: str
     content: str | None = None
+
+
+# search_documents tool schemas
+SearchMode = Literal["keyword", "grep"]
+
+
+@dataclass
+class SearchDocumentsInput:
+    """Input schema for search_documents tool.
+
+    Searches a corpus of documents and returns ranked snippets rather than whole
+    files. Two modes are supported in this slice:
+
+    - "keyword": BM25 relevance ranking (requires the optional ``rank-bm25``
+      dependency). Best for "find the most relevant passages" queries.
+    - "grep": literal/regex line matching with highlighted spans. Best for
+      "find every occurrence of X" queries. Stateless, no extra dependencies.
+
+    Attributes
+    ----------
+    query : str
+        Search query. For grep mode this is a literal string unless ``regex`` is
+        set; for keyword mode it is a natural-language query (required).
+    paths : list[str] | None
+        Files, directories, or globs to search (each validated against the read
+        allowlist). When omitted, the server's read allowlist is searched.
+    mode : SearchMode
+        "keyword" (default, BM25) or "grep".
+    top_k : int
+        Maximum number of results to return (default: 10).
+    ignore_case : bool
+        Case-insensitive matching (grep mode only; default: False).
+    regex : bool
+        Treat the query as a regular expression (grep mode only; default: False).
+    recursive : bool
+        Recurse into directories when collecting input files (default: True).
+
+    """
+
+    query: str
+    paths: list[str] | None = None
+    mode: SearchMode = "keyword"
+    top_k: int = 10
+    ignore_case: bool = False
+    regex: bool = False
+    recursive: bool = True
+
+
+@dataclass
+class SearchResultItem:
+    """A single search result.
+
+    Attributes
+    ----------
+    snippet : str
+        Matched text with hit spans wrapped in ``<<`` / ``>>`` markers.
+    score : float
+        Relevance score (BM25 score for keyword mode; match count for grep mode).
+    document_path : str | None
+        Path of the document the match came from, when available.
+    section_heading : str | None
+        Heading of the section the match was found in, when available.
+    chunk_id : str
+        Identifier of the underlying chunk/section the match belongs to.
+
+    """
+
+    snippet: str
+    score: float
+    document_path: str | None
+    section_heading: str | None
+    chunk_id: str
+
+
+@dataclass
+class SearchDocumentsOutput:
+    """Output schema for search_documents tool.
+
+    Attributes
+    ----------
+    results : list[SearchResultItem]
+        Ranked search results.
+    mode : str
+        The resolved search mode used.
+    total : int
+        Number of results returned.
+
+    """
+
+    results: list[SearchResultItem] = field(default_factory=list)
+    mode: str = "keyword"
+    total: int = 0
+
+
+# diff_documents tool schemas
+DiffFormat = Literal["unified", "json"]
+DiffGranularity = Literal["block", "sentence", "word"]
+
+
+@dataclass
+class DiffDocumentsInput:
+    """Input schema for diff_documents tool.
+
+    Compares two documents and returns their differences. Each of ``old`` and
+    ``new`` is auto-detected (file path within the read allowlist, data URI,
+    base64, or plain text content), so documents in any supported format can be
+    compared — even across formats.
+
+    Attributes
+    ----------
+    old : str
+        Original document (path or inline content).
+    new : str
+        Updated document (path or inline content).
+    format : DiffFormat
+        Output format: "unified" (default, plain text) or "json" (structured).
+    context_lines : int
+        Number of context lines around changes in unified output (default: 3).
+    granularity : DiffGranularity
+        Comparison granularity: "block" (default), "sentence", or "word".
+    ignore_whitespace : bool
+        Normalize whitespace before comparing (default: False).
+
+    """
+
+    old: str
+    new: str
+    format: DiffFormat = "unified"
+    context_lines: int = 3
+    granularity: DiffGranularity = "block"
+    ignore_whitespace: bool = False
+
+
+@dataclass
+class DiffDocumentsOutput:
+    """Output schema for diff_documents tool.
+
+    Attributes
+    ----------
+    diff : str
+        Rendered diff in the requested format (unified text or JSON string).
+    has_changes : bool
+        Whether any differences were found.
+
+    """
+
+    diff: str
+    has_changes: bool
+
+
+# get_document_outline tool schemas
+@dataclass
+class GetDocumentOutlineInput:
+    """Input schema for get_document_outline tool.
+
+    Returns the heading structure of a document so an agent can navigate a large
+    file before extracting specific sections. ``doc`` is auto-detected (file path
+    within the read allowlist, data URI, base64, or plain text content).
+
+    Attributes
+    ----------
+    doc : str
+        Document to outline (path or inline content).
+    max_level : int
+        Deepest heading level to include, 1-6 (default: 6, i.e. all levels).
+    format_hint : SourceFormat | None
+        Optional format hint for ambiguous/extensionless sources.
+
+    """
+
+    doc: str
+    max_level: int = 6
+    format_hint: SourceFormat | None = None
+
+
+@dataclass
+class GetDocumentOutlineOutput:
+    """Output schema for get_document_outline tool.
+
+    Attributes
+    ----------
+    sections : list[dict]
+        Ordered list of headings, each ``{"index": int, "level": int,
+        "heading": str}`` where ``index`` is the zero-based section index usable
+        with edit_document's ``#N`` target notation.
+    total : int
+        Number of headings returned.
+
+    """
+
+    sections: list[dict] = field(default_factory=list)
+    total: int = 0

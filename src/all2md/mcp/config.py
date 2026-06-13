@@ -42,6 +42,17 @@ class MCPConfig(CloneFrozenMixin):
         Whether to enable save_document_from_markdown tool (default: False for security)
     enable_doc_edit : bool
         Whether to enable edit_document tool (default: False for security)
+    enable_search : bool
+        Whether to enable search_documents tool (default: True; read-only)
+    enable_diff : bool
+        Whether to enable diff_documents tool (default: True; read-only)
+    enable_outline : bool
+        Whether to enable get_document_outline tool (default: True; read-only)
+    search_index_dir : str | Path | None
+        Optional directory for persisting/loading the search keyword index.
+        None (default) rebuilds a fresh in-memory index on every call. When set,
+        the keyword index is saved there and reused on subsequent calls. The
+        directory is validated against the write allowlist at startup.
     read_allowlist : list[str | Path] | None
         List of allowed read directory paths. Initially strings from env/CLI,
         then converted to resolved Path objects by prepare_allowlist_dirs.
@@ -70,6 +81,10 @@ class MCPConfig(CloneFrozenMixin):
     enable_to_md: bool = True
     enable_from_md: bool = False  # Disabled by default for security (writing)
     enable_doc_edit: bool = False  # Disabled by default for security (document manipulation)
+    enable_search: bool = True  # Read-only: search a document corpus (grep + keyword)
+    enable_diff: bool = True  # Read-only: compare two documents
+    enable_outline: bool = True  # Read-only: list a document's heading structure
+    search_index_dir: str | Path | None = None  # None = rebuild per call; set = persist keyword index
     read_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     write_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     include_images: bool = False  # Enable for vision-enabled LLMs
@@ -89,11 +104,20 @@ class MCPConfig(CloneFrozenMixin):
         # Validate flavor
         allowed_flavors = ("gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus")
         if self.flavor not in allowed_flavors:
-            raise ValueError(f"Invalid flavor: {self.flavor}. " f"Must be one of: {', '.join(allowed_flavors)}")
+            raise ValueError(f"Invalid flavor: {self.flavor}. Must be one of: {', '.join(allowed_flavors)}")
 
         # At least one tool must be enabled
-        if not self.enable_to_md and not self.enable_from_md and not self.enable_doc_edit:
-            raise ValueError("At least one tool must be enabled (to_md, from_md, or doc_edit)")
+        if not any(
+            (
+                self.enable_to_md,
+                self.enable_from_md,
+                self.enable_doc_edit,
+                self.enable_search,
+                self.enable_diff,
+                self.enable_outline,
+            )
+        ):
+            raise ValueError("At least one tool must be enabled (to_md, from_md, doc_edit, search, diff, or outline)")
 
 
 def _parse_semicolon_list(value: str | None) -> list[str] | None:
@@ -169,7 +193,7 @@ def _validate_log_level(value: str | None, default: str = "INFO") -> str:
     valid_levels = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
     if normalized not in valid_levels:
-        raise ValueError(f"Invalid log level: {value!r}. " f"Must be one of: {', '.join(valid_levels)}")
+        raise ValueError(f"Invalid log level: {value!r}. Must be one of: {', '.join(valid_levels)}")
 
     return normalized
 
@@ -205,7 +229,7 @@ def _validate_flavor(value: str | None, default: str = "gfm") -> str:
     valid_flavors = ("gfm", "commonmark", "multimarkdown", "pandoc", "kramdown", "markdown_plus")
 
     if normalized not in valid_flavors:
-        raise ValueError(f"Invalid markdown flavor: {value!r}. " f"Must be one of: {', '.join(valid_flavors)}")
+        raise ValueError(f"Invalid markdown flavor: {value!r}. Must be one of: {', '.join(valid_flavors)}")
 
     return normalized
 
@@ -230,10 +254,17 @@ def load_config_from_env() -> MCPConfig:
     if write_allowlist_strs is None:
         write_allowlist_strs = [cwd]
 
+    # Optional persistent search index directory (None = rebuild per call)
+    search_index_dir = os.getenv("ALL2MD_MCP_SEARCH_INDEX_DIR") or None
+
     return MCPConfig(
         enable_to_md=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_TO_MD"), default=True),
         enable_from_md=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_FROM_MD"), default=False),  # Disabled by default
         enable_doc_edit=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_DOC_EDIT"), default=False),  # Disabled by default
+        enable_search=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_SEARCH"), default=True),  # Read-only
+        enable_diff=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_DIFF"), default=True),  # Read-only
+        enable_outline=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_OUTLINE"), default=True),  # Read-only
+        search_index_dir=search_index_dir,
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         read_allowlist=cast(list[str | Path], read_allowlist_strs),
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
@@ -263,6 +294,10 @@ Environment Variables:
   ALL2MD_MCP_ENABLE_TO_MD          Enable read_document_as_markdown tool (default: true)
   ALL2MD_MCP_ENABLE_FROM_MD        Enable save_document_from_markdown tool (default: false)
   ALL2MD_MCP_ENABLE_DOC_EDIT       Enable edit_document tool (default: false)
+  ALL2MD_MCP_ENABLE_SEARCH         Enable search_documents tool (default: true)
+  ALL2MD_MCP_ENABLE_DIFF           Enable diff_documents tool (default: true)
+  ALL2MD_MCP_ENABLE_OUTLINE        Enable get_document_outline tool (default: true)
+  ALL2MD_MCP_SEARCH_INDEX_DIR      Directory to persist the search keyword index (default: none)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
   ALL2MD_MCP_INCLUDE_IMAGES        Include images in output for vLLM visibility (default: false)
@@ -291,7 +326,7 @@ Examples:
 
     # Version flag
     try:
-        version_string = f'all2md-mcp {version("all2md")}'
+        version_string = f"all2md-mcp {version('all2md')}"
     except Exception:
         version_string = "all2md-mcp (version unknown)"
 
@@ -340,6 +375,49 @@ Examples:
         "--no-doc-edit", action="store_false", dest="enable_doc_edit", help="Disable edit_document tool"
     )
     parser.set_defaults(enable_doc_edit=None)  # None = use env default
+
+    search_group = parser.add_mutually_exclusive_group()
+    search_group.add_argument(
+        "--enable-search",
+        action="store_true",
+        dest="enable_search",
+        help="Enable search_documents tool (default: true; read-only)",
+    )
+    search_group.add_argument(
+        "--no-search", action="store_false", dest="enable_search", help="Disable search_documents tool"
+    )
+    parser.set_defaults(enable_search=None)  # None = use env default
+
+    diff_group = parser.add_mutually_exclusive_group()
+    diff_group.add_argument(
+        "--enable-diff",
+        action="store_true",
+        dest="enable_diff",
+        help="Enable diff_documents tool (default: true; read-only)",
+    )
+    diff_group.add_argument("--no-diff", action="store_false", dest="enable_diff", help="Disable diff_documents tool")
+    parser.set_defaults(enable_diff=None)  # None = use env default
+
+    outline_group = parser.add_mutually_exclusive_group()
+    outline_group.add_argument(
+        "--enable-outline",
+        action="store_true",
+        dest="enable_outline",
+        help="Enable get_document_outline tool (default: true; read-only)",
+    )
+    outline_group.add_argument(
+        "--no-outline", action="store_false", dest="enable_outline", help="Disable get_document_outline tool"
+    )
+    parser.set_defaults(enable_outline=None)  # None = use env default
+
+    # Persistent search index directory (opt-in; None = rebuild per call)
+    parser.add_argument(
+        "--search-index-dir",
+        type=str,
+        metavar="PATH",
+        help="Directory to persist/load the search keyword index (must be within write allowlist). "
+        "Omit to rebuild a fresh index on every call.",
+    )
 
     # Path allowlists
     parser.add_argument(
@@ -432,6 +510,18 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
 
     if args.enable_doc_edit is not None:
         updated_kwargs.update(enable_doc_edit=args.enable_doc_edit)
+
+    if args.enable_search is not None:
+        updated_kwargs.update(enable_search=args.enable_search)
+
+    if args.enable_diff is not None:
+        updated_kwargs.update(enable_diff=args.enable_diff)
+
+    if args.enable_outline is not None:
+        updated_kwargs.update(enable_outline=args.enable_outline)
+
+    if getattr(args, "search_index_dir", None) is not None:
+        updated_kwargs.update(search_index_dir=args.search_index_dir)
 
     if args.read_dirs is not None:
         updated_kwargs.update(read_allowlist=_parse_semicolon_list(args.read_dirs))

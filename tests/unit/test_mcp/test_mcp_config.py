@@ -74,10 +74,22 @@ class TestMCPConfig:
         assert config.log_level == "INFO"
 
     def test_config_validate_no_tools_enabled(self):
-        """Test that at least one tool must be enabled."""
-        config = MCPConfig(enable_to_md=False, enable_from_md=False)
+        """Test that at least one tool must be enabled (all six disabled)."""
+        config = MCPConfig(
+            enable_to_md=False,
+            enable_from_md=False,
+            enable_doc_edit=False,
+            enable_search=False,
+            enable_diff=False,
+            enable_outline=False,
+        )
         with pytest.raises(ValueError, match="At least one tool must be enabled"):
             config.validate()
+
+    def test_config_validate_read_only_tools_sufficient(self):
+        """The read-only trio keeps a config valid even with the originals off."""
+        config = MCPConfig(enable_to_md=False, enable_from_md=False, enable_doc_edit=False)
+        config.validate()  # should not raise
 
 
 class TestLoadConfigFromEnv:
