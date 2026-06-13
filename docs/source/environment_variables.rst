@@ -180,6 +180,101 @@ This is disabled by default because it allows modification of document content.
    export ALL2MD_MCP_ENABLE_DOC_EDIT=true
    all2md-mcp
 
+ALL2MD_MCP_ENABLE_SEARCH
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Enable/disable the ``search_documents`` tool in MCP server.
+
+**Type:** Boolean
+
+**Default:** ``true`` (read-only; enabled by default)
+
+**Valid Values:** ``true``, ``false``, ``1``, ``0``, ``yes``, ``no``
+
+**Description:**
+
+When enabled, allows LLMs to search a corpus of documents (grep + keyword/BM25)
+and receive ranked snippets. Read-only, so enabled by default.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Disable document search
+   export ALL2MD_MCP_ENABLE_SEARCH=false
+   all2md-mcp
+
+ALL2MD_MCP_ENABLE_DIFF
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Enable/disable the ``diff_documents`` tool in MCP server.
+
+**Type:** Boolean
+
+**Default:** ``true`` (read-only; enabled by default)
+
+**Valid Values:** ``true``, ``false``, ``1``, ``0``, ``yes``, ``no``
+
+**Description:**
+
+When enabled, allows LLMs to compare two documents and receive a unified or JSON
+diff. Read-only, so enabled by default.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Disable document diffing
+   export ALL2MD_MCP_ENABLE_DIFF=false
+   all2md-mcp
+
+ALL2MD_MCP_ENABLE_OUTLINE
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Enable/disable the ``get_document_outline`` tool in MCP server.
+
+**Type:** Boolean
+
+**Default:** ``true`` (read-only; enabled by default)
+
+**Valid Values:** ``true``, ``false``, ``1``, ``0``, ``yes``, ``no``
+
+**Description:**
+
+When enabled, allows LLMs to retrieve a document's heading structure for
+navigation. Read-only, so enabled by default.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Disable document outlines
+   export ALL2MD_MCP_ENABLE_OUTLINE=false
+   all2md-mcp
+
+ALL2MD_MCP_SEARCH_INDEX_DIR
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Directory used to persist and reuse the ``search_documents`` keyword index.
+
+**Type:** String (directory path)
+
+**Default:** *(none — a fresh index is built in memory on every call)*
+
+**Description:**
+
+When set, the keyword (BM25) index is saved to this directory and reused on
+subsequent searches, avoiding a rebuild each call. The directory must be within
+the write allowlist. Grep mode is always stateless and ignores this setting.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Persist the keyword index between calls
+   export ALL2MD_MCP_SEARCH_INDEX_DIR="/workspace/.all2md-index"
+   all2md-mcp
+
 ALL2MD_MCP_INCLUDE_IMAGES
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 

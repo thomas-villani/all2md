@@ -26,12 +26,21 @@ if TYPE_CHECKING:
 
 from all2md.mcp.config import MCPConfig, load_config
 from all2md.mcp.schemas import (
+    DiffDocumentsInput,
+    DiffDocumentsOutput,
+    DiffFormat,
+    DiffGranularity,
     EditDocumentAction,
     EditDocumentSimpleInput,
     EditDocumentSimpleOutput,
+    GetDocumentOutlineInput,
+    GetDocumentOutlineOutput,
     ReadDocumentAsMarkdownInput,
     SaveDocumentFromMarkdownInput,
     SaveDocumentFromMarkdownOutput,
+    SearchDocumentsInput,
+    SearchDocumentsOutput,
+    SearchMode,
     SourceFormat,
     TargetFormat,
 )
@@ -45,6 +54,9 @@ def create_server(
     read_impl: Callable[[ReadDocumentAsMarkdownInput, MCPConfig], list[Any]],
     save_impl: Callable[[SaveDocumentFromMarkdownInput, MCPConfig], SaveDocumentFromMarkdownOutput],
     edit_doc_impl: Callable[[EditDocumentSimpleInput, MCPConfig], EditDocumentSimpleOutput],
+    search_impl: Callable[[SearchDocumentsInput, MCPConfig], SearchDocumentsOutput],
+    diff_impl: Callable[[DiffDocumentsInput, MCPConfig], DiffDocumentsOutput],
+    outline_impl: Callable[[GetDocumentOutlineInput, MCPConfig], GetDocumentOutlineOutput],
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
@@ -58,6 +70,12 @@ def create_server(
         Implementation function for save_document_from_markdown tool
     edit_doc_impl : callable
         Implementation function for edit_document tool
+    search_impl : callable
+        Implementation function for search_documents tool
+    diff_impl : callable
+        Implementation function for diff_documents tool
+    outline_impl : callable
+        Implementation function for get_document_outline tool
 
     Returns
     -------
@@ -233,6 +251,153 @@ def create_server(
 
         logger.info("Registered tool: edit_document")
 
+    # Conditionally register search_documents tool (read-only)
+    if config.enable_search:
+
+        @mcp.tool(name="search_documents")
+        def search_documents(
+            query: Annotated[
+                str,
+                "Search query. Natural language for keyword mode; a literal string (or regex) for grep mode. REQUIRED.",
+            ],
+            paths: Annotated[
+                list[str] | None,
+                "Files, directories, or globs to search (each must be within the read allowlist). "
+                "If omitted, the server's read allowlist is searched.",
+            ] = None,
+            mode: Annotated[
+                str,
+                "Search mode: 'keyword' (default, BM25 relevance ranking) or 'grep' (literal/regex line matching).",
+            ] = "keyword",
+            top_k: Annotated[int, "Maximum number of results to return (default: 10)."] = 10,
+            ignore_case: Annotated[bool, "Case-insensitive matching (grep mode only). Default: false."] = False,
+            regex: Annotated[bool, "Treat the query as a regular expression (grep mode only). Default: false."] = False,
+            recursive: Annotated[bool, "Recurse into directories when collecting input files. Default: true."] = True,
+        ) -> dict:
+            """Search a corpus of documents and return ranked snippets.
+
+            Instead of returning whole files, this tool returns the most relevant
+            passages (with hit spans wrapped in << >> markers), so an agent can
+            locate information across many documents cheaply.
+
+            Modes:
+            - keyword: BM25 relevance ranking (requires the optional rank-bm25
+              dependency). Best for "find the most relevant passages" queries.
+            - grep: literal/regex line matching. Best for "find every occurrence
+              of X". Stateless, no extra dependencies.
+
+            Supports all formats the read tool supports (PDF, DOCX, HTML, etc.);
+            files are converted to text before searching.
+
+            Returns a dictionary with:
+            - results: list of {snippet, score, document_path, section_heading, chunk_id}
+            - mode: the search mode used
+            - total: number of results returned
+            """
+            input_obj = SearchDocumentsInput(
+                query=query,
+                paths=paths,
+                mode=cast(SearchMode, mode),
+                top_k=top_k,
+                ignore_case=ignore_case,
+                regex=regex,
+                recursive=recursive,
+            )
+            result = search_impl(input_obj, config)
+            return {
+                "results": [
+                    {
+                        "snippet": item.snippet,
+                        "score": item.score,
+                        "document_path": item.document_path,
+                        "section_heading": item.section_heading,
+                        "chunk_id": item.chunk_id,
+                    }
+                    for item in result.results
+                ],
+                "mode": result.mode,
+                "total": result.total,
+            }
+
+        logger.info("Registered tool: search_documents")
+
+    # Conditionally register diff_documents tool (read-only)
+    if config.enable_diff:
+
+        @mcp.tool(name="diff_documents")
+        def diff_documents(
+            old: Annotated[
+                str,
+                "Original document: file path (within read allowlist), data URI, base64, or inline content. REQUIRED.",
+            ],
+            new: Annotated[
+                str,
+                "Updated document: file path (within read allowlist), data URI, base64, or inline content. REQUIRED.",
+            ],
+            format: Annotated[
+                str, "Output format: 'unified' (default, plain text) or 'json' (structured)."
+            ] = "unified",
+            context_lines: Annotated[int, "Context lines around changes in unified output (default: 3)."] = 3,
+            granularity: Annotated[str, "Comparison granularity: 'block' (default), 'sentence', or 'word'."] = "block",
+            ignore_whitespace: Annotated[bool, "Normalize whitespace before comparing. Default: false."] = False,
+        ) -> dict:
+            """Compare two documents and return their differences.
+
+            Each input is auto-detected (file path, data URI, base64, or inline
+            content), so documents in any supported format can be compared — even
+            across formats (e.g. a DOCX against its PDF export).
+
+            Returns a dictionary with:
+            - diff: the rendered diff (unified text or JSON string)
+            - has_changes: whether any differences were found
+            """
+            input_obj = DiffDocumentsInput(
+                old=old,
+                new=new,
+                format=cast(DiffFormat, format),
+                context_lines=context_lines,
+                granularity=cast(DiffGranularity, granularity),
+                ignore_whitespace=ignore_whitespace,
+            )
+            result = diff_impl(input_obj, config)
+            return {"diff": result.diff, "has_changes": result.has_changes}
+
+        logger.info("Registered tool: diff_documents")
+
+    # Conditionally register get_document_outline tool (read-only)
+    if config.enable_outline:
+
+        @mcp.tool(name="get_document_outline")
+        def get_document_outline(
+            doc: Annotated[
+                str,
+                "Document to outline: file path (within read allowlist), data URI, base64, "
+                "or inline content. REQUIRED.",
+            ],
+            max_level: Annotated[int, "Deepest heading level to include, 1-6 (default: 6 = all levels)."] = 6,
+            format_hint: Annotated[
+                str | None,
+                "Optional format hint for ambiguous/extensionless sources (e.g. 'pdf', 'docx', 'html').",
+            ] = None,
+        ) -> dict:
+            """Return the heading structure (table of contents) of a document.
+
+            Use this to navigate a large document before extracting specific
+            sections: the returned indices line up with edit_document's '#N'
+            target notation.
+
+            Returns a dictionary with:
+            - sections: list of {index, level, heading}
+            - total: number of headings returned
+            """
+            input_obj = GetDocumentOutlineInput(
+                doc=doc, max_level=max_level, format_hint=cast(SourceFormat | None, format_hint)
+            )
+            result = outline_impl(input_obj, config)
+            return {"sections": result.sections, "total": result.total}
+
+        logger.info("Registered tool: get_document_outline")
+
     return mcp
 
 
@@ -257,9 +422,13 @@ def main() -> int:
         logger.info("Starting all2md MCP server")
         logger.info(
             f"Configuration: enable_to_md={config.enable_to_md}, "
-            f"enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}"
+            f"enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}, "
+            f"enable_search={config.enable_search}, enable_diff={config.enable_diff}, "
+            f"enable_outline={config.enable_outline}"
         )
         logger.info(f"Include images: {config.include_images}")
+        if config.search_index_dir:
+            logger.info(f"Search index directory: {config.search_index_dir}")
 
         # Validate and prepare allowlists
         try:
@@ -292,11 +461,22 @@ def main() -> int:
 
         # Import tool implementations after setting env vars
         from all2md.mcp.document_tools import edit_document_impl
+        from all2md.mcp.query_tools import (
+            diff_documents_impl,
+            get_document_outline_impl,
+            search_documents_impl,
+        )
         from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
 
         # Create and run server
         mcp = create_server(
-            config, read_document_as_markdown_impl, save_document_from_markdown_impl, edit_document_impl
+            config,
+            read_document_as_markdown_impl,
+            save_document_from_markdown_impl,
+            edit_document_impl,
+            search_documents_impl,
+            diff_documents_impl,
+            get_document_outline_impl,
         )
 
         logger.info("Server ready, listening on stdio")
