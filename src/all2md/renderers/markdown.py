@@ -41,6 +41,7 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Paragraph,
@@ -646,11 +647,71 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
 
+    def _render_children_to_string(self, node: BlockQuote) -> str:
+        """Render a block container's children to a string without quoting.
+
+        Block children are separated by a blank line, mirroring the spacing
+        ``visit_document`` applies between top-level blocks.
+        """
+        saved_output = self._output
+        parts: list[str] = []
+        for child in node.children:
+            self._output = []
+            child.accept(self)
+            parts.append("".join(self._output))
+        self._output = saved_output
+        return "\n\n".join(parts)
+
+    def _render_mkdocs_admonition(self, node: BlockQuote) -> None:
+        """Render a BlockQuote as a Material for MkDocs admonition block.
+
+        Emits ``!!! type "Title"`` (or the collapsible ``???`` / ``???+``
+        variants) followed by the four-space-indented body.
+
+        Parameters
+        ----------
+        node : BlockQuote
+            Block quote carrying mkdocs admonition metadata.
+
+        """
+        metadata = node.metadata or {}
+        admonition_type = metadata.get("admonition_type", "note")
+        collapsible = bool(metadata.get("collapsible", False))
+        collapsed = bool(metadata.get("collapsed", False))
+
+        if not collapsible:
+            marker = "!!!"
+        elif collapsed:
+            marker = "???"
+        else:
+            marker = "???+"
+
+        header = f"{marker} {admonition_type}"
+        # A missing title key means "use the default (capitalised type)" so we
+        # omit it; an explicit title (including an empty string for "no title")
+        # is emitted verbatim in quotes.
+        if "admonition_title" in metadata:
+            title = metadata["admonition_title"]
+            header += f' "{title}"'
+
+        body = self._render_children_to_string(node).strip("\n")
+        lines = [header]
+        for line in body.split("\n"):
+            lines.append(f"    {line}" if line else "")
+
+        self._output.append("\n".join(lines))
+
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
 
-        If the BlockQuote has admonition metadata (from RST parsing), prepends
-        a styled label (e.g., "> **Note:** ") to the first line.
+        Handles three cases:
+
+        - A Material for MkDocs admonition (``source_format == "mkdocs"``)
+          rendered to a flavor that supports admonitions becomes a native
+          ``!!!`` / ``???`` block.
+        - Any other admonition (RST, or mkdocs on a non-supporting flavor)
+          degrades to a quote with a bold label (e.g. ``> **Note:** ...``).
+        - A plain block quote is quoted as usual.
 
         Parameters
         ----------
@@ -658,22 +719,26 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Block quote to render
 
         """
-        saved_output = self._output
-        self._output = []
+        metadata = node.metadata or {}
+        admonition_type = metadata.get("admonition_type")
+        source_format = metadata.get("source_format")
 
-        # Check if this is an admonition from RST
-        admonition_type = node.metadata.get("admonition_type") if node.metadata else None
-        admonition_title = node.metadata.get("admonition_title") if node.metadata else None
+        # Native mkdocs admonition output when the flavor supports it.
+        if admonition_type and source_format == "mkdocs" and self._flavor.supports_admonitions():
+            self._render_mkdocs_admonition(node)
+            if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
+                self._emit_block_references()
+            return
 
-        # Render children
-        for child in node.children:
-            child.accept(self)
+        admonition_title = metadata.get("admonition_title")
 
-        quoted = "".join(self._output)
+        # Render children, separating block children with a blank line.
+        quoted = self._render_children_to_string(node)
         lines = quoted.split("\n")
 
-        # Prepend admonition label if this is an RST admonition
-        if admonition_type and node.metadata.get("source_format") == "rst":
+        # Prepend admonition label for RST admonitions and for mkdocs
+        # admonitions degrading onto a flavor without admonition support.
+        if admonition_type and source_format in ("rst", "mkdocs"):
             # Use custom title if available, otherwise capitalize admonition type
             if admonition_title:
                 label = admonition_title
@@ -690,7 +755,6 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Quote all lines
         quoted_lines = ["> " + line for line in lines]
 
-        self._output = saved_output
         self._output.append("\n".join(quoted_lines))
 
         # Emit block references if using after_block placement
@@ -1326,6 +1390,31 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             else:  # mode == "html"
                 # Use HTML tags
                 self._output.append(f"<del>{content}</del>")
+
+    def visit_mark(self, node: Mark) -> None:
+        """Render a Mark (highlight) node.
+
+        Emits ``==text==`` on flavors that support highlighting; otherwise
+        falls back according to ``unsupported_inline_mode`` (plain text, forced
+        ``==`` syntax, or an HTML ``<mark>`` tag).
+
+        Parameters
+        ----------
+        node : Mark
+            Mark to render
+
+        """
+        content = self._render_inline_content(node.content)
+        if self._flavor.supports_mark():
+            self._output.append(f"=={content}==")
+        else:
+            mode = self.options.unsupported_inline_mode
+            if mode == "plain":
+                self._output.append(content)
+            elif mode == "force":
+                self._output.append(f"=={content}==")
+            else:  # mode == "html"
+                self._output.append(f"<mark>{content}</mark>")
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.

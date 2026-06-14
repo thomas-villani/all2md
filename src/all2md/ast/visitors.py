@@ -41,6 +41,7 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Node,
@@ -451,6 +452,31 @@ class NodeVisitor(ABC):
         """
         pass
 
+    def visit_mark(self, node: Mark) -> Any:
+        """Visit a Mark (highlight) node.
+
+        Unlike most visit methods this is concrete rather than abstract so
+        that visitors predating the Mark node (e.g. format renderers that do
+        not have a dedicated highlight syntax) degrade gracefully: the default
+        simply visits the node's children, emitting their content unwrapped
+        rather than dropping it. Visitors that support highlighting should
+        override this method.
+
+        Parameters
+        ----------
+        node : Mark
+            The mark node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        for child in node.content:
+            child.accept(self)
+        return None
+
     @abstractmethod
     def visit_underline(self, node: Underline) -> Any:
         """Visit an Underline node.
@@ -730,6 +756,7 @@ class ValidationVisitor(NodeVisitor):
             Image,
             LineBreak,
             Strikethrough,
+            Mark,
             Underline,
             Superscript,
             Subscript,
@@ -849,8 +876,7 @@ class ValidationVisitor(NodeVisitor):
                 # Validate data URI length
                 if len(url) > DEFAULT_MAX_ASSET_SIZE_BYTES:
                     self._add_error(
-                        f"{context} data URI exceeds maximum length "
-                        f"({len(url)} > {DEFAULT_MAX_ASSET_SIZE_BYTES} bytes)"
+                        f"{context} data URI exceeds maximum length ({len(url)} > {DEFAULT_MAX_ASSET_SIZE_BYTES} bytes)"
                     )
                 # If length is OK, allow it
                 return
@@ -1063,6 +1089,13 @@ class ValidationVisitor(NodeVisitor):
         """Validate a Strikethrough node."""
         # Validate that strikethrough content contains only inline nodes
         self._validate_children_are_inline(node.content, "Strikethrough")
+        for child in node.content:
+            child.accept(self)
+
+    def visit_mark(self, node: Mark) -> None:
+        """Validate a Mark (highlight) node."""
+        # Validate that mark content contains only inline nodes
+        self._validate_children_are_inline(node.content, "Mark")
         for child in node.content:
             child.accept(self)
 
