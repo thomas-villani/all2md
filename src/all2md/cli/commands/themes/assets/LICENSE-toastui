@@ -1,7 +1,9 @@
-Toast UI Editor v3.2.2 (vendored: toastui-editor-all.min.js, toastui-editor.min.css)
+Toast UI Editor v3.2.2 (vendored: toastui-editor-all.min.js, toastui-editor.min.css,
+toastui-editor-dark.min.css)
 Pinned version: 3.2.2
 Source: https://uicdn.toast.com/editor/3.2.2/
-Refresh by re-downloading from the pinned URL above.
+  (dark theme: https://uicdn.toast.com/editor/3.2.2/theme/toastui-editor-dark.min.css)
+Refresh by re-downloading from the pinned URLs above.
 
 Toast UI Editor is licensed under the MIT License.
 Copyright (c) NHN Cloud Corp.

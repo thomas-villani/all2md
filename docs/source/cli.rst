@@ -1488,6 +1488,14 @@ Arguments
       # View in dark mode
       all2md view document.pdf --dark
 
+``--window``
+   Open the preview in a standalone native window (no address bar or browser chrome) instead of a browser tab. Requires the optional ``pywebview`` dependency (``pip install all2md[window]``); if it is not installed, ``all2md`` prints a hint and falls back to a normal browser tab. Closing the window cleans up the temporary file (unless ``--keep`` was given).
+
+   .. code-block:: bash
+
+      # View in a standalone window
+      all2md view document.pdf --window
+
 ``--theme THEME``
    Specify a theme for the HTML output. Can be either a built-in theme name or a path to a custom HTML template file.
 
@@ -2543,6 +2551,20 @@ Arguments
 
 ``--no-browser``
    Do not auto-open a browser tab. Useful for headless environments and tests.
+
+``--dark``
+   Start the editor in dark mode (dark page chrome and Toast UI's dark theme). The 🌙/☀️ toggle in the editor header still switches modes at any time, and your choice is remembered in the browser's ``localStorage`` for the next launch. Can also be set via ``dark = true`` in the ``[edit]`` config section.
+
+   .. code-block:: bash
+
+      all2md edit notes.md --dark
+
+``--window``
+   Open the editor in a standalone native window (no address bar or browser chrome) instead of a browser tab. Requires the optional ``pywebview`` dependency (``pip install all2md[window]``); if it is not installed, ``all2md`` prints a hint and falls back to a normal browser tab. Closing the window shuts the editor down. Can also be set via ``window = true`` in the ``[edit]`` config section.
+
+   .. code-block:: bash
+
+      all2md edit notes.md --window
 
 ``--default-format FMT``
    Pre-select a target format in the save dropdown. Must be a format whose renderer is installed (see ``all2md list-formats --available-only``). If unavailable, the default is used and a warning is printed.

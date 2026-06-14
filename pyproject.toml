@@ -265,6 +265,12 @@ wiki = [
 langdetect = [
     "langdetect>=1.0.9",
 ]
+window = [
+    # Standalone native-window mode for `all2md view`/`edit` (the --window flag).
+    # GUI-only and pulls platform webview backends, so it is intentionally left
+    # out of the `all` aggregate.
+    "pywebview>=5.0",
+]
 
 [project.scripts]
 all2md = "all2md.cli:main"
