@@ -6,7 +6,6 @@ This module defines options for Markdown conversion with flavor support.
 
 # src/all2md/options/markdown.py
 
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -74,6 +73,13 @@ class MarkdownParserOptions(BaseParserOptions):
         Whether to parse definition lists (term : definition).
     parse_strikethrough : bool, default True
         Whether to parse strikethrough syntax (~~text~~).
+    parse_marks : bool, default True
+        Whether to parse the inline mark family used by Material for MkDocs /
+        pymdownx: highlight (``==text==``), insert/underline (``^^text^^``),
+        superscript (``^text^``) and subscript (``~text~``).
+    parse_admonitions : bool, default True
+        Whether to parse Material for MkDocs admonitions (``!!! note "Title"``)
+        and collapsible admonitions (``??? note`` / ``???+ note``).
 
     """
 
@@ -126,6 +132,22 @@ class MarkdownParserOptions(BaseParserOptions):
         metadata={
             "help": "Parse strikethrough syntax (~~text~~)",
             "cli_name": "no-parse-strikethrough",
+            "importance": "core",
+        },
+    )
+    parse_marks: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse inline marks: highlight (==x==), insert (^^x^^), superscript (^x^), subscript (~x~)",
+            "cli_name": "no-parse-marks",
+            "importance": "core",
+        },
+    )
+    parse_admonitions: bool = field(
+        default=True,
+        metadata={
+            "help": "Parse Material for MkDocs admonitions (!!! note / ??? collapsible)",
+            "cli_name": "no-parse-admonitions",
             "importance": "core",
         },
     )
