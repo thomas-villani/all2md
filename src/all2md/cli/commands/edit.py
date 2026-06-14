@@ -17,11 +17,13 @@ import io
 import json
 import socketserver
 import sys
+import threading
 import webbrowser
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, cast
 
 from all2md.api import from_ast, to_ast
+from all2md.cli import window
 from all2md.cli.builder import (
     EXIT_ERROR,
     EXIT_FILE_ERROR,
@@ -33,7 +35,7 @@ from all2md.constants import DocumentFormat
 from all2md.converter_registry import registry
 from all2md.utils.io_utils import backup_file
 
-ASSET_FILES = ("toastui-editor-all.min.js", "toastui-editor.min.css")
+ASSET_FILES = ("toastui-editor-all.min.js", "toastui-editor.min.css", "toastui-editor-dark.min.css")
 ASSET_CONTENT_TYPES = {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -109,6 +111,7 @@ def _render_editor_page(
     default_target_format: str,
     default_target_path: str,
     default_overwrite: bool,
+    dark: bool,
 ) -> str:
     """Render the editor template with embedded JSON state."""
     template = template_path.read_text(encoding="utf-8")
@@ -119,6 +122,7 @@ def _render_editor_page(
         "default_target_format": default_target_format,
         "default_target_path": default_target_path,
         "default_overwrite": default_overwrite,
+        "dark": dark,
     }
     state_json = json.dumps(state)
     title = f"Editing {source_path.name} - all2md"
@@ -171,6 +175,18 @@ def _create_edit_parser() -> argparse.ArgumentParser:
         "--no-browser",
         action="store_true",
         help="Don't auto-open a browser tab",
+    )
+    parser.add_argument(
+        "--dark",
+        action="store_true",
+        help="Start the editor in dark mode (the in-editor toggle still overrides and is remembered).",
+    )
+    parser.add_argument(
+        "--window",
+        action="store_true",
+        help="Open in a standalone native window (no browser chrome) instead of a browser tab. "
+        "Requires the optional 'pywebview' dependency (pip install all2md[window]); falls back to "
+        "a browser tab if it is not installed.",
     )
     parser.add_argument(
         "--default-format",
@@ -275,6 +291,7 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
         default_format,
         default_path,
         default_overwrite,
+        parsed.dark,
     )
 
     class EditHandler(http.server.BaseHTTPRequestHandler):
@@ -412,11 +429,32 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
                 },
             )
 
+    # Standalone-window mode needs pywebview; fall back to a browser tab (with a
+    # hint) if the optional dependency is missing rather than failing outright.
+    use_window = parsed.window
+    if use_window and not window.is_available():
+        print(f"Note: {window.INSTALL_HINT}", file=sys.stderr)
+        print("Falling back to a browser tab.", file=sys.stderr)
+        use_window = False
+
     try:
         with socketserver.TCPServer((parsed.host, parsed.port), EditHandler) as httpd:
             chosen_port = httpd.server_address[1]
             url = f"http://{parsed.host}:{chosen_port}/"
             print(f"\nEditing at {url}")
+
+            if use_window:
+                # pywebview must own the main thread, so serve in the background
+                # and tear the server down once the window closes.
+                server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+                server_thread.start()
+                try:
+                    window.open_window(url, title=f"Editing {input_path.name} - all2md")
+                finally:
+                    httpd.shutdown()
+                print("\nEditor window closed.")
+                return EXIT_SUCCESS
+
             print("Press Ctrl+C to stop")
             if not parsed.no_browser:
                 try:

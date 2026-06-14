@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Dark mode for `all2md edit`.** The in-browser editor now has a 🌙/☀️ toggle in
+  its header, a `--dark` flag, and an `[edit]` config `dark = true` setting. The
+  toggle choice is remembered across launches via the browser's `localStorage`.
+- **Standalone-window mode for `all2md view` and `all2md edit`.** A new `--window`
+  flag (and matching `[view]`/`[edit]` config setting) opens the preview/editor in
+  a native OS window with no address bar or browser chrome. It uses the new
+  optional `pywebview` dependency (`pip install all2md[window]`); without it,
+  `all2md` prints a hint and falls back to a normal browser tab.
+
+### Changed
+
+- The raw-Markdown pane in `all2md edit` now uses a monospace font, matching the
+  expectation for editing source text (the rendered preview pane is unchanged).
+
 ## [1.4.0] - 2026-06-11
 
 ### Added

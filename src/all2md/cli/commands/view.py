@@ -17,7 +17,7 @@ import webbrowser
 from pathlib import Path
 
 from all2md import HtmlRendererOptions, from_ast, to_ast
-from all2md.cli import EXIT_FILE_ERROR
+from all2md.cli import EXIT_FILE_ERROR, window
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
 from all2md.cli.config import apply_config_to_parser
 
@@ -42,6 +42,13 @@ def _create_view_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--toc", action="store_true", help="Include table of contents")
     parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
+    parser.add_argument(
+        "--window",
+        action="store_true",
+        help="Open in a standalone native window (no browser chrome) instead of a browser tab. "
+        "Requires the optional 'pywebview' dependency (pip install all2md[window]); falls back to "
+        "a browser tab if it is not installed.",
+    )
     parser.add_argument(
         "--theme",
         help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
@@ -199,24 +206,40 @@ def handle_view_command(args: list[str] | None = None) -> int:
             output_path = Path(temp_path).resolve()  # Convert to absolute path
             use_temp = True
 
-        # Open in browser with absolute path (unless testing)
-        if not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
-            print("Opening in browser...")
-            webbrowser.open(f"file://{output_path}")
-        else:
+        # Standalone-window mode needs pywebview; fall back to a browser tab
+        # (with a hint) if the optional dependency is missing.
+        use_window = parsed.window
+        if use_window and not window.is_available():
+            print(f"Note: {window.INSTALL_HINT}", file=sys.stderr)
+            print("Falling back to a browser tab.", file=sys.stderr)
+            use_window = False
+
+        # Open the rendered HTML. In window mode the call blocks until the user
+        # closes the window, which doubles as the "done viewing" signal; in
+        # browser mode we open a tab and (for temp files) wait separately below.
+        if os.environ.get("ALL2MD_TEST_NO_BROWSER"):
             print("Skipping browser launch (test mode)")
+        elif use_window:
+            print("Opening in window...")
+            window.open_window(output_path.as_uri(), title=f"{input_display_name} - all2md")
+        else:
+            print("Opening in browser...")
+            webbrowser.open(output_path.as_uri())
 
         # Wait for user (only if using temp file and not in test mode)
         if use_temp:
             print(f"\nTemporary file: {output_path}")
 
-            # Skip interactive prompt in test mode or with --no-wait
-            if not os.environ.get("ALL2MD_TEST_NO_BROWSER") and not parsed.no_wait:
+            # In window mode the blocking window already served as the wait, so
+            # we go straight to cleanup. Otherwise prompt (or sleep with --no-wait).
+            if use_window or os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+                pass
+            elif not parsed.no_wait:
                 try:
                     input("Press Enter to clean up and exit...")
                 except (KeyboardInterrupt, EOFError):
                     print()  # New line after interrupt
-            elif parsed.no_wait and not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
+            else:
                 # Give the browser time to load the file before deleting
                 time.sleep(3)
 

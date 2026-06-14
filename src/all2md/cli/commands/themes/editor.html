@@ -6,24 +6,61 @@
     <title>{TITLE}</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'><rect width='64' height='64' rx='12' fill='%230d1117'/><circle cx='22' cy='16' r='3.2' fill='%23ffffff' opacity='1.0'/><circle cx='32' cy='16' r='3.2' fill='%23ffffff' opacity='1.0'/><circle cx='42' cy='16' r='3.2' fill='%23ffffff' opacity='1.0'/><path d='M 32 30 L 32 46' stroke='%23ffffff' stroke-width='7' stroke-linecap='round'/><path d='M 22 38 L 32 50 L 42 38' stroke='%23ffffff' stroke-width='7' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
     <link rel="stylesheet" href="/assets/toastui-editor.min.css">
+    <link rel="stylesheet" href="/assets/toastui-editor-dark.min.css">
     <style>
+        /* Light theme (default) palette. The .dark block below overrides these
+           variables so the page chrome follows the Toast UI dark theme. */
+        :root {
+            --bg: #fafafa;
+            --fg: #222;
+            --panel-bg: #ffffff;
+            --border: #e1e4e8;
+            --muted: #666;
+            --label: #333;
+            --input-bg: #ffffff;
+            --input-fg: #222;
+            --input-border: #ccc;
+            --accent: #0066cc;
+            --accent-hover: #0052a3;
+            --accent-fg: #ffffff;
+            --ok: #1a7f37;
+            --err: #cf222e;
+            --busy: #777;
+        }
+        body.dark {
+            --bg: #1e1e1e;
+            --fg: #d4d4d4;
+            --panel-bg: #252526;
+            --border: #3a3a3a;
+            --muted: #9a9da3;
+            --label: #cccccc;
+            --input-bg: #2d2d2d;
+            --input-fg: #d4d4d4;
+            --input-border: #3a3a3a;
+            --accent: #0e639c;
+            --accent-hover: #1177bb;
+            --accent-fg: #ffffff;
+            --ok: #3fb950;
+            --err: #f85149;
+            --busy: #9a9da3;
+        }
         * { box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             margin: 0;
             padding: 0;
-            color: #222;
-            background: #fafafa;
+            color: var(--fg);
+            background: var(--bg);
             display: flex;
             flex-direction: column;
             height: 100vh;
         }
         header {
             padding: 0.75rem 1rem;
-            background: #ffffff;
-            border-bottom: 1px solid #e1e4e8;
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
             display: flex;
-            align-items: baseline;
+            align-items: center;
             gap: 1rem;
         }
         header h1 {
@@ -34,10 +71,28 @@
         header .source-path {
             font-family: "Courier New", Courier, monospace;
             font-size: 0.85rem;
-            color: #666;
+            color: var(--muted);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .theme-toggle {
+            margin-left: auto;
+            flex: 0 0 auto;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1rem;
+            line-height: 1;
+            padding: 0.35rem 0.5rem;
+            cursor: pointer;
+            color: var(--fg);
+        }
+        .theme-toggle:hover { border-color: var(--accent); }
+        /* Make the raw-markdown editing pane monospace; the preview pane keeps
+           its proportional font. */
+        .toastui-editor-md-container .ProseMirror {
+            font-family: "Consolas", "SF Mono", "Menlo", "Liberation Mono", "Courier New", monospace;
         }
         #editor {
             flex: 1;
@@ -45,8 +100,8 @@
         }
         #save-bar {
             padding: 0.75rem 1rem;
-            background: #ffffff;
-            border-top: 1px solid #e1e4e8;
+            background: var(--panel-bg);
+            border-top: 1px solid var(--border);
             display: flex;
             flex-wrap: wrap;
             align-items: center;
@@ -55,14 +110,16 @@
         #save-bar label {
             font-size: 0.9rem;
             font-weight: 600;
-            color: #333;
+            color: var(--label);
         }
         #save-bar input[type="text"], #save-bar select {
             padding: 0.4rem 0.5rem;
-            border: 1px solid #ccc;
+            border: 1px solid var(--input-border);
             border-radius: 4px;
             font-size: 0.9rem;
             font-family: inherit;
+            background: var(--input-bg);
+            color: var(--input-fg);
         }
         #save-bar input[type="text"] {
             flex: 1 1 280px;
@@ -71,23 +128,23 @@
         }
         #save-bar button {
             padding: 0.5rem 1.2rem;
-            background: #0066cc;
-            color: white;
+            background: var(--accent);
+            color: var(--accent-fg);
             border: none;
             border-radius: 4px;
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
         }
-        #save-bar button:hover { background: #0052a3; }
+        #save-bar button:hover { background: var(--accent-hover); }
         #save-bar button:disabled { background: #999; cursor: not-allowed; }
         #status {
             font-size: 0.85rem;
             min-height: 1.2rem;
         }
-        #status.ok { color: #1a7f37; }
-        #status.err { color: #cf222e; }
-        #status.busy { color: #777; }
+        #status.ok { color: var(--ok); }
+        #status.err { color: var(--err); }
+        #status.busy { color: var(--busy); }
         .overwrite-control {
             display: flex;
             align-items: center;
@@ -100,6 +157,7 @@
 <header>
     <h1>all2md edit</h1>
     <span class="source-path" id="source-path"></span>
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode"></button>
 </header>
 <div id="editor"></div>
 <div id="save-bar">
@@ -121,13 +179,39 @@
     var state = JSON.parse(document.getElementById('initial-state').textContent);
     document.getElementById('source-path').textContent = state.source_path;
 
+    // Resolve the starting theme: a remembered choice in localStorage wins over
+    // the server-provided default (from --dark / [edit] config).
+    var DARK_KEY = 'all2md-edit-dark';
+    var themeToggle = document.getElementById('theme-toggle');
+    var stored = localStorage.getItem(DARK_KEY);
+    var isDark = stored === null ? !!state.dark : stored === '1';
+
+    function applyDark(dark) {
+        document.body.classList.toggle('dark', dark);
+        // Toast UI's own dark theme is driven by the toastui-editor-dark class
+        // on the editor's root element (what theme:'dark' sets at init time);
+        // toggling it here re-themes the editor without re-instantiating.
+        var root = document.querySelector('#editor .toastui-editor-defaultUI');
+        if (root) root.classList.toggle('toastui-editor-dark', dark);
+        themeToggle.textContent = dark ? '☀️' : '🌙';
+        themeToggle.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+
     var editor = new toastui.Editor({
         el: document.getElementById('editor'),
         height: '100%',
         initialEditType: 'markdown',
         previewStyle: 'vertical',
         usageStatistics: false,
+        theme: isDark ? 'dark' : 'light',
         initialValue: state.initial_md
+    });
+
+    applyDark(isDark);
+    themeToggle.addEventListener('click', function () {
+        isDark = !isDark;
+        applyDark(isDark);
+        localStorage.setItem(DARK_KEY, isDark ? '1' : '0');
     });
 
     var formatSelect = document.getElementById('format-select');
