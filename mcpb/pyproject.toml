@@ -11,4 +11,9 @@ version = "1.4.0"
 requires-python = ">=3.10"
 dependencies = [
     "all2md[mcp,pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]>=1.4.0",
+    # The search_documents MCP tool defaults to keyword (BM25) mode, which needs
+    # rank-bm25. Depend on it directly rather than via the `search` extra: that
+    # extra also pulls faiss-cpu and sentence-transformers for vector/hybrid
+    # search, which the MCP server rejects, so they would only bloat the bundle.
+    "rank-bm25>=0.2.2",
 ]

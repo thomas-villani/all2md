@@ -39,6 +39,11 @@ broken. `pdf_layout` is deliberately excluded (Polyform Noncommercial license,
 as it is from `all2md[all]`). To bundle every format instead, replace the
 extras list with `all2md[all]` and re-pack.
 
+It also depends on `rank-bm25` directly so the `search_documents` tool's default
+keyword (BM25) mode works out of the box. The full `search` extra is *not* used:
+it additionally pulls `faiss-cpu` and `sentence-transformers` for vector/hybrid
+search, which the MCP server rejects, so they would only bloat the bundle.
+
 ## Rebuilding
 
 ```bash
