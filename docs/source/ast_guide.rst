@@ -149,6 +149,7 @@ Inline nodes represent inline formatting:
        LineBreak,     # Line breaks
        Strikethrough, # Strikethrough text
        Underline,     # Underlined text
+       Mark,          # Highlighted/marked text (==text==)
        Superscript,   # Superscript
        Subscript,     # Subscript
        HTMLInline,    # Inline HTML

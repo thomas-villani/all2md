@@ -410,6 +410,22 @@ Jupyter Notebook support is built into the base installation - no additional dep
 
 **Formats:** Jupyter Notebook .ipynb files with code, output, and markdown cells
 
+Standalone Window (view/edit)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``--window`` flag for ``all2md view`` and ``all2md edit`` opens the
+preview/editor in a native OS window with no browser chrome. It needs the
+``window`` extra:
+
+.. code-block:: bash
+
+   pip install all2md[window]
+
+**Dependencies:** pywebview (pulls in platform-specific webview backends)
+
+This extra is GUI-only and is intentionally **not** part of the ``all`` extra.
+Without it, ``--window`` prints a hint and falls back to a normal browser tab.
+
 Combined Installations
 ----------------------
 

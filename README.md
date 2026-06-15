@@ -136,7 +136,8 @@ While tools like Pandoc excel at document conversion, all2md is designed specifi
 -   **Bidirectional Conversion**: Not just to Markdown! Convert from Markdown to formats like DOCX, PDF, and HTML.
 -   **Document Comparison**: Built-in `diff` command that works like Unix `diff` but for any document format. Compare PDFs, Word docs, or mixed formats with text-based, symmetric comparison.
 -   **Custom Template Rendering**: Use Jinja2 templates to create any text-based output format (DocBook XML, YAML, ANSI terminal, custom markup) without writing Python code.
--   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly.
+-   **MCP Server**: Built-in Model Context Protocol (MCP) server for direct AI assistant integration. Enable Claude, ChatGPT, and other AI models to read and convert documents directly, plus query tools to search a corpus, diff two documents, and outline a document's headings.
+-   **In-Browser Preview & Editor**: `all2md view` renders any document in your browser and `all2md edit` gives you a live Markdown editor — both with a dark-mode toggle and an optional standalone-window mode (`--window`, `pip install all2md[window]`).
 -   **Agent Skills**: Pre-built skill files that teach AI coding assistants (Claude Code, Cursor, Windsurf) how to use all2md. Install with `all2md install-skills`.
 -   **AST-Based Pipeline**: At its core, `all2md` uses an Abstract Syntax Tree (AST) to represent documents, enabling powerful and consistent manipulation across all formats.
 -   **Advanced PDF Parsing**: Intelligent table detection, multi-column layout analysis, optional GNN-based semantic layout classification (`pdf_layout` extra), header/footer removal, OCR support for scanned documents, and robust text extraction powered by PyMuPDF.
