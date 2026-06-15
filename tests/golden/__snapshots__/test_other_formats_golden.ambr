@@ -205,15 +205,13 @@
   
   Developer
   : Implements core features and fixes bugs.
-  
   Designer
   : Crafts the user experience, visuals, and accessibility guidance.
-  
   QA Engineer
   :
-  : - Creates regression suites
-  : - Automates smoke checks
-  : - Reports findings to the team
+  : * Creates regression suites
+  : * Automates smoke checks
+  : * Reports findings to the team
   '''
 # ---
 # name: TestMarkdownRoundtripGolden.test_markdown_roundtrip_with_math

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Material for MkDocs markdown syntax.** The markdown parser now understands
+  several niche flavor constructs common on MkDocs sites: admonitions
+  (`!!! note "Title"`) and their collapsible `???` / `???+` variants, and the
+  pymdownx inline mark family — highlight (`==text==`, a new `Mark` AST node),
+  insert/underline (`^^text^^`), superscript (`^text^`) and subscript
+  (`~text~`). Admonitions round-trip to native `!!!` / `???` blocks on the
+  `markdown_plus` flavor and degrade to labelled block quotes elsewhere; marks
+  round-trip on flavors that support them and otherwise fall back to HTML.
+  Controlled by the new `parse_marks` / `parse_admonitions` options
+  (`--no-parse-marks`, `--no-parse-admonitions`).
 - **Dark mode for `all2md edit`.** The in-browser editor now has a 🌙/☀️ toggle in
   its header, a `--dark` flag, and an `[edit]` config `dark = true` setting. The
   toggle choice is remembered across launches via the browser's `localStorage`.
@@ -22,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The raw-Markdown pane in `all2md edit` now uses a monospace font, matching the
   expectation for editing source text (the rendered preview pane is unchanged).
+
+### Fixed
+
+- **Definition lists are now parsed.** The `parse_definition_lists` option and
+  its AST handling existed, but the underlying mistune plugin was never enabled,
+  so `Term` / `: definition` syntax was silently dropped. It is now wired up
+  (and the handler updated for the current mistune `def_list_item` token).
 
 ## [1.4.0] - 2026-06-11
 

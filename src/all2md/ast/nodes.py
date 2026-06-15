@@ -1302,6 +1302,46 @@ class Strikethrough(Node):
 
 
 @dataclass
+class Mark(Node):
+    """Mark (highlight) node (non-standard extension).
+
+    Represents highlighted/marked text, as produced by the ``==text==``
+    syntax of pymdownx.mark (Material for MkDocs). Renders to ``<mark>`` in
+    HTML and to ``==text==`` in flavors that support it.
+
+    Parameters
+    ----------
+    content : list of Node, default = empty list
+        Inline nodes that are highlighted
+    metadata : dict, default = empty dict
+        Mark metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    content: list[Node] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this mark.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_mark method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_mark(self)
+
+        """
+        return visitor.visit_mark(self)
+
+
+@dataclass
 class Underline(Node):
     """Underline node (non-standard extension).
 
@@ -1980,6 +2020,7 @@ def get_node_children(node: Node) -> list[Node]:
             Emphasis,
             Strong,
             Strikethrough,
+            Mark,
             Underline,
             Superscript,
             Subscript,
@@ -2088,6 +2129,7 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
             Emphasis,
             Strong,
             Strikethrough,
+            Mark,
             Underline,
             Superscript,
             Subscript,

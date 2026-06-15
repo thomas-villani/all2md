@@ -129,6 +129,33 @@ class MarkdownFlavor(ABC):
         """
         pass
 
+    @abstractmethod
+    def supports_mark(self) -> bool:
+        """Check if this flavor supports highlight/mark syntax (``==text==``).
+
+        Returns
+        -------
+        bool
+            True if highlight (mark) syntax is supported
+
+        """
+        pass
+
+    @abstractmethod
+    def supports_admonitions(self) -> bool:
+        """Check if this flavor supports Material for MkDocs admonitions.
+
+        This covers the ``!!! note "Title"`` block syntax and its collapsible
+        ``???`` / ``???+`` variants.
+
+        Returns
+        -------
+        bool
+            True if admonition blocks are supported
+
+        """
+        pass
+
 
 class CommonMarkFlavor(MarkdownFlavor):
     """Strict CommonMark specification flavor.
@@ -223,6 +250,28 @@ class CommonMarkFlavor(MarkdownFlavor):
 
     def supports_math(self) -> bool:
         """Math blocks are not in CommonMark spec.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_mark(self) -> bool:
+        """Highlight/mark syntax is not in CommonMark spec.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_admonitions(self) -> bool:
+        """Admonitions are not in CommonMark spec.
 
         Returns
         -------
@@ -337,6 +386,31 @@ class GFMFlavor(MarkdownFlavor):
         """
         return True
 
+    def supports_mark(self) -> bool:
+        """GFM does not support highlight/mark syntax.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_admonitions(self) -> bool:
+        """GFM does not support Material admonitions.
+
+        GitHub renders its own alert syntax (``> [!NOTE]``) rather than the
+        ``!!!`` admonition blocks used by Material for MkDocs.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
 
 class MultiMarkdownFlavor(MarkdownFlavor):
     """MultiMarkdown flavor.
@@ -446,6 +520,28 @@ class MultiMarkdownFlavor(MarkdownFlavor):
 
         """
         return True
+
+    def supports_mark(self) -> bool:
+        """MultiMarkdown does not support highlight/mark syntax.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_admonitions(self) -> bool:
+        """MultiMarkdown does not support Material admonitions.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
 
 
 class PandocFlavor(MarkdownFlavor):
@@ -557,6 +653,28 @@ class PandocFlavor(MarkdownFlavor):
         """
         return True
 
+    def supports_mark(self) -> bool:
+        """Pandoc does not support ``==`` highlight syntax.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_admonitions(self) -> bool:
+        """Pandoc uses fenced divs rather than Material ``!!!`` admonitions.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
 
 class KramdownFlavor(MarkdownFlavor):
     """Kramdown Markdown flavor.
@@ -666,6 +784,28 @@ class KramdownFlavor(MarkdownFlavor):
         """
         return True
 
+    def supports_mark(self) -> bool:
+        """Kramdown does not support ``==`` highlight syntax.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
+    def supports_admonitions(self) -> bool:
+        """Kramdown does not support Material ``!!!`` admonitions.
+
+        Returns
+        -------
+        bool
+            False
+
+        """
+        return False
+
 
 class MarkdownPlusFlavor(MarkdownFlavor):
     """Extended markdown flavor with all features enabled.
@@ -762,6 +902,28 @@ class MarkdownPlusFlavor(MarkdownFlavor):
 
     def supports_math(self) -> bool:
         """MarkdownPlus supports math blocks.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_mark(self) -> bool:
+        """MarkdownPlus supports ``==`` highlight syntax.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_admonitions(self) -> bool:
+        """MarkdownPlus supports Material for MkDocs admonitions.
 
         Returns
         -------
