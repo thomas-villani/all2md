@@ -54,6 +54,7 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Node,
@@ -346,6 +347,10 @@ class NodeTransformer(NodeVisitor):
         """Transform a Strikethrough node."""
         return self._generic_transform(node)  # type: ignore[return-value]
 
+    def visit_mark(self, node: Mark) -> Mark:
+        """Transform a Mark (highlight) node."""
+        return self._generic_transform(node)  # type: ignore[return-value]
+
     def visit_underline(self, node: Underline) -> Underline:
         """Transform an Underline node."""
         return self._generic_transform(node)  # type: ignore[return-value]
@@ -569,6 +574,11 @@ class NodeCollector(NodeVisitor):
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Visit a Strikethrough node."""
+        self._collect_if_match(node)
+        self._visit_children(node.content)
+
+    def visit_mark(self, node: Mark) -> None:
+        """Visit a Mark (highlight) node."""
         self._collect_if_match(node)
         self._visit_children(node.content)
 
@@ -1129,7 +1139,7 @@ class TextReplacer(NodeTransformer):
                 self._compiled_pattern = re.compile(pattern)
             except re.error as e:
                 raise ValueError(
-                    f"Invalid regular expression pattern: {pattern!r}. " f"Regex compilation error: {e}"
+                    f"Invalid regular expression pattern: {pattern!r}. Regex compilation error: {e}"
                 ) from e
 
     def visit_text(self, node: Text) -> Text:

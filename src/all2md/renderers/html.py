@@ -47,6 +47,7 @@ from all2md.ast.nodes import (  # noqa: E402
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     MathNotation,
@@ -1141,6 +1142,18 @@ hr {
         """
         content = self._render_inline_content(node.content)
         self._output.append(f"<del>{content}</del>")
+
+    def visit_mark(self, node: Mark) -> None:
+        """Render a Mark (highlight) node.
+
+        Parameters
+        ----------
+        node : Mark
+            Mark to render
+
+        """
+        content = self._render_inline_content(node.content)
+        self._output.append(f"<mark>{content}</mark>")
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.

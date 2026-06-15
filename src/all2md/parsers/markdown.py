@@ -12,6 +12,7 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -42,17 +43,21 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Node,
     Paragraph,
     Strikethrough,
     Strong,
+    Subscript,
+    Superscript,
     Table,
     TableCell,
     TableRow,
     Text,
     ThematicBreak,
+    Underline,
 )
 from all2md.constants import DEPS_MARKDOWN
 from all2md.converter_metadata import ConverterMetadata
@@ -62,6 +67,114 @@ from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
+
+# Material for MkDocs / python-markdown admonition header:
+#   !!! type "Optional Title"      (standard)
+#   ??? type "Optional Title"      (collapsible, collapsed)
+#   ???+ type "Optional Title"     (collapsible, expanded)
+# Only the header line is matched here; the indented body is consumed manually
+# by ``_parse_admonition_block`` so multi-paragraph content is supported.
+_ADMONITION_HEADER = re.compile(
+    r"^(?P<admonition_marker>!!!|\?\?\?\+?)[ \t]+(?P<admonition_head>[^\n]*?)[ \t]*(?:\n|$)"
+)
+# Optional quoted title at the end of the head, single or double quotes.
+_ADMONITION_TITLE = re.compile(r"""(?P<quote>["'])(?P<title>.*?)(?P=quote)[ \t]*$""")
+
+
+def _parse_admonition_block(block: Any, m: re.Match[str], state: Any) -> int:
+    """Parse a Material for MkDocs admonition block from a mistune block match.
+
+    Consumes the header line plus any following lines indented by four spaces
+    (or a tab), recursively parsing the dedented body as block content. The
+    resulting ``admonition`` token carries type/title/collapsible metadata in
+    its ``attrs``.
+
+    Parameters
+    ----------
+    block : BlockParser
+        The mistune block parser (used to parse the body recursively).
+    m : re.Match
+        Match for the admonition header line.
+    state : BlockState
+        Current block parser state.
+
+    Returns
+    -------
+    int
+        New cursor position after the admonition.
+
+    """
+    marker = m.group("admonition_marker")
+    head = m.group("admonition_head").strip()
+
+    # Split the head into an optional quoted title and leading class names.
+    title: str | None = None
+    classes = head
+    title_match = _ADMONITION_TITLE.search(head)
+    if title_match:
+        title = title_match.group("title")
+        classes = head[: title_match.start()].strip()
+    class_words = classes.split()
+    admonition_type = class_words[0].lower() if class_words else "note"
+
+    # Consume the indented body lines (4 spaces or a tab), allowing blank lines
+    # between content. ``last_content_end`` ensures trailing blank lines are not
+    # swallowed so block separation with following content is preserved.
+    src = state.src
+    src_len = len(src)
+    cursor = m.end()
+    last_content_end = cursor
+    body_lines: list[str] = []
+
+    while cursor < src_len:
+        newline = src.find("\n", cursor)
+        line_end = src_len if newline == -1 else newline + 1
+        line = src[cursor:newline] if newline != -1 else src[cursor:]
+
+        if line.strip() == "":
+            body_lines.append("")
+            cursor = line_end
+            continue
+
+        if line.startswith("    "):
+            body_lines.append(line[4:])
+        elif line.startswith("\t"):
+            body_lines.append(line[1:])
+        else:
+            break
+
+        cursor = line_end
+        last_content_end = line_end
+
+    # Drop trailing blank lines that belong to block separation, not the body.
+    while body_lines and body_lines[-1] == "":
+        body_lines.pop()
+
+    children: list[dict[str, Any]] = []
+    body_text = "\n".join(body_lines)
+    if body_text.strip():
+        child_state = state.child_state(body_text)
+        block.parse(child_state)
+        children = child_state.tokens
+
+    state.append_token(
+        {
+            "type": "admonition",
+            "children": children,
+            "attrs": {
+                "admonition_type": admonition_type,
+                "admonition_title": title,
+                "collapsible": marker.startswith("?"),
+                "collapsed": marker == "???",
+            },
+        }
+    )
+    return last_content_end
+
+
+def _plugin_admonition(md: Any) -> None:
+    """Register the Material for MkDocs admonition block rule on a Markdown instance."""
+    md.block.register("admonition", _ADMONITION_HEADER.pattern, _parse_admonition_block, before="fenced_code")
 
 
 class MarkdownToAstConverter(BaseParser):
@@ -132,8 +245,9 @@ class MarkdownToAstConverter(BaseParser):
 
         import mistune
 
-        # Configure mistune plugins based on options
-        plugins = []
+        # Configure mistune plugins based on options. Entries are either
+        # builtin plugin names (resolved by mistune) or plugin callables.
+        plugins: list[Any] = []
         if self.options.parse_strikethrough:
             plugins.append("strikethrough")
         if self.options.parse_tables:
@@ -144,6 +258,15 @@ class MarkdownToAstConverter(BaseParser):
             plugins.append("task_lists")
         if self.options.parse_math:
             plugins.append("math")
+        if self.options.parse_definition_lists:
+            plugins.append("def_list")
+        if self.options.parse_marks:
+            # Material for MkDocs / pymdownx inline marks. mistune ships these
+            # as builtin plugins: highlight (==), insert (^^), superscript (^),
+            # subscript (~).
+            plugins.extend(["mark", "insert", "superscript", "subscript"])
+        if self.options.parse_admonitions:
+            plugins.append(_plugin_admonition)
 
         # Create markdown parser with plugins
         markdown = mistune.create_markdown(plugins=plugins, renderer=None)  # We'll process tokens ourselves
@@ -270,7 +393,6 @@ class MarkdownToAstConverter(BaseParser):
             return None
 
         try:
-
             # Find the end of JSON object
             brace_count = 0
             end_pos = 0
@@ -440,6 +562,8 @@ class MarkdownToAstConverter(BaseParser):
             return None
         elif token_type == "def_list":
             return self._process_definition_list(token)
+        elif token_type == "admonition":
+            return self._process_admonition(token)
 
         # If we get here, it might be inline content or unknown
         return None
@@ -548,6 +672,46 @@ class MarkdownToAstConverter(BaseParser):
         content = self._process_tokens(children)
 
         return BlockQuote(children=content)
+
+    def _process_admonition(self, token: dict[str, Any]) -> BlockQuote:
+        """Process a Material for MkDocs admonition token.
+
+        Admonitions are represented as a BlockQuote carrying admonition
+        metadata (``admonition_type``, ``admonition_title``, ``collapsible``,
+        ``collapsed``, ``source_format="mkdocs"``). This mirrors how RST
+        admonitions are represented and lets the markdown renderer either emit
+        ``!!!`` / ``???`` syntax (for flavors that support it) or gracefully
+        degrade to a labelled block quote.
+
+        Parameters
+        ----------
+        token : dict
+            Admonition token with 'children' and 'attrs'.
+
+        Returns
+        -------
+        BlockQuote
+            Block quote AST node with admonition metadata.
+
+        """
+        children = token.get("children", [])
+        content = self._process_tokens(children) if isinstance(children, list) else []
+
+        attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
+
+        metadata: dict[str, Any] = {
+            "source_format": "mkdocs",
+            "admonition_type": attrs.get("admonition_type", "note"),
+            "collapsible": bool(attrs.get("collapsible", False)),
+            "collapsed": bool(attrs.get("collapsed", False)),
+        }
+        title = attrs.get("admonition_title")
+        if title is not None:
+            metadata["admonition_title"] = title
+
+        return BlockQuote(children=content, metadata=metadata)
 
     def _process_list(self, token: dict[str, Any]) -> List:
         """Process list token.
@@ -784,8 +948,9 @@ class MarkdownToAstConverter(BaseParser):
                 current_term = DefinitionTerm(content=term_content)
                 current_descriptions = []
 
-            elif child_type == "def_list_content":
-                # Add description
+            elif child_type in ("def_list_item", "def_list_content"):
+                # Add description. mistune 3.x emits "def_list_item"; the older
+                # "def_list_content" name is accepted for forward/backward safety.
                 desc_children = child.get("children", [])
                 desc_content = self._process_tokens(desc_children)
                 current_descriptions.append(DefinitionDescription(content=desc_content))
@@ -894,6 +1059,30 @@ class MarkdownToAstConverter(BaseParser):
         content = self._process_inline_tokens(children)
         return Strikethrough(content=content)
 
+    def _handle_mark_token(self, token: dict[str, Any]) -> Mark:
+        """Handle mark token (==highlight==)."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Mark(content=content)
+
+    def _handle_insert_token(self, token: dict[str, Any]) -> Underline:
+        """Handle insert token (^^underline^^), represented as Underline."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Underline(content=content)
+
+    def _handle_superscript_token(self, token: dict[str, Any]) -> Superscript:
+        """Handle superscript token (^text^)."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Superscript(content=content)
+
+    def _handle_subscript_token(self, token: dict[str, Any]) -> Subscript:
+        """Handle subscript token (~text~)."""
+        children = token.get("children", [])
+        content = self._process_inline_tokens(children)
+        return Subscript(content=content)
+
     def _handle_inline_html_token(self, token: dict[str, Any]) -> Node | None:
         """Handle inline_html token."""
         content = token.get("raw", "")
@@ -945,6 +1134,10 @@ class MarkdownToAstConverter(BaseParser):
             "linebreak": self._handle_linebreak_token,
             "softbreak": self._handle_softbreak_token,
             "strikethrough": self._handle_strikethrough_token,
+            "mark": self._handle_mark_token,
+            "insert": self._handle_insert_token,
+            "superscript": self._handle_superscript_token,
+            "subscript": self._handle_subscript_token,
             "inline_html": self._handle_inline_html_token,
             "inline_math": self._handle_inline_math_token,
             "footnote_ref": self._handle_footnote_ref_token,
