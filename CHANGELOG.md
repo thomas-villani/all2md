@@ -5,10 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-06-15
 
 ### Added
 
+- **MCP query tools.** The MCP server gained three read-only tools so an agent
+  can query a document corpus, not just convert single files: `search_documents`
+  (grep plus keyword/BM25 search across a corpus, returning ranked snippets),
+  `diff_documents` (compare two documents of any format with unified or JSON
+  output), and `get_document_outline` (list a document's heading structure, with
+  indices aligned to `edit_document`'s `#N` notation). All three are enabled by
+  default and read-only; each has its own `--no-<tool>` flag and
+  `ALL2MD_MCP_ENABLE_<TOOL>` environment switch, and path inputs are enforced
+  against the read allowlist. `search_documents` rebuilds a fresh in-memory index
+  per call by default; opt into a persistent keyword index with
+  `--search-index-dir` / `ALL2MD_MCP_SEARCH_INDEX_DIR` (validated against the
+  write allowlist). Vector/hybrid search modes are rejected with a clear error.
+- **Interactive `all2md batch` wizard.** A guided workflow that walks through file
+  selection (with a file-type preview), output layout, attachment handling,
+  per-format options, and advanced parameters, then prints the equivalent
+  command and offers to run it. Uses Rich when available, with a plain-input
+  fallback.
+- **Near-source batch attachments.** With `--preserve-structure` and
+  `--attachment-mode save` (and no explicit `--attachment-output-dir` /
+  `--attachment-base-url`), saved attachments are now co-located in a shared
+  `.attachments` folder beside each output file and linked with relative paths.
+  Explicit overrides and the legacy single-folder behavior are preserved.
+- **Batch help and docs.** The multi-file flags are now grouped under a "Batch
+  options" group so `all2md help batch` works, `all2md help attachments` resolves
+  to the global attachment topic, and a new `batch` page documents the
+  batch-conversion CLI.
 - **Material for MkDocs markdown syntax.** The markdown parser now understands
   several niche flavor constructs common on MkDocs sites: admonitions
   (`!!! note "Title"`) and their collapsible `???` / `???+` variants, and the
