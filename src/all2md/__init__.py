@@ -86,7 +86,7 @@ if sys.version_info < (3, 10):
         f"You are using Python {sys.version_info.major}.{sys.version_info.minor}."
     )
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 from typing import TYPE_CHECKING, Any
 
