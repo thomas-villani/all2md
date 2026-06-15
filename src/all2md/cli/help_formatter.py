@@ -12,7 +12,7 @@ import argparse
 import sys
 import textwrap
 from argparse import Namespace
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, Literal, Optional, Sequence
 
 from all2md.cli.output import check_rich_available, should_use_rich_output
@@ -124,10 +124,13 @@ class HelpCatalog:
     section_lookup: Dict[str, HelpSection]
     format_sections: Dict[str, list[HelpSection]]
     subcommands: Sequence[tuple[str, str]]
+    aliases: Dict[str, str] = field(default_factory=dict)
 
     def get_section(self, selector: str) -> Optional[HelpSection]:
         """Return the section that matches *selector* (case-insensitive)."""
         key = selector.lower()
+        # Friendly aliases (e.g. "attachments" -> "global-attachment") resolve first.
+        key = self.aliases.get(key, key)
         if key in self.section_lookup:
             return self.section_lookup[key]
 
@@ -154,6 +157,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("check-deps", "Check optional dependencies for converters"),
     ("config", "Configuration utilities (generate/show/validate)"),
     ("completion", "Generate shell completion scripts (bash/zsh/powershell)"),
+    ("batch", "Interactive wizard for batch-converting many files (all2md batch)"),
     ("view", "Convert and view document in browser with HTML themes"),
     ("edit", "Edit a document in a browser-based editor and save back"),
     ("diff", "Compare two documents and generate diff output (unified/HTML/JSON)"),
@@ -273,6 +277,15 @@ def _format_default(value: Any, *, is_negated_flag: bool = False) -> Optional[st
     return repr(value) if isinstance(value, (dict,)) else str(value)
 
 
+# Friendly synonyms for help topics whose canonical key is non-obvious. Maps an
+# alias the user is likely to type to the canonical section key. Add entries here.
+_HELP_SECTION_ALIASES: Dict[str, str] = {
+    "attachments": "global-attachment",
+    "attachment": "global-attachment",
+    "images": "global-attachment",
+}
+
+
 def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -> HelpCatalog:
     """Create a help catalog from the configured parser."""
     sections: list[HelpSection] = []
@@ -368,6 +381,7 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
         section_lookup=section_lookup,
         format_sections=format_sections,
         subcommands=_SUBCOMMAND_SUMMARIES,
+        aliases=dict(_HELP_SECTION_ALIASES),
     )
 
 

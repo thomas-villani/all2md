@@ -773,3 +773,59 @@ def test_render_single_item_outline_with_rich(
     assert "[/RICH]" in std.out
     assert "* Main Title" in std.out
     assert "  * Subsection" in std.out
+
+
+def _args_for_near_source(**overrides: Any) -> argparse.Namespace:
+    """Build a minimal args namespace for _near_source_attachment_options tests."""
+    base = {
+        "preserve_structure": True,
+        "_provided_args": {"preserve_structure", "attachment_mode", "output_dir"},
+    }
+    base.update(overrides)
+    return argparse.Namespace(**base)
+
+
+@pytest.mark.unit
+def test_near_source_attachments_injected_for_preserve_save(tmp_path):
+    """Preserve-structure + save mode co-locates attachments beside the output file."""
+    options = {"docx.attachment_mode": "save", "pdf.attachment_mode": "save"}
+    output_path = tmp_path / "sub" / "report.md"
+
+    updated = processors._near_source_attachment_options(options, output_path, _args_for_near_source())
+
+    expected_dir = str(output_path.parent / ".attachments")
+    assert updated["docx.attachment_output_dir"] == expected_dir
+    assert updated["pdf.attachment_output_dir"] == expected_dir
+    # Link base is relative to the markdown file so rendered links stay portable.
+    assert updated["docx.attachment_base_url"] == ".attachments/"
+    assert updated["pdf.attachment_base_url"] == ".attachments/"
+    # Original dict is not mutated.
+    assert "docx.attachment_output_dir" not in options
+
+
+@pytest.mark.unit
+def test_near_source_attachments_skipped_without_preserve(tmp_path):
+    """Without --preserve-structure the options are returned unchanged."""
+    options = {"docx.attachment_mode": "save"}
+    args = _args_for_near_source(preserve_structure=False)
+    result = processors._near_source_attachment_options(options, tmp_path / "report.md", args)
+    assert result is options
+
+
+@pytest.mark.unit
+def test_near_source_attachments_skipped_when_not_save(tmp_path):
+    """Non-save attachment modes never trigger near-source placement."""
+    options = {"docx.attachment_mode": "base64"}
+    result = processors._near_source_attachment_options(options, tmp_path / "report.md", _args_for_near_source())
+    assert result is options
+
+
+@pytest.mark.unit
+def test_near_source_attachments_explicit_dir_wins(tmp_path):
+    """An explicit --attachment-output-dir disables the near-source behavior."""
+    options = {"docx.attachment_mode": "save"}
+    args = _args_for_near_source(
+        _provided_args={"preserve_structure", "attachment_mode", "output_dir", "attachment_output_dir"},
+    )
+    result = processors._near_source_attachment_options(options, tmp_path / "report.md", args)
+    assert result is options

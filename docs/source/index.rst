@@ -124,6 +124,7 @@ Guides & References
    python_api
    cli
    options
+   batch
    attachments
    transforms
    ast_guide

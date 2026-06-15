@@ -37,7 +37,7 @@ from all2md.cli.output import should_use_rich_output
 from all2md.cli.packaging import create_package_from_conversions
 from all2md.cli.presets import apply_preset
 from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progress_context_callback
-from all2md.constants import DocumentFormat
+from all2md.constants import NEAR_SOURCE_ATTACHMENT_DIRNAME, DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
 from all2md.transforms import AddHeadingIdsTransform, GenerateTocTransform
@@ -414,6 +414,56 @@ def _generate_output_path_for_item(
     if not dry_run:
         output_path.parent.mkdir(parents=True, exist_ok=True)
     return output_path
+
+
+def _options_request_save_mode(options: Dict[str, Any]) -> bool:
+    """Return True if any (namespaced) attachment_mode option requests ``save``."""
+    return any(key.split(".")[-1] == "attachment_mode" and value == "save" for key, value in options.items())
+
+
+def _near_source_attachment_options(
+    options: Dict[str, Any],
+    output_path: Optional[Path],
+    args: argparse.Namespace,
+) -> Dict[str, Any]:
+    """Co-locate saved attachments next to each output file under ``--preserve-structure``.
+
+    When ``--preserve-structure`` is active with ``--attachment-mode save`` and the user
+    did not explicitly set ``--attachment-output-dir``/``--attachment-base-url``, each
+    output file's attachments are written to a shared ``.attachments`` folder beside the
+    rendered Markdown and referenced with relative links (``.attachments/<file>``). This
+    reuses the existing ``attachment_output_dir`` (where files are written) and
+    ``attachment_base_url`` (link prefix) options threaded to every parser, so no parser
+    changes are required.
+
+    Returns the original ``options`` unchanged when the behavior does not apply.
+    """
+    if not getattr(args, "preserve_structure", False) or output_path is None:
+        return options
+
+    provided: set[str] = getattr(args, "_provided_args", set())
+    if "attachment_output_dir" in provided or "attachment_base_url" in provided:
+        return options
+
+    if not _options_request_save_mode(options):
+        return options
+
+    # Relative to CWD (mirrors the legacy "attachments" default), located in the same
+    # output directory as the Markdown file. Link base is relative to that file so the
+    # rendered link reads ``.attachments/<file>`` regardless of how deep the output is.
+    attachments_dir = str(output_path.parent / NEAR_SOURCE_ATTACHMENT_DIRNAME)
+    link_base = f"{NEAR_SOURCE_ATTACHMENT_DIRNAME}/"
+
+    # Defaults are omitted from the options dict, so we *add* (not just override) the
+    # output-dir/base-url for every format namespace that carries an attachment_mode.
+    updated = dict(options)
+    for key in options:
+        if key.split(".")[-1] != "attachment_mode":
+            continue
+        prefix = f"{key[: -len('attachment_mode')]}" if "." in key else ""
+        updated[f"{prefix}attachment_output_dir"] = attachments_dir
+        updated[f"{prefix}attachment_base_url"] = link_base
+    return updated
 
 
 class TransformSpec(TypedDict):
@@ -2701,7 +2751,7 @@ def _execute_tasks_parallel(
                     convert_single_file,
                     item,
                     output_path,
-                    options,
+                    _near_source_attachment_options(options, output_path, args),
                     format_arg,
                     None,
                     False,
@@ -2774,7 +2824,7 @@ def _execute_tasks_sequential(
             exit_code, _, error = convert_single_file(
                 item,
                 output_path,
-                options,
+                _near_source_attachment_options(options, output_path, args),
                 format_arg,
                 transforms,
                 False,
