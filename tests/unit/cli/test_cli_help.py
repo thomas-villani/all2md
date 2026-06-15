@@ -89,3 +89,26 @@ def test_help_advertises_llm_help(capsys, selector):
     assert "run `all2md llm-help`" in captured.out
     # ...and a discoverable subcommand listing.
     assert "llm-help" in captured.out
+
+
+@pytest.mark.unit
+def test_help_attachments_alias_matches_global_attachment(capsys):
+    """`help attachments` is an alias for the non-obvious `global-attachment` topic."""
+    handle_help_command(["help", "attachments"])
+    alias_out = capsys.readouterr().out
+
+    handle_help_command(["help", "global-attachment"])
+    canonical_out = capsys.readouterr().out
+
+    assert alias_out == canonical_out
+    assert "--attachment-mode" in alias_out
+
+
+@pytest.mark.unit
+def test_help_batch_topic_lists_batch_flags(capsys):
+    """`help batch` surfaces the batch-processing flags as a dedicated topic."""
+    handle_help_command(["help", "batch"])
+    out = capsys.readouterr().out
+    assert "--preserve-structure" in out
+    assert "--output-dir" in out
+    assert "--parallel" in out

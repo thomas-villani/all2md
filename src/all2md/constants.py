@@ -328,6 +328,11 @@ DEFAULT_ALT_TEXT_MODE: AltTextMode = "default"
 DEFAULT_ATTACHMENT_OUTPUT_DIR = None
 DEFAULT_ATTACHMENT_BASE_URL = None
 
+# Folder name used to co-locate saved attachments next to each rendered output file
+# during batch conversion with ``--preserve-structure`` (one shared folder per output
+# directory). Kept as a leading-dot directory so it stays out of the way.
+NEAR_SOURCE_ATTACHMENT_DIRNAME = ".attachments"
+
 # Comment handling defaults (general)
 DEFAULT_COMMENT_MODE: CommentMode = "blockquote"
 DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"

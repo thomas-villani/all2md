@@ -49,6 +49,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_config_command(args)
 
+    # Check for interactive batch wizard
+    if args[0] == "batch":
+        from all2md.cli.commands.batch import handle_batch_command
+
+        return handle_batch_command(args[1:])
+
     # Check for view command
     if args[0] == "view":
         from all2md.cli.commands.view import handle_view_command

@@ -2057,10 +2057,21 @@ def create_parser() -> argparse.ArgumentParser:
     # Add global attachment arguments that apply to all formats
     builder.add_global_attachment_arguments(parser)
 
-    # Multi-file processing options
-    parser.add_argument("--recursive", "-r", action=TrackingStoreTrueAction, help="Process directories recursively")
+    # Multi-file / batch processing options. Grouped so `all2md help batch` surfaces
+    # them together (the help catalog derives the "batch" topic from this group title).
+    batch_group = parser.add_argument_group(
+        "Batch options",
+        "Convert many files at once: directory/glob inputs, output layout, parallelism, "
+        "and error handling. With --attachment-mode save, --preserve-structure also "
+        "co-locates attachments in a .attachments folder beside each output file "
+        "(see `all2md help attachments`).",
+    )
 
-    parser.add_argument(
+    batch_group.add_argument(
+        "--recursive", "-r", action=TrackingStoreTrueAction, help="Process directories recursively"
+    )
+
+    batch_group.add_argument(
         "--parallel",
         "-p",
         action=TrackingPositiveIntAction,
@@ -2070,14 +2081,14 @@ def create_parser() -> argparse.ArgumentParser:
         help="Process files in parallel (optionally specify number of workers, must be positive)",
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--output-dir",
         action=TrackingStoreAction,
         type=str,
         help="Directory to save converted files (for multi-file processing)",
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--output-extension",
         action=TrackingStoreAction,
         type=str,
@@ -2086,22 +2097,22 @@ def create_parser() -> argparse.ArgumentParser:
         "Primarily useful with --watch or --output-dir for batch conversions.",
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--preserve-structure", action=TrackingStoreTrueAction, help="Preserve directory structure in output directory"
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--skip-errors", action=TrackingStoreTrueAction, help="Continue processing remaining files if one fails"
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--exclude",
         action=TrackingAppendAction,
         metavar="PATTERN",
         help="Exclude files matching this glob pattern (can be specified multiple times)",
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--include-hidden",
         action=TrackingStoreTrueAction,
         help="Include dot-files and dot-folders when scanning directories/globs (skipped by default)",
@@ -2120,7 +2131,7 @@ def create_parser() -> argparse.ArgumentParser:
         help="Merge files from a list file (TSV format: path[<tab>section_title])",
     )
 
-    parser.add_argument(
+    batch_group.add_argument(
         "--batch-from-list",
         action=TrackingStoreAction,
         type=str,
