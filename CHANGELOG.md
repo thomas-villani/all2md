@@ -65,6 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its AST handling existed, but the underlying mistune plugin was never enabled,
   so `Term` / `: definition` syntax was silently dropped. It is now wired up
   (and the handler updated for the current mistune `def_list_item` token).
+- **MCPB bundle now ships `rank-bm25`.** The `search_documents` MCP tool defaults
+  to keyword (BM25) mode, but the Claude Desktop bundle didn't install
+  `rank-bm25`, so corpus search failed out of the box with an install hint. The
+  bundle now depends on `rank-bm25` directly (not the full `search` extra, whose
+  `faiss-cpu` / `sentence-transformers` back the vector/hybrid modes that the MCP
+  server rejects).
 
 ## [1.4.0] - 2026-06-11
 
