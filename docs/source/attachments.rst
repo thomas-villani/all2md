@@ -563,7 +563,7 @@ Filename Sanitization
 
 When using ``save`` mode, all2md automatically sanitizes filenames to ensure cross-platform compatibility:
 
-* Removes or replaces unsafe characters (e.g., ``/``, ``\\``, ``:``)
+* Removes or replaces unsafe characters (e.g., ``/``, ``\``, ``:``)
 * Limits filename length to 255 characters
 * Normalizes Unicode characters
 * Prevents path traversal attacks (e.g., ``../../../etc/passwd``)

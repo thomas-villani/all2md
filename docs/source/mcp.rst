@@ -233,7 +233,7 @@ Save Markdown as HTML:
 
    {
      "format": "html",
-     "source": "# Hello World\\n\\nThis is a test.",
+     "source": "# Hello World\n\nThis is a test.",
      "filename": "/workspace/output.html"
    }
 
@@ -243,7 +243,7 @@ Save Markdown as PDF:
 
    {
      "format": "pdf",
-     "source": "# Report\\n\\nExecutive summary here.",
+     "source": "# Report\n\nExecutive summary here.",
      "filename": "/workspace/report.pdf"
    }
 
@@ -253,7 +253,7 @@ Save Markdown as DOCX:
 
    {
      "format": "docx",
-     "source": "# Document Title\\n\\nContent goes here.",
+     "source": "# Document Title\n\nContent goes here.",
      "filename": "/workspace/document.docx"
    }
 

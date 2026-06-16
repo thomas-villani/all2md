@@ -197,8 +197,9 @@ def escape_rst_inline(text: str) -> str:
     This function escapes characters that have special meaning in reStructuredText
     to prevent them from being interpreted as markup when used in descriptions.
     """
-    # Escape asterisks (bold/italic markers)
-    text = text.replace("**", "\\*\\*")
+    # Escape asterisks (bold/italic markers). Escaping every single "*" also
+    # covers "**" -- do NOT also replace "**" first, or the second pass would
+    # re-escape the backslashes it just added (turning "\*" into "\\*").
     text = text.replace("*", "\\*")
     # Escape pipe (substitution reference marker)
     text = text.replace("|", "\\|")
