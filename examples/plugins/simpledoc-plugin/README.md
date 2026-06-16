@@ -96,18 +96,16 @@ markdown_output = to_markdown("document.sdoc")
 options = SimpleDocOptions(include_frontmatter=True)
 markdown_output = to_markdown("document.sdoc", parser_options=options)
 
-# Convert Markdown to SimpleDoc
-from all2md.converter_registry import get_registry
-registry = get_registry()
+# Convert Markdown to SimpleDoc -- once the plugin is installed, "simpledoc"
+# is a registered format, so the normal high-level API just works:
+from_markdown("document.md", "simpledoc", output="output.sdoc")
 
-# Parse markdown to AST
-parser = registry.get_parser("markdown")()
-ast_doc = parser.parse("document.md")
+# Or go through the AST explicitly (parse -> transform -> render):
+from all2md import to_ast, from_ast
 
-# Render AST as SimpleDoc
-renderer_class = registry.get_renderer("simpledoc")
-renderer = renderer_class()
-renderer.render(ast_doc, "output.sdoc")
+ast_doc = to_ast("document.md")          # -> Document
+# ... optionally transform ast_doc here ...
+from_ast(ast_doc, "simpledoc", output="output.sdoc")
 ```
 
 ## Plugin Architecture

@@ -9,6 +9,93 @@ For format-specific details, see :doc:`formats`. For configuration options, see 
    :local:
    :depth: 2
 
+Command-Line Pipelines
+----------------------
+
+The ``all2md`` CLI is built to drop into shell pipelines. These recipes use
+``-`` for stdin/stdout, structured ``--json`` output, and the ``search``,
+``grep``, ``diff``, ``view`` and ``generate-site`` subcommands. Runnable bash
+**and** PowerShell versions of every one live in ``examples/cli/``.
+
+Convert and Chain
+~~~~~~~~~~~~~~~~~~
+
+**Problem:** Convert a document and feed the Markdown to another tool.
+
+**Solution:**
+
+.. code-block:: bash
+
+   # Read a file, write Markdown to stdout
+   all2md report.pdf > report.md
+
+   # Pipe a binary document in via stdin ('-'), pipe the Markdown out
+   cat report.pdf | all2md - | wc -w
+
+   # Any-to-any: choose the target with --to
+   all2md notes.md --to docx --out notes.docx
+
+   # Extract images to a folder instead of inlining them
+   all2md report.docx --attachment-mode save --attachment-output-dir ./assets
+
+See ``examples/cli/convert-and-pipe.sh`` / ``.ps1``.
+
+Navigate Large Documents Cheaply
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem:** You only need part of a big document (e.g. to fit an LLM budget).
+
+**Solution:**
+
+.. code-block:: bash
+
+   all2md manual.pdf --outline                  # table of contents only
+   all2md manual.pdf --outline --line-numbers   # with line numbers to extract by
+   all2md manual.pdf --extract "Installation"   # one section by heading
+   all2md manual.pdf --extract "line:120-180"   # an exact line range
+
+See ``examples/cli/extract-and-navigate.sh`` / ``.ps1``.
+
+Search, Grep and Diff a Corpus
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Problem:** Search inside binary documents, or compare them by content.
+
+**Solution:**
+
+.. code-block:: bash
+
+   # grep INSIDE PDFs/DOCX that plain grep can't read
+   all2md grep "revenue" reports/*.pdf -i -n -C 2
+
+   # Ranked search with JSON output + provenance, post-processed with jq
+   all2md search "refund policy" docs/ --keyword --json --top-k 5 \
+     | jq -r '.[] | "\(.score)\t\(.chunk_metadata.document_path)"'
+
+   # Semantic, cross-format diff as a CI gate (unified for humans, json to script)
+   all2md diff v1.docx v2.pdf --format unified
+
+See ``examples/cli/search-corpus``, ``grep-binary-docs`` and ``diff-in-ci``
+(``.sh`` / ``.ps1``). The PowerShell versions parse JSON natively -- no ``jq``.
+
+View and Publish
+~~~~~~~~~~~~~~~~~
+
+**Problem:** Preview a document, or turn a folder into a static site.
+
+**Solution:**
+
+.. code-block:: bash
+
+   all2md view report.pdf            # render to HTML and open in a browser
+   all2md serve docs/ --recursive    # live-reloading local server
+   all2md generate-site docs/        # build a static HTML site
+
+.. note::
+
+   On Windows, run the ``.sh`` scripts under Git Bash or WSL, or use the
+   ``.ps1`` versions in PowerShell 7+.
+
 Processing Mixed Document Collections
 -------------------------------------
 
@@ -193,7 +280,7 @@ Creating Text-Only Archive from Website
 
                # Add page separator with metadata
                separator = "=" * 80
-               header = f"\\n{separator}\\nPage {i}: {html_file.name}\\n{separator}\\n\\n"
+               header = f"\n{separator}\nPage {i}: {html_file.name}\n{separator}\n\n"
 
                archive_content.append(header + markdown)
                print(f"Processed: {html_file.name}")
@@ -203,153 +290,71 @@ Creating Text-Only Archive from Website
                continue
 
        # Write combined archive
-       Path(output_file).write_text('\\n\\n'.join(archive_content), encoding='utf-8')
+       Path(output_file).write_text('\n\n'.join(archive_content), encoding='utf-8')
        print(f"Archive created: {output_file}")
 
    # Usage
    create_website_archive('./scraped_website', 'company_website_archive.md')
 
-LLM Training Data Pipeline
---------------------------
+Feeding Documents to an LLM (RAG)
+---------------------------------
 
-Document Processing for Fine-tuning
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Retrieval over a Document Corpus
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Problem:** Process a large collection of technical documents (PDFs, DOCX) to create clean training data for LLM fine-tuning.
+**Problem:** Answer questions over a folder of mixed documents by retrieving the
+most relevant passages and handing them to an LLM together with their sources.
 
-**Solution:**
+**Solution:** Use ``all2md``'s built-in search to chunk and rank documents --
+each chunk carries provenance (source file + section) -- then build a grounded
+prompt. No external vector database required.
 
 .. code-block:: python
 
-   import json
-   from pathlib import Path
-   from typing import Dict, List
-   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownRendererOptions
+   from all2md.search import search_documents
+   from all2md.search.service import SearchDocumentInput
 
-   class LLMDataProcessor:
-       def __init__(self, output_dir: str):
-           self.output_dir = Path(output_dir)
-           self.output_dir.mkdir(exist_ok=True)
+   # Index a corpus (files or whole directories) and retrieve the top chunks.
+   docs = [SearchDocumentInput(source=p) for p in [
+       "handbook.pdf", "policies.docx", "faq.md",
+   ]]
+   question = "How many vacation days do new employees get?"
+   hits = search_documents(docs, question, mode="keyword", top_k=5)
 
-           # Configure for clean, minimal markdown
-           self.md_options = MarkdownRendererOptions(
-               escape_special=False,  # Don't escape for readability
-               emphasis_symbol="*",
-               bullet_symbols="*-+",
-               use_hash_headings=True,
-           )
+   # Build a citation-numbered, grounded prompt from the retrieved passages.
+   passages = []
+   for i, hit in enumerate(hits, start=1):
+       meta = hit.chunk.metadata
+       src = meta.get("document_path", "?")
+       section = meta.get("section_heading")
+       label = f"{src} -> {section}" if section else src
+       passages.append(f"[{i}] ({label})\n{hit.chunk.text}")
 
-           self.pdf_options = PdfOptions(
-               attachment_mode="skip",  # No images in training data
-               extract_metadata=True,
-               detect_columns=True,
-               merge_hyphenated_words=True,
-               enable_table_fallback_detection=True,
-           )
+   prompt = (
+       "Context passages:\n\n" + "\n\n".join(passages)
+       + "\n\nAnswer using ONLY the context above, citing passages by [number].\n"
+       + f"Question: {question}"
+   )
 
-           self.docx_options = DocxOptions(
-               attachment_mode="skip",
-               preserve_tables=True,
-               extract_metadata=True,
-           )
+   # Send `prompt` to your LLM of choice (e.g. the Anthropic SDK).
 
-       def process_document(self, file_path: Path) -> Dict:
-           """Process a single document and return metadata + content."""
-           try:
-               # Determine options based on file type
-               if file_path.suffix.lower() == '.pdf':
-                   options = self.pdf_options
-               elif file_path.suffix.lower() == '.docx':
-                   options = self.docx_options
-               else:
-                   options = None
+The full runnable version -- which also calls Claude and prints a cited answer,
+with a no-API-key ``mock`` mode -- is ``examples/llm/search_to_llm_rag.py``. For a
+pure-shell equivalent, see ``examples/cli/rag-ingest.sh`` / ``.ps1``.
 
-               # Convert to markdown
-               content = to_markdown(
-                   file_path,
-                   parser_options=options,
-                   renderer_options=self.md_options,
-               )
+Shrinking Documents to Fit a Token Budget
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-               # Clean up content for training
-               content = self.clean_content(content)
+**Problem:** A document is too large to send to an LLM as-is.
 
-               # Create metadata
-               metadata = {
-                   "source_file": str(file_path),
-                   "file_type": file_path.suffix.lower(),
-                   "content_length": len(content),
-                   "word_count": len(content.split()),
-                   "has_tables": "| " in content,
-                   "has_code": "```" in content or "`" in content
-               }
+**Solution:** ``all2md llm-minify`` produces token-lean output: it drops
+comments, frontmatter and raw HTML, replaces base64 images with short
+references, and collapses whitespace.
 
-               return {"metadata": metadata, "content": content}
+.. code-block:: bash
 
-           except Exception as e:
-               print(f"Error processing {file_path}: {e}")
-               return None
-
-       def clean_content(self, content: str) -> str:
-           """Clean content for LLM training."""
-           # Remove excessive whitespace
-           lines = [line.strip() for line in content.split('\\n')]
-           lines = [line for line in lines if line]  # Remove empty lines
-
-           # Rejoin with single newlines
-           content = '\\n'.join(lines)
-
-           # Remove multiple consecutive newlines
-           while '\\n\\n\\n' in content:
-               content = content.replace('\\n\\n\\n', '\\n\\n')
-
-           return content
-
-       def process_collection(self, source_dirs: List[str]) -> None:
-           """Process entire document collection."""
-           all_data = []
-           supported_exts = {'.pdf', '.docx'}
-
-           for source_dir in source_dirs:
-               source_path = Path(source_dir)
-               files = [f for f in source_path.rglob('*')
-                       if f.suffix.lower() in supported_exts and f.is_file()]
-
-               for file_path in files:
-                   result = self.process_document(file_path)
-                   if result:
-                       all_data.append(result)
-
-           # Save in JSONL format for training
-           output_file = self.output_dir / "training_data.jsonl"
-           with output_file.open('w', encoding='utf-8') as f:
-               for item in all_data:
-                   json.dump(item, f, ensure_ascii=False)
-                   f.write('\\n')
-
-           # Save summary statistics
-           stats = {
-               "total_documents": len(all_data),
-               "total_words": sum(item["metadata"]["word_count"] for item in all_data),
-               "file_types": {},
-               "documents_with_tables": sum(1 for item in all_data if item["metadata"]["has_tables"]),
-               "documents_with_code": sum(1 for item in all_data if item["metadata"]["has_code"])
-           }
-
-           for item in all_data:
-               file_type = item["metadata"]["file_type"]
-               stats["file_types"][file_type] = stats["file_types"].get(file_type, 0) + 1
-
-           with (self.output_dir / "processing_stats.json").open('w') as f:
-               json.dump(stats, f, indent=2)
-
-           print(f"Processed {len(all_data)} documents")
-           print(f"Total words: {stats['total_words']:,}")
-           print(f"Output saved to: {output_file}")
-
-   # Usage
-   processor = LLMDataProcessor("./training_data_output")
-   processor.process_collection(["./technical_docs", "./manuals", "./reports"])
+   all2md llm-minify big-report.pdf > lean.md       # compact Markdown
+   all2md llm-minify big-report.pdf --aggressive    # plain text, stripped
 
 Secure Document Processing
 --------------------------
@@ -452,7 +457,7 @@ Web Application Integration
                        # Limit output size (prevent DoS)
                        max_output = 1024 * 1024  # 1MB markdown limit
                        if len(markdown_content) > max_output:
-                           markdown_content = markdown_content[:max_output] + "\\n\\n[Content truncated for size limit]"
+                           markdown_content = markdown_content[:max_output] + "\n\n[Content truncated for size limit]"
 
                        return {
                            "success": True,
@@ -686,7 +691,7 @@ Directory Processing with Progress Tracking
 
        # Print summary
        summary = report["summary"]
-       print(f"\\nProcessing Complete:")
+       print(f"\nProcessing Complete:")
        print(f"  Files processed: {summary['total_files']}")
        print(f"  Successful: {summary['successful']} ({summary['success_rate']:.1f}%)")
        print(f"  Failed: {summary['failed']}")
@@ -725,16 +730,16 @@ Use the built-in progress callback system for fine-grained progress tracking:
                self.start_time = time.time()
                print(f"Starting: {event.message} (Total: {event.total} pages)")
 
-            elif event.event_type == "item_done" and event.metadata.get("item_type") == "page":
-                self.pages_processed += 1
-                elapsed = time.time() - self.start_time
-                pct = event.current / event.total * 100 if event.total > 0 else 0
-                print(f"  Page {event.current}/{event.total} ({pct:.1f}%)")
+           elif event.event_type == "item_done" and event.metadata.get("item_type") == "page":
+               self.pages_processed += 1
+               elapsed = time.time() - self.start_time
+               pct = event.current / event.total * 100 if event.total > 0 else 0
+               print(f"  Page {event.current}/{event.total} ({pct:.1f}%)")
 
-            elif event.event_type == "detected" and event.metadata.get('detected_type') == 'table':
-                count = event.metadata.get('table_count', 0)
-                self.tables_found += count
-                print(f"  Found {count} table(s) on page {event.current}")
+           elif event.event_type == "detected" and event.metadata.get('detected_type') == 'table':
+               count = event.metadata.get('table_count', 0)
+               self.tables_found += count
+               print(f"  Found {count} table(s) on page {event.current}")
 
            elif event.event_type == "finished":
                elapsed = time.time() - self.start_time
@@ -821,7 +826,7 @@ Email Chain Analysis
            }
 
            # Extract email addresses
-           email_pattern = r'\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b'
+           email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
            emails = re.findall(email_pattern, markdown_content, re.IGNORECASE)
            metadata["participants"] = set(emails)
 
@@ -847,7 +852,7 @@ Email Chain Analysis
            metadata["has_attachments"] = "attachment" in markdown_content.lower()
 
            # Estimate thread depth by indentation/quote levels
-           quote_levels = [line.count('>') for line in markdown_content.split('\\n') if line.strip().startswith('>')]
+           quote_levels = [line.count('>') for line in markdown_content.split('\n') if line.strip().startswith('>')]
            metadata["thread_depth"] = max(quote_levels) if quote_levels else 0
 
            return metadata
@@ -914,7 +919,7 @@ Email Chain Analysis
            # Generate participant frequency
            for email in results["emails"]:
                for participant in email["metadata"]["participants"]:
-                   results["summary"]["top_participants"][participant] = \\
+                   results["summary"]["top_participants"][participant] = \
                        results["summary"]["top_participants"].get(participant, 0) + 1
 
            # Convert sets to lists for JSON serialization
@@ -946,9 +951,9 @@ Email Chain Analysis
            )[:10]
 
            for email, count in top_participants:
-               report_content += f"- **{email}**: {count} emails\\n"
+               report_content += f"- **{email}**: {count} emails\n"
 
-           report_content += "\\n## Individual Emails\\n\\n"
+           report_content += "\n## Individual Emails\n\n"
 
            # Add each email with summary
            for i, email in enumerate(analysis_results['emails'], 1):
@@ -1142,13 +1147,19 @@ Secure Web Scraping and Conversion
 - Size limits
 - Dangerous element stripping
 
-LLM Data Preparation
---------------------
+Building a Fine-Tuning Dataset
+------------------------------
 
 Text-Only Dataset Creation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **Problem:** Process a large collection of mixed documents (PDF, DOCX) to create clean, text-only training data for LLM fine-tuning.
+
+.. note::
+
+   This recipe targets *fine-tuning* (offline JSONL datasets). For
+   *inference / RAG* -- retrieving passages to answer questions at query
+   time -- see the "Feeding Documents to an LLM (RAG)" recipe above.
 
 **Solution:**
 
@@ -1190,17 +1201,17 @@ Text-Only Dataset Creation
            """Clean and normalize text for LLM training."""
            # Remove excessive whitespace
            lines = []
-           for line in text.split('\\n'):
+           for line in text.split('\n'):
                line = line.strip()
                if line:
                    lines.append(line)
 
            # Rejoin with consistent spacing
-           text = '\\n'.join(lines)
+           text = '\n'.join(lines)
 
            # Normalize multiple newlines
-           while '\\n\\n\\n' in text:
-               text = text.replace('\\n\\n\\n', '\\n\\n')
+           while '\n\n\n' in text:
+               text = text.replace('\n\n\n', '\n\n')
 
            return text
 
@@ -1309,7 +1320,7 @@ Text-Only Dataset Creation
            with dataset_file.open('w', encoding='utf-8') as f:
                for doc in all_documents:
                    json.dump(doc, f, ensure_ascii=False)
-                   f.write('\\n')
+                   f.write('\n')
 
            # Save statistics
            stats_file = self.output_dir / "dataset_stats.json"
@@ -1320,9 +1331,9 @@ Text-Only Dataset Creation
            with plaintext_file.open('w', encoding='utf-8') as f:
                for doc in all_documents:
                    f.write(doc['text'])
-                   f.write('\\n\\n' + '='*80 + '\\n\\n')
+                   f.write('\n\n' + '='*80 + '\n\n')
 
-           print(f"\\nDataset created:")
+           print(f"\nDataset created:")
            print(f"  Documents: {stats['successful']}")
            print(f"  Total words: {stats['total_words']:,}")
            print(f"  Total chars: {stats['total_chars']:,}")
@@ -1448,11 +1459,11 @@ Production Readiness Checker
                    missing_installs.extend(result['missing_packages'])
 
            if not all_available:
-               print(f"\\nMissing packages: {', '.join(set(missing_installs))}")
+               print(f"\nMissing packages: {', '.join(set(missing_installs))}")
                print(f"Install with: pip install {' '.join(set(missing_installs))}")
                return False
 
-           print("\\nAll required converters are available!")
+           print("\nAll required converters are available!")
            return True
 
        def generate_requirements(self, formats: List[str]) -> str:
@@ -1462,7 +1473,7 @@ Production Readiness Checker
                if fmt in self.format_requirements:
                    all_packages.update(self.format_requirements[fmt])
 
-           return '\\n'.join(sorted(all_packages))
+           return '\n'.join(sorted(all_packages))
 
    # Usage Example 1: Check before processing
    def safe_batch_process(input_dir: str):
@@ -1639,7 +1650,7 @@ Document Structure Analysis
        # Count headings by level
        for h in stats['headings']:
            level = f"H{h['level']}"
-           stats['summary']['heading_breakdown'][level] = \\
+           stats['summary']['heading_breakdown'][level] = \
                stats['summary']['heading_breakdown'].get(level, 0) + 1
 
        return stats
@@ -1669,6 +1680,15 @@ Batch Document Transformation
 **Problem:** Apply consistent transformations across a collection of documents using AST.
 
 **Solution:**
+
+.. note::
+
+   This recipe uses the lower-level transform classes from ``all2md.ast``
+   (``HeadingLevelTransformer``, ``LinkRewriter``). These are distinct from the
+   registry **built-ins** you apply by name (``heading-offset``,
+   ``link-rewriter`` -- see :doc:`transforms`). Both are valid; reach for the
+   built-ins when a string name in ``transforms=[...]`` is enough, and for these
+   classes when you need direct, parameterized control.
 
 .. code-block:: python
 
@@ -2161,7 +2181,7 @@ Generate multiple formats from one document:
 Template Gallery
 ~~~~~~~~~~~~~~~~
 
-See the ``examples/jinja-templates/`` directory for production-ready templates:
+See the ``examples/templates/jinja-templates/`` directory for production-ready templates:
 
 * **docbook.xml.jinja2** - DocBook XML for technical documentation
 * **metadata.yaml.jinja2** - YAML metadata and structure extraction
@@ -2179,7 +2199,7 @@ See the ``examples/jinja-templates/`` directory for production-ready templates:
 
 * :doc:`templates` - Complete template reference
 * :doc:`python_api` - Custom formats section
-* ``examples/jinja-templates/README.md`` - Template usage examples
+* ``examples/templates/jinja-templates/README.md`` - Template usage examples
 
 
 Each recipe provides a complete, tested solution that you can adapt to your specific needs. The examples demonstrate both CLI and Python API approaches, with emphasis on real-world considerations like security, performance, and error handling.

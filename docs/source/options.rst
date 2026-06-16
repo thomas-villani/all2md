@@ -527,7 +527,7 @@ into AST representation using a custom parser.
 
 **support_unconstrained_formatting**
 
-   Support unconstrained formatting (e.g., \\*\\*b\\*\\*old for mid-word)
+   Support unconstrained formatting (e.g., \*\*b\*\*old for mid-word)
 
    :Type: ``bool``
    :CLI flag: ``--asciidoc-no-unconstrained-formatting``
@@ -1024,7 +1024,7 @@ file processing, including dialect detection and data limits.
 
 **escape_char**
 
-   Override escape character (e.g., '\\')
+   Override escape character (e.g., '\')
 
    :Type: ``UnionType[str, NoneType]``
    :CLI flag: ``--csv-escape-char``
@@ -4312,6 +4312,24 @@ into AST representation, supporting various Markdown flavors and extensions.
    :Default: ``True``
    :Importance: core
 
+**parse_marks**
+
+   Parse inline marks: highlight (==x==), insert (^^x^^), superscript (^x^), subscript (~x~)
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown-no-parse-marks``
+   :Default: ``True``
+   :Importance: core
+
+**parse_admonitions**
+
+   Parse Material for MkDocs admonitions (!!! note / ??? collapsible)
+
+   :Type: ``bool``
+   :CLI flag: ``--markdown-no-parse-admonitions``
+   :Default: ``True``
+   :Importance: core
+
 **parse_frontmatter**
 
    Parse YAML/TOML/JSON frontmatter at document start
@@ -4472,7 +4490,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x00000273DFA18BB0>``
+   :Default: ``<object object at 0x000001B4987FCBB0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4482,7 +4500,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000273DFA18BB0>``
+   :Default: ``<object object at 0x000001B4987FCBB0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -10168,7 +10186,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x00000273DFA18BB0>``
+   :Default: ``<object object at 0x000001B4987FCBB0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -10178,7 +10196,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000273DFA18BB0>``
+   :Default: ``<object object at 0x000001B4987FCBB0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

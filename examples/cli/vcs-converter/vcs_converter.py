@@ -22,8 +22,6 @@ from typing import Any
 import all2md
 from all2md.ast import Document
 from all2md.ast.serialization import ast_to_dict
-from all2md.renderers.docx import DocxRenderer
-from all2md.renderers.pdf import PdfRenderer
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -118,30 +116,19 @@ class VCSConverter:
         md_path = self._get_markdown_path(binary_path)
         md_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Convert to markdown with AST for metadata extraction
+        # Parse to the AST once so we can both render markdown and capture
+        # structured metadata from the same parse.
         with open(binary_path, "rb") as f:
-            doc = all2md.to_markdown(
-                f,
-                filename=str(binary_path),
-                return_ast=True,
-            )
+            doc = all2md.to_ast(f, source_format=binary_path.suffix.lstrip("."))
 
-        # Extract markdown and metadata
-        if isinstance(doc, Document):
-            # Render to markdown
-            from all2md.renderers.markdown import MarkdownRenderer
+        # Render the AST to markdown (text formats return a str).
+        markdown_content = all2md.from_ast(doc, "markdown")
+        assert isinstance(markdown_content, str)
 
-            renderer = MarkdownRenderer()
-            markdown_content = renderer.render(doc)
-
-            # Extract metadata
-            metadata = None
-            if self.track_metadata:
-                metadata = self._extract_metadata(doc, binary_path)
-        else:
-            # String result
-            markdown_content = doc
-            metadata = None
+        # Extract metadata
+        metadata = None
+        if self.track_metadata:
+            metadata = self._extract_metadata(doc, binary_path)
 
         # Write markdown
         with open(md_path, "w", encoding="utf-8") as f:
@@ -253,13 +240,9 @@ class VCSConverter:
         metadata : dict[str, Any]
             Document metadata
         """
-        # Parse markdown to AST
-        doc = all2md.to_markdown(markdown, source_format="markdown", return_ast=True)
-
-        # Render to DOCX
-        renderer = DocxRenderer()
+        # Render markdown straight to DOCX (parse + render in one call).
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        renderer.render_to_file(doc, str(output_path))
+        all2md.from_markdown(markdown, "docx", output=str(output_path))
 
     def _markdown_to_pdf(self, markdown: str, output_path: Path, metadata: dict[str, Any]) -> None:
         """Convert markdown to PDF format.
@@ -273,13 +256,9 @@ class VCSConverter:
         metadata : dict[str, Any]
             Document metadata
         """
-        # Parse markdown to AST
-        doc = all2md.to_markdown(markdown, source_format="markdown", return_ast=True)
-
-        # Render to PDF
-        renderer = PdfRenderer()
+        # Render markdown straight to PDF (parse + render in one call).
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        renderer.render_to_file(doc, str(output_path))
+        all2md.from_markdown(markdown, "pdf", output=str(output_path))
 
     def scan_repository(self, root_dir: Path | None = None) -> list[Path]:
         """Scan repository for binary documents.

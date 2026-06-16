@@ -14,6 +14,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -550,6 +552,35 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         ----------
         node : HTMLInline
             Inline HTML to render
+
+        """
+        pass
+
+    def visit_comment(self, node: Comment) -> None:
+        """Render a block Comment node.
+
+        Comments are author annotations, not document content, so SimpleDoc
+        drops them on output (the same choice the Markdown renderer makes by
+        default).
+
+        Parameters
+        ----------
+        node : Comment
+            Block comment to render
+
+        """
+        # Pattern 3: skip elements your format intentionally doesn't emit.
+        pass
+
+    def visit_comment_inline(self, node: CommentInline) -> None:
+        """Render an inline Comment node.
+
+        Inline comments are dropped for the same reason as block comments.
+
+        Parameters
+        ----------
+        node : CommentInline
+            Inline comment to render
 
         """
         pass

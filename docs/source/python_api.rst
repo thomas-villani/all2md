@@ -860,7 +860,7 @@ Best Practices
       ast1 = to_ast('document.md')
       docx_bytes = from_ast(ast1, target_format='docx')
 
-      ast2 = to_ast(docx_bytes, format='docx')
+      ast2 = to_ast(docx_bytes, source_format='docx')
       roundtrip_md = from_ast(ast2, target_format='markdown')
 
       # Compare (note: formatting may differ)
@@ -1507,7 +1507,7 @@ Then use in template:
 Example Templates Gallery
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``examples/jinja-templates/`` directory contains production-ready templates:
+The ``examples/templates/jinja-templates/`` directory contains production-ready templates:
 
 - ``docbook.xml.jinja2`` - DocBook XML for technical documentation
 - ``metadata.yaml.jinja2`` - YAML metadata and structure extraction

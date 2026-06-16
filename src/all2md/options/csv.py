@@ -54,7 +54,7 @@ class CsvOptions(BaseParserOptions):
         Override quote character (e.g., '"', "'").
         When set, uses this for quoting.
     escape_char : str | None, default None
-        Override escape character (e.g., '\\\\').
+        Override escape character (e.g., '\\').
         When set, uses this for escaping.
     double_quote : bool | None, default None
         Enable/disable double quoting (two quote chars = one literal quote).
@@ -101,7 +101,7 @@ class CsvOptions(BaseParserOptions):
         default=None, metadata={"help": "Override quote character (e.g., '\"', \"'\")", "importance": "advanced"}
     )
     escape_char: str | None = field(
-        default=None, metadata={"help": "Override escape character (e.g., '\\\\')", "importance": "advanced"}
+        default=None, metadata={"help": "Override escape character (e.g., '\\')", "importance": "advanced"}
     )
     double_quote: bool | None = field(
         default=None,

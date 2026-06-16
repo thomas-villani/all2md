@@ -1,735 +1,234 @@
-# all2md Examples
+# all2md examples
 
-Welcome to the all2md examples directory! This collection demonstrates the library's capabilities through practical, real-world applications ranging from simple demos to production-ready tools.
+Practical, runnable examples for `all2md` -- the document conversion engine for
+turning PDF, Word, PowerPoint, HTML, email, Excel, images, and 200+ text formats
+to and from Markdown. The examples span everyday document processing and
+LLM/RAG workflows, from one-liners to production-ready tools.
 
-## Quick Start
+Every example here has been run against the current library. Most accept a
+document path and fall back to printing usage when run with no arguments.
 
-If you're new to all2md, start with these examples:
+## Layout
 
-1. **progress_callback_demo.py** - Learn how to track conversion progress
-2. **jinja_template_demo.py** - See custom template rendering in action
-3. **flask_markdown_site.py** - Build a markdown-powered website in minutes
+Examples are grouped by theme:
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Examples by Category](#examples-by-category)
-  - [Getting Started](#getting-started)
-  - [Document Analysis](#document-analysis)
-  - [AST Manipulation & Transforms](#ast-manipulation--transforms)
-  - [Batch Processing & Automation](#batch-processing--automation)
-  - [LLM Integration](#llm-integration)
-  - [Web Applications](#web-applications)
-  - [Plugin Development](#plugin-development)
-- [Examples by Complexity](#examples-by-complexity)
-- [Requirements](#requirements)
-- [Contributing](#contributing)
-
-## Overview
-
-The examples demonstrate:
-
-- **Core Features**: AST manipulation, format conversion, metadata extraction
-- **Advanced Patterns**: Custom transforms, plugin architecture, parallel processing
-- **Real-World Use Cases**: Documentation sites, translation, privacy compliance, version control
-- **Integration**: LLMs, Git, Flask, Jinja2 templates
-
-## Examples by Category
-
-### Getting Started
-
-Simple examples to learn core concepts.
-
-#### progress_callback_demo.py
-
-Track conversion progress with custom callbacks.
-
-```bash
-python progress_callback_demo.py
+```
+examples/
+  cli/        Shell pipelines & batch jobs (bash + PowerShell), plus git automation
+  python/     Core Python API: conversion, AST, transforms, batch, analysis
+  llm/        LLM / RAG workflows (Anthropic Claude), with a no-key mock provider
+  web/        Web app serving Markdown (Flask)
+  templates/  Custom output via Jinja2 templates
+  plugins/    Writing your own parser/renderer/transform plugins
 ```
 
-**Demonstrates:**
-- Progress callback registration
-- Simple vs. detailed event handlers
-- Integration with UI frameworks
+## Start here
 
-**Complexity:** Beginner
+New to `all2md`? In rough order of complexity:
 
----
-
-#### jinja_template_demo.py
-
-Render documents using custom Jinja2 templates.
-
-```bash
-python jinja_template_demo.py
-```
-
-**Features:**
-- DocBook XML output
-- YAML metadata extraction
-- Custom outline formats
-- ANSI terminal rendering
-
-**Templates:** See `jinja-templates/` directory
-
-**Complexity:** Beginner
+1. `python/progress_callback_demo.py` -- track conversion progress with a callback.
+2. `python/transforms_by_name.py` -- clean up a document with built-in transforms.
+3. `cli/convert-and-pipe.sh` / `.ps1` -- the everyday CLI moves.
+4. `python/ast_json_roundtrip.py` -- the AST and its JSON interchange form.
+5. `llm/search_to_llm_rag.py` -- retrieval-augmented generation over a corpus.
 
 ---
 
-### Document Analysis
+## Examples by theme
 
-Extract and analyze document content.
+### `cli/` -- shell pipelines (bash + PowerShell)
 
-#### link_checker.py
+The CLI is a first-class surface. Each concept ships as a `.sh` and a `.ps1`.
+See `cli/README.md` for the full table. Highlights:
 
-Extract and validate all links in documents.
+- **convert-and-pipe** -- convert to stdout, `--to` any format, stdin with `-`, attachment modes.
+- **batch-convert** -- whole-folder conversion, `--collate`, parallel fan-out.
+- **extract-and-navigate** -- `--outline`, `--line-numbers`, `--extract` by section or line range.
+- **grep-binary-docs** -- `all2md grep` inside PDF/DOCX that plain grep can't read.
+- **search-corpus** -- ranked `all2md search --json` with provenance, post-processed by `jq` / `ConvertFrom-Json`.
+- **diff-in-ci** -- semantic, cross-format `all2md diff` as a CI gate.
+- **llm-minify-pipe** -- shrink a document to token-lean text before an LLM call.
+- **rag-ingest** -- assemble a grounded, cited LLM prompt from retrieved chunks.
 
-```bash
-python link_checker.py document.pdf --check-urls
-```
+### `python/` -- core Python API
 
-**Features:**
-- HTTP status checking (with rate limiting)
-- Broken link detection
-- Link categorization (internal/external)
-- Suggested fixes for common errors
+| Script | What it shows | Complexity |
+| ------ | ------------- | ---------- |
+| `progress_callback_demo.py` | Progress callbacks (`progress_callback=`) and `ProgressEvent` | Beginner |
+| `transforms_by_name.py` | Built-in transforms by name, a custom `NodeTransformer`, and hooks | Beginner |
+| `ast_json_roundtrip.py` | `to_ast` -> `ast_to_json` -> `json_to_ast` -> `from_ast` interchange | Beginner |
+| `api_doc_extractor.py` | Extract runnable code blocks from docs | Intermediate |
+| `link_checker.py` | Extract & validate links/anchors (HTTP checks via `httpx`) | Intermediate |
+| `document_sanitizer.py` | Redact PII / strip metadata with AST transforms, then re-render | Intermediate |
+| `batch_converter.py` | Parallel bulk conversion with checkpoint/resume | Advanced |
 
-**Use Cases:**
-- Documentation maintenance
-- SEO audits
-- Content migration validation
-- Website quality assurance
+### `llm/` -- LLM & RAG workflows
 
-**Complexity:** Intermediate
+These use Anthropic's Claude through a shared `_llm_client.py` helper. Every
+script also supports `--llm mock`, a deterministic offline provider, so you can
+run them end-to-end with **no API key**.
 
----
+| Script | What it shows |
+| ------ | ------------- |
+| `search_to_llm_rag.py` | **RAG**: index a corpus, retrieve chunks with provenance, answer with citations |
+| `llm_translation_demo.py` | Translate any document format, preserving structure, via an AST transform |
+| `study_guide_generator.py` | Build study guides; optional LLM-generated quizzes/problems |
+| `code_example_generator.py` | Generate & validate code examples, insert them back into docs |
+| `_llm_client.py` | Shared Claude client + mock provider (one place to keep SDK wiring current) |
 
-#### api_doc_extractor.py
+Real Claude calls need `pip install anthropic` and an `ANTHROPIC_API_KEY`.
 
-Extract runnable code examples from documentation.
+### `web/` -- web applications
 
-```bash
-python api_doc_extractor.py api-docs.md --output examples/
-```
+- `flask_markdown_site.py` -- a Flask blog/site that serves Markdown with YAML
+  frontmatter as HTML. Sample content in `web/flask-site-content/`.
 
-**Features:**
-- Language-specific code block extraction
-- Python syntax validation
-- Auto-generated test harness
-- Batch processing
+### `templates/` -- custom output formats
 
-**Use Cases:**
-- Documentation testing
-- Example maintenance
-- SDK development
-- Tutorial generation
+- `jinja_template_demo.py` -- render the AST through Jinja2 templates (DocBook
+  XML, YAML metadata, ANSI terminal, custom outlines). Templates in
+  `templates/jinja-templates/`.
 
-**Complexity:** Intermediate
+### `plugins/` -- extend all2md
 
----
-
-#### study_guide_generator.py
-
-Generate comprehensive study materials from documents.
-
-```bash
-python study_guide_generator.py textbook.pdf --llm openai
-```
-
-**Features:**
-- Section-by-section summaries
-- Code example extraction
-- LLM-generated quizzes
-- Practice problem generation
-
-**Requirements:** OpenAI API key or Anthropic API key
-
-**Use Cases:**
-- Educational content creation
-- Training materials
-- Self-study resources
-- Course development
-
-**Complexity:** Intermediate
+- `simpledoc-plugin/` -- a complete bidirectional format plugin (parser +
+  renderer + options + tests). The template for adding a new format.
+- `watermark-plugin/` -- a transform plugin that watermarks document images.
 
 ---
-
-### AST Manipulation & Transforms
-
-Learn to modify document structure programmatically.
-
-#### document_sanitizer.py
-
-Remove sensitive information for safe document sharing.
-
-```bash
-python document_sanitizer.py confidential.pdf --output sanitized.pdf
-```
-
-**Features:**
-- PII redaction (emails, phones, URLs)
-- Metadata stripping
-- Custom pattern matching
-- Domain whitelisting
-- Preserve document formatting
-
-**Use Cases:**
-- GDPR/CCPA compliance
-- Legal document preparation
-- Freedom of Information requests
-- Public data releases
-
-**Complexity:** Intermediate
-
-**Documentation:** Includes detailed docstrings with privacy compliance notes
-
----
-
-#### llm_translation_demo.py
-
-Translate documents while preserving structure and formatting.
-
-```bash
-python llm_translation_demo.py document.pdf french --llm anthropic
-```
-
-**Features:**
-- Format-agnostic translation
-- Structure preservation
-- Multiple LLM provider support (OpenAI, Anthropic, mock)
-- AST NodeTransformer pattern
-
-**Requirements:** LLM API keys
-
-**Use Cases:**
-- Technical documentation translation
-- Multilingual content creation
-- Localization workflows
-
-**Documentation:** See code comments and docstrings for comprehensive guide
-
-**Complexity:** Intermediate-Advanced
-
----
-
-#### code_example_generator.py
-
-Automatically generate working code examples using LLMs.
-
-```bash
-python code_example_generator.py api-reference.md --llm openai --validate
-```
-
-**Features:**
-- LLM-powered example generation
-- Syntax validation
-- Multiple provider support
-- Example insertion into docs
-
-**Requirements:** OpenAI, Anthropic, or mock LLM
-
-**Use Cases:**
-- API documentation enhancement
-- Tutorial creation
-- Developer onboarding
-- SDK documentation
-
-**Complexity:** Advanced
-
----
-
-### Batch Processing & Automation
-
-Handle large-scale document operations.
-
-#### batch_converter.py
-
-Bulk document conversion with parallel processing.
-
-```bash
-python batch_converter.py input_dir/ output_dir/ --format markdown --workers 4
-```
-
-**Features:**
-- Recursive directory processing
-- Parallel conversion (configurable workers)
-- Checkpoint/resume support
-- Comprehensive error handling
-- Progress tracking
-- Flexible output structure
-
-**Use Cases:**
-- Large-scale migrations
-- Archive conversion
-- Batch processing pipelines
-- Format standardization
-
-**Complexity:** Intermediate-Advanced
-
----
-
-#### vcs-converter/ (Directory)
-
-Git integration for version-controlling binary documents.
-
-```bash
-cd vcs-converter
-./setup.sh
-```
-
-**Features:**
-- Git pre-commit hook integration
-- Bidirectional sync (binary ↔ markdown)
-- Automatic conversion on commit
-- Configuration management
-- Batch conversion script
-
-**Structure:**
-- `vcs_converter.py` - Core conversion logic
-- `pre-commit-hook.sh` - Git hook script
-- `install_hook.py` - Hook installer
-- `setup.sh` - One-command setup
-- `vcs-converter.config.json` - Configuration
-
-**Use Cases:**
-- Document version control
-- Collaborative editing of binary docs
-- Change tracking for presentations
-- Documentation workflows
-
-**Documentation:** See `vcs-converter/README.md`
-
-**Complexity:** Advanced
-
----
-
-### LLM Integration
-
-Examples integrating AI/language models.
-
-Three examples demonstrate LLM integration with different patterns:
-
-1. **llm_translation_demo.py** - Document translation with structure preservation
-2. **code_example_generator.py** - Automated code example generation
-3. **study_guide_generator.py** - Educational content creation
-
-**Common Features:**
-- Multi-provider support (OpenAI, Anthropic, mock)
-- API key management
-- Error handling
-- Content validation
-
-**Requirements:**
-- `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variables
-- Or use `--llm mock` for testing without API keys
-
----
-
-### Web Applications
-
-Build web-based tools with all2md.
-
-#### flask_markdown_site.py
-
-Flask application for serving markdown files as a website.
-
-```bash
-pip install flask
-python flask_markdown_site.py
-```
-
-Visit: http://localhost:5000
-
-**Features:**
-- YAML frontmatter parsing (title, date, author, tags)
-- Automatic post listing sorted by date
-- URL slug generation
-- Responsive design with custom CSS
-- Static asset serving
-
-**Structure:**
-- Sample content in `flask-site-content/`
-- Custom CSS styling
-- Embedded Jinja2 template
-
-**Use Cases:**
-- Markdown-powered blogs
-- Documentation websites
-- Content management
-- Static site prototyping
-
-**Documentation:** See code comments and `flask-site-content/` for examples
-
-**Complexity:** Intermediate
-
----
-
-### Plugin Development
-
-Learn to extend all2md with custom formats and transforms.
-
-#### simpledoc-plugin/ (Directory)
-
-Complete bidirectional converter plugin for custom "SimpleDoc" format.
-
-```bash
-cd simpledoc-plugin
-pip install -e .
-python examples/demo.py
-```
-
-**Demonstrates:**
-- Parser implementation (custom format → AST)
-- Renderer implementation (AST → custom format)
-- Options class for configuration
-- Plugin registration with entry points
-- Complete package structure
-- Testing patterns
-
-**Structure:**
-- `src/all2md_simpledoc/parser.py` - Format parser
-- `src/all2md_simpledoc/renderer.py` - Format renderer
-- `src/all2md_simpledoc/options.py` - Configuration options
-- `tests/` - Unit tests
-- `pyproject.toml` - Package configuration
-
-**Documentation:**
-- `README.md` - Plugin overview
-- `RENDERER_PATTERNS.md` - Renderer implementation guide
-
-**Complexity:** Advanced
-
-**Use Case:** Template for creating custom format plugins
-
----
-
-#### watermark-plugin/ (Directory)
-
-Transform plugin that adds watermarks to document images.
-
-```bash
-cd watermark-plugin
-pip install -e .
-```
-
-**Demonstrates:**
-- Transform plugin pattern
-- Image manipulation in AST
-- Transform registration
-- Plugin metadata
-
-**Structure:**
-- `src/all2md_watermark/transforms.py` - Transform implementation
-- `tests/` - Unit tests
-- `pyproject.toml` - Package configuration
-
-**Complexity:** Intermediate
-
-**Use Case:** Template for creating transform plugins
-
----
-
-## Examples by Complexity
-
-### Beginner
-
-Start here to learn basic concepts:
-
-- **progress_callback_demo.py** - Progress tracking
-- **jinja_template_demo.py** - Template rendering
-
-### Intermediate
-
-Build on fundamentals with practical applications:
-
-- **flask_markdown_site.py** - Web application
-- **link_checker.py** - Link validation
-- **document_sanitizer.py** - Content sanitization
-- **api_doc_extractor.py** - Code extraction
-- **batch_converter.py** - Bulk processing
-- **llm_translation_demo.py** - LLM integration
-- **study_guide_generator.py** - Content generation
-- **watermark-plugin/** - Transform plugin
-
-### Advanced
-
-Production-ready applications and complex integrations:
-
-- **code_example_generator.py** - Advanced LLM usage
-- **simpledoc-plugin/** - Complete format plugin
-- **vcs-converter/** - Git workflow integration
 
 ## Requirements
 
-### Core Requirements
+```bash
+pip install all2md          # core
+pip install all2md[all]     # all optional format support (PDF, DOCX, ...)
+```
 
-All examples require:
+Per-example extras:
 
 ```bash
-pip install all2md
+pip install anthropic       # llm/ examples (real Claude calls)
+pip install flask           # web/ example
+pip install httpx           # python/link_checker.py URL checks
 ```
 
-### Example-Specific Requirements
-
-**Flask Web Application:**
-```bash
-pip install flask
-```
-
-**LLM Integration Examples:**
-```bash
-pip install openai  # For OpenAI
-# OR
-pip install anthropic  # For Anthropic
-
-# Set environment variables
-export OPENAI_API_KEY="your-key"
-# OR
-export ANTHROPIC_API_KEY="your-key"
-```
-
-**Link Checker:**
-```bash
-pip install httpx  # For URL checking
-```
-
-**Plugin Development:**
-```bash
-cd simpledoc-plugin  # or watermark-plugin
-pip install -e .
-```
-
-### Optional Dependencies
-
-Some examples work better with optional all2md features:
-
-```bash
-pip install all2md[pdf]     # PDF support
-pip install all2md[docx]    # Word document support
-pip install all2md[all]     # All optional features
-```
-
-## Running Examples
-
-### Standalone Scripts
-
-Most examples are single Python files that can be run directly:
-
-```bash
-# With arguments
-python example_name.py input.pdf --output output.md
-
-# Without arguments (shows help/demo)
-python example_name.py
-```
-
-All scripts include:
-- Comprehensive help text (`--help`)
-- Example usage in docstrings
-- Demo mode when run without arguments
-
-### Directory-Based Examples
-
-Examples in subdirectories have their own README files:
-
-```bash
-# simpledoc-plugin
-cd simpledoc-plugin
-cat README.md
-
-# watermark-plugin
-cd watermark-plugin
-cat README.md
-
-# vcs-converter
-cd vcs-converter
-cat README.md
-```
-
-## Key Concepts Demonstrated
-
-### AST Manipulation
-
-Most examples work with all2md's AST (Abstract Syntax Tree):
-
-```python
-from all2md import to_ast, from_ast
-
-# Parse to AST
-doc = to_ast("input.pdf")
-
-# Manipulate AST
-# ... transform document ...
-
-# Render to output
-output = from_ast(doc, "markdown")
-```
-
-**Examples:** document_sanitizer.py, llm_translation_demo.py, code_example_generator.py
-
-### NodeTransformer Pattern
-
-Advanced AST manipulation using visitors:
-
-```python
-from all2md.ast.visitors import NodeTransformer
-
-class CustomTransform(NodeTransformer):
-    def visit_Link(self, node):
-        # Transform links
-        return modified_node
-```
-
-**Examples:** llm_translation_demo.py, document_sanitizer.py
-
-### Batch Processing
-
-Efficient processing of multiple files:
-
-```python
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
-
-with ThreadPoolExecutor(max_workers=4) as executor:
-    results = executor.map(convert_file, file_list)
-```
-
-**Examples:** batch_converter.py, vcs-converter/
-
-### Progress Callbacks
-
-Track conversion progress:
-
-```python
-def progress_handler(event, data):
-    print(f"Progress: {data.get('percent', 0)}%")
-
-result = convert(path, progress_callback=progress_handler)
-```
-
-**Example:** progress_callback_demo.py
-
-### Plugin Architecture
-
-Extend all2md with custom formats:
-
-**Parser Plugin:**
-```python
-from all2md.parsers.base import BaseParser
-
-class CustomParser(BaseParser):
-    def parse(self, input_source, options):
-        # Parse custom format to AST
-        return document
-```
-
-**Renderer Plugin:**
-```python
-from all2md.renderers.base import BaseRenderer
-
-class CustomRenderer(BaseRenderer):
-    def render(self, document, options):
-        # Render AST to custom format
-        return output
-```
-
-**Examples:** simpledoc-plugin/, watermark-plugin/
-
-## Use Case Index
-
-Find examples by your specific need:
-
-**Documentation Management:**
-- api_doc_extractor.py
-- link_checker.py
-- code_example_generator.py
-- flask_markdown_site.py
-
-**Privacy & Compliance:**
-- document_sanitizer.py
-
-**Education & Training:**
-- study_guide_generator.py
-
-**Translation & Localization:**
-- llm_translation_demo.py
-
-**Version Control:**
-- vcs-converter/
-
-**Bulk Operations:**
-- batch_converter.py
-
-**Custom Formats:**
-- simpledoc-plugin/
-- watermark-plugin/
-
-**Web Publishing:**
-- flask_markdown_site.py
-
-## Contributing
-
-Want to add your own example? We welcome contributions!
-
-### Example Guidelines
-
-Good examples should:
-
-1. **Demonstrate a clear use case** - Solve a real-world problem
-2. **Include documentation** - Comprehensive docstrings and help text
-3. **Follow patterns** - Match existing example structure
-4. **Be runnable** - Work out of the box or with clear setup instructions
-5. **Show best practices** - Demonstrate proper all2md usage
-
-### Example Template
-
-```python
-#!/usr/bin/env python3
-"""Short description.
-
-Longer description of what this example demonstrates and why it's useful.
-
-Usage:
-    python example.py input.pdf --option value
-
-Example:
-    python example.py document.pdf --output result.md
-
-Requirements:
-    pip install all2md optional-dependency
-
-"""
-
-import argparse
-from all2md import to_ast, from_ast
-
-def main():
-    parser = argparse.ArgumentParser(description="...")
-    # ... setup ...
-
-if __name__ == "__main__":
-    main()
-```
-
-### Submitting Examples
-
-1. Create your example following the template
-2. Test thoroughly
-3. Add entry to this README.md
-4. Submit a pull request
-
-## Additional Resources
-
-- **Main Documentation:** See `docs/` directory
-- **API Reference:** See `docs/source/api/`
-- **Python API Guide:** See `docs/source/python_api.rst`
-- **Plugin Development:** See simpledoc-plugin/RENDERER_PATTERNS.md
-
-## License
-
-All examples are part of the all2md project. See the main LICENSE file for details.
+The `cli/` bash scripts that parse JSON (`search`, `diff`, `rag`) use `jq`; the
+PowerShell versions parse JSON natively. On Windows, run `.sh` files under Git
+Bash or WSL and `.ps1` files in PowerShell 7+.
 
 ---
 
-**Questions or Issues?** Open an issue on the all2md repository or check the main documentation.
+## Key concepts (correct, current API)
+
+### Parse to an AST, transform, render
+
+```python
+from all2md import to_ast, from_ast
+
+doc = to_ast("input.pdf")           # -> Document
+# ... inspect or transform doc ...
+markdown = from_ast(doc, "markdown")        # text formats -> str
+from_ast(doc, "docx", output="out.docx")    # binary formats -> file/bytes
+```
+
+### Custom transforms (NodeTransformer)
+
+`NodeTransformer` lives in `all2md.ast.transforms`. Visitor methods are
+**snake_case** by node type (`visit_link`, `visit_image`, `visit_text`, ...):
+
+```python
+from all2md.ast.transforms import NodeTransformer
+
+class StripTrackingParams(NodeTransformer):
+    def visit_link(self, node):              # note: snake_case
+        node.url = node.url.split("?")[0]
+        return node
+
+from all2md import to_markdown
+markdown = to_markdown("page.html", transforms=[StripTrackingParams()])
+```
+
+### Built-in transforms by name
+
+The same names the CLI exposes via `--transform` (see `all2md list-transforms`):
+
+```python
+markdown = to_markdown(
+    "report.docx",
+    transforms=["remove-images", "heading-offset", "remove-boilerplate"],
+)
+```
+
+### Hooks (per-node-type callbacks during rendering)
+
+```python
+def note_image(node, context):
+    print("image:", node.url)
+    return node                              # return the (maybe modified) node
+
+to_markdown("doc.pdf", hooks={"image": [note_image]})
+```
+
+### Progress callbacks
+
+The callback takes a single `ProgressEvent` (canonical types: `started`,
+`item_done`, `detected`, `finished`, `error`):
+
+```python
+from all2md import to_markdown
+from all2md.progress import ProgressEvent
+
+def on_progress(event: ProgressEvent):
+    print(event.event_type, event.message, f"{event.current}/{event.total}")
+
+to_markdown("big.pdf", progress_callback=on_progress)
+```
+
+### AST <-> JSON (LLM-friendly interchange)
+
+```python
+from all2md import to_ast, from_ast
+from all2md.ast.serialization import ast_to_json, json_to_ast
+
+doc = to_ast("input.docx")
+blob = ast_to_json(doc, indent=2)    # stable, inspectable JSON of the structure
+doc2 = json_to_ast(blob)             # round-trips back to a Document
+html = from_ast(doc2, "html")
+```
+
+### Search a corpus (retrieval for RAG)
+
+```python
+from all2md.search import search_documents
+from all2md.search.service import SearchDocumentInput
+
+docs = [SearchDocumentInput(source=p) for p in ["a.pdf", "b.docx"]]
+hits = search_documents(docs, "billing policy", mode="keyword", top_k=5)
+for h in hits:
+    print(h.score, h.chunk.metadata.get("document_path"), h.chunk.metadata.get("section_heading"))
+```
+
+---
+
+## Running the examples
+
+```bash
+# Python scripts (use uv, or any environment with all2md installed)
+python python/transforms_by_name.py path/to/document.docx
+python llm/search_to_llm_rag.py "your question" ./docs --llm mock
+
+# Shell scripts
+bash cli/convert-and-pipe.sh report.pdf            # bash / Git Bash / WSL
+pwsh cli/convert-and-pipe.ps1 report.pdf           # PowerShell 7+
+```
+
+Run any script with no arguments (or `--help`) to see its usage.
+
+## Contributing an example
+
+Good examples solve a real problem, use the current public API, run out of the
+box (or with a clearly stated extra), and include a short docstring with usage.
+Drop new files into the matching theme folder and add a row to the tables above.
+
+See the main project docs for the full API reference and the cookbook
+(`docs/source/recipes.rst`).

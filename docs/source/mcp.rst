@@ -233,7 +233,7 @@ Save Markdown as HTML:
 
    {
      "format": "html",
-     "source": "# Hello World\\n\\nThis is a test.",
+     "source": "# Hello World\n\nThis is a test.",
      "filename": "/workspace/output.html"
    }
 
@@ -243,7 +243,7 @@ Save Markdown as PDF:
 
    {
      "format": "pdf",
-     "source": "# Report\\n\\nExecutive summary here.",
+     "source": "# Report\n\nExecutive summary here.",
      "filename": "/workspace/report.pdf"
    }
 
@@ -253,7 +253,7 @@ Save Markdown as DOCX:
 
    {
      "format": "docx",
-     "source": "# Document Title\\n\\nContent goes here.",
+     "source": "# Document Title\n\nContent goes here.",
      "filename": "/workspace/document.docx"
    }
 
@@ -775,8 +775,6 @@ Best Practices
 Integration Examples
 --------------------
 
-.. TODO: add examples using uv to launch in isolated environment
-
 Claude Desktop (one-click bundle)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1011,7 +1009,8 @@ Images Not Visible to LLM
 
 **Solution:**
 
-Enable image inclusion (enabled by default):
+Image inclusion is **off by default** (it inflates responses); enable it so a
+vision-capable client can see embedded images:
 
 .. code-block:: bash
 

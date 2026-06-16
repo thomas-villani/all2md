@@ -27,10 +27,9 @@ import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
-from all2md import convert, to_ast
+from all2md import from_ast, to_ast
 from all2md.ast import Comment, CommentInline, Document, Node, Text
 from all2md.ast.transforms import NodeTransformer
-from all2md.ast.utils import extract_text
 
 
 @dataclass
@@ -441,13 +440,13 @@ def sanitize_document(
                     ast_doc.metadata[key] = "Anonymous"
                     report.metadata_fields_removed += 1
 
-    print(f"  - Writing sanitized document to: {output_path}")
-    convert(
-        str(input_path),
-        output=output_path,
-        source_format="ast_json",
-        target_format=output_path.split(".")[-1] if "." in output_path else "markdown",
-    )
+    # Render the *sanitized* AST back out. We deliberately render ``ast_doc``
+    # (the transformed tree) rather than re-reading the original file, and map
+    # the output extension to a renderer format ("md" -> "markdown").
+    ext = output_path.rsplit(".", 1)[-1].lower() if "." in output_path else "markdown"
+    target_format = {"md": "markdown", "markdown": "markdown", "txt": "plaintext"}.get(ext, ext)
+    print(f"  - Writing sanitized document to: {output_path} (format: {target_format})")
+    from_ast(ast_doc, target_format, output=output_path)
 
     return report
 
