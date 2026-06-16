@@ -826,7 +826,7 @@ Containerize all2md application:
 .. code-block:: text
 
    # requirements.txt
-   all2md[all]==0.1.0
+   all2md[all]
    fastapi==0.109.0
    uvicorn[standard]==0.27.0
    python-multipart==0.0.6

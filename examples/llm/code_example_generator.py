@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from all2md import from_ast, to_ast
-from all2md.ast import CodeBlock, Document, Heading, Node, Paragraph
+from all2md.ast import CodeBlock, Document, Heading, Node, Paragraph, Text
 from all2md.ast.builder import DocumentBuilder
 from all2md.ast.transforms import NodeTransformer, extract_nodes
 from all2md.ast.utils import extract_text
@@ -421,74 +421,21 @@ This example demonstrates how to use {api_name}. First, we import the necessary 
 """
 
 
-def openai_llm_client(prompt: str) -> str:
-    """OpenAI LLM client for code generation.
-
-    Requires: pip install openai
-    Environment: OPENAI_API_KEY
-
-    Parameters
-    ----------
-    prompt : str
-        Generation prompt
-
-    Returns
-    -------
-    str
-        LLM response
-
-    """
-    import os
-
-    from openai import OpenAI
-
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are an expert programmer who writes clear, working code examples for API documentation.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.3,
-    )
-
-    return response.choices[0].message.content
-
-
 def anthropic_llm_client(prompt: str) -> str:
-    """Anthropic LLM client for code generation.
+    """Generate a code example with Claude via the shared helper.
 
     Requires: pip install anthropic
     Environment: ANTHROPIC_API_KEY
 
-    Parameters
-    ----------
-    prompt : str
-        Generation prompt
-
-    Returns
-    -------
-    str
-        LLM response
-
+    See ``_llm_client.py`` for the SDK wiring and how to pick a model.
     """
-    import os
+    from _llm_client import get_client
 
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
-    message = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
+    client = get_client("anthropic", max_tokens=2048)
+    return client(
+        prompt,
+        system="You are an expert programmer who writes clear, working code examples for API documentation.",
     )
-
-    return message.content[0].text
 
 
 class ExampleInserterTransform(NodeTransformer):
@@ -552,12 +499,13 @@ class ExampleInserterTransform(NodeTransformer):
                 if heading_text in self.examples_by_heading:
                     example = self.examples_by_heading[heading_text]
 
+                    # add_paragraph takes a list of inline Nodes; build Text nodes directly.
                     builder = DocumentBuilder()
-                    builder.add_paragraph(builder.text(f"Example ({example.language}):"))
+                    builder.add_paragraph([Text(content=f"Example ({example.language}):")])
                     builder.add_code_block(example.code, language=example.language)
-                    builder.add_paragraph(builder.text(example.explanation))
+                    builder.add_paragraph([Text(content=example.explanation)])
 
-                    new_children.extend(builder.document.children)
+                    new_children.extend(builder.get_document().children)
 
             i += 1
 
@@ -686,9 +634,9 @@ def main():
     )
     parser.add_argument(
         "--llm",
-        choices=["mock", "openai", "anthropic"],
+        choices=["mock", "anthropic"],
         default="mock",
-        help="LLM provider (default: mock)",
+        help="LLM provider: mock (no API key) or anthropic = Claude (default: mock)",
     )
     parser.add_argument(
         "--no-validate",
@@ -700,17 +648,10 @@ def main():
 
     llm_clients = {
         "mock": mock_llm_client,
-        "openai": openai_llm_client,
         "anthropic": anthropic_llm_client,
     }
 
-    if args.llm == "openai":
-        import os
-
-        if not os.environ.get("OPENAI_API_KEY"):
-            print("Error: OPENAI_API_KEY environment variable not set")
-            sys.exit(1)
-    elif args.llm == "anthropic":
+    if args.llm == "anthropic":
         import os
 
         if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -743,7 +684,7 @@ if __name__ == "__main__":
         print("Usage:")
         print("  python code_example_generator.py api_docs.md enhanced_docs.md")
         print("  python code_example_generator.py README.md examples.md --language python")
-        print("  python code_example_generator.py docs.html out.html --llm openai")
+        print("  python code_example_generator.py docs.html out.html --llm anthropic")
         print()
         print("Features:")
         print("  - Extract API descriptions and function signatures")
@@ -756,12 +697,11 @@ if __name__ == "__main__":
         print("Options:")
         print("  --language LANG    Target language (default: python)")
         print("                     Supported: python, javascript")
-        print("  --llm PROVIDER     LLM provider: mock, openai, anthropic")
+        print("  --llm PROVIDER     LLM provider: mock, anthropic")
         print("  --no-validate      Skip code validation")
         print()
         print("LLM Providers:")
-        print("  mock        Demo mode (generates template examples)")
-        print("  openai      OpenAI GPT-4 (requires OPENAI_API_KEY)")
+        print("  mock        Demo mode (generates template examples, no API key)")
         print("  anthropic   Anthropic Claude (requires ANTHROPIC_API_KEY)")
         print()
         print("How It Works:")
@@ -777,9 +717,9 @@ if __name__ == "__main__":
         print("  Generate Python examples with mock LLM:")
         print("    python code_example_generator.py api.md enhanced.md")
         print()
-        print("  Generate JavaScript examples with OpenAI:")
+        print("  Generate JavaScript examples with Claude:")
         print("    python code_example_generator.py docs.md out.md \\")
-        print("      --language javascript --llm openai")
+        print("      --language javascript --llm anthropic")
         print()
         print("  Generate without validation (faster):")
         print("    python code_example_generator.py api.md out.md --no-validate")

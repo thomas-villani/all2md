@@ -21,17 +21,24 @@ def simple_progress_handler(event: ProgressEvent):
 
 
 def detailed_progress_handler(event: ProgressEvent):
-    """Detailed progress handler with event-specific handling."""
+    """Detailed progress handler with event-specific handling.
+
+    Uses the canonical ProgressEvent types ("started", "item_done",
+    "detected", "finished", "error"). The kind of unit/structure is carried
+    in ``event.metadata`` ("item_type" / "detected_type") rather than encoded
+    in the event type itself.
+    """
     if event.event_type == "started":
         print(f"Starting conversion: {event.message}")
         print("-" * 50)
-    elif event.event_type == "page_done":
+    elif event.event_type == "item_done":
+        item_type = event.metadata.get("item_type", "item")
         percentage = (event.current / event.total) * 100 if event.total > 0 else 0
-        print(f"  Page {event.current}/{event.total} done ({percentage:.1f}%)")
-    elif event.event_type == "table_detected":
-        table_count = event.metadata.get("table_count", 0)
+        print(f"  {item_type.capitalize()} {event.current}/{event.total} done ({percentage:.1f}%)")
+    elif event.event_type == "detected":
+        detected_type = event.metadata.get("detected_type", "structure")
         page = event.metadata.get("page", "?")
-        print(f"  Found {table_count} table(s) on page {page}")
+        print(f"  Detected {detected_type} on page {page}: {event.message}")
     elif event.event_type == "finished":
         print("-" * 50)
         print(f"Conversion complete: {event.message}")
@@ -60,7 +67,7 @@ def main():
     print()
 
     # Convert with simple progress handler
-    markdown = to_markdown(file_path, progress=simple_progress_handler)
+    markdown = to_markdown(file_path, progress_callback=simple_progress_handler)
 
     print()
     print("=" * 70)
@@ -69,7 +76,7 @@ def main():
     print()
 
     # Convert with detailed progress handler
-    markdown = to_markdown(file_path, progress=detailed_progress_handler)
+    markdown = to_markdown(file_path, progress_callback=detailed_progress_handler)
 
     print()
     print("=" * 70)

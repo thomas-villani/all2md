@@ -193,7 +193,10 @@ class SimpleDocParser(BaseParser):
             elif key == "author":
                 metadata.author = value
             elif key == "date":
-                metadata.date = value
+                # DocumentMetadata has no free-form "date" field (only
+                # creation_date / modification_date), so keep it in custom --
+                # to_dict() flattens custom entries to the top level.
+                metadata.custom["date"] = value
             elif key == "tags":
                 # Handle comma-separated tags, store as keywords
                 metadata.keywords = [tag.strip() for tag in value.split(",") if tag.strip()]

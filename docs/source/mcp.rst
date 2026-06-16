@@ -775,8 +775,6 @@ Best Practices
 Integration Examples
 --------------------
 
-.. TODO: add examples using uv to launch in isolated environment
-
 Claude Desktop (one-click bundle)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1011,7 +1009,8 @@ Images Not Visible to LLM
 
 **Solution:**
 
-Enable image inclusion (enabled by default):
+Image inclusion is **off by default** (it inflates responses); enable it so a
+vision-capable client can see embedded images:
 
 .. code-block:: bash
 

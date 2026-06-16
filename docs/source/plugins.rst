@@ -51,14 +51,14 @@ The best way to learn plugin development is to study a complete, working example
 - Paragraphs (separated by blank lines)
 
 The complete simpledoc-plugin source is available at:
-``examples/simpledoc-plugin/``
+``examples/plugins/simpledoc-plugin/``
 
 Parser Implementation
 ~~~~~~~~~~~~~~~~~~~~~
 
 A parser converts your format into the all2md AST (Abstract Syntax Tree). Here's how the SimpleDoc parser implements the core ``parse()`` method:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
    :lines: 49-98
    :linenos:
@@ -77,7 +77,7 @@ Input Type Handling
 
 The parser must handle multiple input types uniformly:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
    :lines: 100-132
    :linenos:
@@ -89,7 +89,7 @@ Content Parsing
 
 The core parsing logic uses a line-by-line state machine approach:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
    :lines: 211-270
    :linenos:
@@ -108,7 +108,7 @@ Metadata Extraction
 
 Metadata can be extracted separately from full parsing:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/parser.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/parser.py
    :language: python
    :lines: 134-209
    :linenos:
@@ -120,7 +120,7 @@ Renderer Implementation
 
 A renderer converts the all2md AST back into your format. The SimpleDoc renderer uses the visitor pattern:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 52-105
    :linenos:
@@ -132,7 +132,7 @@ Visitor Pattern Basics
 
 The renderer implements ``visit_*()`` methods for each AST node type:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 121-141
    :linenos:
@@ -144,7 +144,7 @@ Inline Content Rendering
 
 Use the ``InlineContentMixin`` helper for inline nodes:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 181-194
    :linenos:
@@ -161,7 +161,7 @@ Pattern 1: Extract Content from Formatting Nodes
 
 For nodes that represent formatting your format doesn't support (bold, italic, strikethrough, underline, superscript, subscript), **extract and render the text content**:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 343-358
    :linenos:
@@ -183,14 +183,14 @@ Pattern 2: Provide Simplified Representation
 
 For elements that have some meaningful equivalent, provide a simplified representation:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 387-403
    :linenos:
    :emphasize-lines: 17
    :caption: Handling links - Include URL in plain text
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 284-319
    :linenos:
@@ -210,7 +210,7 @@ Pattern 3: Skip Unsupported Elements
 
 For elements your format truly cannot represent, use ``pass`` with clear documentation:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 526-542
    :linenos:
@@ -229,7 +229,7 @@ Pattern 4: Parent-Handled Structural Nodes
 
 Some nodes are only rendered as part of their parent:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/renderer.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
    :lines: 495-510
    :linenos:
@@ -247,7 +247,7 @@ Options Classes
 
 Define custom options for parser and renderer configuration:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/options.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/options.py
    :language: python
    :lines: 15-70
    :linenos:
@@ -260,7 +260,7 @@ Key patterns:
 - **Field metadata**: Enables automatic CLI flag generation
 - **Validation**: Use ``__post_init__`` for validation
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/options.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/options.py
    :language: python
    :lines: 134-158
    :linenos:
@@ -272,7 +272,7 @@ Metadata Registration
 
 The ``ConverterMetadata`` object is the key to plugin discovery:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/src/all2md_simpledoc/__init__.py
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/__init__.py
    :language: python
    :lines: 46-96
    :linenos:
@@ -295,7 +295,7 @@ Package Configuration
 
 Register your plugin via entry points in ``pyproject.toml``:
 
-.. literalinclude:: ../../examples/simpledoc-plugin/pyproject.toml
+.. literalinclude:: ../../examples/plugins/simpledoc-plugin/pyproject.toml
    :language: toml
    :lines: 1-38
    :linenos:
@@ -677,7 +677,7 @@ Reference Implementation
 
 The complete SimpleDoc plugin serves as a reference implementation:
 
-- **Source code**: ``examples/simpledoc-plugin/``
+- **Source code**: ``examples/plugins/simpledoc-plugin/``
 - **Parser**: ``src/all2md_simpledoc/parser.py`` (full bidirectional parser)
 - **Renderer**: ``src/all2md_simpledoc/renderer.py`` (complete visitor implementation)
 - **Options**: ``src/all2md_simpledoc/options.py`` (parser and renderer options)
@@ -697,7 +697,7 @@ Support
 
 If you encounter issues developing plugins:
 
-1. Check the SimpleDoc plugin example in ``examples/simpledoc-plugin/``
+1. Check the SimpleDoc plugin example in ``examples/plugins/simpledoc-plugin/``
 2. Review the RENDERER_PATTERNS.md guide in the simpledoc-plugin directory
 3. Review existing plugin implementations
 4. Open an issue with the ``plugin-development`` label

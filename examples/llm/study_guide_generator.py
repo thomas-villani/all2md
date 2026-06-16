@@ -329,74 +329,18 @@ For each problem:
         return [f"Error generating practice problems: {e}"]
 
 
-def openai_llm_client(prompt: str) -> str:
-    """OpenAI LLM client for quiz/practice generation.
-
-    Requires: pip install openai
-    Environment: OPENAI_API_KEY
-
-    Parameters
-    ----------
-    prompt : str
-        The prompt to send to the LLM
-
-    Returns
-    -------
-    str
-        LLM response
-
-    """
-    import os
-
-    from openai import OpenAI
-
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a helpful educational assistant that creates study materials.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
-    )
-
-    return response.choices[0].message.content
-
-
 def anthropic_llm_client(prompt: str) -> str:
-    """Anthropic LLM client for quiz/practice generation.
+    """Generate quiz/practice content with Claude via the shared helper.
 
     Requires: pip install anthropic
     Environment: ANTHROPIC_API_KEY
 
-    Parameters
-    ----------
-    prompt : str
-        The prompt to send to the LLM
-
-    Returns
-    -------
-    str
-        LLM response
-
+    See ``_llm_client.py`` for the SDK wiring and how to pick a model.
     """
-    import os
+    from _llm_client import get_client
 
-    from anthropic import Anthropic
-
-    client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
-    message = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    return message.content[0].text
+    client = get_client("anthropic", max_tokens=2048)
+    return client(prompt, system="You are a helpful educational assistant that creates study materials.")
 
 
 def generate_study_guide(
@@ -554,26 +498,21 @@ def main():
     parser.add_argument("--practice", action="store_true", help="Generate practice problems")
     parser.add_argument(
         "--llm",
-        choices=["mock", "openai", "anthropic"],
+        choices=["mock", "anthropic"],
         default="mock",
-        help="LLM provider for quiz/practice generation",
+        help="LLM provider for quiz/practice generation (anthropic = Claude)",
     )
 
     args = parser.parse_args()
 
+    # "mock" -> None, which makes generate_study_guide fall back to its built-in
+    # template-based quiz/practice generators (no API key needed).
     llm_clients = {
         "mock": None,
-        "openai": openai_llm_client,
         "anthropic": anthropic_llm_client,
     }
 
-    if args.llm == "openai":
-        import os
-
-        if not os.environ.get("OPENAI_API_KEY"):
-            print("Error: OPENAI_API_KEY environment variable not set")
-            sys.exit(1)
-    elif args.llm == "anthropic":
+    if args.llm == "anthropic":
         import os
 
         if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -612,7 +551,7 @@ if __name__ == "__main__":
         print("Usage:")
         print("  python study_guide_generator.py textbook.pdf")
         print("  python study_guide_generator.py tutorial.md --quiz --practice")
-        print("  python study_guide_generator.py docs.html --quiz --llm openai")
+        print("  python study_guide_generator.py docs.html --quiz --llm anthropic")
         print()
         print("Features:")
         print("  - Extract section summaries (headings + first paragraph)")
@@ -625,16 +564,15 @@ if __name__ == "__main__":
         print("  --output PATH       Output file path (default: study_guide.md)")
         print("  --quiz              Generate quiz questions")
         print("  --practice          Generate practice problems")
-        print("  --llm PROVIDER      LLM provider: mock, openai, anthropic")
+        print("  --llm PROVIDER      LLM provider: mock, anthropic")
         print()
         print("LLM Providers:")
-        print("  mock        Demo mode (basic question templates)")
-        print("  openai      OpenAI GPT (requires OPENAI_API_KEY)")
+        print("  mock        Demo mode (basic question templates, no API key)")
         print("  anthropic   Anthropic Claude (requires ANTHROPIC_API_KEY)")
         print()
         print("Example:")
         print("  python study_guide_generator.py python_tutorial.pdf --quiz \\")
-        print("    --practice --llm openai --output study.md")
+        print("    --practice --llm anthropic --output study.md")
         print()
         sys.exit(0)
 

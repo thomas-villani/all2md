@@ -333,7 +333,7 @@ Run the conversion and check the output. Adjust the template as needed for edge 
 Example Templates Gallery
 --------------------------
 
-all2md includes several example templates in the ``examples/jinja-templates/`` directory:
+all2md includes several example templates in the ``examples/templates/jinja-templates/`` directory:
 
 DocBook XML
 ~~~~~~~~~~~
@@ -621,5 +621,5 @@ See Also
 - :doc:`python_api` - Overview of bidirectional conversion including templates
 - :doc:`recipes` - Step-by-step template creation tutorial
 - :doc:`ast_guide` - Understanding the AST structure for template authoring
-- ``examples/jinja-templates/`` - Gallery of example templates
-- ``examples/jinja_template_demo.py`` - Python API examples
+- ``examples/templates/jinja-templates/`` - Gallery of example templates
+- ``examples/templates/jinja_template_demo.py`` - Python API examples
