@@ -280,7 +280,7 @@ Creating Text-Only Archive from Website
 
                # Add page separator with metadata
                separator = "=" * 80
-               header = f"\\n{separator}\\nPage {i}: {html_file.name}\\n{separator}\\n\\n"
+               header = f"\n{separator}\nPage {i}: {html_file.name}\n{separator}\n\n"
 
                archive_content.append(header + markdown)
                print(f"Processed: {html_file.name}")
@@ -290,7 +290,7 @@ Creating Text-Only Archive from Website
                continue
 
        # Write combined archive
-       Path(output_file).write_text('\\n\\n'.join(archive_content), encoding='utf-8')
+       Path(output_file).write_text('\n\n'.join(archive_content), encoding='utf-8')
        print(f"Archive created: {output_file}")
 
    # Usage
@@ -457,7 +457,7 @@ Web Application Integration
                        # Limit output size (prevent DoS)
                        max_output = 1024 * 1024  # 1MB markdown limit
                        if len(markdown_content) > max_output:
-                           markdown_content = markdown_content[:max_output] + "\\n\\n[Content truncated for size limit]"
+                           markdown_content = markdown_content[:max_output] + "\n\n[Content truncated for size limit]"
 
                        return {
                            "success": True,
@@ -691,7 +691,7 @@ Directory Processing with Progress Tracking
 
        # Print summary
        summary = report["summary"]
-       print(f"\\nProcessing Complete:")
+       print(f"\nProcessing Complete:")
        print(f"  Files processed: {summary['total_files']}")
        print(f"  Successful: {summary['successful']} ({summary['success_rate']:.1f}%)")
        print(f"  Failed: {summary['failed']}")
@@ -826,7 +826,7 @@ Email Chain Analysis
            }
 
            # Extract email addresses
-           email_pattern = r'\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b'
+           email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
            emails = re.findall(email_pattern, markdown_content, re.IGNORECASE)
            metadata["participants"] = set(emails)
 
@@ -852,7 +852,7 @@ Email Chain Analysis
            metadata["has_attachments"] = "attachment" in markdown_content.lower()
 
            # Estimate thread depth by indentation/quote levels
-           quote_levels = [line.count('>') for line in markdown_content.split('\\n') if line.strip().startswith('>')]
+           quote_levels = [line.count('>') for line in markdown_content.split('\n') if line.strip().startswith('>')]
            metadata["thread_depth"] = max(quote_levels) if quote_levels else 0
 
            return metadata
@@ -919,7 +919,7 @@ Email Chain Analysis
            # Generate participant frequency
            for email in results["emails"]:
                for participant in email["metadata"]["participants"]:
-                   results["summary"]["top_participants"][participant] = \\
+                   results["summary"]["top_participants"][participant] = \
                        results["summary"]["top_participants"].get(participant, 0) + 1
 
            # Convert sets to lists for JSON serialization
@@ -951,9 +951,9 @@ Email Chain Analysis
            )[:10]
 
            for email, count in top_participants:
-               report_content += f"- **{email}**: {count} emails\\n"
+               report_content += f"- **{email}**: {count} emails\n"
 
-           report_content += "\\n## Individual Emails\\n\\n"
+           report_content += "\n## Individual Emails\n\n"
 
            # Add each email with summary
            for i, email in enumerate(analysis_results['emails'], 1):
@@ -1201,17 +1201,17 @@ Text-Only Dataset Creation
            """Clean and normalize text for LLM training."""
            # Remove excessive whitespace
            lines = []
-           for line in text.split('\\n'):
+           for line in text.split('\n'):
                line = line.strip()
                if line:
                    lines.append(line)
 
            # Rejoin with consistent spacing
-           text = '\\n'.join(lines)
+           text = '\n'.join(lines)
 
            # Normalize multiple newlines
-           while '\\n\\n\\n' in text:
-               text = text.replace('\\n\\n\\n', '\\n\\n')
+           while '\n\n\n' in text:
+               text = text.replace('\n\n\n', '\n\n')
 
            return text
 
@@ -1320,7 +1320,7 @@ Text-Only Dataset Creation
            with dataset_file.open('w', encoding='utf-8') as f:
                for doc in all_documents:
                    json.dump(doc, f, ensure_ascii=False)
-                   f.write('\\n')
+                   f.write('\n')
 
            # Save statistics
            stats_file = self.output_dir / "dataset_stats.json"
@@ -1331,9 +1331,9 @@ Text-Only Dataset Creation
            with plaintext_file.open('w', encoding='utf-8') as f:
                for doc in all_documents:
                    f.write(doc['text'])
-                   f.write('\\n\\n' + '='*80 + '\\n\\n')
+                   f.write('\n\n' + '='*80 + '\n\n')
 
-           print(f"\\nDataset created:")
+           print(f"\nDataset created:")
            print(f"  Documents: {stats['successful']}")
            print(f"  Total words: {stats['total_words']:,}")
            print(f"  Total chars: {stats['total_chars']:,}")
@@ -1459,11 +1459,11 @@ Production Readiness Checker
                    missing_installs.extend(result['missing_packages'])
 
            if not all_available:
-               print(f"\\nMissing packages: {', '.join(set(missing_installs))}")
+               print(f"\nMissing packages: {', '.join(set(missing_installs))}")
                print(f"Install with: pip install {' '.join(set(missing_installs))}")
                return False
 
-           print("\\nAll required converters are available!")
+           print("\nAll required converters are available!")
            return True
 
        def generate_requirements(self, formats: List[str]) -> str:
@@ -1473,7 +1473,7 @@ Production Readiness Checker
                if fmt in self.format_requirements:
                    all_packages.update(self.format_requirements[fmt])
 
-           return '\\n'.join(sorted(all_packages))
+           return '\n'.join(sorted(all_packages))
 
    # Usage Example 1: Check before processing
    def safe_batch_process(input_dir: str):
@@ -1650,7 +1650,7 @@ Document Structure Analysis
        # Count headings by level
        for h in stats['headings']:
            level = f"H{h['level']}"
-           stats['summary']['heading_breakdown'][level] = \\
+           stats['summary']['heading_breakdown'][level] = \
                stats['summary']['heading_breakdown'].get(level, 0) + 1
 
        return stats
