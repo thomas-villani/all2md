@@ -139,6 +139,32 @@ ALL2MD_MCP_ALLOWED_READ_DIRS
    # Windows paths
    set ALL2MD_MCP_ALLOWED_READ_DIRS=C:\Users\User\Documents;D:\Data
 
+ALL2MD_MCP_ADDITIONAL_READ_DIRS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Extra read-only directories appended to the MCP read allowlist.
+
+**Type:** String (semicolon-separated paths)
+
+**Default:** *(none)*
+
+**Description:**
+
+Folders listed here are added to the **read** allowlist only — never the write
+allowlist — so the server can read from them but never write to them. Use it to
+grant read access to reference material alongside a writable workspace, without
+widening where the server may write.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Writable workspace plus read-only reference folders
+   export ALL2MD_MCP_ALLOWED_READ_DIRS="/home/user/workspace"
+   export ALL2MD_MCP_ALLOWED_WRITE_DIRS="/home/user/workspace"
+   export ALL2MD_MCP_ADDITIONAL_READ_DIRS="/home/user/reference;/var/shared/docs"
+   all2md-mcp
+
 ALL2MD_MCP_ALLOWED_WRITE_DIRS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -250,6 +276,31 @@ navigation. Read-only, so enabled by default.
 
    # Disable document outlines
    export ALL2MD_MCP_ENABLE_OUTLINE=false
+   all2md-mcp
+
+ALL2MD_MCP_ENABLE_LIST_FILES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Purpose:** Enable/disable the ``list_workspace_files`` tool in MCP server.
+
+**Type:** Boolean
+
+**Default:** ``true`` (read-only; enabled by default)
+
+**Valid Values:** ``true``, ``false``, ``1``, ``0``, ``yes``, ``no``
+
+**Description:**
+
+When enabled, allows LLMs to list the files the server is allowed to read (path
+and size, with optional glob and subdirectory scoping) so they can orient
+themselves before reading or editing. Read-only, so enabled by default.
+
+**Example:**
+
+.. code-block:: bash
+
+   # Disable workspace file listing
+   export ALL2MD_MCP_ENABLE_LIST_FILES=false
    all2md-mcp
 
 ALL2MD_MCP_SEARCH_INDEX_DIR

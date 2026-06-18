@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-06-18
+
+### Added
+
+- **`list_workspace_files` MCP tool.** A new read-only tool (enabled by default)
+  that lets an agent discover the files it is allowed to read before reading or
+  editing them. Returns each file's absolute path and size, supports a glob
+  ``pattern`` and a workspace-relative ``subdirectory`` scope, recurses by
+  default, and flags ``truncated`` when the listing is capped. Toggle with
+  ``--enable-list-files`` / ``--no-list-files`` or
+  ``ALL2MD_MCP_ENABLE_LIST_FILES``.
+- **Additional read-only folders for the MCP server.** A new
+  ``--additional-read-dirs`` flag and ``ALL2MD_MCP_ADDITIONAL_READ_DIRS``
+  environment variable append folders to the read allowlist only (never the
+  write allowlist), and are surfaced in the MCPB manifest.
+- **Batch, in-place `edit_document`.** `edit_document` now accepts an ordered
+  ``edits`` batch applied to a single parse; the batch is atomic (any failure
+  writes nothing). When a batch contains a mutating action, the document is
+  written back to disk in its original format (``disk_written`` / ``output_path``
+  in the response). In-place write-back supports md/html/docx/pptx/rst/epub;
+  other formats and read-only targets fail with a clear message. Responses echo
+  only the edited region, not the whole document.
+
+### Changed
+
+- **`edit_document` auto-detects the source format** instead of assuming
+  Markdown, so a ``.docx`` (or html/rst/epub/…) is parsed correctly rather than
+  yielding zero sections and cryptic index errors. Mutating edits now require the
+  target to be within the **write** allowlist (it was read-only before). DOCX
+  write-back uses the original file as a template to preserve styles where
+  possible.
+- **MCP path handling.** Relative paths and bare filenames are resolved against
+  the workspace (the read/write allowlist acts as the working directory) across
+  the read, edit, outline, diff, and save tools. A source that is unmistakably a
+  file path but cannot be found now fails loudly — listing the folders searched —
+  instead of being silently treated as inline document text.
+
+### Fixed
+
+- **MCP stdio protocol corruption on PDFs.** PyMuPDF prints an advisory to
+  stdout when processing PDFs, which corrupted the JSON-RPC channel and crashed
+  the connection for any PDF. The server now redirects fd 1 → stderr around each
+  tool's conversion work and sets ``PYMUPDF_MESSAGE=fd:2`` as an import-time
+  backstop.
+
 ## [1.5.0] - 2026-06-15
 
 ### Added

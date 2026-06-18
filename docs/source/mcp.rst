@@ -20,16 +20,17 @@ The Model Context Protocol (MCP) is an open standard that enables AI assistants 
 * Convert Markdown to other formats (HTML, PDF, DOCX, etc.)
 * Process documents with comprehensive security controls
 
-The all2md MCP server exposes six tools:
+The all2md MCP server exposes seven tools:
 
 1. **read_document_as_markdown** - Read and convert documents to Markdown format
 2. **save_document_from_markdown** - Save Markdown to other formats (disabled by default for security)
-3. **edit_document** - Edit markdown documents by manipulating their structure (disabled by default for security)
+3. **edit_document** - Apply a batch of structural edits to a document in place (disabled by default for security)
 4. **search_documents** - Search a corpus of documents (grep + keyword/BM25) and return ranked snippets
 5. **diff_documents** - Compare two documents and return a unified or JSON diff
 6. **get_document_outline** - List a document's heading structure for navigation
+7. **list_workspace_files** - List the files the server is allowed to read
 
-Tools 4-6 are read-only and **enabled by default**. Tools 2 and 3 write or mutate
+Tools 4-7 are read-only and **enabled by default**. Tools 2 and 3 write or mutate
 files and remain disabled by default.
 
 Features
@@ -260,9 +261,19 @@ Save Markdown as DOCX:
 edit_document
 ~~~~~~~~~~~~~
 
-Edit markdown documents by manipulating their structure. **Requires** ``--enable-doc-edit`` flag (disabled by default for security).
+Apply an ordered batch of structural edits to a document **in place**.
+**Requires** ``--enable-doc-edit`` flag (disabled by default for security).
 
-This tool provides a simplified, LLM-friendly interface for document manipulation with sensible defaults (markdown only, case-insensitive heading matching, GFM flavor).
+The source format is **auto-detected** (Markdown, DOCX, HTML, RST, EPUB, …), so
+the tool is not Markdown-only. The ``edits`` list is applied in order to a single
+parse and the whole batch is **atomic**: if any edit fails, none are applied and
+nothing is written. When the batch contains a mutating action, the modified
+document is written back to disk in its original format — so for mutating edits
+``doc`` must be within the **write** allowlist (read-only batches need only the
+read allowlist). In-place write-back is supported for ``md``, ``html``, ``docx``,
+``pptx``, ``rst``, and ``epub``; other formats and read-only targets fail with a
+clear message. DOCX write-back uses the original file as a template to preserve
+styles where possible.
 
 **Parameters:**
 
@@ -273,23 +284,36 @@ This tool provides a simplified, LLM-friendly interface for document manipulatio
    * - Parameter
      - Type
      - Description
-   * - ``action``
-     - string
-     - **REQUIRED.** Action to perform: ``list-sections``, ``extract``, ``add:before``, ``add:after``, ``remove``, ``replace``, ``insert:start``, ``insert:end``, ``insert:after_heading``.
    * - ``doc``
      - string
-     - **REQUIRED.** File path to the document (must be in read allowlist).
+     - **REQUIRED.** Path to the document (absolute, or resolved relative to the workspace). For mutating edits it must be within the write allowlist.
+   * - ``edits``
+     - list[object]
+     - **REQUIRED.** Ordered list of edit operations (see below). Applied as one atomic batch.
+
+Each entry in ``edits`` is an object with:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Field
+     - Type
+     - Description
+   * - ``action``
+     - string
+     - **REQUIRED.** One of ``list-sections``, ``extract``, ``add:before``, ``add:after``, ``remove``, ``replace``, ``insert:start``, ``insert:end``, ``insert:after_heading``.
    * - ``target``
      - string
-     - Section to target. Either heading text (case-insensitive) like ``"Introduction"``, or index notation like ``"#0"``, ``"#1"`` (zero-based). Required for all actions except ``list-sections``.
+     - Section to target — heading text (case-insensitive) like ``"Introduction"``, or zero-based index notation like ``"#0"``, ``"#1"``. Required for every action except ``list-sections``. Prefer heading text in multi-edit batches, since indices can shift as earlier edits add or remove sections.
    * - ``content``
      - string
-     - Markdown content to add/replace/insert. Required for ``add:before``, ``add:after``, ``replace``, and insert actions.
+     - Markdown content to add/replace/insert. Required for the add/replace/insert actions; ignored for ``list-sections``/``extract``/``remove``.
 
 **Actions:**
 
-- ``list-sections``: List all sections with metadata (returns formatted section list)
-- ``extract``: Get a specific section by heading or index (returns section content)
+- ``list-sections``: List all sections with metadata (read-only)
+- ``extract``: Get a specific section by heading or index (read-only)
 - ``add:before``: Add new section before the target section
 - ``add:after``: Add new section after the target section
 - ``remove``: Remove a section from the document
@@ -302,19 +326,21 @@ This tool provides a simplified, LLM-friendly interface for document manipulatio
 
 A dictionary with:
 
-- ``success``: Boolean indicating if operation succeeded
-- ``message``: Human-readable result or error message
-- ``content``: Content from operation (for ``list-sections`` and ``extract`` actions)
+- ``success``: True only if **every** edit in the batch applied successfully
+- ``disk_written``: Whether the modified document was persisted to disk (False for read-only batches and for any failed/atomically aborted batch)
+- ``output_path``: Path written to, when ``disk_written`` is True
+- ``results``: Per-edit results in request order, each ``{index, action, target, success, message, edited_region}`` — ``edited_region`` echoes just the affected section (not the whole document), or the listing/section content for ``list-sections``/``extract``
+- ``warnings``: Non-fatal warnings (e.g. potential fidelity loss on a binary round-trip)
 
 **Examples:**
 
-List all sections:
+List all sections (read-only, nothing is written):
 
 .. code-block:: json
 
    {
-     "action": "list-sections",
-     "doc": "/workspace/document.md"
+     "doc": "/workspace/document.md",
+     "edits": [{"action": "list-sections"}]
    }
 
 Extract a section by heading:
@@ -322,41 +348,21 @@ Extract a section by heading:
 .. code-block:: json
 
    {
-     "action": "extract",
      "doc": "/workspace/document.md",
-     "target": "Introduction"
+     "edits": [{"action": "extract", "target": "Introduction"}]
    }
 
-Extract a section by index:
+Apply several edits atomically and write back in place:
 
 .. code-block:: json
 
    {
-     "action": "extract",
-     "doc": "/workspace/document.md",
-     "target": "#2"
-   }
-
-Add a new section:
-
-.. code-block:: json
-
-   {
-     "action": "add:after",
-     "doc": "/workspace/document.md",
-     "target": "Chapter 1",
-     "content": "# New Section\n\nContent here."
-   }
-
-Replace section content:
-
-.. code-block:: json
-
-   {
-     "action": "replace",
-     "doc": "/workspace/document.md",
-     "target": "#0",
-     "content": "# Updated Heading\n\nUpdated content."
+     "doc": "/workspace/report.docx",
+     "edits": [
+       {"action": "replace", "target": "Summary", "content": "# Summary\n\nUpdated summary."},
+       {"action": "add:after", "target": "Summary", "content": "# Risks\n\nNew section."},
+       {"action": "remove", "target": "Appendix"}
+     ]
    }
 
 search_documents
@@ -545,6 +551,53 @@ A dictionary with:
      "max_level": 2
    }
 
+list_workspace_files
+~~~~~~~~~~~~~~~~~~~~~
+
+List the files the server is allowed to read, so an agent can orient itself
+before reading or editing. Read-only; enabled by default. Results are confined to
+the read allowlist (the workspace folder plus any additional read-only folders),
+so this never discloses files outside the configured roots.
+
+**Parameters:**
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Parameter
+     - Type
+     - Description
+   * - ``subdirectory``
+     - string
+     - *Optional.* Workspace-relative subdirectory to list. When omitted, all read allowlist roots are listed. Must resolve to a location inside the read allowlist.
+   * - ``pattern``
+     - string
+     - *Optional.* Glob filter applied to file names, e.g. ``"*.pdf"`` or ``"*.docx"``.
+   * - ``recursive``
+     - boolean
+     - *Optional.* Recurse into subdirectories (default: true).
+
+**Returns:**
+
+A dictionary with:
+
+* ``files``: list of ``{path, size_bytes}`` (``path`` is absolute), sorted by path
+* ``total``: number of files returned
+* ``truncated``: True if the listing was capped and more files exist than were returned
+* ``read_dirs``: the read allowlist roots that were searched
+
+**Example:**
+
+List every PDF in a subfolder:
+
+.. code-block:: json
+
+   {
+     "subdirectory": "contracts",
+     "pattern": "*.pdf"
+   }
+
 Configuration
 -------------
 
@@ -571,10 +624,12 @@ Command-Line Arguments
 * ``--enable-search`` / ``--no-search`` - Toggle the search_documents tool (default: true)
 * ``--enable-diff`` / ``--no-diff`` - Toggle the diff_documents tool (default: true)
 * ``--enable-outline`` / ``--no-outline`` - Toggle the get_document_outline tool (default: true)
+* ``--enable-list-files`` / ``--no-list-files`` - Toggle the list_workspace_files tool (default: true)
 
 **Path Allowlists:**
 
 * ``--read-dirs PATHS`` - Semicolon-separated list of allowed read directories
+* ``--additional-read-dirs PATHS`` - Extra read-only directories appended to the read allowlist (never the write allowlist)
 * ``--write-dirs PATHS`` - Semicolon-separated list of allowed write directories
 
 **Search Index:**
@@ -627,12 +682,18 @@ Environment Variables
    * - ``ALL2MD_MCP_ENABLE_OUTLINE``
      - ``true``
      - Enable get_document_outline tool
+   * - ``ALL2MD_MCP_ENABLE_LIST_FILES``
+     - ``true``
+     - Enable list_workspace_files tool
    * - ``ALL2MD_MCP_SEARCH_INDEX_DIR``
      - *(none)*
      - Directory to persist the search keyword index (must be in write allowlist)
    * - ``ALL2MD_MCP_ALLOWED_READ_DIRS``
      - CWD
      - Semicolon-separated read allowlist paths
+   * - ``ALL2MD_MCP_ADDITIONAL_READ_DIRS``
+     - *(none)*
+     - Extra read-only folders appended to the read allowlist
    * - ``ALL2MD_MCP_ALLOWED_WRITE_DIRS``
      - CWD
      - Semicolon-separated write allowlist paths
