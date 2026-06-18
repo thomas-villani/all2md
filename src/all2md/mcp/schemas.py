@@ -9,8 +9,12 @@ Classes
 - ReadDocumentAsMarkdownInput: Input schema for read_document_as_markdown tool
 - SaveDocumentFromMarkdownInput: Input schema for save_document_from_markdown tool
 - SaveDocumentFromMarkdownOutput: Output schema for save_document_from_markdown tool
-- EditDocumentSimpleInput: Input schema for edit_document tool (simplified)
-- EditDocumentSimpleOutput: Output schema for edit_document tool (simplified)
+- EditOperation: A single edit within an edit_document batch
+- EditDocumentInput: Input schema for edit_document tool (batch, in-place)
+- EditResultItem: Per-edit result entry for edit_document tool
+- EditDocumentOutput: Output schema for edit_document tool
+- ListWorkspaceFilesInput: Input schema for list_workspace_files tool
+- ListWorkspaceFilesOutput: Output schema for list_workspace_files tool
 - SearchDocumentsInput: Input schema for search_documents tool
 - SearchResultItem: Single result entry for search_documents tool
 - SearchDocumentsOutput: Output schema for search_documents tool
@@ -142,80 +146,129 @@ EditDocumentAction = Literal[
 
 
 @dataclass
-class EditDocumentSimpleInput:
-    """Input schema for edit_document tool (simplified LLM-friendly interface).
-
-    This is a simplified wrapper around the powerful AST-based document
-    manipulation functionality. It uses sensible defaults and a streamlined
-    interface designed for LLM usage.
+class EditOperation:
+    """A single edit within an edit_document batch.
 
     Attributes
     ----------
     action : EditDocumentAction
-        Operation to perform on the document. One of:
-        - "list-sections": List all sections with metadata
-        - "extract": Get a single section by heading or index
-        - "add:before": Add new section before target
-        - "add:after": Add new section after target
-        - "remove": Remove a section
-        - "replace": Replace section content
-        - "insert:start": Insert content at start of section
-        - "insert:end": Insert content at end of section
-        - "insert:after_heading": Insert content right after heading
-    doc : str
-        File path to the document (must be in read allowlist).
-        Only file paths are supported (no inline content).
+        Operation to perform. One of:
+
+        - "list-sections": list all sections with metadata (read-only)
+        - "extract": get a single section by heading or index (read-only)
+        - "add:before" / "add:after": add a new section relative to target
+        - "remove": remove a section
+        - "replace": replace a section's content
+        - "insert:start" / "insert:end" / "insert:after_heading": insert content
+          within the target section
     target : str | None
-        Section to target for operations. Can be:
-        - Heading text (case-insensitive): "Introduction"
-        - Index notation: "#0", "#1", "#2", etc. (zero-based)
-        Required for all operations except "list-sections".
+        Section to target. Either heading text (case-insensitive), e.g.
+        "Introduction", or zero-based index notation, e.g. "#0", "#1".
+        Required for every action except "list-sections". Heading text is
+        recommended in multi-edit batches, since indices can shift as earlier
+        edits in the batch add or remove sections.
     content : str | None
-        Markdown content to add/replace/insert.
-        Required for add/replace/insert operations.
-        Ignored for list-sections/extract/remove.
-
-    Notes
-    -----
-    Defaults (not configurable in simplified interface):
-
-    - Format: markdown only (no AST JSON)
-    - Case sensitivity: case-insensitive heading matching
-    - Flavor: "gfm" (GitHub Flavored Markdown)
-    - Output: always returned in response (no file writing)
+        Markdown content to add/replace/insert. Required for the add/replace/
+        insert actions; ignored for list-sections/extract/remove.
 
     """
 
     action: EditDocumentAction
-    doc: str
     target: str | None = None
     content: str | None = None
 
 
 @dataclass
-class EditDocumentSimpleOutput:
+class EditDocumentInput:
+    """Input schema for edit_document tool (batch, in-place editing).
+
+    Applies one or more edits to a single document. Edits are applied in order
+    to one parse of the document and the whole batch is atomic: if any edit
+    fails, none are applied and nothing is written. When the batch contains a
+    mutating action, the modified document is written back to disk in its
+    original format (the file must be within the write allowlist).
+
+    Attributes
+    ----------
+    doc : str
+        Path to the document (absolute or workspace-relative). For mutating
+        edits it must be within the write allowlist.
+    edits : list[EditOperation]
+        Ordered list of edits to apply.
+
+    Notes
+    -----
+    - Source format is auto-detected (Markdown, DOCX, HTML, RST, EPUB, ...), so
+      the tool is not Markdown-only.
+    - Non-Markdown formats are re-rendered on write-back; for binary formats this
+      can lose some fine-grained formatting (a warning is returned). DOCX uses
+      the original file as a template to preserve styles where possible.
+    - Mutating responses echo only the edited region, not the whole document, to
+      keep responses small.
+
+    """
+
+    doc: str
+    edits: list[EditOperation] = field(default_factory=list)
+
+
+@dataclass
+class EditResultItem:
+    """Result of a single edit within a batch.
+
+    Attributes
+    ----------
+    index : int
+        Zero-based position of this edit in the request batch.
+    action : str
+        The action that was requested.
+    target : str | None
+        The target that was requested (if any).
+    success : bool
+        Whether this individual edit applied successfully.
+    message : str
+        Human-readable result or error message.
+    edited_region : str | None
+        For mutating edits, the markdown of just the affected section after the
+        edit (not the whole document). For "list-sections"/"extract", the
+        requested listing/section content. None when not applicable.
+
+    """
+
+    index: int
+    action: str
+    target: str | None
+    success: bool
+    message: str
+    edited_region: str | None = None
+
+
+@dataclass
+class EditDocumentOutput:
     """Output schema for edit_document tool.
 
     Attributes
     ----------
     success : bool
-        Whether the operation succeeded
-    message : str
-        Human-readable message describing the result.
-        For errors, contains clear error description.
-        For success, contains confirmation message.
-    content : str | None
-        Content returned by the operation (when applicable).
-        - For "list-sections": formatted list of sections with metadata
-        - For "extract": markdown content of the extracted section
-        - For add/remove/replace/insert operations: updated markdown content
-        - None otherwise
+        True only if every edit in the batch applied successfully.
+    disk_written : bool
+        Whether the modified document was persisted to disk. False for read-only
+        batches (list-sections/extract only) and for any failed/atomically
+        aborted batch.
+    output_path : str | None
+        Path written to, when disk_written is True.
+    results : list[EditResultItem]
+        Per-edit results, in request order.
+    warnings : list[str]
+        Non-fatal warnings (e.g. potential fidelity loss on a binary round-trip).
 
     """
 
     success: bool
-    message: str
-    content: str | None = None
+    disk_written: bool = False
+    output_path: str | None = None
+    results: list[EditResultItem] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 # search_documents tool schemas
@@ -408,3 +461,55 @@ class GetDocumentOutlineOutput:
 
     sections: list[dict] = field(default_factory=list)
     total: int = 0
+
+
+# list_workspace_files tool schemas
+@dataclass
+class ListWorkspaceFilesInput:
+    """Input schema for list_workspace_files tool.
+
+    Lists files the server is allowed to read, so an agent can orient itself
+    before reading or editing. Results are confined to the read allowlist
+    (workspace folder plus any additional read-only folders).
+
+    Attributes
+    ----------
+    subdirectory : str | None
+        Optional workspace-relative subdirectory to list. When omitted, all read
+        allowlist roots are listed. Must resolve to a location inside the read
+        allowlist.
+    pattern : str | None
+        Optional glob filter applied to file names, e.g. "*.pdf" or "*.docx".
+    recursive : bool
+        Recurse into subdirectories (default: True).
+
+    """
+
+    subdirectory: str | None = None
+    pattern: str | None = None
+    recursive: bool = True
+
+
+@dataclass
+class ListWorkspaceFilesOutput:
+    """Output schema for list_workspace_files tool.
+
+    Attributes
+    ----------
+    files : list[dict]
+        Listed files, each ``{"path": str, "size_bytes": int}`` where ``path`` is
+        absolute. Sorted by path.
+    total : int
+        Number of files returned.
+    truncated : bool
+        True if the listing was capped and more files exist than were returned.
+    read_dirs : list[str]
+        The read allowlist roots that were searched (helps the agent understand
+        what it can access).
+
+    """
+
+    files: list[dict] = field(default_factory=list)
+    total: int = 0
+    truncated: bool = False
+    read_dirs: list[str] = field(default_factory=list)

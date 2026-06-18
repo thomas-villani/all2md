@@ -17,6 +17,7 @@ Classes
 import argparse
 import logging
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -48,6 +49,8 @@ class MCPConfig(CloneFrozenMixin):
         Whether to enable diff_documents tool (default: True; read-only)
     enable_outline : bool
         Whether to enable get_document_outline tool (default: True; read-only)
+    enable_list_files : bool
+        Whether to enable list_workspace_files tool (default: True; read-only)
     search_index_dir : str | Path | None
         Optional directory for persisting/loading the search keyword index.
         None (default) rebuilds a fresh in-memory index on every call. When set,
@@ -84,6 +87,7 @@ class MCPConfig(CloneFrozenMixin):
     enable_search: bool = True  # Read-only: search a document corpus (grep + keyword)
     enable_diff: bool = True  # Read-only: compare two documents
     enable_outline: bool = True  # Read-only: list a document's heading structure
+    enable_list_files: bool = True  # Read-only: list files in the workspace/read allowlist
     search_index_dir: str | Path | None = None  # None = rebuild per call; set = persist keyword index
     read_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
     write_allowlist: list[str | Path] | None = None  # Will be set to CWD if None, then to Path objects
@@ -115,9 +119,12 @@ class MCPConfig(CloneFrozenMixin):
                 self.enable_search,
                 self.enable_diff,
                 self.enable_outline,
+                self.enable_list_files,
             )
         ):
-            raise ValueError("At least one tool must be enabled (to_md, from_md, doc_edit, search, diff, or outline)")
+            raise ValueError(
+                "At least one tool must be enabled " "(to_md, from_md, doc_edit, search, diff, outline, or list_files)"
+            )
 
 
 def _parse_semicolon_list(value: str | None) -> list[str] | None:
@@ -139,6 +146,34 @@ def _parse_semicolon_list(value: str | None) -> list[str] | None:
 
     parts = [p.strip() for p in value.split(";") if p.strip()]
     return parts if parts else None
+
+
+def _parse_dir_list(value: str | None) -> list[str] | None:
+    """Parse a directory list tolerant of how hosts join multiple values.
+
+    Accepts ``;``, the OS path separator, and newlines as separators (MCPB may
+    join a multi-value directory config with any of these). Unsubstituted
+    ``${...}`` placeholders (e.g. an optional config the host left blank) are
+    ignored.
+
+    Parameters
+    ----------
+    value : str | None
+        Raw separator-joined string, or None.
+
+    Returns
+    -------
+    list[str] | None
+        List of directory strings, or None if empty.
+
+    """
+    if not value:
+        return None
+
+    separators = {";", os.pathsep, "\n", "\r"}
+    pattern = "[" + "".join(re.escape(c) for c in separators) + "]"
+    parts = [p.strip() for p in re.split(pattern, value) if p.strip() and "${" not in p]
+    return parts or None
 
 
 def _str_to_bool(value: str | None, default: bool = False) -> bool:
@@ -254,6 +289,12 @@ def load_config_from_env() -> MCPConfig:
     if write_allowlist_strs is None:
         write_allowlist_strs = [cwd]
 
+    # Additional read-only folders are appended to the read allowlist only (never
+    # the write allowlist), so files there can be read but not modified.
+    additional_read_strs = _parse_dir_list(os.getenv("ALL2MD_MCP_ADDITIONAL_READ_DIRS"))
+    if additional_read_strs:
+        read_allowlist_strs = read_allowlist_strs + additional_read_strs
+
     # Optional persistent search index directory (None = rebuild per call)
     search_index_dir = os.getenv("ALL2MD_MCP_SEARCH_INDEX_DIR") or None
 
@@ -264,6 +305,7 @@ def load_config_from_env() -> MCPConfig:
         enable_search=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_SEARCH"), default=True),  # Read-only
         enable_diff=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_DIFF"), default=True),  # Read-only
         enable_outline=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_OUTLINE"), default=True),  # Read-only
+        enable_list_files=_str_to_bool(os.getenv("ALL2MD_MCP_ENABLE_LIST_FILES"), default=True),  # Read-only
         search_index_dir=search_index_dir,
         # Will be validated and converted to Path objects by prepare_allowlist_dirs
         read_allowlist=cast(list[str | Path], read_allowlist_strs),
@@ -297,9 +339,11 @@ Environment Variables:
   ALL2MD_MCP_ENABLE_SEARCH         Enable search_documents tool (default: true)
   ALL2MD_MCP_ENABLE_DIFF           Enable diff_documents tool (default: true)
   ALL2MD_MCP_ENABLE_OUTLINE        Enable get_document_outline tool (default: true)
+  ALL2MD_MCP_ENABLE_LIST_FILES     Enable list_workspace_files tool (default: true)
   ALL2MD_MCP_SEARCH_INDEX_DIR      Directory to persist the search keyword index (default: none)
   ALL2MD_MCP_ALLOWED_READ_DIRS     Semicolon-separated read allowlist paths
   ALL2MD_MCP_ALLOWED_WRITE_DIRS    Semicolon-separated write allowlist paths
+  ALL2MD_MCP_ADDITIONAL_READ_DIRS  Extra read-only folders (appended to the read allowlist)
   ALL2MD_MCP_INCLUDE_IMAGES        Include images in output for vLLM visibility (default: false)
   ALL2MD_MCP_FLAVOR                Markdown flavor: gfm, commonmark, multimarkdown, pandoc, kramdown,
                                    markdown_plus (default: gfm)
@@ -410,6 +454,18 @@ Examples:
     )
     parser.set_defaults(enable_outline=None)  # None = use env default
 
+    list_files_group = parser.add_mutually_exclusive_group()
+    list_files_group.add_argument(
+        "--enable-list-files",
+        action="store_true",
+        dest="enable_list_files",
+        help="Enable list_workspace_files tool (default: true; read-only)",
+    )
+    list_files_group.add_argument(
+        "--no-list-files", action="store_false", dest="enable_list_files", help="Disable list_workspace_files tool"
+    )
+    parser.set_defaults(enable_list_files=None)  # None = use env default
+
     # Persistent search index directory (opt-in; None = rebuild per call)
     parser.add_argument(
         "--search-index-dir",
@@ -422,6 +478,13 @@ Examples:
     # Path allowlists
     parser.add_argument(
         "--read-dirs", type=str, metavar="PATHS", help="Semicolon-separated list of allowed read directories"
+    )
+
+    parser.add_argument(
+        "--additional-read-dirs",
+        type=str,
+        metavar="PATHS",
+        help="Extra read-only directories appended to the read allowlist (separator-joined)",
     )
 
     parser.add_argument(
@@ -520,11 +583,21 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     if args.enable_outline is not None:
         updated_kwargs.update(enable_outline=args.enable_outline)
 
+    if getattr(args, "enable_list_files", None) is not None:
+        updated_kwargs.update(enable_list_files=args.enable_list_files)
+
     if getattr(args, "search_index_dir", None) is not None:
         updated_kwargs.update(search_index_dir=args.search_index_dir)
 
     if args.read_dirs is not None:
         updated_kwargs.update(read_allowlist=_parse_semicolon_list(args.read_dirs))
+
+    # Additional read-only dirs append to whatever read allowlist is in effect.
+    if getattr(args, "additional_read_dirs", None):
+        extra = _parse_dir_list(args.additional_read_dirs)
+        if extra:
+            base = cast(list, updated_kwargs.get("read_allowlist") or config.read_allowlist or [])
+            updated_kwargs.update(read_allowlist=cast(list[str | Path], list(base) + extra))
 
     if args.write_dirs is not None:
         updated_kwargs.update(write_allowlist=_parse_semicolon_list(args.write_dirs))

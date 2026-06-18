@@ -271,6 +271,7 @@ class TestConfigFlags:
             enable_search=False,
             enable_diff=False,
             enable_outline=False,
+            enable_list_files=False,
         )
         with pytest.raises(ValueError):
             config.validate()

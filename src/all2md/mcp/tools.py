@@ -32,7 +32,13 @@ from all2md.mcp.schemas import (
     SaveDocumentFromMarkdownOutput,
     SourceFormat,
 )
-from all2md.mcp.security import secure_open_for_write, validate_read_path, validate_write_path
+from all2md.mcp.security import (
+    MCPSecurityError,
+    resolve_workspace_path,
+    secure_open_for_write,
+    validate_read_path,
+    validate_write_path,
+)
 
 FastMCPImage: type | None
 try:
@@ -93,6 +99,35 @@ def _extract_images_from_ast(doc: Any) -> list[Any]:
     return fastmcp_images
 
 
+# Path-like detection heuristics for the unified ``source`` parameter. Base64's
+# alphabet has no '.', so requiring a trailing file extension cleanly separates
+# real file references (which we error on when missing) from base64/inline text.
+_EXTENSION_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
+
+
+def _path_candidate(source: str) -> bool:
+    """Return True if ``source`` is worth attempting to resolve as a file path."""
+    s = source.strip()
+    if not s or "\n" in s or "\r" in s or len(s) > 512:
+        return False
+    if s.startswith("<") or s.lower().startswith("data:") or "://" in s:
+        return False
+    if "/" in s or "\\" in s:  # has a path separator
+        return True
+    # No separator: only a bare, space-free filename with an extension qualifies.
+    return _EXTENSION_RE.search(s) is not None and " " not in s
+
+
+def _is_definite_path(source: str) -> bool:
+    """Return True if ``source`` is unambiguously a file reference.
+
+    Used to decide whether a missing file should raise (definite path) rather
+    than fall through to inline-content handling. Requires a trailing file
+    extension, which base64 and most prose never have.
+    """
+    return _path_candidate(source) and _EXTENSION_RE.search(source.strip()) is not None
+
+
 def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, str]:
     """Detect and prepare source from unified source parameter.
 
@@ -115,29 +150,25 @@ def _detect_source_type(source: str, config: MCPConfig) -> tuple[Path | bytes, s
         If path validation fails
 
     """
-    # Quick checks to skip path detection for obvious content types
-    if source.startswith("<") or "<" in source[:100]:  # HTML/XML content
-        logger.debug("Skipping path detection: appears to be HTML/XML content")
-    elif source.startswith("data:"):  # Data URI
-        logger.debug("Skipping path detection: appears to be data URI")
-    # 1. Try to resolve as file path (if looks plausible and not HTML/JSON/etc)
-    elif (
-        "/" in source or "\\" in source or ("." in source and len(source) < 500)  # Has path separators
-    ):  # Or has dot and reasonable length
-        try:
-            path_obj = Path(source)
-            # Only validate if the path actually exists on the filesystem
-            # This prevents false positives when text happens to contain path-like strings
-            if path_obj.exists():
-                validated_path = validate_read_path(path_obj, config.read_allowlist)
-                logger.info(f"Detected as file path: {validated_path}")
-                return validated_path, "path"
-            else:
-                # Path doesn't exist, continue to other detection methods
-                logger.debug(f"Path does not exist: {path_obj}, treating as content")
-        except (OSError, ValueError):
-            # Not a valid path, continue to other detection methods
-            pass
+    # 1. Try to resolve as a file path (workspace-relative or absolute), unless
+    #    the source is obviously inline content (HTML/XML or a data URI).
+    is_inline = source.startswith("<") or "<" in source[:100] or source.startswith("data:")
+    if not is_inline and _path_candidate(source):
+        resolved = resolve_workspace_path(source, config.read_allowlist, must_exist=True)
+        if resolved is not None:
+            validated_path = validate_read_path(resolved, config.read_allowlist)
+            logger.info(f"Detected as file path: {validated_path}")
+            return validated_path, "path"
+        # Looks unmistakably like a file reference but we couldn't find it. Fail
+        # loudly instead of silently treating the path string as document text.
+        if _is_definite_path(source):
+            searched = ", ".join(str(d) for d in (config.read_allowlist or [])) or "(no read folders configured)"
+            raise MCPSecurityError(
+                f"File not found: {source!r}. Looked relative to the workspace folder(s): {searched}. "
+                "Provide a path inside an allowed folder, or pass the document content directly.",
+                path=source,
+            )
+        logger.debug(f"Path candidate {source!r} not found; treating as content")
 
     # 2. Check for data URI format (data:...)
     if source.startswith("data:"):
@@ -344,8 +375,10 @@ def save_document_from_markdown_impl(
     """
     warnings: list[str] = []
 
-    # Validate write access for output file
-    validated_output = validate_write_path(input_data.filename, config.write_allowlist)
+    # Anchor a relative filename to the workspace (write allowlist acts as cwd),
+    # then validate write access for the output file.
+    target = resolve_workspace_path(input_data.filename, config.write_allowlist, must_exist=False)
+    validated_output = validate_write_path(target or input_data.filename, config.write_allowlist)
     output_path = str(validated_output)
     logger.info(f"Writing output to: {validated_output}")
 
