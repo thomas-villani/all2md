@@ -74,7 +74,7 @@ class TestMCPConfig:
         assert config.log_level == "INFO"
 
     def test_config_validate_no_tools_enabled(self):
-        """Test that at least one tool must be enabled (all six disabled)."""
+        """Test that at least one tool must be enabled (all disabled)."""
         config = MCPConfig(
             enable_to_md=False,
             enable_from_md=False,
@@ -82,6 +82,7 @@ class TestMCPConfig:
             enable_search=False,
             enable_diff=False,
             enable_outline=False,
+            enable_list_files=False,
         )
         with pytest.raises(ValueError, match="At least one tool must be enabled"):
             config.validate()

@@ -32,11 +32,13 @@ from all2md.mcp.schemas import (
     DiffDocumentsOutput,
     GetDocumentOutlineInput,
     GetDocumentOutlineOutput,
+    ListWorkspaceFilesInput,
+    ListWorkspaceFilesOutput,
     SearchDocumentsInput,
     SearchDocumentsOutput,
     SearchResultItem,
 )
-from all2md.mcp.security import MCPSecurityError, validate_read_path
+from all2md.mcp.security import MCPSecurityError, resolve_workspace_path, validate_read_path
 from all2md.mcp.tools import _detect_source_type
 from all2md.options.search import SearchOptions
 from all2md.search.service import SearchDocumentInput, SearchService
@@ -326,3 +328,97 @@ def _as_str(value: object) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+# Cap on files returned by list_workspace_files to keep responses bounded.
+_LIST_FILES_CAP = 1000
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    """Return True if ``path`` is inside ``root``."""
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def list_workspace_files_impl(input_data: ListWorkspaceFilesInput, config: MCPConfig) -> ListWorkspaceFilesOutput:
+    """Implement the list_workspace_files tool.
+
+    Lists files within the read allowlist (workspace folder plus any additional
+    read-only folders) so an agent can orient itself before reading or editing.
+
+    Parameters
+    ----------
+    input_data : ListWorkspaceFilesInput
+        Tool input (optional subdirectory, glob pattern, recursion flag).
+    config : MCPConfig
+        Server configuration (read allowlist).
+
+    Returns
+    -------
+    ListWorkspaceFilesOutput
+        Listed files (path + size), capped and flagged if truncated.
+
+    Raises
+    ------
+    MCPSecurityError
+        If a requested subdirectory is outside the read allowlist.
+
+    """
+    roots = [Path(d) for d in (config.read_allowlist or [])]
+    if not roots:
+        raise ValueError("No read folders are configured.")
+
+    if input_data.subdirectory:
+        resolved = resolve_workspace_path(input_data.subdirectory, config.read_allowlist, must_exist=True)
+        if resolved is None or not resolved.is_dir():
+            raise MCPSecurityError(
+                f"Subdirectory not found in workspace: {input_data.subdirectory!r}", path=input_data.subdirectory
+            )
+        resolved = resolved.resolve()
+        if not any(_is_within(resolved, r.resolve()) for r in roots):
+            raise MCPSecurityError(
+                f"Subdirectory is outside the read allowlist: {input_data.subdirectory!r}",
+                path=input_data.subdirectory,
+            )
+        search_roots = [resolved]
+    else:
+        search_roots = [r.resolve() for r in roots if r.exists()]
+
+    pattern = input_data.pattern or "*"
+    entries: dict[str, int] = {}
+    truncated = False
+    for root in search_roots:
+        globber = root.rglob if input_data.recursive else root.glob
+        try:
+            for path in globber(pattern):
+                if not path.is_file():
+                    continue
+                resolved_file = path.resolve()
+                key = str(resolved_file)
+                if key in entries:
+                    continue
+                try:
+                    size = resolved_file.stat().st_size
+                except OSError:
+                    continue
+                entries[key] = size
+                if len(entries) >= _LIST_FILES_CAP:
+                    truncated = True
+                    break
+        except OSError as e:
+            logger.warning(f"Error listing {root}: {e}")
+            continue
+        if truncated:
+            break
+
+    files = [{"path": key, "size_bytes": size} for key, size in sorted(entries.items())]
+    logger.info(f"list_workspace_files returned {len(files)} file(s) (truncated={truncated})")
+    return ListWorkspaceFilesOutput(
+        files=files,
+        total=len(files),
+        truncated=truncated,
+        read_dirs=[str(r) for r in roots],
+    )

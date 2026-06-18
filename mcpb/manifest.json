@@ -26,6 +26,7 @@
       "env": {
         "ALL2MD_MCP_ALLOWED_READ_DIRS": "${user_config.workspace_directory}",
         "ALL2MD_MCP_ALLOWED_WRITE_DIRS": "${user_config.workspace_directory}",
+        "ALL2MD_MCP_ADDITIONAL_READ_DIRS": "${user_config.additional_read_dirs}",
         "ALL2MD_MCP_ENABLE_FROM_MD": "${user_config.enable_write}",
         "ALL2MD_MCP_ENABLE_DOC_EDIT": "${user_config.enable_edit}",
         "ALL2MD_DISABLE_NETWORK": "${user_config.disable_network}"
@@ -40,6 +41,13 @@
       "required": true,
       "default": "${DOCUMENTS}",
       "multiple": false
+    },
+    "additional_read_dirs": {
+      "type": "directory",
+      "title": "Additional read-only folders",
+      "description": "Extra folders all2md may read from but never write to. Optional; leave empty to restrict access to the workspace folder only.",
+      "required": false,
+      "multiple": true
     },
     "enable_write": {
       "type": "boolean",

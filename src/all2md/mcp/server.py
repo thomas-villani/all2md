@@ -12,10 +12,12 @@ Functions
 
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
+import contextlib
 import logging
 import os
 import sys
-from collections.abc import Callable
+import threading
+from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from all2md import DependencyError
@@ -30,11 +32,13 @@ from all2md.mcp.schemas import (
     DiffDocumentsOutput,
     DiffFormat,
     DiffGranularity,
-    EditDocumentAction,
-    EditDocumentSimpleInput,
-    EditDocumentSimpleOutput,
+    EditDocumentInput,
+    EditDocumentOutput,
+    EditOperation,
     GetDocumentOutlineInput,
     GetDocumentOutlineOutput,
+    ListWorkspaceFilesInput,
+    ListWorkspaceFilesOutput,
     ReadDocumentAsMarkdownInput,
     SaveDocumentFromMarkdownInput,
     SaveDocumentFromMarkdownOutput,
@@ -48,15 +52,44 @@ from all2md.mcp.security import MCPSecurityError, prepare_allowlist_dirs
 
 logger = logging.getLogger(__name__)
 
+# Serialize the brief stdout->stderr redirect below across any concurrent tool
+# calls so they never clobber each other's saved file descriptor.
+_stdout_guard_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def protect_stdout() -> Iterator[None]:
+    """Redirect OS-level stdout (fd 1) to stderr for the duration.
+
+    The MCP stdio transport uses stdout for its JSON-RPC messages. Some
+    libraries in the conversion pipeline (notably PyMuPDF) print advisories
+    straight to stdout, which corrupts that channel and breaks the client
+    connection. We point fd 1 at stderr while running conversion code, then
+    restore it before FastMCP serializes the response. This catches both
+    Python-level ``print`` and C-level writes.
+    """
+    with _stdout_guard_lock:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        saved_fd = os.dup(1)
+        try:
+            os.dup2(2, 1)
+            yield
+        finally:
+            sys.stdout.flush()
+            os.dup2(saved_fd, 1)
+            os.close(saved_fd)
+
 
 def create_server(
     config: MCPConfig,
     read_impl: Callable[[ReadDocumentAsMarkdownInput, MCPConfig], list[Any]],
     save_impl: Callable[[SaveDocumentFromMarkdownInput, MCPConfig], SaveDocumentFromMarkdownOutput],
-    edit_doc_impl: Callable[[EditDocumentSimpleInput, MCPConfig], EditDocumentSimpleOutput],
+    edit_doc_impl: Callable[[EditDocumentInput, MCPConfig], EditDocumentOutput],
     search_impl: Callable[[SearchDocumentsInput, MCPConfig], SearchDocumentsOutput],
     diff_impl: Callable[[DiffDocumentsInput, MCPConfig], DiffDocumentsOutput],
     outline_impl: Callable[[GetDocumentOutlineInput, MCPConfig], GetDocumentOutlineOutput],
+    list_files_impl: Callable[[ListWorkspaceFilesInput, MCPConfig], ListWorkspaceFilesOutput],
 ) -> "FastMCP":
     """Create and configure FastMCP server with tools.
 
@@ -76,6 +109,8 @@ def create_server(
         Implementation function for diff_documents tool
     outline_impl : callable
         Implementation function for get_document_outline tool
+    list_files_impl : callable
+        Implementation function for list_workspace_files tool
 
     Returns
     -------
@@ -149,7 +184,8 @@ def create_server(
             )
 
             # Return list directly - FastMCP converts to content blocks
-            return read_impl(input_obj, config)
+            with protect_stdout():
+                return read_impl(input_obj, config)
 
         logger.info("Registered tool: read_document_as_markdown")
 
@@ -184,7 +220,8 @@ def create_server(
                 format=cast(TargetFormat, format), source=source, filename=filename
             )
 
-            result = save_impl(input_obj, config)
+            with protect_stdout():
+                result = save_impl(input_obj, config)
 
             return {"output_path": result.output_path, "warnings": result.warnings}
 
@@ -195,59 +232,72 @@ def create_server(
 
         @mcp.tool(name="edit_document")
         def edit_document(
-            action: Annotated[
+            doc: Annotated[
                 str,
-                "Action to perform: list-sections, extract, add:before, add:after, remove, replace, "
-                "insert:start, insert:end, insert:after_heading. REQUIRED.",
+                "Path to the document (absolute or workspace-relative). For mutating edits it must be "
+                "within the write allowlist. REQUIRED.",
             ],
-            doc: Annotated[str, "File path to the document (must be within read allowlist). REQUIRED."],
-            target: Annotated[
-                str | None,
-                "Section to target. Either heading text (case-insensitive) like 'Introduction', or "
-                "index notation like '#0', '#1', '#2' (zero-based). Required for all actions except "
-                "list-sections.",
-            ] = None,
-            content: Annotated[
-                str | None,
-                "Markdown content to add/replace/insert. Required for add:before, add:after, replace, "
-                "insert:start, insert:end, and insert:after_heading actions.",
-            ] = None,
+            edits: Annotated[
+                list[EditOperation],
+                "Ordered list of edits to apply atomically. Each edit is an object with: "
+                "'action' (one of list-sections, extract, add:before, add:after, remove, replace, "
+                "insert:start, insert:end, insert:after_heading); 'target' (heading text like "
+                "'Introduction', or index like '#0' — required for every action except list-sections; "
+                "prefer heading text in multi-edit batches since indices can shift); and 'content' "
+                "(markdown, required for add/replace/insert actions). REQUIRED.",
+            ],
         ) -> dict:
-            """Edit markdown documents by manipulating their structure.
+            """Apply a batch of structural edits to a document, in place.
 
-            This tool provides a simplified interface for document manipulation with sensible
-            LLM-friendly defaults (markdown only, case-insensitive heading matching, GFM flavor).
+            Source format is auto-detected (Markdown, DOCX, HTML, RST, EPUB, ...), so this is
+            not Markdown-only. The whole batch is atomic: if any edit fails, none are applied
+            and nothing is written. When the batch contains a mutating action, the modified
+            document is written back to disk in its original format (the file must be within the
+            write allowlist). Heading matching is case-insensitive.
 
-            Available actions:
-            - list-sections: List all sections with metadata (returns formatted section list)
-            - extract: Get a specific section by heading or index (returns section content)
-            - add:before: Add new section before the target section
-            - add:after: Add new section after the target section
-            - remove: Remove a section from the document
-            - replace: Replace section content with new content
-            - insert:start: Insert content at the start of a section
-            - insert:end: Insert content at the end of a section
-            - insert:after_heading: Insert content right after the section heading
+            Actions:
+            - list-sections: list all sections with metadata (read-only)
+            - extract: get a section by heading or index (read-only)
+            - add:before / add:after: add a new section relative to target
+            - remove: remove a section
+            - replace: replace a section's content
+            - insert:start / insert:end / insert:after_heading: insert within a section
 
-            Target format:
-            - Heading text: "Introduction", "Methods and Results", etc. (case-insensitive)
-            - Index notation: "#0" (first section), "#1" (second section), etc.
+            In-place write-back is supported for .md, .html, .docx, .pptx, .rst, .epub. For other
+            formats (e.g. .pdf), use save_document_from_markdown to export instead.
 
             Requires --enable-doc-edit flag (disabled by default for security).
 
             Returns a dictionary with:
-            - success: Boolean indicating if operation succeeded
-            - message: Human-readable result or error message
-            - content: Content from operation (for list-sections and extract actions)
+            - success: True only if every edit applied
+            - disk_written: whether the file was persisted to disk
+            - output_path: path written to (when disk_written is True)
+            - results: per-edit {index, action, target, success, message, edited_region}
+              where edited_region is only the affected section, not the whole document
+            - warnings: non-fatal notes (e.g. potential formatting loss on a binary round-trip)
             """
-            # Cast to proper Literal type (FastMCP validates at the boundary)
-            input_obj = EditDocumentSimpleInput(
-                action=cast(EditDocumentAction, action), doc=doc, target=target, content=content
-            )
+            input_obj = EditDocumentInput(doc=doc, edits=list(edits))
 
-            result = edit_doc_impl(input_obj, config)
+            with protect_stdout():
+                result = edit_doc_impl(input_obj, config)
 
-            return {"success": result.success, "message": result.message, "content": result.content}
+            return {
+                "success": result.success,
+                "disk_written": result.disk_written,
+                "output_path": result.output_path,
+                "results": [
+                    {
+                        "index": item.index,
+                        "action": item.action,
+                        "target": item.target,
+                        "success": item.success,
+                        "message": item.message,
+                        "edited_region": item.edited_region,
+                    }
+                    for item in result.results
+                ],
+                "warnings": result.warnings,
+            }
 
         logger.info("Registered tool: edit_document")
 
@@ -303,7 +353,8 @@ def create_server(
                 regex=regex,
                 recursive=recursive,
             )
-            result = search_impl(input_obj, config)
+            with protect_stdout():
+                result = search_impl(input_obj, config)
             return {
                 "results": [
                     {
@@ -359,7 +410,8 @@ def create_server(
                 granularity=cast(DiffGranularity, granularity),
                 ignore_whitespace=ignore_whitespace,
             )
-            result = diff_impl(input_obj, config)
+            with protect_stdout():
+                result = diff_impl(input_obj, config)
             return {"diff": result.diff, "has_changes": result.has_changes}
 
         logger.info("Registered tool: diff_documents")
@@ -393,10 +445,51 @@ def create_server(
             input_obj = GetDocumentOutlineInput(
                 doc=doc, max_level=max_level, format_hint=cast(SourceFormat | None, format_hint)
             )
-            result = outline_impl(input_obj, config)
+            with protect_stdout():
+                result = outline_impl(input_obj, config)
             return {"sections": result.sections, "total": result.total}
 
         logger.info("Registered tool: get_document_outline")
+
+    # Conditionally register list_workspace_files tool (read-only)
+    if config.enable_list_files:
+
+        @mcp.tool(name="list_workspace_files")
+        def list_workspace_files(
+            subdirectory: Annotated[
+                str | None,
+                "Optional workspace-relative subdirectory to list. If omitted, all read folders are listed.",
+            ] = None,
+            pattern: Annotated[
+                str | None,
+                "Optional glob filter on file names, e.g. '*.pdf' or '*.docx'. Default: all files.",
+            ] = None,
+            recursive: Annotated[bool, "Recurse into subdirectories. Default: true."] = True,
+        ) -> dict:
+            """List files the server is allowed to read.
+
+            Use this to discover what is available before reading or editing. Results
+            are confined to the read allowlist (the workspace folder plus any additional
+            read-only folders). Paths returned here can be passed directly to the other
+            tools.
+
+            Returns a dictionary with:
+            - files: list of {path, size_bytes} (absolute paths, sorted)
+            - total: number of files returned
+            - truncated: true if more files exist than were returned (capped)
+            - read_dirs: the read folders that were searched
+            """
+            input_obj = ListWorkspaceFilesInput(subdirectory=subdirectory, pattern=pattern, recursive=recursive)
+            with protect_stdout():
+                result = list_files_impl(input_obj, config)
+            return {
+                "files": result.files,
+                "total": result.total,
+                "truncated": result.truncated,
+                "read_dirs": result.read_dirs,
+            }
+
+        logger.info("Registered tool: list_workspace_files")
 
     return mcp
 
@@ -409,6 +502,12 @@ def configure_logging(level: str) -> None:
 def main() -> int:
     """Run all2md-mcp server."""
     try:
+        # Route PyMuPDF's advisory messages to stderr (fd 2) instead of stdout,
+        # which the stdio transport reserves for JSON-RPC. Must be set before
+        # PyMuPDF is imported. protect_stdout() is the runtime backstop, but this
+        # keeps even import-time advisories off the protocol channel.
+        os.environ.setdefault("PYMUPDF_MESSAGE", "fd:2")
+
         # Configure logging with default level first (will be reconfigured if needed)
         configure_logging("INFO")
 
@@ -424,7 +523,7 @@ def main() -> int:
             f"Configuration: enable_to_md={config.enable_to_md}, "
             f"enable_from_md={config.enable_from_md}, enable_doc_edit={config.enable_doc_edit}, "
             f"enable_search={config.enable_search}, enable_diff={config.enable_diff}, "
-            f"enable_outline={config.enable_outline}"
+            f"enable_outline={config.enable_outline}, enable_list_files={config.enable_list_files}"
         )
         logger.info(f"Include images: {config.include_images}")
         if config.search_index_dir:
@@ -464,6 +563,7 @@ def main() -> int:
         from all2md.mcp.query_tools import (
             diff_documents_impl,
             get_document_outline_impl,
+            list_workspace_files_impl,
             search_documents_impl,
         )
         from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
@@ -477,6 +577,7 @@ def main() -> int:
             search_documents_impl,
             diff_documents_impl,
             get_document_outline_impl,
+            list_workspace_files_impl,
         )
 
         logger.info("Server ready, listening on stdio")

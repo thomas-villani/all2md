@@ -207,6 +207,68 @@ def validate_write_path(path: str | Path, write_allowlist_dirs: list[str | Path]
     return final_path
 
 
+def resolve_workspace_path(
+    raw: str | Path,
+    allowlist_dirs: list[str | Path] | None,
+    *,
+    must_exist: bool,
+) -> Path | None:
+    """Resolve a possibly-relative path against the workspace (allowlist) dirs.
+
+    The first allowlist directory acts as the working directory, so agents can
+    refer to files by a bare name or workspace-relative path instead of always
+    supplying an absolute path.
+
+    Parameters
+    ----------
+    raw : str | Path
+        Path supplied by the caller. May be absolute, workspace-relative, or a
+        bare filename.
+    allowlist_dirs : list[str | Path] | None
+        Allowed directories (strings or resolved Paths). Used as candidate bases
+        for relative paths, in order.
+    must_exist : bool
+        When True (reads), each candidate is probed and the first that exists is
+        returned, or None if none exist. When False (writes), the path is simply
+        anchored to the first allowlist directory (or CWD) without probing.
+
+    Returns
+    -------
+    Path | None
+        The resolved path, or None when ``must_exist`` is True and no candidate
+        exists. Absolute inputs are returned unchanged.
+
+    """
+    path_obj = Path(raw)
+
+    if path_obj.is_absolute():
+        if not must_exist:
+            return path_obj
+        return path_obj if path_obj.exists() else None
+
+    bases = [Path(d) for d in allowlist_dirs] if allowlist_dirs else []
+
+    if not must_exist:
+        # Writes: anchor a relative filename to the first workspace directory.
+        base = bases[0] if bases else Path.cwd()
+        return base / path_obj
+
+    # Reads: try each workspace directory, then fall back to the current dir.
+    for base in bases:
+        candidate = base / path_obj
+        try:
+            if candidate.exists():
+                return candidate
+        except OSError:
+            continue
+    try:
+        if path_obj.exists():
+            return path_obj
+    except OSError:
+        pass
+    return None
+
+
 def prepare_allowlist_dirs(paths: list[str | Path] | None) -> list[Path] | None:
     """Validate allowlist directory paths.
 
