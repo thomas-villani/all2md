@@ -153,6 +153,7 @@ class EditOperation:
     ----------
     action : EditDocumentAction
         Operation to perform. One of:
+
         - "list-sections": list all sections with metadata (read-only)
         - "extract": get a single section by heading or index (read-only)
         - "add:before" / "add:after": add a new section relative to target
