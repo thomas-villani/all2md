@@ -264,8 +264,8 @@ def resolve_workspace_path(
     try:
         if path_obj.exists():
             return path_obj
-    except OSError:
-        pass
+    except OSError as exc:
+        logger.debug("Failed to probe path existence for %s: %s", path_obj, exc, exc_info=exc)
     return None
 
 
