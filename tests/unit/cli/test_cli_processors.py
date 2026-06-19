@@ -829,3 +829,110 @@ def test_near_source_attachments_explicit_dir_wins(tmp_path):
     )
     result = processors._near_source_attachment_options(options, tmp_path / "report.md", args)
     assert result is options
+
+
+@pytest.mark.unit
+def test_build_rich_theme_none_for_empty():
+    """No styles means no theme override (keep Rich defaults)."""
+    assert processors._build_rich_theme(None) is None
+    assert processors._build_rich_theme({}) is None
+
+
+@pytest.mark.unit
+def test_build_rich_theme_prefixes_bare_markdown_keys():
+    """Bare markdown element names are auto-prefixed with ``markdown.``."""
+    pytest.importorskip("rich")
+
+    theme = processors._build_rich_theme({"h1": "bold red", "block_quote": "italic green"})
+
+    assert theme is not None
+    assert "markdown.h1" in theme.styles
+    assert "markdown.block_quote" in theme.styles
+
+
+@pytest.mark.unit
+def test_build_rich_theme_passes_dotted_keys_verbatim():
+    """Fully-qualified style keys are passed to Rich unchanged."""
+    pytest.importorskip("rich")
+
+    theme = processors._build_rich_theme({"markdown.item.bullet": "yellow", "repr.number": "cyan"})
+
+    assert theme is not None
+    assert "markdown.item.bullet" in theme.styles
+    assert "repr.number" in theme.styles
+
+
+@pytest.mark.unit
+def test_build_rich_theme_skips_invalid_styles():
+    """Invalid style strings are dropped with a warning, valid ones kept."""
+    pytest.importorskip("rich")
+    from rich.style import Style
+    from rich.theme import Theme
+
+    theme = processors._build_rich_theme({"h1": "not a real style!!!", "h2": "bold"})
+
+    # The valid h2 override is applied; the invalid h1 falls back to the Rich
+    # default (i.e. it is NOT applied).
+    assert theme is not None
+    assert theme.styles["markdown.h2"] == Style.parse("bold")
+    assert theme.styles["markdown.h1"] == Theme().styles["markdown.h1"]
+
+
+@pytest.mark.unit
+def test_build_rich_theme_ignores_non_string_values():
+    """Non-string values are ignored rather than crashing."""
+    pytest.importorskip("rich")
+    from rich.style import Style
+    from rich.theme import Theme
+
+    theme = processors._build_rich_theme({"h1": 123, "h2": "bold"})
+
+    # h1 (non-string) is ignored and keeps the Rich default; h2 is applied.
+    assert theme is not None
+    assert theme.styles["markdown.h2"] == Style.parse("bold")
+    assert theme.styles["markdown.h1"] == Theme().styles["markdown.h1"]
+
+
+@pytest.mark.unit
+def test_apply_rich_formatting_passes_theme_to_console(monkeypatch: pytest.MonkeyPatch):
+    """The stashed [rich] styles reach the Console as a Theme."""
+    pytest.importorskip("rich")
+
+    from all2md.cli.processors import _apply_rich_formatting
+
+    captured_kwargs: dict[str, Any] = {}
+
+    class DummyCapture:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+        def get(self):
+            return "captured"
+
+    class DummyConsole:
+        def __init__(self, **kwargs):
+            captured_kwargs.update(kwargs)
+
+        def print(self, _obj, *, no_wrap=None):
+            pass
+
+        def capture(self):
+            return DummyCapture()
+
+    class DummyMarkdown:
+        def __init__(self, content, **_kwargs):
+            self.content = content
+
+    monkeypatch.setattr("rich.console.Console", DummyConsole)
+    monkeypatch.setattr("rich.markdown.Markdown", DummyMarkdown)
+
+    args = argparse.Namespace(rich_no_word_wrap=False, _rich_theme_styles={"h1": "bold red"})
+    _text, is_rich = _apply_rich_formatting("data", args)
+
+    assert is_rich is True
+    theme = captured_kwargs.get("theme")
+    assert theme is not None
+    assert "markdown.h1" in theme.styles

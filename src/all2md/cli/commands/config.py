@@ -237,7 +237,31 @@ def _format_config_as_toml(config: Dict[str, Any]) -> str:
         lines.append("")
         lines.extend(_emit_toml_section(key, config[key]))
 
+    lines.extend(_rich_theme_example_lines())
+
     return "\n".join(lines)
+
+
+def _rich_theme_example_lines() -> List[str]:
+    """Commented [rich] terminal-styling example for generated config files.
+
+    The [rich] table styles Rich's Markdown rendering in the terminal (used with
+    ``--rich``). Keys are Rich markdown style names; bare element names such as
+    ``h1`` or ``block_quote`` are auto-prefixed with ``markdown.``. Emitted as
+    comments so it never overrides Rich's defaults unless the user opts in.
+    """
+    return [
+        "",
+        "# Terminal styling for `--rich` output (requires: pip install all2md[rich]).",
+        "# Values are Rich style strings; uncomment and edit to customize colors.",
+        "# [rich]",
+        '# h1 = "bold magenta"',
+        '# h2 = "bold cyan"',
+        '# block_quote = "italic green"',
+        '# "item.bullet" = "yellow"',
+        '# link = "underline blue"',
+        '# code = "bold bright_white on grey23"',
+    ]
 
 
 def _format_config_as_yaml(config: Dict[str, Any]) -> str:
