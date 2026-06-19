@@ -630,6 +630,92 @@ def prepare_options_for_execution(
     return filtered
 
 
+# Rich markdown element style names recognized by ``rich.markdown.Markdown``.
+# Bare keys (e.g. ``h1``, ``block_quote``) in a ``[rich]`` config table are
+# auto-prefixed with ``markdown.`` for convenience; full names are accepted too.
+# Any other key is passed to Rich verbatim so arbitrary Rich styles still work.
+_RICH_MARKDOWN_STYLE_KEYS = frozenset(
+    {
+        "markdown.paragraph",
+        "markdown.text",
+        "markdown.em",
+        "markdown.emph",
+        "markdown.strong",
+        "markdown.code",
+        "markdown.code_block",
+        "markdown.block_quote",
+        "markdown.list",
+        "markdown.item",
+        "markdown.item.bullet",
+        "markdown.item.number",
+        "markdown.hr",
+        "markdown.h1",
+        "markdown.h2",
+        "markdown.h3",
+        "markdown.h4",
+        "markdown.h5",
+        "markdown.h6",
+        "markdown.h7",
+        "markdown.link",
+        "markdown.link_url",
+        "markdown.s",
+    }
+)
+
+
+def _build_rich_theme(styles: Optional[Dict[str, Any]]) -> Any:
+    """Build a ``rich.theme.Theme`` from a ``[rich]`` config table.
+
+    Maps user-supplied style entries (``key = "style string"``) onto Rich's
+    named styles. Bare markdown element names such as ``h1`` or ``block_quote``
+    are auto-prefixed with ``markdown.``; fully-qualified names (anything
+    containing a dot) are passed through unchanged so arbitrary Rich styles can
+    be overridden too.
+
+    Parameters
+    ----------
+    styles : dict or None
+        Mapping of style key to Rich style string (e.g. ``{"h1": "bold red"}``).
+
+    Returns
+    -------
+    rich.theme.Theme or None
+        A Theme to pass to ``Console(theme=...)``, or None when there is nothing
+        valid to apply (so the caller keeps Rich's built-in defaults).
+
+    """
+    if not styles or not isinstance(styles, dict):
+        return None
+
+    try:
+        from rich.errors import StyleSyntaxError
+        from rich.style import Style
+        from rich.theme import Theme
+    except ImportError:
+        return None
+
+    resolved: Dict[str, Style] = {}
+    for raw_key, raw_value in styles.items():
+        key = str(raw_key).strip()
+        # Auto-prefix bare markdown element names; leave dotted keys verbatim.
+        if "." not in key and f"markdown.{key}" in _RICH_MARKDOWN_STYLE_KEYS:
+            key = f"markdown.{key}"
+
+        if not isinstance(raw_value, str):
+            logger.warning("Ignoring [rich] style '%s': value must be a style string", raw_key)
+            continue
+
+        try:
+            resolved[key] = Style.parse(raw_value)
+        except StyleSyntaxError as exc:
+            logger.warning("Ignoring invalid [rich] style '%s = %s': %s", raw_key, raw_value, exc)
+
+    if not resolved:
+        return None
+
+    return Theme(resolved)
+
+
 def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
     """Build kwargs for Rich Markdown from CLI args.
 
@@ -697,7 +783,8 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
         # a pager). Force terminal mode so the captured output keeps ANSI styling
         # instead of being stripped by Rich's non-TTY detection.
         force_terminal = True if getattr(args, "force_rich", False) else None
-        console = Console(force_terminal=force_terminal)
+        theme = _build_rich_theme(getattr(args, "_rich_theme_styles", None))
+        console = Console(force_terminal=force_terminal, theme=theme)
         rich_kwargs = _get_rich_markdown_kwargs(args)
         no_wrap = getattr(args, "rich_no_word_wrap", False)
         with console.capture() as capture:
@@ -761,7 +848,8 @@ def _render_rich_text_output(text: str, args: argparse.Namespace, target_format:
 
     # Force terminal mode under --force-rich so ANSI survives a pipe/redirect.
     force_terminal = True if getattr(args, "force_rich", False) else None
-    console = Console(force_terminal=force_terminal)
+    theme = _build_rich_theme(getattr(args, "_rich_theme_styles", None))
+    console = Console(force_terminal=force_terminal, theme=theme)
     console.print(syntax, no_wrap=no_wrap)
     return True
 
@@ -1058,6 +1146,19 @@ def setup_and_validate_options(
         except ValueError as e:
             print(f"Error applying preset: {e}", file=sys.stderr)
             raise argparse.ArgumentTypeError(str(e)) from e
+
+    # Extract the [rich] terminal-styling table before it reaches the option
+    # mapper. It is consumed only by the CLI's Rich rendering layer (see
+    # ``_build_rich_theme``); leaving it in would flatten into bogus
+    # ``rich.*`` conversion option keys.
+    rich_theme_styles: Dict[str, Any] = {}
+    if isinstance(config_from_file, dict):
+        raw_rich = config_from_file.pop("rich", None)
+        if isinstance(raw_rich, dict):
+            rich_theme_styles = raw_rich
+        elif raw_rich is not None:
+            print("Warning: [rich] config section must be a table; ignoring.", file=sys.stderr)
+    parsed_args._rich_theme_styles = rich_theme_styles
 
     # Map CLI arguments to options (CLI args take highest priority)
     builder = DynamicCLIBuilder()

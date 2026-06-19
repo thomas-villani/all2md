@@ -369,6 +369,43 @@ Control the Markdown output format under the ``[markdown]`` section:
      - bool
      - Use ``#`` ATX headings (``true``) instead of Setext underline headings (``false``)
 
+Terminal (Rich) Styling
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When you render to the terminal with ``--rich`` (requires ``pip install
+all2md[rich]``), the colors used for Markdown elements — headings, links, block
+quotes, list bullets, inline code, and so on — can be customized under a
+``[rich]`` table. Each key is a `Rich style name
+<https://rich.readthedocs.io/en/stable/style.html>`_ and each value is a Rich
+style string (e.g. ``"bold red"``, ``"italic green"``, ``"underline blue"``).
+
+Bare Markdown element names are accepted as a convenience and are automatically
+prefixed with ``markdown.``; fully-qualified names (anything containing a dot)
+are passed through verbatim, so you can also override non-Markdown Rich styles.
+
+.. code-block:: toml
+
+   [rich]
+   h1 = "bold magenta"            # same as markdown.h1
+   h2 = "bold cyan"
+   block_quote = "italic green"
+   "item.bullet" = "yellow"       # markdown.item.bullet
+   link = "underline blue"
+   code = "bold bright_white on grey23"
+
+Notes:
+
+* The ``[rich]`` table only affects terminal rendering; it is ignored for file
+  output and never changes the converted document content.
+* Invalid style strings (or non-string values) are skipped with a warning so a
+  single bad entry never aborts the run; the affected element keeps Rich's
+  default styling.
+* Syntax-highlighting themes for code blocks are controlled separately via the
+  ``--rich-code-theme`` / ``--rich-inline-code-theme`` flags (Pygments themes).
+
+Run ``all2md config generate`` to emit a commented ``[rich]`` example alongside
+the rest of your configuration template.
+
 Format-Specific Options
 ~~~~~~~~~~~~~~~~~~~~~~~
 
