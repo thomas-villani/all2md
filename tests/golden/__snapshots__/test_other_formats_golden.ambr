@@ -222,7 +222,9 @@
   
   Here is a displayed equation:
   
-  $$\int_0^1 x^2\,dx = \frac{1}{3}$$
+  $$
+  \int_0^1 x^2\,dx = \frac{1}{3}
+  $$
   
   We also mention inline Greek letters like $\alpha$ and $\beta$ for completeness.
   '''

@@ -19,7 +19,7 @@ wheels = [
 
 [[package]]
 name = "all2md"
-version = "1.4.0"
+version = "1.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyyaml" },
@@ -281,8 +281,8 @@ requires-dist = [
     { name = "jinja2", marker = "extra == 'templates'", specifier = ">=3.1.0" },
     { name = "langdetect", marker = "extra == 'all'", specifier = ">=1.0.9" },
     { name = "langdetect", marker = "extra == 'langdetect'", specifier = ">=1.0.9" },
-    { name = "mistune", marker = "extra == 'all'", specifier = ">=3.0.0" },
-    { name = "mistune", marker = "extra == 'markdown'", specifier = ">=3.0.0" },
+    { name = "mistune", marker = "extra == 'all'", specifier = ">=3.3.1" },
+    { name = "mistune", marker = "extra == 'markdown'", specifier = ">=3.3.1" },
     { name = "mwparserfromhell", marker = "extra == 'all'", specifier = ">=0.7.2" },
     { name = "mwparserfromhell", marker = "extra == 'wiki'", specifier = ">=0.7.2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.2" },
@@ -1839,14 +1839,14 @@ wheels = [
 
 [[package]]
 name = "mistune"
-version = "3.1.4"
+version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/02/a7fb8b21d4d55ac93cdcde9d3638da5dd0ebdd3a4fed76c7725e10b81cbe/mistune-3.1.4.tar.gz", hash = "sha256:b5a7f801d389f724ec702840c11d8fc48f2b33519102fc7ee739e8177b672164", size = 94588, upload-time = "2025-08-29T07:20:43.594Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/10/55/ede164a9ff68694455bf42217e9e75b174e4048436688cfff7b382ae486c/mistune-3.3.1.tar.gz", hash = "sha256:7d2108b532850ab81d3e92a5566abe1168f4f27c0c9dbe914e02d1d06e2a0288", size = 111268, upload-time = "2026-06-22T01:32:05.843Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/f0/8282d9641415e9e33df173516226b404d367a0fc55e1a60424a152913abc/mistune-3.1.4-py3-none-any.whl", hash = "sha256:93691da911e5d9d2e23bc54472892aff676df27a75274962ff9edc210364266d", size = 53481, upload-time = "2025-08-29T07:20:42.218Z" },
+    { url = "https://files.pythonhosted.org/packages/af/f4/c8951ccd856f56b5300b6c716f645f526b92012983bec84487eea786cf78/mistune-3.3.1-py3-none-any.whl", hash = "sha256:61c4ca5f8c1e0f4622e85bdec00ebf93942a742123bb26440a737bac0edce5c6", size = 61542, upload-time = "2026-06-22T01:32:04.375Z" },
 ]
 
 [[package]]
