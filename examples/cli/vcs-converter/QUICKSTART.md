@@ -9,7 +9,7 @@ Get up and running with VCS Document Converter in 5 minutes.
 pip install all2md
 
 # Clone or copy this example to your repository
-cp -r examples/vcs-converter /path/to/your/repo/.vcs-converter
+cp -r examples/cli/vcs-converter /path/to/your/repo/.vcs-converter
 cd /path/to/your/repo
 ```
 

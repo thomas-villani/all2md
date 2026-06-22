@@ -15,13 +15,12 @@ SimpleDoc is a lightweight markup format with:
 Example usage:
 
     from all2md import to_markdown
-    from all2md.converter_registry import get_registry
+    from all2md.converter_registry import registry
 
     # Parse SimpleDoc to Markdown
     markdown = to_markdown("document.sdoc")
 
     # Convert Markdown to SimpleDoc
-    registry = get_registry()
     parser = registry.get_parser("markdown")()
     ast_doc = parser.parse("document.md")
 

@@ -20,10 +20,13 @@ Write-Output "Converted tree into $OutputDir/"
 all2md $InputDir --recursive --collate --out "$OutputDir/combined.md"
 Write-Output "Wrote combined corpus to $OutputDir/combined.md"
 
-# 3. Hand-rolled parallel fan-out with ForEach-Object -Parallel (PowerShell 7+),
-#    when you want control over per-file flags or concurrency.
-Get-ChildItem $InputDir -Recurse -File -Include *.pdf, *.docx, *.html |
-    ForEach-Object -Parallel {
-        all2md $_.FullName --out "$($_.FullName).md"
-    } -ThrottleLimit 4
-Write-Output "Parallel conversion complete (one .md next to each source)."
+# 3. Parallel conversion with the built-in worker pool. --parallel N spins up N
+#    workers; no need to hand-roll ForEach-Object -Parallel (which also re-resolves
+#    all2md in each runspace). With --output-dir the tree structure is mirrored.
+all2md $InputDir --output-dir $OutputDir --recursive --parallel 4 --skip-errors --preserve-structure
+Write-Output "Parallel conversion complete (mirrored under $OutputDir/)."
+
+# 3b. Only reach for a hand-rolled fan-out when you need per-file flags that the
+#     batch engine can't express uniformly:
+#   Get-ChildItem $InputDir -Recurse -File -Include *.pdf, *.docx, *.html |
+#       ForEach-Object -Parallel { all2md $_.FullName --out "$($_.FullName).md" } -ThrottleLimit 4

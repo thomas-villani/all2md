@@ -15,7 +15,7 @@ for feeding documents to LLMs. Every concept ships as a **bash** (`.sh`) and a
 | Script | What it shows |
 | ------ | ------------- |
 | `convert-and-pipe` | Convert to stdout, any-to-any (`--to`), stdin with `-`, attachment modes, piping into other tools |
-| `batch-convert` | Whole-folder conversion: built-in batch (`--recursive --skip-errors --preserve-structure`), `--collate`, and parallel `find`/`xargs` (bash) / `ForEach-Object -Parallel` (PowerShell) |
+| `batch-convert` | Whole-folder conversion: built-in batch (`--recursive --skip-errors --preserve-structure`), `--collate`, and the built-in parallel worker pool (`--parallel N`) |
 | `extract-and-navigate` | Cheap reading of big docs: `--outline`, `--line-numbers`, `--extract "Section"`, `--extract "line:A-B"` |
 | `grep-binary-docs` | `all2md grep` *inside* PDF/DOCX/PPTX that plain grep can't read |
 | `search-corpus` | Ranked `all2md search --json` over a corpus, post-processed with `jq` / `ConvertFrom-Json`; provenance per hit |

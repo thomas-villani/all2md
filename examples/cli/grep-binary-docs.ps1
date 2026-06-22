@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 all2md grep $Pattern @Paths -i -n -C 2
 
 # 2. Recurse a directory tree (every supported document under it):
-#    all2md grep -r $Pattern ./docs
+#    all2md grep --recursive $Pattern ./docs
 
 # 3. Treat the pattern as a regular expression:
 #    all2md grep --regex "TODO|FIXME" @Paths -n

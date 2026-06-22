@@ -11,7 +11,7 @@
 set -e
 
 # Configuration
-CONVERTER_SCRIPT="examples/vcs-converter/vcs_converter.py"
+CONVERTER_SCRIPT=".vcs-converter/vcs_converter.py"
 PYTHON="${PYTHON:-python}"
 BINARY_EXTENSIONS=("docx" "pptx" "pdf" "doc" "ppt")
 
