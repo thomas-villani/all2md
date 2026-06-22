@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # Resolve the tag from whichever event fired: a published release via
           # github.event.release.tag_name, a manual run via inputs.tag, and a
