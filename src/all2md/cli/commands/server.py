@@ -260,6 +260,8 @@ def _compute_directory_state(
             stat = file.stat()
             signature.add((str(file), stat.st_size, stat.st_mtime))
         except OSError:
+            # File vanished or became unreadable between listing and stat;
+            # omit it from the change signature.
             pass
     return files, subdirs, mapping, signature
 

@@ -2723,6 +2723,8 @@ class PdfToAstConverter(BaseParser):
             if tabs.tables:
                 return self._process_table_to_ast(tabs.tables[0], page, page_num)
         except Exception:
+            # PyMuPDF table detection is best-effort; fall through to the
+            # caller's fallback handling on any error.
             pass
 
         # Fallback: extract raw text from the region as a simple table

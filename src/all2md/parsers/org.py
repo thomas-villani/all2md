@@ -502,6 +502,8 @@ class OrgParser(BaseParser):
                 try:
                     entry["duration"] = str(clock.duration)
                 except Exception:
+                    # orgparse may raise computing duration for malformed
+                    # clock entries; omit the duration field.
                     pass
             if entry:
                 clock_entries.append(entry)

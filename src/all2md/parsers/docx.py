@@ -1514,6 +1514,8 @@ def _get_paragraph_indent_level(paragraph: "Paragraph") -> int:
         if indent:
             return int(indent.pt / DEFAULT_INDENTATION_PT_PER_LEVEL)
     except AttributeError:
+        # Paragraph lacks indentation formatting; treat it as top level
+        # (falls through to the default return below).
         pass
     return 0
 

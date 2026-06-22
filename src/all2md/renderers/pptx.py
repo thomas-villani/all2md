@@ -681,11 +681,15 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 if shape.placeholder_format.idx == 0:
                     continue
             except Exception:
+                # Shape has no usable placeholder_format.idx; treat it as a
+                # non-title placeholder and keep checking.
                 pass
             try:
                 if hasattr(shape.placeholder_format, "type") and shape.placeholder_format.type == 2:
                     return shape
             except Exception:
+                # placeholder_format.type unavailable; fall through to the
+                # generic text-frame check below.
                 pass
             if content_ph is None and shape.has_text_frame:
                 content_ph = shape
@@ -750,6 +754,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             try:
                 keep_idx = content_ph.placeholder_format.idx
             except Exception:
+                # Placeholder index unavailable; leave keep_idx unset so no
+                # placeholder is preserved by index.
                 pass
 
         # Remove other content placeholders (keep the one we'll reuse)

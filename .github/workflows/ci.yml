@@ -119,19 +119,13 @@ jobs:
         uses: semgrep/semgrep-action@v1
         with:
           config: auto
-          # Exclude false-positive rules:
-          # - non-literal-import: Our imports use hardcoded internal mappings, not user input
-          # - render-template-string: Example file uses constant template, not user input
-          # - direct-use-of-jinja2: Renderers output Markdown (no XSS) or use proper autoescape
-          # Note: `--exclude-rule` via `semgrepArgs` is not honored by
-          # `semgrep-action@v1`'s `config: auto` mode (cloud rules ignore the
-          # local arg). Per-line suppression with `# nosemgrep: <rule-id>` is
-          # the reliable mechanism — see `benchmarks/corpus/download.py:55`
-          # for the urllib false-positive suppression.
-          semgrepArgs: >-
-            --exclude-rule python.lang.security.audit.non-literal-import.non-literal-import
-            --exclude-rule python.flask.security.audit.render-template-string.render-template-string
-            --exclude-rule python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+          # Rule exclusions are intentionally NOT configured here: `--exclude-rule`
+          # is not honored by semgrep-action@v1's `config: auto` mode — the cloud
+          # ruleset ignores locally-passed args (and the action has no
+          # `semgrepArgs` input anyway). False positives are suppressed per-line
+          # with `# nosemgrep: <rule-id>` instead — see
+          # `benchmarks/corpus/download.py:55` for the non-literal-import
+          # suppression in the manifest generator.
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 

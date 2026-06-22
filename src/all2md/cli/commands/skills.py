@@ -389,8 +389,10 @@ def _build_llm_help_guide(skill_dir: Path, topics: list[str]) -> str:
     parts: list[str] = [
         "# all2md - CLI guide for LLMs and agents",
         "",
-        "all2md converts between 40+ document formats and Markdown from the command line. "
-        "This guide leads with an overview, then concatenates the per-task references listed below.",
+        (
+            "all2md converts between 40+ document formats and Markdown from the command line. "
+            "This guide leads with an overview, then concatenates the per-task references listed below."
+        ),
         "",
         f"Topics: {', '.join(topics)}",
         "  - Print one topic:      all2md llm-help <topic>",
