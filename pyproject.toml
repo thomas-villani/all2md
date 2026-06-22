@@ -169,7 +169,7 @@ xlsx = [
     "chardet>=5.2.0",
 ]
 markdown = [
-    "mistune>=3.0.0",
+    "mistune>=3.3.1",  # 3.3 fixes single-line $$...$$ block-math parsing
     "chardet>=5.2.0",
 ]
 pdf_render = [
@@ -230,7 +230,7 @@ all = [
     "fastmcp>=2.0.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.0",
-    "mistune>=3.0.0",
+    "mistune>=3.3.1",  # 3.3 fixes single-line $$...$$ block-math parsing
     "odfpy>=1.4.1",
     "openpyxl>=3.1.5",
     "orgparse>=0.4.20250520",
@@ -412,6 +412,15 @@ cache_dir = ".mypy_cache"
 [[tool.mypy.overrides]]
 module = "docx.*"
 ignore_missing_imports = false
+
+# numpy (a transitive dep via rank-bm25) ships PEP 695 `type` statements in its
+# bundled stubs as of 2.5.0. mypy rejects those under python_version=3.10
+# ("Type statement is only supported in Python 3.12+"), halting the run. We
+# don't rely on numpy's types, so skip following its imports entirely.
+[[tool.mypy.overrides]]
+module = "numpy.*"
+follow_imports = "skip"
+follow_imports_for_stubs = true
 
 # context_menu.py is Windows-only (winreg registry plumbing). The CI type check
 # runs on Linux, where the stdlib `winreg` module exposes no attributes

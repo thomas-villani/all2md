@@ -978,6 +978,11 @@ class MarkdownToAstConverter(BaseParser):
         nodes: list[Node] = []
 
         for token in tokens:
+            # mistune >=3.3 emits spurious empty text tokens around nested
+            # inline elements (e.g. inside **bold *italic***). Drop them so
+            # they don't pollute the AST or downstream rendering.
+            if token.get("type") == "text" and not token.get("raw"):
+                continue
             node = self._process_inline_token(token)
             if node is not None:
                 if isinstance(node, list):
