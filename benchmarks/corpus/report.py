@@ -156,6 +156,7 @@ def render_report(results_path: Path) -> str:
         try:
             ts = datetime.fromisoformat(ts).strftime("%Y-%m-%d %H:%M UTC")
         except Exception:
+            # Unparseable timestamp; keep the raw string as-is.
             pass
     lines += [
         "# all2md corpus benchmark",

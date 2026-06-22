@@ -546,6 +546,8 @@ class HtmlToAstConverter(BaseParser):
                     continue
                 json_ld_data.append(json.loads(script_content))
             except Exception:
+                # Malformed JSON-LD block; skip it rather than failing the
+                # whole HTML parse.
                 pass
         return json_ld_data
 

@@ -126,6 +126,7 @@ def _dir_size_bytes(path: Path) -> int:
             try:
                 total += p.stat().st_size
             except OSError:
+                # File unreadable or vanished mid-walk; skip it in the tally.
                 pass
     return total
 

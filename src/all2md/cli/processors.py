@@ -2395,6 +2395,8 @@ def _detect_renderer_hint(target_format: str, output_path: Optional[Path]) -> st
         if detected_target and detected_target != "txt":
             return detected_target
     except Exception:
+        # Format detection is best-effort; fall through to the caller's
+        # default target on any error.
         pass
 
     return "auto"

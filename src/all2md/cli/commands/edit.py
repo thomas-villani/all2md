@@ -460,6 +460,8 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
                 try:
                     webbrowser.open(url)
                 except Exception:
+                    # Best-effort convenience; the URL is printed above if the
+                    # browser can't be launched.
                     pass
             try:
                 httpd.serve_forever()
