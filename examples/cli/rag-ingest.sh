@@ -20,9 +20,11 @@ PATHS=("$@")
 
 # 1. Retrieve top-k chunks as JSON and format them into a citation-numbered
 #    context block. Each passage keeps its source path and section heading.
+#    The `gsub` strips the `<<...>>` match-highlight markers so they don't leak
+#    into the LLM prompt.
 CONTEXT=$(all2md search "$QUESTION" "${PATHS[@]}" --keyword --json --top-k 5 \
   | jq -r 'to_entries | .[] |
-      "[\(.key + 1)] (\(.value.chunk_metadata.document_path)\(if .value.chunk_metadata.section_heading then " -> " + .value.chunk_metadata.section_heading else "" end))\n\(.value.text)\n"')
+      "[\(.key + 1)] (\(.value.chunk_metadata.document_path)\(if .value.chunk_metadata.section_heading then " -> " + .value.chunk_metadata.section_heading else "" end))\n\(.value.text | gsub("<<|>>";""))\n"')
 
 # 2. Build the final grounded prompt.
 PROMPT="Context passages:

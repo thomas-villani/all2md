@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/thomas-villani/all2md/tree/main/examples/watermark-plugin"
+Homepage = "https://github.com/thomas-villani/all2md/tree/main/examples/plugins/watermark-plugin"
 Repository = "https://github.com/thomas-villani/all2md.git"
 Issues = "https://github.com/thomas-villani/all2md/issues"
 

@@ -20,8 +20,13 @@ echo "Converted tree into $OUT/"
 all2md "$IN" --recursive --collate --out "$OUT/combined.md"
 echo "Wrote combined corpus to $OUT/combined.md"
 
-# 3. Hand-rolled parallel fan-out with find + xargs, when you want control over
-#    per-file flags or concurrency. -P sets the number of parallel workers.
-find "$IN" -type f \( -name '*.pdf' -o -name '*.docx' -o -name '*.html' \) -print0 \
-  | xargs -0 -P 4 -I {} sh -c 'all2md "$1" --out "$1.md"' _ {}
-echo "Parallel conversion complete (one .md next to each source)."
+# 3. Parallel conversion with the built-in worker pool. --parallel N spins up N
+#    workers; no need to hand-roll find + xargs. With --output-dir the tree
+#    structure is mirrored; without it, a .md is written next to each source.
+all2md "$IN" --output-dir "$OUT" --recursive --parallel 4 --skip-errors --preserve-structure
+echo "Parallel conversion complete (mirrored under $OUT/)."
+
+# 3b. Only reach for a hand-rolled fan-out when you need per-file flags that the
+#     batch engine can't express uniformly:
+#   find "$IN" -type f \( -name '*.pdf' -o -name '*.docx' -o -name '*.html' \) -print0 \
+#     | xargs -0 -P 4 -I {} sh -c 'all2md "$1" --out "$1.md"' _ {}

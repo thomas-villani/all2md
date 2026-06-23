@@ -65,7 +65,7 @@ Or for development:
 
 ```bash
 git clone https://github.com/thomas-villani/all2md.git
-cd all2md/examples/simpledoc-plugin
+cd all2md/examples/plugins/simpledoc-plugin
 pip install -e .
 ```
 
@@ -87,7 +87,7 @@ all2md document.md --out output.sdoc
 
 ```python
 from all2md import to_markdown, from_markdown
-from all2md_simpledoc.options import SimpleDocOptions
+from all2md_simpledoc import SimpleDocOptions
 
 # Parse SimpleDoc to Markdown
 markdown_output = to_markdown("document.sdoc")
@@ -266,4 +266,4 @@ Contributions welcome! Please open an issue or PR on GitHub.
 ## Related Projects
 
 - [all2md](https://github.com/thomas-villani/all2md) - Universal document converter
-- [all2md-watermark](https://github.com/thomas-villani/all2md/tree/main/examples/watermark-plugin) - Transform plugin example
+- [all2md-watermark](https://github.com/thomas-villani/all2md/tree/main/examples/plugins/watermark-plugin) - Transform plugin example

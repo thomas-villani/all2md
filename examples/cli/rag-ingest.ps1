@@ -23,7 +23,8 @@ $context = ($hits | ForEach-Object {
     $i++
     $loc = $_.chunk_metadata.document_path
     if ($_.chunk_metadata.section_heading) { $loc += " -> " + $_.chunk_metadata.section_heading }
-    "[$i] ($loc)`n$($_.text)`n"
+    # Strip the <<...>> match-highlight markers so they don't leak into the prompt.
+    "[$i] ($loc)`n$($_.text -replace '<<|>>','')`n"
 }) -join "`n"
 
 # 2. Build the final grounded prompt.

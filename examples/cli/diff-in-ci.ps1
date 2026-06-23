@@ -26,7 +26,10 @@ if ([string]::IsNullOrWhiteSpace($json)) {
 }
 Write-Output "Change hunks: $hunks"
 if ($hunks -gt 0) {
-    Write-Error "Documents differ -- failing CI gate."
+    # Write-Warning, not Write-Error: under $ErrorActionPreference="Stop" a
+    # Write-Error would throw before `exit 1` runs, dying with a stack trace
+    # instead of a clean CI failure code.
+    Write-Warning "Documents differ -- failing CI gate."
     exit 1
 }
 Write-Output "Documents are equivalent."

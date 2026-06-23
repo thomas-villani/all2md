@@ -66,7 +66,7 @@ bash setup.sh
 ### Manual Setup Steps
 ```bash
 # 1. Copy example to your repo
-cp -r examples/vcs-converter /path/to/repo/.vcs-converter
+cp -r examples/cli/vcs-converter /path/to/repo/.vcs-converter
 
 # 2. Install hook
 python .vcs-converter/install_hook.py
@@ -183,8 +183,7 @@ cat > vcs-converter.config.json << EOF
 {
   "markdown_dir": ".vcs-docs",
   "track_metadata": true,
-  "preserve_images": true,
-  "line_width": 80
+  "store_ast": false
 }
 EOF
 ```

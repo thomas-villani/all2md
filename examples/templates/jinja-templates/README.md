@@ -10,12 +10,12 @@ Converts documents to DocBook XML format, suitable for technical documentation.
 
 **Usage:**
 ```python
-from all2md import Document
+from all2md.ast import Document
 from all2md.renderers.jinja import JinjaRenderer
 from all2md.options.jinja import JinjaRendererOptions
 
 options = JinjaRendererOptions(
-    template_file="examples/jinja-templates/docbook.xml.jinja2",
+    template_file="examples/templates/jinja-templates/docbook.xml.jinja2",
     escape_strategy="xml",
     enable_escape_filters=True,
     enable_traversal_helpers=True
@@ -32,7 +32,7 @@ Extracts document structure and metadata as YAML.
 **Usage:**
 ```python
 options = JinjaRendererOptions(
-    template_file="examples/jinja-templates/metadata.yaml.jinja2",
+    template_file="examples/templates/jinja-templates/metadata.yaml.jinja2",
     escape_strategy="yaml",
     enable_escape_filters=True,
     enable_traversal_helpers=True
@@ -49,7 +49,7 @@ Generates a human-readable document outline with table of contents.
 **Usage:**
 ```python
 options = JinjaRendererOptions(
-    template_file="examples/jinja-templates/custom-outline.txt.jinja2",
+    template_file="examples/templates/jinja-templates/custom-outline.txt.jinja2",
     enable_traversal_helpers=True
 )
 

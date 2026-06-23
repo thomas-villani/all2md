@@ -6,10 +6,10 @@ documents to various custom formats using templates.
 """
 
 import sys
+from pathlib import Path
 
 # Fix Windows console encoding for Unicode box characters
 if sys.platform == "win32":
-    import codecs
 
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -25,6 +25,10 @@ from all2md.ast import (
 )
 from all2md.options.jinja import JinjaRendererOptions
 from all2md.renderers.jinja import JinjaRenderer
+
+# Templates live alongside this script, so resolve them relative to it rather
+# than relying on the current working directory.
+TEMPLATE_DIR = Path(__file__).parent / "jinja-templates"
 
 
 def create_sample_document() -> Document:
@@ -83,7 +87,7 @@ def demo_docbook_xml():
     doc = create_sample_document()
 
     options = JinjaRendererOptions(
-        template_file="examples/jinja-templates/docbook.xml.jinja2",
+        template_file=str(TEMPLATE_DIR / "docbook.xml.jinja2"),
         escape_strategy="xml",
         enable_escape_filters=True,
         enable_traversal_helpers=True,
@@ -105,7 +109,7 @@ def demo_yaml_metadata():
     doc = create_sample_document()
 
     options = JinjaRendererOptions(
-        template_file="examples/jinja-templates/metadata.yaml.jinja2",
+        template_file=str(TEMPLATE_DIR / "metadata.yaml.jinja2"),
         escape_strategy="yaml",
         enable_escape_filters=True,
         enable_traversal_helpers=True,
@@ -127,7 +131,7 @@ def demo_custom_outline():
     doc = create_sample_document()
 
     options = JinjaRendererOptions(
-        template_file="examples/jinja-templates/custom-outline.txt.jinja2",
+        template_file=str(TEMPLATE_DIR / "custom-outline.txt.jinja2"),
         enable_traversal_helpers=True,
     )
 
@@ -185,7 +189,7 @@ def demo_ansi_terminal():
     doc = create_sample_document()
 
     options = JinjaRendererOptions(
-        template_file="examples/jinja-templates/ansi-terminal.txt.jinja2",
+        template_file=str(TEMPLATE_DIR / "ansi-terminal.txt.jinja2"),
         enable_traversal_helpers=True,
     )
 

@@ -12,6 +12,7 @@ Features:
 """
 
 import argparse
+import fnmatch
 import json
 import logging
 import shutil
@@ -34,6 +35,7 @@ class VCSConverter:
     ----------
     config_path : Path, optional
         Path to configuration file
+
     """
 
     BINARY_FORMATS = {".docx", ".pptx", ".pdf", ".doc", ".ppt"}
@@ -44,8 +46,6 @@ class VCSConverter:
         self.config = self._load_config(config_path)
         self.markdown_dir = Path(self.config.get("markdown_dir", ".vcs-docs"))
         self.track_metadata = self.config.get("track_metadata", True)
-        self.preserve_images = self.config.get("preserve_images", True)
-        self.line_width = self.config.get("line_width", 80)
 
     def _load_config(self, config_path: Path | None) -> dict[str, Any]:
         """Load configuration from file.
@@ -59,6 +59,7 @@ class VCSConverter:
         -------
         dict[str, Any]
             Configuration dictionary
+
         """
         if config_path and config_path.exists():
             with open(config_path, encoding="utf-8") as f:
@@ -77,10 +78,33 @@ class VCSConverter:
         -------
         Path
             Path where markdown should be stored
+
         """
         relative = binary_path.relative_to(Path.cwd()) if binary_path.is_absolute() else binary_path
         md_path = self.markdown_dir / relative.parent / (relative.stem + self.MARKDOWN_SUFFIX)
         return md_path
+
+    def _metadata_path_for(self, md_path: Path) -> Path:
+        """Metadata path for a generated markdown path.
+
+        Swaps the markdown suffix (``.vcs.md``) for the metadata suffix
+        (``.vcs.json``). Using ``Path.with_suffix`` here would only replace the
+        trailing ``.md`` and yield ``*.vcs.vcs.json``.
+
+        Parameters
+        ----------
+        md_path : Path
+            Path to the generated markdown file
+
+        Returns
+        -------
+        Path
+            Path where metadata should be stored
+
+        """
+        if md_path.name.endswith(self.MARKDOWN_SUFFIX):
+            return md_path.with_name(md_path.name[: -len(self.MARKDOWN_SUFFIX)] + self.METADATA_SUFFIX)
+        return md_path.with_suffix(".json")
 
     def _get_metadata_path(self, binary_path: Path) -> Path:
         """Get the metadata path for a binary document.
@@ -94,9 +118,9 @@ class VCSConverter:
         -------
         Path
             Path where metadata should be stored
+
         """
-        md_path = self._get_markdown_path(binary_path)
-        return md_path.with_suffix(self.METADATA_SUFFIX)
+        return self._metadata_path_for(self._get_markdown_path(binary_path))
 
     def convert_to_markdown(self, binary_path: Path) -> tuple[Path, Path | None]:
         """Convert a binary document to markdown.
@@ -110,6 +134,7 @@ class VCSConverter:
         -------
         tuple[Path, Path | None]
             Paths to created markdown and metadata files
+
         """
         logger.info(f"Converting {binary_path} to markdown...")
 
@@ -161,6 +186,7 @@ class VCSConverter:
         -------
         dict[str, Any]
             Document metadata
+
         """
         metadata = {
             "source_file": str(binary_path),
@@ -192,9 +218,10 @@ class VCSConverter:
         -------
         Path
             Path to created binary document
+
         """
         # Load metadata to determine target format
-        metadata_path = markdown_path.with_suffix(self.METADATA_SUFFIX)
+        metadata_path = self._metadata_path_for(markdown_path)
         if not metadata_path.exists():
             raise ValueError(f"No metadata found for {markdown_path}")
 
@@ -239,6 +266,7 @@ class VCSConverter:
             Output path for DOCX file
         metadata : dict[str, Any]
             Document metadata
+
         """
         # Render markdown straight to DOCX (parse + render in one call).
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -255,6 +283,7 @@ class VCSConverter:
             Output path for PDF file
         metadata : dict[str, Any]
             Document metadata
+
         """
         # Render markdown straight to PDF (parse + render in one call).
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -272,15 +301,22 @@ class VCSConverter:
         -------
         list[Path]
             List of binary document paths
+
         """
         if root_dir is None:
             root_dir = Path.cwd()
 
         binary_docs = []
         exclude_dirs = {".git", ".vcs-docs", "venv", ".venv", "node_modules", "__pycache__"}
+        exclude_patterns = self.config.get("exclude_patterns", [])
 
         for path in root_dir.rglob("*"):
             if any(excluded in path.parts for excluded in exclude_dirs):
+                continue
+            # Honour user-supplied glob patterns (match the bare name and the
+            # full path, so both "~$*.docx" and "**/build/**" work).
+            posix_path = path.as_posix()
+            if any(fnmatch.fnmatch(path.name, pat) or fnmatch.fnmatch(posix_path, pat) for pat in exclude_patterns):
                 continue
             if path.suffix.lower() in self.BINARY_FORMATS and path.is_file():
                 binary_docs.append(path)
@@ -296,6 +332,7 @@ class VCSConverter:
             Root directory to scan
         force : bool
             Force reconversion even if markdown exists
+
         """
         binary_docs = self.scan_repository(root_dir)
 
@@ -322,6 +359,7 @@ class VCSConverter:
         ----------
         root_dir : Path, optional
             Root directory
+
         """
         if root_dir is None:
             root_dir = Path.cwd()
@@ -342,6 +380,7 @@ def main() -> int:
     -------
     int
         Exit code
+
     """
     parser = argparse.ArgumentParser(
         description="Make binary documents version control friendly",

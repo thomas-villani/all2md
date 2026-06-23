@@ -18,7 +18,7 @@ PATHS=("$@")
 all2md grep "$PATTERN" "${PATHS[@]}" -i -n -C 2
 
 # 2. Recurse a directory tree (every supported document under it).
-#    all2md grep -r "$PATTERN" docs/
+#    all2md grep --recursive "$PATTERN" docs/
 
 # 3. Treat the pattern as a regular expression.
 #    all2md grep --regex "TODO|FIXME" "${PATHS[@]}" -n

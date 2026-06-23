@@ -1,6 +1,6 @@
 # all2md-watermark
 
-A watermark transform plugin for [all2md](https://github.com/thomas.villani/all2md) that embeds a visual watermark into images when their bytes are available (base64 or downloaded attachments). For other images it still records watermark metadata for downstream tools.
+A watermark transform plugin for [all2md](https://github.com/thomas-villani/all2md) that embeds a visual watermark into images when their bytes are available (base64 or downloaded attachments). For other images it still records watermark metadata for downstream tools.
 
 ## Installation
 
@@ -31,8 +31,8 @@ markdown = to_markdown('document.pdf', transforms=[transform])
 # Default watermark (embed watermark into inline image data)
 all2md document.pdf --attachment-mode base64 --transform watermark
 
-# Custom watermark text while embedding into downloaded attachments
-all2md document.pdf --attachment-mode download --transform watermark --watermark-text "DRAFT"
+# Custom watermark text while embedding into saved (on-disk) attachments
+all2md document.pdf --attachment-mode save --transform watermark --watermark-text "DRAFT"
 ```
 
 ### Using Transform Names
@@ -62,13 +62,10 @@ When either flag is present the plugin decodes the image with [Pillow](https://p
 ```bash
 # Clone the repository
 git clone https://github.com/thomas-villani/all2md.git
-cd all2md/examples/watermark-plugin
+cd all2md/examples/plugins/watermark-plugin
 
-# Install in development mode
+# Install in development mode (Pillow is a hard dependency, so this is all you need)
 pip install -e .
-
-# Install with all2md development dependencies (includes Pillow for watermarking)
-pip install -e ".[dev]"
 ```
 
 ### Testing

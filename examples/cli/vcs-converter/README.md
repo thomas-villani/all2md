@@ -23,7 +23,7 @@ This tool solves these problems by maintaining parallel markdown versions of you
 - Track document changes in text format
 - Bidirectional sync (markdown <-> binary)
 - Preserve formatting metadata
-- Diff-friendly output with configurable line width
+- Diff-friendly markdown output
 - Batch processing for entire repositories
 - Configurable behavior via JSON config file
 
@@ -47,7 +47,7 @@ pip install all2md
 
 1. Copy the example to your repository:
 ```bash
-cp -r examples/vcs-converter /path/to/your/repo/.vcs-converter
+cp -r examples/cli/vcs-converter /path/to/your/repo/.vcs-converter
 cd /path/to/your/repo
 ```
 
@@ -132,17 +132,13 @@ Create a `vcs-converter.config.json` file in your repository root:
 {
   "markdown_dir": ".vcs-docs",
   "track_metadata": true,
-  "preserve_images": true,
-  "line_width": 80,
   "store_ast": false,
   "exclude_patterns": [
     "*.tmp.docx",
     "~$*.docx",
     "**/build/**",
     "**/dist/**"
-  ],
-  "auto_commit_markdown": false,
-  "diff_friendly": true
+  ]
 }
 ```
 
@@ -150,12 +146,8 @@ Create a `vcs-converter.config.json` file in your repository root:
 
 - `markdown_dir`: Directory for generated markdown (default: `.vcs-docs`)
 - `track_metadata`: Store metadata for reconstruction (default: `true`)
-- `preserve_images`: Extract and preserve images (default: `true`)
-- `line_width`: Maximum line width for markdown (default: `80`)
 - `store_ast`: Store full AST for perfect reconstruction (default: `false`)
-- `exclude_patterns`: Glob patterns for files to exclude
-- `auto_commit_markdown`: Automatically stage markdown files (default: `false`)
-- `diff_friendly`: Optimize output for git diff (default: `true`)
+- `exclude_patterns`: Glob patterns (matched against file name and full path) for files to skip during `batch`/`scan`
 
 ## Workflows
 
@@ -293,7 +285,7 @@ jobs:
   check-docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install dependencies
         run: pip install all2md
       - name: Convert documents
@@ -369,9 +361,7 @@ For large documents, consider:
 
 ```json
 {
-  "store_ast": false,
-  "preserve_images": false,
-  "line_width": 120
+  "store_ast": false
 }
 ```
 

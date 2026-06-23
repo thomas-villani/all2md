@@ -89,7 +89,7 @@ View and Publish
 
    all2md view report.pdf            # render to HTML and open in a browser
    all2md serve docs/ --recursive    # live-reloading local server
-   all2md generate-site docs/        # build a static HTML site
+   all2md generate-site docs/ --generator hugo --output-dir ./site   # build a static site
 
 .. note::
 
@@ -137,78 +137,33 @@ Converting Directory of Mixed Documents
 
 **Python equivalent:**
 
+The CLI batch above is the recommended way to convert a directory -- it already
+runs in parallel (``--parallel``), mirrors the tree (``--preserve-structure``),
+and continues past failures (``--skip-errors``). Reach for Python only when you
+need custom per-file logic; convert each file with ``to_markdown``:
+
 .. code-block:: python
 
-   import os
    from pathlib import Path
-   from concurrent.futures import ThreadPoolExecutor
    from all2md import to_markdown, PdfOptions, HtmlOptions, PptxOptions, MarkdownRendererOptions
 
-   def convert_documents_parallel(source_dir: str, output_dir: str):
-       # Create shared markdown options
-       md_options = MarkdownRendererOptions(
-           emphasis_symbol="_",
-           bullet_symbols="•◦▪",
-           escape_special=False,
-           use_hash_headings=True,
-       )
+   md_options = MarkdownRendererOptions(emphasis_symbol="_", escape_special=False, use_hash_headings=True)
+   options_by_ext = {
+       "pdf": PdfOptions(detect_columns=True),
+       "html": HtmlOptions(strip_dangerous_elements=True),
+       "pptx": PptxOptions(include_slide_numbers=True),
+   }
 
-       # Define format-specific options
-       options_map = {
-           'pdf': PdfOptions(
-               attachment_mode="save",
-               attachment_output_dir="./extracted_media",
-               detect_columns=True,
-           ),
-           'html': HtmlOptions(
-               attachment_mode="save",
-               attachment_output_dir="./extracted_media",
-               strip_dangerous_elements=True,
-           ),
-           'pptx': PptxOptions(
-               attachment_mode="save",
-               attachment_output_dir="./extracted_media",
-               include_slide_numbers=True,
-           )
-       }
-
-       def convert_file(file_path):
-           try:
-               # Get file extension to determine options
-               ext = file_path.suffix.lower().lstrip('.')
-               options = options_map.get(ext)
-
-               # Convert to markdown
-               markdown_content = to_markdown(
-                   file_path,
-                   parser_options=options,
-                   renderer_options=md_options,
-               )
-
-               # Create output path preserving structure
-               relative_path = file_path.relative_to(source_dir)
-               output_path = Path(output_dir) / relative_path.with_suffix('.md')
-               output_path.parent.mkdir(parents=True, exist_ok=True)
-
-               # Write markdown file
-               output_path.write_text(markdown_content, encoding='utf-8')
-               print(f"Converted: {file_path} -> {output_path}")
-
-           except Exception as e:
-               print(f"Error converting {file_path}: {e}")
-
-       # Find all supported files
-       source_path = Path(source_dir)
-       supported_extensions = {'.pdf', '.docx', '.pptx', '.html', '.eml', '.epub'}
-       files = [f for f in source_path.rglob('*')
-                if f.suffix.lower() in supported_extensions and f.is_file()]
-
-       # Process in parallel
-       with ThreadPoolExecutor(max_workers=4) as executor:
-           executor.map(convert_file, files)
-
-   # Usage
-   convert_documents_parallel('./documents', './markdown_output')
+   source, output = Path("./documents"), Path("./markdown_output")
+   for src in source.rglob("*"):
+       ext = src.suffix.lower().lstrip(".")
+       if ext not in options_by_ext or not src.is_file():
+           continue
+       markdown = to_markdown(src, parser_options=options_by_ext[ext], renderer_options=md_options)
+       dest = output / src.relative_to(source).with_suffix(".md")
+       dest.parent.mkdir(parents=True, exist_ok=True)
+       dest.write_text(markdown, encoding="utf-8")
+       print(f"Converted: {src} -> {dest}")
 
 Creating Text-Only Archive from Website
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -237,64 +192,28 @@ Creating Text-Only Archive from Website
        --collate \
        --out website_archive.md
 
-**Python solution with metadata preservation:**
+**Python equivalent:**
+
+The ``--collate`` flag above already merges a glob of files into one document.
+Use Python when you want to interleave custom per-page headers or metadata:
 
 .. code-block:: python
 
-   from pathlib import Path
    from datetime import datetime
+   from pathlib import Path
    from all2md import to_markdown, HtmlOptions, MarkdownRendererOptions
 
-   def create_website_archive(html_dir: str, output_file: str):
-       md_options = MarkdownRendererOptions(
-           escape_special=False,  # Keep text readable
-           use_hash_headings=True
-       )
+   html_options = HtmlOptions(attachment_mode="skip", extract_title=True,
+                              strip_dangerous_elements=True, convert_nbsp=True)
+   md_options = MarkdownRendererOptions(escape_special=False, use_hash_headings=True)
 
-       html_options = HtmlOptions(
-           attachment_mode="skip",
-           extract_title=True,
-           strip_dangerous_elements=True,
-           convert_nbsp=True,
-       )
+   pages = sorted(Path("./scraped_website").glob("*.html"))
+   parts = [f"# Website Archive\n\nGenerated: {datetime.now().isoformat()}  ·  {len(pages)} pages\n"]
+   for i, page in enumerate(pages, 1):
+       markdown = to_markdown(page, parser_options=html_options, renderer_options=md_options)
+       parts.append(f"\n\n{'=' * 80}\nPage {i}: {page.name}\n{'=' * 80}\n\n{markdown}")
 
-       html_files = list(Path(html_dir).glob('*.html'))
-       archive_content = []
-
-       # Add archive header
-       archive_content.append(f"""# Website Archive
-   Generated on: {datetime.now().isoformat()}
-   Total pages: {len(html_files)}
-   Source directory: {html_dir}
-
-   """)
-
-       for i, html_file in enumerate(html_files, 1):
-           try:
-               # Convert HTML to markdown
-               markdown = to_markdown(
-                   html_file,
-                   parser_options=html_options,
-                   renderer_options=md_options,
-               )
-
-               # Add page separator with metadata
-               separator = "=" * 80
-               header = f"\n{separator}\nPage {i}: {html_file.name}\n{separator}\n\n"
-
-               archive_content.append(header + markdown)
-               print(f"Processed: {html_file.name}")
-
-           except Exception as e:
-               print(f"Error processing {html_file}: {e}")
-               continue
-
-       # Write combined archive
-       Path(output_file).write_text('\n\n'.join(archive_content), encoding='utf-8')
-       print(f"Archive created: {output_file}")
-
-   # Usage
-   create_website_archive('./scraped_website', 'company_website_archive.md')
+   Path("company_website_archive.md").write_text("\n".join(parts), encoding="utf-8")
 
 Feeding Documents to an LLM (RAG)
 ---------------------------------
@@ -519,188 +438,64 @@ Directory Processing with Progress Tracking
 
 **Solution:**
 
+The CLI batch engine already runs in parallel, shows a progress bar, and reports
+failures -- use it for plain bulk conversion:
+
+.. code-block:: bash
+
+   all2md ./source_documents \
+       --recursive \
+       --parallel 6 \
+       --output-dir ./converted_docs \
+       --preserve-structure \
+       --progress \
+       --skip-errors
+
+When you need a *structured* report (timings, word counts, a JSON summary), wrap
+the single-file API in your own pool. ``ThreadPoolExecutor`` is convenient, but
+note that most parsers are pure-Python and GIL-bound, so ``ProcessPoolExecutor``
+often scales better:
+
 .. code-block:: python
 
    import json
    import time
-   from pathlib import Path
    from concurrent.futures import ThreadPoolExecutor, as_completed
-   from dataclasses import dataclass, asdict
-   from typing import List, Dict, Optional
-   from all2md import to_markdown, PdfOptions, DocxOptions, MarkdownRendererOptions
+   from pathlib import Path
+   from all2md import to_markdown
 
-   @dataclass
-   class ProcessingResult:
-       file_path: str
-       success: bool
-       output_path: Optional[str] = None
-       error: Optional[str] = None
-       processing_time: float = 0.0
-       content_length: int = 0
-       word_count: int = 0
+   def convert_one(root: Path, out_dir: Path, src: Path) -> dict:
+       start = time.time()
+       try:
+           markdown = to_markdown(src)
+           dest = out_dir / src.relative_to(root).with_suffix(".md")  # mirror the input tree
+           dest.parent.mkdir(parents=True, exist_ok=True)
+           dest.write_text(markdown, encoding="utf-8")
+           return {"file": str(src), "ok": True, "words": len(markdown.split()), "secs": time.time() - start}
+       except Exception as exc:
+           return {"file": str(src), "ok": False, "error": str(exc), "secs": time.time() - start}
 
-   class BatchProcessor:
-       """Advanced batch processor with progress tracking."""
+   root, out_dir = Path("./source_documents"), Path("./converted_docs")
+   files = [f for f in root.rglob("*") if f.suffix.lower() in {".pdf", ".docx"} and f.is_file()]
 
-       def __init__(self, output_dir: str, max_workers: int = 4):
-           self.output_dir = Path(output_dir)
-           self.output_dir.mkdir(parents=True, exist_ok=True)
-           self.max_workers = max_workers
+   results = []
+   with ThreadPoolExecutor(max_workers=6) as pool:
+       futures = {pool.submit(convert_one, root, out_dir, f): f for f in files}
+       for n, future in enumerate(as_completed(futures), 1):
+           res = future.result()
+           results.append(res)
+           print(f"[{n}/{len(files)}] {'OK ' if res['ok'] else 'FAIL'} {Path(res['file']).name}")
 
-           # Setup options
-           self.md_options = MarkdownRendererOptions(
-               emphasis_symbol="_",
-               use_hash_headings=True
-           )
-
-           self.options_map = {
-               '.pdf': PdfOptions(
-                   attachment_mode="save",
-                   attachment_output_dir=str(self.output_dir / "media"),
-               ),
-               '.docx': DocxOptions(
-                   attachment_mode="save",
-                   attachment_output_dir=str(self.output_dir / "media"),
-               )
-           }
-
-       def process_file(self, file_path: Path) -> ProcessingResult:
-           """Process a single file with timing and error handling."""
-           start_time = time.time()
-
-           try:
-               # Get appropriate options
-               ext = file_path.suffix.lower()
-               options = self.options_map.get(ext)
-
-               # Convert to markdown
-               content = to_markdown(
-                   file_path,
-                   parser_options=options,
-                   renderer_options=self.md_options,
-               )
-
-               # Create output path
-               relative_path = file_path.relative_to(file_path.parent)
-               output_path = self.output_dir / relative_path.with_suffix('.md')
-               output_path.parent.mkdir(parents=True, exist_ok=True)
-
-               # Write output
-               output_path.write_text(content, encoding='utf-8')
-
-               processing_time = time.time() - start_time
-               word_count = len(content.split())
-
-               return ProcessingResult(
-                   file_path=str(file_path),
-                   success=True,
-                   output_path=str(output_path),
-                   processing_time=processing_time,
-                   content_length=len(content),
-                   word_count=word_count
-               )
-
-           except Exception as e:
-               processing_time = time.time() - start_time
-               return ProcessingResult(
-                   file_path=str(file_path),
-                   success=False,
-                   error=str(e),
-                   processing_time=processing_time
-               )
-
-       def process_batch(self, input_paths: List[Path],
-                        progress_callback=None) -> List[ProcessingResult]:
-           """Process multiple files with progress tracking."""
-           results = []
-           completed = 0
-           total = len(input_paths)
-
-           with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-               # Submit all tasks
-               future_to_path = {
-                   executor.submit(self.process_file, path): path
-                   for path in input_paths
-               }
-
-               # Process completed tasks
-               for future in as_completed(future_to_path):
-                   result = future.result()
-                   results.append(result)
-                   completed += 1
-
-                   # Progress callback
-                   if progress_callback:
-                       progress_callback(completed, total, result)
-
-                   # Simple progress logging
-                   status = "✓" if result.success else "✗"
-                   print(f"{status} [{completed:4d}/{total:4d}] {Path(result.file_path).name}")
-
-           return results
-
-       def generate_report(self, results: List[ProcessingResult]) -> Dict:
-           """Generate processing report."""
-           successful = [r for r in results if r.success]
-           failed = [r for r in results if not r.success]
-
-           report = {
-               "summary": {
-                   "total_files": len(results),
-                   "successful": len(successful),
-                   "failed": len(failed),
-                   "success_rate": len(successful) / len(results) * 100 if results else 0,
-                   "total_processing_time": sum(r.processing_time for r in results),
-                   "total_words": sum(r.word_count for r in successful),
-                   "average_processing_time": sum(r.processing_time for r in results) / len(results) if results else 0
-               },
-               "successful_files": [asdict(r) for r in successful],
-               "failed_files": [asdict(r) for r in failed]
-           }
-
-           return report
-
-   # Usage example with progress tracking
-   def process_documents_with_progress():
-       processor = BatchProcessor("./converted_docs", max_workers=6)
-
-       # Find all files to process
-       input_dir = Path("./source_documents")
-       file_patterns = ["*.pdf", "*.docx"]
-       input_files = []
-
-       for pattern in file_patterns:
-           input_files.extend(input_dir.rglob(pattern))
-
-       print(f"Found {len(input_files)} files to process")
-
-       # Custom progress callback
-       def progress_callback(completed, total, result):
-           if result.success:
-               print(f"  → Converted {result.word_count:,} words in {result.processing_time:.2f}s")
-           else:
-               print(f"  → Error: {result.error}")
-
-       # Process files
-       results = processor.process_batch(input_files, progress_callback)
-
-       # Generate and save report
-       report = processor.generate_report(results)
-       report_path = Path("./converted_docs/processing_report.json")
-       report_path.write_text(json.dumps(report, indent=2))
-
-       # Print summary
-       summary = report["summary"]
-       print(f"\nProcessing Complete:")
-       print(f"  Files processed: {summary['total_files']}")
-       print(f"  Successful: {summary['successful']} ({summary['success_rate']:.1f}%)")
-       print(f"  Failed: {summary['failed']}")
-       print(f"  Total words: {summary['total_words']:,}")
-       print(f"  Total time: {summary['total_processing_time']:.2f}s")
-       print(f"  Report saved: {report_path}")
-
-   # Run the batch processing
-   process_documents_with_progress()
+   ok = [r for r in results if r["ok"]]
+   report = {
+       "total": len(results),
+       "succeeded": len(ok),
+       "failed": len(results) - len(ok),
+       "total_words": sum(r["words"] for r in ok),
+       "total_secs": round(sum(r["secs"] for r in results), 2),
+   }
+   Path("./converted_docs/processing_report.json").write_text(json.dumps(report, indent=2))
+   print(report)
 
 Real-Time Progress Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -760,6 +555,7 @@ Use the built-in progress callback system for fine-grained progress tracking:
 
    class ConverterGUI:
        def __init__(self, root):
+           self.root = root
            self.progress = ttk.Progressbar(root, length=400, mode='determinate')
            self.progress.pack(pady=20)
            self.status = tk.Label(root, text="Ready")
