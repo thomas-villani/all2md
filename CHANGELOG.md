@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``-a/--address HOST:PORT`` that sets host and port together (``-a 0.0.0.0:9000``,
   ``-a :9000``, ``-a host:``). Host uses ``-H`` because ``-h`` is reserved for
   ``--help``.
+- **EML: RTF message bodies are converted to Markdown.** Emails whose body is an
+  ``application/rtf`` / ``text/rtf`` part (e.g. Outlook messages exported via
+  libpst/readpst) previously yielded empty content; the RTF body is now routed
+  through the existing RTF parser as a fallback after plain-text and HTML, and
+  rendered to Markdown. Controlled by the new ``include_rtf_parts`` option
+  (``--no-include-rtf-parts``). (GitHub #39)
 
 ## [1.6.0] - 2026-06-18
 

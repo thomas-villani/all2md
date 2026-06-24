@@ -176,6 +176,7 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
     # Handle multipart messages with preference logic
     text_parts = []
     html_parts = []
+    rtf_parts: list[str] = []
 
     for part in message.walk():
         # Skip the main multipart container
@@ -192,8 +193,14 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
             content = _extract_part_content(part, options)
             if content.strip():
                 html_parts.append(content)
+        elif content_type in ("application/rtf", "text/rtf") and options.include_rtf_parts:
+            # RTF bodies (e.g. from libpst/readpst-converted Outlook messages)
+            # are converted straight to Markdown -- raw RTF markup is not useful.
+            markdown = convert_eml_rtf_to_markdown(part, options)
+            if markdown.strip():
+                rtf_parts.append(markdown)
 
-    # Preference logic: use text/plain if available, otherwise HTML
+    # Preference logic: text/plain, then HTML, then RTF as a final fallback.
     if text_parts:
         return "\n\n".join(text_parts)
     elif html_parts:
@@ -203,6 +210,8 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
             return convert_eml_html_to_markdown(html_content, options)
         else:
             return html_content
+    elif rtf_parts:
+        return "\n\n".join(rtf_parts)
     else:
         return ""
 
@@ -298,6 +307,51 @@ def convert_eml_html_to_markdown(html_content: str, options: EmlOptions) -> str:
     except Exception:
         # Conversion failed, return HTML as-is
         return html_content
+
+
+def convert_eml_rtf_to_markdown(part: EmailMessage | Message, options: EmlOptions) -> str:
+    """Convert an RTF email body part to Markdown.
+
+    Decodes the part's payload to raw bytes and runs it through the RTF parser,
+    rendering the result to Markdown. RTF bodies show up in emails exported from
+    Outlook via libpst/readpst; unlike plain text or HTML they carry no useful
+    representation as-is, so they are always converted rather than passed through.
+
+    Parameters
+    ----------
+    part : EmailMessage | Message
+        The RTF body part (``application/rtf`` or ``text/rtf``).
+    options : EmlOptions
+        Configuration options for conversion.
+
+    Returns
+    -------
+    str
+        Converted Markdown content, or an empty string when the part is empty or
+        the optional RTF dependency is unavailable.
+
+    """
+    payload = part.get_payload(decode=True)
+    if not isinstance(payload, (bytes, bytearray)):
+        return ""
+    if not payload:
+        return ""
+    if len(payload) > options.max_asset_size_bytes:
+        return f"[Content too large ({len(payload)} bytes) - truncated for security]"
+
+    try:
+        md_options = MarkdownRendererOptions(use_hash_headings=True)
+        return to_markdown(
+            BytesIO(bytes(payload)),
+            source_format="rtf",
+            renderer_options=md_options,
+        )
+    except (ImportError, DependencyError):
+        # Optional RTF dependency (pyth) not installed -- skip rather than crash.
+        return ""
+    except Exception:
+        # Malformed RTF; drop the body rather than failing the whole email.
+        return ""
 
 
 def parse_single_message(msg: EmailMessage | Message, options: EmlOptions) -> dict[str, Any]:

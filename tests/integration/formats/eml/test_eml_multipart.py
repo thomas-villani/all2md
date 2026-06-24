@@ -55,6 +55,61 @@ class TestEmlMultipart:
         # Content should include either plain or HTML version
         assert "plain text version" in result or "HTML Version" in result
 
+    # A minimal RTF document with a bold run and two paragraphs, mirroring the
+    # base64 RTF bodies produced by libpst/readpst (GitHub issue #39).
+    # Note the space after each \par: RTF control words need a delimiter, else
+    # "\parSecond" parses as one unknown control word and the text is lost.
+    _RTF_BODY = (
+        r"{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}}"
+        r"\f0\fs24 Hello from \b RTF\b0  body.\par "
+        r"Second paragraph of the RTF body.\par }"
+    )
+
+    def test_rtf_body_converted_to_markdown(self):
+        """An RTF-only body (issue #39) is converted to Markdown, not dropped."""
+        msg = MIMEMultipart("mixed")
+        msg["From"] = "sender@example.com"
+        msg["To"] = "recipient@example.com"
+        msg["Subject"] = "RTF Body Test"
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        msg.attach(MIMEApplication(self._RTF_BODY.encode("utf-8"), _subtype="rtf"))
+
+        result = eml_to_markdown(BytesIO(msg.as_string().encode("utf-8")))
+        assert_markdown_valid(result)
+
+        assert "RTF Body Test" in result
+        assert "Hello from" in result
+        assert "Second paragraph of the RTF body" in result
+
+    def test_rtf_body_skipped_when_disabled(self):
+        """include_rtf_parts=False leaves the RTF body out of the rendered email."""
+        msg = MIMEMultipart("mixed")
+        msg["From"] = "sender@example.com"
+        msg["Subject"] = "RTF Disabled"
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        msg.attach(MIMEApplication(self._RTF_BODY.encode("utf-8"), _subtype="rtf"))
+
+        result = eml_to_markdown(
+            BytesIO(msg.as_string().encode("utf-8")),
+            parser_options=EmlOptions(include_rtf_parts=False),
+        )
+        assert "Hello from" not in result
+        assert "Second paragraph of the RTF body" not in result
+
+    def test_plain_text_preferred_over_rtf(self):
+        """When both a plain-text and an RTF body exist, plain text wins."""
+        msg = MIMEMultipart("alternative")
+        msg["From"] = "sender@example.com"
+        msg["Subject"] = "Plain vs RTF"
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        msg.attach(MIMEText("This is the plain text body.", "plain"))
+        msg.attach(MIMEApplication(self._RTF_BODY.encode("utf-8"), _subtype="rtf"))
+
+        result = eml_to_markdown(BytesIO(msg.as_string().encode("utf-8")))
+        assert_markdown_valid(result)
+        assert "This is the plain text body." in result
+        assert "Hello from" not in result
+
     def test_multipart_mixed_with_attachments(self):
         """Test multipart/mixed with text content and attachments."""
         msg = MIMEMultipart("mixed")

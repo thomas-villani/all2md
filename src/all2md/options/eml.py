@@ -22,6 +22,7 @@ from all2md.constants import (
     DEFAULT_EML_INCLUDE_ATTACH_SECTION_HEADING,
     DEFAULT_EML_INCLUDE_HTML_PARTS,
     DEFAULT_EML_INCLUDE_PLAIN_PARTS,
+    DEFAULT_EML_INCLUDE_RTF_PARTS,
     DEFAULT_EML_SUBJECT_AS_H1,
     DEFAULT_NORMALIZE_HEADERS,
     DEFAULT_PRESERVE_RAW_HEADERS,
@@ -186,6 +187,15 @@ class EmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         metadata={
             "help": "Include plain text content parts from emails",
             "cli_name": "no-include-plain-parts",
+            "importance": "advanced",
+        },
+    )
+    include_rtf_parts: bool = field(
+        default=DEFAULT_EML_INCLUDE_RTF_PARTS,
+        metadata={
+            "help": "Include RTF body parts from emails (converted to Markdown; used when "
+            "no plain-text or HTML body is present)",
+            "cli_name": "no-include-rtf-parts",
             "importance": "advanced",
         },
     )
