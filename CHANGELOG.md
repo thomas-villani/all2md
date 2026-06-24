@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the default ``more`` mangles ANSI color codes), all2md now prints a one-line hint
   pointing at an ANSI-capable pager such as ``less -R`` instead of silently
   dropping paging.
+- **EML: HTML and RTF bodies keep their formatting.** Email bodies converted from
+  HTML (with ``convert_html_to_markdown``) or RTF are now re-parsed into rich AST
+  nodes, so headings, bold/italic, links, and lists survive into the output
+  instead of being flattened to escaped plain text. Genuine plain-text bodies are
+  still treated as plain text, and raw HTML is never passed through (the Markdown
+  renderer escapes it by default), preserving the parser's sanitization stance.
 
 ### Added
 

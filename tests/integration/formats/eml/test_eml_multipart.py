@@ -80,6 +80,50 @@ class TestEmlMultipart:
         assert "RTF Body Test" in result
         assert "Hello from" in result
         assert "Second paragraph of the RTF body" in result
+        # The RTF body is re-parsed into rich AST, so its bold run renders as real
+        # Markdown emphasis -- not flattened to escaped text like "\\*\\*RTF\\*\\*".
+        assert "**RTF**" in result
+        assert "\\*\\*RTF\\*\\*" not in result
+
+    def test_html_body_renders_rich_markdown(self):
+        """With convert_html_to_markdown, an HTML body keeps headings/bold/links/lists."""
+        msg = MIMEMultipart("alternative")
+        msg["From"] = "sender@example.com"
+        msg["Subject"] = "HTML Rich"
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        html = (
+            "<h2>Section</h2>"
+            "<p>Some <strong>bold</strong> and a <a href='https://example.com'>link</a>.</p>"
+            "<ul><li>one</li><li>two</li></ul>"
+        )
+        msg.attach(MIMEText(html, "html"))
+
+        result = eml_to_markdown(
+            BytesIO(msg.as_string().encode("utf-8")),
+            parser_options=EmlOptions(convert_html_to_markdown=True),
+        )
+        assert_markdown_valid(result)
+        assert "## Section" in result
+        assert "**bold**" in result
+        assert "[link](https://example.com)" in result
+        assert "* one" in result and "* two" in result
+
+    def test_html_body_does_not_pass_through_script(self):
+        """A converted HTML body must not pass raw <script> through to output."""
+        msg = MIMEMultipart("alternative")
+        msg["From"] = "sender@example.com"
+        msg["Subject"] = "HTML Script"
+        msg["Date"] = email.utils.formatdate(localtime=True)
+        html = "<p>Safe text</p><script>alert('xss')</script>"
+        msg.attach(MIMEText(html, "html"))
+
+        result = eml_to_markdown(
+            BytesIO(msg.as_string().encode("utf-8")),
+            parser_options=EmlOptions(convert_html_to_markdown=True),
+        )
+        assert "Safe text" in result
+        assert "<script>" not in result
+        assert "alert('xss')" not in result
 
     def test_rtf_body_skipped_when_disabled(self):
         """include_rtf_parts=False leaves the RTF body out of the rendered email."""

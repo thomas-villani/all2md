@@ -140,12 +140,12 @@ def format_eml_date(dt: datetime.datetime | None, options: EmlOptions) -> str:
         return dt.strftime(options.date_strftime_pattern)
 
 
-def extract_message_content(message: EmailMessage | Message, options: EmlOptions) -> str:
-    """Extract text content from an email message with enhanced multipart handling.
+def extract_message_content(message: EmailMessage | Message, options: EmlOptions) -> tuple[str, bool]:
+    """Extract body content from an email message with enhanced multipart handling.
 
     Processes both simple and multipart email messages to extract readable
-    text content. For multipart messages, prefers text/plain content but can
-    fall back to text/html with optional HTML-to-Markdown conversion.
+    content. For multipart messages, prefers text/plain content but can fall
+    back to text/html (optionally HTML-to-Markdown converted) and then to RTF.
 
     Parameters
     ----------
@@ -156,22 +156,31 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
 
     Returns
     -------
-    str
-        Extracted text content from the email message, with proper encoding
-        handling and multipart content processing.
+    tuple[str, bool]
+        ``(content, is_markdown)``. ``is_markdown`` is ``True`` when the content
+        is already Markdown -- produced by converting an HTML or RTF body -- and
+        so should be parsed back into rich AST nodes rather than treated as plain
+        text. It is ``False`` for plain-text bodies and for raw (unconverted) HTML.
 
     Notes
     -----
-    - For multipart/alternative: prefers text/plain, falls back to text/html
-    - For multipart/mixed: combines all text parts
-    - Optionally converts HTML to Markdown using html2markdown
+    - For multipart/alternative: prefers text/plain, falls back to text/html, then RTF
+    - For multipart/mixed: combines all text parts of the winning type
+    - Optionally converts HTML to Markdown
     - Manages different character encodings with UTF-8 fallback
     - Uses error-safe decoding to handle malformed content
 
     """
     if not message.is_multipart():
-        # Simple message - extract content directly
-        return _extract_part_content(message, options)
+        # Simple (single-part) message: the body may itself be RTF or HTML.
+        content_type = message.get_content_type()
+        if content_type in ("application/rtf", "text/rtf") and options.include_rtf_parts:
+            markdown = convert_eml_rtf_to_markdown(message, options)
+            return (markdown, True) if markdown.strip() else ("", False)
+        if content_type == "text/html" and options.include_html_parts and options.convert_html_to_markdown:
+            html = _extract_part_content(message, options)
+            return (convert_eml_html_to_markdown(html, options), True) if html.strip() else ("", False)
+        return _extract_part_content(message, options), False
 
     # Handle multipart messages with preference logic
     text_parts = []
@@ -202,18 +211,17 @@ def extract_message_content(message: EmailMessage | Message, options: EmlOptions
 
     # Preference logic: text/plain, then HTML, then RTF as a final fallback.
     if text_parts:
-        return "\n\n".join(text_parts)
+        return "\n\n".join(text_parts), False
     elif html_parts:
         html_content = "\n\n".join(html_parts)
         if options.convert_html_to_markdown:
-            # Convert HTML to Markdown
-            return convert_eml_html_to_markdown(html_content, options)
-        else:
-            return html_content
+            return convert_eml_html_to_markdown(html_content, options), True
+        # Raw HTML is left as-is (and rendered as escaped text downstream).
+        return html_content, False
     elif rtf_parts:
-        return "\n\n".join(rtf_parts)
+        return "\n\n".join(rtf_parts), True
     else:
-        return ""
+        return "", False
 
 
 def _extract_part_content(part: EmailMessage | Message, options: EmlOptions) -> str:
@@ -400,8 +408,10 @@ def parse_single_message(msg: EmailMessage | Message, options: EmlOptions) -> di
     # Parse date with fallback hierarchy
     parsed_date = _parse_date_with_fallback(msg)
 
-    # Extract content with enhanced multipart handling
-    content = extract_message_content(msg, options)
+    # Extract content with enhanced multipart handling. ``content_is_markdown``
+    # tracks whether the body was converted from HTML/RTF (and so should be
+    # re-parsed into rich AST nodes rather than rendered as escaped plain text).
+    content, content_is_markdown = extract_message_content(msg, options)
 
     result = {
         "from": headers.get("from", ""),
@@ -409,6 +419,7 @@ def parse_single_message(msg: EmailMessage | Message, options: EmlOptions) -> di
         "subject": headers.get("subject", ""),
         "date": parsed_date,
         "content": content,
+        "content_is_markdown": content_is_markdown,
         "message_id": headers.get("message_id", ""),
         "in_reply_to": headers.get("in_reply_to", ""),
         "references": headers.get("references", ""),
@@ -979,6 +990,9 @@ class EmlToAstConverter(BaseParser):
                     for key in message:
                         if key != "content" and key not in split_messages[0]:
                             split_messages[0][key] = message[key]
+                    # All split fragments share the original body's format.
+                    for split_message in split_messages:
+                        split_message.setdefault("content_is_markdown", message.get("content_is_markdown", False))
                     messages = split_messages
                 else:
                     messages = [message]
@@ -1058,10 +1072,11 @@ class EmlToAstConverter(BaseParser):
                     header_text = "\n".join(header_lines)
                     children.append(Paragraph(content=[Text(content=header_text)]))
 
-            # Add content - parse safely to avoid XSS via HTMLInline
+            # Add content. Bodies converted from HTML/RTF are already Markdown and
+            # get re-parsed into rich nodes; plain text stays plain (and escaped).
             content = item.get("content", "")
             if content.strip():
-                content_nodes = self._parse_email_content(content)
+                content_nodes = self._parse_email_content(content, is_markdown=item.get("content_is_markdown", False))
                 children.extend(content_nodes)
 
             # Add separator
@@ -1075,23 +1090,39 @@ class EmlToAstConverter(BaseParser):
 
         return Document(children=children)
 
-    def _parse_email_content(self, content: str) -> list[Node]:
-        """Parse email content into AST nodes safely.
+    def _parse_email_content(self, content: str, *, is_markdown: bool = False) -> list[Node]:
+        """Parse email body content into AST nodes safely.
 
-        This method avoids using HTMLInline which bypasses renderer sanitization.
-        Content is treated as plain text and split into paragraphs.
+        For bodies converted from HTML or RTF (``is_markdown=True``) the content
+        is already Markdown, so it is parsed back into rich AST nodes (headings,
+        emphasis, lists, links). For genuine plain-text bodies the content is
+        treated as plain text and split into paragraphs, which keeps incidental
+        Markdown characters from being interpreted.
+
+        Either way no raw HTML is passed through: ``_parse_markdown_body`` relies
+        on the Markdown renderer's ``html_passthrough_mode`` (``"escape"`` by
+        default) to neutralize any HTMLInline/HTMLBlock nodes, and never uses
+        HTMLInline directly.
 
         Parameters
         ----------
         content : str
-            Email content (plain text or markdown)
+            Email body content (plain text, or Markdown when ``is_markdown``).
+        is_markdown : bool, default False
+            Whether ``content`` is Markdown that should be parsed for structure.
 
         Returns
         -------
         list[Node]
-            List of AST nodes (paragraphs)
+            List of AST nodes.
 
         """
+        if is_markdown:
+            rich_nodes = self._parse_markdown_body(content)
+            if rich_nodes:
+                return rich_nodes
+            # Fall through to plain-text handling if parsing yielded nothing.
+
         nodes: list[Node] = []
 
         # Split content into paragraphs (by double newlines)
@@ -1107,6 +1138,37 @@ class EmlToAstConverter(BaseParser):
             nodes.append(Paragraph(content=[Text(content=para_text)]))
 
         return nodes if nodes else [Paragraph(content=[Text(content=content)])]
+
+    def _parse_markdown_body(self, content: str) -> list[Node]:
+        """Parse already-Markdown body content into rich AST nodes.
+
+        Used for email bodies that were converted from HTML or RTF, so their
+        formatting (headings, emphasis, lists, links) survives into the rendered
+        output instead of being flattened to escaped plain text.
+
+        Returns an empty list on any failure so the caller can fall back to the
+        plain-text path. Raw HTML in the Markdown is not passed through here; the
+        downstream Markdown renderer escapes HTMLInline/HTMLBlock by default.
+
+        Parameters
+        ----------
+        content : str
+            Markdown body content to parse.
+
+        Returns
+        -------
+        list[Node]
+            Parsed AST nodes, or an empty list if parsing failed.
+
+        """
+        try:
+            from all2md.api import to_ast
+
+            doc = to_ast(BytesIO(content.encode("utf-8")), source_format="markdown")
+            return list(doc.children)
+        except Exception:
+            # Malformed/unsupported markdown -- let the caller flatten to text.
+            return []
 
     def _format_date(self, dt: datetime.datetime | None) -> str:
         """Format datetime according to EmlOptions configuration.
