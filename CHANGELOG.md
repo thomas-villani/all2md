@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.7.0] - 2026-06-24
 
 ### Changed
 
@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`[rich]` config table for theming `--rich` terminal output.** A new
+  ``[rich]`` table in the config file customizes the colors Rich uses for
+  Markdown elements (headings, links, block quotes, list bullets, inline code,
+  ...) in ``--rich`` output. Bare element names auto-prefix to ``markdown.*``;
+  dotted keys pass through verbatim; invalid or non-string entries are skipped
+  with a warning. Previously only code-block syntax themes were configurable.
+  ``all2md config generate`` emits a commented ``[rich]`` example.
 - **`all2md help markdown` (and `help md`).** Added as aliases for the verbose
   ``help common-markdown-formatting`` topic, matching the ``help <format>``
   pattern used by every other format.
@@ -464,6 +471,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
+[1.0.7]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.0
+[1.6.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.6.0
+[1.5.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.5.0
+[1.4.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.4.0
+[1.3.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.3.0
+[1.2.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.2.0
+[1.1.3]: https://github.com/thomas-villani/all2md/releases/tag/v1.1.3
+[1.1.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.1.2
+[1.1.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.1.1
+[1.1.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.1.0
 [1.0.6]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.6
 [1.0.5]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.5
 [1.0.4]: https://github.com/thomas-villani/all2md/releases/tag/v1.0.4
