@@ -18,6 +18,25 @@ except ImportError:
     WATCHDOG_AVAILABLE = False
 
 
+def _wait_for_content(output_file, expected, timeout=10.0, interval=0.05):
+    """Poll ``output_file`` until it contains ``expected`` or ``timeout`` elapses.
+
+    Real-filesystem watch tests are debounced and run on a background thread, so a
+    fixed sleep races the conversion on loaded CI runners. Polling makes them robust
+    while staying fast on an idle machine. Returns the file contents (empty string if
+    never created).
+    """
+    deadline = time.monotonic() + timeout
+    content = ""
+    while time.monotonic() < deadline:
+        if output_file.exists():
+            content = output_file.read_text()
+            if expected in content:
+                return content
+        time.sleep(interval)
+    return content
+
+
 class TestConversionEventHandler:
     """Test ConversionEventHandler class."""
 
@@ -674,15 +693,11 @@ class TestWatchModeIntegration:
         # Modify the file
         test_file.write_text("Modified content for testing")
 
-        # Wait for conversion to complete
-        time.sleep(1.0)
-
-        # Check output was created
+        # Wait for conversion to complete (poll rather than fixed sleep to avoid CI flakiness)
         output_file = output_dir / "document.md"
-        assert output_file.exists(), "Output markdown file should be created"
+        content = _wait_for_content(output_file, "Modified content")
 
-        # Verify content
-        content = output_file.read_text()
+        assert output_file.exists(), "Output markdown file should be created"
         assert "Modified content" in content
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
@@ -721,12 +736,12 @@ class TestWatchModeIntegration:
         new_file = tmp_path / "new_document.txt"
         new_file.write_text("New file content")
 
-        # Wait for conversion
-        time.sleep(1.0)
-
-        # Check output
+        # Wait for conversion (poll rather than fixed sleep to avoid CI flakiness)
         output_file = output_dir / "new_document.md"
+        content = _wait_for_content(output_file, "New file content")
+
         assert output_file.exists(), "Newly created file should be converted"
+        assert "New file content" in content
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
     def test_watch_mode_debounce_rapid_changes(self, tmp_path):
