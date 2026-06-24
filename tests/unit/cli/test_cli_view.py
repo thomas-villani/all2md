@@ -130,6 +130,13 @@ class TestHandleViewCommand:
         assert result == 0
         assert output_path.exists()
 
+    def test_view_shorthand_flags(self, sample_markdown: Path, tmp_path: Path):
+        """Shorthand flags (-d dark, -t theme, -N no-wait) work like their long forms."""
+        output_path = tmp_path / "output.html"
+        result = handle_view_command([str(sample_markdown), "-d", "-t", "minimal", "-N", "--keep", str(output_path)])
+        assert result == 0
+        assert output_path.exists()
+
     def test_view_invalid_theme(self, sample_markdown: Path, capsys):
         """Test error with invalid theme name."""
         result = handle_view_command([str(sample_markdown), "--theme", "nonexistent_theme_xyz"])

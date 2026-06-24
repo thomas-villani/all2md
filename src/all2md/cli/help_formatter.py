@@ -283,6 +283,10 @@ _HELP_SECTION_ALIASES: Dict[str, str] = {
     "attachments": "global-attachment",
     "attachment": "global-attachment",
     "images": "global-attachment",
+    # The Markdown renderer options live under the verbose "Common Markdown
+    # formatting options" group; let users reach them with the obvious name.
+    "markdown": "common-markdown-formatting",
+    "md": "common-markdown-formatting",
 }
 
 

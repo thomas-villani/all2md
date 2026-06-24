@@ -105,6 +105,21 @@ def test_help_attachments_alias_matches_global_attachment(capsys):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("alias", ["markdown", "md"])
+def test_help_markdown_alias_matches_common_markdown_formatting(alias, capsys):
+    """`help markdown`/`help md` alias the verbose `common-markdown-formatting` topic."""
+    handle_help_command(["help", alias])
+    alias_out = capsys.readouterr().out
+
+    handle_help_command(["help", "common-markdown-formatting"])
+    canonical_out = capsys.readouterr().out
+
+    assert alias_out == canonical_out
+    assert "Common Markdown formatting options" in alias_out
+    assert "Unknown help section" not in alias_out
+
+
+@pytest.mark.unit
 def test_help_batch_topic_lists_batch_flags(capsys):
     """`help batch` surfaces the batch-processing flags as a dedicated topic."""
     handle_help_command(["help", "batch"])

@@ -41,8 +41,9 @@ def _create_view_parser() -> argparse.ArgumentParser:
         help="Keep HTML file. Optionally specify output path (default: keep temp file)",
     )
     parser.add_argument("--toc", action="store_true", help="Include table of contents")
-    parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
+    parser.add_argument("-d", "--dark", action="store_true", help="Use dark mode theme")
     parser.add_argument(
+        "-w",
         "--window",
         action="store_true",
         help="Open in a standalone native window (no browser chrome) instead of a browser tab. "
@@ -50,10 +51,12 @@ def _create_view_parser() -> argparse.ArgumentParser:
         "a browser tab if it is not installed.",
     )
     parser.add_argument(
+        "-t",
         "--theme",
         help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
     )
     parser.add_argument(
+        "-x",
         "--extract",
         type=str,
         metavar="SPEC",
@@ -64,6 +67,7 @@ def _create_view_parser() -> argparse.ArgumentParser:
         "Sections are 1-indexed.",
     )
     parser.add_argument(
+        "-N",
         "--no-wait",
         action="store_true",
         help="Skip waiting for confirmation before cleaning up (useful for scripts)",
@@ -155,9 +159,18 @@ def handle_view_command(args: list[str] | None = None) -> int:
     # Print status
     print(f"Converting {input_display_name}...")
 
+    # Converter options from the config file (e.g. [pdf], [html], top-level keys)
+    # so a single config drives `all2md`, `view`, and `serve` identically.
+    from all2md.cli.processors import load_converter_config_options, prepare_options_for_execution
+
+    converter_options = load_converter_config_options(explicit_path=parsed.config, no_config=parsed.no_config)
+
     try:
-        # Convert to AST
-        doc = to_ast(input_source)
+        # Convert to AST, applying any config-supplied converter options for the
+        # detected format (None path for stdin falls back to format-qualified keys).
+        opts_path = None if is_stdin else Path(parsed.input)
+        to_ast_kwargs = prepare_options_for_execution(converter_options, opts_path, "auto")
+        doc = to_ast(input_source, **to_ast_kwargs)
 
         # Apply section extraction if requested
         if parsed.extract:

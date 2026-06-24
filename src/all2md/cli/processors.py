@@ -12,6 +12,7 @@ import logging
 import os
 import platform
 import pydoc
+import shutil
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -31,7 +32,7 @@ from all2md.cli.builder import (
     DynamicCLIBuilder,
     get_exit_code_for_exception,
 )
-from all2md.cli.config import load_config_with_priority
+from all2md.cli.config import SUBCOMMAND_CONFIG_SECTIONS, load_config_with_priority
 from all2md.cli.input_items import CLIInputItem
 from all2md.cli.output import should_use_rich_output
 from all2md.cli.packaging import create_package_from_conversions
@@ -630,6 +631,61 @@ def prepare_options_for_execution(
     return filtered
 
 
+def load_converter_config_options(*, explicit_path: str | None, no_config: bool) -> Dict[str, Any]:
+    """Return converter options from the config file for ``view``/``serve``.
+
+    Standalone subcommands like ``view`` and ``serve`` only convert documents;
+    they don't expose the converter's per-format flags. This reuses the main
+    converter's config machinery so a single config file drives ``all2md``,
+    ``view``, and ``serve`` identically -- e.g. ``[pdf] detect_columns = true``
+    or a top-level ``attachment_mode`` applies everywhere.
+
+    The result is a dot-notation options dict (e.g.
+    ``{"pdf.detect_columns": True, "attachment_mode": "save"}``) ready for
+    :func:`prepare_options_for_execution`. The subcommand flag sections
+    (``[view]``, ``[serve]``, …) and the ``[rich]`` terminal-styling table are
+    stripped so they never leak in as converter options.
+
+    Parameters
+    ----------
+    explicit_path : str or None
+        Explicit config path (typically from a ``--config`` flag).
+    no_config : bool
+        If True, skip config loading and return an empty dict.
+
+    Returns
+    -------
+    dict
+        Flattened converter options, or an empty dict when no config applies.
+
+    """
+    if no_config:
+        return {}
+
+    env_config_path = os.environ.get("ALL2MD_CONFIG")
+    try:
+        config = load_config_with_priority(explicit_path=explicit_path, env_var_path=env_config_path)
+    except argparse.ArgumentTypeError as e:
+        # Surface the problem but don't crash the subcommand over a bad config file.
+        print(f"Warning: could not load configuration: {e}", file=sys.stderr)
+        return {}
+
+    if not isinstance(config, dict) or not config:
+        return {}
+
+    converter_config = {
+        key: value for key, value in config.items() if key not in SUBCOMMAND_CONFIG_SECTIONS and key != "rich"
+    }
+    if not converter_config:
+        return {}
+
+    # Reuse the converter's config flattening/validation. An empty namespace means
+    # no CLI args contribute; only the config tables are flattened to dot-keys.
+    builder = DynamicCLIBuilder()
+    empty_ns = argparse.Namespace(_provided_args=set())
+    return builder.map_args_to_options(empty_ns, converter_config)
+
+
 # Rich markdown element style names recognized by ``rich.markdown.Markdown``.
 # Bare keys (e.g. ``h1``, ``block_quote``) in a ``[rich]`` config table are
 # auto-prefixed with ``markdown.`` for convenience; full names are accepted too.
@@ -854,8 +910,42 @@ def _render_rich_text_output(text: str, args: argparse.Namespace, target_format:
     return True
 
 
+def _running_under_wsl() -> bool:
+    """Return ``True`` when running inside the Windows Subsystem for Linux."""
+    if platform.system() != "Linux":
+        return False
+    try:
+        with open("/proc/version", "r") as f:
+            return "microsoft" in f.read().lower()
+    except Exception:
+        return False
+
+
+def _ansi_pager_hint() -> str:
+    """Build a one-line hint about configuring an ANSI-capable pager.
+
+    The default Windows pager (``more``) prints raw escape codes when handed
+    Rich's ANSI-styled output. ``less -R`` renders them correctly, so point the
+    user at it -- tailoring the message to whether ``less`` is already on PATH.
+    """
+    if shutil.which("less"):
+        return "Tip: set PAGER to an ANSI-capable pager for styled paging, e.g. set PAGER=less -R"
+    return (
+        "Tip: install an ANSI-capable pager (e.g. 'less') and set PAGER to use it, e.g. set PAGER=less -R. "
+        "On Windows, 'less' ships with Git for Windows or can be installed via 'scoop install less' / "
+        "'winget install jftuga.less'."
+    )
+
+
 def _page_content(content: str, is_rich: bool = False) -> bool:
-    """Page content using pydoc.pager.
+    """Page content using ``pydoc.pager``, honoring the ``PAGER`` env var.
+
+    Paging is left entirely to the user's environment: ``pydoc.pager`` uses
+    ``PAGER`` (or ``MANPAGER``) when set and falls back to the platform default
+    (``more`` on Windows, ``less``/``more`` elsewhere). For Rich (ANSI) output
+    we no longer refuse to page on Windows/WSL -- instead, when no PAGER is
+    configured there, we drop a hint about pointing PAGER at an ANSI-capable
+    pager such as ``less -R`` so styled output isn't mangled by ``more``.
 
     Parameters
     ----------
@@ -870,29 +960,14 @@ def _page_content(content: str, is_rich: bool = False) -> bool:
         True if paging succeeded, False if should fall back to printing
 
     """
-    # Check if using Rich formatting on Windows/WSL
-    # Plain text paging works fine on Windows, but Rich ANSI codes don't display well
-    if is_rich:
-        system = platform.system()
-        is_windows_or_wsl = False
+    # When the user asked for Rich styling but hasn't configured a pager, the
+    # platform default on Windows/WSL is ``more``, which renders ANSI escapes as
+    # literal noise. Nudge them toward an ANSI-capable pager, then page anyway.
+    pager_configured = bool(os.environ.get("PAGER") or os.environ.get("MANPAGER"))
+    if is_rich and not pager_configured and (platform.system() == "Windows" or _running_under_wsl()):
+        print(_ansi_pager_hint(), file=sys.stderr)
 
-        if system == "Windows":
-            is_windows_or_wsl = True
-        elif system == "Linux":
-            # Check if running under WSL
-            try:
-                with open("/proc/version", "r") as f:
-                    if "microsoft" in f.read().lower():
-                        is_windows_or_wsl = True
-            except Exception:
-                pass
-
-        if is_windows_or_wsl:
-            print("Warning: --pager with --rich is not well supported on Windows/WSL.", file=sys.stderr)
-            print("The content will be displayed without paging.", file=sys.stderr)
-            return False
-
-    # Use pydoc.pager (works fine for plain text on all platforms)
+    # Use pydoc.pager (honors PAGER/MANPAGER, with a platform-default fallback).
     try:
         pydoc.pager(content)
         return True

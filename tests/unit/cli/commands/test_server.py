@@ -19,10 +19,34 @@ from all2md.cli.commands.server import (
     _generate_directory_index,
     _generate_upload_form,
     _get_content_type_for_format,
+    _parse_address,
     _parse_multipart_form_data,
     _scan_directory_for_documents,
     handle_serve_command,
 )
+
+
+@pytest.mark.unit
+class TestParseAddress:
+    """Test the ``--address`` host:port splitter."""
+
+    @pytest.mark.parametrize(
+        "address,expected",
+        [
+            ("0.0.0.0:9000", ("0.0.0.0", 9000)),
+            ("localhost:8080", ("localhost", 8080)),
+            ("host:", ("host", None)),  # port omitted -> keep default
+            (":9000", (None, 9000)),  # host omitted -> keep default
+            ("example.com", ("example.com", None)),  # bare host, no colon
+            ("::1:8000", ("::1", 8000)),  # IPv6 literal, port from last segment
+        ],
+    )
+    def test_parse_address_variants(self, address, expected):
+        assert _parse_address(address) == expected
+
+    def test_parse_address_invalid_port_raises(self):
+        with pytest.raises(ValueError):
+            _parse_address("host:notaport")
 
 
 @pytest.mark.unit
@@ -431,6 +455,27 @@ class TestHandleServeCommand:
         assert exit_code == 0
         captured = capsys.readouterr()
         assert "--browse" in captured.out
+
+    @pytest.mark.parametrize("short_flag", ["-p", "-H", "-a", "-B", "-C"])
+    def test_serve_shorthand_flags_in_help(self, short_flag, capsys):
+        """Shorthand flags are advertised in help (host uses -H since -h is help)."""
+        exit_code = handle_serve_command(["--help"])
+        assert exit_code == 0
+        assert short_flag in capsys.readouterr().out
+
+    def test_serve_h_is_help_not_host(self, capsys):
+        """`-h` remains the help shortcut; host is reachable via -H."""
+        exit_code = handle_serve_command(["-h"])
+        assert exit_code == 0
+        assert "usage:" in capsys.readouterr().out.lower()
+
+    def test_serve_address_invalid_port_errors(self, tmp_path, capsys):
+        """An --address with a non-integer port fails cleanly before binding."""
+        test_file = tmp_path / "test.md"
+        test_file.write_text("# Test", encoding="utf-8")
+        exit_code = handle_serve_command([str(test_file), "-a", "host:bad"])
+        assert exit_code != 0
+        assert "Invalid port in --address" in capsys.readouterr().err
 
 
 @pytest.mark.unit
