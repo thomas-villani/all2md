@@ -597,6 +597,31 @@ class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
+def _parse_address(address: str) -> Tuple[Optional[str], Optional[int]]:
+    """Split an ``--address`` value into an optional host and port.
+
+    Accepts ``host:port``, ``host:`` (port omitted), ``:port`` (host omitted),
+    or a bare ``host`` (no colon). The host/port are returned as ``None`` when
+    that half is absent, so the caller keeps its existing default for it. Splits
+    on the last colon so IPv6 literals like ``::1:8000`` resolve the port from
+    the trailing segment.
+
+    Raises
+    ------
+    ValueError
+        If a port segment is present but not an integer.
+
+    """
+    host_part, sep, port_part = address.rpartition(":")
+    if not sep:
+        # No colon at all -- treat the whole token as a host.
+        return (address or None), None
+    host = host_part or None
+    if not port_part:
+        return host, None
+    return host, int(port_part)
+
+
 def _create_serve_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the ``serve`` command.
 
@@ -608,8 +633,15 @@ def _create_serve_parser() -> argparse.ArgumentParser:
         description="Serve document(s) as HTML via HTTP server with theme support.",
     )
     parser.add_argument("input", help="File, directory, or glob pattern (e.g. 'docs/*.pdf') to serve")
-    parser.add_argument("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
-    parser.add_argument("--host", default="127.0.0.1", help="Host to serve on (default: 127.0.0.1)")
+    parser.add_argument("-p", "--port", type=int, default=8000, help="Port to serve on (default: 8000)")
+    # Note: -h is reserved by argparse for --help, so host uses -H.
+    parser.add_argument("-H", "--host", default="127.0.0.1", help="Host to serve on (default: 127.0.0.1)")
+    parser.add_argument(
+        "-a",
+        "--address",
+        metavar="HOST:PORT",
+        help="Bind address as 'host:port', 'host:', or ':port' (overrides --host/--port). " "Example: -a 0.0.0.0:9000",
+    )
     parser.add_argument(
         "-r", "--recursive", action="store_true", help="Recursively serve subdirectories (for directory input)"
     )
@@ -625,6 +657,7 @@ def _create_serve_parser() -> argparse.ArgumentParser:
         help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
     )
     parser.add_argument(
+        "-B",
         "--browse",
         action="store_true",
         help="Open the served URL in the default web browser once the server starts",
@@ -668,6 +701,7 @@ def _create_serve_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "-C",
         "--config",
         help="Path to a configuration file. Values in its [serve] section provide defaults "
         "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
@@ -704,6 +738,25 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
+
+    # A combined --address host:port overrides --host/--port. Only the supplied
+    # half is applied, so 'host:' keeps the default port and ':port' the host.
+    if parsed.address:
+        try:
+            addr_host, addr_port = _parse_address(parsed.address)
+        except ValueError:
+            print(f"Error: Invalid port in --address: {parsed.address!r}", file=sys.stderr)
+            return EXIT_ERROR
+        if addr_host is not None:
+            parsed.host = addr_host
+        if addr_port is not None:
+            parsed.port = addr_port
+
+    # Converter options from the config file (e.g. [pdf], [html], top-level keys)
+    # so a single config drives `all2md`, `view`, and `serve` identically.
+    from all2md.cli.processors import load_converter_config_options, prepare_options_for_execution
+
+    converter_options = load_converter_config_options(explicit_path=parsed.config, no_config=parsed.no_config)
 
     # Resolve the input: a glob pattern, a directory, or a single file.
     # A glob is served as a directory listing restricted to matching files, so
@@ -766,7 +819,11 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
     def _convert_to_html(file_path: Path, breadcrumb_path: Optional[str] = None) -> str:
         """Convert a single document to themed HTML, optionally injecting breadcrumbs."""
-        doc = to_ast(str(file_path), attachment_mode="base64")
+        # Apply config-supplied converter options for the detected format, but
+        # force base64 attachments: images must be inlined to render in-browser.
+        to_ast_kwargs = prepare_options_for_execution(converter_options, file_path, "auto")
+        to_ast_kwargs["attachment_mode"] = "base64"
+        doc = to_ast(str(file_path), **to_ast_kwargs)
         doc.metadata["title"] = f"{file_path.name} - all2md"
         html_opts = HtmlRendererOptions(
             template_mode="replace",

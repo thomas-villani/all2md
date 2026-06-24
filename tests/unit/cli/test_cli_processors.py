@@ -936,3 +936,76 @@ def test_apply_rich_formatting_passes_theme_to_console(monkeypatch: pytest.Monke
     theme = captured_kwargs.get("theme")
     assert theme is not None
     assert "markdown.h1" in theme.styles
+
+
+@pytest.mark.unit
+def test_load_converter_config_options_flattens_and_strips(tmp_path, monkeypatch):
+    """Converter options come from the config; subcommand/[rich] tables are stripped."""
+    cfg = tmp_path / ".all2md.toml"
+    cfg.write_text(
+        "attachment_mode = 'save'\n\n"
+        "[pdf]\n"
+        "detect_columns = true\n\n"
+        "[view]\n"
+        "dark = true\n\n"
+        "[rich]\n"
+        "h1 = 'bold red'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("ALL2MD_CONFIG", raising=False)
+
+    opts = processors.load_converter_config_options(explicit_path=str(cfg), no_config=False)
+
+    assert opts.get("attachment_mode") == "save"
+    assert opts.get("pdf.detect_columns") is True
+    # [view] and [rich] are not converter options and must not leak through.
+    assert not any(k == "dark" or k.startswith("view") for k in opts)
+    assert not any(k.startswith("rich") or k == "h1" for k in opts)
+
+
+@pytest.mark.unit
+def test_load_converter_config_options_no_config_returns_empty(tmp_path, monkeypatch):
+    """--no-config short-circuits config loading entirely."""
+    cfg = tmp_path / ".all2md.toml"
+    cfg.write_text("attachment_mode = 'save'\n", encoding="utf-8")
+    monkeypatch.delenv("ALL2MD_CONFIG", raising=False)
+
+    assert processors.load_converter_config_options(explicit_path=str(cfg), no_config=True) == {}
+
+
+@pytest.mark.unit
+def test_page_content_emits_ansi_hint_on_windows_without_pager(monkeypatch, capsys):
+    """On Windows with no PAGER, rich paging nudges the user toward an ANSI pager."""
+    monkeypatch.delenv("PAGER", raising=False)
+    monkeypatch.delenv("MANPAGER", raising=False)
+    monkeypatch.setattr(processors.platform, "system", lambda: "Windows")
+    paged: list[str] = []
+    monkeypatch.setattr(processors.pydoc, "pager", lambda text: paged.append(text))
+
+    assert processors._page_content("hello", is_rich=True) is True
+    # Content is still paged (we no longer refuse), and a hint is printed to stderr.
+    assert paged == ["hello"]
+    assert "PAGER" in capsys.readouterr().err
+
+
+@pytest.mark.unit
+def test_page_content_no_hint_when_pager_configured(monkeypatch, capsys):
+    """A configured PAGER suppresses the hint even for rich output on Windows."""
+    monkeypatch.setenv("PAGER", "less -R")
+    monkeypatch.setattr(processors.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(processors.pydoc, "pager", lambda text: None)
+
+    assert processors._page_content("hello", is_rich=True) is True
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.unit
+def test_page_content_no_hint_for_plain_text(monkeypatch, capsys):
+    """Plain-text paging never prints the ANSI hint, regardless of platform."""
+    monkeypatch.delenv("PAGER", raising=False)
+    monkeypatch.delenv("MANPAGER", raising=False)
+    monkeypatch.setattr(processors.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(processors.pydoc, "pager", lambda text: None)
+
+    assert processors._page_content("hello", is_rich=False) is True
+    assert capsys.readouterr().err == ""

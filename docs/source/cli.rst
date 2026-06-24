@@ -3377,8 +3377,12 @@ Processing and Output Control
    .. note::
 
       * Only applies to stdout output (not when using ``--out`` or ``--output-dir``)
-      * Requires the ``rich`` library (install with ``pip install all2md[rich]``)
-      * On Linux/macOS, set ``PAGER=less -r`` to enable ANSI color support in the pager
+      * Paging is left to your environment; set ``PAGER`` (or ``MANPAGER``) to choose the pager.
+      * For ANSI-styled ``--rich`` output, use an ANSI-capable pager such as ``less -R``. The
+        Windows default (``more``) renders color codes as literal noise; when ``--pager --rich``
+        is used on Windows without a configured ``PAGER``, all2md prints a one-line hint pointing
+        you at ``less``. ``less`` ships with Git for Windows and is also available via
+        ``scoop install less`` or ``winget install jftuga.less``.
 
    .. code-block:: bash
 
@@ -3388,9 +3392,13 @@ Processing and Output Control
       # Combine with other options
       all2md report.pdf --pager --pdf-pages "1,2,3,4,5"
 
-      # Enable color support in pager (bash/zsh)
-      export PAGER="less -r"
-      all2md document.pdf --pager
+      # Enable color support in the pager (bash/zsh)
+      export PAGER="less -R"
+      all2md document.pdf --pager --rich
+
+      # Same on Windows (PowerShell / cmd)
+      set PAGER=less -R
+      all2md document.pdf --pager --rich
 
 ``--progress``
    Show progress bar for file conversions (automatically enabled for multiple files).

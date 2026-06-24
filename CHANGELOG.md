@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`--pager` no longer refuses to page Rich output on Windows/WSL.** Paging is
+  left to the environment via ``PAGER``/``MANPAGER`` and the platform default.
+  When ``--pager --rich`` is used on Windows without a configured ``PAGER`` (where
+  the default ``more`` mangles ANSI color codes), all2md now prints a one-line hint
+  pointing at an ANSI-capable pager such as ``less -R`` instead of silently
+  dropping paging.
+
+### Added
+
+- **`all2md help markdown` (and `help md`).** Added as aliases for the verbose
+  ``help common-markdown-formatting`` topic, matching the ``help <format>``
+  pattern used by every other format.
+- **`view`/`serve` honor converter options from the config file.** A single
+  config file now drives ``all2md``, ``view``, and ``serve`` identically -- e.g.
+  ``[pdf] detect_columns = true`` or a top-level ``attachment_mode`` applies when
+  viewing or serving, not just when converting. (``serve`` still forces base64
+  attachments so images render in-browser.)
+- **Shorthand flags for `view` and `serve`.** ``view`` gains ``-d/--dark``,
+  ``-w/--window``, ``-t/--theme``, ``-x/--extract``, ``-N/--no-wait``. ``serve``
+  gains ``-p/--port``, ``-H/--host``, ``-B/--browse``, ``-C/--config``, and a new
+  ``-a/--address HOST:PORT`` that sets host and port together (``-a 0.0.0.0:9000``,
+  ``-a :9000``, ``-a host:``). Host uses ``-H`` because ``-h`` is reserved for
+  ``--help``.
+
 ## [1.6.0] - 2026-06-18
 
 ### Added
