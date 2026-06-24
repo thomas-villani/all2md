@@ -848,6 +848,7 @@ DEFAULT_EML_INCLUDE_ATTACH_SECTION_HEADING = True
 DEFAULT_EML_ATTACH_SECTION_TITLE = "Attachments"
 DEFAULT_EML_INCLUDE_HTML_PARTS = True
 DEFAULT_EML_INCLUDE_PLAIN_PARTS = True
+DEFAULT_EML_INCLUDE_RTF_PARTS = True
 
 # =============================================================================
 # Format-Specific Constants - Email Archives (MBOX/Outlook)
