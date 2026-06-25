@@ -127,3 +127,52 @@ class TestLintCliFix:
         handle_lint_command(["--fix", str(path)])
         second = path.read_text(encoding="utf-8")
         assert first == second, "running --fix twice should be a no-op the second time"
+
+
+class TestLintCliProfiles:
+    """Coverage for --profile and --list-profiles."""
+
+    def _write(self, tmp_path: Path) -> Path:
+        path = tmp_path / "doc.md"
+        path.write_text(
+            '# Title\n\nSee [click here](http://x.com) for "stuff" -- really...\n',
+            encoding="utf-8",
+        )
+        return path
+
+    def test_list_profiles_without_inputs(self, capsys):
+        exit_code = handle_lint_command(["--list-profiles"])
+        captured = capsys.readouterr()
+        assert exit_code == EXIT_SUCCESS
+        assert "accessibility" in captured.out
+        assert "technical-docs" in captured.out
+        assert "prose" in captured.out
+
+    def test_no_inputs_without_list_profiles_errors(self, capsys):
+        exit_code = handle_lint_command([])
+        captured = capsys.readouterr()
+        assert exit_code != EXIT_SUCCESS
+        assert "No input files" in captured.err
+
+    def test_prose_profile_elevates_typography(self, tmp_path, capsys):
+        path = self._write(tmp_path)
+        exit_code = handle_lint_command(["--profile", "prose", str(path)])
+        captured = capsys.readouterr()
+        assert exit_code == EXIT_VALIDATION_ERROR
+        # prose bumps straight-quotes/em-dash/ellipsis from info to warning.
+        assert "TYP003 warning" in captured.out
+        assert "TYP004 warning" in captured.out
+
+    def test_profile_disable_flag_unions(self, tmp_path, capsys):
+        path = self._write(tmp_path)
+        exit_code = handle_lint_command(["--profile", "prose", "--disable", "TYP003", str(path)])
+        captured = capsys.readouterr()
+        # CLI --disable layers on top of the profile and suppresses the rule.
+        assert "TYP003" not in captured.out
+        # Other profile rules still fire.
+        assert "TYP004" in captured.out
+        assert exit_code == EXIT_VALIDATION_ERROR
+
+    def test_unknown_profile_rejected(self, capsys):
+        exit_code = handle_lint_command(["--profile", "nope", "x.md"])
+        assert exit_code != EXIT_SUCCESS

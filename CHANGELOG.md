@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Lint profiles: `all2md lint --profile NAME`.** Curated, named rule bundles
+  built entirely from the existing 47 rules — ``prose`` (typographic polish for
+  long-form writing, ideal for a converted DOCX), ``accessibility`` (alt text,
+  link/table semantics, heading hierarchy at error severity), and
+  ``technical-docs`` (structure and links enforced, prose typography relaxed).
+  ``--list-profiles`` prints them with descriptions. Profiles are a base layer:
+  config files and CLI flags layer on top in precedence ``profile`` < config file
+  < CLI flags. Exposed from Python via ``all2md.linter.get_profile_config`` /
+  ``available_profiles``. New "Linting & Enforcing a Style Guide" how-to guide in
+  the docs walks the full convert → lint → fix → profile workflow.
 - **`--extract` is now repeatable and understands tables and figures.** In
   addition to sections (by name/pattern or ``#:`` index) and ``line:`` ranges,
   ``--extract`` now selects tables (``table:2``, ``table:1-3``, ``table:*``) and
