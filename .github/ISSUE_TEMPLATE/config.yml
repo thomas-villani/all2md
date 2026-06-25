@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://all2md.readthedocs.io/
+    about: Browse the full docs, format reference, and examples before filing.
+  - name: Question or usage help
+    url: https://github.com/thomas-villani/all2md/discussions
+    about: Ask how-to questions and share ideas in Discussions.

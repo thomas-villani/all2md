@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a conversion error, crash, or incorrect output
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill out the sections below so we can reproduce it quickly.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+      placeholder: Converting a DOCX dropped all table borders / raised an exception / produced garbled text...
+    validations:
+      required: true
+  - type: input
+    id: format
+    attributes:
+      label: Source format(s)
+      description: Which input/output format(s) are involved?
+      placeholder: "pdf -> markdown, docx, mbox, etc."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The exact command or Python snippet. Attach a minimal sample file if you can.
+      placeholder: |
+        all2md report.pdf --pdf-pages "1-3"
+        # or
+        from all2md import to_markdown
+        to_markdown("report.pdf")
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Actual output / traceback
+      description: Paste the incorrect output or full traceback.
+      render: shell
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Run `all2md --version` and `all2md check-deps`, plus your OS and Python version.
+      placeholder: |
+        all2md 1.7.0
+        Python 3.12 on Windows 11
+        Installed extras: pdf, docx, html
+      render: shell
+    validations:
+      required: true
