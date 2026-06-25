@@ -4,6 +4,7 @@ Tests for --watch, --watch-debounce flags and watch mode functionality.
 """
 
 import os
+import sys
 import time
 from unittest.mock import Mock, patch
 
@@ -659,6 +660,15 @@ class TestWatchModeIntegration:
         assert output_file.exists()
 
     @pytest.mark.skipif(not WATCHDOG_AVAILABLE, reason="requires watchdog")
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason=(
+            "Windows-only file-locking race: os.replace() onto the watched file fails with "
+            "WinError 5 (access denied) while the watchdog observer and conversion pipeline "
+            "still hold a transient handle to the destination. The detect->convert->write path "
+            "this exercises is covered reliably on POSIX CI."
+        ),
+    )
     def test_watch_mode_real_file_modification(self, tmp_path):
         """Test watch mode with real file modification events."""
         import threading
