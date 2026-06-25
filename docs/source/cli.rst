@@ -731,9 +731,16 @@ applies in place — see :ref:`auto-fix` below.
    # Preview --fix without writing the file
    all2md lint --fix --dry-run README.md
 
+   # Start from a curated rule bundle (see --list-profiles)
+   all2md lint --profile prose report.md
+   all2md lint --list-profiles
+
 Common options:
 
 * ``-R`` / ``--recursive`` – recurse into directories when collecting inputs
+* ``--profile NAME`` – start from a curated rule bundle, then layer config-file
+  and CLI settings on top (see :ref:`lint-profiles` below)
+* ``--list-profiles`` – print the available profiles with descriptions and exit
 * ``--format`` – ``text`` (default, human-readable) or ``json`` (CI-friendly)
 * ``--output`` – write the report to this file instead of stdout
 * ``--config`` – explicit path to an ``.all2md.toml`` or ``pyproject.toml``
@@ -742,6 +749,30 @@ Common options:
 * ``--severity`` – minimum severity to report: ``info`` (default), ``warning``, or ``error``
 * ``--fix`` – apply safe auto-fixes in place (file inputs only)
 * ``--dry-run`` – with ``--fix``, report what would be changed without writing
+
+.. _lint-profiles:
+
+Profiles
+~~~~~~~~
+
+A **profile** packages a coherent set of rules and severities behind a single
+flag, so you can opt into a house style without hand-assembling a long
+``--rule`` / ``--disable`` / ``--severity`` invocation. Three ship built in:
+
+* ``prose`` – polished long-form writing: typographic niceties, consistent
+  heading style, and quality link text (curly-quote / em-dash / ellipsis rules
+  promoted to *warning*). Ideal for a converted DOCX bound for publication.
+* ``accessibility`` – alt text, descriptive link text, table headers, and a
+  clean heading hierarchy enforced at *error*; stylistic typography omitted.
+* ``technical-docs`` – enforce structure, valid links, and resolvable images,
+  but relax prose-typography rules that fight code and reference-style writing.
+
+Configuration layers on top of a profile in a fixed precedence — lowest to
+highest: the ``--profile`` bundle, then ``[tool.all2md.lint]`` from the config
+file, then explicit CLI flags. So ``--profile prose --disable TYP003`` adopts
+the ``prose`` bundle but silences one rule. ``--disable`` lists are unioned
+across layers; ``severity`` and per-rule options merge with the more specific
+layer winning. For a worked DOCX example and CI patterns, see :doc:`lint_guide`.
 
 The ``--severity`` flag filters **both** the displayed output and the process
 exit code. With ``--severity warning``, info-level violations are dropped and

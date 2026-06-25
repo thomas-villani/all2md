@@ -12,6 +12,7 @@ from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_V
 from all2md.cli.commands.shared import collect_input_files
 from all2md.cli.config import load_config_with_priority
 from all2md.linter import FixSafety, LintConfig, LintRunner, Severity
+from all2md.linter.profiles import available_profiles, describe_profiles, get_profile_config, merge_profile_dicts
 from all2md.linter.reporters import ReportableResult, get_reporter
 from all2md.linter.runner import LintFixResult, LintResult
 
@@ -37,6 +38,14 @@ def handle_lint_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else EXIT_ERROR
+
+    if parsed.list_profiles:
+        print(describe_profiles())
+        return EXIT_SUCCESS
+
+    if not parsed.inputs:
+        print("Error: No input files given", file=sys.stderr)
+        return EXIT_FILE_ERROR
 
     if parsed.dry_run and not parsed.fix:
         print("Error: --dry-run requires --fix", file=sys.stderr)
@@ -136,12 +145,27 @@ def _build_parser() -> argparse.ArgumentParser:
             "Use --fix to apply safe auto-fixes in place."
         ),
     )
-    parser.add_argument("inputs", nargs="+", help="Files, directories, or globs to lint")
+    parser.add_argument("inputs", nargs="*", help="Files, directories, or globs to lint")
     parser.add_argument(
         "-R",
         "--recursive",
         action="store_true",
         help="Recurse into directories",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=available_profiles(),
+        metavar="NAME",
+        help=(
+            "Start from a curated rule bundle, then layer config-file and CLI "
+            "settings on top. Choices: " + ", ".join(available_profiles()) + ". "
+            "Run --list-profiles for descriptions."
+        ),
+    )
+    parser.add_argument(
+        "--list-profiles",
+        action="store_true",
+        help="List the available lint profiles and exit.",
     )
     parser.add_argument(
         "--format",
@@ -196,11 +220,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _build_lint_config(parsed: argparse.Namespace) -> LintConfig:
-    """Merge the config file and CLI flags into a single :class:`LintConfig`."""
+    """Merge the profile, config file, and CLI flags into a single :class:`LintConfig`.
+
+    Precedence, lowest to highest: ``--profile`` bundle < ``[tool.all2md.lint]``
+    config file < explicit CLI flags (``--rule`` / ``--disable`` / ``--severity``).
+    """
     config_dict: dict[str, Any] = {}
+    if parsed.profile:
+        config_dict = get_profile_config(parsed.profile)
+
     raw = load_config_with_priority(explicit_path=parsed.config)
     if isinstance(raw, dict) and isinstance(raw.get("lint"), dict):
-        config_dict = dict(raw["lint"])
+        config_dict = merge_profile_dicts(config_dict, dict(raw["lint"]))
 
     config = LintConfig.from_dict(config_dict)
 
