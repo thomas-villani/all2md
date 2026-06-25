@@ -2042,6 +2042,84 @@ conversion:
 
    all2md report.pdf --extract line:42-87 --out excerpt.html
 
+Tables, Figures, and Multiple Extracts
+--------------------------------------
+
+``--extract`` selects more than sections. Use a typed prefix to pull tables or
+figures by their 1-based position in the document, and pass ``--extract`` more
+than once to gather several pieces at a time:
+
+.. code-block:: bash
+
+   # The second table in the document
+   all2md report.docx --extract table:2
+
+   # A range or all of them
+   all2md report.docx --extract table:1-3
+   all2md report.docx --extract table:*
+
+   # Figures/images (the two prefixes are aliases)
+   all2md paper.pdf --extract figure:1
+   all2md paper.pdf --extract image:*
+
+   # Several selectors at once -- emitted in the order given, separated by '---'
+   all2md paper.pdf --extract "Methods" --extract table:1 --extract figure:1
+
+When ``--extract`` is repeated, results are concatenated in **flag order** (not
+document order), so you control the sequence. A single ``line:`` range cannot be
+combined with other selectors.
+
+Capping length with ``::N``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Append ``::N`` to any selector to cap its output at roughly ``N`` words. The cut
+happens at node boundaries, so the returned content is always a valid document
+(it never slices a paragraph or table in half):
+
+.. code-block:: bash
+
+   # The Introduction, trimmed to about 500 words
+   all2md paper.pdf --extract "Introduction::500"
+
+   # Works with index and typed selectors too
+   all2md paper.pdf --extract "#:1::200"
+
+Paging with ``--slice``
+-----------------------
+
+``--slice X/Y`` returns the **Xth of Y** semantic slices of a document to stdout
+(or ``--out``) without writing a pile of split files. The document is divided
+into exactly ``Y`` balanced parts at section boundaries, and only slice ``X`` is
+emitted, followed by a footer hint pointing at the next slice:
+
+.. code-block:: bash
+
+   all2md long-report.pdf --slice 1/5
+   all2md long-report.pdf --slice 2/5    # ... up to 5/5
+
+This is handy for feeding a large document to a tool with a context limit one
+page at a time. ``--slice`` cannot be combined with
+``--extract``/``--outline``/``--split-by``/``--collate``.
+
+Line Windows: ``--head``, ``--tail``, ``--lines``
+-------------------------------------------------
+
+For quick windows over the rendered output, three shorthand flags mirror the
+familiar ``head``/``tail`` tools and the ``--extract line:`` range. All operate
+on 1-based output lines and honor ``--line-numbers``:
+
+.. code-block:: bash
+
+   all2md document.pdf --head        # first 10 lines (default)
+   all2md document.pdf --head 40     # first 40 lines
+   all2md document.pdf --tail 20     # last 20 lines
+   all2md document.pdf --lines 10:25 # lines 10-25 (inclusive)
+   all2md document.pdf --lines :25   # through line 25
+   all2md document.pdf --lines 40:   # from line 40 to the end
+
+These are mutually exclusive with each other and with
+``--extract``/``--outline``/``--split-by``/``--slice``.
+
 Document Serving
 ----------------
 

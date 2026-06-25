@@ -497,3 +497,72 @@ class TestSplitAuto:
         splits = splitter.split_auto(doc, target_words=200)
 
         assert len(splits) >= 1
+
+
+@pytest.mark.unit
+class TestSplitIntoSlices:
+    """Tests for DocumentSplitter.split_into_slices (the --slice X/Y engine)."""
+
+    def test_honors_exact_slice_count(self, long_doc):
+        """With enough section atoms, exactly Y slices are produced."""
+        splits = DocumentSplitter.split_into_slices(long_doc, num_slices=3)
+        assert len(splits) == 3
+        # Slices are 1-indexed and contiguous.
+        assert [s.index for s in splits] == [1, 2, 3]
+
+    def test_slices_cover_all_content(self, long_doc):
+        """The concatenated slices contain every section heading, in order."""
+        splits = DocumentSplitter.split_into_slices(long_doc, num_slices=4)
+        combined = " ".join(extract_text(s.document.children) for s in splits)
+        for i in range(10):
+            assert f"Section {i + 1}" in combined
+
+    def test_balanced_word_counts(self, long_doc):
+        """Slices are roughly balanced by word count."""
+        splits = DocumentSplitter.split_into_slices(long_doc, num_slices=5)
+        counts = [s.word_count for s in splits]
+        # Each section is ~101 words; 10 sections / 5 slices => ~2 sections each.
+        assert max(counts) - min(counts) <= max(counts)  # no wildly empty slice
+        assert all(c > 0 for c in counts)
+
+    def test_fewer_atoms_than_requested(self, simple_doc):
+        """A document with few sections yields at most that many slices."""
+        splits = DocumentSplitter.split_into_slices(simple_doc, num_slices=20)
+        assert 1 <= len(splits) <= 20
+
+    def test_single_slice_returns_whole_document(self, simple_doc):
+        splits = DocumentSplitter.split_into_slices(simple_doc, num_slices=1)
+        assert len(splits) == 1
+
+    def test_invalid_count_raises(self, simple_doc):
+        with pytest.raises(ValueError):
+            DocumentSplitter.split_into_slices(simple_doc, num_slices=0)
+
+
+@pytest.mark.unit
+class TestBalancedPartition:
+    """Tests for the internal contiguous balanced-partition helper."""
+
+    def test_exact_n_groups(self):
+        from all2md.ast.splitting import _balanced_partition
+
+        bounds = _balanced_partition([1, 1, 1, 1, 1, 1], 3)
+        assert len(bounds) == 3
+        # Contiguous and covering.
+        assert bounds[0][0] == 0
+        assert bounds[-1][1] == 6
+        for (_s, e), (ns, _ne) in zip(bounds, bounds[1:], strict=False):
+            assert e == ns
+
+    def test_n_equals_len(self):
+        from all2md.ast.splitting import _balanced_partition
+
+        bounds = _balanced_partition([5, 2, 9], 3)
+        assert bounds == [(0, 1), (1, 2), (2, 3)]
+
+    def test_lumpy_weights_still_n_groups(self):
+        from all2md.ast.splitting import _balanced_partition
+
+        bounds = _balanced_partition([100, 1, 1, 1, 1], 3)
+        assert len(bounds) == 3
+        assert all(e > s for s, e in bounds)

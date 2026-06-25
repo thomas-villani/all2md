@@ -216,27 +216,41 @@ def _outline_output(
 
 def _extraction_output(
     doc: Document,
-    extract_spec: str,
+    extract_specs: List[str],
     render_target: str,
     line_numbers: bool,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
 ) -> Any:
-    """Produce extraction output for a name/index spec or a ``line:`` range.
+    """Produce extraction output for one or more ``--extract`` selectors.
 
-    Returns a str (text targets) or bytes (binary targets). Line numbering is
-    only meaningful for Markdown output and references the full Markdown render.
+    ``extract_specs`` is the list of raw selector strings (sections, tables,
+    figures, or a single ``line:`` range). Multiple selectors are assembled in
+    spec order, separated by ``---``. Returns a str (text targets) or bytes
+    (binary targets). Line numbering is only meaningful for Markdown output and
+    references the full Markdown render.
     """
-    if is_line_extract_spec(extract_spec):
-        return _extract_by_lines(doc, extract_spec, render_target, line_numbers, effective_options, transforms)
+    from all2md.ast.extraction import build_extracted_document, parse_extract_selector
 
-    if line_numbers and render_target == "markdown":
+    line_specs = [spec for spec in extract_specs if is_line_extract_spec(spec)]
+    if line_specs:
+        if len(extract_specs) > 1:
+            raise ValueError("A 'line:' --extract range cannot be combined with other --extract selectors.")
+        return _extract_by_lines(doc, extract_specs[0], render_target, line_numbers, effective_options, transforms)
+
+    if (
+        len(extract_specs) == 1
+        and line_numbers
+        and render_target == "markdown"
+        and parse_extract_selector(extract_specs[0]).kind == "section"
+    ):
         # Slice the original rendered lines for each selected section so the
         # reported numbers are the document's true line numbers (matching what
-        # --outline -ln and full -ln report), not extract-relative ones.
-        return _extract_sections_with_line_numbers(doc, extract_spec, effective_options)
+        # --outline -ln and full -ln report), not extract-relative ones. Only
+        # plain section selectors carry meaningful per-line numbers.
+        return _extract_sections_with_line_numbers(doc, extract_specs[0], effective_options)
 
-    extracted = extract_sections_from_document(doc, extract_spec)
+    extracted = build_extracted_document(doc, extract_specs)
     if transforms:
         for transform in transforms:
             extracted = transform.transform(extracted)
@@ -274,22 +288,16 @@ def _gather_selected_lines(md_lines: List[str], indices: List[int]) -> Tuple[Lis
     return out_lines, out_numbers
 
 
-def _extract_by_lines(
-    doc: Document,
-    extract_spec: str,
+def _emit_line_selection(
+    md_lines: List[str],
+    indices: List[int],
     render_target: str,
     line_numbers: bool,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
 ) -> Any:
-    """Extract content by output line range (``line:X-Y``)."""
+    """Render a set of 0-based output-line indices to the requested target."""
     from all2md.ast.line_map import number_text_lines
-
-    rendered_markdown = _render_reference_markdown(doc, effective_options)
-    md_lines = rendered_markdown.split("\n")
-
-    spec_body = extract_spec.strip()[len(LINE_EXTRACT_PREFIX) :].strip()
-    indices = _parse_line_indices(spec_body, len(md_lines), extract_spec)
 
     out_lines, out_numbers = _gather_selected_lines(md_lines, indices)
     selected_text = "\n".join(out_lines)
@@ -305,6 +313,165 @@ def _extract_by_lines(
         for transform in transforms:
             reparsed = transform.transform(reparsed)
     return from_ast(reparsed, cast(DocumentFormat, render_target), **effective_options)
+
+
+def _extract_by_lines(
+    doc: Document,
+    extract_spec: str,
+    render_target: str,
+    line_numbers: bool,
+    effective_options: Dict[str, Any],
+    transforms: Optional[list],
+) -> Any:
+    """Extract content by output line range (``line:X-Y``)."""
+    rendered_markdown = _render_reference_markdown(doc, effective_options)
+    md_lines = rendered_markdown.split("\n")
+
+    spec_body = extract_spec.strip()[len(LINE_EXTRACT_PREFIX) :].strip()
+    indices = _parse_line_indices(spec_body, len(md_lines), extract_spec)
+
+    return _emit_line_selection(md_lines, indices, render_target, line_numbers, effective_options, transforms)
+
+
+def _line_indices_for_selection(line_select: str, total_lines: int) -> List[int]:
+    """Resolve a normalized ``--head``/``--tail``/``--lines`` spec to 0-based indices.
+
+    ``line_select`` is one of ``head:N``, ``tail:N``, or ``lines:<range>`` where
+    ``<range>`` uses the same 1-based, inclusive grammar as ``line:`` (e.g.
+    ``10-25``, ``-25``, ``40-``).
+    """
+    kind, _, body = line_select.partition(":")
+    body = body.strip()
+
+    if kind == "head":
+        n = max(0, int(body))
+        return list(range(0, min(n, total_lines)))
+
+    if kind == "tail":
+        n = max(0, int(body))
+        return list(range(max(0, total_lines - n), total_lines))
+
+    if kind == "lines":
+        indices = _parse_line_indices(body, total_lines, f"--lines {body}")
+        return indices
+
+    raise ValueError(f"Unknown line selection: {line_select}")
+
+
+def _line_range_output(
+    doc: Document,
+    line_select: str,
+    render_target: str,
+    line_numbers: bool,
+    effective_options: Dict[str, Any],
+    transforms: Optional[list],
+) -> Any:
+    """Produce output for the ``--head``/``--tail``/``--lines`` flags."""
+    rendered_markdown = _render_reference_markdown(doc, effective_options)
+    md_lines = rendered_markdown.split("\n")
+    indices = _line_indices_for_selection(line_select, len(md_lines))
+    return _emit_line_selection(md_lines, indices, render_target, line_numbers, effective_options, transforms)
+
+
+def _slice_footer(x: int, y: int, word_count: int) -> str:
+    """Build the trailing hint that points at the next slice (Markdown comment)."""
+    if x < y:
+        nxt = f"next: --slice {x + 1}/{y}"
+    else:
+        nxt = "last slice"
+    return f"<!-- slice {x}/{y} · ~{word_count} words · {nxt} -->"
+
+
+def _slice_output(
+    doc: Document,
+    slice_spec: str,
+    render_target: str,
+    effective_options: Dict[str, Any],
+    transforms: Optional[list],
+) -> Any:
+    """Return the Xth of Y semantic slices, with a 'next slice' footer hint.
+
+    The document is divided into Y roughly equal parts at section boundaries
+    (reusing :meth:`DocumentSplitter.split_by_parts`). Only Markdown output gets
+    the footer comment; other text/binary targets are rendered without it.
+    """
+    from all2md.ast.splitting import DocumentSplitter
+
+    x, y = parse_slice_spec(slice_spec)
+    splits = DocumentSplitter.split_into_slices(doc, num_slices=y)
+
+    if x > len(splits):
+        raise ValueError(
+            f"--slice {x}/{y}: document only divides into {len(splits)} slice"
+            f"{'s' if len(splits) != 1 else ''} at section boundaries; pick X within 1-{len(splits)}."
+        )
+
+    chosen = splits[x - 1]
+    sliced_doc = chosen.document
+    if transforms:
+        for transform in transforms:
+            sliced_doc = transform.transform(sliced_doc)
+
+    result = from_ast(sliced_doc, cast(DocumentFormat, render_target), **effective_options)
+
+    if render_target == "markdown" and isinstance(result, str):
+        footer = _slice_footer(x, len(splits), chosen.word_count)
+        result = f"{result.rstrip()}\n\n{footer}\n"
+
+    return result
+
+
+def parse_slice_spec(spec: str) -> Tuple[int, int]:
+    """Parse a ``--slice X/Y`` spec into 1-based ``(x, y)``.
+
+    Raises
+    ------
+    ValueError
+        If the spec is malformed or out of the ``1 <= x <= y`` range.
+
+    """
+    text = spec.strip()
+    if "/" not in text:
+        raise ValueError(f"Invalid --slice spec '{spec}': expected 'X/Y' (e.g. '2/5').")
+
+    x_str, _, y_str = text.partition("/")
+    x_str, y_str = x_str.strip(), y_str.strip()
+    if not (x_str.isdigit() and y_str.isdigit()):
+        raise ValueError(f"Invalid --slice spec '{spec}': X and Y must be positive integers (e.g. '2/5').")
+
+    x, y = int(x_str), int(y_str)
+    if y < 1:
+        raise ValueError(f"Invalid --slice spec '{spec}': Y (number of slices) must be at least 1.")
+    if not 1 <= x <= y:
+        raise ValueError(f"Invalid --slice spec '{spec}': X must satisfy 1 <= X <= Y (got X={x}, Y={y}).")
+
+    return x, y
+
+
+def line_selection_from_args(args: argparse.Namespace) -> Optional[str]:
+    """Derive a normalized line-selection string from ``--head``/``--tail``/``--lines``.
+
+    Returns ``None`` when none of the flags are set. Only one is expected to be
+    set at a time (enforced by validation); if several are present, the first of
+    head/tail/lines wins.
+    """
+    head = getattr(args, "head", None)
+    if head is not None:
+        return f"head:{head}"
+
+    tail = getattr(args, "tail", None)
+    if tail is not None:
+        return f"tail:{tail}"
+
+    lines = getattr(args, "lines", None)
+    if lines:
+        body = lines.strip()
+        if ":" in body:
+            start, _, end = body.partition(":")
+            body = f"{start.strip()}-{end.strip()}"
+        return f"lines:{body}"
+
+    return None
 
 
 def _extract_sections_with_line_numbers(
@@ -2559,7 +2726,7 @@ def _handle_extraction_conversion(
     progress_callback: Optional[Any],
     output_path: Optional[Path],
     target_format: str,
-    extract_spec: str,
+    extract_specs: List[str],
     local_transforms: Optional[list],
     display_name: str,
     line_numbers: bool = False,
@@ -2581,7 +2748,69 @@ def _handle_extraction_conversion(
 
     render_target = target_format if target_format != "auto" else "markdown"
     line_numbers = _line_numbers_for_target(line_numbers, render_target)
-    result = _extraction_output(doc, extract_spec, render_target, line_numbers, effective_options, local_transforms)
+    result = _extraction_output(doc, extract_specs, render_target, line_numbers, effective_options, local_transforms)
+
+    if output_path is not None:
+        _write_result_to_path(result, output_path)
+    else:
+        _output_result_to_stdout(result)
+
+    return EXIT_SUCCESS, display_name, None
+
+
+def _handle_slice_conversion(
+    source_value: Any,
+    format_arg: str,
+    effective_options: Dict[str, Any],
+    progress_callback: Optional[Any],
+    output_path: Optional[Path],
+    target_format: str,
+    slice_spec: str,
+    local_transforms: Optional[list],
+    display_name: str,
+) -> Tuple[int, str, Optional[str]]:
+    """Handle ``--slice X/Y`` mode conversion."""
+    doc = to_ast(
+        source_value,
+        source_format=cast(DocumentFormat, format_arg),
+        progress_callback=progress_callback,
+        **effective_options,
+    )
+
+    render_target = target_format if target_format != "auto" else "markdown"
+    result = _slice_output(doc, slice_spec, render_target, effective_options, local_transforms)
+
+    if output_path is not None:
+        _write_result_to_path(result, output_path)
+    else:
+        _output_result_to_stdout(result)
+
+    return EXIT_SUCCESS, display_name, None
+
+
+def _handle_line_range_conversion(
+    source_value: Any,
+    format_arg: str,
+    effective_options: Dict[str, Any],
+    progress_callback: Optional[Any],
+    output_path: Optional[Path],
+    target_format: str,
+    line_select: str,
+    local_transforms: Optional[list],
+    display_name: str,
+    line_numbers: bool = False,
+) -> Tuple[int, str, Optional[str]]:
+    """Handle ``--head``/``--tail``/``--lines`` mode conversion."""
+    doc = to_ast(
+        source_value,
+        source_format=cast(DocumentFormat, format_arg),
+        progress_callback=progress_callback,
+        **effective_options,
+    )
+
+    render_target = target_format if target_format != "auto" else "markdown"
+    line_numbers = _line_numbers_for_target(line_numbers, render_target)
+    result = _line_range_output(doc, line_select, render_target, line_numbers, effective_options, local_transforms)
 
     if output_path is not None:
         _write_result_to_path(result, output_path)
@@ -2657,10 +2886,12 @@ def convert_single_file(
     target_format: str = "markdown",
     transform_specs: Optional[list[TransformSpec]] = None,
     progress_callback: Optional[Any] = None,
-    extract_spec: Optional[str] = None,
+    extract_specs: Optional[List[str]] = None,
     outline: bool = False,
     outline_max_level: int = 6,
     line_numbers: bool = False,
+    slice_spec: Optional[str] = None,
+    line_select: Optional[str] = None,
 ) -> Tuple[int, str, Optional[str]]:
     """Convert a single file to the specified target format.
 
@@ -2684,8 +2915,9 @@ def convert_single_file(
         Serializable transform specifications to rebuild in worker processes
     progress_callback : ProgressCallback, optional
         Optional callback for progress updates
-    extract_spec : str, optional
-        Section extraction specification (e.g., "Introduction", "#:1-3")
+    extract_specs : list[str], optional
+        One or more extraction selectors (e.g., ["Introduction", "table:1"]).
+        See :func:`_extraction_output` for the supported grammar.
     outline : bool, default False
         Whether to output document outline instead of full content
     outline_max_level : int, default 6
@@ -2693,6 +2925,10 @@ def convert_single_file(
     line_numbers : bool, default False
         Whether to annotate Markdown output with line numbers (outline headings,
         extracted lines, or every line of a full conversion)
+    slice_spec : str, optional
+        ``--slice X/Y`` specification; emit the Xth of Y semantic slices.
+    line_select : str, optional
+        Normalized ``--head``/``--tail``/``--lines`` selection (e.g. "head:10").
 
     Returns
     -------
@@ -2727,7 +2963,34 @@ def convert_single_file(
                 line_numbers,
             )
 
-        if extract_spec:
+        if slice_spec:
+            return _handle_slice_conversion(
+                source_value,
+                format_arg,
+                effective_options,
+                progress_callback,
+                output_path,
+                renderer_hint,
+                slice_spec,
+                local_transforms,
+                input_item.display_name,
+            )
+
+        if line_select:
+            return _handle_line_range_conversion(
+                source_value,
+                format_arg,
+                effective_options,
+                progress_callback,
+                output_path,
+                renderer_hint,
+                line_select,
+                local_transforms,
+                input_item.display_name,
+                line_numbers,
+            )
+
+        if extract_specs:
             return _handle_extraction_conversion(
                 source_value,
                 format_arg,
@@ -2735,7 +2998,7 @@ def convert_single_file(
                 progress_callback,
                 output_path,
                 renderer_hint,
-                extract_spec,
+                extract_specs,
                 local_transforms,
                 input_item.display_name,
                 line_numbers,
@@ -2916,10 +3179,12 @@ def _execute_tasks_parallel(
     failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
     max_exit_code = EXIT_SUCCESS
 
-    extract_spec = getattr(args, "extract", None)
+    extract_specs = getattr(args, "extract", None)
     outline = getattr(args, "outline", False)
     outline_max_level = getattr(args, "outline_max_level", 6)
     line_numbers = getattr(args, "line_numbers", False)
+    slice_spec = getattr(args, "slice_spec", None)
+    line_select = line_selection_from_args(args)
     max_workers = args.parallel if args.parallel else os.cpu_count()
 
     with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
@@ -2936,10 +3201,12 @@ def _execute_tasks_parallel(
                     target_format,
                     transform_specs,
                     None,
-                    extract_spec,
+                    extract_specs,
                     outline,
                     outline_max_level,
                     line_numbers,
+                    slice_spec,
+                    line_select,
                 ): (item, output_path)
                 for item, output_path, target_format, _ in planned_tasks
             }
@@ -2988,10 +3255,12 @@ def _execute_tasks_sequential(
     failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
     max_exit_code = EXIT_SUCCESS
 
-    extract_spec = getattr(args, "extract", None)
+    extract_specs = getattr(args, "extract", None)
     outline = getattr(args, "outline", False)
     outline_max_level = getattr(args, "outline_max_level", 6)
     line_numbers = getattr(args, "line_numbers", False)
+    slice_spec = getattr(args, "slice_spec", None)
+    line_select = line_selection_from_args(args)
 
     with ProgressContext(use_rich, show_progress, len(planned_tasks), "Converting inputs") as progress:
         progress_callback = create_progress_context_callback(progress) if show_progress else None
@@ -3009,10 +3278,12 @@ def _execute_tasks_sequential(
                 target_format,
                 transform_specs,
                 progress_callback,
-                extract_spec,
+                extract_specs,
                 outline,
                 outline_max_level,
                 line_numbers,
+                slice_spec,
+                line_select,
             )
 
             _log_task_result(progress, item, output_path, exit_code, error)
@@ -3132,14 +3403,73 @@ def _convert_with_extraction(
     item: CLIInputItem,
     effective_options: Dict[str, Any],
     format_arg: str,
-    extract_spec: str,
+    extract_specs: List[str],
     transforms: Optional[list],
     render_target: str,
     line_numbers: bool = False,
 ) -> Any:
-    """Convert with section extraction (name/index or ``line:`` range)."""
+    """Convert with content extraction (sections/tables/figures or ``line:``)."""
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-    return _extraction_output(doc, extract_spec, render_target, line_numbers, effective_options, transforms)
+    return _extraction_output(doc, extract_specs, render_target, line_numbers, effective_options, transforms)
+
+
+def _emit_result_to_stdout(
+    result: Any,
+    args: argparse.Namespace,
+    should_use_rich: bool,
+    render_target: str,
+) -> int:
+    """Emit a conversion result (str or bytes) to stdout with rich/pager handling."""
+    if isinstance(result, bytes):
+        sys.stdout.buffer.write(result)
+        sys.stdout.buffer.flush()
+        return EXIT_SUCCESS
+
+    text_output = result if isinstance(result, str) else ""
+
+    if render_target == "markdown":
+        _apply_formatting_and_output(text_output, args, should_use_rich)
+        return EXIT_SUCCESS
+
+    rendered = False
+    if should_use_rich and args.rich and text_output:
+        rendered = _render_rich_text_output(text_output, args, render_target)
+    if not rendered:
+        _output_text_with_options(text_output, args, is_rich=False)
+    return EXIT_SUCCESS
+
+
+def _render_slice_mode(
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    effective_options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    should_use_rich: bool,
+    render_target: str,
+    slice_spec: str,
+) -> int:
+    """Handle ``--slice X/Y`` rendering to stdout."""
+    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    result = _slice_output(doc, slice_spec, render_target, effective_options, transforms)
+    return _emit_result_to_stdout(result, args, should_use_rich, render_target)
+
+
+def _render_line_range_mode(
+    item: CLIInputItem,
+    args: argparse.Namespace,
+    effective_options: Dict[str, Any],
+    format_arg: str,
+    transforms: Optional[list],
+    should_use_rich: bool,
+    render_target: str,
+    line_select: str,
+) -> int:
+    """Handle ``--head``/``--tail``/``--lines`` rendering to stdout."""
+    line_numbers = _line_numbers_for_target(getattr(args, "line_numbers", False), render_target)
+    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    result = _line_range_output(doc, line_select, render_target, line_numbers, effective_options, transforms)
+    return _emit_result_to_stdout(result, args, should_use_rich, render_target)
 
 
 def _render_markdown_mode(
@@ -3149,13 +3479,13 @@ def _render_markdown_mode(
     format_arg: str,
     transforms: Optional[list],
     should_use_rich: bool,
-    extract_spec: Optional[str],
+    extract_specs: Optional[List[str]],
 ) -> int:
     """Handle markdown format rendering."""
     line_numbers = getattr(args, "line_numbers", False)
-    if extract_spec:
+    if extract_specs:
         markdown_content = _convert_with_extraction(
-            item, effective_options, format_arg, extract_spec, transforms, "markdown", line_numbers
+            item, effective_options, format_arg, extract_specs, transforms, "markdown", line_numbers
         )
     else:
         markdown_content = to_markdown(
@@ -3181,15 +3511,15 @@ def _render_other_format_mode(
     transforms: Optional[list],
     should_use_rich: bool,
     render_target: str,
-    extract_spec: Optional[str],
+    extract_specs: Optional[List[str]],
 ) -> int:
     """Handle non-markdown format rendering."""
     # Line numbers reference the Markdown rendering, so they do not apply to
     # other targets; warn once if requested (selection by line: still works).
     _line_numbers_for_target(getattr(args, "line_numbers", False), render_target)
 
-    if extract_spec:
-        result = _convert_with_extraction(item, effective_options, format_arg, extract_spec, transforms, render_target)
+    if extract_specs:
+        result = _convert_with_extraction(item, effective_options, format_arg, extract_specs, transforms, render_target)
     else:
         result = convert(
             item.raw_input,
@@ -3230,19 +3560,33 @@ def _render_single_item_to_stdout(
     try:
         render_target = target_format if target_format != "auto" else "markdown"
         effective_options = prepare_options_for_execution(options, item.best_path(), format_arg, render_target)
-        extract_spec = getattr(args, "extract", None)
+        extract_specs = getattr(args, "extract", None)
+        slice_spec = getattr(args, "slice_spec", None)
+        line_select = line_selection_from_args(args)
 
         # Handle outline mode
         if getattr(args, "outline", False):
             return _render_outline_mode(item, args, effective_options, format_arg, should_use_rich)
 
+        # Handle single-slice paging
+        if slice_spec:
+            return _render_slice_mode(
+                item, args, effective_options, format_arg, transforms, should_use_rich, render_target, slice_spec
+            )
+
+        # Handle simple line windows (--head/--tail/--lines)
+        if line_select:
+            return _render_line_range_mode(
+                item, args, effective_options, format_arg, transforms, should_use_rich, render_target, line_select
+            )
+
         # Handle markdown vs other formats
         if render_target == "markdown":
             return _render_markdown_mode(
-                item, args, effective_options, format_arg, transforms, should_use_rich, extract_spec
+                item, args, effective_options, format_arg, transforms, should_use_rich, extract_specs
             )
         return _render_other_format_mode(
-            item, args, effective_options, format_arg, transforms, should_use_rich, render_target, extract_spec
+            item, args, effective_options, format_arg, transforms, should_use_rich, render_target, extract_specs
         )
     except Exception as exc:
         exit_code = get_exit_code_for_exception(exc)
