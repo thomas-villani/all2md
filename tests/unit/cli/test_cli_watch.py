@@ -690,8 +690,16 @@ class TestWatchModeIntegration:
         ready_event.wait(timeout=2.0)
         time.sleep(0.5)  # Give observer time to fully start
 
-        # Modify the file
-        test_file.write_text("Modified content for testing")
+        # Modify the file atomically (temp file + os.replace) so the watcher only
+        # ever observes complete content. A plain write_text() truncates the file
+        # to empty before writing its bytes; on a loaded runner the watcher can fire
+        # on that empty window, convert empty content, record the debounce timestamp,
+        # and then drop the real content's event as a duplicate — leaving the output
+        # permanently empty. An atomic replace surfaces as a single event with the
+        # final content, so this stays a test of modification detection.
+        tmp_file = test_file.with_suffix(".txt.tmp")
+        tmp_file.write_text("Modified content for testing")
+        os.replace(tmp_file, test_file)
 
         # Wait for conversion to complete (poll rather than fixed sleep to avoid CI flakiness)
         output_file = output_dir / "document.md"
@@ -732,9 +740,16 @@ class TestWatchModeIntegration:
         ready_event.wait(timeout=2.0)
         time.sleep(0.5)
 
-        # Create a new file
+        # Create the new file atomically (temp file + os.replace) so the watcher
+        # only ever observes complete content. A plain write_text() opens an empty
+        # file before writing its bytes; on a loaded runner the watcher can fire on
+        # that empty window, convert empty content, record the debounce timestamp,
+        # and then drop the real content's event as a duplicate — leaving the output
+        # permanently empty.
+        tmp_file = tmp_path / "new_document.txt.tmp"
+        tmp_file.write_text("New file content")
         new_file = tmp_path / "new_document.txt"
-        new_file.write_text("New file content")
+        os.replace(tmp_file, new_file)
 
         # Wait for conversion (poll rather than fixed sleep to avoid CI flakiness)
         output_file = output_dir / "new_document.md"
