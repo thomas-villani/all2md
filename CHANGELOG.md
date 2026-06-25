@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`--extract` is now repeatable and understands tables and figures.** In
+  addition to sections (by name/pattern or ``#:`` index) and ``line:`` ranges,
+  ``--extract`` now selects tables (``table:2``, ``table:1-3``, ``table:*``) and
+  figures/images (``figure:1``, ``image:*``). Pass ``--extract`` multiple times to
+  pull several pieces at once; results are emitted in the order the flags appear,
+  separated by ``---``. A single ``line:`` range still cannot be mixed with other
+  selectors.
+- **`--extract … ::N` word limit.** Append ``::N`` to a selector to cap its output
+  at roughly ``N`` words, cut at node boundaries so the result stays valid (e.g.
+  ``--extract "Introduction::500"``).
+- **`--slice X/Y` paging.** Return the Xth of Y semantic slices of a document to
+  stdout/file without writing split files. The document is divided into exactly
+  ``Y`` balanced slices at section boundaries, and the chosen slice is emitted with
+  a footer hint pointing at the next slice. Mutually exclusive with
+  ``--extract``/``--outline``/``--split-by``/``--collate``.
+- **`--head [N]`, `--tail [N]`, and `--lines START:END`.** Simple windows over the
+  rendered Markdown output (1-based, inclusive), mirroring ``head``/``tail`` and the
+  existing ``--extract line:`` range. ``--head``/``--tail`` default to 10 lines and
+  honor ``--line-numbers``.
+
 ## [1.7.0] - 2026-06-24
 
 ### Changed

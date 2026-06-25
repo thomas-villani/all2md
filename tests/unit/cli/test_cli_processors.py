@@ -522,7 +522,7 @@ def test_extract_by_line_range_markdown() -> None:
     """--extract line:X-Y slices the rendered Markdown by line range."""
     from all2md.cli.processors import _extraction_output
 
-    result = _extraction_output(_outline_doc(), "line:9-11", "markdown", False, {}, None)
+    result = _extraction_output(_outline_doc(), ["line:9-11"], "markdown", False, {}, None)
 
     assert result == "# Methods\n\nMethods body."
 
@@ -532,7 +532,7 @@ def test_extract_by_line_range_with_line_numbers() -> None:
     """line: extraction with --line-numbers keeps the original line numbers."""
     from all2md.cli.processors import _extraction_output
 
-    result = _extraction_output(_outline_doc(), "line:9-11", "markdown", True, {}, None)
+    result = _extraction_output(_outline_doc(), ["line:9-11"], "markdown", True, {}, None)
 
     assert result == " 9: # Methods\n10: \n11: Methods body."
 
@@ -542,7 +542,7 @@ def test_extract_by_line_range_noncontiguous() -> None:
     """A non-contiguous line: selection is separated by an unnumbered blank line."""
     from all2md.cli.processors import _extraction_output
 
-    result = _extraction_output(_outline_doc(), "line:1,9", "markdown", True, {}, None)
+    result = _extraction_output(_outline_doc(), ["line:1,9"], "markdown", True, {}, None)
 
     assert result == "1: # Introduction\n\n9: # Methods"
 
@@ -553,7 +553,7 @@ def test_extract_by_lines_out_of_range_raises() -> None:
     from all2md.cli.processors import _extraction_output
 
     with pytest.raises(ValueError, match="No lines selected"):
-        _extraction_output(_outline_doc(), "line:500-600", "markdown", False, {}, None)
+        _extraction_output(_outline_doc(), ["line:500-600"], "markdown", False, {}, None)
 
 
 @pytest.mark.unit
@@ -561,7 +561,7 @@ def test_extract_name_with_line_numbers_uses_original_lines() -> None:
     """Name extraction with --line-numbers reports the document's true line numbers."""
     from all2md.cli.processors import _extraction_output
 
-    result = _extraction_output(_outline_doc(), "Methods", "markdown", True, {}, None)
+    result = _extraction_output(_outline_doc(), ["Methods"], "markdown", True, {}, None)
 
     # The Methods section starts at line 9 in the full render (width 2: lines 9-11).
     assert result.splitlines()[0] == " 9: # Methods"

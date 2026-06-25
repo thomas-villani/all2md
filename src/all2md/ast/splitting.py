@@ -364,6 +364,90 @@ class DocumentSplitter:
         return DocumentSplitter.split_by_word_count(doc, target_words=target_words_per_part)
 
     @staticmethod
+    def split_into_slices(doc: Document, num_slices: int) -> list[SplitResult]:
+        """Divide a document into exactly ``num_slices`` balanced, contiguous slices.
+
+        Unlike :meth:`split_by_parts` (which targets a word count and may yield a
+        different number of parts), this guarantees exactly ``num_slices`` slices
+        whenever the document has at least that many semantic "atoms" (sections,
+        or word-count blocks for heading-light documents). When the document has
+        fewer atoms than requested, it returns one slice per atom.
+
+        This powers the ``--slice X/Y`` paging flag, where a deterministic ``Y``
+        matters so callers can page ``1/Y, 2/Y, ... Y/Y``.
+
+        Parameters
+        ----------
+        doc : Document
+            Document to slice.
+        num_slices : int
+            Desired number of slices (``Y``). Must be >= 1.
+
+        Returns
+        -------
+        list of SplitResult
+            ``min(num_slices, num_atoms)`` contiguous slices in document order.
+
+        Raises
+        ------
+        ValueError
+            If ``num_slices`` is less than 1.
+
+        """
+        if num_slices < 1:
+            raise ValueError(f"num_slices must be at least 1, got {num_slices}")
+
+        atoms = DocumentSplitter.split_by_sections(doc, include_preamble=True)
+
+        # Heading-light documents yield too few section atoms to page deeply;
+        # fall back to word-count blocks so Y can still be honored.
+        if len(atoms) < num_slices:
+            total_words = len(extract_text(doc.children, joiner=" ").split())
+            if total_words > 0:
+                target = max(1, total_words // num_slices)
+                wc_atoms = DocumentSplitter.split_by_word_count(doc, target_words=target)
+                if len(wc_atoms) > len(atoms):
+                    atoms = wc_atoms
+
+        if not atoms:
+            return [
+                SplitResult(
+                    document=doc,
+                    index=1,
+                    title=None,
+                    word_count=len(extract_text(doc.children, joiner=" ").split()),
+                )
+            ]
+
+        n = min(num_slices, len(atoms))
+        weights = [max(1, atom.word_count) for atom in atoms]
+        bounds = _balanced_partition(weights, n)
+
+        slices: list[SplitResult] = []
+        for slice_index, (start, end) in enumerate(bounds, start=1):
+            children: list[Node] = []
+            title: Optional[str] = None
+            word_count = 0
+            for atom in atoms[start:end]:
+                children.extend(atom.document.children)
+                word_count += atom.word_count
+                if title is None:
+                    title = atom.title
+            slices.append(
+                SplitResult(
+                    document=Document(
+                        children=children,
+                        metadata=doc.metadata.copy(),
+                        source_location=doc.source_location,
+                    ),
+                    index=slice_index,
+                    title=title,
+                    word_count=word_count,
+                )
+            )
+        return slices
+
+    @staticmethod
     def split_by_break(doc: Document) -> list[SplitResult]:
         """Split document at thematic breaks (horizontal rules).
 
@@ -697,6 +781,49 @@ class DocumentSplitter:
             index += 1
 
         return splits
+
+
+def _balanced_partition(weights: list[int], n: int) -> list[tuple[int, int]]:
+    """Partition ``weights`` into exactly ``n`` contiguous, non-empty groups.
+
+    Greedily closes a group once its accumulated weight meets the running target
+    (total of remaining weight divided by remaining groups), while guaranteeing
+    that enough atoms are left to fill every remaining group. The result is a
+    list of ``(start, end)`` index pairs covering ``range(len(weights))``.
+
+    Assumes ``1 <= n <= len(weights)``.
+    """
+    count = len(weights)
+    total = sum(weights)
+    bounds: list[tuple[int, int]] = []
+
+    start = 0
+    acc = 0
+    remaining = n
+    consumed = 0
+    target = total / n
+
+    for i, w in enumerate(weights):
+        acc += w
+        groups_left_after = remaining - 1
+        atoms_left_after = count - (i + 1)
+
+        if remaining > 1:
+            # Must close now if every remaining atom is needed to fill the
+            # remaining groups; otherwise close once we've met the target and
+            # still have enough atoms left over.
+            must_close = atoms_left_after == groups_left_after
+            can_close = acc >= target and atoms_left_after >= groups_left_after
+            if must_close or can_close:
+                bounds.append((start, i + 1))
+                consumed += acc
+                start = i + 1
+                acc = 0
+                remaining -= 1
+                target = (total - consumed) / remaining
+
+    bounds.append((start, count))
+    return bounds
 
 
 def parse_split_spec(spec: str) -> tuple[str, Any]:

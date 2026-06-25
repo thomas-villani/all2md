@@ -555,7 +555,7 @@ class TestCLIParser:
         parser = create_parser()
 
         args = parser.parse_args(["test.pdf", "--extract", "line:10-25"])
-        assert args.extract == "line:10-25"
+        assert args.extract == ["line:10-25"]
 
     def test_parser_output_format_is_tracked(self):
         """An explicit --to/--output-format is recorded in _provided_args.

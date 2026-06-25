@@ -1106,6 +1106,18 @@ Examples:
   all2md document.pdf --extract "Materials and Methods"
   all2md document.pdf --extract "#:3"
 
+  # Cap a section at ~500 words, or pull tables/figures (repeatable, spec order)
+  all2md document.pdf --extract "Introduction::500"
+  all2md report.docx --extract "table:1-2" --extract "figure:1"
+
+  # Paging: return the 2nd of 5 semantic slices, with a 'next slice' hint
+  all2md long-report.pdf --slice 2/5
+
+  # Simple line windows over the rendered output
+  all2md document.pdf --head 40
+  all2md document.pdf --tail 20
+  all2md document.pdf --lines 10:25
+
   # Line-numbered navigation (handy for LLMs/agents picking a range)
   all2md document.pdf --outline --line-numbers
   all2md document.pdf --extract line:42-87
@@ -1167,15 +1179,62 @@ Examples:
         # Section extraction option
         parser.add_argument(
             "--extract",
+            action="append",
             type=str,
             metavar="SPEC",
-            help="Extract specific section(s) from document. "
-            "Supports: name pattern ('Introduction', 'Chapter*'), "
-            "single index ('#:1'), range ('#:1-3'), "
-            "multiple ('#:1,3,5'), or open-ended ('#:3-'). "
+            help="Extract specific content from a document. May be given multiple times; "
+            "results are emitted in the order the flags appear, separated by '---'. "
+            "Supports: section by name/pattern ('Introduction', 'Chapter*'), "
+            "section index ('#:1', '#:1-3', '#:1,3,5', '#:3-'), "
+            "tables ('table:2', 'table:1-3', 'table:*'), "
+            "figures/images ('figure:1', 'image:*'). "
+            "Append '::N' to cap output at ~N words at node boundaries (e.g. 'Introduction::500'). "
             "Also supports output line ranges: 'line:10-25', 'line:10-', 'line:5,8-12' "
-            "(1-based, inclusive; numbers as reported by --line-numbers). "
-            "Sections are 1-indexed. Pattern matching is case-insensitive with wildcard support.",
+            "(1-based, inclusive; numbers as reported by --line-numbers); a line: range "
+            "cannot be combined with other --extract selectors. "
+            "Sections/tables/figures are 1-indexed; name matching is case-insensitive with wildcards.",
+        )
+
+        # Single-slice paging: return one of N semantic slices to stdout/file
+        parser.add_argument(
+            "--slice",
+            type=str,
+            metavar="X/Y",
+            dest="slice_spec",
+            help="Return the Xth of Y semantic slices of the document (1-based, e.g. '2/5'). "
+            "The document is divided into Y roughly equal parts at section boundaries (like "
+            "--split-by parts=Y) but only slice X is emitted, with a footer hint pointing at the "
+            "next slice. Cannot be combined with --extract/--outline/--split-by/--collate.",
+        )
+
+        # Simple line-range selectors (operate on the rendered Markdown output)
+        parser.add_argument(
+            "--lines",
+            type=str,
+            metavar="START:END",
+            help="Return a range of output lines (1-based, inclusive), e.g. '10:25', ':25', '40:'. "
+            "Operates on the rendered Markdown (the numbers shown by --line-numbers). "
+            "Cannot be combined with --extract/--outline/--split-by/--slice.",
+        )
+        parser.add_argument(
+            "--head",
+            type=int,
+            nargs="?",
+            const=10,
+            default=None,
+            metavar="N",
+            help="Return the first N output lines (default 10). Like 'head -n'. "
+            "Cannot be combined with --extract/--outline/--split-by/--slice/--lines/--tail.",
+        )
+        parser.add_argument(
+            "--tail",
+            type=int,
+            nargs="?",
+            const=10,
+            default=None,
+            metavar="N",
+            help="Return the last N output lines (default 10). Like 'tail -n'. "
+            "Cannot be combined with --extract/--outline/--split-by/--slice/--lines/--head.",
         )
 
         # Outline extraction option
@@ -1831,6 +1890,10 @@ Examples:
             "outline",
             "outline_max_level",
             "line_numbers",
+            "slice_spec",
+            "lines",
+            "head",
+            "tail",
         } | global_attachment_fields  # Union with global attachment fields
 
         # Process each argument

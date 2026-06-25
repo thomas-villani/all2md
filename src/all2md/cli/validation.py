@@ -46,7 +46,7 @@ def collect_argument_problems(
     if attachment_dir and attachment_mode and attachment_mode != "save":
         problems.append(
             ValidationProblem(
-                "--attachment-output-dir specified but attachment mode is " f"'{attachment_mode}' (expected 'save')",
+                f"--attachment-output-dir specified but attachment mode is '{attachment_mode}' (expected 'save')",
                 ValidationSeverity.WARNING,
             )
         )
@@ -158,6 +158,68 @@ def collect_argument_problems(
                 ValidationProblem(
                     "--split-by and --outline cannot be used together. "
                     "Use --outline to view document structure or --split-by to split the document.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+
+    # Single-document selection modes (--slice, --lines, --head, --tail) each pick
+    # one window of a single document. They are mutually exclusive with each other
+    # and with the other content-selection modes.
+    slice_spec = getattr(parsed_args, "slice_spec", None)
+    lines = getattr(parsed_args, "lines", None)
+    head = getattr(parsed_args, "head", None)
+    tail = getattr(parsed_args, "tail", None)
+
+    active_windows = [
+        name
+        for name, present in (
+            ("--slice", bool(slice_spec)),
+            ("--lines", bool(lines)),
+            ("--head", head is not None),
+            ("--tail", tail is not None),
+        )
+        if present
+    ]
+
+    if len(active_windows) > 1:
+        problems.append(
+            ValidationProblem(
+                f"{' and '.join(active_windows)} cannot be used together. "
+                "These select content in different ways; use one at a time.",
+                ValidationSeverity.ERROR,
+            )
+        )
+
+    if active_windows:
+        joined = " / ".join(active_windows)
+        if outline:
+            problems.append(
+                ValidationProblem(
+                    f"--outline cannot be combined with {joined}. "
+                    "Use --outline for document structure, or a window selector for content.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+        if extract:
+            problems.append(
+                ValidationProblem(
+                    f"--extract cannot be combined with {joined}. "
+                    "Use --extract for sections/tables/figures, or a window selector for output lines/slices.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+        if split_by:
+            problems.append(
+                ValidationProblem(
+                    f"--split-by cannot be combined with {joined}.",
+                    ValidationSeverity.ERROR,
+                )
+            )
+        if collate:
+            problems.append(
+                ValidationProblem(
+                    f"--collate cannot be combined with {joined}. "
+                    "Collation merges many inputs into one document; window selectors pick from a single document.",
                     ValidationSeverity.ERROR,
                 )
             )
