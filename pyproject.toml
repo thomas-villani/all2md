@@ -11,16 +11,25 @@ keywords = [
     "markdown",
     "converter",
     "pdf",
+    "pdf-to-markdown",
     "docx",
     "html",
+    "html-to-markdown",
     "document-conversion",
+    "text-extraction",
     "llm",
+    "rag",
+    "mcp",
+    "model-context-protocol",
     "ai",
+    "ocr",
     "parsing",
     "bidirectional",
     "pptx",
     "epub",
-    "pandoc-alternative"
+    "cli",
+    "pandoc-alternative",
+    "markitdown-alternative"
 ]
 
 requires-python = ">=3.10"
