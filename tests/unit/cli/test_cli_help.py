@@ -127,3 +127,42 @@ def test_help_batch_topic_lists_batch_flags(capsys):
     assert "--preserve-structure" in out
     assert "--output-dir" in out
     assert "--parallel" in out
+
+
+@pytest.mark.unit
+def test_help_cheatsheet_prints(capsys):
+    """`all2md help cheatsheet` prints the bundled quick reference."""
+    rc = handle_help_command(["help", "cheatsheet"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "all2md CLI Cheatsheet" in out
+    assert "## Chunk for RAG" in out
+    assert "all2md chunk" in out
+    assert "all2md grep" in out
+
+
+@pytest.mark.unit
+def test_cheatsheet_bundled_resource_loads():
+    """The cheatsheet ships as a package resource and has the expected sections."""
+    from all2md.cli.commands.help import _read_cheatsheet
+
+    text = _read_cheatsheet()
+    assert text.strip()
+    for section in ("## Convert", "## Search", "## Chunk for RAG", "## Utilities"):
+        assert section in text
+
+
+@pytest.mark.unit
+def test_quick_help_points_at_cheatsheet(capsys):
+    """The quick-help footer advertises `all2md help cheatsheet`."""
+    handle_help_command(["help"])
+    out = capsys.readouterr().out
+    assert "all2md help cheatsheet" in out
+
+
+@pytest.mark.unit
+def test_help_cheatsheet_rich_does_not_crash(capsys):
+    """The --rich path renders without error (falls back to plain if rich is absent)."""
+    rc = handle_help_command(["help", "cheatsheet", "--rich"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip()

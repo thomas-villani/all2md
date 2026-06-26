@@ -150,7 +150,7 @@ class HelpCatalog:
 LLM_HELP_CALLOUT = "For LLMs & agents: run `all2md llm-help` for a CLI usage guide written for you."
 
 _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
-    ("help", "Show tiered CLI help (all2md help [section])"),
+    ("help", "Show tiered CLI help — quick, full, cheatsheet, or a format (all2md help [section])"),
     ("llm-help", "Print the all2md CLI guide for LLMs/agents (full guide or a single topic)"),
     ("list-formats", "List available input formats"),
     ("list-transforms", "List registered AST transforms"),
@@ -578,6 +578,7 @@ class HelpRenderer:
 
         lines.append(
             "\nNote: showing only global options."
+            "\nRun: `all2md help cheatsheet` for a quick reference of common commands."
             "\nRun: `all2md help full` for all options including format-specific parser/renderer options."
             "\nRun: `all2md help <format>` to see options for a specific format (e.g., `all2md help pdf`)."
         )
