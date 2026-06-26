@@ -79,6 +79,9 @@ all2md grep -i "case insensitive" report.docx
 all2md search "machine learning" ./research_papers/
 all2md search "project timeline" --semantic ./docs/
 
+# Chunk documents for RAG/LLM pipelines (JSONL with section + page provenance)
+all2md chunk report.pdf --strategy semantic --max-tokens 512 --overlap 64
+
 # Pipe and chain commands with stdin/stdout support (use '-' for stdin)
 curl https://example.com/doc.pdf | all2md - | grep "important"
 cat report.html | all2md - --format html --rich
@@ -163,6 +166,7 @@ Unlike direct format-to-format converters, all2md uses an intermediate Abstract 
 Designed for embedding in applications, not just CLI usage:
 
 - Clean, typed API with comprehensive options classes for every format
+- One-call helpers — `to_markdown()`, `to_ast()`, `convert()`, and `chunk()` for RAG-ready chunks
 - Progress callbacks for long-running conversions
 - Bidirectional conversion between any supported formats
 - AST manipulation for advanced document processing
@@ -184,6 +188,13 @@ Beyond basic conversion, the CLI includes advanced features for production workf
 
 ### 4. AI-Native Integration
 
+**RAG-Native Chunking** — Split any document into chunks ready for retrieval-augmented generation, with provenance most chunkers throw away.
+
+- `all2md chunk doc.pdf --strategy semantic --max-tokens 512 --overlap 64` → JSONL, one chunk per line
+- Every chunk carries its **section heading/level** and the **source page span** (where the format records it), so answers can cite where they came from
+- 11 strategies (semantic/heading/section/token/sentence/paragraph/word/line/char/code/auto); keep tables and code blocks whole; strip or elide noisy elements
+- One-call Python API: `chunks = all2md.chunk("doc.pdf", strategy="semantic", max_tokens=512)`
+
 **MCP Server** — Built-in Model Context Protocol server enables direct integration with AI assistants like Claude Desktop. No wrapper scripts or external tools needed.
 
 - Direct document reading in Claude Desktop and other MCP-compatible AI tools
@@ -194,7 +205,7 @@ Beyond basic conversion, the CLI includes advanced features for production workf
 
 **Agent Skills** — Pre-built skill files that teach AI coding assistants how to use all2md effectively.
 
-- 6 focused skills covering reading, conversion, generation, grep, search, and diff
+- 7 focused skills covering reading, conversion, generation, grep, search, diff, and chunking
 - Works with Claude Code, Cursor, Windsurf, and other skill-aware agents
 - Install with one command: `all2md install-skills`
 - Customizable — edit the installed skill files to match your project's needs
@@ -703,6 +714,37 @@ markdown_output = render(
     ]
 )
 ```
+
+**Chunking for RAG**
+
+`all2md.chunk()` converts and splits a document in one call, returning chunks that
+carry their section context and source page span — provenance most chunkers drop.
+
+```python
+import all2md
+
+# Semantic, token-bounded chunks straight from a file
+chunks = all2md.chunk("report.pdf", strategy="semantic", max_tokens=512, overlap=64)
+
+for c in chunks:
+    print(c.chunk_id, c.section_heading, c.page, c.token_count)
+    record = c.to_dict()  # flat dict — the same object emitted as JSONL by the CLI
+
+# Shape the output: keep tables whole, drop images, set a floor, pass converter options
+chunks = all2md.chunk(
+    "report.pdf",
+    strategy="paragraph",
+    max_tokens=256,
+    min_tokens=20,
+    avoid_table_split=True,
+    drop_elements=["image"],
+    attachment_mode="skip",   # forwarded to the converter
+)
+```
+
+Real BPE token counting uses `tiktoken` (`pip install all2md[chunk]`); count-only
+strategies fall back to a whitespace approximation. For an AST you already hold, call
+`all2md.chunking.chunk_ast(doc, ...)` directly.
 
 ## Extensibility: The Plugin System
 
