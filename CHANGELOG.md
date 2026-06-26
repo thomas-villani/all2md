@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`all2md help cheatsheet`.** A bundled, grouped quick reference of the most common
+  commands (convert, view/serve/edit, extract/navigate, grep/search, chunk, diff/lint,
+  generate, transforms, stdin pipes, utilities), printable offline from the terminal
+  (`--rich` renders it as Markdown). The cheatsheet ships in the wheel as a single
+  source of truth and is mirrored into the docs (:doc:`cheatsheet`); the quick-help
+  footer now points at it.
+
 - **`all2md chunk`: provenance-aware document chunking for RAG/LLM pipelines.**
   Splits any supported document into chunks and emits them as JSONL (one object
   per line) — or ``--format json``/``pretty``. Unlike flat-text chunkers, every

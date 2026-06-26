@@ -123,6 +123,7 @@ Guides & References
 
    python_api
    cli
+   cheatsheet
    lint_guide
    options
    batch
