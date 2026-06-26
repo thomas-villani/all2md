@@ -42,7 +42,6 @@ class TokenCounter(Protocol):
 
     def count(self, text: str) -> int:
         """Return the number of tokens in ``text``."""
-        ...
 
 
 class WhitespaceCounter:
