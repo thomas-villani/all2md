@@ -27,9 +27,11 @@ not the original binary.
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from typing import Iterable, Optional, cast
 
-from all2md.ast.nodes import Document, Node, Table, get_node_children
+from all2md.ast.nodes import CodeBlock, Document, Node, Table, get_node_children
 from all2md.ast.sections import get_all_sections, get_preamble
 from all2md.ast.splitting import DocumentSplitter
 from all2md.chunking.primitives import ChunkerFactory, PositionTrackingChunker
@@ -66,6 +68,32 @@ STRATEGIES = (
     "auto",
 )
 
+#: A ``data:<mime>;base64,<payload>`` URI. The payload is elided when long.
+_DATA_URI_RE = re.compile(r"data:(?P<mime>[^,;)\s]*);base64,(?P<data>[A-Za-z0-9+/=]+)")
+
+#: Base64 payloads longer than this are elided (short ones are harmless and
+#: likely not real embedded assets).
+_DATA_URI_ELIDE_THRESHOLD = 64
+
+
+@dataclass(frozen=True)
+class _UnitOpts:
+    """Per-unit rendering/segmentation options threaded through the bridge.
+
+    Attributes
+    ----------
+    atomic_types : tuple of type
+        Node classes (e.g. ``Table``, ``CodeBlock``) emitted as their own
+        un-split chunk in the fine path. Empty disables segmentation.
+    elide_data_uris : bool
+        Replace long ``data:…;base64,…`` payloads with a short placeholder in
+        rendered Markdown so embedded blobs never pollute (or shred) chunks.
+
+    """
+
+    atomic_types: tuple[type, ...]
+    elide_data_uris: bool
+
 
 def chunk_ast(
     doc: Document,
@@ -79,6 +107,8 @@ def chunk_ast(
     heading_merge: bool = True,
     max_heading_level: Optional[int] = None,
     avoid_table_split: bool = False,
+    avoid_code_split: bool = False,
+    elide_data_uris: bool = True,
     token_counter: str = "auto",
     counter: Optional[TokenCounter] = None,
 ) -> list[ProvenanceChunk]:
@@ -110,6 +140,13 @@ def chunk_ast(
         For fine strategies, emit each table as its own atomic chunk so a table is
         never split mid-row (it may exceed ``max_tokens``). Coarse strategies never
         split tables regardless.
+    avoid_code_split : bool
+        Like ``avoid_table_split`` but for fenced code blocks: each code block is
+        emitted as one atomic chunk (may exceed ``max_tokens``).
+    elide_data_uris : bool
+        Replace long ``data:…;base64,…`` payloads in chunk text with a short
+        placeholder (default True), so an embedded image never inflates token
+        counts or shreds into base64 noise.
     token_counter : {"auto", "tiktoken", "whitespace"}
         Token-counting backend (ignored when ``counter`` is provided).
     counter : TokenCounter, optional
@@ -129,7 +166,14 @@ def chunk_ast(
     if counter is None:
         counter = get_counter(token_counter, strategy=strategy)
 
+    atomic_types: tuple[type, ...] = tuple(
+        cls for cls, on in ((Table, avoid_table_split), (CodeBlock, avoid_code_split)) if on
+    )
+
     if strategy in _COARSE_STRATEGIES:
+        # Coarse strategies emit one chunk per split, so no atomic segmentation is
+        # needed; data-URI elision still applies.
+        opts = _UnitOpts(atomic_types=(), elide_data_uris=elide_data_uris)
         chunks = _chunk_coarse(
             doc,
             strategy=strategy,
@@ -138,8 +182,10 @@ def chunk_ast(
             document_id=document_id,
             document_path=document_path,
             counter=counter,
+            opts=opts,
         )
     else:
+        opts = _UnitOpts(atomic_types=atomic_types, elide_data_uris=elide_data_uris)
         chunks = _chunk_fine(
             doc,
             strategy=strategy,
@@ -148,10 +194,10 @@ def chunk_ast(
             include_preamble=include_preamble,
             heading_merge=heading_merge,
             max_heading_level=max_heading_level,
-            avoid_table_split=avoid_table_split,
             document_id=document_id,
             document_path=document_path,
             counter=counter,
+            opts=opts,
         )
 
     _link_neighbors(chunks)
@@ -172,10 +218,10 @@ def _chunk_fine(
     include_preamble: bool,
     heading_merge: bool,
     max_heading_level: Optional[int],
-    avoid_table_split: bool,
     document_id: str,
     document_path: Optional[str],
     counter: TokenCounter,
+    opts: _UnitOpts,
 ) -> list[ProvenanceChunk]:
     method = _FINE_METHOD[strategy]
     chunker = ChunkerFactory.create_chunker(method, max_tokens, overlap, counter=counter)
@@ -201,7 +247,7 @@ def _chunk_fine(
             section_heading=None,
             section_level=None,
             section_index=-1,
-            avoid_table_split=avoid_table_split,
+            opts=opts,
         )
         return chunks
 
@@ -221,7 +267,7 @@ def _chunk_fine(
                 section_heading=None,
                 section_level=None,
                 section_index=-1,
-                avoid_table_split=avoid_table_split,
+                opts=opts,
             )
 
     for section_index, section in enumerate(sections, start=1):
@@ -240,7 +286,7 @@ def _chunk_fine(
             section_heading=section.get_heading_text() or None,
             section_level=section.level,
             section_index=section_index,
-            avoid_table_split=avoid_table_split,
+            opts=opts,
         )
 
     return chunks
@@ -260,6 +306,7 @@ def _chunk_coarse(
     document_id: str,
     document_path: Optional[str],
     counter: TokenCounter,
+    opts: _UnitOpts,
 ) -> list[ProvenanceChunk]:
     if strategy == "section":
         splits = DocumentSplitter.split_by_sections(doc, include_preamble=True)
@@ -291,7 +338,7 @@ def _chunk_coarse(
             section_heading=split.title,
             section_level=_first_heading_level(provenance_nodes),
             section_index=split.index,
-            avoid_table_split=False,
+            opts=opts,
         )
     return chunks
 
@@ -315,16 +362,17 @@ def _emit_unit(
     section_heading: Optional[str],
     section_level: Optional[int],
     section_index: int,
-    avoid_table_split: bool,
+    opts: _UnitOpts,
 ) -> int:
     """Render ``unit_nodes`` to Markdown, chunk it, and append provenance chunks.
 
-    With ``avoid_table_split``, the unit is segmented at :class:`Table` boundaries:
-    each table becomes one atomic chunk (never split mid-row, may exceed the token
-    budget) and prose segments are windowed normally. Chunk numbering stays
-    continuous across segments. Returns the new running index.
+    When ``opts.atomic_types`` is non-empty, the unit is segmented at those node
+    boundaries: each atomic node (e.g. a table or code block) becomes one chunk
+    (never split, may exceed the token budget) and prose segments are windowed
+    normally. Chunk numbering stays continuous across segments. Returns the new
+    running index.
     """
-    pieces = _build_pieces(chunker, unit_nodes, provenance_nodes, avoid_table_split)
+    pieces = _build_pieces(chunker, unit_nodes, provenance_nodes, opts)
     for chunk_in_unit, (text, tokens, char_start, char_end, prov_nodes) in enumerate(pieces, start=1):
         page, page_end, line_start, line_end = _node_provenance(prov_nodes)
         chunks.append(
@@ -362,18 +410,18 @@ def _build_pieces(
     chunker: PositionTrackingChunker,
     unit_nodes: list[Node],
     provenance_nodes: list[Node],
-    avoid_table_split: bool,
+    opts: _UnitOpts,
 ) -> list[_Piece]:
-    """Render and chunk a unit into pieces, keeping tables atomic when asked."""
+    """Render and chunk a unit into pieces, keeping atomic nodes whole when asked."""
     pieces: list[_Piece] = []
 
-    if avoid_table_split and any(isinstance(n, Table) for n in unit_nodes):
-        for seg_nodes, is_atomic in _segment_at_tables(unit_nodes):
-            text = _render_markdown(seg_nodes)
+    if opts.atomic_types and any(isinstance(n, opts.atomic_types) for n in unit_nodes):
+        for seg_nodes, is_atomic in _segment_atomic(unit_nodes, opts.atomic_types):
+            text = _render_markdown(seg_nodes, opts.elide_data_uris)
             if not text.strip():
                 continue
             if is_atomic:
-                # Whole table is one chunk; allowed to exceed max_tokens.
+                # Whole atomic node is one chunk; allowed to exceed max_tokens.
                 pieces.append((text, chunker.counter.count(text), 0, len(text), seg_nodes))
             else:
                 for window in chunker.chunk(text):
@@ -382,19 +430,19 @@ def _build_pieces(
                     )
         return pieces
 
-    text = _render_markdown(unit_nodes)
+    text = _render_markdown(unit_nodes, opts.elide_data_uris)
     if text.strip():
         for window in chunker.chunk(text):
             pieces.append((window.content, window.tokens, window.position.start, window.position.end, provenance_nodes))
     return pieces
 
 
-def _segment_at_tables(nodes: list[Node]) -> list[tuple[list[Node], bool]]:
-    """Split ``nodes`` into ``(segment, is_atomic)`` runs, each Table its own atomic run."""
+def _segment_atomic(nodes: list[Node], atomic_types: tuple[type, ...]) -> list[tuple[list[Node], bool]]:
+    """Split ``nodes`` into ``(segment, is_atomic)`` runs; each atomic node is its own run."""
     segments: list[tuple[list[Node], bool]] = []
     buffer: list[Node] = []
     for node in nodes:
-        if isinstance(node, Table):
+        if isinstance(node, atomic_types):
             if buffer:
                 segments.append((buffer, False))
                 buffer = []
@@ -406,14 +454,34 @@ def _segment_at_tables(nodes: list[Node]) -> list[tuple[list[Node], bool]]:
     return segments
 
 
-def _render_markdown(nodes: list[Node]) -> str:
+def _render_markdown(nodes: list[Node], elide_data_uris: bool = True) -> str:
     """Render a list of AST nodes to Markdown (the chunk source text)."""
     if not nodes:
         return ""
     from all2md.api import from_ast
 
     rendered = from_ast(Document(children=list(nodes)), cast(DocumentFormat, "markdown"))
-    return rendered if isinstance(rendered, str) else ""
+    if not isinstance(rendered, str):
+        return ""
+    return _elide_data_uris(rendered) if elide_data_uris else rendered
+
+
+def _elide_data_uris(text: str) -> str:
+    """Replace long ``data:…;base64,…`` payloads with a short placeholder.
+
+    Keeps the surrounding Markdown (e.g. ``![alt](…)``) intact so a chunk records
+    that an embedded asset was present without carrying the base64 blob — which
+    would otherwise inflate token counts and shred into noise chunks.
+    """
+
+    def _repl(match: re.Match[str]) -> str:
+        data = match.group("data")
+        if len(data) <= _DATA_URI_ELIDE_THRESHOLD:
+            return match.group(0)
+        mime = match.group("mime") or "application/octet-stream"
+        return f"data:{mime};base64,<elided:{len(data)}B>"
+
+    return _DATA_URI_RE.sub(_repl, text)
 
 
 def _iter_nodes(nodes: Iterable[Node]) -> Iterable[Node]:

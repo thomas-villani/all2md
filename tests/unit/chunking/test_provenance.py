@@ -4,8 +4,10 @@
 import pytest
 
 from all2md.ast.nodes import (
+    CodeBlock,
     Document,
     Heading,
+    Image,
     Paragraph,
     SourceLocation,
     Table,
@@ -189,6 +191,71 @@ class TestAvoidTableSplit:
         )
         ids = [c.chunk_id for c in chunks]
         assert len(ids) == len(set(ids))
+
+
+class TestAvoidCodeSplit:
+    """Atomic code-block handling in the fine path."""
+
+    def _doc_with_code(self):
+        """A section containing prose then a multi-line code block."""
+        code = "\n".join(f"line_{i} = compute(value_{i}, other_{i})" for i in range(12))
+        return Document(
+            children=[
+                Heading(level=1, content=[Text(content="Code")]),
+                Paragraph(content=[Text(content="Intro paragraph before the code block here.")]),
+                CodeBlock(content=code, language="python"),
+            ]
+        )
+
+    def test_code_atomic_with_flag(self):
+        """--avoid-code-split keeps the whole code block in one chunk."""
+        doc = self._doc_with_code()
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, avoid_code_split=True, token_counter="whitespace")
+        code_chunks = [c for c in chunks if "compute(" in c.text]
+        assert len(code_chunks) == 1
+        assert code_chunks[0].token_count > 8  # atomic block exceeds the budget
+
+    def test_code_split_without_flag(self):
+        """Without the flag, a small budget fragments the code block."""
+        doc = self._doc_with_code()
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, token_counter="whitespace")
+        code_chunks = [c for c in chunks if "compute(" in c.text]
+        assert len(code_chunks) >= 2
+
+
+class TestDataUriElision:
+    """Long base64 data URIs are elided from chunk text by default."""
+
+    def _doc_with_data_uri(self):
+        """A section whose image is a long base64 data URI."""
+        payload = "A" * 200
+        return Document(
+            children=[
+                Heading(level=1, content=[Text(content="Pic")]),
+                Paragraph(content=[Text(content="Before image.")]),
+                Image(url=f"data:image/png;base64,{payload}", alt_text="x"),
+            ]
+        )
+
+    def test_elided_by_default(self):
+        """The base64 payload is replaced with a short placeholder."""
+        doc = self._doc_with_data_uri()
+        joined = " ".join(
+            c.text for c in chunk_ast(doc, strategy="section", max_tokens=400, token_counter="whitespace")
+        )
+        assert "AAAA" not in joined
+        assert "elided" in joined
+
+    def test_kept_when_disabled(self):
+        """elide_data_uris=False leaves the raw base64 in place."""
+        doc = self._doc_with_data_uri()
+        joined = " ".join(
+            c.text
+            for c in chunk_ast(
+                doc, strategy="section", max_tokens=400, elide_data_uris=False, token_counter="whitespace"
+            )
+        )
+        assert "AAAA" in joined
 
 
 class TestEdgeCases:

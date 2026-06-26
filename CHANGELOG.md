@@ -22,12 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--token-counter {auto,tiktoken,whitespace}`` selects the tokenizer. Real BPE
   token counting uses ``tiktoken`` (new optional extra: ``pip install all2md[chunk]``);
   count-only strategies fall back to a whitespace approximation when it is absent.
-  Element handling: ``--avoid-table-split`` keeps each table whole (one atomic chunk
-  rather than fragmenting it mid-row), ``--drop-elements image,table,…`` strips noisy
-  node types before chunking, and ``--attachment-mode {skip,alt_text,save,base64}``
-  (plus any ``[pdf]``/``[html]``/top-level converter keys in a config file) controls
-  how the underlying conversion handles images — so base64 blobs need never reach a
-  chunk. Exposed from Python via ``all2md.chunking.chunk_ast`` returning
+  Element handling: ``--avoid-table-split`` and ``--avoid-code-split`` keep each table
+  or fenced code block whole (one atomic chunk rather than fragmenting it),
+  ``--drop-elements image,table,…`` strips noisy node types before chunking,
+  ``--elide-data-uris`` (on by default) replaces long base64 ``data:`` URIs with a short
+  placeholder so embedded images never inflate token counts or shred into noise, and
+  ``--attachment-mode {skip,alt_text,save,base64}`` (plus any ``[pdf]``/``[html]``/
+  top-level converter keys in a config file) controls how the underlying conversion
+  handles images — so base64 blobs need never reach a chunk. Exposed from Python via ``all2md.chunking.chunk_ast`` returning
   ``ProvenanceChunk`` records. The fine-grained chunkers are vendored from the
   ``localvectordb`` sister project.
 - **Lint profiles: `all2md lint --profile NAME`.** Curated, named rule bundles

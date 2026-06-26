@@ -71,11 +71,14 @@ show up as their Markdown form. Fine strategies split by token budget and can cu
 table mid-row — these flags control that:
 
 ```bash
-# Keep each table whole (its own chunk; may exceed --max-tokens)
-all2md chunk report.pdf --avoid-table-split
+# Keep each table or fenced code block whole (its own chunk; may exceed --max-tokens)
+all2md chunk report.pdf --avoid-table-split --avoid-code-split
 
 # Strip noisy node types before chunking (aliases images/tables/code accepted)
 all2md chunk report.pdf --drop-elements image,table
+
+# Long base64 data: URIs are elided to a placeholder by default; keep them raw with:
+all2md chunk report.pdf --no-elide-data-uris
 
 # Control how the converter handles images, e.g. avoid huge base64 blobs
 all2md chunk report.pdf --attachment-mode skip   # skip | alt_text | save | base64
