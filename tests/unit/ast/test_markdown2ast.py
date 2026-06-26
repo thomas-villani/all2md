@@ -320,6 +320,44 @@ class TestTables:
         # Alignments should be captured
         assert len(table.alignments) == 3
 
+    def test_table_nested_in_list_item(self) -> None:
+        """Tables indented inside a list item must parse as tables, not text.
+
+        Regression: mistune's base ``table`` plugin only matches tables at the
+        document root, so a GFM table nested in a list item used to fall back to
+        literal paragraph text (visible pipes instead of a rendered table).
+        """
+        markdown = """1. **Intro** with a table:
+
+   | File | Count |
+   |------|------:|
+   | A    | 1     |
+   | B    | 2     |
+
+   Trailing text.
+"""
+        doc = markdown_to_ast(markdown)
+
+        item = doc.children[0].items[0]
+        assert isinstance(item, ListItem)
+
+        tables = [child for child in item.children if isinstance(child, Table)]
+        assert len(tables) == 1
+        assert len(tables[0].rows) == 2
+
+    def test_table_nested_in_blockquote(self) -> None:
+        """Tables inside a blockquote must parse as tables, not text."""
+        markdown = """> | File | Count |
+> |------|------:|
+> | A    | 1     |
+"""
+        doc = markdown_to_ast(markdown)
+
+        quote = doc.children[0]
+        tables = [child for child in quote.children if isinstance(child, Table)]
+        assert len(tables) == 1
+        assert len(tables[0].rows) == 1
+
 
 class TestMiscellaneous:
     """Test miscellaneous elements."""
