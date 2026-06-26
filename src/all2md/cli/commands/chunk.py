@@ -143,6 +143,19 @@ def _create_chunk_parser() -> argparse.ArgumentParser:
         "(the table chunk may exceed --max-tokens). Applies to fine strategies.",
     )
     parser.add_argument(
+        "--avoid-code-split",
+        action="store_true",
+        help="Keep each fenced code block whole: emit it as its own chunk rather than splitting it "
+        "(the code chunk may exceed --max-tokens). Applies to fine strategies.",
+    )
+    parser.add_argument(
+        "--elide-data-uris",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Replace long base64 'data:' URIs (e.g. embedded images) with a short placeholder so "
+        "they don't inflate token counts or shred into noise (default: enabled).",
+    )
+    parser.add_argument(
         "--drop-elements",
         metavar="TYPES",
         help="Comma-separated AST node types to strip before chunking, e.g. 'image,table,code_block'. "
@@ -336,6 +349,8 @@ def handle_chunk_command(args: list[str] | None = None) -> int:
                 heading_merge=parsed.heading_merge,
                 max_heading_level=parsed.max_heading_level,
                 avoid_table_split=parsed.avoid_table_split,
+                avoid_code_split=parsed.avoid_code_split,
+                elide_data_uris=parsed.elide_data_uris,
                 token_counter=parsed.token_counter,
             )
             all_chunks.extend(_apply_min_tokens(chunks, parsed.min_tokens))

@@ -187,7 +187,9 @@ class TestChunkCLI:
         assert result.returncode == 0
         assert "--strategy" in result.stdout
         assert "--avoid-table-split" in result.stdout
+        assert "--avoid-code-split" in result.stdout
         assert "--drop-elements" in result.stdout
+        assert "--elide-data-uris" in result.stdout
 
 
 class TestChunkElementHandling:
@@ -244,6 +246,61 @@ class TestChunkElementHandling:
         )
         assert result.returncode != 0
         assert "table" in result.stderr.lower()
+
+    def test_avoid_code_split(self, tmp_path):
+        """--avoid-code-split keeps a fenced code block in a single chunk."""
+        code = "\n".join(f"line_{i} = compute(value_{i})" for i in range(12))
+        path = tmp_path / "code.md"
+        path.write_text(f"# Code\n\nIntro words here now.\n\n```python\n{code}\n```\n", encoding="utf-8")
+        result = _run(
+            [
+                str(path),
+                "--strategy",
+                "paragraph",
+                "--max-tokens",
+                "8",
+                "--avoid-code-split",
+                "--token-counter",
+                "whitespace",
+            ],
+            cwd=path.parent,
+        )
+        assert result.returncode == 0, result.stderr
+        objs = [json.loads(ln) for ln in result.stdout.splitlines() if ln.strip()]
+        code_chunks = [o for o in objs if "compute(" in o["text"]]
+        assert len(code_chunks) == 1
+
+    def test_data_uri_elided_by_default(self, tmp_path):
+        """A long base64 data URI is elided from chunk text by default."""
+        path = tmp_path / "img.md"
+        path.write_text(f"# Pic\n\nBefore.\n\n![x](data:image/png;base64,{'A' * 200})\n", encoding="utf-8")
+        result = _run(
+            [str(path), "--strategy", "section", "--max-tokens", "400", "--token-counter", "whitespace"],
+            cwd=path.parent,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "AAAA" not in result.stdout
+        assert "elided" in result.stdout
+
+    def test_data_uri_kept_with_no_elide(self, tmp_path):
+        """--no-elide-data-uris keeps the raw base64 payload."""
+        path = tmp_path / "img.md"
+        path.write_text(f"# Pic\n\nBefore.\n\n![x](data:image/png;base64,{'A' * 200})\n", encoding="utf-8")
+        result = _run(
+            [
+                str(path),
+                "--strategy",
+                "section",
+                "--max-tokens",
+                "400",
+                "--no-elide-data-uris",
+                "--token-counter",
+                "whitespace",
+            ],
+            cwd=path.parent,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "AAAA" in result.stdout
 
     def test_attachment_mode_accepted(self, table_file):
         """--attachment-mode is accepted and threads to the converter cleanly.

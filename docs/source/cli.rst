@@ -699,11 +699,14 @@ budget and can otherwise cut a table mid-row; these flags give you control:
 
 .. code-block:: bash
 
-   # Keep each table whole (emitted as its own chunk, may exceed --max-tokens)
-   all2md chunk report.pdf --avoid-table-split
+   # Keep each table or fenced code block whole (its own chunk, may exceed --max-tokens)
+   all2md chunk report.pdf --avoid-table-split --avoid-code-split
 
    # Strip noisy elements before chunking (aliases like images/tables accepted)
    all2md chunk report.pdf --drop-elements image,table
+
+   # Long base64 data: URIs are elided to a placeholder by default; opt out with:
+   all2md chunk report.pdf --no-elide-data-uris
 
    # Control how the converter handles images (avoids huge base64 blobs in chunks)
    all2md chunk report.pdf --attachment-mode skip
