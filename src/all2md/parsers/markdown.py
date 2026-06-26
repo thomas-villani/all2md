@@ -251,7 +251,15 @@ class MarkdownToAstConverter(BaseParser):
         if self.options.parse_strikethrough:
             plugins.append("strikethrough")
         if self.options.parse_tables:
-            plugins.append("table")
+            # The base "table" plugin only recognizes tables at the document
+            # root. table_in_list/table_in_quote extend the table block rule into
+            # list items and blockquotes so GFM tables nested there (e.g. a table
+            # inside a numbered list item) are parsed as tables rather than
+            # falling back to literal paragraph text. These ship with mistune but
+            # are not registered under string names, so import the callables.
+            from mistune.plugins.table import table_in_list, table_in_quote
+
+            plugins.extend(["table", table_in_list, table_in_quote])
         if self.options.parse_footnotes:
             plugins.append("footnotes")
         if self.options.parse_task_lists:
