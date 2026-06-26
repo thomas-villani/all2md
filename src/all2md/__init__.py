@@ -82,8 +82,7 @@ import sys
 
 if sys.version_info < (3, 10):
     raise ImportError(
-        "all2md requires Python 3.10 or later. "
-        f"You are using Python {sys.version_info.major}.{sys.version_info.minor}."
+        f"all2md requires Python 3.10 or later. You are using Python {sys.version_info.major}.{sys.version_info.minor}."
     )
 
 __version__ = "1.7.1"
@@ -123,6 +122,7 @@ if TYPE_CHECKING:
     from all2md.utils.input_sources import RemoteInputOptions  # noqa: F401
 
 from all2md.api import (
+    chunk,
     convert,
     from_ast,
     from_markdown,
@@ -200,6 +200,7 @@ __all__ = [
     "from_ast",
     "from_markdown",
     "convert",
+    "chunk",
     # Registry system
     "registry",
     # Type definitions

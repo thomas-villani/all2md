@@ -245,18 +245,6 @@ def _load_ast(source: str, converter_options: dict) -> tuple[Document, str, str 
     return cast(Document, to_ast(source, **kwargs)), path.stem, path.as_posix()
 
 
-def _apply_min_tokens(chunks: list[ProvenanceChunk], min_tokens: int) -> list[ProvenanceChunk]:
-    """Drop chunks below ``min_tokens`` and relink neighbors / reindex."""
-    if min_tokens <= 0:
-        return chunks
-    kept = [c for c in chunks if c.token_count >= min_tokens]
-    for i, chunk in enumerate(kept):
-        chunk.index = i
-        chunk.prev_chunk_id = kept[i - 1].chunk_id if i > 0 else None
-        chunk.next_chunk_id = kept[i + 1].chunk_id if i + 1 < len(kept) else None
-    return kept
-
-
 def _render_pretty(chunks: list[ProvenanceChunk]) -> str:
     """Render chunks as a compact human-readable listing."""
     lines: list[str] = []
@@ -351,9 +339,10 @@ def handle_chunk_command(args: list[str] | None = None) -> int:
                 avoid_table_split=parsed.avoid_table_split,
                 avoid_code_split=parsed.avoid_code_split,
                 elide_data_uris=parsed.elide_data_uris,
+                min_tokens=parsed.min_tokens,
                 token_counter=parsed.token_counter,
             )
-            all_chunks.extend(_apply_min_tokens(chunks, parsed.min_tokens))
+            all_chunks.extend(chunks)
     except DependencyError as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR

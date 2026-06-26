@@ -29,8 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   placeholder so embedded images never inflate token counts or shred into noise, and
   ``--attachment-mode {skip,alt_text,save,base64}`` (plus any ``[pdf]``/``[html]``/
   top-level converter keys in a config file) controls how the underlying conversion
-  handles images — so base64 blobs need never reach a chunk. Exposed from Python via ``all2md.chunking.chunk_ast`` returning
-  ``ProvenanceChunk`` records. The fine-grained chunkers are vendored from the
+  handles images — so base64 blobs need never reach a chunk. Exposed from Python as a
+  one-call ``all2md.chunk(source, …)`` (mirrors ``to_markdown``: converts and chunks in a
+  single step, deriving ``document_id``/path from the source and forwarding converter
+  kwargs), with ``all2md.chunking.chunk_ast(doc, …)`` for an AST you already hold; both
+  return ``ProvenanceChunk`` records. The fine-grained chunkers are vendored from the
   ``localvectordb`` sister project.
 - **Lint profiles: `all2md lint --profile NAME`.** Curated, named rule bundles
   built entirely from the existing 47 rules — ``prose`` (typographic polish for

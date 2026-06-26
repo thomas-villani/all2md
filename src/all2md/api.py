@@ -6,7 +6,7 @@ import logging
 import warnings
 from dataclasses import fields, is_dataclass
 from pathlib import Path
-from typing import IO, Any, Optional, TypeVar, Union, cast, get_type_hints
+from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_type_hints
 
 from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
@@ -23,6 +23,9 @@ from all2md.utils.input_sources import (
     default_loader,
 )
 from all2md.utils.io_utils import write_content
+
+if TYPE_CHECKING:
+    from all2md.chunking import ProvenanceChunk
 
 logger = logging.getLogger(__name__)
 
@@ -745,6 +748,118 @@ def to_ast(
         raise
     except Exception as e:
         raise ParsingError(f"AST conversion failed: {e!r}", parsing_stage="ast_conversion", original_error=e) from e
+
+
+def _derive_chunk_identity(source: Any, ast_doc: "Document", document_id: Optional[str]) -> tuple[str, Optional[str]]:
+    """Derive ``(document_id, document_path)`` for chunking from the source.
+
+    Reuses the ``source_path`` ``to_ast`` stashes for file inputs; falls back to a
+    generic id (or the caller-supplied ``document_id``) for streams/bytes.
+    """
+    source_path = ast_doc.metadata.get("source_path") if ast_doc.metadata else None
+    if source_path:
+        path = Path(source_path)
+        return document_id or path.stem, path.as_posix()
+    return document_id or "document", None
+
+
+def chunk(
+    source: Union[str, Path, IO[bytes], bytes],
+    *,
+    strategy: str = "semantic",
+    max_tokens: int = 512,
+    overlap: int = 0,
+    min_tokens: int = 0,
+    include_preamble: bool = True,
+    heading_merge: bool = True,
+    max_heading_level: Optional[int] = None,
+    avoid_table_split: bool = False,
+    avoid_code_split: bool = False,
+    elide_data_uris: bool = True,
+    drop_elements: Optional[list[str]] = None,
+    token_counter: str = "auto",
+    document_id: Optional[str] = None,
+    source_format: DocumentFormat = "auto",
+    **converter_options: Any,
+) -> "list[ProvenanceChunk]":
+    """Convert a document and split it into provenance-carrying chunks in one call.
+
+    The one-call equivalent of ``to_ast`` + ``all2md.chunking.chunk_ast``: convert
+    ``source`` (a path, bytes, or file-like object) to an AST, optionally strip node
+    types, and return chunks each carrying its section heading/level and — where the
+    source format records it — the originating page span. Ideal for RAG / LLM
+    pipelines.
+
+    Parameters
+    ----------
+    source : str, Path, IO[bytes], or bytes
+        Document to chunk (any supported format).
+    strategy : str
+        Chunking strategy; see ``all2md.chunking.STRATEGIES`` (``semantic`` default).
+    max_tokens, overlap, min_tokens : int
+        Size controls — token budget per chunk, window overlap, and a floor below
+        which chunks are dropped.
+    include_preamble, heading_merge : bool
+        Structure toggles (emit pre-heading content; prepend each heading to its
+        section's chunks).
+    max_heading_level : int, optional
+        For fine strategies, only descend into sections at or above this level.
+    avoid_table_split, avoid_code_split : bool
+        Keep tables / fenced code blocks whole (one atomic chunk each).
+    elide_data_uris : bool
+        Replace long base64 ``data:`` URIs with a short placeholder (default True).
+    drop_elements : list of str, optional
+        AST node types to strip before chunking (e.g. ``["image", "table"]``).
+    token_counter : {"auto", "tiktoken", "whitespace"}
+        Token-counting backend.
+    document_id : str, optional
+        Identifier woven into chunk ids; defaults to the file stem (or ``"document"``).
+    source_format : DocumentFormat, default "auto"
+        Explicit source format, or auto-detect.
+    converter_options : Any
+        Extra options forwarded to :func:`to_ast` (e.g. ``attachment_mode="skip"``,
+        ``pages=[1, 2]``).
+
+    Returns
+    -------
+    list of ProvenanceChunk
+        Chunks in reading order, with ``prev``/``next`` ids linked. Call
+        ``chunk.to_dict()`` for a JSON-serializable record.
+
+    Examples
+    --------
+    >>> import all2md
+    >>> chunks = all2md.chunk("report.pdf", strategy="semantic", max_tokens=512, overlap=64)
+    >>> chunks[0].section_heading, chunks[0].page, chunks[0].token_count  # doctest: +SKIP
+
+    """
+    from all2md.chunking import chunk_ast
+
+    doc = to_ast(source, source_format=source_format, **converter_options)
+
+    if drop_elements:
+        from all2md.transforms.builtin import RemoveNodesTransform
+
+        doc = cast("Document", RemoveNodesTransform(node_types=list(drop_elements)).transform(doc))
+
+    doc_id, doc_path = _derive_chunk_identity(source, doc, document_id)
+
+    return chunk_ast(
+        doc,
+        strategy=strategy,
+        max_tokens=max_tokens,
+        overlap=overlap,
+        min_tokens=min_tokens,
+        include_preamble=include_preamble,
+        heading_merge=heading_merge,
+        max_heading_level=max_heading_level,
+        avoid_table_split=avoid_table_split,
+        avoid_code_split=avoid_code_split,
+        elide_data_uris=elide_data_uris,
+        token_counter=token_counter,
+        document_id=doc_id,
+        document_path=doc_path,
+    )
 
 
 def _record_source_path(ast_doc: "Document", source: Any) -> None:

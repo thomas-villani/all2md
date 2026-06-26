@@ -109,6 +109,7 @@ def chunk_ast(
     avoid_table_split: bool = False,
     avoid_code_split: bool = False,
     elide_data_uris: bool = True,
+    min_tokens: int = 0,
     token_counter: str = "auto",
     counter: Optional[TokenCounter] = None,
 ) -> list[ProvenanceChunk]:
@@ -147,6 +148,9 @@ def chunk_ast(
         Replace long ``data:…;base64,…`` payloads in chunk text with a short
         placeholder (default True), so an embedded image never inflates token
         counts or shreds into base64 noise.
+    min_tokens : int
+        Drop chunks smaller than this many tokens (default 0, keep all). Filtering
+        happens after chunking; remaining chunks are re-indexed and re-linked.
     token_counter : {"auto", "tiktoken", "whitespace"}
         Token-counting backend (ignored when ``counter`` is provided).
     counter : TokenCounter, optional
@@ -200,7 +204,9 @@ def chunk_ast(
             opts=opts,
         )
 
-    _link_neighbors(chunks)
+    if min_tokens > 0:
+        chunks = [c for c in chunks if c.token_count >= min_tokens]
+    _finalize_sequence(chunks)
     return chunks
 
 
@@ -536,9 +542,14 @@ def _first_heading_level(nodes: list[Node]) -> Optional[int]:
     return None
 
 
-def _link_neighbors(chunks: list[ProvenanceChunk]) -> None:
-    """Populate ``prev_chunk_id``/``next_chunk_id`` across the sequence."""
+def _finalize_sequence(chunks: list[ProvenanceChunk]) -> None:
+    """Assign 0-based ``index`` and link ``prev``/``next`` ids across the sequence.
+
+    Idempotent for an unfiltered list (indices already match), and corrects the
+    numbering after ``min_tokens`` filtering removes chunks.
+    """
     for i, chunk in enumerate(chunks):
+        chunk.index = i
         chunk.prev_chunk_id = chunks[i - 1].chunk_id if i > 0 else None
         chunk.next_chunk_id = chunks[i + 1].chunk_id if i + 1 < len(chunks) else None
 

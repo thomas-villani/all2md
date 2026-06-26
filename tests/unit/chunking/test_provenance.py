@@ -279,6 +279,24 @@ class TestEdgeCases:
             chunk_ast(doc, strategy="paragraph", max_tokens=0, token_counter="whitespace")
 
 
+class TestMinTokens:
+    """min_tokens drops small chunks and renumbers the survivors."""
+
+    def test_drops_small_chunks_and_reindexes(self, doc):
+        """Chunks below the floor are removed; indices/links stay contiguous."""
+        unfiltered = chunk_ast(doc, strategy="word", max_tokens=4, token_counter="whitespace")
+        assert any(c.token_count < 4 for c in unfiltered)  # there are small chunks to drop
+
+        filtered = chunk_ast(doc, strategy="word", max_tokens=4, min_tokens=4, token_counter="whitespace")
+        assert filtered
+        assert all(c.token_count >= 4 for c in filtered)
+        assert [c.index for c in filtered] == list(range(len(filtered)))
+        assert filtered[0].prev_chunk_id is None
+        assert filtered[-1].next_chunk_id is None
+        for i in range(len(filtered) - 1):
+            assert filtered[i].next_chunk_id == filtered[i + 1].chunk_id
+
+
 @pytest.mark.skipif(not tiktoken_available(), reason="tiktoken not installed")
 class TestSemanticStrategy:
     """The default tiktoken-backed strategy."""
