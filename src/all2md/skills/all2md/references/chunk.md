@@ -117,22 +117,40 @@ Notes:
 
 ## Python API
 
+The one-call convenience — converts and chunks in a single step (mirrors `to_markdown`):
+
+```python
+import all2md
+
+chunks = all2md.chunk("report.pdf", strategy="semantic", max_tokens=512, overlap=64)
+for c in chunks:
+    print(c.chunk_id, c.section_heading, c.page, c.token_count)
+    # c.to_dict() gives the same flat object emitted as JSONL
+
+# Extra kwargs flow to the converter; chunk-shaping flags are first-class:
+chunks = all2md.chunk(
+    "report.pdf",
+    strategy="paragraph",
+    max_tokens=256,
+    min_tokens=20,
+    avoid_table_split=True,
+    drop_elements=["image"],
+    attachment_mode="skip",   # forwarded to the converter
+)
+```
+
+`document_id`/`document_path` are derived from the source automatically (the file stem;
+`"document"` for bytes/streams) — override with `document_id=...`.
+
+For lower-level control over an AST you already have, use `chunk_ast`:
+
 ```python
 from all2md import to_ast
 from all2md.chunking import chunk_ast
 
 doc = to_ast("report.pdf")
-chunks = chunk_ast(
-    doc,
-    strategy="semantic",
-    max_tokens=512,
-    overlap=64,
-    document_id="report",
-    document_path="report.pdf",
-)
-for c in chunks:
-    print(c.chunk_id, c.section_heading, c.page, c.token_count)
-    # c.to_dict() gives the same flat object emitted as JSONL
+# ... manipulate the AST ...
+chunks = chunk_ast(doc, strategy="semantic", max_tokens=512, document_id="report")
 ```
 
 ## Tips

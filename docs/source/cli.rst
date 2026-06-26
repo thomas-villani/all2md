@@ -740,8 +740,28 @@ Each line is a flat object: ``chunk_id``, ``index``, ``text``, ``token_count``,
 the chunk's rendered section text (``char_basis="section_text"``), and ``page``
 fields are populated only for formats that track pages.
 
-From Python, ``all2md.chunking.chunk_ast(doc, strategy=..., max_tokens=...)``
-returns a list of ``ProvenanceChunk`` records.
+Python API
+~~~~~~~~~~
+
+The one-call ``all2md.chunk()`` mirrors ``to_markdown`` — convert and chunk a source
+in a single step, returning ``ProvenanceChunk`` records:
+
+.. code-block:: python
+
+   import all2md
+
+   chunks = all2md.chunk("report.pdf", strategy="semantic", max_tokens=512, overlap=64)
+   for c in chunks:
+       print(c.chunk_id, c.section_heading, c.page, c.token_count)
+       record = c.to_dict()  # the same flat object emitted as JSONL
+
+It accepts the same shaping options as the CLI (``min_tokens``, ``avoid_table_split``,
+``avoid_code_split``, ``drop_elements=[...]``, ``elide_data_uris``, …) and forwards any
+extra keyword arguments to the converter (e.g. ``attachment_mode="skip"``).
+``document_id``/``document_path`` are derived from the source automatically.
+
+For lower-level control over an AST you already hold, call
+``all2md.chunking.chunk_ast(doc, strategy=..., max_tokens=...)`` directly.
 
 Lint Command
 ------------
