@@ -136,6 +136,11 @@ search = [
     "faiss-cpu>=1.7.4",
     "sentence-transformers>=2.2.2",
 ]
+chunk = [
+    # Real BPE token counting/splitting for `all2md chunk` (token/semantic/char
+    # strategies). Count-only strategies fall back to a whitespace approximation.
+    "tiktoken>=0.7.0",
+]
 chm = [
     "pychm>=0.8.6"
 ]
@@ -258,6 +263,7 @@ all = [
     "reportlab>=4.0.0",
     "rich>=14.2.0",
     "textile>=4.0.1",
+    "tiktoken>=0.7.0",
     "tqdm>=4.66.0",
     "watchdog>=4.0.0",
     "defusedxml>=0.7.1",

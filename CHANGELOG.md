@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`all2md chunk`: provenance-aware document chunking for RAG/LLM pipelines.**
+  Splits any supported document into chunks and emits them as JSONL (one object
+  per line) — or ``--format json``/``pretty``. Unlike flat-text chunkers, every
+  chunk carries AST-derived provenance: its section heading/level, and the source
+  page span where the parser tracks it (PDF and friends). Eleven strategies:
+  ``semantic`` (default; section-bounded real-token windows), ``heading``,
+  ``section``, ``auto`` (coarse, one chunk per boundary), and ``token``,
+  ``sentence``, ``paragraph``, ``word``, ``line``, ``char``, ``code`` (fine).
+  ``--max-tokens``/``--overlap``/``--min-tokens`` bound size; ``--max-heading-level``,
+  ``--include-preamble``/``--heading-merge`` toggles control structure;
+  ``--token-counter {auto,tiktoken,whitespace}`` selects the tokenizer. Real BPE
+  token counting uses ``tiktoken`` (new optional extra: ``pip install all2md[chunk]``);
+  count-only strategies fall back to a whitespace approximation when it is absent.
+  Element handling: ``--avoid-table-split`` keeps each table whole (one atomic chunk
+  rather than fragmenting it mid-row), ``--drop-elements image,table,…`` strips noisy
+  node types before chunking, and ``--attachment-mode {skip,alt_text,save,base64}``
+  (plus any ``[pdf]``/``[html]``/top-level converter keys in a config file) controls
+  how the underlying conversion handles images — so base64 blobs need never reach a
+  chunk. Exposed from Python via ``all2md.chunking.chunk_ast`` returning
+  ``ProvenanceChunk`` records. The fine-grained chunkers are vendored from the
+  ``localvectordb`` sister project.
 - **Lint profiles: `all2md lint --profile NAME`.** Curated, named rule bundles
   built entirely from the existing 47 rules — ``prose`` (typographic polish for
   long-form writing, ideal for a converted DOCX), ``accessibility`` (alt text,

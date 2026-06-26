@@ -253,6 +253,9 @@ DEPS_RTF_RENDER = [("pyth3", "pyth", ">=0.7"), ("six", "six", ">=1.16.0")]
 DEPS_JINJA = [("jinja2", "jinja2", ">=3.1.0")]
 DEPS_NETWORK = [("httpx", "httpx", ">=0.28.1")]
 
+# Chunking (token-boundary strategies need a real BPE tokenizer)
+DEPS_CHUNK = [("tiktoken", "tiktoken", ">=0.7.0")]
+
 # Search backends
 DEPS_SEARCH_BM25 = [("rank-bm25", "rank_bm25", ">=0.2.2")]
 
