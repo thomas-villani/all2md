@@ -89,7 +89,7 @@ class PositionTrackingChunker(ABC):
     @abstractmethod
     def chunk(self, text: str) -> List[TextChunk]:
         """Split ``text`` into position-tracked chunks."""
-        ...
+        raise NotImplementedError
 
     def count_tokens(self, text: str) -> int:
         """Count tokens in ``text`` using the injected counter."""
@@ -890,16 +890,15 @@ class CodeBlockChunker(PositionTrackingChunker):
             if current_tokens + block_tokens > self.max_tokens and current_chunk_lines:
                 chunks.append(_finalize(current_chunk_lines, chunk_index))
                 chunk_index += 1
-                if self.overlap > 0 and current_chunk_lines:
+                if self.overlap > 0:
                     overlap_lines = min(self.overlap, len(current_chunk_lines))
                     current_chunk_lines = current_chunk_lines[-overlap_lines:]
-                    current_tokens = self.count_tokens("\n".join(ln["line"] for ln in current_chunk_lines))
                 else:
                     current_chunk_lines = []
-                    current_tokens = 0
 
             for offset, line in enumerate(block_lines):
                 current_chunk_lines.append({"line": line, "line_idx": block["start"] + offset})
+            # Recomputed over the full window each time, so no need to track it above.
             current_tokens = self.count_tokens("\n".join(ln["line"] for ln in current_chunk_lines))
 
         if current_chunk_lines:

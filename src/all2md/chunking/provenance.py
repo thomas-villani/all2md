@@ -240,7 +240,7 @@ def _chunk_fine(
     # No headings at all: chunk the whole document as a single unnumbered unit
     # (otherwise nothing would be emitted for heading-light documents).
     if not sections:
-        running_index = _emit_unit(
+        _emit_unit(
             chunks,
             chunker=chunker,
             unit_nodes=list(doc.children),
