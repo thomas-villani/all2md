@@ -108,6 +108,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_diff_command(args[1:])
 
+    # Check for chunk command
+    if args[0] == "chunk":
+        from all2md.cli.commands.chunk import handle_chunk_command
+
+        return handle_chunk_command(args[1:])
+
     # Check for lint command
     if args[0] == "lint":
         from all2md.cli.commands.lint import handle_lint_command

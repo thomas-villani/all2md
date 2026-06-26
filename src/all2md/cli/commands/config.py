@@ -132,6 +132,7 @@ def _subcommand_parser_factories() -> Dict[str, Any]:
     dependencies) into the CLI startup path.
     """
     from all2md.cli.commands.arxiv import _create_arxiv_parser
+    from all2md.cli.commands.chunk import _create_chunk_parser
     from all2md.cli.commands.diff import _create_diff_parser
     from all2md.cli.commands.edit import _create_edit_parser
     from all2md.cli.commands.generate_site import _create_generate_site_parser
@@ -145,6 +146,7 @@ def _subcommand_parser_factories() -> Dict[str, Any]:
         "diff": _create_diff_parser,
         "arxiv": _create_arxiv_parser,
         "generate-site": _create_generate_site_parser,
+        "chunk": _create_chunk_parser,
     }
 
 

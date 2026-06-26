@@ -37,6 +37,7 @@ SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "diff",
     "arxiv",
     "generate-site",
+    "chunk",
 )
 
 

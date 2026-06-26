@@ -27,7 +27,7 @@ from all2md.cli.commands.skills import (
 
 # The single bundled skill and its reference topics.
 PRIMARY_SKILL = "all2md"
-EXPECTED_TOPICS = ["convert", "diff", "generate", "grep", "read", "search"]
+EXPECTED_TOPICS = ["chunk", "convert", "diff", "generate", "grep", "read", "search"]
 
 
 @pytest.mark.unit

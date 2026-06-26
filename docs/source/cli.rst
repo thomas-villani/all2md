@@ -643,6 +643,103 @@ Configuration sources are applied in this order (highest to lowest priority):
    # 5. Use it (auto-discovered)
    all2md document.pdf
 
+Chunk Command
+-------------
+
+``all2md chunk`` splits a document into chunks for retrieval-augmented generation
+(RAG) and other LLM pipelines, emitting JSONL by default (one chunk per line).
+Unlike flat-text chunkers, every chunk carries AST-derived **provenance**: the
+section heading/level it came from and, where the source format records it, the
+originating page span. This lets a downstream answer cite *where* a passage came
+from.
+
+Basic Usage
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Semantic chunks (section-bounded, real-token windows) as JSONL
+   all2md chunk report.pdf --strategy semantic --max-tokens 512 --overlap 64
+
+   # One chunk per section, written to a file
+   all2md chunk handbook.docx --strategy section --out chunks.jsonl
+
+   # Read from stdin
+   cat page.html | all2md chunk - --strategy paragraph
+
+Strategies
+~~~~~~~~~~
+
+Coarse (one chunk per semantic boundary): ``heading``, ``section``, ``auto``.
+
+Fine (windowed within each section, up to ``--max-tokens``): ``semantic``
+(default), ``token``, ``sentence``, ``paragraph``, ``word``, ``line``, ``char``,
+``code``.
+
+Key Options
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+   # Bound chunk size and overlap (overlap is coerced to 0 for coarse strategies)
+   all2md chunk doc.md --max-tokens 256 --overlap 32 --min-tokens 20
+
+   # Limit how deep section detection descends, and control structure
+   all2md chunk doc.md --max-heading-level 2 --no-include-preamble --no-heading-merge
+
+   # Output formats: jsonl (default), json (array), pretty (human-readable)
+   all2md chunk doc.md --format pretty
+
+Element & Attachment Handling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The chunkers run on each section's rendered Markdown, so tables, images, and code
+blocks appear in chunk text as their Markdown form. Fine strategies split by token
+budget and can otherwise cut a table mid-row; these flags give you control:
+
+.. code-block:: bash
+
+   # Keep each table whole (emitted as its own chunk, may exceed --max-tokens)
+   all2md chunk report.pdf --avoid-table-split
+
+   # Strip noisy elements before chunking (aliases like images/tables accepted)
+   all2md chunk report.pdf --drop-elements image,table
+
+   # Control how the converter handles images (avoids huge base64 blobs in chunks)
+   all2md chunk report.pdf --attachment-mode skip
+
+``all2md chunk`` also reads converter settings from a config file (the same ``[pdf]``,
+``[html]``, and top-level keys used by ``all2md``/``view``/``serve``), honoring
+``--config``/``--no-config``. ``--attachment-mode`` overrides the config value.
+
+Tokenizer
+~~~~~~~~~
+
+Real BPE token counting (and the ``semantic``/``token``/``char`` strategies that
+split *on* token boundaries) uses ``tiktoken``:
+
+.. code-block:: bash
+
+   pip install all2md[chunk]
+
+Count-only strategies (``sentence``/``word``/``line``/``paragraph``/``section``/
+``heading``/``auto``) fall back to a whitespace approximation when ``tiktoken`` is
+not installed. Force a backend with ``--token-counter {auto,tiktoken,whitespace}``.
+
+JSONL Schema
+~~~~~~~~~~~~
+
+Each line is a flat object: ``chunk_id``, ``index``, ``text``, ``token_count``,
+``token_counter``, ``strategy``, ``document_id``, ``document_path``,
+``section_heading``, ``section_level``, ``section_index``, ``page``, ``page_end``,
+``source_line_start``, ``source_line_end``, ``char_start``, ``char_end``,
+``char_basis``, ``prev_chunk_id``, ``next_chunk_id``. Character spans index into
+the chunk's rendered section text (``char_basis="section_text"``), and ``page``
+fields are populated only for formats that track pages.
+
+From Python, ``all2md.chunking.chunk_ast(doc, strategy=..., max_tokens=...)``
+returns a list of ``ProvenanceChunk`` records.
+
 Lint Command
 ------------
 

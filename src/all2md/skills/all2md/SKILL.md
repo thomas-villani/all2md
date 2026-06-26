@@ -22,6 +22,7 @@ This file is the overview and index. Pick the task below and read the matching r
 | Find a pattern inside documents (like grep) | [references/grep.md](references/grep.md) | `all2md grep` |
 | Ranked keyword/semantic search across a collection | [references/search.md](references/search.md) | `all2md search` |
 | Compare two documents / see what changed | [references/diff.md](references/diff.md) | `all2md diff` |
+| Chunk a document for RAG/LLM pipelines (JSONL + provenance) | [references/chunk.md](references/chunk.md) | `all2md chunk` |
 
 ## Core model
 
@@ -67,5 +68,5 @@ from_ast(doc, "html", output="report.html")   # render
 - `all2md check-deps` verifies optional dependencies (PyMuPDF for PDF, etc.).
 - Beyond the task families above, the CLI also has: `all2md view <file>` (preview in a browser), `all2md serve` (local HTTP API), `all2md edit <file>` (web editor), `all2md lint <file>` (Markdown linter with `--fix`), and `all2md config generate|show` (configuration files). Run `all2md <command> --help` for flags.
 - `all2md --help full` prints the complete flag reference, including all format-specific options.
-- `all2md llm-help [topic]` prints these references to stdout (topics: read, convert, generate, grep, search, diff) — handy when driving the CLI without installing the skill.
+- `all2md llm-help [topic]` prints these references to stdout (topics: read, convert, generate, grep, search, diff, chunk) — handy when driving the CLI without installing the skill.
 - Every CLI option also reads an environment variable: `ALL2MD_<OPTION>` (e.g. `ALL2MD_PDF_OCR_ENABLED=true`).

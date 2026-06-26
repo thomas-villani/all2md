@@ -165,6 +165,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("context-menu", 'Manage the Windows right-click "View with all2md" entry (install/uninstall/status)'),
     ("search", "Search documents using keyword, vector, or hybrid retrieval"),
     ("grep", "Search for text patterns in documents (like grep for any format)"),
+    ("chunk", "Split documents into provenance-carrying chunks (JSONL) for RAG/LLM pipelines"),
     ("lint", "Lint converted documents for structural, heading, link, list, table, and typography issues"),
     ("generate-site", "Generate Hugo, Jekyll, MkDocs, Zola, or Eleventy static site from documents"),
     ("arxiv", "Generate an ArXiv-ready LaTeX submission package from a document"),
