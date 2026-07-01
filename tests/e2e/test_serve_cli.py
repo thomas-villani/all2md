@@ -205,6 +205,40 @@ def hello():
         assert "Test File" in html
         assert "Content here" in html
 
+    def test_serve_injects_web_assets(self):
+        """Served documents include the mermaid + highlight.js CDN includes."""
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file), "--port", "8031"])
+
+        html = self._fetch_url("http://127.0.0.1:8031/").decode("utf-8")
+        assert "mermaid@11" in html
+        assert "highlight.min.js" in html
+        # highlight.js hooks the language class the renderer already emits.
+        assert "language-python" in html
+
+    def test_serve_no_mermaid_no_highlight_flags(self):
+        """The --no-* flags suppress the injected assets."""
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file), "--no-mermaid", "--no-syntax-highlight", "--port", "8032"])
+
+        html = self._fetch_url("http://127.0.0.1:8032/").decode("utf-8")
+        assert "mermaid@11" not in html
+        assert "highlight.min.js" not in html
+
+    def test_serve_directory_uses_table_and_cards(self):
+        """The auto-generated directory index is a toggleable table/card listing."""
+        self._create_test_markdown("file1.md", "# File 1")
+        self._create_test_markdown("file2.md", "# File 2")
+
+        self._start_server(["serve", str(self.temp_dir), "--port", "8033"])
+
+        html = self._fetch_url("http://127.0.0.1:8033/").decode("utf-8")
+        assert "file-table" in html
+        assert "file-cards" in html
+        assert "a2m-view-btn" in html
+
     def test_serve_with_custom_port(self):
         """Test serving on a custom port."""
         md_file = self._create_test_markdown()

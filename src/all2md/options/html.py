@@ -80,6 +80,10 @@ class HtmlRendererOptions(BaseRendererOptions):
         Generate table of contents from headings.
     syntax_highlighting : bool, default True
         Add language classes to code blocks for syntax highlighting.
+    render_mermaid : bool, default False
+        Render fenced code blocks whose language is ``mermaid`` as
+        ``<pre class="mermaid">`` (a hook for a client-side mermaid.js) instead of the
+        usual ``<pre><code>``. Used by the view/serve commands.
     escape_html : bool, default True
         Escape HTML special characters in text content.
     math_renderer : {"mathjax", "katex", "none"}, default "mathjax"
@@ -204,6 +208,14 @@ class HtmlRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
+    render_mermaid: bool = field(
+        default=False,
+        metadata={
+            "help": "Render fenced code blocks tagged 'mermaid' as <pre class=\"mermaid\"> "
+            "(so a client-side mermaid.js can draw them) instead of a plain code block",
+            "importance": "advanced",
+        },
+    )
     escape_html: bool = field(
         default=DEFAULT_HTML_ESCAPE_HTML,
         metadata={
@@ -301,7 +313,7 @@ class HtmlRendererOptions(BaseRendererOptions):
     csp_policy: str | None = field(
         default=DEFAULT_CSP_POLICY,
         metadata={
-            "help": "Custom Content-Security-Policy header value. " "If None, uses default secure policy.",
+            "help": "Custom Content-Security-Policy header value. If None, uses default secure policy.",
             "importance": "security",
         },
     )
@@ -509,7 +521,7 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         default=DEFAULT_HTML_FIGURES_PARSING,
         metadata={
             "help": (
-                "How to parse <figure> elements: blockquote, paragraph, image_with_caption, " "caption_only, html, skip"
+                "How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip"
             ),
             "choices": ["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"],
             "importance": "advanced",

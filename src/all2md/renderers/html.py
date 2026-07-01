@@ -813,6 +813,14 @@ hr {
             Code block to render
 
         """
+        # Mermaid diagrams: emit a bare <pre class="mermaid"> holding the raw source
+        # so a client-side mermaid.js can render it. The text is still escaped -- the
+        # browser decodes entities when reading textContent, so `-->` etc. survive.
+        if self.options.render_mermaid and node.language == "mermaid":
+            escaped = escape_html(node.content, enabled=self.options.escape_html)
+            self._output.append(f'<pre class="mermaid">{escaped}</pre>\n')
+            return
+
         # Build class attribute
         classes = []
         if self.options.syntax_highlighting and node.language:
