@@ -2081,6 +2081,15 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Default: ``True``
    :Importance: advanced
 
+**include_rtf_parts**
+
+   Include RTF body parts from emails (converted to Markdown; used when no plain-text or HTML body is present)
+
+   :Type: ``bool``
+   :CLI flag: ``--eml-no-include-rtf-parts``
+   :Default: ``True``
+   :Importance: advanced
+
 ENEX Options
 ~~~~~~~~~~~~
 
@@ -3045,6 +3054,15 @@ including document structure, styling, templating, and feature toggles.
    :CLI flag: ``--html-renderer-no-syntax-highlighting``
    :Default: ``True``
    :Importance: core
+
+**render_mermaid**
+
+   Render fenced code blocks tagged 'mermaid' as <pre class="mermaid"> (so a client-side mermaid.js can draw them) instead of a plain code block
+
+   :Type: ``bool``
+   :CLI flag: ``--html-renderer-render-mermaid``
+   :Default: ``False``
+   :Importance: advanced
 
 **escape_html**
 
@@ -4490,7 +4508,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001B32AD24BC0>``
+   :Default: ``<object object at 0x000001C52C6B4BD0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4500,7 +4518,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001B32AD24BC0>``
+   :Default: ``<object object at 0x000001C52C6B4BD0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4936,6 +4954,15 @@ message filtering, and folder handling.
 
    :Type: ``bool``
    :CLI flag: ``--mbox-no-include-plain-parts``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_rtf_parts**
+
+   Include RTF body parts from emails (converted to Markdown; used when no plain-text or HTML body is present)
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-no-include-rtf-parts``
    :Default: ``True``
    :Importance: advanced
 
@@ -6771,6 +6798,15 @@ PST/OST archive handling, and advanced message selection.
 
    :Type: ``bool``
    :CLI flag: ``--outlook-no-include-plain-parts``
+   :Default: ``True``
+   :Importance: advanced
+
+**include_rtf_parts**
+
+   Include RTF body parts from emails (converted to Markdown; used when no plain-text or HTML body is present)
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-no-include-rtf-parts``
    :Default: ``True``
    :Importance: advanced
 
@@ -10186,7 +10222,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedTableMode | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001B32AD24BC0>``
+   :Default: ``<object object at 0x000001C52C6B4BD0>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -10196,7 +10232,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``UnsupportedInlineMode | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001B32AD24BC0>``
+   :Default: ``<object object at 0x000001C52C6B4BD0>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 

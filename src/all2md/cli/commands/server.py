@@ -28,9 +28,11 @@ from urllib.parse import quote, unquote
 from all2md.api import from_ast, to_ast
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import has_hidden_component, split_glob_pattern
-from all2md.cli.config import apply_config_to_parser
+from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
+from all2md.cli.config import apply_config_to_parser, load_config_with_priority
 from all2md.converter_registry import registry
 from all2md.options.html import HtmlRendererOptions
+from all2md.utils.html_utils import escape_html
 
 # Filenames that can stand in for an auto-generated directory listing,
 # in descending priority order.
@@ -266,6 +268,52 @@ def _compute_directory_state(
     return files, subdirs, mapping, signature
 
 
+# Scoped styling + behaviour for the auto-generated directory index. Class-prefixed so
+# it overrides a theme's generic table/list rules without leaking into document pages.
+_INDEX_STYLE = """<style>
+.a2m-toolbar { display: flex; gap: .5rem; margin: 1rem 0; }
+.a2m-view-btn { cursor: pointer; padding: .35rem .8rem; border: 1px solid currentColor;
+    border-radius: 6px; background: transparent; color: inherit; font: inherit; opacity: .55; }
+.a2m-view-btn.active { opacity: 1; font-weight: 600; }
+.file-table { width: 100%; border-collapse: collapse; margin: 0; }
+.file-table th, .file-table td { text-align: left; padding: .4rem .75rem;
+    border-bottom: 1px solid rgba(128,128,128,.25); white-space: nowrap; }
+.file-table th { font-weight: 600; }
+.file-table td:first-child, .file-table th:first-child { white-space: normal; width: 100%; }
+.file-table .num { font-variant-numeric: tabular-nums; }
+.file-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .75rem; }
+.file-card { display: block; padding: .75rem 1rem; border: 1px solid rgba(128,128,128,.3);
+    border-radius: 8px; text-decoration: none; color: inherit; }
+.file-card:hover { border-color: currentColor; }
+.file-card-name { font-weight: 600; word-break: break-word; }
+.file-card-meta { opacity: .7; font-size: .85em; margin-top: .3rem; }
+.a2m-subdirs { list-style: none; padding-left: 0; margin: 1rem 0; }
+.a2m-subdirs li { margin: .3rem 0; }
+.a2m-listing[data-view="table"] .file-cards { display: none; }
+.a2m-listing[data-view="cards"] .file-table { display: none; }
+</style>"""
+
+# Toggles the listing between table and card view, remembering the choice per browser.
+_INDEX_SCRIPT = """<script>
+(function () {
+    var root = document.currentScript.parentNode;
+    var listing = root.querySelector('.a2m-listing');
+    var btns = root.querySelectorAll('.a2m-view-btn');
+    var KEY = 'all2md-index-view';
+    function apply(v) {
+        if (v !== 'cards') { v = 'table'; }
+        listing.setAttribute('data-view', v);
+        btns.forEach(function (b) { b.classList.toggle('active', b.dataset.view === v); });
+        try { localStorage.setItem(KEY, v); } catch (e) {}
+    }
+    btns.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.view); }); });
+    var saved = 'table';
+    try { saved = localStorage.getItem(KEY) || 'table'; } catch (e) {}
+    apply(saved);
+})();
+</script>"""
+
+
 def _generate_directory_index(
     all_files: List[Path],
     theme_path: Path,
@@ -332,7 +380,8 @@ def _generate_directory_index(
 
     # Build content
     content = breadcrumbs
-    content += f"<h1>Directory: {dir_display}</h1>"
+    content += _INDEX_STYLE
+    content += f"<h1>Directory: {escape_html(dir_display)}</h1>"
 
     # Add upload link if enabled (root only)
     if enable_upload and not current_subdir:
@@ -348,48 +397,70 @@ def _generate_directory_index(
 
     # Show subdirectories
     if child_dir_names:
-        content += "<div style='font-family: monospace;'>"
-        content += "<ul style='list-style: none; padding-left: 20px;'>"
+        content += "<ul class='a2m-subdirs'>"
         for dir_name in sorted(child_dir_names):
             if current_subdir:
                 dir_url = "/" + "/".join(quote(p) for p in current_subdir.split("/")) + "/" + quote(dir_name) + "/"
             else:
                 dir_url = "/" + quote(dir_name) + "/"
-            content += "<li style='margin: 5px 0;'>"
-            content += f"<a href='{dir_url}' style='text-decoration: none; font-size: 1.0em;'>{dir_name}/</a>"
-            content += "</li>"
-        content += "</ul></div>"
+            content += f"<li><a href='{dir_url}'>&#128193; {escape_html(dir_name)}/</a></li>"
+        content += "</ul>"
 
-    # Show file count
+    # Show file count. The listing only ever contains files the registry can convert
+    # (see _scan_directory_for_documents), so every row here is viewable.
     content += f"<p>Found {len(current_files)} document(s)"
     if child_dir_names:
         content += f" and {len(child_dir_names)} subdirectory(ies)"
-    content += " - click to view:</p>"
+    content += ":</p>"
 
-    # List files at this level
+    # List files at this level as an aligned table plus a card grid; a toggle picks
+    # which is shown (default table, remembered in localStorage).
     if current_files:
-        content += "<div style='font-family: monospace;'>"
-        content += "<ul style='list-style: none; padding-left: 20px;'>"
+        rows = ""
+        cards = ""
         for file in sorted(current_files, key=lambda f: f.name.lower()):
             rel_path = file.relative_to(base_dir)
             url = "/" + quote(str(rel_path).replace("\\", "/"))
-            modified_str: Optional[str] = None
-            created_str: Optional[str] = None
+            name = escape_html(file.name)
+            size_str = "?"
+            modified_str = "—"
+            created_str = "—"
             try:
                 stat_result = file.stat()
                 size_str = _format_file_size(stat_result.st_size)
-                modified_str = f"modified {_format_timestamp(stat_result.st_mtime)}"
+                modified_str = _format_timestamp(stat_result.st_mtime)
                 created_ts = _file_created_timestamp(stat_result)
                 if created_ts is not None:
-                    created_str = f"created {_format_timestamp(created_ts)}"
+                    created_str = _format_timestamp(created_ts)
             except OSError:
-                size_str = "?"
-            details = " · ".join(part for part in (size_str, modified_str, created_str) if part)
-            content += "<li style='margin: 5px 0;'>"
-            content += f"<a href='{url}' style='text-decoration: none; font-size: 1.0em;'>{file.name}</a>"
-            content += f" <span style='color: #888; font-size: 0.9em;'>({details})</span>"
-            content += "</li>"
-        content += "</ul></div>"
+                pass
+            rows += (
+                f"<tr><td><a href='{url}'>{name}</a></td>"
+                f"<td class='num'>{size_str}</td>"
+                f"<td class='num'>{modified_str}</td>"
+                f"<td class='num'>{created_str}</td></tr>"
+            )
+            meta = " · ".join(
+                part for part in (size_str, f"modified {modified_str}", f"created {created_str}") if "—" not in part
+            )
+            cards += (
+                f"<a class='file-card' href='{url}'>"
+                f"<div class='file-card-name'>{name}</div>"
+                f"<div class='file-card-meta'>{meta}</div></a>"
+            )
+        content += "<div class='a2m-toolbar'>"
+        content += "<button type='button' class='a2m-view-btn' data-view='table'>Table</button>"
+        content += "<button type='button' class='a2m-view-btn' data-view='cards'>Cards</button>"
+        content += "</div>"
+        content += "<div class='a2m-listing' data-view='table'>"
+        content += (
+            "<table class='file-table'><thead><tr>"
+            "<th>Name</th><th>Size</th><th>Modified</th><th>Created</th>"
+            f"</tr></thead><tbody>{rows}</tbody></table>"
+        )
+        content += f"<div class='file-cards'>{cards}</div>"
+        content += "</div>"
+        content += _INDEX_SCRIPT
 
     # Apply theme template
     title = f"Directory: {dir_display}"
@@ -640,7 +711,7 @@ def _create_serve_parser() -> argparse.ArgumentParser:
         "-a",
         "--address",
         metavar="HOST:PORT",
-        help="Bind address as 'host:port', 'host:', or ':port' (overrides --host/--port). " "Example: -a 0.0.0.0:9000",
+        help="Bind address as 'host:port', 'host:', or ':port' (overrides --host/--port). Example: -a 0.0.0.0:9000",
     )
     parser.add_argument(
         "-r", "--recursive", action="store_true", help="Recursively serve subdirectories (for directory input)"
@@ -654,7 +725,19 @@ def _create_serve_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
     parser.add_argument(
         "--theme",
-        help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
+        help="Theme to use: a built-in name (minimal, dark, newspaper, docs, sidebar), "
+        "a custom .html template or plain .css file path, or a name registered in the "
+        "config [themes] table",
+    )
+    parser.add_argument(
+        "--no-mermaid",
+        action="store_true",
+        help="Disable client-side rendering of ```mermaid code blocks as diagrams",
+    )
+    parser.add_argument(
+        "--no-syntax-highlight",
+        action="store_true",
+        help="Disable client-side syntax highlighting of code blocks (highlight.js)",
     )
     parser.add_argument(
         "-B",
@@ -777,32 +860,19 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             print(f"Error: Input path not found: {parsed.input}", file=sys.stderr)
             return EXIT_FILE_ERROR
 
-    # Select theme template
-    if parsed.theme:
-        # Check if it's a built-in theme name or a custom path
-        theme_path = Path(parsed.theme)
-        # First check if it's a valid HTML file path
-        if theme_path.exists() and theme_path.is_file() and theme_path.suffix == ".html":
-            # Use the provided file path
-            pass
-        else:
-            # Try as built-in theme name
-            builtin_theme = Path(__file__).parent / "themes" / f"{parsed.theme}.html"
-            if builtin_theme.exists():
-                theme_path = builtin_theme
-            else:
-                print(f"Error: Theme not found: {parsed.theme}", file=sys.stderr)
-                print("Available built-in themes: minimal, dark, newspaper, docs, sidebar", file=sys.stderr)
-                return EXIT_FILE_ERROR
-    elif parsed.dark:
-        theme_path = Path(__file__).parent / "themes" / "dark.html"
-    else:
-        theme_path = Path(__file__).parent / "themes" / "minimal.html"
-
-    # Verify theme template exists
+    # Select theme template (built-in name, .html/.css path, or [themes] config name).
+    theme_config = {} if parsed.no_config else load_config_with_priority(explicit_path=parsed.config)
+    try:
+        theme_path = resolve_theme(parsed.theme, dark=parsed.dark, config=theme_config)
+    except ThemeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return EXIT_FILE_ERROR
     if not theme_path.exists():
         print(f"Error: Theme template not found: {theme_path}", file=sys.stderr)
         return EXIT_FILE_ERROR
+
+    # Whether to serve the dark variant of the highlight.js / mermaid themes.
+    is_dark = parsed.dark or parsed.theme == "dark"
 
     # Determine if input is file or directory (a glob always serves a listing).
     is_directory = serve_pattern is not None or input_path.is_dir()
@@ -830,10 +900,19 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             template_file=str(theme_path),
             include_toc=parsed.toc,
             external_links_new_tab=True,
+            render_mermaid=not parsed.no_mermaid,
         )
         html_content = from_ast(doc, "html", renderer_options=html_opts)
         if not isinstance(html_content, str):
             raise RuntimeError("Expected string result from HTML rendering")
+        # Splice in the mermaid / highlight.js CDN includes (graceful offline degrade)
+        # before breadcrumbs so the injection targets the original <head>.
+        html_content = inject_web_assets(
+            html_content,
+            mermaid=not parsed.no_mermaid,
+            highlight=not parsed.no_syntax_highlight,
+            dark=is_dark,
+        )
         if breadcrumb_path:
             breadcrumbs = _generate_breadcrumbs(breadcrumb_path)
             html_content = html_content.replace("<body>", "<body>\n" + breadcrumbs, 1)

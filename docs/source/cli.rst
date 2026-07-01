@@ -1647,7 +1647,10 @@ Arguments
       all2md view document.pdf --window
 
 ``--theme THEME``
-   Specify a theme for the HTML output. Can be either a built-in theme name or a path to a custom HTML template file.
+   Specify a theme for the HTML output. ``THEME`` may be a built-in theme name, a path
+   to a custom ``.html`` template, a path to a plain ``.css`` file (wrapped automatically
+   in a minimal HTML shell), or a name registered in the ``[themes]`` table of a
+   configuration file (see :ref:`custom-themes`).
 
    **Built-in themes:**
 
@@ -1670,6 +1673,24 @@ Arguments
 
       # Use custom theme template
       all2md view document.pdf --theme /path/to/custom-theme.html
+
+``--no-mermaid``
+   Disable client-side rendering of ``mermaid`` code blocks as diagrams. By
+   default, fenced blocks tagged ``mermaid`` are drawn with `mermaid.js
+   <https://mermaid.js.org/>`_ loaded from a CDN; with this flag they render as ordinary
+   code blocks instead.
+
+``--no-syntax-highlight``
+   Disable client-side syntax highlighting of code blocks. By default, code blocks are
+   highlighted with `highlight.js <https://highlightjs.org/>`_ loaded from a CDN, matching
+   the language tag on each fence (and the detected language of raw source files).
+
+.. note::
+
+   Mermaid and highlight.js are loaded from ``cdn.jsdelivr.net``. When offline the page
+   still renders: diagrams appear as their source text and code blocks are shown without
+   highlighting. The dark variants are used automatically with ``--dark`` or the ``dark``
+   theme.
 
 Built-in Themes
 ~~~~~~~~~~~~~~~
@@ -1723,6 +1744,8 @@ Built-in Themes
    * **Colors:** White background with light gray sidebar
    * **Special:** Sticky TOC navigation, smooth scrolling, mobile-responsive
    * **Requires:** Must be used with ``--toc`` flag for meaningful layout
+
+.. _custom-themes:
 
 Custom Themes
 ~~~~~~~~~~~~~
@@ -1796,6 +1819,38 @@ You can create custom HTML themes using placeholder replacement. Themes are stan
    all2md view document.pdf --theme ./my-theme.html --toc
 
 The HTML renderer will replace all placeholders with the appropriate content while preserving all your custom styling and structure.
+
+**CSS-only themes:**
+
+If you only want to change styling, you can point ``--theme`` at a plain ``.css`` file
+instead of authoring a full HTML template. The stylesheet is wrapped automatically in a
+minimal HTML shell that provides the ``{TITLE}``/``{CONTENT}`` placeholders:
+
+.. code-block:: bash
+
+   all2md view document.pdf --theme ./my-styles.css
+   all2md serve ./docs --theme ./my-styles.css
+
+**Named themes via configuration:**
+
+Register reusable theme names in a ``[themes]`` table in any all2md configuration file
+(``.all2md.toml``, ``pyproject.toml`` under ``[tool.all2md.themes]``, etc.). Values may
+point at ``.html`` templates or ``.css`` files:
+
+.. code-block:: toml
+
+   [themes]
+   corporate = "~/themes/corporate.html"
+   brand = "~/themes/brand.css"
+
+.. code-block:: bash
+
+   # Resolve the registered name
+   all2md view report.pdf --theme corporate
+   all2md serve ./docs --theme brand
+
+You can also set a default theme per command via the ``[view]``/``[serve]`` sections
+(``theme = "corporate"``).
 
 Examples
 ~~~~~~~~
@@ -2383,7 +2438,9 @@ Arguments
       all2md serve ./docs --dark
 
 ``--theme THEME``
-   Specify a theme for HTML output. Can be a built-in theme name or path to custom template.
+   Specify a theme for HTML output. ``THEME`` may be a built-in theme name, a custom
+   ``.html`` template, a plain ``.css`` file, or a name registered in a ``[themes]``
+   configuration table (see :ref:`custom-themes`).
 
    **Built-in themes:**
 
@@ -2400,6 +2457,19 @@ Arguments
 
       # Use custom theme
       all2md serve ./docs --theme /path/to/theme.html
+
+``--no-mermaid``
+   Disable client-side rendering of ``mermaid`` code blocks as diagrams (loaded
+   from a CDN, on by default). See the note under the ``view`` command's options.
+
+``--no-syntax-highlight``
+   Disable client-side syntax highlighting of code blocks and source files (highlight.js
+   loaded from a CDN, on by default).
+
+.. note::
+
+   The directory index lists only files all2md can convert. It offers an aligned
+   **table** view (default) and a **card** view; the toggle is remembered per browser.
 
 ``--enable-upload``
    Enable file upload form at ``/upload`` route. This provides a web interface for uploading and converting documents. **For development use only - do not expose to untrusted networks.**

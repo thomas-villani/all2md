@@ -435,6 +435,31 @@ class TestBlockElements:
         result = renderer.render_to_string(doc)
         assert "<pre><code>" in result
 
+    def test_mermaid_code_block_rendered_as_diagram(self):
+        """With render_mermaid, a mermaid fence becomes <pre class="mermaid">."""
+        doc = Document(children=[CodeBlock(content="graph TD; A-->B;", language="mermaid")])
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, render_mermaid=True))
+        result = renderer.render_to_string(doc)
+        assert '<pre class="mermaid">' in result
+        assert "<code" not in result
+        # Escaped source is preserved (the browser decodes it back when reading textContent).
+        assert "A--&gt;B" in result
+
+    def test_mermaid_default_is_a_plain_code_block(self):
+        """Without render_mermaid, a mermaid fence renders like any other code block."""
+        doc = Document(children=[CodeBlock(content="graph TD; A-->B;", language="mermaid")])
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False))
+        result = renderer.render_to_string(doc)
+        assert '<pre class="mermaid">' not in result
+        assert 'class="language-mermaid"' in result
+
+    def test_render_mermaid_leaves_other_languages_untouched(self):
+        """render_mermaid only special-cases mermaid, not other languages."""
+        doc = Document(children=[CodeBlock(content="print('x')", language="python")])
+        renderer = HtmlRenderer(HtmlRendererOptions(standalone=False, render_mermaid=True))
+        result = renderer.render_to_string(doc)
+        assert '<pre><code class="language-python">' in result
+
     def test_blockquote(self):
         """Test blockquote rendering."""
         doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="Quoted text")])])])

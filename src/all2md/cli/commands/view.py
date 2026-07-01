@@ -19,7 +19,8 @@ from pathlib import Path
 from all2md import HtmlRendererOptions, from_ast, to_ast
 from all2md.cli import EXIT_FILE_ERROR, window
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
-from all2md.cli.config import apply_config_to_parser
+from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
+from all2md.cli.config import apply_config_to_parser, load_config_with_priority
 
 
 def _create_view_parser() -> argparse.ArgumentParser:
@@ -53,7 +54,19 @@ def _create_view_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-t",
         "--theme",
-        help="Custom theme template path or built-in theme name (minimal, dark, newspaper, docs, sidebar)",
+        help="Theme to use: a built-in name (minimal, dark, newspaper, docs, sidebar), "
+        "a custom .html template or plain .css file path, or a name registered in the "
+        "config [themes] table",
+    )
+    parser.add_argument(
+        "--no-mermaid",
+        action="store_true",
+        help="Disable client-side rendering of ```mermaid code blocks as diagrams",
+    )
+    parser.add_argument(
+        "--no-syntax-highlight",
+        action="store_true",
+        help="Disable client-side syntax highlighting of code blocks (highlight.js)",
     )
     parser.add_argument(
         "-x",
@@ -129,29 +142,13 @@ def handle_view_command(args: list[str] | None = None) -> int:
         input_source = parsed.input
         input_display_name = input_path.name
 
-    # Select theme template
-    if parsed.theme:
-        # Check if it's a built-in theme name or a custom path
-        theme_path = Path(parsed.theme)
-        # First check if it's a valid HTML file path
-        if theme_path.exists() and theme_path.is_file() and theme_path.suffix == ".html":
-            # Use the provided file path
-            pass
-        else:
-            # Try as built-in theme name
-            builtin_theme = Path(__file__).parent / "themes" / f"{parsed.theme}.html"
-            if builtin_theme.exists():
-                theme_path = builtin_theme
-            else:
-                print(f"Error: Theme not found: {parsed.theme}", file=sys.stderr)
-                print("Available built-in themes: minimal, dark, newspaper, docs, sidebar", file=sys.stderr)
-                return EXIT_FILE_ERROR
-    elif parsed.dark:
-        theme_path = Path(__file__).parent / "themes" / "dark.html"
-    else:
-        theme_path = Path(__file__).parent / "themes" / "minimal.html"
-
-    # Verify theme template exists
+    # Select theme template (built-in name, .html/.css path, or [themes] config name).
+    theme_config = {} if parsed.no_config else load_config_with_priority(explicit_path=parsed.config)
+    try:
+        theme_path = resolve_theme(parsed.theme, dark=parsed.dark, config=theme_config)
+    except ThemeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return EXIT_FILE_ERROR
     if not theme_path.exists():
         print(f"Error: Theme template not found: {theme_path}", file=sys.stderr)
         return EXIT_FILE_ERROR
@@ -191,13 +188,22 @@ def handle_view_command(args: list[str] | None = None) -> int:
             template_file=str(theme_path),
             include_toc=parsed.toc,
             external_links_new_tab=True,
+            render_mermaid=not parsed.no_mermaid,
         )
         html_result = from_ast(doc, "html", renderer_options=html_opts)
 
         # from_ast with string format returns str, not bytes or None
         if not isinstance(html_result, str):
             raise RuntimeError("Expected string result from HTML rendering")
-        html_content = html_result
+
+        # Splice in the mermaid / highlight.js CDN includes (graceful offline degrade).
+        is_dark = parsed.dark or parsed.theme == "dark"
+        html_content = inject_web_assets(
+            html_result,
+            mermaid=not parsed.no_mermaid,
+            highlight=not parsed.no_syntax_highlight,
+            dark=is_dark,
+        )
 
         # Determine output path
         if isinstance(parsed.keep, str):
