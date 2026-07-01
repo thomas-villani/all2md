@@ -82,21 +82,26 @@ def _load_pyproject_all2md_section(pyproject_path: Path) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Error reading pyproject.toml {pyproject_path}: {e}") from e
 
 
-def find_config_in_parents(start_dir: Optional[Path] = None) -> Optional[Path]:
+def find_config_in_parents(start_dir: Optional[Path] = None, stop_dir: Optional[Path] = None) -> Optional[Path]:
     """Find configuration file by searching parent directories.
 
-    Walks up the directory tree from start_dir to the filesystem root,
-    checking each directory for configuration files in priority order:
+    Walks up the directory tree from start_dir, checking each directory for
+    configuration files in priority order:
     1. .all2md.toml
     2. .all2md.json
     3. pyproject.toml (with [tool.all2md] section)
 
-    Returns the first configuration file found.
+    The walk stops after checking ``stop_dir`` (inclusive) when given, otherwise it
+    continues to the filesystem root. Returns the first configuration file found.
 
     Parameters
     ----------
     start_dir : Path, optional
         Starting directory for search, defaults to current working directory
+    stop_dir : Path, optional
+        Highest directory to search (inclusive). When provided, the walk does not
+        ascend past it. Used to keep project discovery from escaping above the user's
+        home directory into shared parents such as the drive root.
 
     Returns
     -------
@@ -114,8 +119,9 @@ def find_config_in_parents(start_dir: Optional[Path] = None) -> Optional[Path]:
         start_dir = Path.cwd()
 
     current = start_dir.resolve()
+    boundary = stop_dir.resolve() if stop_dir is not None else None
 
-    # Walk up directory tree to root
+    # Walk up directory tree to root (or to the boundary, inclusive)
     while True:
         # Check for dedicated config files first (.all2md.toml, .all2md.yaml, .all2md.yml, .all2md.json)
         for filename in [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json"]:
@@ -134,6 +140,10 @@ def find_config_in_parents(start_dir: Optional[Path] = None) -> Optional[Path]:
             except argparse.ArgumentTypeError:
                 # Invalid pyproject.toml, skip it and continue searching
                 pass
+
+        # Stop once the boundary directory has been checked (inclusive).
+        if boundary is not None and current == boundary:
+            break
 
         # Check if we've reached the filesystem root
         parent = current.parent
@@ -180,13 +190,15 @@ def discover_config_file() -> Optional[Path]:
     ...     print(f"Found config at: {config_path}")
 
     """
-    # First, search parent directories from cwd to root
-    config_in_parents = find_config_in_parents()
+    # First, search parent directories from cwd up to (and including) the home
+    # directory. Bounding at home keeps a stray config in a shared parent such as
+    # C:\Users or / from silently applying to every project.
+    home = Path.home()
+    config_in_parents = find_config_in_parents(stop_dir=home)
     if config_in_parents:
         return config_in_parents
 
-    # Fall back to user home directory
-    home = Path.home()
+    # Fall back to user home directory (covers cwd outside the home subtree)
     for filename in [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json"]:
         config_path = home / filename
         if config_path.exists() and config_path.is_file():
