@@ -11,6 +11,7 @@ applied to PDF pages and language detection for OCR optimization.
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from all2md.constants import DEPS_PDF_LANGDETECT
@@ -21,9 +22,54 @@ from all2md.utils.decorators import requires_dependencies
 if TYPE_CHECKING:
     import fitz
 
-__all__ = ["should_use_ocr", "get_tesseract_lang", "detect_page_language", "calculate_image_coverage"]
+__all__ = [
+    "should_use_ocr",
+    "get_tesseract_lang",
+    "detect_page_language",
+    "calculate_image_coverage",
+    "dehyphenate_text",
+]
 
 logger = logging.getLogger(__name__)
+
+# A word broken across a line by hyphenation: a letter, a hyphen character,
+# optional trailing spaces/tabs, a newline, optional leading whitespace, then the
+# continuation letter. Matches the hyphen-minus (U+002D), soft hyphen (U+00AD),
+# and Unicode hyphen (U+2010) that OCR engines emit at a line break. ``[^\W\d_]``
+# matches any letter, including accented and non-Latin ones (ü, ß, …), while
+# excluding digits and underscore so numeric ranges ("10-\n20") are left alone.
+_HYPHEN_LINEBREAK_RE = re.compile(r"([^\W\d_])[-­‐][ \t]*\r?\n[ \t]*([^\W\d_])", re.UNICODE)
+
+
+def dehyphenate_text(text: str) -> str:
+    r"""Merge words split across line breaks by hyphenation.
+
+    OCR engines preserve the source layout, so a word hyphenated at the end of a
+    line ("be-\\nwusst") comes back with the hyphen and newline intact. PyMuPDF's
+    native extraction can strip these via ``TEXT_DEHYPHENATE``, but that flag does
+    not touch OCR output, so this reproduces the same behaviour for OCR text: the
+    trailing hyphen and the line break are removed and the two halves are joined
+    ("bewusst"). The line break itself is consumed so downstream paragraph
+    reconstruction does not re-insert a space between the halves.
+
+    Only hyphens that sit at a line break between two letters are merged;
+    hyphens followed by digits, punctuation, or whitespace (e.g. em-dash usage
+    or a trailing "- " list marker) are left untouched.
+
+    Parameters
+    ----------
+    text : str
+        Text that may contain line-break hyphenation.
+
+    Returns
+    -------
+    str
+        Text with line-break hyphenation merged.
+
+    """
+    if not text:
+        return text
+    return _HYPHEN_LINEBREAK_RE.sub(r"\1\2", text)
 
 
 def calculate_image_coverage(page: "fitz.Page") -> float:
@@ -123,8 +169,7 @@ def should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) 
         meaningful_chars = sum(1 for char in extracted_text if char.isalnum())
         if meaningful_chars < ocr_opts.text_threshold:
             logger.debug(
-                f"Page has {meaningful_chars} meaningful chars "
-                f"(threshold: {ocr_opts.text_threshold}), triggering OCR"
+                f"Page has {meaningful_chars} meaningful chars (threshold: {ocr_opts.text_threshold}), triggering OCR"
             )
             return True
 

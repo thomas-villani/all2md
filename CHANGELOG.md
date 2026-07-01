@@ -72,6 +72,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing ``--extract line:`` range. ``--head``/``--tail`` default to 10 lines and
   honor ``--line-numbers``.
 
+### Fixed
+
+- **`merge_hyphenated_words` now applies to OCR text.** PyMuPDF's
+  ``TEXT_DEHYPHENATE`` flag only affects native text extraction, so words
+  hyphenated across a line break (``be-\nwusst``) survived unmerged whenever a
+  PDF page went through OCR (``--pdf-ocr-enabled``), even with
+  ``merge_hyphenated_words = true``. OCR output is now dehyphenated the same way,
+  joining the split halves (``bewusst``). Numeric ranges (``10-\n20``) and
+  hyphens not sitting between two letters are left untouched. (#51)
+
 ## [1.7.0] - 2026-06-24
 
 ### Changed
