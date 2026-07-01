@@ -76,6 +76,9 @@ from all2md.parsers._pdf_layout import (
 )
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
+    dehyphenate_text,
+)
+from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
 from all2md.parsers._pdf_tables import (
@@ -1140,6 +1143,13 @@ class PdfToAstConverter(BaseParser):
             if not ocr_text.strip():
                 logger.warning("OCR returned empty text, keeping original extraction")
                 return all_blocks, False
+
+            # PyMuPDF's TEXT_DEHYPHENATE flag only affects its native extraction,
+            # not OCR output, so line-break hyphenation ("be-\nwusst") survives in
+            # OCR text. Merge it here so merge_hyphenated_words behaves the same
+            # regardless of whether a page went through OCR.
+            if self.options.merge_hyphenated_words:
+                ocr_text = dehyphenate_text(ocr_text)
 
             # Handle preserve_existing_text option
             if self.options.ocr.preserve_existing_text and extracted_text.strip():

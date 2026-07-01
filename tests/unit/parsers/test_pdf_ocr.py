@@ -12,6 +12,7 @@ from all2md.options.common import OCROptions
 from all2md.options.pdf import PdfOptions
 from all2md.parsers._pdf_ocr import (
     calculate_image_coverage,
+    dehyphenate_text,
 )
 from all2md.parsers._pdf_ocr import (
     detect_page_language as _detect_page_language,
@@ -352,6 +353,87 @@ class TestOCRPageToText:
         # Verify custom config was passed
         call_args = mock_pytesseract.call_args
         assert call_args[1]["config"] == "--psm 6"
+
+
+class TestDehyphenateText:
+    """Test line-break dehyphenation of OCR text (issue #51)."""
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            # The exact cases reported in issue #51 (German prose from test.pdf).
+            ("wieder einmal be-\nwusst, wie", "wieder einmal bewusst, wie"),
+            ("Stadtar-\nchiv von", "Stadtarchiv von"),
+            ("Krieg ver-\nloren gegangen", "Krieg verloren gegangen"),
+            ("heute erhal-\nten, wie", "heute erhalten, wie"),
+            ("in Mag-\ndeburg befindliche", "in Magdeburg befindliche"),
+            ("des Politi-\nkers, Naturwissenschaftlers", "des Politikers, Naturwissenschaftlers"),
+            # ß and other letters are covered by the letter class.
+            ("nur erschlie-\nßen lassen", "nur erschließen lassen"),
+            # Single-letter fragments still merge.
+            ("x-\ny axis", "xy axis"),
+            # Windows line endings.
+            ("be-\r\nwusst", "bewusst"),
+            # Soft hyphen (U+00AD) and Unicode hyphen (U+2010) at the break.
+            ("be­\nwusst", "bewusst"),
+            ("be‐\nwusst", "bewusst"),
+            # Trailing/leading whitespace around the break is tolerated.
+            ("be- \n  wusst", "bewusst"),
+        ],
+    )
+    def test_merges_line_break_hyphenation(self, text: str, expected: str) -> None:
+        assert dehyphenate_text(text) == expected
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # Numeric ranges must not be joined into a single number.
+            "10-\n20",
+            "end-\n42 next",
+            "Kapitel-\n3",
+            # A hyphen not attached to a letter (list marker, dangling dash).
+            "a list-\n- item",
+            "trailing hyphen -\nword",
+            # A spaced hyphen (en/em-dash usage) on one line is left alone.
+            "range 10 - 20",
+            # Hyphen followed by punctuation, not a letter.
+            "foo-\n.bar",
+            # No hyphen at all.
+            "just\nregular text",
+        ],
+    )
+    def test_leaves_non_hyphenation_untouched(self, text: str) -> None:
+        assert dehyphenate_text(text) == text
+
+    def test_empty_string(self) -> None:
+        assert dehyphenate_text("") == ""
+
+
+class TestApplyOCRDehyphenation:
+    """OCR text is dehyphenated only when merge_hyphenated_words is enabled."""
+
+    def _run(self, *, merge: bool) -> str:
+        """Run _apply_ocr_if_needed with a forced, hyphenated OCR result."""
+        options = PdfOptions(
+            ocr=OCROptions(enabled=True, mode="force"),
+            merge_hyphenated_words=merge,
+        )
+        converter = PdfToAstConverter(options=options)
+
+        mock_page = Mock()
+        mock_page.rect = "PAGE_RECT"
+
+        with patch.object(PdfToAstConverter, "_ocr_page_to_text", return_value="be-\nwusst sein"):
+            blocks, applied = converter._apply_ocr_if_needed(mock_page, [], extracted_text="")
+
+        assert applied is True
+        return blocks[0]["lines"][0]["spans"][0]["text"]
+
+    def test_dehyphenates_when_merge_enabled(self) -> None:
+        assert self._run(merge=True) == "bewusst sein"
+
+    def test_preserves_hyphenation_when_merge_disabled(self) -> None:
+        assert self._run(merge=False) == "be-\nwusst sein"
 
 
 class TestPdfOptionsWithOCR:
