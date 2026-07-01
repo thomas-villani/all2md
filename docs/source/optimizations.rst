@@ -3,7 +3,7 @@ PDF Parsing Optimizations
 
 Between releases 1.1.0 and 1.1.1 a series of profile-driven changes reduced the
 corpus benchmark from **21.4 minutes to 6.7 minutes** — a 3.2x improvement, with
-the worst-case single file dropping from **2.1 min to 11.65 s** (10.8x). This
+the worst-case single file dropping from **2.1 min to 11.65 s** (10.7x). This
 page documents the methodology, the contributing changes, and the work that
 remains.
 
@@ -80,14 +80,17 @@ The two underlying reports — ``b0e4224-baseline.md/json`` and
 ``3516bc9-optimized.md/json`` — are committed under ``benchmarks/reference/``
 for verification.
 
-Case study: a 1.25 MB PDF that took 5.6 minutes
-------------------------------------------------
+Case study: the file that drove the investigation
+--------------------------------------------------
 
-The slowest individual doc on a May 15 baseline run was
-``govdocs1/000887.pdf``, a 1.25 MB / ~150-page government report on renewable
-energy. It took **322 seconds** to convert — roughly 3.7 KB/s.
+The slowest individual doc in the committed baseline run
+(``b0e4224-baseline``) was ``govdocs1/000887.pdf``, a 1.31 MB / ~150-page
+government report on renewable energy, at **124.96 s**.
 
-``cProfile`` attribution of that single conversion:
+To attribute where that time went, we re-ran the single file under ``cProfile``.
+Profiling instrumentation inflates wall time substantially — the profiled run
+clocks ~322 s against the ~125 s benchmark time — but the *proportions* are what
+matter. ``cProfile`` attribution of that instrumented conversion:
 
 .. list-table::
    :header-rows: 1
@@ -116,8 +119,9 @@ rect-containment relationships. The optional ``pymupdf-layout`` ONNX-based
 block classifier was likewise running on every page, including pages whose
 layout is trivially single-column prose.
 
-After the changes documented below, the same conversion takes **11.65 s** —
-a **28x speedup** on the file that drove the investigation.
+In the committed optimized run (``3516bc9-optimized``) the same file converts in
+**11.65 s** — a **10.7x** speedup over its 124.96 s baseline, and the worst-case
+single-file number quoted in the headline table above.
 
 The contributing changes
 ------------------------
@@ -148,8 +152,10 @@ on this case study:
   ``find_tables()`` internally invokes layout analysis to position tables —
   skipping the call avoided the layout invocations it would have triggered.
 
-Net wall time on this file: 322 s → 179 s before the layout toggle, then
-179 s → ~120 s after.
+Those deltas are measured under the profiler (which is why they track the
+~322 s instrumented baseline, not the 125 s benchmark time). End to end, the
+committed benchmark time for this file fell from 124.96 s to 11.65 s across the
+two changes.
 
 Benchmark layout-model toggle (3516bc9)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -449,6 +449,9 @@ on every invocation. Each command reads a table named after the command:
    * - ``all2md generate-site``
      - ``[generate-site]``
      - ``generator``, ``output_dir``, ``scaffold``, ``content_subdir``
+   * - ``all2md chunk``
+     - ``[chunk]``
+     - ``strategy``, ``max_tokens``, ``overlap``, ``min_tokens``, ``token_counter``
 
 Example:
 
