@@ -381,9 +381,32 @@ The core library has no dependencies. You can install it and add support for for
 pip install all2md
 ```
 
-**2. System-Wide CLI Installation (Recommended for CLI users)**
+**2. One-Click Install (easiest — no Python setup required)**
 
-Install the CLI globally using [uv](https://docs.astral.sh/uv/) for instant access from anywhere:
+The install scripts set up [uv](https://docs.astral.sh/uv/) (installing it first if
+needed) and then install the `all2md` CLI globally, so it's available from any terminal.
+
+macOS / Linux (bash or zsh):
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/thomas-villani/all2md/main/scripts/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/thomas-villani/all2md/main/scripts/install.ps1 | iex"
+```
+
+Both scripts install the `all` extra by default. To slim it down, download the script
+and pass a comma-separated extras list — `sh install.sh pdf,docx,html` or
+`.\install.ps1 -Extras pdf,docx,html` (use `none` for a base-only install). The scripts
+are also attached to each [GitHub release](https://github.com/thomas-villani/all2md/releases).
+
+**3. System-Wide CLI Installation (manual)**
+
+Prefer to drive [uv](https://docs.astral.sh/uv/) yourself? Install the CLI globally for
+instant access from anywhere:
 
 ```bash
 # Install uv if you don't have it
@@ -401,7 +424,7 @@ all2md document.pdf
 
 This gives you the `all2md` command globally without activating virtual environments.
 
-**3. Installation with Extras**
+**4. Installation with Extras**
 
 Install support for only the formats you need. You can combine multiple extras.
 
@@ -428,7 +451,7 @@ pip install "all2md[outlook]"
 # pip install libpff-python  # For PST/OST files (platform-specific)
 ```
 
-**4. Full Installation**
+**5. Full Installation**
 
 To install all optional dependencies for all supported formats:
 
@@ -436,7 +459,7 @@ To install all optional dependencies for all supported formats:
 pip install "all2md[all]"
 ```
 
-**5. Check Dependencies**
+**6. Check Dependencies**
 
 You can check the status of optional dependencies at any time using the built-in CLI command:
 

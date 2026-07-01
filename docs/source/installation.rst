@@ -28,6 +28,48 @@ This includes support for:
 HTML parsing requires the ``html`` extra (see below). Images are handled as embedded
 attachments inside other documents rather than as a standalone input format.
 
+One-Click Install
+-----------------
+
+If you don't already manage Python environments, the one-click scripts are the
+simplest path. Each script installs `uv <https://docs.astral.sh/uv/>`_ (if it
+isn't already present) and then installs the ``all2md`` CLI as a uv-managed tool,
+so the ``all2md`` command works from any terminal. Re-running a script upgrades an
+existing install in place.
+
+**macOS / Linux (bash or zsh):**
+
+.. code-block:: bash
+
+   curl -LsSf https://raw.githubusercontent.com/thomas-villani/all2md/main/scripts/install.sh | sh
+
+**Windows (PowerShell):**
+
+.. code-block:: powershell
+
+   powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/thomas-villani/all2md/main/scripts/install.ps1 | iex"
+
+Both scripts install the ``all`` extra by default. To install a slimmer set,
+download the script and pass a comma-separated extras list (use ``none`` for a
+base-only install):
+
+.. code-block:: bash
+
+   # macOS / Linux
+   sh install.sh pdf,docx,html
+   sh install.sh none
+
+.. code-block:: powershell
+
+   # Windows
+   .\install.ps1 -Extras "pdf,docx,html"
+   .\install.ps1 -Extras none
+
+The scripts are also attached to each
+`GitHub release <https://github.com/thomas-villani/all2md/releases>`_, so they can
+be downloaded and inspected before running. After installation, open a new terminal
+(so the updated ``PATH`` takes effect) and run ``all2md --help``.
+
 Installing with uv
 ------------------
 

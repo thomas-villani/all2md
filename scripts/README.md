@@ -2,6 +2,33 @@
 
 This directory contains utility scripts for maintaining the all2md codebase.
 
+## install.sh / install.ps1
+
+One-click end-user installers. Each script installs [uv](https://docs.astral.sh/uv/)
+if it isn't already present, then installs the `all2md` CLI as a uv-managed tool so
+the `all2md` command is available from any terminal. Safe to re-run (upgrades in place).
+
+These are meant to be run by end users, either straight from GitHub or from the copies
+attached to each release:
+
+```bash
+# macOS / Linux (bash or zsh)
+curl -LsSf https://raw.githubusercontent.com/thomas-villani/all2md/main/scripts/install.sh | sh
+
+# Slim it down (default installs the "all" extra); "none" for base-only:
+sh install.sh pdf,docx,html
+```
+
+```powershell
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/thomas-villani/all2md/main/scripts/install.ps1 | iex"
+.\install.ps1 -Extras "pdf,docx,html"
+```
+
+`install.sh` is POSIX `sh` and covers both bash and zsh (no separate zsh script is
+needed). Both are documented for users in `docs/source/installation.rst` and the
+project README.
+
 ## update_document_formats.py
 
 Manages the synchronization between the `DocumentFormat` Literal type hint in `constants.py` and the dynamically discovered formats in the converter registry.
