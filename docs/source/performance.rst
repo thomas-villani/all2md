@@ -139,16 +139,16 @@ Disable features you don't need:
 
    markdown = to_markdown('document.pdf', parser_options=fast_options)
 
-For HTML, disable sanitization if processing trusted content:
+For HTML, sanitization is already off by default (``strip_dangerous_elements=False``),
+so the toggles that actually reduce work are skipping remote attachments and metadata:
 
 .. code-block:: python
 
    from all2md.options import HtmlOptions
 
    fast_html_options = HtmlOptions(
-       strip_dangerous_elements=False,  # Skip sanitization
-       attachment_mode='skip',           # Don't fetch images
-       extract_metadata=False            # Skip metadata
+       attachment_mode='skip',   # Don't fetch images
+       extract_metadata=False    # Skip metadata
    )
 
 Optimize Attachment Handling

@@ -46,8 +46,8 @@ Step 2 prints a report like this:
 
 .. code-block:: text
 
-   report.md:1:1: STR003 error: Heading level skips from H1 to H3
-       suggestion: Use H2 for this heading, or promote the preceding section
+   report.md:1:1: STR003 error: Heading level 3 follows level 1
+       suggestion: Use heading level 2 instead
    report.md:12:1: TYP003 info: Text uses straight quotes around a word
        suggestion: Replace with curly quotes (“” or ‘’)
    report.md:12:40: TYP004 info: Text contains '--' (should be em-dash)

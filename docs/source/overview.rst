@@ -58,7 +58,7 @@ The library provides several core conversion functions in ``api.py``. The ``to_m
 .. code-block:: python
 
    def to_markdown(
-       source: Union[str, Path, IO[bytes], bytes],
+       source: Union[str, Path, IO[bytes], bytes, Document],
        *,
        parser_options: Optional[BaseParserOptions] = None,
        renderer_options: Optional[MarkdownRendererOptions] = None,
@@ -398,6 +398,7 @@ Exception Hierarchy
 
    All2MdError (base)
    ├── ValidationError
+   │   ├── InvalidOptionsError
    │   └── PageRangeError
    ├── FileError
    │   ├── FileNotFoundError
@@ -411,7 +412,8 @@ Exception Hierarchy
    ├── TransformError
    ├── SecurityError
    │   ├── NetworkSecurityError
-   │   └── ZipFileSecurityError
+   │   ├── ZipFileSecurityError
+   │   └── ArchiveSecurityError
    └── DependencyError
 
 Graceful Degradation

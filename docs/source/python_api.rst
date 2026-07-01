@@ -1,10 +1,10 @@
 Python API Workflows
 ====================
 
-While all2md is primarily known for converting various formats **to** Markdown, the high-level
-``convert()`` function orchestrates the same pipeline in reverse so you can generate DOCX, HTML,
-PDF, and more from Markdown or any other supported source. This guide walks through the primary
-Python APIs and patterns you’ll use when building conversion workflows.
+all2md exposes a small set of top-level functions, all importable directly from ``all2md``
+(``from all2md import to_markdown, convert, to_ast, from_ast``). They share one pipeline —
+the difference is only which end of it you drive. This guide walks through those entry points
+and the patterns you'll use when building conversion workflows.
 
 .. contents::
    :local:
@@ -13,19 +13,78 @@ Python APIs and patterns you’ll use when building conversion workflows.
 Core Workflow
 -------------
 
-Bidirectional conversion works through all2md's AST (Abstract Syntax Tree) architecture:
+Every conversion flows through all2md's AST (Abstract Syntax Tree) architecture:
 
 .. code-block:: text
 
    Input Format → Parser → AST → Renderer → Output Format
 
-``convert()`` drives this flow end-to-end: it parses the source, optionally applies transforms,
-and renders the target format in a single call.
+Each public function drives some span of this flow — from a one-liner that covers the whole
+pipeline to helpers that stop at the AST so you can inspect or transform it yourself.
 
-Primary API: ``convert()``
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Choosing an entry point
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use ``convert()`` for nearly all programmatic conversions.
+All of these are first-class, supported, public functions (see ``all2md.__all__``). Pick the
+one that matches your target:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 24 54
+
+   * - Function
+     - Use it when
+     - Returns
+   * - :func:`~all2md.to_markdown`
+     - Converting **anything → Markdown** (the most common case)
+     - ``str`` (newline-normalized)
+   * - :func:`~all2md.convert`
+     - Converting **anything → anything** (DOCX, PDF, HTML, EPUB, …)
+     - ``str`` / ``bytes``, or ``None`` when ``output`` is given
+   * - :func:`~all2md.to_ast`
+     - You want the parsed :class:`~all2md.ast.nodes.Document` to inspect or transform
+     - ``Document``
+   * - :func:`~all2md.from_ast`
+     - You already hold a ``Document`` and want to render it
+     - ``str`` / ``bytes`` / ``None``
+   * - :func:`~all2md.from_markdown`
+     - Rendering Markdown → another format (thin wrapper over ``convert()``)
+     - ``str`` / ``bytes`` / ``None``
+   * - :func:`~all2md.api.chunk`
+     - Splitting a document into provenance-carrying chunks for RAG/LLM pipelines
+     - ``list[ProvenanceChunk]``
+
+.. note::
+   ``to_markdown()`` and ``convert()`` are **peer** entry points, not one wrapping the other.
+   ``to_markdown(src)`` is the ergonomic shortcut for the Markdown target and is equivalent to
+   ``convert(src, target_format="markdown")`` for file/bytes/stream inputs (it additionally
+   accepts an already-parsed ``Document`` and normalizes line endings). Reach for ``convert()``
+   the moment your target isn't Markdown.
+
+Shortcut for Markdown output: ``to_markdown()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For the library's headline use case — turning any supported document into Markdown —
+``to_markdown()`` is the shortest path. It auto-detects the source format and always returns a
+Markdown ``str``.
+
+.. code-block:: python
+
+   from all2md import to_markdown
+
+   markdown = to_markdown("report.docx")   # auto-detects DOCX
+   markdown = to_markdown("scanned.pdf")   # auto-detects PDF
+
+   # Already have a parsed AST? to_markdown renders it directly.
+   from all2md import to_ast
+   doc = to_ast("report.docx")
+   markdown = to_markdown(doc)
+
+General-purpose conversion: ``convert()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``convert()`` for any conversion whose target isn't Markdown, and for the reverse and
+cross-format directions all2md supports.
 
 - Automatically detects the source format when possible and infers the target format from the
   ``output`` name.
@@ -36,7 +95,7 @@ Use ``convert()`` for nearly all programmatic conversions.
 
    from all2md import convert
 
-   # Convert a DOCX report to Markdown text
+   # Convert a DOCX report to Markdown text (equivalent to to_markdown("report.docx"))
    markdown = convert("report.docx", target_format="markdown")
 
    # Produce a PDF from Markdown (returns bytes when output is omitted)

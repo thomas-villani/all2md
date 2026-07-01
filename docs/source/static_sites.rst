@@ -1613,7 +1613,7 @@ You can use these utilities directly in Python code:
 
    # Generate output filename
    filename = generate_output_filename(
-       source=Path('document.md'),
+       source_file=Path('document.md'),
        metadata=doc.metadata,
        generator=StaticSiteGenerator.HUGO
    )

@@ -295,8 +295,8 @@ When multiple configuration sources exist, they are merged with the following pr
    # Uses: attachment_mode = "save" (explicit --config wins over auto-discovery)
 
    # With CLI override:
-   all2md document.pdf --attachment-mode inline
-   # Uses: attachment_mode = "inline" (CLI always wins)
+   all2md document.pdf --attachment-mode base64
+   # Uses: attachment_mode = "base64" (CLI always wins)
 
 Deep Merging
 ~~~~~~~~~~~~
@@ -695,12 +695,12 @@ Save your current CLI arguments to a configuration file for reuse:
 
 .. code-block:: bash
 
-   # Save current settings
+   # Save current settings (--save-config always writes JSON)
    all2md document.pdf --attachment-mode save --pdf-pages "1-10" \
-       --save-config my-settings.toml
+       --save-config my-settings.json
 
    # Reuse saved settings
-   all2md other-document.pdf --config my-settings.toml
+   all2md other-document.pdf --config my-settings.json
 
 Common Use Cases
 ----------------

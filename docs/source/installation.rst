@@ -21,10 +21,12 @@ For most users, start with the basic installation:
 
 This includes support for:
 
-* HTML documents
 * CSV/TSV files
-* Text files (200+ formats)
-* Images (PNG, JPEG, GIF)
+* Email (.eml) files
+* Text files (200+ formats, including source code, JSON, YAML, TOML, and INI)
+
+HTML parsing requires the ``html`` extra (see below). Images are handled as embedded
+attachments inside other documents rather than as a standalone input format.
 
 Installing with uv
 ------------------
@@ -307,9 +309,14 @@ HTML Documents
 
    pip install all2md[html]
 
-**Dependencies:** BeautifulSoup4, httpx, readability-lxml (for article extraction)
+**Dependencies:** BeautifulSoup4, chardet, httpx
 
 **Formats:** HTML and MHTML files with intelligent content extraction
+
+.. note::
+   Readability-based article extraction is a separate extra. Install
+   ``all2md[html_readability]`` (or ``all2md[all]``) to pull in ``readability-lxml``;
+   the plain ``html`` extra does not include it.
 
 Email Files
 ~~~~~~~~~~~
@@ -338,7 +345,7 @@ RTF Documents
 
    pip install all2md[rtf]
 
-**Dependencies:** pyth3
+**Dependencies:** pyth3, six
 
 **Formats:** Rich Text Format files with formatting preservation
 

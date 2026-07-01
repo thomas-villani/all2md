@@ -175,7 +175,6 @@ faster follow-up queries.
 Common grep-style flags are supported:
 
 * ``-A/-B/-C`` to control trailing/leading context lines (e.g. ``-C 1`` for one line around each match)
-* ``-i``/``--ignore-case`` for case-insensitive matching (default: case-sensitive)
 * ``--regex``/``--no-regex`` to treat the query as a regular expression
 * ``--rich`` to enable colorized output (requires ``rich``)
 

@@ -91,12 +91,11 @@ Pre-computed Collections
 These collections are only available if ``enable_traversal_helpers=True`` (enabled by default).
 
 ``headings``
-   List of all heading nodes in the document. Each heading has:
+   List of all headings. Each entry is a dict with:
 
    - ``level`` (int) - Heading level (1-6)
-   - ``content`` (list) - List of inline nodes (Text, Emphasis, etc.)
    - ``text`` (str) - Plain text content (extracted automatically)
-   - ``node_id`` (str or None) - Optional heading ID
+   - ``node`` (Heading) - The underlying AST node (use ``node.content`` for its inline nodes)
 
    Example:
 
@@ -107,12 +106,12 @@ These collections are only available if ``enable_traversal_helpers=True`` (enabl
       {% endfor %}
 
 ``links``
-   List of all link nodes. Each link has:
+   List of all links. Each entry is a dict with:
 
    - ``url`` (str) - Link destination
    - ``title`` (str or None) - Optional link title
-   - ``content`` (list) - Link text as inline nodes
    - ``text`` (str) - Plain text of link content
+   - ``node`` (Link) - The underlying AST node
 
    Example:
 
@@ -124,11 +123,13 @@ These collections are only available if ``enable_traversal_helpers=True`` (enabl
       {% endfor %}
 
 ``images``
-   List of all image nodes. Each image has:
+   List of all images. Each entry is a dict with:
 
    - ``url`` (str) - Image source URL or path
    - ``alt_text`` (str or None) - Alternative text
    - ``title`` (str or None) - Optional image title
+   - ``width`` / ``height`` (int or None) - Optional dimensions
+   - ``node`` (Image) - The underlying AST node
 
    Example:
 
@@ -140,10 +141,10 @@ These collections are only available if ``enable_traversal_helpers=True`` (enabl
       {% endfor %}
 
 ``footnotes``
-   List of all footnote reference nodes. Each footnote has:
+   List of all footnote *definition* nodes. Each entry is a dict with:
 
-   - ``label`` (str) - Footnote label/identifier
-   - ``content`` (list) - Footnote content as block nodes
+   - ``identifier`` (str) - Footnote identifier
+   - ``node`` (FootnoteDefinition) - The underlying AST node (use ``node.content`` for its blocks)
 
    Example:
 
@@ -151,7 +152,7 @@ These collections are only available if ``enable_traversal_helpers=True`` (enabl
 
       Footnotes:
       {% for fn in footnotes %}
-      [{{ fn.label }}]: {{ fn.content|map('render')|join('') }}
+      [{{ fn.identifier }}]: {{ fn.node.content|map('render')|join('') }}
       {% endfor %}
 
 Filter Reference
@@ -163,24 +164,20 @@ Node Rendering Filters
 These filters are only available if ``enable_render_filter=True`` (enabled by default).
 
 ``render``
-   Recursively renders a node or list of nodes to the target format.
-
-   **Parameters:**
-
-   - ``format`` (str, optional) - Target format (default from options)
+   Recursively renders a node (or list of nodes) to the configured output format.
+   The filter takes **no arguments** — the output format is fixed by the renderer
+   options (``default_render_format``, which defaults to ``"markdown"``, or the
+   ``escape_strategy`` when one is set).
 
    **Example:**
 
    .. code-block:: jinja
 
-      {# Render a node to Markdown #}
+      {# Render a node using the configured format #}
       {{ node|render }}
 
-      {# Render to a specific format #}
-      {{ node|render('html') }}
-
-      {# Render a list of inline nodes #}
-      {{ heading.content|map('render')|join('') }}
+      {# Render a list of inline nodes (e.g. a heading's content) #}
+      {{ heading.node.content|map('render')|join('') }}
 
 ``render_inline``
    Renders inline content (list of inline nodes) to plain text.
@@ -505,13 +502,17 @@ Error Handling
 
       <title>{{ metadata.title|default("Untitled") }}</title>
 
-3. **Enable strict_undefined for development:**
+3. **Relax strict_undefined for lenient rendering:**
+
+   ``strict_undefined`` defaults to ``True``, so undefined variables raise an error
+   (this is why the pre-computed collections above must use their real keys). Set it
+   to ``False`` to render undefined variables as empty strings instead:
 
    .. code-block:: python
 
       JinjaRendererOptions(
           template_file="template.jinja2",
-          strict_undefined=True  # Raises error on undefined variables
+          strict_undefined=False  # Render undefined variables as empty instead of erroring
       )
 
 Advanced Techniques
