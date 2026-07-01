@@ -78,13 +78,16 @@ class TestConfigDiscovery:
             config_file = temp_path / ".all2md.json"
             config_file.write_text('{"pdf": {"detect_columns": true}}')
 
-            # Mock both cwd (empty) and home (has config)
-            with patch("pathlib.Path.cwd", return_value=Path(tempfile.mkdtemp())):
+            # cwd is an empty subdirectory of the mocked home. The parent walk is
+            # bounded at home, so it cannot escape into the real home directory.
+            cwd = temp_path / "work"
+            cwd.mkdir()
+            with patch("pathlib.Path.cwd", return_value=cwd):
                 with patch("pathlib.Path.home", return_value=temp_path):
                     discovered = discover_config_file()
 
                     assert discovered is not None
-                    assert discovered == config_file
+                    assert discovered.resolve() == config_file.resolve()
 
     def test_discover_config_prefers_toml_over_json(self):
         """Test that TOML files are preferred over JSON when both exist."""
@@ -125,16 +128,18 @@ class TestConfigDiscovery:
 
     def test_discover_config_returns_none_when_not_found(self):
         """Test that None is returned when no config file exists."""
-        with tempfile.TemporaryDirectory() as cwd_dir:
-            with tempfile.TemporaryDirectory() as home_dir:
-                cwd_path = Path(cwd_dir)
-                home_path = Path(home_dir)
+        with tempfile.TemporaryDirectory() as home_dir:
+            home_path = Path(home_dir)
+            # cwd is an empty subdirectory of the (empty) mocked home. The bounded
+            # parent walk stops at home, so no real ancestor config is discovered.
+            cwd_path = home_path / "work"
+            cwd_path.mkdir()
 
-                with patch("pathlib.Path.cwd", return_value=cwd_path):
-                    with patch("pathlib.Path.home", return_value=home_path):
-                        discovered = discover_config_file()
+            with patch("pathlib.Path.cwd", return_value=cwd_path):
+                with patch("pathlib.Path.home", return_value=home_path):
+                    discovered = discover_config_file()
 
-                        assert discovered is None
+                    assert discovered is None
 
     def test_get_config_search_paths(self):
         """Test getting list of config search paths."""
@@ -328,7 +333,9 @@ class TestPyprojectTomlSupport:
             with open(pyproject_file, "wb") as f:
                 tomli_w.dump(config_data, f)
 
-            found = find_config_in_parents(start_dir=temp_path)
+            # Bound the search to temp_path so the walk cannot escape into real
+            # ancestor directories that may hold an .all2md config.
+            found = find_config_in_parents(start_dir=temp_path, stop_dir=temp_path)
 
             # Should not find config (no [tool.all2md] section)
             assert found is None
@@ -342,8 +349,9 @@ class TestPyprojectTomlSupport:
             pyproject_file = temp_path / "pyproject.toml"
             pyproject_file.write_text("invalid toml [[[")
 
-            # Should not crash, just return None
-            found = find_config_in_parents(start_dir=temp_path)
+            # Should not crash, just return None. Bound the search to temp_path so
+            # the walk cannot escape into real ancestor .all2md configs.
+            found = find_config_in_parents(start_dir=temp_path, stop_dir=temp_path)
             assert found is None
 
 

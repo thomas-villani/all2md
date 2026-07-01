@@ -42,7 +42,9 @@ class TestConfigCLIEndToEnd:
 
         cleanup_test_dir(self.temp_dir)
 
-    def _run_cli(self, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    def _run_cli(
+        self, args: list[str], env: dict[str, str] | None = None, cwd: Path | str | None = None
+    ) -> subprocess.CompletedProcess:
         """Run the CLI as a subprocess.
 
         Parameters
@@ -51,6 +53,8 @@ class TestConfigCLIEndToEnd:
             Command line arguments to pass to the CLI
         env : dict[str, str], optional
             Environment variables to set for the subprocess
+        cwd : Path or str, optional
+            Working directory for the subprocess. Defaults to the repository root.
 
         Returns
         -------
@@ -65,7 +69,7 @@ class TestConfigCLIEndToEnd:
 
         return subprocess.run(
             cmd,
-            cwd=self.cli_path.parent.parent.parent,
+            cwd=str(cwd) if cwd is not None else self.cli_path.parent.parent.parent,
             capture_output=True,
             text=True,
             env=subprocess_env,
@@ -175,8 +179,13 @@ class TestConfigCLIEndToEnd:
 
     def test_config_show_no_config_found(self):
         """Test config show when no configuration file exists."""
-        # Use an empty directory with no config files
-        result = self._run_cli(["config", "show"])
+        # Run from an empty directory that also serves as HOME, so the (home-bounded)
+        # config discovery has nothing to find -- and cannot pick up the developer's
+        # real ~/.all2md config. self.temp_dir is empty at this point.
+        env = {"USERPROFILE": str(self.temp_dir), "HOME": str(self.temp_dir)}
+        if "ALL2MD_CONFIG" in os.environ:
+            env["ALL2MD_CONFIG"] = ""
+        result = self._run_cli(["config", "show"], env=env, cwd=self.temp_dir)
 
         assert result.returncode == 0
         assert "No configuration found" in result.stdout
