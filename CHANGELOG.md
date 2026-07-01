@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-01
+
 ### Added
 
 - **`all2md help cheatsheet`.** A bundled, grouped quick reference of the most common
@@ -42,6 +44,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   kwargs), with ``all2md.chunking.chunk_ast(doc, …)`` for an AST you already hold; both
   return ``ProvenanceChunk`` records. The fine-grained chunkers are vendored from the
   ``localvectordb`` sister project.
+- **Mermaid diagrams, syntax highlighting, and custom themes for `view`/`serve`.**
+  The browser preview (`all2md view`) and local server (`all2md serve`) now render
+  ```mermaid``` fences as diagrams (via mermaid.js) and syntax-highlight fenced code
+  and raw source files (via highlight.js). Both are on by default with graceful
+  offline degradation, toggle off with ``--no-mermaid`` / ``--no-syntax-highlight``,
+  and pick dark variants under ``--dark``. Mermaid rendering is also exposed on the
+  HTML renderer via the new ``HtmlRendererOptions.render_mermaid`` (off by default;
+  ``view``/``serve`` enable it). ``serve``'s directory listing is rewritten as an
+  aligned table (Name/Size/Modified/Created) plus a card view with a
+  localStorage-remembered toggle and HTML-escaped names. ``--theme`` now also accepts
+  a plain ``.css`` file (wrapped in a minimal shell) and a theme name registered in a
+  new ``[themes]`` config table. New "Document Viewer & Server" guide (:doc:`viewer`).
+
+### Fixed
+
+- **`merge_hyphenated_words` now applies to OCR text.** PyMuPDF's
+  ``TEXT_DEHYPHENATE`` flag only affects native text extraction, so words
+  hyphenated across a line break (``be-\nwusst``) survived unmerged whenever a
+  PDF page went through OCR (``--pdf-ocr-enabled``), even with
+  ``merge_hyphenated_words = true``. OCR output is now dehyphenated the same way,
+  joining the split halves (``bewusst``). Numeric ranges (``10-\n20``) and
+  hyphens not sitting between two letters are left untouched. (#51)
+- **Config-file discovery is now bounded at the home directory.**
+  ``find_config_in_parents()`` walked from the working directory all the way to the
+  filesystem root, so an ``.all2md.*`` sitting in a shared parent (a drive root,
+  ``/``) would silently apply to every project underneath it. The upward walk now
+  stops at ``Path.home()`` (inclusive). Real behavior is unchanged — ``~/.all2md.*``
+  is still found, and the home fallback still covers a working directory outside the
+  home subtree.
+
+## [1.7.1] - 2026-06-25
+
+### Added
+
 - **Lint profiles: `all2md lint --profile NAME`.** Curated, named rule bundles
   built entirely from the existing 47 rules — ``prose`` (typographic polish for
   long-form writing, ideal for a converted DOCX), ``accessibility`` (alt text,
@@ -74,13 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **`merge_hyphenated_words` now applies to OCR text.** PyMuPDF's
-  ``TEXT_DEHYPHENATE`` flag only affects native text extraction, so words
-  hyphenated across a line break (``be-\nwusst``) survived unmerged whenever a
-  PDF page went through OCR (``--pdf-ocr-enabled``), even with
-  ``merge_hyphenated_words = true``. OCR output is now dehyphenated the same way,
-  joining the split halves (``bewusst``). Numeric ranges (``10-\n20``) and
-  hyphens not sitting between two letters are left untouched. (#51)
+- **GFM tables nested in list items and blockquotes are now parsed.** Pipe tables
+  indented inside a list item or ``>`` blockquote were previously left as plain text;
+  they are now recognized and parsed into table nodes.
 
 ## [1.7.0] - 2026-06-24
 
@@ -548,7 +580,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[1.0.7]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.0
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.0
+[1.7.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.1
+[1.7.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.0
 [1.6.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.6.0
 [1.5.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.5.0
 [1.4.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.4.0

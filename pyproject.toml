@@ -59,7 +59,7 @@ classifiers = [
 
 dependencies = [
     "tomli>=2.0.0;python_version<'3.11'",  # tomllib backport for Python <3.11
-    "tomli-w>=1.0.0",  # For writing TOML config files (tomllib in stdlib is read-only)
+    "tomli-w>=1.2.0",  # For writing TOML config files (tomllib in stdlib is read-only)
     "typing_extensions>=4.0.0;python_version<'3.11'",  # For Self type on Python <3.11
     "pyyaml>=6.0",
 ]
@@ -91,11 +91,11 @@ odf = [
     "odfpy>=1.4.1",
 ]
 pdf = [
-    "pymupdf>=1.27.2"
+    "pymupdf>=1.28.0"
 ]
 pdf_layout = [
-    "pymupdf>=1.27.2",
-    "pymupdf-layout>=1.27.2",
+    "pymupdf>=1.28.0",
+    "pymupdf-layout>=1.28.0",
 ]
 docx = [
     "python-docx>=1.2.0"
@@ -112,11 +112,11 @@ pptx = [
 ]
 rtf = [
     "pyth3>=0.7",
-    "six>=1.16.0"
+    "six>=1.17.0"
 
 ]
 html = [
-    "beautifulsoup4>=4.13.5",
+    "beautifulsoup4>=4.15.0",
     "chardet>=5.2.0",
     "httpx>=0.28.1",
 ]
@@ -124,10 +124,10 @@ http = [
     "httpx>=0.28.1"
 ]
 html_readability = [
-    "readability-lxml>=0.8.1",
+    "readability-lxml>=0.8.4.1",
 ]
 sanitizer = [
-    "bleach>=6.2.0",
+    "bleach>=6.4.0",
 ]
 latex = [
     "pylatexenc>=2.10",
@@ -147,14 +147,14 @@ chm = [
 ]
 dev = [
     "all2md[all]",
-    "mypy>=1.18.2",
-    "pytest>=8.4.2",
-    "ruff>=0.14.0",
+    "mypy>=2.1.0",
+    "pytest>=9.1.1",
+    "ruff>=0.15.20",
     "black~=26.1",
-    "sphinx>=8.2.3;python_version>='3.11'",
-    "sphinx-rtd-theme>=3.0.2;python_version>='3.11'",
+    "sphinx>=9.0.4;python_version>='3.11'",
+    "sphinx-rtd-theme>=3.1.0;python_version>='3.11'",
     "sphinx-copybutton>=0.5.2;python_version>='3.11'",
-    "pytest-cov>=7.0.0",
+    "pytest-cov>=7.1.0",
     "hypothesis>=6.100.0",
     "syrupy>=4.6.0",
     "types-Pillow",
@@ -162,21 +162,21 @@ dev = [
     "types-lxml",
     "types-docutils",
     "types-reportlab",
-    "pre-commit>=4.3.0",
-    "types-pyyaml>=6.0.12.20250915",
-    "bandit[toml]>=1.9.2",
+    "pre-commit>=4.6.0",
+    "types-pyyaml>=6.0.12.20260518",
+    "bandit[toml]>=1.9.4",
     "html5lib>=1.1",
     "pytest-xdist>=3.8.0",
     "radon>=6.0.1",
     "interrogate>=1.7.0",
-    "vulture>=2.14",
+    "vulture>=2.16",
 ]
 epub = [
-    "ebooklib>=0.19",
+    "ebooklib>=0.20",
 ]
 cli_extras = [
     "rich>=14.2.0",
-    "tqdm>=4.66.0",
+    "tqdm>=4.68.3",
     "watchdog>=4.0.0",
 ]
 xlsx = [
@@ -184,7 +184,7 @@ xlsx = [
     "chardet>=5.2.0",
 ]
 markdown = [
-    "mistune>=3.3.1",  # 3.3 fixes single-line $$...$$ block-math parsing
+    "mistune>=3.3.2",  # 3.3 fixes single-line $$...$$ block-math parsing
     "chardet>=5.2.0",
 ]
 pdf_render = [
@@ -200,11 +200,11 @@ templates = [
     "jinja2>=3.1.0",
 ]
 rst = [
-    "docutils>=0.20",
+    "docutils>=0.22",
     "chardet>=5.2.0",
 ]
 org = [
-    "orgparse>=0.4.20250520",
+    "orgparse>=0.4.20251020",
     "chardet>=5.2.0",
 ]
 archive = [
@@ -213,7 +213,7 @@ archive = [
 ]
 ocr = [
     "pillow>=11.3.0",
-    "pytesseract>=0.3.10",
+    "pytesseract>=0.3.13",
 ]
 ocr-easyocr = [
     # Binary-free OCR engine. Pulls in PyTorch transitively (large download) and
@@ -228,7 +228,7 @@ outlook = [
     "extract-msg>=0.37.1",
 ]
 textile = [
-    "textile>=4.0.1",
+    "textile>=4.0.4",
     "chardet>=5.2.0",
 ]
 openapi = [
@@ -236,25 +236,25 @@ openapi = [
 ]
 
 all = [
-    "beautifulsoup4>=4.14.2",
+    "beautifulsoup4>=4.15.0",
     "chardet>=5.2.0",
-    "readability-lxml>=0.8.1",
-    "docutils>=0.20",
-    "ebooklib>=0.19",
+    "readability-lxml>=0.8.4.1",
+    "docutils>=0.22",
+    "ebooklib>=0.20",
     "extract-msg>=0.37.1",
     "fastmcp>=2.0.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.0",
-    "mistune>=3.3.1",  # 3.3 fixes single-line $$...$$ block-math parsing
+    "mistune>=3.3.2",  # 3.3 fixes single-line $$...$$ block-math parsing
     "odfpy>=1.4.1",
     "openpyxl>=3.1.5",
-    "orgparse>=0.4.20250520",
+    "orgparse>=0.4.20251020",
     "pillow>=11.3.0",
     "py7zr>=0.22.0",
-    "pymupdf>=1.27.2",
+    "pymupdf>=1.28.0",
     # Note: pymupdf-layout is NOT included in 'all' due to its Polyform Noncommercial license.
     # Install separately via: pip install all2md[pdf_layout]
-    "pytesseract>=0.3.10",
+    "pytesseract>=0.3.13",
     "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "pyth3>=0.7",
@@ -263,9 +263,9 @@ all = [
     "rarfile>=4.2",
     "reportlab>=4.0.0",
     "rich>=14.2.0",
-    "textile>=4.0.1",
+    "textile>=4.0.4",
     "tiktoken>=0.7.0",
-    "tqdm>=4.66.0",
+    "tqdm>=4.68.3",
     "watchdog>=4.0.0",
     "defusedxml>=0.7.1",
     "rank-bm25>=0.2.2",
