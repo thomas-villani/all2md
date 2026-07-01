@@ -547,9 +547,9 @@ Pattern: ALL2MD_<OPTION_NAME>
    * - ``ALL2MD_RICH_INLINE_CODE_THEME``
      - ``--rich-inline-code-theme``
      - ``material``
-   * - ``ALL2MD_RICH_WORD_WRAP``
-     - ``--rich-word-wrap``
-     - ``true``
+   * - ``ALL2MD_RICH_NO_WORD_WRAP``
+     - ``--rich-no-word-wrap``
+     - ``true`` (disables word wrapping; wrapping is on by default)
    * - ``ALL2MD_RICH_HYPERLINKS``
      - ``--no-rich-hyperlinks``
      - ``false``

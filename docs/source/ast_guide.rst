@@ -1265,7 +1265,7 @@ Error Handling
 Thread Safety
 ~~~~~~~~~~~~~
 
-AST nodes are immutable by default. Transformations create new trees. This makes the AST safe for concurrent processing:
+Transformers do not mutate their input — they return new trees — so a source AST can be shared safely across threads. (Node objects are plain mutable dataclasses, so avoid mutating a shared node in place.) This makes the transform-and-render pattern below safe for concurrent processing:
 
 .. code-block:: python
 

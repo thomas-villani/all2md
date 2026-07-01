@@ -1988,7 +1988,7 @@ See the ``examples/templates/jinja-templates/`` directory for production-ready t
 
 * **No Python Required:** Create custom formats with just templates
 * **Full AST Access:** Templates see the entire document structure
-* **Rich Helpers:** 8 escape filters + 5 traversal functions built-in
+* **Rich Helpers:** 5 escape filters + 5 traversal functions built-in
 * **Flexible:** Any text-based format (XML, YAML, custom markup, etc.)
 
 **See Also:**

@@ -688,7 +688,7 @@ The complete SimpleDoc plugin serves as a reference implementation:
 Community
 ---------
 
-- Share your plugins on the `all2md community discussions <https://github.com/thomas.villani/all2md/discussions>`_
+- Share your plugins on the `all2md community discussions <https://github.com/thomas-villani/all2md/discussions>`_
 - Follow the `all2md-plugin <https://github.com/topics/all2md-plugin>`_ topic on GitHub
 - Contribute examples and documentation improvements
 

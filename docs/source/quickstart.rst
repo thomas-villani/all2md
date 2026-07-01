@@ -65,7 +65,7 @@ all2md isn't just for converting *to* Markdown—it supports full bidirectional 
 
 .. note::
 
-   ``to_markdown()`` is a convenience wrapper around ``convert()`` that automatically targets Markdown output. Use ``convert()`` when you need to convert to other formats or between non-Markdown formats directly.
+   ``to_markdown()`` and ``convert()`` are peer entry points that share the same parse → AST → render pipeline. ``to_markdown(src)`` is the ergonomic shortcut for Markdown output — equivalent to ``convert(src, target_format="markdown")`` for file/bytes/stream inputs. Use ``convert()`` when you need to convert to other formats or between non-Markdown formats directly.
 
 Converting Markdown to Rich Formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

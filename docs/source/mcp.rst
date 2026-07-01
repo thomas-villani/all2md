@@ -1000,6 +1000,13 @@ Embedding all2md-mcp in your own MCP server:
    )
    from all2md.mcp.security import prepare_allowlist_dirs
    from all2md.mcp.tools import read_document_as_markdown_impl, save_document_from_markdown_impl
+   from all2md.mcp.document_tools import edit_document_impl
+   from all2md.mcp.query_tools import (
+       diff_documents_impl,
+       get_document_outline_impl,
+       list_workspace_files_impl,
+       search_documents_impl,
+   )
 
    # Create custom configuration
    config = MCPConfig(
@@ -1026,6 +1033,7 @@ Embedding all2md-mcp in your own MCP server:
        search_documents_impl,
        diff_documents_impl,
        get_document_outline_impl,
+       list_workspace_files_impl,
    )
 
    # Run server
