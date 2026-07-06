@@ -44,9 +44,12 @@ Because every class inherits from ``CloneFrozenMixin`` you can derive safe varia
 
    hardened_html_options = html_options.create_updated(strip_dangerous_elements=True)
 
-CLI flag mapping follows the field path. For example ``HtmlOptions.network.require_https`` becomes
-``--html-network-require-https`` (and the env var ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``). Nested collections such as
-``ZipOptions.include_patterns`` accept multiple values via repeated flags or comma-separated lists.
+CLI flag mapping follows the field path. For example ``HtmlOptions.network.allow_remote_fetch`` becomes
+``--html-network-allow-remote-fetch`` (and the env var ``ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH``). Boolean options
+whose default is already ``True`` are exposed as a negated flag: ``HtmlOptions.network.require_https`` defaults to
+``True``, so the CLI flag is ``--html-network-no-require-https`` (HTTPS enforcement is on unless you turn it off).
+Nested collections such as ``ZipOptions.include_patterns`` accept multiple values via repeated flags or
+comma-separated lists.
 
 Options Map
 -----------
@@ -143,11 +146,11 @@ Nested fields join their parents with dashes:
 
 .. code-block:: bash
 
-   # Harden HTML fetching and customise Markdown output
-   all2md site.mhtml \
-     --html-network-allow-remote-fetch false \
+   # Allow HTML resource fetching from a trusted host only (HTTPS enforced by default)
+   # and customise Markdown output
+   all2md page.html \
+     --html-network-allow-remote-fetch \
      --html-network-allowed-hosts docs.example.com \
-     --html-network-require-https \
      --markdown-flavor gfm
 
    # ZIP archives with include/exclude filters
@@ -197,10 +200,6 @@ following common ``--no-*`` conventions in shell scripts.
      - ``True``
      - (default)
      - ``--pdf-no-merge-hyphenated-words``
-   * - ``HtmlOptions.preserve_nested_structure``
-     - ``True``
-     - (default)
-     - ``--html-no-preserve-nested-structure``
    * - ``HtmlOptions.detect_table_alignment``
      - ``True``
      - (default)
@@ -224,7 +223,7 @@ following common ``--no-*`` conventions in shell scripts.
    * - ``DocxRendererOptions.promote_title``
      - ``True``
      - (default)
-     - ``--docx-no-promote-title``
+     - ``--docx-renderer-no-promote-title``
 
 For booleans that default to ``False`` simply use the positive flag (e.g. ``--html-strip-dangerous-elements``). The
 full list—including renderer toggles and security helpers—is maintained in the generated :doc:`options` reference.
@@ -252,7 +251,7 @@ resources.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--archive-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -262,7 +261,7 @@ resources.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--archive-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -308,7 +307,7 @@ resources.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--archive-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -331,15 +330,6 @@ resources.
    :CLI flag: ``--archive-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--archive-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **include_patterns**
 
@@ -460,15 +450,6 @@ Configuration options for AsciiDoc-to-AST parsing.
 
 This dataclass contains settings specific to parsing AsciiDoc documents
 into AST representation using a custom parser.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--asciidoc-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **parse_attributes**
 
@@ -645,7 +626,7 @@ AsciiDoc output.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--asciidoc-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -655,7 +636,7 @@ AsciiDoc output.
 
    How to render Comment and CommentInline nodes: comment (// comments), note (NOTE admonitions), ignore (skip comment nodes entirely). Controls presentation of source document comments.
 
-   :Type: ``AsciiDocCommentMode``
+   :Type: ``Literal['comment', 'note', 'ignore']``
    :CLI flag: ``--asciidoc-renderer-comment-mode``
    :Default: ``'comment'``
    :Choices: ``comment``, ``note``, ``ignore``
@@ -669,15 +650,6 @@ AST Parser Options
 ^^^^^^^^^^^^^^^^^^
 
 Options for parsing JSON AST documents.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--ast-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **validate_schema**
 
@@ -777,15 +749,6 @@ Configuration options for BBCode-to-AST parsing.
 This dataclass contains settings specific to parsing BBCode documents
 from bulletin boards and forums into AST representation.
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--bbcode-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **strict_mode**
 
    Raise errors on malformed BBCode syntax
@@ -851,7 +814,7 @@ for embedded images and resources.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--chm-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -861,7 +824,7 @@ for embedded images and resources.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--chm-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -907,7 +870,7 @@ for embedded images and resources.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--chm-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -931,15 +894,6 @@ for embedded images and resources.
    :Default: ``'Attachments'``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--chm-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **include_toc**
 
    Generate and prepend a Markdown Table of Contents from CHM TOC
@@ -958,11 +912,383 @@ for embedded images and resources.
    :Default: ``True``
    :Importance: core
 
-**html_options**
+Html Options Options
+++++++++++++++++++++
 
-   :Type: ``HtmlOptions | None``
-   :CLI flag: ``--chm-html-options``
+Configuration options for HTML-to-Markdown conversion.
+
+This dataclass contains settings specific to HTML document processing,
+including heading styles, title extraction, image handling, content
+sanitization, and advanced formatting options. Inherits attachment
+handling from AttachmentOptionsMixin for images and embedded media.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
+   :CLI flag: ``--chm-html-options-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
+   :CLI flag: ``--chm-html-options-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: advanced
+
+**attachment_output_dir**
+
+   Directory to save attachments when using `save` mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--chm-html-options-attachment-output-dir``
    :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--chm-html-options-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--chm-html-options-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--chm-html-options-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--chm-html-options-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--chm-html-options-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_title**
+
+   Extract and use HTML <title> element as main heading
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-extract-title``
+   :Default: ``False``
+   :Importance: core
+
+**convert_nbsp**
+
+   Convert non-breaking spaces (&nbsp;) to regular spaces
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-convert-nbsp``
+   :Default: ``False``
+   :Importance: core
+
+**strip_dangerous_elements**
+
+   Remove potentially dangerous HTML elements (script, style, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-strip-dangerous-elements``
+   :Default: ``False``
+   :Importance: security
+
+**strip_framework_attributes**
+
+   Remove JavaScript framework attributes (x-\*, v-\*, ng-\*, hx-\*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-strip-framework-attributes``
+   :Default: ``False``
+   :Importance: security
+
+**detect_table_alignment**
+
+   Automatically detect table column alignment from CSS/attributes
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-no-detect-table-alignment``
+   :Default: ``True``
+   :Importance: advanced
+
+Network Options
+```````````````
+
+Network security options for remote resource fetching.
+
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
+
+**allow_remote_fetch**
+
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--chm-html-options-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--chm-html-options-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--chm-html-options-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--chm-html-options-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--chm-html-options-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--chm-html-options-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
+
+Local Files Options
+```````````````````
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--chm-html-options-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--chm-html-options-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
+
+**strip_comments**
+
+   Remove HTML comments from output
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-no-strip-comments``
+   :Default: ``True``
+   :Importance: advanced
+
+**collapse_whitespace**
+
+   Collapse multiple spaces/newlines into single spaces
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-no-collapse-whitespace``
+   :Default: ``True``
+   :Importance: advanced
+
+**extract_readable**
+
+   Extract main article content by stripping navigation and other non-readable content using readability-lxml
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-extract-readable``
+   :Default: ``False``
+   :Importance: advanced
+
+**br_handling**
+
+   How to handle <br> tags: 'newline' or 'space'
+
+   :Type: ``Literal['newline', 'space']``
+   :CLI flag: ``--chm-html-options-br-handling``
+   :Default: ``'newline'``
+   :Choices: ``newline``, ``space``
+   :Importance: advanced
+
+**allowed_elements**
+
+   Whitelist of allowed HTML elements (if set, only these are processed)
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--chm-html-options-allowed-elements``
+   :Default: ``None``
+   :CLI action: ``append``
+   :Importance: security
+
+**allowed_attributes**
+
+   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. CLI note: For complex dict structures, pass as JSON string: --allowed-attributes '{"img": ["src", "alt"], "a": ["href"]}'
+
+   :Type: ``tuple[str, ...] | dict[str, tuple[str, ...]] | None``
+   :CLI flag: ``--chm-html-options-allowed-attributes``
+   :Default: ``None``
+   :CLI action: ``append``
+   :Importance: security
+
+**figures_parsing**
+
+   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :CLI flag: ``--chm-html-options-figures-parsing``
+   :Default: ``'blockquote'``
+   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Importance: advanced
+
+**details_parsing**
+
+   How to render <details>/<summary> elements: blockquote, html, skip
+
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :CLI flag: ``--chm-html-options-details-parsing``
+   :Default: ``'blockquote'``
+   :Choices: ``blockquote``, ``html``, ``skip``
+   :Importance: advanced
+
+**extract_microdata**
+
+   Extract microdata and structured data to metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--chm-html-options-no-extract-microdata``
+   :Default: ``True``
+   :Importance: advanced
+
+**base_url**
+
+   Base URL for resolving relative hrefs in <a> tags (separate from attachment_base_url for images)
+
+   :Type: ``str | None``
+   :CLI flag: ``--chm-html-options-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**html_parser**
+
+   BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
+
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :CLI flag: ``--chm-html-options-html-parser``
+   :Default: ``'html.parser'``
+   :Choices: ``html.parser``, ``html5lib``, ``lxml``
    :Importance: advanced
 
 CSV Options
@@ -976,15 +1302,6 @@ Configuration options for CSV/TSV conversion.
 
 This dataclass contains settings specific to delimiter-separated value
 file processing, including dialect detection and data limits.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--csv-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **detect_csv_dialect**
 
@@ -1008,7 +1325,7 @@ file processing, including dialect detection and data limits.
 
    Override CSV/TSV delimiter (e.g., ',', '\t', ';', '\|')
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--csv-delimiter``
    :Default: ``None``
    :Importance: core
@@ -1017,7 +1334,7 @@ file processing, including dialect detection and data limits.
 
    Override quote character (e.g., '"', "'")
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--csv-quote-char``
    :Default: ``None``
    :Importance: advanced
@@ -1026,7 +1343,7 @@ file processing, including dialect detection and data limits.
 
    Override escape character (e.g., '\')
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--csv-escape-char``
    :Default: ``None``
    :Importance: advanced
@@ -1035,7 +1352,7 @@ file processing, including dialect detection and data limits.
 
    Enable/disable double quoting (two quote chars = one literal quote)
 
-   :Type: ``UnionType[bool, NoneType]``
+   :Type: ``bool | None``
    :CLI flag: ``--csv-double-quote``
    :Default: ``None``
    :Importance: advanced
@@ -1053,7 +1370,7 @@ file processing, including dialect detection and data limits.
 
    Maximum rows per table (None = unlimited)
 
-   :Type: ``UnionType[int, NoneType]``
+   :Type: ``int | None``
    :CLI flag: ``--csv-max-rows``
    :Default: ``None``
    :Importance: advanced
@@ -1062,7 +1379,7 @@ file processing, including dialect detection and data limits.
 
    Maximum columns per table (None = unlimited)
 
-   :Type: ``UnionType[int, NoneType]``
+   :Type: ``int | None``
    :CLI flag: ``--csv-max-cols``
    :Default: ``None``
    :Importance: advanced
@@ -1170,7 +1487,7 @@ including table selection, multi-table handling, and CSV dialect options.
 
    How to handle multiple tables: first, all, or error
 
-   :Type: ``MultiTableMode``
+   :Type: ``Literal['first', 'all', 'error']``
    :CLI flag: ``--csv-renderer-multi-table-mode``
    :Default: ``'first'``
    :Choices: ``first``, ``all``, ``error``
@@ -1198,7 +1515,7 @@ including table selection, multi-table handling, and CSV dialect options.
 
    CSV quoting style
 
-   :Type: ``CsvQuotingMode``
+   :Type: ``Literal['minimal', 'all', 'nonnumeric', 'none']``
    :CLI flag: ``--csv-renderer-quoting``
    :Default: ``'minimal'``
    :Choices: ``minimal``, ``all``, ``nonnumeric``, ``none``
@@ -1226,7 +1543,7 @@ including table selection, multi-table handling, and CSV dialect options.
 
    How to handle merged cells
 
-   :Type: ``MergedCellHandling``
+   :Type: ``Literal['repeat', 'blank', 'placeholder']``
    :CLI flag: ``--csv-renderer-handle-merged-cells``
    :Default: ``'repeat'``
    :Choices: ``repeat``, ``blank``, ``placeholder``
@@ -1276,7 +1593,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--docx-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -1286,7 +1603,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--docx-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -1332,7 +1649,7 @@ handling from AttachmentOptionsMixin for embedded images and media.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--docx-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -1355,15 +1672,6 @@ handling from AttachmentOptionsMixin for embedded images and media.
    :CLI flag: ``--docx-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--docx-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **preserve_tables**
 
@@ -1495,7 +1803,7 @@ including fonts, styles, and formatting preferences.
 
    Font sizes for heading levels 1-6 as JSON object (e.g., '{"1": 24, "2": 18}')
 
-   :Type: ``UnionType[dict[int, int], NoneType]``
+   :Type: ``dict[int, int] | None``
    :CLI flag: ``--docx-renderer-heading-font-sizes``
    :Default: ``None``
    :Importance: advanced
@@ -1513,7 +1821,7 @@ including fonts, styles, and formatting preferences.
 
    Built-in table style name (None = plain formatting)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--docx-renderer-table-style``
    :Default: ``'Light Grid Accent 1'``
    :Importance: advanced
@@ -1549,7 +1857,7 @@ including fonts, styles, and formatting preferences.
 
    Path to .docx template file for styles (None = default blank document)
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--docx-renderer-template-path``
    :Default: ``None``
    :Importance: core
@@ -1604,7 +1912,7 @@ to prevent SSRF attacks.
 
    List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
 
-   :Type: ``UnionType[list[str], NoneType]``
+   :Type: ``list[str] | None``
    :CLI flag: ``--docx-renderer-network-allowed-hosts``
    :Default: ``None``
    :Importance: security
@@ -1649,7 +1957,7 @@ to prevent SSRF attacks.
 
    Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
 
-   :Type: ``UnionType[tuple[str, ...], NoneType]``
+   :Type: ``tuple[str, ...] | None``
    :CLI flag: ``--docx-renderer-network-allowed-content-types``
    :Default: ``('image/',)``
    :CLI action: ``append``
@@ -1684,15 +1992,6 @@ Configuration options for DokuWiki-to-AST parsing.
 
 This dataclass contains settings specific to parsing DokuWiki markup documents
 into AST representation using custom regex-based parsing.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--dokuwiki-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **parse_plugins**
 
@@ -1797,7 +2096,7 @@ DokuWiki markup, suitable for DokuWiki-based wikis.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--dokuwiki-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -1807,7 +2106,7 @@ DokuWiki markup, suitable for DokuWiki-based wikis.
 
    Comment rendering mode: html, visible, or ignore
 
-   :Type: ``DokuWikiCommentMode``
+   :Type: ``Literal['html', 'visible', 'ignore']``
    :CLI flag: ``--dokuwiki-renderer-comment-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``visible``, ``ignore``
@@ -1830,7 +2129,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--eml-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -1840,7 +2139,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--eml-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -1886,7 +2185,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--eml-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -1910,15 +2209,6 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Default: ``'Attachments'``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--eml-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **include_headers**
 
    Include email headers (From, To, Subject, Date) in output
@@ -1941,7 +2231,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
 
    Date formatting mode: iso8601, locale, or strftime
 
-   :Type: ``DateFormatMode``
+   :Type: ``Literal['iso8601', 'locale', 'strftime']``
    :CLI flag: ``--eml-date-format-mode``
    :Default: ``'strftime'``
    :Importance: advanced
@@ -1969,7 +2259,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    Clean and normalize quoted content
 
    :Type: ``bool``
-   :CLI flag: ``--eml-clean-quotes``
+   :CLI flag: ``--eml-no-clean-quotes``
    :Default: ``True``
    :Importance: advanced
 
@@ -1978,7 +2268,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    Detect common reply separators
 
    :Type: ``bool``
-   :CLI flag: ``--eml-detect-reply-separators``
+   :CLI flag: ``--eml-no-detect-reply-separators``
    :Default: ``True``
    :Importance: advanced
 
@@ -1987,7 +2277,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    Normalize header casing and whitespace
 
    :Type: ``bool``
-   :CLI flag: ``--eml-normalize-headers``
+   :CLI flag: ``--eml-no-normalize-headers``
    :Default: ``True``
    :Importance: advanced
 
@@ -2005,7 +2295,7 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    Clean URL defense/safety wrappers from links
 
    :Type: ``bool``
-   :CLI flag: ``--eml-clean-wrapped-urls``
+   :CLI flag: ``--eml-no-clean-wrapped-urls``
    :Default: ``True``
    :Importance: security
 
@@ -2018,19 +2308,102 @@ Inherits attachment handling from AttachmentOptionsMixin for email attachments.
    :Default factory: ``EmlOptions.<lambda>``
    :Importance: security
 
-**html_network**
+Html Network Options
+++++++++++++++++++++
 
-   Network security settings for HTML part conversion
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--eml-html-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
+
+**allow_remote_fetch**
+
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--eml-html-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--eml-html-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--eml-html-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--eml-html-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--eml-html-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--eml-html-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--eml-html-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--eml-html-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--eml-html-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
 
 **sort_order**
 
    Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
 
-   :Type: ``EmailSortOrder``
+   :Type: ``Literal['asc', 'desc']``
    :CLI flag: ``--eml-sort-order``
    :Default: ``'asc'``
    :Choices: ``asc``, ``desc``
@@ -2107,7 +2480,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--enex-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -2117,7 +2490,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--enex-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -2163,7 +2536,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--enex-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2186,15 +2559,6 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
    :CLI flag: ``--enex-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--enex-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **note_title_level**
 
@@ -2227,7 +2591,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
    How to render tags: frontmatter, inline, heading, or skip
 
-   :Type: ``TagsFormatMode``
+   :Type: ``Literal['frontmatter', 'inline', 'heading', 'skip']``
    :CLI flag: ``--enex-tags-format``
    :Default: ``'inline'``
    :Importance: core
@@ -2245,7 +2609,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
    Date formatting mode: iso8601, locale, or strftime
 
-   :Type: ``DateFormatMode``
+   :Type: ``Literal['iso8601', 'locale', 'strftime']``
    :CLI flag: ``--enex-date-format-mode``
    :Default: ``'strftime'``
    :Importance: advanced
@@ -2263,7 +2627,7 @@ attachment processing. Inherits attachment handling from AttachmentOptionsMixin.
 
    Sort notes by: created, updated, title, or none
 
-   :Type: ``NoteSortMode``
+   :Type: ``Literal['created', 'updated', 'title', 'none']``
    :CLI flag: ``--enex-sort-notes-by``
    :Default: ``'none'``
    :Importance: advanced
@@ -2294,7 +2658,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--epub-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -2304,7 +2668,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--epub-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -2350,7 +2714,7 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--epub-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2374,15 +2738,6 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
    :Default: ``'Attachments'``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--epub-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **merge_chapters**
 
    Merge chapters into a single continuous document
@@ -2401,11 +2756,384 @@ Inherits attachment handling from AttachmentOptionsMixin for embedded images.
    :Default: ``True``
    :Importance: core
 
-**html_options**
+Html Options Options
+++++++++++++++++++++
 
-   :Type: ``HtmlOptions | None``
-   :CLI flag: ``--epub-html-options``
+Configuration options for HTML-to-Markdown conversion.
+
+This dataclass contains settings specific to HTML document processing,
+including heading styles, title extraction, image handling, content
+sanitization, and advanced formatting options. Inherits attachment
+handling from AttachmentOptionsMixin for images and embedded media.
+
+**attachment_mode**
+
+   How to handle attachments/images
+
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
+   :CLI flag: ``--epub-html-options-attachment-mode``
+   :Default: ``'alt_text'``
+   :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
+   :Importance: core
+
+**alt_text_mode**
+
+   How to render alt-text content when using alt_text attachment mode
+
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
+   :CLI flag: ``--epub-html-options-alt-text-mode``
+   :Default: ``'default'``
+   :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
+   :Importance: advanced
+
+**attachment_output_dir**
+
+   Directory to save attachments when using `save` mode
+
+   :Type: ``str | None``
+   :CLI flag: ``--epub-html-options-attachment-output-dir``
    :Default: ``None``
+   :Importance: advanced
+
+**attachment_base_url**
+
+   Base URL for resolving attachment references
+
+   :Type: ``str | None``
+   :CLI flag: ``--epub-html-options-attachment-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--epub-html-options-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**attachment_filename_template**
+
+   Template for attachment filenames. Tokens: {stem}, {type}, {seq}, {page}, {ext}
+
+   :Type: ``str``
+   :CLI flag: ``--epub-html-options-attachment-filename-template``
+   :Default: ``'{stem}_{type}{seq}.{ext}'``
+   :Importance: advanced
+
+**attachment_overwrite**
+
+   File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
+
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
+   :CLI flag: ``--epub-html-options-attachment-overwrite``
+   :Default: ``'unique'``
+   :Choices: ``unique``, ``overwrite``, ``skip``
+   :Importance: advanced
+
+**attachment_deduplicate_by_hash**
+
+   Avoid saving duplicate attachments by content hash
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-attachment-deduplicate-by-hash``
+   :Default: ``False``
+   :Importance: advanced
+
+**attachments_footnotes_section**
+
+   Section title for footnote-style attachment references (None to disable)
+
+   :Type: ``str | None``
+   :CLI flag: ``--epub-html-options-attachments-footnotes-section``
+   :Default: ``'Attachments'``
+   :Importance: advanced
+
+**extract_title**
+
+   Extract and use HTML <title> element as main heading
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-extract-title``
+   :Default: ``False``
+   :Importance: core
+
+**convert_nbsp**
+
+   Convert non-breaking spaces (&nbsp;) to regular spaces
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-convert-nbsp``
+   :Default: ``False``
+   :Importance: core
+
+**strip_dangerous_elements**
+
+   Remove potentially dangerous HTML elements (script, style, etc.)
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-strip-dangerous-elements``
+   :Default: ``False``
+   :Importance: security
+
+**strip_framework_attributes**
+
+   Remove JavaScript framework attributes (x-\*, v-\*, ng-\*, hx-\*, etc.) that can execute code in framework contexts. Only needed if output HTML will be rendered in browsers with these frameworks installed.
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-strip-framework-attributes``
+   :Default: ``False``
+   :Importance: security
+
+**detect_table_alignment**
+
+   Automatically detect table column alignment from CSS/attributes
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-no-detect-table-alignment``
+   :Default: ``True``
+   :Importance: advanced
+
+Network Options
+```````````````
+
+Network security options for remote resource fetching.
+
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
+
+**allow_remote_fetch**
+
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--epub-html-options-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--epub-html-options-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--epub-html-options-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--epub-html-options-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--epub-html-options-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--epub-html-options-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
+
+Local Files Options
+```````````````````
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--epub-html-options-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--epub-html-options-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
+
+**strip_comments**
+
+   Remove HTML comments from output
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-no-strip-comments``
+   :Default: ``True``
+   :Importance: advanced
+
+**collapse_whitespace**
+
+   Collapse multiple spaces/newlines into single spaces
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-no-collapse-whitespace``
+   :Default: ``True``
+   :Importance: advanced
+
+**extract_readable**
+
+   Extract main article content by stripping navigation and other non-readable content using readability-lxml
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-extract-readable``
+   :Default: ``False``
+   :Importance: advanced
+
+**br_handling**
+
+   How to handle <br> tags: 'newline' or 'space'
+
+   :Type: ``Literal['newline', 'space']``
+   :CLI flag: ``--epub-html-options-br-handling``
+   :Default: ``'newline'``
+   :Choices: ``newline``, ``space``
+   :Importance: advanced
+
+**allowed_elements**
+
+   Whitelist of allowed HTML elements (if set, only these are processed)
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--epub-html-options-allowed-elements``
+   :Default: ``None``
+   :CLI action: ``append``
+   :Importance: security
+
+**allowed_attributes**
+
+   Whitelist of allowed HTML attributes. Can be a tuple of attribute names (global allowlist) or a dict mapping element names to tuples of allowed attributes (per-element allowlist). Examples: ('class', 'id') or {'img': ('src', 'alt', 'title'), 'a': ('href', 'title')}. CLI note: For complex dict structures, pass as JSON string: --allowed-attributes '{"img": ["src", "alt"], "a": ["href"]}'
+
+   :Type: ``tuple[str, ...] | dict[str, tuple[str, ...]] | None``
+   :CLI flag: ``--epub-html-options-allowed-attributes``
+   :Default: ``None``
+   :CLI action: ``append``
+   :Importance: security
+
+**figures_parsing**
+
+   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :CLI flag: ``--epub-html-options-figures-parsing``
+   :Default: ``'blockquote'``
+   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Importance: advanced
+
+**details_parsing**
+
+   How to render <details>/<summary> elements: blockquote, html, skip
+
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
+   :CLI flag: ``--epub-html-options-details-parsing``
+   :Default: ``'blockquote'``
+   :Choices: ``blockquote``, ``html``, ``skip``
+   :Importance: advanced
+
+**extract_microdata**
+
+   Extract microdata and structured data to metadata
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-html-options-no-extract-microdata``
+   :Default: ``True``
+   :Importance: advanced
+
+**base_url**
+
+   Base URL for resolving relative hrefs in <a> tags (separate from attachment_base_url for images)
+
+   :Type: ``str | None``
+   :CLI flag: ``--epub-html-options-base-url``
+   :Default: ``None``
+   :Importance: advanced
+
+**html_parser**
+
+   BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
+
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
+   :CLI flag: ``--epub-html-options-html-parser``
+   :Default: ``'html.parser'``
+   :Choices: ``html.parser``, ``html5lib``, ``lxml``
+   :Importance: advanced
 
 EPUB Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^
@@ -2576,7 +3304,7 @@ in FictionBook 2.0 ebooks.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--fb2-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -2586,7 +3314,7 @@ in FictionBook 2.0 ebooks.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--fb2-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -2632,7 +3360,7 @@ in FictionBook 2.0 ebooks.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--fb2-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2655,15 +3383,6 @@ in FictionBook 2.0 ebooks.
    :CLI flag: ``--fb2-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--fb2-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **include_notes**
 
@@ -2710,7 +3429,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--html-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -2720,7 +3439,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--html-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -2766,7 +3485,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--html-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -2789,15 +3508,6 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :CLI flag: ``--html-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--html-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **extract_title**
 
@@ -2844,21 +3554,140 @@ handling from AttachmentOptionsMixin for images and embedded media.
    :Default: ``True``
    :Importance: advanced
 
-**network**
+Network Options
++++++++++++++++
 
-   Network security settings for remote resource fetching
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--html-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
 
-**local_files**
+**allow_remote_fetch**
 
-   Local file access security settings
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
 
-   :Type: ``LocalFileAccessOptions``
-   :CLI flag: ``--html-local-files``
-   :Default factory: ``LocalFileAccessOptions``
+   :Type: ``bool``
+   :CLI flag: ``--html-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--html-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--html-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--html-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--html-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--html-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--html-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--html-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--html-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
+
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--html-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--html-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--html-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--html-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
 
 **strip_comments**
 
@@ -2891,7 +3720,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to handle <br> tags: 'newline' or 'space'
 
-   :Type: ``BrHandling``
+   :Type: ``Literal['newline', 'space']``
    :CLI flag: ``--html-br-handling``
    :Default: ``'newline'``
    :Choices: ``newline``, ``space``
@@ -2921,7 +3750,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``FiguresParsing``
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--html-figures-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
@@ -2931,7 +3760,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``DetailsParsing``
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
    :CLI flag: ``--html-details-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``html``, ``skip``
@@ -2959,7 +3788,7 @@ handling from AttachmentOptionsMixin for images and embedded media.
 
    BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
 
-   :Type: ``HtmlParser``
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
    :CLI flag: ``--html-html-parser``
    :Default: ``'html.parser'``
    :Choices: ``html.parser``, ``html5lib``, ``lxml``
@@ -3022,7 +3851,7 @@ including document structure, styling, templating, and feature toggles.
 
    CSS inclusion method: inline, embedded, external, or none
 
-   :Type: ``CssStyle``
+   :Type: ``Literal['inline', 'embedded', 'external', 'none']``
    :CLI flag: ``--html-renderer-css-style``
    :Default: ``'embedded'``
    :Choices: ``inline``, ``embedded``, ``external``, ``none``
@@ -3077,7 +3906,7 @@ including document structure, styling, templating, and feature toggles.
 
    Math rendering library: mathjax, katex, or none
 
-   :Type: ``MathRenderer``
+   :Type: ``Literal['mathjax', 'katex', 'none']``
    :CLI flag: ``--html-renderer-math-renderer``
    :Default: ``'mathjax'``
    :Choices: ``mathjax``, ``katex``, ``none``
@@ -3087,7 +3916,7 @@ including document structure, styling, templating, and feature toggles.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--html-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -3115,7 +3944,7 @@ including document structure, styling, templating, and feature toggles.
 
    Template mode: inject, replace, jinja, or none
 
-   :Type: ``TemplateMode | None``
+   :Type: ``Literal['inject', 'replace', 'jinja'] | None``
    :CLI flag: ``--html-renderer-template-mode``
    :Default: ``None``
    :Choices: ``inject``, ``replace``, ``jinja``
@@ -3152,7 +3981,7 @@ including document structure, styling, templating, and feature toggles.
 
    How to inject content: append, prepend, or replace
 
-   :Type: ``InjectionMode``
+   :Type: ``Literal['append', 'prepend', 'replace']``
    :CLI flag: ``--html-renderer-injection-mode``
    :Default: ``'replace'``
    :Choices: ``append``, ``prepend``, ``replace``
@@ -3190,7 +4019,7 @@ including document structure, styling, templating, and feature toggles.
    Add Content-Security-Policy meta tag to standalone HTML documents
 
    :Type: ``bool``
-   :CLI flag: ``--html-renderer-csp-enabled``
+   :CLI flag: ``--html-renderer-no-csp-enabled``
    :Default: ``True``
    :Importance: security
 
@@ -3207,7 +4036,7 @@ including document structure, styling, templating, and feature toggles.
 
    How to render Comment and CommentInline nodes: native (HTML comments <!-- -->), visible (visible <div>/<span> elements), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML parsers, and other formats with annotations.
 
-   :Type: ``HtmlCommentMode``
+   :Type: ``Literal['native', 'visible', 'ignore']``
    :CLI flag: ``--html-renderer-comment-mode``
    :Default: ``'native'``
    :Choices: ``native``, ``visible``, ``ignore``
@@ -3228,15 +4057,6 @@ document instead:
 - Sections become headings
 - Key-value pairs become definition lists (bullet lists with bold keys)
 - Comments are preserved
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--ini-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **literal_block**
 
@@ -3324,7 +4144,7 @@ sections with key-value pairs are extracted.
    Auto-detect types (numbers, booleans)
 
    :Type: ``bool``
-   :CLI flag: ``--ini-renderer-type-inference``
+   :CLI flag: ``--ini-renderer-no-type-inference``
    :Default: ``True``
    :Importance: core
 
@@ -3333,7 +4153,7 @@ sections with key-value pairs are extracted.
    Use level-1 headings as section names
 
    :Type: ``bool``
-   :CLI flag: ``--ini-renderer-section-from-headings``
+   :CLI flag: ``--ini-renderer-no-section-from-headings``
    :Default: ``True``
    :Importance: core
 
@@ -3342,7 +4162,7 @@ sections with key-value pairs are extracted.
    Preserve case of section names and keys
 
    :Type: ``bool``
-   :CLI flag: ``--ini-renderer-preserve-case``
+   :CLI flag: ``--ini-renderer-no-preserve-case``
    :Default: ``True``
    :Importance: advanced
 
@@ -3372,7 +4192,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--ipynb-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -3382,7 +4202,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--ipynb-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -3428,7 +4248,7 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--ipynb-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -3451,15 +4271,6 @@ attachment handling from AttachmentOptionsMixin for notebook output images.
    :CLI flag: ``--ipynb-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--ipynb-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **include_inputs**
 
@@ -3630,7 +4441,7 @@ between AST and .ipynb formats.
    Infer language from Document metadata before using defaults
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-infer-language-from-document``
+   :CLI flag: ``--ipynb-renderer-no-infer-language-from-document``
    :Default: ``True``
    :Importance: advanced
 
@@ -3639,7 +4450,7 @@ between AST and .ipynb formats.
    Infer kernelspec information from Document metadata when present
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-infer-kernel-from-document``
+   :CLI flag: ``--ipynb-renderer-no-infer-kernel-from-document``
    :Default: ``True``
    :Importance: advanced
 
@@ -3666,7 +4477,7 @@ between AST and .ipynb formats.
    Retain unrecognized metadata keys instead of dropping them
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-preserve-unknown-metadata``
+   :CLI flag: ``--ipynb-renderer-no-preserve-unknown-metadata``
    :Default: ``True``
    :Importance: advanced
 
@@ -3675,18 +4486,13 @@ between AST and .ipynb formats.
    Embed attachments directly inside notebook cells
 
    :Type: ``bool``
-   :CLI flag: ``--ipynb-renderer-inline-attachments``
+   :CLI flag: ``--ipynb-renderer-no-inline-attachments``
    :Default: ``True``
    :Importance: core
 
 **markdown_options**
 
-   Override markdown renderer configuration for markdown cells
-
-   :Type: ``MarkdownRendererOptions | None``
-   :CLI flag: ``--ipynb-renderer-markdown-options``
-   :Default: ``None``
-   :Importance: advanced
+   Embed additional Markdown formatting controls. See the ``Markdown Options`` section below.
 
 JINJA Options
 ~~~~~~~~~~~~~
@@ -3768,7 +4574,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
    Default escaping strategy for output format
 
-   :Type: ``JinjaEscapeStrategy | None``
+   :Type: ``Literal['xml', 'html', 'latex', 'yaml', 'markdown', 'none', 'custom'] | None``
    :CLI flag: ``--jinja-renderer-escape-strategy``
    :Default: ``None``
    :Choices: ``xml``, ``html``, ``latex``, ``yaml``, ``markdown``, ``none``, ``custom``
@@ -3778,7 +4584,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
    Custom escape function (for escape_strategy='custom')
 
-   :Type: ``Callable[[str], str] | None``
+   :Type: ``Callable[[<class 'str'>], str] | None``
    :CLI flag: ``--jinja-renderer-custom-escape-function``
    :Default: ``None``
    :Importance: advanced
@@ -3823,7 +4629,7 @@ produce any text-based output format (XML, YAML, custom markup, etc.).
 
    Default format for \|render filter
 
-   :Type: ``JinjaRenderFormat``
+   :Type: ``Literal['markdown', 'plain', 'html']``
    :CLI flag: ``--jinja-renderer-default-render-format``
    :Default: ``'markdown'``
    :Choices: ``markdown``, ``plain``, ``html``
@@ -3863,15 +4669,6 @@ document instead:
 - Arrays of objects become tables
 - Arrays of primitives become lists
 - Nested structures become subsections
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--json-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **literal_block**
 
@@ -3994,7 +4791,7 @@ focusing on tables but optionally including lists and other elements.
    Auto-detect types (numbers, booleans, null)
 
    :Type: ``bool``
-   :CLI flag: ``--json-renderer-type-inference``
+   :CLI flag: ``--json-renderer-no-type-inference``
    :Default: ``True``
    :Importance: core
 
@@ -4003,7 +4800,7 @@ focusing on tables but optionally including lists and other elements.
    Use preceding heading as key for each table
 
    :Type: ``bool``
-   :CLI flag: ``--json-renderer-table-heading-keys``
+   :CLI flag: ``--json-renderer-no-table-heading-keys``
    :Default: ``True``
    :Importance: core
 
@@ -4063,15 +4860,6 @@ Configuration options for LaTeX-to-AST parsing.
 
 This dataclass contains settings specific to parsing LaTeX documents
 into AST representation using pylatexenc library.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--latex-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **parse_preamble**
 
@@ -4202,7 +4990,7 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
 
    Preferred math rendering mode
 
-   :Type: ``LatexMathRenderMode``
+   :Type: ``Literal['inline', 'display']``
    :CLI flag: ``--latex-renderer-math-mode``
    :Default: ``'display'``
    :Choices: ``inline``, ``display``
@@ -4239,7 +5027,7 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
 
    How to render Comment and CommentInline nodes: percent (%% comments), todonotes (\todo{}), marginnote (\marginpar{}), ignore (skip comment nodes entirely). Controls presentation of source document comments.
 
-   :Type: ``LatexCommentMode``
+   :Type: ``Literal['percent', 'todonotes', 'marginnote', 'ignore']``
    :CLI flag: ``--latex-renderer-comment-mode``
    :Default: ``'percent'``
    :Choices: ``percent``, ``todonotes``, ``marginnote``, ``ignore``
@@ -4257,21 +5045,13 @@ Configuration options for Markdown-to-AST parsing.
 This dataclass contains settings specific to parsing Markdown documents
 into AST representation, supporting various Markdown flavors and extensions.
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-extract-metadata``
-   :Default: ``False``
-   :Importance: core
+The Markdown format has no dedicated CLI flags. The common Markdown formatting flags (``--markdown-<option>``) are documented in the ``Markdown Options`` shared section below; the parser options here are available through the Python API only.
 
 **flavor**
 
    Markdown flavor to parse (determines enabled extensions)
 
    :Type: ``Literal['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus']``
-   :CLI flag: ``--markdown-flavor``
    :Default: ``'gfm'``
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
    :Importance: core
@@ -4281,7 +5061,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse table syntax (GFM pipe tables)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-tables``
    :Default: ``True``
    :Importance: core
 
@@ -4290,7 +5069,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse footnote references and definitions
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-footnotes``
    :Default: ``True``
    :Importance: core
 
@@ -4299,7 +5077,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse inline and block math ($...$ and $$...$$)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-math``
    :Default: ``True``
    :Importance: core
 
@@ -4308,7 +5085,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse task list checkboxes (- [ ] and - [x])
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-task-lists``
    :Default: ``True``
    :Importance: core
 
@@ -4317,7 +5093,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse definition lists (term : definition)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-definition-lists``
    :Default: ``True``
    :Importance: core
 
@@ -4326,7 +5101,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse strikethrough syntax (~~text~~)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-strikethrough``
    :Default: ``True``
    :Importance: core
 
@@ -4335,7 +5109,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse inline marks: highlight (==x==), insert (^^x^^), superscript (^x^), subscript (~x~)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-marks``
    :Default: ``True``
    :Importance: core
 
@@ -4344,7 +5117,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse Material for MkDocs admonitions (!!! note / ??? collapsible)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-admonitions``
    :Default: ``True``
    :Importance: core
 
@@ -4353,7 +5125,6 @@ into AST representation, supporting various Markdown flavors and extensions.
    Parse YAML/TOML/JSON frontmatter at document start
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-no-parse-frontmatter``
    :Default: ``True``
    :Importance: core
 
@@ -4371,12 +5142,13 @@ This dataclass contains settings that control how Markdown output is
 formatted and structured. These options are used by multiple conversion
 modules to ensure consistent Markdown generation.
 
+The Markdown format has no dedicated CLI flags. The common Markdown formatting flags (``--markdown-<option>``) are documented in the ``Markdown Options`` shared section below; the parser options here are available through the Python API only.
+
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-fail-on-resource-errors``
    :Default: ``False``
    :Importance: advanced
 
@@ -4385,7 +5157,6 @@ modules to ensure consistent Markdown generation.
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
 
    :Type: ``int``
-   :CLI flag: ``--markdown-renderer-max-asset-size-bytes``
    :Default: ``52428800``
    :Importance: security
 
@@ -4394,7 +5165,6 @@ modules to ensure consistent Markdown generation.
    Metadata rendering policy controlling which fields appear in output
 
    :Type: ``MetadataRenderPolicy``
-   :CLI flag: ``--markdown-renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
@@ -4403,7 +5173,6 @@ modules to ensure consistent Markdown generation.
    Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
 
    :Type: ``str | None``
-   :CLI flag: ``--markdown-renderer-creator``
    :Default: ``'all2md'``
    :Importance: core
 
@@ -4412,7 +5181,6 @@ modules to ensure consistent Markdown generation.
    Escape special Markdown characters (e.g. asterisks) in text content
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-no-escape-special``
    :Default: ``True``
    :Importance: core
 
@@ -4420,8 +5188,7 @@ modules to ensure consistent Markdown generation.
 
    Symbol to use for emphasis/italic formatting
 
-   :Type: ``EmphasisSymbol``
-   :CLI flag: ``--markdown-renderer-emphasis-symbol``
+   :Type: ``Literal['*', '_']``
    :Default: ``'*'``
    :Choices: ``*``, ``_``
    :Importance: core
@@ -4431,7 +5198,6 @@ modules to ensure consistent Markdown generation.
    Characters to cycle through for nested bullet lists
 
    :Type: ``str``
-   :CLI flag: ``--markdown-renderer-bullet-symbols``
    :Default: ``'*-+'``
    :Importance: advanced
 
@@ -4440,7 +5206,6 @@ modules to ensure consistent Markdown generation.
    Number of spaces to use for each level of list indentation
 
    :Type: ``int``
-   :CLI flag: ``--markdown-renderer-list-indent-width``
    :Default: ``4``
    :Importance: advanced
 
@@ -4448,8 +5213,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle underlined text
 
-   :Type: ``UnderlineMode``
-   :CLI flag: ``--markdown-renderer-underline-mode``
+   :Type: ``Literal['html', 'markdown', 'ignore']``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
@@ -4458,8 +5222,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle superscript text
 
-   :Type: ``SuperscriptMode``
-   :CLI flag: ``--markdown-renderer-superscript-mode``
+   :Type: ``Literal['html', 'markdown', 'ignore']``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
@@ -4468,8 +5231,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle subscript text
 
-   :Type: ``SubscriptMode``
-   :CLI flag: ``--markdown-renderer-subscript-mode``
+   :Type: ``Literal['html', 'markdown', 'ignore']``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
@@ -4479,7 +5241,6 @@ modules to ensure consistent Markdown generation.
    Use # syntax for headings instead of underline style
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-no-use-hash-headings``
    :Default: ``True``
    :Importance: core
 
@@ -4487,8 +5248,7 @@ modules to ensure consistent Markdown generation.
 
    Markdown flavor/dialect to use for output
 
-   :Type: ``FlavorType``
-   :CLI flag: ``--markdown-renderer-flavor``
+   :Type: ``Literal['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus']``
    :Default: ``'gfm'``
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
    :Importance: core
@@ -4498,7 +5258,6 @@ modules to ensure consistent Markdown generation.
    Raise errors on flavor-incompatible options instead of just warnings. When True, validate_flavor_compatibility warnings become ValueError exceptions.
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-strict-flavor-validation``
    :Default: ``False``
    :Importance: advanced
 
@@ -4506,9 +5265,8 @@ modules to ensure consistent Markdown generation.
 
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
-   :Type: ``UnsupportedTableMode | object``
-   :CLI flag: ``--markdown-renderer-unsupported-table-mode``
-   :Default: ``<object object at 0x000001C52C6B4BD0>``
+   :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
+   :Default: ``<object object at 0x00000231462C0D50>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -4516,9 +5274,8 @@ modules to ensure consistent Markdown generation.
 
    How to handle inline elements unsupported by flavor: plain (render content without formatting), force (use markdown syntax anyway), html (use HTML tags)
 
-   :Type: ``UnsupportedInlineMode | object``
-   :CLI flag: ``--markdown-renderer-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001C52C6B4BD0>``
+   :Type: ``Literal['plain', 'force', 'html'] | object``
+   :Default: ``<object object at 0x00000231462C0D50>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -4527,7 +5284,6 @@ modules to ensure consistent Markdown generation.
    Pad table cells with spaces for visual alignment in source
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-pad-table-cells``
    :Default: ``False``
    :Importance: advanced
 
@@ -4536,7 +5292,6 @@ modules to ensure consistent Markdown generation.
    Prefer setext-style headings (underlines) for h1 and h2
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-prefer-setext-headings``
    :Default: ``False``
    :Importance: advanced
 
@@ -4545,7 +5300,6 @@ modules to ensure consistent Markdown generation.
    Maximum line width for wrapping (None for no limit)
 
    :Type: ``int | None``
-   :CLI flag: ``--markdown-renderer-max-line-width``
    :Default: ``None``
    :Importance: advanced
 
@@ -4554,7 +5308,6 @@ modules to ensure consistent Markdown generation.
    Default alignment for table columns without explicit alignment
 
    :Type: ``str``
-   :CLI flag: ``--markdown-renderer-table-alignment-default``
    :Default: ``'left'``
    :Choices: ``left``, ``center``, ``right``
    :Importance: advanced
@@ -4564,7 +5317,6 @@ modules to ensure consistent Markdown generation.
    Shift all heading levels by this amount (useful when collating docs)
 
    :Type: ``int``
-   :CLI flag: ``--markdown-renderer-heading-level-offset``
    :Default: ``0``
    :Importance: advanced
 
@@ -4572,8 +5324,7 @@ modules to ensure consistent Markdown generation.
 
    Character to use for code fences (backtick or tilde)
 
-   :Type: ``CodeFenceChar``
-   :CLI flag: ``--markdown-renderer-code-fence-char``
+   :Type: ``Literal['`', '~']``
    :Default: ``'`'``
    :Choices: `````, ``~``
    :Importance: advanced
@@ -4583,7 +5334,6 @@ modules to ensure consistent Markdown generation.
    Minimum length for code fences (typically 3)
 
    :Type: ``int``
-   :CLI flag: ``--markdown-renderer-code-fence-min``
    :Default: ``3``
    :Importance: advanced
 
@@ -4592,7 +5342,6 @@ modules to ensure consistent Markdown generation.
    Collapse multiple blank lines into at most 2 (normalize whitespace)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-no-collapse-blank-lines``
    :Default: ``True``
    :Importance: core
 
@@ -4600,8 +5349,7 @@ modules to ensure consistent Markdown generation.
 
    Link style: inline [text](url) or reference [text][ref]
 
-   :Type: ``LinkStyleType``
-   :CLI flag: ``--markdown-renderer-link-style``
+   :Type: ``Literal['inline', 'reference']``
    :Default: ``'inline'``
    :Choices: ``inline``, ``reference``
    :Importance: core
@@ -4610,8 +5358,7 @@ modules to ensure consistent Markdown generation.
 
    Where to place reference link definitions: end_of_document or after_block
 
-   :Type: ``ReferenceLinkPlacement``
-   :CLI flag: ``--markdown-renderer-reference-link-placement``
+   :Type: ``Literal['end_of_document', 'after_block']``
    :Default: ``'end_of_document'``
    :Choices: ``end_of_document``, ``after_block``
    :Importance: advanced
@@ -4621,7 +5368,6 @@ modules to ensure consistent Markdown generation.
    Convert bare URLs in text to Markdown autolinks (<http://...>)
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-autolink-bare-urls``
    :Default: ``False``
    :Importance: core
 
@@ -4630,7 +5376,6 @@ modules to ensure consistent Markdown generation.
    Escape pipe characters in table cells
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-no-table-pipe-escape``
    :Default: ``True``
    :Importance: core
 
@@ -4638,8 +5383,7 @@ modules to ensure consistent Markdown generation.
 
    Preferred math representation: latex, mathml, or html
 
-   :Type: ``MathMode``
-   :CLI flag: ``--markdown-renderer-math-mode``
+   :Type: ``Literal['latex', 'mathml', 'html']``
    :Default: ``'latex'``
    :Choices: ``latex``, ``mathml``, ``html``
    :Importance: core
@@ -4649,7 +5393,6 @@ modules to ensure consistent Markdown generation.
    Render document metadata as YAML frontmatter
 
    :Type: ``bool``
-   :CLI flag: ``--markdown-renderer-metadata-frontmatter``
    :Default: ``False``
    :Importance: core
 
@@ -4657,8 +5400,7 @@ modules to ensure consistent Markdown generation.
 
    Format for metadata frontmatter: yaml, toml, or json
 
-   :Type: ``MetadataFormatType``
-   :CLI flag: ``--markdown-renderer-metadata-format``
+   :Type: ``Literal['yaml', 'toml', 'json']``
    :Default: ``'yaml'``
    :Choices: ``yaml``, ``toml``, ``json``
    :Importance: advanced
@@ -4667,8 +5409,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
-   :Type: ``HtmlPassthroughMode``
-   :CLI flag: ``--markdown-renderer-html-passthrough-mode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
@@ -4677,17 +5418,10 @@ modules to ensure consistent Markdown generation.
 
    How to render Comment and CommentInline nodes: html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML, and other formats that support annotations.
 
-   :Type: ``CommentMode``
-   :CLI flag: ``--markdown-renderer-comment-mode``
+   :Type: ``Literal['html', 'blockquote', 'ignore']``
    :Default: ``'blockquote'``
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
-
-**_unsupported_inline_mode_was_explicit**
-
-   :Type: ``bool``
-   :CLI flag: ``--markdown-renderer--unsupported-inline-mode-was-explicit``
-   :Default: ``False``
 
 MBOX Options
 ~~~~~~~~~~~~
@@ -4706,7 +5440,7 @@ message filtering, and folder handling.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--mbox-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -4716,7 +5450,7 @@ message filtering, and folder handling.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--mbox-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -4762,7 +5496,7 @@ message filtering, and folder handling.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--mbox-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -4786,15 +5520,6 @@ message filtering, and folder handling.
    :Default: ``'Attachments'``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--mbox-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **include_headers**
 
    Include email headers (From, To, Subject, Date) in output
@@ -4817,7 +5542,7 @@ message filtering, and folder handling.
 
    Date formatting mode: iso8601, locale, or strftime
 
-   :Type: ``DateFormatMode``
+   :Type: ``Literal['iso8601', 'locale', 'strftime']``
    :CLI flag: ``--mbox-date-format-mode``
    :Default: ``'strftime'``
    :Importance: advanced
@@ -4845,7 +5570,7 @@ message filtering, and folder handling.
    Clean and normalize quoted content
 
    :Type: ``bool``
-   :CLI flag: ``--mbox-clean-quotes``
+   :CLI flag: ``--mbox-no-clean-quotes``
    :Default: ``True``
    :Importance: advanced
 
@@ -4854,7 +5579,7 @@ message filtering, and folder handling.
    Detect common reply separators
 
    :Type: ``bool``
-   :CLI flag: ``--mbox-detect-reply-separators``
+   :CLI flag: ``--mbox-no-detect-reply-separators``
    :Default: ``True``
    :Importance: advanced
 
@@ -4863,7 +5588,7 @@ message filtering, and folder handling.
    Normalize header casing and whitespace
 
    :Type: ``bool``
-   :CLI flag: ``--mbox-normalize-headers``
+   :CLI flag: ``--mbox-no-normalize-headers``
    :Default: ``True``
    :Importance: advanced
 
@@ -4881,7 +5606,7 @@ message filtering, and folder handling.
    Clean URL defense/safety wrappers from links
 
    :Type: ``bool``
-   :CLI flag: ``--mbox-clean-wrapped-urls``
+   :CLI flag: ``--mbox-no-clean-wrapped-urls``
    :Default: ``True``
    :Importance: security
 
@@ -4894,19 +5619,102 @@ message filtering, and folder handling.
    :Default factory: ``EmlOptions.<lambda>``
    :Importance: security
 
-**html_network**
+Html Network Options
+++++++++++++++++++++
 
-   Network security settings for HTML part conversion
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--mbox-html-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
+
+**allow_remote_fetch**
+
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-html-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--mbox-html-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-html-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--mbox-html-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--mbox-html-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--mbox-html-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--mbox-html-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--mbox-html-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--mbox-html-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
 
 **sort_order**
 
    Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
 
-   :Type: ``EmailSortOrder``
+   :Type: ``Literal['asc', 'desc']``
    :CLI flag: ``--mbox-sort-order``
    :Default: ``'asc'``
    :Choices: ``asc``, ``desc``
@@ -4970,7 +5778,7 @@ message filtering, and folder handling.
 
    Mailbox format type (auto, mbox, maildir, mh, babyl, mmdf)
 
-   :Type: ``MailboxFormatType``
+   :Type: ``Literal['auto', 'mbox', 'maildir', 'mh', 'babyl', 'mmdf']``
    :CLI flag: ``--mbox-mailbox-format``
    :Default: ``'auto'``
    :Importance: core
@@ -4979,7 +5787,7 @@ message filtering, and folder handling.
 
    Output structure: 'flat' (sequential) or 'hierarchical' (preserve folders)
 
-   :Type: ``OutputStructureMode``
+   :Type: ``Literal['flat', 'hierarchical']``
    :CLI flag: ``--mbox-output-structure``
    :Default: ``'flat'``
    :Choices: ``flat``, ``hierarchical``
@@ -4998,7 +5806,7 @@ message filtering, and folder handling.
 
    Only process messages on or after this date
 
-   :Type: ``datetime.datetime | None``
+   :Type: ``datetime | None``
    :CLI flag: ``--mbox-date-range-start``
    :Default: ``None``
    :Importance: advanced
@@ -5007,7 +5815,7 @@ message filtering, and folder handling.
 
    Only process messages on or before this date
 
-   :Type: ``datetime.datetime | None``
+   :Type: ``datetime | None``
    :CLI flag: ``--mbox-date-range-end``
    :Default: ``None``
    :Importance: advanced
@@ -5041,15 +5849,6 @@ Configuration options for MediaWiki-to-AST parsing.
 
 This dataclass contains settings specific to parsing MediaWiki/WikiText documents
 into AST representation using mwparserfromhell.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--mediawiki-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **parse_templates**
 
@@ -5154,7 +5953,7 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
 
    How to render image captions: auto (use alt_text as caption), alt_only, caption_only
 
-   :Type: ``MediaWikiImageCaptionMode``
+   :Type: ``Literal['auto', 'alt_only', 'caption_only']``
    :CLI flag: ``--mediawiki-renderer-image-caption-mode``
    :Default: ``'alt_only'``
    :Choices: ``auto``, ``alt_only``, ``caption_only``
@@ -5164,7 +5963,7 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--mediawiki-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -5174,7 +5973,7 @@ MediaWiki markup, suitable for Wikipedia and other MediaWiki-based wikis.
 
    Comment rendering mode: html, visible, or ignore
 
-   :Type: ``MediaWikiCommentMode``
+   :Type: ``Literal['html', 'visible', 'ignore']``
    :CLI flag: ``--mediawiki-renderer-comment-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``visible``, ``ignore``
@@ -5196,7 +5995,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--mhtml-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -5206,7 +6005,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--mhtml-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -5252,7 +6051,7 @@ primarily for handling embedded assets like images and local file security.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--mhtml-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5275,15 +6074,6 @@ primarily for handling embedded assets like images and local file security.
    :CLI flag: ``--mhtml-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--mhtml-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **extract_title**
 
@@ -5330,21 +6120,140 @@ primarily for handling embedded assets like images and local file security.
    :Default: ``True``
    :Importance: advanced
 
-**network**
+Network Options
++++++++++++++++
 
-   Network security settings for remote resource fetching
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--mhtml-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
 
-**local_files**
+**allow_remote_fetch**
 
-   Local file access security settings
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
 
-   :Type: ``LocalFileAccessOptions``
-   :CLI flag: ``--mhtml-local-files``
-   :Default factory: ``LocalFileAccessOptions``
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--mhtml-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--mhtml-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--mhtml-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--mhtml-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--mhtml-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--mhtml-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
+
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--mhtml-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--mhtml-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--mhtml-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
 
 **strip_comments**
 
@@ -5377,7 +6286,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to handle <br> tags: 'newline' or 'space'
 
-   :Type: ``BrHandling``
+   :Type: ``Literal['newline', 'space']``
    :CLI flag: ``--mhtml-br-handling``
    :Default: ``'newline'``
    :Choices: ``newline``, ``space``
@@ -5407,7 +6316,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``FiguresParsing``
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--mhtml-figures-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
@@ -5417,7 +6326,7 @@ primarily for handling embedded assets like images and local file security.
 
    How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``DetailsParsing``
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
    :CLI flag: ``--mhtml-details-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``html``, ``skip``
@@ -5445,7 +6354,7 @@ primarily for handling embedded assets like images and local file security.
 
    BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
 
-   :Type: ``HtmlParser``
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
    :CLI flag: ``--mhtml-html-parser``
    :Default: ``'html.parser'``
    :Choices: ``html.parser``, ``html5lib``, ``lxml``
@@ -5467,7 +6376,7 @@ processing, including slide selection, numbering, and notes.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--odp-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -5477,7 +6386,7 @@ processing, including slide selection, numbering, and notes.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--odp-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -5523,7 +6432,7 @@ processing, including slide selection, numbering, and notes.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--odp-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5546,15 +6455,6 @@ processing, including slide selection, numbering, and notes.
    :CLI flag: ``--odp-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--odp-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **page_separator_template**
 
@@ -5649,7 +6549,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Slide splitting strategy: separator, heading, or auto
 
-   :Type: ``SlideSplitMode``
+   :Type: ``Literal['separator', 'heading', 'auto']``
    :CLI flag: ``--odp-renderer-slide-split-mode``
    :Default: ``'auto'``
    :Choices: ``separator``, ``heading``, ``auto``
@@ -5748,7 +6648,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Comment rendering mode: native, visible, or ignore
 
-   :Type: ``OdpCommentMode``
+   :Type: ``Literal['native', 'visible', 'ignore']``
    :CLI flag: ``--odp-renderer-comment-mode``
    :Default: ``'native'``
    :Choices: ``native``, ``visible``, ``ignore``
@@ -5770,7 +6670,7 @@ and adds ODS-specific options.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--ods-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -5780,7 +6680,7 @@ and adds ODS-specific options.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--ods-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -5826,7 +6726,7 @@ and adds ODS-specific options.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--ods-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -5849,15 +6749,6 @@ and adds ODS-specific options.
    :CLI flag: ``--ods-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--ods-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **sheets**
 
@@ -5925,7 +6816,7 @@ and adds ODS-specific options.
 
    Trim empty rows/columns: none, leading, trailing, or both
 
-   :Type: ``TrimEmptyMode``
+   :Type: ``Literal['none', 'leading', 'trailing', 'both']``
    :CLI flag: ``--ods-trim-empty``
    :Default: ``'trailing'``
    :Choices: ``none``, ``leading``, ``trailing``, ``both``
@@ -5935,7 +6826,7 @@ and adds ODS-specific options.
 
    Transform header case: preserve, title, upper, or lower
 
-   :Type: ``HeaderCaseOption``
+   :Type: ``Literal['preserve', 'title', 'upper', 'lower']``
    :CLI flag: ``--ods-header-case``
    :Default: ``'preserve'``
    :Choices: ``preserve``, ``title``, ``upper``, ``lower``
@@ -5945,7 +6836,7 @@ and adds ODS-specific options.
 
    Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts, default)
 
-   :Type: ``ChartMode``
+   :Type: ``Literal['data', 'skip']``
    :CLI flag: ``--ods-chart-mode``
    :Default: ``'skip'``
    :Choices: ``data``, ``skip``
@@ -5955,7 +6846,7 @@ and adds ODS-specific options.
 
    Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'
 
-   :Type: ``MergedCellMode``
+   :Type: ``Literal['spans', 'flatten', 'skip']``
    :CLI flag: ``--ods-merged-cell-mode``
    :Default: ``'flatten'``
    :Choices: ``spans``, ``flatten``, ``skip``
@@ -5987,7 +6878,7 @@ for embedded images.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--odt-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -5997,7 +6888,7 @@ for embedded images.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--odt-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -6043,7 +6934,7 @@ for embedded images.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--odt-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -6066,15 +6957,6 @@ for embedded images.
    :CLI flag: ``--odt-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--odt-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **preserve_tables**
 
@@ -6201,19 +7083,102 @@ including fonts, styles, and formatting preferences.
    :Default: ``None``
    :Importance: core
 
-**network**
+Network Options
++++++++++++++++
 
-   Network security settings for remote image fetching
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--odt-renderer-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
+
+**allow_remote_fetch**
+
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--odt-renderer-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--odt-renderer-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--odt-renderer-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--odt-renderer-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--odt-renderer-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--odt-renderer-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
 
 **comment_mode**
 
    How to render Comment and CommentInline nodes: native (ODT annotations), visible (text paragraphs with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from ODT source files and other format annotations.
 
-   :Type: ``OdtCommentMode``
+   :Type: ``Literal['native', 'visible', 'ignore']``
    :CLI flag: ``--odt-renderer-comment-mode``
    :Default: ``'native'``
    :Choices: ``native``, ``visible``, ``ignore``
@@ -6230,15 +7195,6 @@ Options for parsing OpenAPI/Swagger specification documents.
 
 This dataclass contains settings specific to parsing OpenAPI specifications
 into AST representation, supporting both OpenAPI 3.x and Swagger 2.0 formats.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--openapi-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **include_servers**
 
@@ -6333,15 +7289,6 @@ Configuration options for Org-Mode-to-AST parsing.
 
 This dataclass contains settings specific to parsing Org-Mode documents
 into AST representation using orgparse.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--org-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **parse_properties**
 
@@ -6463,7 +7410,7 @@ Org-Mode output.
 
    Style for rendering headings
 
-   :Type: ``OrgHeadingStyle``
+   :Type: ``Literal['stars']``
    :CLI flag: ``--org-renderer-heading-style``
    :Default: ``'stars'``
    :Choices: ``stars``
@@ -6500,7 +7447,7 @@ Org-Mode output.
 
    How to render Comment and CommentInline nodes: comment (# comments), drawer (:COMMENT: drawer), ignore (skip comment nodes entirely). Controls presentation of source document comments.
 
-   :Type: ``OrgCommentMode``
+   :Type: ``Literal['comment', 'drawer', 'ignore']``
    :CLI flag: ``--org-renderer-comment-mode``
    :Default: ``'comment'``
    :Choices: ``comment``, ``drawer``, ``ignore``
@@ -6550,7 +7497,7 @@ PST/OST archive handling, and advanced message selection.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--outlook-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -6560,7 +7507,7 @@ PST/OST archive handling, and advanced message selection.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--outlook-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -6606,7 +7553,7 @@ PST/OST archive handling, and advanced message selection.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--outlook-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -6630,15 +7577,6 @@ PST/OST archive handling, and advanced message selection.
    :Default: ``'Attachments'``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--outlook-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **include_headers**
 
    Include email headers (From, To, Subject, Date) in output
@@ -6661,7 +7599,7 @@ PST/OST archive handling, and advanced message selection.
 
    Date formatting mode: iso8601, locale, or strftime
 
-   :Type: ``DateFormatMode``
+   :Type: ``Literal['iso8601', 'locale', 'strftime']``
    :CLI flag: ``--outlook-date-format-mode``
    :Default: ``'strftime'``
    :Importance: advanced
@@ -6689,7 +7627,7 @@ PST/OST archive handling, and advanced message selection.
    Clean and normalize quoted content
 
    :Type: ``bool``
-   :CLI flag: ``--outlook-clean-quotes``
+   :CLI flag: ``--outlook-no-clean-quotes``
    :Default: ``True``
    :Importance: advanced
 
@@ -6698,7 +7636,7 @@ PST/OST archive handling, and advanced message selection.
    Detect common reply separators
 
    :Type: ``bool``
-   :CLI flag: ``--outlook-detect-reply-separators``
+   :CLI flag: ``--outlook-no-detect-reply-separators``
    :Default: ``True``
    :Importance: advanced
 
@@ -6707,7 +7645,7 @@ PST/OST archive handling, and advanced message selection.
    Normalize header casing and whitespace
 
    :Type: ``bool``
-   :CLI flag: ``--outlook-normalize-headers``
+   :CLI flag: ``--outlook-no-normalize-headers``
    :Default: ``True``
    :Importance: advanced
 
@@ -6725,7 +7663,7 @@ PST/OST archive handling, and advanced message selection.
    Clean URL defense/safety wrappers from links
 
    :Type: ``bool``
-   :CLI flag: ``--outlook-clean-wrapped-urls``
+   :CLI flag: ``--outlook-no-clean-wrapped-urls``
    :Default: ``True``
    :Importance: security
 
@@ -6738,19 +7676,102 @@ PST/OST archive handling, and advanced message selection.
    :Default factory: ``EmlOptions.<lambda>``
    :Importance: security
 
-**html_network**
+Html Network Options
+++++++++++++++++++++
 
-   Network security settings for HTML part conversion
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--outlook-html-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
+
+**allow_remote_fetch**
+
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-html-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--outlook-html-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-html-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--outlook-html-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--outlook-html-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--outlook-html-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--outlook-html-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--outlook-html-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--outlook-html-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
 
 **sort_order**
 
    Email chain sort order: 'asc' (oldest first) or 'desc' (newest first)
 
-   :Type: ``EmailSortOrder``
+   :Type: ``Literal['asc', 'desc']``
    :CLI flag: ``--outlook-sort-order``
    :Default: ``'asc'``
    :Choices: ``asc``, ``desc``
@@ -6814,7 +7835,7 @@ PST/OST archive handling, and advanced message selection.
 
    Output structure: 'flat' (sequential) or 'hierarchical' (preserve folders)
 
-   :Type: ``OutputStructureMode``
+   :Type: ``Literal['flat', 'hierarchical']``
    :CLI flag: ``--outlook-output-structure``
    :Default: ``'flat'``
    :Choices: ``flat``, ``hierarchical``
@@ -6833,7 +7854,7 @@ PST/OST archive handling, and advanced message selection.
 
    Only process messages on or after this date
 
-   :Type: ``datetime.datetime | None``
+   :Type: ``datetime | None``
    :CLI flag: ``--outlook-date-range-start``
    :Default: ``None``
    :Importance: advanced
@@ -6842,7 +7863,7 @@ PST/OST archive handling, and advanced message selection.
 
    Only process messages on or before this date
 
-   :Type: ``datetime.datetime | None``
+   :Type: ``datetime | None``
    :CLI flag: ``--outlook-date-range-end``
    :Default: ``None``
    :Importance: advanced
@@ -6899,7 +7920,7 @@ including page selection, image handling, and formatting preferences.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--pdf-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -6909,7 +7930,7 @@ including page selection, image handling, and formatting preferences.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--pdf-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -6955,7 +7976,7 @@ including page selection, image handling, and formatting preferences.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--pdf-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -6979,15 +8000,6 @@ including page selection, image handling, and formatting preferences.
    :Default: ``'Attachments'``
    :Importance: advanced
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--pdf-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **page_separator_template**
 
    Template for page/slide separators. Supports placeholders: {page_num}, {total_pages}. This string is inserted between pages/slides
@@ -7001,7 +8013,7 @@ including page selection, image handling, and formatting preferences.
 
    Pages to convert. Supports ranges: '1-3,5,10-' or list like [1,2,3]. Always 1-based.
 
-   :Type: ``UnionType[list[int], str, NoneType]``
+   :Type: ``list[int] | str | None``
    :CLI flag: ``--pdf-pages``
    :Default: ``None``
    :Importance: core
@@ -7010,7 +8022,7 @@ including page selection, image handling, and formatting preferences.
 
    Password for encrypted PDF documents
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--pdf-password``
    :Default: ``None``
    :Importance: security
@@ -7019,7 +8031,7 @@ including page selection, image handling, and formatting preferences.
 
    Pages to sample for header detection (single page or comma-separated list)
 
-   :Type: ``UnionType[int, list[int], NoneType]``
+   :Type: ``int | list[int] | None``
    :CLI flag: ``--pdf-header-sample-pages``
    :Default: ``None``
    :Importance: advanced
@@ -7046,7 +8058,7 @@ including page selection, image handling, and formatting preferences.
 
    Specific font sizes (in points) to always treat as headers
 
-   :Type: ``UnionType[list[float], NoneType]``
+   :Type: ``list[float] | None``
    :CLI flag: ``--pdf-header-size-allowlist``
    :Default: ``None``
    :Importance: advanced
@@ -7055,7 +8067,7 @@ including page selection, image handling, and formatting preferences.
 
    Font sizes (in points) to never treat as headers
 
-   :Type: ``UnionType[list[float], NoneType]``
+   :Type: ``list[float] | None``
    :CLI flag: ``--pdf-header-size-denylist``
    :Default: ``None``
    :Importance: advanced
@@ -7413,7 +8425,7 @@ supported via ``engine``: Tesseract (default) and EasyOCR.
 
    Tesseract language code(s), e.g. 'eng', 'fra', 'eng+fra', or ['eng', 'fra']
 
-   :Type: ``UnionType[str, list[str]]``
+   :Type: ``str | list[str]``
    :CLI flag: ``--pdf-ocr-languages``
    :Default: ``'eng'``
    :Importance: core
@@ -7612,7 +8624,7 @@ including page layout, fonts, margins, and formatting preferences.
 
    Heading font specs as JSON (e.g., '{"1": ["Helvetica-Bold", 24]}')
 
-   :Type: ``UnionType[dict[int, tuple[str, int]], NoneType]``
+   :Type: ``dict[int, tuple[str, int]] | None``
    :CLI flag: ``--pdf-renderer-heading-fonts``
    :Default: ``None``
    :Importance: advanced
@@ -7675,7 +8687,7 @@ to prevent SSRF attacks.
 
    List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
 
-   :Type: ``UnionType[list[str], NoneType]``
+   :Type: ``list[str] | None``
    :CLI flag: ``--pdf-renderer-network-allowed-hosts``
    :Default: ``None``
    :Importance: security
@@ -7720,7 +8732,7 @@ to prevent SSRF attacks.
 
    Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
 
-   :Type: ``UnionType[tuple[str, ...], NoneType]``
+   :Type: ``tuple[str, ...] | None``
    :CLI flag: ``--pdf-renderer-network-allowed-content-types``
    :Default: ``('image/',)``
    :CLI action: ``append``
@@ -7762,15 +8774,6 @@ PLAINTEXT Parser Options
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Configuration options for plain text parsing.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--plaintext-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **preserve_single_newlines**
 
@@ -7830,7 +8833,7 @@ is stripped, leaving only the text content.
 
    Maximum line width for wrapping (None = no wrapping)
 
-   :Type: ``UnionType[int, NoneType]``
+   :Type: ``int | None``
    :CLI flag: ``--plaintext-renderer-max-line-width``
    :Default: ``80``
    :Importance: core
@@ -7915,7 +8918,7 @@ processing, including slide numbering and image handling.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--pptx-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -7925,7 +8928,7 @@ processing, including slide numbering and image handling.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--pptx-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -7971,7 +8974,7 @@ processing, including slide numbering and image handling.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--pptx-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -7994,15 +8997,6 @@ processing, including slide numbering and image handling.
    :CLI flag: ``--pptx-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--pptx-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **page_separator_template**
 
@@ -8035,7 +9029,7 @@ processing, including slide numbering and image handling.
 
    How to parse speaker notes: content (regular nodes with H3 heading), comment (Comment AST nodes with metadata), or ignore (skip entirely)
 
-   :Type: ``PptxParserCommentMode``
+   :Type: ``Literal['content', 'comment', 'ignore']``
    :CLI flag: ``--pptx-comment-mode``
    :Default: ``'content'``
    :Choices: ``content``, ``comment``, ``ignore``
@@ -8054,7 +9048,7 @@ processing, including slide numbering and image handling.
 
    Chart conversion mode: 'data' (default, tables only), 'mermaid' (diagrams only), or 'both' (tables + diagrams)
 
-   :Type: ``ChartsMode``
+   :Type: ``Literal['data', 'mermaid', 'both']``
    :CLI flag: ``--pptx-charts-mode``
    :Default: ``'data'``
    :Choices: ``data``, ``mermaid``, ``both``
@@ -8126,7 +9120,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Slide splitting strategy: separator, heading, or auto
 
-   :Type: ``SlideSplitMode``
+   :Type: ``Literal['separator', 'heading', 'auto']``
    :CLI flag: ``--pptx-renderer-slide-split-mode``
    :Default: ``'auto'``
    :Choices: ``separator``, ``heading``, ``auto``
@@ -8306,7 +9300,7 @@ generation from AST, including slide splitting strategies and layout.
 
    Comment rendering mode: speaker_notes, visible, or ignore
 
-   :Type: ``PptxCommentMode``
+   :Type: ``Literal['speaker_notes', 'visible', 'ignore']``
    :CLI flag: ``--pptx-renderer-comment-mode``
    :Default: ``'speaker_notes'``
    :Choices: ``speaker_notes``, ``visible``, ``ignore``
@@ -8405,15 +9399,6 @@ Configuration options for reStructuredText-to-AST parsing.
 This dataclass contains settings specific to parsing reStructuredText documents
 into AST representation using docutils.
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--rst-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **strict_mode**
 
    Raise errors on invalid RST syntax (vs. graceful recovery)
@@ -8498,7 +9483,7 @@ reStructuredText output.
 
    Table rendering style
 
-   :Type: ``RstTableStyle``
+   :Type: ``Literal['grid', 'simple']``
    :CLI flag: ``--rst-renderer-table-style``
    :Default: ``'grid'``
    :Choices: ``grid``, ``simple``
@@ -8508,7 +9493,7 @@ reStructuredText output.
 
    Code block rendering style
 
-   :Type: ``RstCodeStyle``
+   :Type: ``Literal['double_colon', 'directive']``
    :CLI flag: ``--rst-renderer-code-directive-style``
    :Default: ``'directive'``
    :Choices: ``double_colon``, ``directive``
@@ -8527,7 +9512,7 @@ reStructuredText output.
 
    Hard line break rendering mode: line_block (use \| syntax) or raw (plain newline)
 
-   :Type: ``RstLineBreakMode``
+   :Type: ``Literal['line_block', 'raw']``
    :CLI flag: ``--rst-renderer-hard-line-break-mode``
    :Default: ``'line_block'``
    :Choices: ``line_block``, ``raw``
@@ -8546,7 +9531,7 @@ reStructuredText output.
 
    How to render Comment and CommentInline nodes: comment (.. comments), note (.. note:: directive), ignore (skip comment nodes entirely). Controls presentation of source document comments.
 
-   :Type: ``RstCommentMode``
+   :Type: ``Literal['comment', 'note', 'ignore']``
    :CLI flag: ``--rst-renderer-comment-mode``
    :Default: ``'comment'``
    :Choices: ``comment``, ``note``, ``ignore``
@@ -8569,7 +9554,7 @@ attachment handling from AttachmentOptionsMixin.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--rtf-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -8579,7 +9564,7 @@ attachment handling from AttachmentOptionsMixin.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--rtf-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -8625,7 +9610,7 @@ attachment handling from AttachmentOptionsMixin.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--rtf-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -8648,15 +9633,6 @@ attachment handling from AttachmentOptionsMixin.
    :CLI flag: ``--rtf-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--rtf-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 RTF Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
@@ -8703,7 +9679,7 @@ Configuration options for rendering AST documents to RTF.
 
    Base font family for the entire RTF document
 
-   :Type: ``RtfFontFamily``
+   :Type: ``Literal['roman', 'swiss']``
    :CLI flag: ``--rtf-renderer-font-family``
    :Default: ``'roman'``
    :Choices: ``roman``, ``swiss``
@@ -8722,7 +9698,7 @@ Configuration options for rendering AST documents to RTF.
 
    Comment rendering mode: bracketed or ignore
 
-   :Type: ``RtfCommentMode``
+   :Type: ``Literal['bracketed', 'ignore']``
    :CLI flag: ``--rtf-renderer-comment-mode``
    :Default: ``'bracketed'``
    :Choices: ``bracketed``, ``ignore``
@@ -8740,15 +9716,6 @@ Configuration options for source code to Markdown conversion.
 This dataclass contains settings specific to source code file processing,
 including language detection, formatting options, and output customization.
 
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--sourcecode-extract-metadata``
-   :Default: ``False``
-   :Importance: core
-
 **detect_language**
 
    Automatically detect programming language from file extension
@@ -8762,7 +9729,7 @@ including language detection, formatting options, and output customization.
 
    Override language identifier for syntax highlighting
 
-   :Type: ``UnionType[str, NoneType]``
+   :Type: ``str | None``
    :CLI flag: ``--sourcecode-language``
    :Default: ``None``
    :Importance: core
@@ -8787,15 +9754,6 @@ Configuration options for Textile-to-AST parsing.
 
 This dataclass contains settings specific to parsing Textile documents
 into AST representation using the textile library.
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--textile-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **strict_mode**
 
@@ -8882,7 +9840,7 @@ Textile markup output.
 
    How to handle raw HTML content: pass-through, escape, drop, or sanitize
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--textile-renderer-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -8892,7 +9850,7 @@ Textile markup output.
 
    Comment rendering mode: html, blockquote, or ignore
 
-   :Type: ``TextileCommentMode``
+   :Type: ``Literal['html', 'blockquote', 'ignore']``
    :CLI flag: ``--textile-renderer-comment-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``blockquote``, ``ignore``
@@ -8914,15 +9872,6 @@ document instead:
 - Arrays of tables become markdown tables
 - Arrays of primitives become lists
 - Nested structures become subsections
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--toml-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **literal_block**
 
@@ -9045,7 +9994,7 @@ focusing on tables but optionally including lists and other elements.
    Auto-detect types (numbers, booleans)
 
    :Type: ``bool``
-   :CLI flag: ``--toml-renderer-type-inference``
+   :CLI flag: ``--toml-renderer-no-type-inference``
    :Default: ``True``
    :Importance: core
 
@@ -9054,7 +10003,7 @@ focusing on tables but optionally including lists and other elements.
    Use preceding heading as key for each table
 
    :Type: ``bool``
-   :CLI flag: ``--toml-renderer-table-heading-keys``
+   :CLI flag: ``--toml-renderer-no-table-heading-keys``
    :Default: ``True``
    :Importance: core
 
@@ -9101,7 +10050,7 @@ including options for handling embedded resources and nested frames.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--webarchive-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -9111,7 +10060,7 @@ including options for handling embedded resources and nested frames.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--webarchive-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -9157,7 +10106,7 @@ including options for handling embedded resources and nested frames.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--webarchive-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -9180,15 +10129,6 @@ including options for handling embedded resources and nested frames.
    :CLI flag: ``--webarchive-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--webarchive-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **extract_title**
 
@@ -9235,21 +10175,140 @@ including options for handling embedded resources and nested frames.
    :Default: ``True``
    :Importance: advanced
 
-**network**
+Network Options
++++++++++++++++
 
-   Network security settings for remote resource fetching
+Network security options for remote resource fetching.
 
-   :Type: ``NetworkFetchOptions``
-   :CLI flag: ``--webarchive-network``
-   :Default factory: ``NetworkFetchOptions``
+This dataclass contains settings that control how remote resources
+(images, CSS, etc.) are fetched, including security constraints
+to prevent SSRF attacks.
 
-**local_files**
+**allow_remote_fetch**
 
-   Local file access security settings
+   Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
 
-   :Type: ``LocalFileAccessOptions``
-   :CLI flag: ``--webarchive-local-files``
-   :Default factory: ``LocalFileAccessOptions``
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-network-allow-remote-fetch``
+   :Default: ``False``
+   :Importance: security
+
+**allowed_hosts**
+
+   List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--webarchive-network-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for all remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-network-no-require-https``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require HEAD request success before remote URL fetching
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-network-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**network_timeout**
+
+   Timeout in seconds for remote URL fetching
+
+   :Type: ``float``
+   :CLI flag: ``--webarchive-network-network-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_redirects**
+
+   Maximum number of HTTP redirects to follow
+
+   :Type: ``int``
+   :CLI flag: ``--webarchive-network-max-redirects``
+   :Default: ``5``
+   :Importance: security
+
+**allowed_content_types**
+
+   Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
+
+   :Type: ``tuple[str, ...] | None``
+   :CLI flag: ``--webarchive-network-allowed-content-types``
+   :Default: ``('image/',)``
+   :CLI action: ``append``
+   :Importance: security
+
+**max_requests_per_second**
+
+   Maximum number of network requests per second (rate limiting)
+
+   :Type: ``float``
+   :CLI flag: ``--webarchive-network-max-requests-per-second``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_concurrent_requests**
+
+   Maximum number of concurrent network requests
+
+   :Type: ``int``
+   :CLI flag: ``--webarchive-network-max-concurrent-requests``
+   :Default: ``5``
+   :Importance: security
+
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--webarchive-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--webarchive-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--webarchive-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
 
 **strip_comments**
 
@@ -9282,7 +10341,7 @@ including options for handling embedded resources and nested frames.
 
    How to handle <br> tags: 'newline' or 'space'
 
-   :Type: ``BrHandling``
+   :Type: ``Literal['newline', 'space']``
    :CLI flag: ``--webarchive-br-handling``
    :Default: ``'newline'``
    :Choices: ``newline``, ``space``
@@ -9312,7 +10371,7 @@ including options for handling embedded resources and nested frames.
 
    How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``FiguresParsing``
+   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--webarchive-figures-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
@@ -9322,7 +10381,7 @@ including options for handling embedded resources and nested frames.
 
    How to render <details>/<summary> elements: blockquote, html, skip
 
-   :Type: ``DetailsParsing``
+   :Type: ``Literal['blockquote', 'paragraph', 'html', 'skip']``
    :CLI flag: ``--webarchive-details-parsing``
    :Default: ``'blockquote'``
    :Choices: ``blockquote``, ``html``, ``skip``
@@ -9350,7 +10409,7 @@ including options for handling embedded resources and nested frames.
 
    BeautifulSoup parser to use: 'html.parser' (built-in, fast, may differ from browsers), 'html5lib' (standards-compliant, slower, matches browser behavior), 'lxml' (fast, requires C library). For security-critical applications, consider 'html5lib' for more consistent parsing.
 
-   :Type: ``HtmlParser``
+   :Type: ``Literal['html.parser', 'html5lib', 'lxml']``
    :CLI flag: ``--webarchive-html-parser``
    :Default: ``'html.parser'``
    :Choices: ``html.parser``, ``html5lib``, ``lxml``
@@ -9392,7 +10451,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--xlsx-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -9402,7 +10461,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--xlsx-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -9448,7 +10507,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--xlsx-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -9471,15 +10530,6 @@ See SpreadsheetParserOptions for complete documentation of available options.
    :CLI flag: ``--xlsx-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--xlsx-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **sheets**
 
@@ -9547,7 +10597,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Trim empty rows/columns: none, leading, trailing, or both
 
-   :Type: ``TrimEmptyMode``
+   :Type: ``Literal['none', 'leading', 'trailing', 'both']``
    :CLI flag: ``--xlsx-trim-empty``
    :Default: ``'trailing'``
    :Choices: ``none``, ``leading``, ``trailing``, ``both``
@@ -9557,7 +10607,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Transform header case: preserve, title, upper, or lower
 
-   :Type: ``HeaderCaseOption``
+   :Type: ``Literal['preserve', 'title', 'upper', 'lower']``
    :CLI flag: ``--xlsx-header-case``
    :Default: ``'preserve'``
    :Choices: ``preserve``, ``title``, ``upper``, ``lower``
@@ -9567,7 +10617,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Chart handling mode: 'data' (extract as tables) or 'skip' (ignore charts, default)
 
-   :Type: ``ChartMode``
+   :Type: ``Literal['data', 'skip']``
    :CLI flag: ``--xlsx-chart-mode``
    :Default: ``'skip'``
    :Choices: ``data``, ``skip``
@@ -9577,7 +10627,7 @@ See SpreadsheetParserOptions for complete documentation of available options.
 
    Merged cell handling: 'spans' (use colspan/rowspan), 'flatten' (empty strings), or 'skip'
 
-   :Type: ``MergedCellMode``
+   :Type: ``Literal['spans', 'flatten', 'skip']``
    :CLI flag: ``--xlsx-merged-cell-mode``
    :Default: ``'flatten'``
    :Choices: ``spans``, ``flatten``, ``skip``
@@ -9599,15 +10649,6 @@ document instead:
 - Arrays of objects become tables
 - Arrays of primitives become lists
 - Nested structures become subsections
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--yaml-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **literal_block**
 
@@ -9730,7 +10771,7 @@ focusing on tables but optionally including lists and other elements.
    Auto-detect types (numbers, booleans, null)
 
    :Type: ``bool``
-   :CLI flag: ``--yaml-renderer-type-inference``
+   :CLI flag: ``--yaml-renderer-no-type-inference``
    :Default: ``True``
    :Importance: core
 
@@ -9739,7 +10780,7 @@ focusing on tables but optionally including lists and other elements.
    Use preceding heading as key for each table
 
    :Type: ``bool``
-   :CLI flag: ``--yaml-renderer-table-heading-keys``
+   :CLI flag: ``--yaml-renderer-no-table-heading-keys``
    :Default: ``True``
    :Importance: core
 
@@ -9806,7 +10847,7 @@ resources.
 
    How to handle attachments/images
 
-   :Type: ``AttachmentMode``
+   :Type: ``Literal['skip', 'alt_text', 'save', 'base64']``
    :CLI flag: ``--zip-attachment-mode``
    :Default: ``'alt_text'``
    :Choices: ``skip``, ``alt_text``, ``save``, ``base64``
@@ -9816,7 +10857,7 @@ resources.
 
    How to render alt-text content when using alt_text attachment mode
 
-   :Type: ``AltTextMode``
+   :Type: ``Literal['default', 'plain_filename', 'strict_markdown', 'footnote']``
    :CLI flag: ``--zip-alt-text-mode``
    :Default: ``'default'``
    :Choices: ``default``, ``plain_filename``, ``strict_markdown``, ``footnote``
@@ -9862,7 +10903,7 @@ resources.
 
    File collision strategy: 'unique' (add suffix), 'overwrite', or 'skip'
 
-   :Type: ``AttachmentOverwriteMode``
+   :Type: ``Literal['unique', 'overwrite', 'skip']``
    :CLI flag: ``--zip-attachment-overwrite``
    :Default: ``'unique'``
    :Choices: ``unique``, ``overwrite``, ``skip``
@@ -9885,15 +10926,6 @@ resources.
    :CLI flag: ``--zip-attachments-footnotes-section``
    :Default: ``'Attachments'``
    :Importance: advanced
-
-**extract_metadata**
-
-   Extract document metadata as YAML front matter
-
-   :Type: ``bool``
-   :CLI flag: ``--zip-extract-metadata``
-   :Default: ``False``
-   :Importance: core
 
 **include_patterns**
 
@@ -10035,12 +11067,13 @@ Base class for all renderer options.
 This class serves as the foundation for format-specific renderer options.
 Renderers convert AST documents into various output formats (Markdown, DOCX, PDF, etc.).
 
+These options are exposed per output format as ``--<format>-renderer-<option>`` (for example ``--docx-renderer-metadata-policy``). There are no standalone ``--renderer-*`` flags.
+
 **fail_on_resource_errors**
 
    Raise RenderingError on resource failures (images, etc.) instead of logging warnings
 
    :Type: ``bool``
-   :CLI flag: ``--renderer-fail-on-resource-errors``
    :Default: ``False``
    :Importance: advanced
 
@@ -10049,7 +11082,6 @@ Renderers convert AST documents into various output formats (Markdown, DOCX, PDF
    Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
 
    :Type: ``int``
-   :CLI flag: ``--renderer-max-asset-size-bytes``
    :Default: ``52428800``
    :Importance: security
 
@@ -10058,7 +11090,6 @@ Renderers convert AST documents into various output formats (Markdown, DOCX, PDF
    Metadata rendering policy controlling which fields appear in output
 
    :Type: ``MetadataRenderPolicy``
-   :CLI flag: ``--renderer-metadata-policy``
    :Default factory: ``MetadataRenderPolicy``
    :Importance: advanced
 
@@ -10066,8 +11097,7 @@ Renderers convert AST documents into various output formats (Markdown, DOCX, PDF
 
    Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
 
-   :Type: ``UnionType[str, NoneType]``
-   :CLI flag: ``--renderer-creator``
+   :Type: ``str | None``
    :Default: ``'all2md'``
    :Importance: core
 
@@ -10134,7 +11164,7 @@ modules to ensure consistent Markdown generation.
 
    Symbol to use for emphasis/italic formatting
 
-   :Type: ``EmphasisSymbol``
+   :Type: ``Literal['*', '_']``
    :CLI flag: ``--markdown-emphasis-symbol``
    :Default: ``'*'``
    :Choices: ``*``, ``_``
@@ -10162,7 +11192,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle underlined text
 
-   :Type: ``UnderlineMode``
+   :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-underline-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -10172,7 +11202,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle superscript text
 
-   :Type: ``SuperscriptMode``
+   :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-superscript-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -10182,7 +11212,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle subscript text
 
-   :Type: ``SubscriptMode``
+   :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-subscript-mode``
    :Default: ``'html'``
    :Choices: ``html``, ``markdown``, ``ignore``
@@ -10201,7 +11231,7 @@ modules to ensure consistent Markdown generation.
 
    Markdown flavor/dialect to use for output
 
-   :Type: ``FlavorType``
+   :Type: ``Literal['gfm', 'commonmark', 'multimarkdown', 'pandoc', 'kramdown', 'markdown_plus']``
    :CLI flag: ``--markdown-flavor``
    :Default: ``'gfm'``
    :Choices: ``gfm``, ``commonmark``, ``multimarkdown``, ``pandoc``, ``kramdown``, ``markdown_plus``
@@ -10220,9 +11250,9 @@ modules to ensure consistent Markdown generation.
 
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
-   :Type: ``UnsupportedTableMode | object``
+   :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x000001C52C6B4BD0>``
+   :Default: ``<object object at 0x00000231462C0D50>``
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -10230,9 +11260,9 @@ modules to ensure consistent Markdown generation.
 
    How to handle inline elements unsupported by flavor: plain (render content without formatting), force (use markdown syntax anyway), html (use HTML tags)
 
-   :Type: ``UnsupportedInlineMode | object``
+   :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x000001C52C6B4BD0>``
+   :Default: ``<object object at 0x00000231462C0D50>``
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -10286,7 +11316,7 @@ modules to ensure consistent Markdown generation.
 
    Character to use for code fences (backtick or tilde)
 
-   :Type: ``CodeFenceChar``
+   :Type: ``Literal['`', '~']``
    :CLI flag: ``--markdown-code-fence-char``
    :Default: ``'`'``
    :Choices: `````, ``~``
@@ -10314,7 +11344,7 @@ modules to ensure consistent Markdown generation.
 
    Link style: inline [text](url) or reference [text][ref]
 
-   :Type: ``LinkStyleType``
+   :Type: ``Literal['inline', 'reference']``
    :CLI flag: ``--markdown-link-style``
    :Default: ``'inline'``
    :Choices: ``inline``, ``reference``
@@ -10324,7 +11354,7 @@ modules to ensure consistent Markdown generation.
 
    Where to place reference link definitions: end_of_document or after_block
 
-   :Type: ``ReferenceLinkPlacement``
+   :Type: ``Literal['end_of_document', 'after_block']``
    :CLI flag: ``--markdown-reference-link-placement``
    :Default: ``'end_of_document'``
    :Choices: ``end_of_document``, ``after_block``
@@ -10352,7 +11382,7 @@ modules to ensure consistent Markdown generation.
 
    Preferred math representation: latex, mathml, or html
 
-   :Type: ``MathMode``
+   :Type: ``Literal['latex', 'mathml', 'html']``
    :CLI flag: ``--markdown-math-mode``
    :Default: ``'latex'``
    :Choices: ``latex``, ``mathml``, ``html``
@@ -10371,7 +11401,7 @@ modules to ensure consistent Markdown generation.
 
    Format for metadata frontmatter: yaml, toml, or json
 
-   :Type: ``MetadataFormatType``
+   :Type: ``Literal['yaml', 'toml', 'json']``
    :CLI flag: ``--markdown-metadata-format``
    :Default: ``'yaml'``
    :Choices: ``yaml``, ``toml``, ``json``
@@ -10381,7 +11411,7 @@ modules to ensure consistent Markdown generation.
 
    How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
 
-   :Type: ``HtmlPassthroughMode``
+   :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--markdown-html-passthrough-mode``
    :Default: ``'escape'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
@@ -10391,17 +11421,89 @@ modules to ensure consistent Markdown generation.
 
    How to render Comment and CommentInline nodes: html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML, and other formats that support annotations.
 
-   :Type: ``CommentMode``
+   :Type: ``Literal['html', 'blockquote', 'ignore']``
    :CLI flag: ``--markdown-comment-mode``
    :Default: ``'blockquote'``
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
 
-**_unsupported_inline_mode_was_explicit**
+Remote Input Options
+^^^^^^^^^^^^^^^^^^^^
+
+Global options controlling remote document retrieval.
+
+**allow_remote_input**
+
+   Allow fetching documents from remote locations.
 
    :Type: ``bool``
-   :CLI flag: ``--markdown--unsupported-inline-mode-was-explicit``
+   :CLI flag: ``--remote-input-enabled``
    :Default: ``False``
+   :Importance: core
+
+**allowed_hosts**
+
+   Restrict remote input to these hostnames or CIDR ranges (comma separated).
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--remote-input-allowed-hosts``
+   :Default: ``None``
+   :Importance: security
+
+**require_https**
+
+   Require HTTPS for remote document retrieval.
+
+   :Type: ``bool``
+   :CLI flag: ``--remote-input-allow-http``
+   :Default: ``True``
+   :Importance: security
+
+**require_head_success**
+
+   Require a successful HEAD request before downloading remote documents. Disable for servers that reject or mishandle HEAD requests.
+
+   :Type: ``bool``
+   :CLI flag: ``--remote-input-no-require-head-success``
+   :Default: ``True``
+   :Importance: security
+
+**timeout**
+
+   Network timeout in seconds for remote document retrieval.
+
+   :Type: ``float``
+   :CLI flag: ``--remote-input-timeout``
+   :Default: ``10.0``
+   :Importance: security
+
+**max_size_bytes**
+
+   Maximum allowed remote document size in bytes.
+
+   :Type: ``int``
+   :CLI flag: ``--remote-input-max-size-bytes``
+   :Default: ``20971520``
+   :Importance: security
+
+**user_agent**
+
+   User-Agent included on header for requests
+
+   :Type: ``str``
+   :CLI flag: ``--remote-input-user-agent``
+   :Default: ``'all2md-fetcher/1.0'``
+   :Importance: security
+
+**follow_robots_txt**
+
+   Policy for respecting robots.txt: 'strict' blocks disallowed URLs, 'warn' logs warnings, 'ignore' skips checks.
+
+   :Type: ``Literal['strict', 'warn', 'ignore'] | str``
+   :CLI flag: ``--remote-input-follow-robots-txt``
+   :Default: ``'strict'``
+   :Choices: ``strict``, ``warn``, ``ignore``
+   :Importance: security
 
 Network Fetch Options
 ^^^^^^^^^^^^^^^^^^^^^
@@ -10412,12 +11514,13 @@ This dataclass contains settings that control how remote resources
 (images, CSS, etc.) are fetched, including security constraints
 to prevent SSRF attacks.
 
+These options are nested under the formats that fetch remote resources and are exposed as ``--<format>-network-<option>`` for parsers (for example ``--html-network-allow-remote-fetch``) and ``--<format>-renderer-network-<option>`` for renderers (for example ``--docx-renderer-network-allow-remote-fetch``). There are no standalone ``--network-*`` flags.
+
 **allow_remote_fetch**
 
    Allow fetching remote URLs for images and other resources. When False, prevents SSRF attacks by blocking all network requests.
 
    :Type: ``bool``
-   :CLI flag: ``--network-allow-remote-fetch``
    :Default: ``False``
    :Importance: security
 
@@ -10425,8 +11528,7 @@ to prevent SSRF attacks.
 
    List of allowed hostnames or CIDR blocks for remote fetching. If None, all hosts are allowed (subject to other security constraints).
 
-   :Type: ``UnionType[list[str], NoneType]``
-   :CLI flag: ``--network-allowed-hosts``
+   :Type: ``list[str] | None``
    :Default: ``None``
    :Importance: security
 
@@ -10435,7 +11537,6 @@ to prevent SSRF attacks.
    Require HTTPS for all remote URL fetching
 
    :Type: ``bool``
-   :CLI flag: ``--network-no-require-https``
    :Default: ``True``
    :Importance: security
 
@@ -10444,7 +11545,6 @@ to prevent SSRF attacks.
    Require HEAD request success before remote URL fetching
 
    :Type: ``bool``
-   :CLI flag: ``--network-no-require-head-success``
    :Default: ``True``
    :Importance: security
 
@@ -10453,7 +11553,6 @@ to prevent SSRF attacks.
    Timeout in seconds for remote URL fetching
 
    :Type: ``float``
-   :CLI flag: ``--network-network-timeout``
    :Default: ``10.0``
    :Importance: security
 
@@ -10462,7 +11561,6 @@ to prevent SSRF attacks.
    Maximum number of HTTP redirects to follow
 
    :Type: ``int``
-   :CLI flag: ``--network-max-redirects``
    :Default: ``5``
    :Importance: security
 
@@ -10470,8 +11568,7 @@ to prevent SSRF attacks.
 
    Allowed content-type prefixes for remote resources (e.g., 'image/', 'text/')
 
-   :Type: ``UnionType[tuple[str, ...], NoneType]``
-   :CLI flag: ``--network-allowed-content-types``
+   :Type: ``tuple[str, ...] | None``
    :Default: ``('image/',)``
    :CLI action: ``append``
    :Importance: security
@@ -10481,7 +11578,6 @@ to prevent SSRF attacks.
    Maximum number of network requests per second (rate limiting)
 
    :Type: ``float``
-   :CLI flag: ``--network-max-requests-per-second``
    :Default: ``10.0``
    :Importance: security
 
@@ -10490,7 +11586,6 @@ to prevent SSRF attacks.
    Maximum number of concurrent network requests
 
    :Type: ``int``
-   :CLI flag: ``--network-max-concurrent-requests``
    :Default: ``5``
    :Importance: security
 
@@ -10502,12 +11597,13 @@ Local file access security options.
 This dataclass contains settings that control access to local files
 via file:// URLs and similar mechanisms.
 
+These options are nested under the formats that read local resources and are exposed as ``--<format>-local-files-<option>`` (for example ``--html-local-files-allow-local-files``). There are no standalone ``--local-*`` flags.
+
 **allow_local_files**
 
    Allow access to local files via file:// URLs (security setting)
 
    :Type: ``bool``
-   :CLI flag: ``--local-allow-local-files``
    :Default: ``False``
    :Importance: security
 
@@ -10515,8 +11611,7 @@ via file:// URLs and similar mechanisms.
 
    List of directories allowed for local file access (when allow_local_files=True)
 
-   :Type: ``UnionType[list[str], NoneType]``
-   :CLI flag: ``--local-local-file-allowlist``
+   :Type: ``list[str] | None``
    :Default: ``None``
    :Importance: security
 
@@ -10524,8 +11619,7 @@ via file:// URLs and similar mechanisms.
 
    List of directories denied for local file access
 
-   :Type: ``UnionType[list[str], NoneType]``
-   :CLI flag: ``--local-local-file-denylist``
+   :Type: ``list[str] | None``
    :Default: ``None``
    :Importance: security
 
@@ -10534,6 +11628,5 @@ via file:// URLs and similar mechanisms.
    Allow local files from current working directory and subdirectories
 
    :Type: ``bool``
-   :CLI flag: ``--local-allow-cwd-files``
    :Default: ``False``
    :Importance: security

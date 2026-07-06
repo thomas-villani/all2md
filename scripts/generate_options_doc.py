@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
+import types
 from dataclasses import MISSING, Field, fields, is_dataclass
 from pathlib import Path
 from typing import (
@@ -24,7 +25,7 @@ from typing import (
 )
 
 # Ensure project src directory is importable when run standalone
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_PATH = REPO_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
@@ -33,6 +34,7 @@ from all2md.converter_registry import registry  # noqa: E402
 from all2md.options.base import BaseParserOptions, BaseRendererOptions  # noqa: E402
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions  # noqa: E402
 from all2md.options.markdown import MarkdownRendererOptions  # noqa: E402
+from all2md.utils.input_sources import RemoteInputOptions  # noqa: E402
 
 # Type alias for clarity
 DataclassType = Type[Any]
@@ -44,9 +46,12 @@ def snake_to_kebab(name: str) -> str:
 
 
 def unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
-    """Return underlying type if annotation is Optional[...]."""
+    """Return underlying type if annotation is Optional[...].
+
+    Handles both ``typing.Union`` and PEP 604 unions (``X | None``).
+    """
     origin = get_origin(annotation)
-    if origin is Union:
+    if origin is Union or origin is types.UnionType:
         args = [arg for arg in get_args(annotation) if arg is not type(None)]  # noqa: E721
         if len(args) == 1:
             return args[0], True
@@ -79,7 +84,7 @@ def format_type(annotation: Any) -> str:
 
     args = get_args(annotation)
 
-    if origin is Union:
+    if origin is Union or origin is types.UnionType:
         parts = []
         for arg in args:
             if arg is type(None):  # noqa: E721
@@ -134,7 +139,16 @@ def format_type(annotation: Any) -> str:
 
 
 def get_type_hints_safe(cls: DataclassType) -> Dict[str, Any]:
-    """Safely resolve type hints for a dataclass, handling forward references."""
+    """Safely resolve type hints for a dataclass, handling forward references.
+
+    Let get_type_hints() use its default namespace resolution: passing an
+    explicit globalns breaks resolution of fields inherited from base classes
+    defined in other modules (the CLI builder relies on the same behavior).
+    """
+    try:
+        return get_type_hints(cls, include_extras=True)
+    except Exception:
+        pass
     module = sys.modules.get(cls.__module__)
     globalns = vars(module) if module else None
     try:
@@ -172,15 +186,24 @@ def compute_cli_flag(
 
     is_bool = underlying_type is bool
     bool_default_true = is_bool and isinstance(default_value, bool) and default_value is True
+    use_negated_flag = bool_default_true or (is_bool and bool(metadata.get("cli_negates_default", False)))
 
     if cli_name:
         if format_prefix:
             return f"--{format_prefix}-{cli_name}"
         return f"--{cli_name}"
 
+    # Mirror the CLI builder: a negated boolean may carry an explicit flag name
+    # (e.g. require_https=True exposed as --remote-input-allow-http)
+    if use_negated_flag and "cli_negated_name" in metadata:
+        negated_component = snake_to_kebab(str(metadata["cli_negated_name"]))
+        if format_prefix:
+            return f"--{format_prefix}-{negated_component}"
+        return f"--{negated_component}"
+
     name_component = snake_to_kebab(field.name)
 
-    if is_bool and bool_default_true:
+    if use_negated_flag:
         if format_prefix:
             return f"--{format_prefix}-no-{name_component}"
         return f"--no-{name_component}"
@@ -278,8 +301,17 @@ class OptionsRenderer:
         level: int,
         format_prefix: Optional[str],
         include_docstring: bool = True,
+        emit_cli_flags: bool = True,
+        note_lines: Optional[list[str]] = None,
+        exclude_field_names: Optional[set[str]] = None,
     ) -> list[str]:
-        """Render a dataclass and its fields into RST lines."""
+        """Render a dataclass and its fields into RST lines.
+
+        When ``emit_cli_flags`` is False, no ``:CLI flag:`` entries are
+        produced. Use this for dataclasses that are never registered with a
+        standalone CLI prefix (they are only exposed nested under per-format
+        prefixes), so the docs do not advertise flags that do not exist.
+        """
         key = (cls, format_prefix)
         if key in self.visited:
             return []
@@ -293,12 +325,23 @@ class OptionsRenderer:
                 lines.extend(doc_lines)
                 lines.append("")
 
+        if note_lines:
+            lines.extend(note_lines)
+            lines.append("")
+
         type_hints = get_type_hints_safe(cls)
 
         for field in fields(cls):
             metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
             if metadata.get("exclude_from_cli"):
+                continue
+
+            # Skip internal fields: not settable via __init__ or private by convention
+            if not field.init or field.name.startswith("_"):
+                continue
+
+            if exclude_field_names and field.name in exclude_field_names:
                 continue
 
             resolved_type = type_hints.get(field.name, field.type)
@@ -314,11 +357,14 @@ class OptionsRenderer:
                         nested_title,
                         level + 1,
                         nested_prefix,
+                        emit_cli_flags=emit_cli_flags,
+                        exclude_field_names=exclude_field_names,
                     )
                 )
                 continue
 
-            if field.name == "markdown_options" and underlying_type is MarkdownRendererOptions:
+            # markdown_options is handled specially by the CLI (no per-format flag)
+            if field.name == "markdown_options":
                 lines.append(f"**{field.name}**")
                 lines.append("")
                 lines.append(
@@ -333,6 +379,7 @@ class OptionsRenderer:
                     metadata=metadata,
                     resolved_type=resolved_type,
                     format_prefix=format_prefix,
+                    emit_cli_flag=emit_cli_flags,
                 )
             )
 
@@ -344,6 +391,7 @@ class OptionsRenderer:
         metadata: Dict[str, Any],
         resolved_type: Any,
         format_prefix: Optional[str],
+        emit_cli_flag: bool = True,
     ) -> list[str]:
         """Render an individual field as a definition block."""
         lines: list[str] = [f"**{field.name}**", ""]
@@ -357,7 +405,7 @@ class OptionsRenderer:
         type_repr = format_type(resolved_type)
         lines.append(f"   :Type: ``{type_repr}``")
 
-        cli_flag = compute_cli_flag(field, metadata, format_prefix, resolved_type)
+        cli_flag = compute_cli_flag(field, metadata, format_prefix, resolved_type) if emit_cli_flag else None
         if cli_flag:
             lines.append(f"   :CLI flag: ``{cli_flag}``")
 
@@ -422,6 +470,10 @@ def generate_reference_section() -> list[str]:
 
     format_entries = discover_format_options()
 
+    # Per-format parser flags exclude BaseParserOptions fields: those are
+    # registered once as universal, unprefixed flags (see Base Parser Options).
+    base_parser_field_names = {field.name for field in fields(BaseParserOptions)}
+
     for format_name, parser_cls, renderer_cls in format_entries:
         if not parser_cls and not renderer_cls:
             continue
@@ -429,6 +481,17 @@ def generate_reference_section() -> list[str]:
         section_title = f"{format_name.upper()} Options"
         lines.append(heading(section_title, 3))
         lines.append("")
+
+        # The CLI registers no markdown-format flags: MarkdownRendererOptions is
+        # exposed globally under the ``markdown`` prefix instead (see the
+        # ``Markdown Options`` shared section).
+        is_markdown_format = format_name == "markdown"
+        markdown_note = [
+            "The Markdown format has no dedicated CLI flags. The common Markdown "
+            "formatting flags (``--markdown-<option>``) are documented in the "
+            "``Markdown Options`` shared section below; the parser options here are "
+            "available through the Python API only.",
+        ]
 
         if parser_cls:
             parser_title = f"{format_name.upper()} Parser Options"
@@ -438,6 +501,9 @@ def generate_reference_section() -> list[str]:
                     parser_title,
                     level=4,
                     format_prefix=format_name,
+                    emit_cli_flags=not is_markdown_format,
+                    note_lines=markdown_note if is_markdown_format else None,
+                    exclude_field_names=base_parser_field_names,
                 )
             )
 
@@ -450,22 +516,71 @@ def generate_reference_section() -> list[str]:
                     renderer_title,
                     level=4,
                     format_prefix=renderer_prefix,
+                    emit_cli_flags=not is_markdown_format,
+                    note_lines=markdown_note if is_markdown_format else None,
                 )
             )
 
+    # Each entry: (title, class, cli_prefix, emit_cli_flags, note_lines).
+    # Classes with emit_cli_flags=False are never registered with a standalone
+    # CLI prefix -- they are only exposed nested under per-format prefixes, so
+    # advertising e.g. ``--network-*`` or ``--renderer-*`` flags would be wrong.
     shared_sections = [
-        ("Base Parser Options", BaseParserOptions, None),
-        ("Base Renderer Options", BaseRendererOptions, "renderer"),
-        ("Markdown Options", MarkdownRendererOptions, "markdown"),
-        ("Network Fetch Options", NetworkFetchOptions, "network"),
-        ("Local File Access Options", LocalFileAccessOptions, "local"),
+        ("Base Parser Options", BaseParserOptions, None, True, None),
+        (
+            "Base Renderer Options",
+            BaseRendererOptions,
+            None,
+            False,
+            [
+                "These options are exposed per output format as "
+                "``--<format>-renderer-<option>`` (for example ``--docx-renderer-metadata-policy``). "
+                "There are no standalone ``--renderer-*`` flags.",
+            ],
+        ),
+        ("Markdown Options", MarkdownRendererOptions, "markdown", True, None),
+        ("Remote Input Options", RemoteInputOptions, "remote-input", True, None),
+        (
+            "Network Fetch Options",
+            NetworkFetchOptions,
+            None,
+            False,
+            [
+                "These options are nested under the formats that fetch remote resources and are "
+                "exposed as ``--<format>-network-<option>`` for parsers (for example "
+                "``--html-network-allow-remote-fetch``) and ``--<format>-renderer-network-<option>`` "
+                "for renderers (for example ``--docx-renderer-network-allow-remote-fetch``). "
+                "There are no standalone ``--network-*`` flags.",
+            ],
+        ),
+        (
+            "Local File Access Options",
+            LocalFileAccessOptions,
+            None,
+            False,
+            [
+                "These options are nested under the formats that read local resources and are "
+                "exposed as ``--<format>-local-files-<option>`` (for example "
+                "``--html-local-files-allow-local-files``). There are no standalone ``--local-*`` flags.",
+            ],
+        ),
     ]
 
     lines.append(heading("Shared Options", 3))
     lines.append("")
 
-    for title, cls, prefix in shared_sections:
-        lines.extend(renderer.render_dataclass(cls, title, level=4, format_prefix=prefix, include_docstring=True))
+    for title, cls, prefix, emit_cli_flags, note_lines in shared_sections:
+        lines.extend(
+            renderer.render_dataclass(
+                cls,
+                title,
+                level=4,
+                format_prefix=prefix,
+                include_docstring=True,
+                emit_cli_flags=emit_cli_flags,
+                note_lines=note_lines,
+            )
+        )
 
     return lines
 

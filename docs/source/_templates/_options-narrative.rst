@@ -44,9 +44,12 @@ Because every class inherits from ``CloneFrozenMixin`` you can derive safe varia
 
    hardened_html_options = html_options.create_updated(strip_dangerous_elements=True)
 
-CLI flag mapping follows the field path. For example ``HtmlOptions.network.require_https`` becomes
-``--html-network-require-https`` (and the env var ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``). Nested collections such as
-``ZipOptions.include_patterns`` accept multiple values via repeated flags or comma-separated lists.
+CLI flag mapping follows the field path. For example ``HtmlOptions.network.allow_remote_fetch`` becomes
+``--html-network-allow-remote-fetch`` (and the env var ``ALL2MD_HTML_NETWORK_ALLOW_REMOTE_FETCH``). Boolean options
+whose default is already ``True`` are exposed as a negated flag: ``HtmlOptions.network.require_https`` defaults to
+``True``, so the CLI flag is ``--html-network-no-require-https`` (HTTPS enforcement is on unless you turn it off).
+Nested collections such as ``ZipOptions.include_patterns`` accept multiple values via repeated flags or
+comma-separated lists.
 
 Options Map
 -----------
@@ -143,11 +146,11 @@ Nested fields join their parents with dashes:
 
 .. code-block:: bash
 
-   # Harden HTML fetching and customise Markdown output
-   all2md site.mhtml \
-     --html-network-allow-remote-fetch false \
+   # Allow HTML resource fetching from a trusted host only (HTTPS enforced by default)
+   # and customise Markdown output
+   all2md page.html \
+     --html-network-allow-remote-fetch \
      --html-network-allowed-hosts docs.example.com \
-     --html-network-require-https \
      --markdown-flavor gfm
 
    # ZIP archives with include/exclude filters
@@ -197,10 +200,6 @@ following common ``--no-*`` conventions in shell scripts.
      - ``True``
      - (default)
      - ``--pdf-no-merge-hyphenated-words``
-   * - ``HtmlOptions.preserve_nested_structure``
-     - ``True``
-     - (default)
-     - ``--html-no-preserve-nested-structure``
    * - ``HtmlOptions.detect_table_alignment``
      - ``True``
      - (default)
@@ -224,7 +223,7 @@ following common ``--no-*`` conventions in shell scripts.
    * - ``DocxRendererOptions.promote_title``
      - ``True``
      - (default)
-     - ``--docx-no-promote-title``
+     - ``--docx-renderer-no-promote-title``
 
 For booleans that default to ``False`` simply use the positive flag (e.g. ``--html-strip-dangerous-elements``). The
 full list—including renderer toggles and security helpers—is maintained in the generated :doc:`options` reference.

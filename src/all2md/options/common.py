@@ -82,8 +82,10 @@ class NetworkFetchOptions(CloneFrozenMixin):
         If None and allow_remote_fetch=True, all hosts are allowed, which may pose
         an SSRF (Server-Side Request Forgery) risk. A security warning will be logged.
         In security-sensitive contexts, explicitly set this to an allowlist of trusted hosts.
-    require_https : bool, default False
+    require_https : bool, default True
         Whether to require HTTPS for all remote URL fetching.
+    require_head_success : bool, default True
+        Whether to require a successful HEAD request before fetching remote URLs.
     network_timeout : float, default 10.0
         Timeout in seconds for remote URL fetching.
     max_requests_per_second : float, default 10.0
