@@ -724,3 +724,40 @@ class TestEdgeCases:
         assert len(doc.children) == 1
         # Div should create a paragraph-like structure
         assert isinstance(doc.children[0], Paragraph)
+
+
+@pytest.mark.unit
+class TestNetworkOptionsForwarding:
+    """Tests that image downloads honor every NetworkFetchOptions field."""
+
+    def test_download_forwards_network_options_and_caches_limiter(self, monkeypatch) -> None:
+        """_download_image_data passes network options and reuses one rate limiter."""
+        from all2md.options.common import NetworkFetchOptions
+
+        calls = []
+
+        def fake_fetch(*, url, network_options, max_size_bytes, rate_limiter):
+            calls.append({"url": url, "network_options": network_options, "rate_limiter": rate_limiter})
+            return b"imagebytes"
+
+        monkeypatch.setattr("all2md.parsers.html.fetch_image_with_network_options", fake_fetch)
+
+        network = NetworkFetchOptions(
+            allow_remote_fetch=True,
+            allowed_hosts=["cdn.example.com"],
+            max_requests_per_second=4.0,
+            max_concurrent_requests=3,
+        )
+        converter = HtmlToAstConverter(HtmlOptions(network=network))
+
+        assert converter._download_image_data("https://cdn.example.com/a.png") == b"imagebytes"
+        assert converter._download_image_data("https://cdn.example.com/b.png") == b"imagebytes"
+
+        assert len(calls) == 2
+        assert calls[0]["network_options"] is converter.options.network
+        limiter = calls[0]["rate_limiter"]
+        assert limiter is not None
+        assert limiter.max_requests_per_second == 4.0
+        assert limiter.max_concurrent == 3
+        # Same limiter instance reused across downloads
+        assert calls[1]["rate_limiter"] is limiter

@@ -287,6 +287,27 @@ class RateLimiter:
         # Semaphore for concurrent limiting
         self.semaphore = threading.Semaphore(max_concurrent)
 
+    @classmethod
+    def from_options(cls, network_options: Any) -> "RateLimiter":
+        """Build a rate limiter from a NetworkFetchOptions-like object.
+
+        Parameters
+        ----------
+        network_options : Any
+            Object exposing ``max_requests_per_second`` and
+            ``max_concurrent_requests`` (typically NetworkFetchOptions).
+
+        Returns
+        -------
+        RateLimiter
+            Rate limiter configured from the options.
+
+        """
+        return cls(
+            max_requests_per_second=network_options.max_requests_per_second,
+            max_concurrent=network_options.max_concurrent_requests,
+        )
+
     def acquire(self, timeout: float | None = None) -> bool:
         """Acquire permission to make a request.
 
@@ -429,11 +450,13 @@ def create_secure_http_client(
     """Create httpx client with security constraints.
 
     This implementation uses httpx event hooks for robust URL validation
-    instead of fragile transport subclassing. Validates all requests including
-    redirects using stable httpx APIs.
+    instead of fragile transport subclassing. The request hook validates every
+    request URL, including each redirect target, before it is followed.
 
-    The redirect limit is enforced by validating response.history length,
-    which accurately tracks the complete redirect chain.
+    The redirect limit is enforced natively by httpx (``max_redirects``),
+    which raises ``httpx.TooManyRedirects`` when exceeded. It cannot be
+    checked in a response event hook: httpx invokes response hooks before
+    assigning ``response.history``, so the chain length is never visible there.
 
     Parameters
     ----------
@@ -446,7 +469,7 @@ def create_secure_http_client(
     require_https : bool, default True
         If True, only HTTPS URLs are allowed
     user_agent : str | None, default None
-        Custom User-Agent header for requests (currently unused)
+        Custom User-Agent header for requests
 
     Returns
     -------
@@ -465,32 +488,13 @@ def create_secure_http_client(
             # Re-raise to abort the request
             raise
 
-    def validate_response_redirects(response: Any) -> None:
-        """Event hook to validate redirect chains.
-
-        Validates that the redirect chain length does not exceed max_redirects
-        and that all URLs in the chain pass security validation.
-        """
-        # Validate response history length
-        if len(response.history) > max_redirects:
-            raise NetworkSecurityError(f"Too many redirects: {len(response.history)} > {max_redirects}")
-
-        # Validate each URL in the redirect history
-        for redirect_response in response.history:
-            try:
-                validate_url_security(
-                    str(redirect_response.url), allowed_hosts=allowed_hosts, require_https=require_https
-                )
-            except NetworkSecurityError:
-                # Re-raise to indicate security violation
-                raise
-
     # Create client with event hooks for security validation
     effective_user_agent = user_agent or os.getenv("ALL2MD_USER_AGENT") or DEFAULT_USER_AGENT
     client = httpx.Client(
         timeout=timeout,
         follow_redirects=True,
-        event_hooks={"request": [validate_request_url], "response": [validate_response_redirects]},
+        max_redirects=max_redirects,
+        event_hooks={"request": [validate_request_url]},
         headers={"User-Agent": effective_user_agent},
     )
 
@@ -508,6 +512,7 @@ def fetch_content_securely(
     rate_limiter: RateLimiter | None = None,
     user_agent: str | None = None,
     bypass_robots_txt: bool = False,
+    max_redirects: int = 5,
 ) -> bytes:
     """Securely fetch content from URL with streaming and comprehensive validation.
 
@@ -530,9 +535,11 @@ def fetch_content_securely(
     rate_limiter : RateLimiter | None, default None
         Optional rate limiter to control request rate and concurrency
     user_agent : str | None, default None
-        Custom User-Agent header for requests (currently unused)
+        Custom User-Agent header for requests
     bypass_robots_txt : bool, default False
         If True, bypass robots.txt checking (used internally when fetching robots.txt itself)
+    max_redirects : int, default 5
+        Maximum number of HTTP redirects to follow
 
     Returns
     -------
@@ -563,7 +570,11 @@ def fetch_content_securely(
 
     try:
         with create_secure_http_client(
-            timeout=timeout, allowed_hosts=allowed_hosts, require_https=require_https, user_agent=user_agent
+            timeout=timeout,
+            max_redirects=max_redirects,
+            allowed_hosts=allowed_hosts,
+            require_https=require_https,
+            user_agent=user_agent,
         ) as client:
             # Use HEAD request first to check content-length header
             try:
@@ -649,6 +660,8 @@ def fetch_image_securely(
     require_head_success: bool = True,
     rate_limiter: RateLimiter | None = None,
     user_agent: str | None = None,
+    max_redirects: int = 5,
+    expected_content_types: list[str] | None = None,
 ) -> bytes:
     """Securely fetch image data from URL with comprehensive validation.
 
@@ -672,6 +685,10 @@ def fetch_image_securely(
         Optional rate limiter to control request rate and concurrency
     user_agent : str | None, default None
         Optionally set the user agent for http requests.
+    max_redirects : int, default 5
+        Maximum number of HTTP redirects to follow
+    expected_content_types : list[str] | None, default None
+        List of allowed content type prefixes. Defaults to ["image/"].
 
     Returns
     -------
@@ -691,9 +708,60 @@ def fetch_image_securely(
         max_size_bytes=max_size_bytes,
         timeout=timeout,
         require_head_success=require_head_success,
-        expected_content_types=["image/"],
+        expected_content_types=expected_content_types if expected_content_types is not None else ["image/"],
         rate_limiter=rate_limiter,
         user_agent=user_agent,
+        max_redirects=max_redirects,
+    )
+
+
+def fetch_image_with_network_options(
+    url: str,
+    network_options: Any,
+    max_size_bytes: int,
+    rate_limiter: RateLimiter | None = None,
+) -> bytes:
+    """Fetch an image applying every field of a NetworkFetchOptions object.
+
+    Single place that maps NetworkFetchOptions fields onto fetch parameters,
+    so converters cannot silently drop options (each field added to
+    NetworkFetchOptions must be forwarded here).
+
+    Parameters
+    ----------
+    url : str
+        URL to fetch image from
+    network_options : Any
+        NetworkFetchOptions-like object (see all2md.options.common)
+    max_size_bytes : int
+        Maximum allowed response size in bytes (from BaseParserOptions)
+    rate_limiter : RateLimiter | None, default None
+        Rate limiter shared across a converter's fetches; build one with
+        ``RateLimiter.from_options(network_options)``
+
+    Returns
+    -------
+    bytes
+        Image data
+
+    Raises
+    ------
+    NetworkSecurityError
+        If URL fails security validation or fetch constraints
+
+    """
+    return fetch_image_securely(
+        url=url,
+        allowed_hosts=network_options.allowed_hosts,
+        require_https=network_options.require_https,
+        max_size_bytes=max_size_bytes,
+        timeout=network_options.network_timeout,
+        require_head_success=network_options.require_head_success,
+        max_redirects=network_options.max_redirects,
+        expected_content_types=(
+            list(network_options.allowed_content_types) if network_options.allowed_content_types is not None else None
+        ),
+        rate_limiter=rate_limiter,
     )
 
 

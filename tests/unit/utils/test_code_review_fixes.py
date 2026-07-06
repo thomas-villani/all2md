@@ -174,52 +174,70 @@ class TestRenderMathHtmlEnhancements:
         assert "&lt;" in result
 
 
+def _secure_client_with_mock_transport(handler, **client_kwargs):
+    """Create a secure client served by an httpx.MockTransport.
+
+    create_secure_http_client does not expose a transport parameter, so patch
+    httpx.Client during construction. Request hooks and redirect handling
+    behave exactly as in production.
+    """
+    from unittest.mock import patch
+
+    import httpx
+
+    from all2md.utils.network_security import create_secure_http_client
+
+    real_client_cls = httpx.Client
+    transport = httpx.MockTransport(handler)
+
+    def patched_client(**kwargs):
+        kwargs["transport"] = transport
+        return real_client_cls(**kwargs)
+
+    with patch.object(httpx, "Client", new=patched_client):
+        return create_secure_http_client(**client_kwargs)
+
+
 class TestRedirectValidationEdgeCases:
     """Test edge cases for httpx redirect validation in network security.
 
-    These tests ensure that complex redirect scenarios are properly validated,
-    including edge cases that may not populate response.history as expected.
+    Redirect targets are validated by the request event hook before each hop
+    is followed; the redirect count is enforced natively by httpx.
     """
 
-    def test_http_to_https_to_http_redirect_chain(self):
-        """Test that HTTP->HTTPS->HTTP redirect chains are validated."""
+    def test_https_to_http_downgrade_mid_chain(self):
+        """Test that a redirect chain downgrading to HTTP is blocked with require_https."""
         import ipaddress
-        from unittest.mock import Mock, patch
+        from unittest.mock import patch
+
+        import httpx
 
         from all2md.exceptions import NetworkSecurityError
-        from all2md.utils.network_security import create_secure_http_client
 
         with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-            # Create client with require_https=True
-            client = create_secure_http_client(max_redirects=5, require_https=True)
+            def handler(request):
+                if request.url.path == "/start":
+                    return httpx.Response(302, headers={"location": "https://example.com/secure"})
+                if request.url.path == "/secure":
+                    return httpx.Response(302, headers={"location": "http://example.com/final"})
+                return httpx.Response(200, content=b"final")
 
-            # Simulate HTTP->HTTPS->HTTP redirect chain
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.history = [
-                Mock(url="http://example.com/start"),  # Initial HTTP
-                Mock(url="https://example.com/secure"),  # Upgraded to HTTPS
-                Mock(url="http://example.com/final"),  # Downgraded back to HTTP
-            ]
-            mock_response.request = Mock()
-            mock_response.request.extensions = {"redirect_count": 3}
+            client = _secure_client_with_mock_transport(handler, max_redirects=5, require_https=True)
 
-            # Get the response validation hook
-            validate_response = client.event_hooks["response"][0]
-
-            # Should raise because final redirect downgrades to HTTP
-            with pytest.raises(NetworkSecurityError, match="HTTPS required"):
-                validate_response(mock_response)
+            # Should raise when the chain downgrades to HTTP
+            with client, pytest.raises(NetworkSecurityError, match="HTTPS required"):
+                client.get("https://example.com/start")
 
     def test_cross_host_redirect_chain(self):
-        """Test that cross-host redirects are all validated."""
+        """Test that every host in a cross-host redirect chain is validated."""
         import ipaddress
-        from unittest.mock import Mock, patch
+        from unittest.mock import patch
+
+        import httpx
 
         from all2md.exceptions import NetworkSecurityError
-        from all2md.utils.network_security import create_secure_http_client
 
         with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             # Different hosts resolve to different IPs
@@ -234,85 +252,71 @@ class TestRedirectValidationEdgeCases:
 
             mock_resolve.side_effect = resolver
 
-            client = create_secure_http_client(max_redirects=5, require_https=False)
+            def handler(request):
+                if request.url.host == "site-a.com":
+                    return httpx.Response(302, headers={"location": "http://site-b.com/middle"})
+                if request.url.host == "site-b.com":
+                    return httpx.Response(302, headers={"location": "http://evil.internal/admin"})
+                return httpx.Response(200, content=b"internal")
 
-            # Simulate cross-host redirect to private IP
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.history = [
-                Mock(url="http://site-a.com/start"),
-                Mock(url="http://site-b.com/middle"),
-                Mock(url="http://evil.internal/admin"),  # Private IP
-            ]
-            mock_response.request = Mock()
-            mock_response.request.extensions = {"redirect_count": 3}
+            client = _secure_client_with_mock_transport(handler, max_redirects=5, require_https=False)
 
-            validate_response = client.event_hooks["response"][0]
-
-            # Should raise because one redirect goes to private IP
-            with pytest.raises(NetworkSecurityError):
-                validate_response(mock_response)
+            # Should raise because the last hop resolves to a private IP
+            with client, pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+                client.get("http://site-a.com/start")
 
     def test_idn_internationalized_domain_redirects(self):
-        """Test that IDN (Internationalized Domain Names) are properly validated."""
+        """Test that IDN (punycode) redirect targets are validated and allowed when public."""
         import ipaddress
-        from unittest.mock import Mock, patch
+        from unittest.mock import patch
 
-        from all2md.utils.network_security import create_secure_http_client
+        import httpx
 
         with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             # IDN domains should be normalized during validation
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-            client = create_secure_http_client(max_redirects=5, require_https=False)
+            def handler(request):
+                if request.url.host == "example.com":
+                    # Punycode for buecher.com-style IDN (xn--bcher-kva.com)
+                    return httpx.Response(302, headers={"location": "http://xn--bcher-kva.com/middle"})
+                return httpx.Response(200, content=b"ok")
 
-            # Simulate redirect involving IDN domain (e.g., Chinese characters)
-            # The domain would be punycode encoded in actual URL
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.history = [
-                Mock(url="http://example.com/start"),
-                Mock(url="http://xn--n3h.com/middle"),  # Punycode for IDN
-            ]
-            mock_response.request = Mock()
-            mock_response.request.extensions = {"redirect_count": 2}
-
-            validate_response = client.event_hooks["response"][0]
+            client = _secure_client_with_mock_transport(handler, max_redirects=5, require_https=False)
 
             # Should not raise - public IPs are allowed
-            validate_response(mock_response)
+            with client:
+                response = client.get("http://example.com/start")
+            assert response.status_code == 200
 
-    def test_empty_redirect_history_validates_initial_request(self):
+    def test_no_redirects_validates_initial_request(self):
         """Test that requests with no redirects still validate the initial URL."""
         import ipaddress
-        from unittest.mock import Mock, patch
+        from unittest.mock import patch
 
-        from all2md.utils.network_security import create_secure_http_client
+        import httpx
 
         with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
             mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-            client = create_secure_http_client(max_redirects=5, require_https=False)
+            def handler(request):
+                return httpx.Response(200, content=b"direct")
 
-            # No redirects - direct response
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.history = []  # No redirects
-            mock_response.request = Mock()
-            mock_response.request.extensions = {}
+            client = _secure_client_with_mock_transport(handler, max_redirects=5, require_https=False)
 
-            validate_response = client.event_hooks["response"][0]
+            with client:
+                response = client.get("http://example.com/direct")
+            assert response.status_code == 200
+            assert mock_resolve.called  # initial URL was validated
 
-            # Should not raise - no redirects to validate
-            validate_response(mock_response)
-
-    def test_redirect_with_url_encoded_private_ip(self):
-        """Test that URL-encoded private IPs in redirects are caught."""
+    def test_redirect_to_private_ip_blocked(self):
+        """Test that redirects to loopback addresses are caught."""
         import ipaddress
-        from unittest.mock import Mock, patch
+        from unittest.mock import patch
+
+        import httpx
 
         from all2md.exceptions import NetworkSecurityError
-        from all2md.utils.network_security import create_secure_http_client
 
         with patch("all2md.utils.network_security._resolve_hostname_to_ips") as mock_resolve:
 
@@ -324,20 +328,13 @@ class TestRedirectValidationEdgeCases:
 
             mock_resolve.side_effect = resolver
 
-            client = create_secure_http_client(max_redirects=5, require_https=False)
+            def handler(request):
+                if request.url.host == "example.com":
+                    return httpx.Response(302, headers={"location": "http://127.0.0.1/admin"})
+                return httpx.Response(200, content=b"admin")
 
-            # Simulate redirect to localhost
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.history = [
-                Mock(url="http://example.com/start"),
-                Mock(url="http://127.0.0.1/admin"),  # Localhost
-            ]
-            mock_response.request = Mock()
-            mock_response.request.extensions = {"redirect_count": 2}
-
-            validate_response = client.event_hooks["response"][0]
+            client = _secure_client_with_mock_transport(handler, max_redirects=5, require_https=False)
 
             # Should raise - localhost is blocked
-            with pytest.raises(NetworkSecurityError):
-                validate_response(mock_response)
+            with client, pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+                client.get("http://example.com/start")

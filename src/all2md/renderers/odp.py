@@ -75,7 +75,7 @@ from all2md.renderers._split_utils import (
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file
-from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.network_security import RateLimiter, fetch_image_with_network_options, is_network_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +121,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         self._current_paragraph: Any = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._temp_files: list[str] = []  # Track temp files for cleanup
+        self._network_rate_limiter: RateLimiter | None = None
         self._presentation: Any | None = None  # Current presentation object for image embedding
 
     @requires_dependencies("odp_render", DEPS_ODF_RENDER)
@@ -584,13 +585,14 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Fetch image data securely
-            image_data = fetch_image_securely(
+            if self._network_rate_limiter is None:
+                self._network_rate_limiter = RateLimiter.from_options(self.options.network)
+
+            image_data = fetch_image_with_network_options(
                 url=url,
-                allowed_hosts=self.options.network.allowed_hosts,
-                require_https=self.options.network.require_https,
+                network_options=self.options.network,
                 max_size_bytes=self.options.max_asset_size_bytes,
-                timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success,
+                rate_limiter=self._network_rate_limiter,
             )
 
             # Determine file extension from URL or content type

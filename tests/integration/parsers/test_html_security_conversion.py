@@ -50,7 +50,7 @@ class TestHtmlConverterSecurity:
             network=NetworkFetchOptions(allow_remote_fetch=True, require_https=True), attachment_mode="base64"
         )
 
-        with patch("all2md.parsers.html.fetch_image_securely") as mock_fetch:
+        with patch("all2md.parsers.html.fetch_image_with_network_options") as mock_fetch:
             mock_fetch.return_value = b"fake_image_data"
 
             result = html_to_markdown(html_content, source_format="html", parser_options=options)
@@ -239,7 +239,7 @@ class TestSecurityErrorHandling:
             else:
                 raise Exception("Simulated failure")
 
-        with patch("all2md.parsers.html.fetch_image_securely", side_effect=mock_fetch_side_effect):
+        with patch("all2md.parsers.html.fetch_image_with_network_options", side_effect=mock_fetch_side_effect):
             result = html_to_markdown(html_content, source_format="html", parser_options=options)
 
             # First image should be base64 encoded, second should fall back

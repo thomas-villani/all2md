@@ -81,7 +81,7 @@ from all2md.renderers._split_utils import (
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file
-from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.network_security import RateLimiter, fetch_image_with_network_options, is_network_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._list_item_counters: list[int] = []  # Track item number at each level for ordered lists
         self._temp_files: list[str] = []  # Track temp files for cleanup
+        self._network_rate_limiter: RateLimiter | None = None
 
     @requires_dependencies("pptx_render", DEPS_PPTX_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -908,13 +909,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Fetch image data securely
-            image_data = fetch_image_securely(
+            if self._network_rate_limiter is None:
+                self._network_rate_limiter = RateLimiter.from_options(self.options.network)
+
+            image_data = fetch_image_with_network_options(
                 url=url,
-                allowed_hosts=self.options.network.allowed_hosts,
-                require_https=self.options.network.require_https,
+                network_options=self.options.network,
                 max_size_bytes=self.options.max_asset_size_bytes,
-                timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success,
+                rate_limiter=self._network_rate_limiter,
             )
 
             # Determine file extension from URL or content type
