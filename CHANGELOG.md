@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-07-06
+
+### Added
+
+- **`--remote-input-no-require-head-success`.** Remote document fetching
+  (``all2md https://…``) previously always required a successful HEAD request
+  before downloading, with no way to opt out — servers that reject or mishandle
+  HEAD could not be read at all. ``RemoteInputOptions`` gains
+  ``require_head_success`` (default ``True``) with a matching CLI flag and
+  ``ALL2MD_REMOTE_INPUT_REQUIRE_HEAD_SUCCESS`` environment variable.
+
+### Fixed
+
+- **Legacy `<center>` no longer swallows page content.** ``<center>`` was not in
+  the HTML parser's block-element set, so pages that wrap their main content in
+  it — notably Hacker News item pages — converted to empty output. It is now
+  treated as a block container and its children (paragraphs, tables, …) are
+  preserved.
+- **Options docs now list only flags that actually exist.** The auto-generated
+  options reference invented ``--network-*`` flags with no per-format prefix and
+  showed positive forms of boolean flags the CLI only exposes negated
+  (e.g. ``--html-network-no-require-https``). The generator now mirrors the CLI
+  builder's real naming rules (per-format ``--<format>-network-*`` /
+  ``--<format>-renderer-network-*`` prefixes, negated defaults, skipped internal
+  fields), and every emitted flag is cross-checked against the live parser.
+
+### Security
+
+- **Redirect limits are now actually enforced.** The ``max_redirects`` check ran
+  in an httpx *response* event hook, which fires before httpx assigns
+  ``response.history`` — so the redirect count it inspected was always empty and
+  the limit never triggered. Enforcement now uses httpx's native
+  ``max_redirects``, surfacing violations as ``NetworkSecurityError``.
+- **Four `NetworkFetchOptions` fields were accepted but silently ignored** when
+  fetching attachments/images: ``max_redirects``, ``allowed_content_types``,
+  ``max_requests_per_second``, and ``max_concurrent_requests``. They are now
+  wired through a single shared fetch helper used by the HTML parser and the
+  DOCX/EPUB/ODP/ODT/PDF/PPTX renderers (rate limiting is applied per converter
+  instance), with a guard test asserting every field of the dataclass is
+  forwarded so new fields can't silently drop out again.
+
 ## [1.8.0] - 2026-07-01
 
 ### Added
@@ -580,7 +621,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.1
 [1.8.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.0
 [1.7.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.1
 [1.7.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.0
