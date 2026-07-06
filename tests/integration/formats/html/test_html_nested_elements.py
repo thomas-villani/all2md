@@ -46,3 +46,24 @@ class TestHtmlNestedElements:
         assert "List in quote" in markdown
         assert "Nested quote" in markdown
         assert "Ordered in quote" in markdown
+
+    def test_center_with_block_children(self):
+        """Block content inside legacy <center> must not be dropped (e.g. Hacker News layout)."""
+        html = """
+        <html><body><center>
+            <p>Intro paragraph</p>
+            <table>
+                <tr><td>cell content</td></tr>
+            </table>
+        </center></body></html>
+        """
+
+        markdown = html_to_markdown(html, source_format="html")
+        assert "Intro paragraph" in markdown
+        assert "cell content" in markdown
+
+    def test_center_inline_only(self):
+        """Inline content inside <center> renders as a paragraph."""
+        markdown = html_to_markdown("<center>just <b>text</b></center>", source_format="html")
+        assert "just" in markdown
+        assert "**text**" in markdown
