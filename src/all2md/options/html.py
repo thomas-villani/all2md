@@ -374,8 +374,6 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         Only needed if output HTML will be rendered in browsers with these frameworks.
     detect_table_alignment : bool, default True
         Whether to automatically detect table column alignment from CSS/attributes.
-    preserve_nested_structure : bool, default True
-        Whether to maintain proper nesting for blockquotes and other elements.
     allowed_attributes : tuple[str, ...] | dict[str, tuple[str, ...]] | None, default None
         Whitelist of allowed HTML attributes. Supports two modes:
         - Global allowlist: tuple of attribute names applied to all elements

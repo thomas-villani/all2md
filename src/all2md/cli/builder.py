@@ -627,6 +627,10 @@ class DynamicCLIBuilder:
         if exclude_base_fields and field.name in base_field_names:
             return False, {}
 
+        # Skip internal fields: not settable via __init__ or private by convention
+        if not field.init or field.name.startswith("_"):
+            return False, {}
+
         metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
         # Skip if explicitly excluded from CLI
