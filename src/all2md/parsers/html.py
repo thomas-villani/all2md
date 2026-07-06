@@ -70,7 +70,7 @@ from all2md.utils.attachments import process_attachment
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.html_sanitizer import is_element_safe, sanitize_html_string
 from all2md.utils.metadata import DocumentMetadata
-from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.network_security import RateLimiter, fetch_image_with_network_options, is_network_disabled
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 from all2md.utils.security import (
     resolve_file_url_to_path,
@@ -140,7 +140,6 @@ class HtmlToAstConverter(BaseParser):
             "legend",
             "hgroup",
             "dialog",  # Additional semantic HTML5 elements
-            "center",  # Legacy block container (still used by e.g. Hacker News)
             "en-note",  # Evernote ENEX note container
         }
     )
@@ -191,6 +190,7 @@ class HtmlToAstConverter(BaseParser):
         self._in_code_block = False
         self._heading_level_offset = 0
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
+        self._network_rate_limiter: RateLimiter | None = None
 
     @requires_dependencies("html", DEPS_HTML)
     def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
@@ -1834,15 +1834,16 @@ class HtmlToAstConverter(BaseParser):
                 "Warning: This may expose your application to SSRF attacks if used with untrusted input."
             )
 
+        if self._network_rate_limiter is None:
+            self._network_rate_limiter = RateLimiter.from_options(self.options.network)
+
         try:
             # Use network options from HtmlOptions
-            return fetch_image_securely(
+            return fetch_image_with_network_options(
                 url=url,
-                allowed_hosts=self.options.network.allowed_hosts,
-                require_https=self.options.network.require_https,
+                network_options=self.options.network,
                 max_size_bytes=self.options.max_asset_size_bytes,
-                timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success,
+                rate_limiter=self._network_rate_limiter,
             )
         except NetworkSecurityError as e:
             logger.warning(f"Network security validation failed for {url}: {e}")

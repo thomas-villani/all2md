@@ -665,8 +665,8 @@ class TestRemoteImageFetching:
             b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
         )
 
-        # Mock fetch_image_securely
-        with mock.patch("all2md.renderers.epub.fetch_image_securely", return_value=png_data):
+        # Mock fetch_image_with_network_options
+        with mock.patch("all2md.renderers.epub.fetch_image_with_network_options", return_value=png_data):
             with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=False):
                 doc = Document(
                     children=[
@@ -720,7 +720,9 @@ class TestRemoteImageFetching:
         import unittest.mock as mock
 
         # Mock fetch to raise an exception
-        with mock.patch("all2md.renderers.epub.fetch_image_securely", side_effect=Exception("Network error")):
+        with mock.patch(
+            "all2md.renderers.epub.fetch_image_with_network_options", side_effect=Exception("Network error")
+        ):
             with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=False):
                 doc = Document(
                     children=[
@@ -752,7 +754,7 @@ class TestRemoteImageFetching:
         local_image.write_bytes(png_data)
 
         # Mock remote fetch
-        with mock.patch("all2md.renderers.epub.fetch_image_securely", return_value=png_data):
+        with mock.patch("all2md.renderers.epub.fetch_image_with_network_options", return_value=png_data):
             with mock.patch("all2md.renderers.epub.is_network_disabled", return_value=False):
                 doc = Document(
                     children=[

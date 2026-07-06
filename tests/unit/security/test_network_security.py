@@ -551,46 +551,8 @@ class TestEventHooksImplementation:
                 client.get("http://internal.company.com")
 
     @patch("all2md.utils.network_security._resolve_hostname_to_ips")
-    def test_event_hooks_validate_redirect_chain(self, mock_resolve):
-        """Test that response event hooks validate redirect chains."""
-        from all2md.utils.network_security import create_secure_http_client
-
-        # Create a mock response with redirect history containing a private IP
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.headers = {"content-type": "text/html"}
-        mock_response.history = [
-            Mock(url="http://safe.example.com"),  # Initial URL (safe)
-            Mock(url="http://192.168.1.1/evil"),  # Redirect to private IP (unsafe)
-        ]
-
-        mock_response.request.extensions = {"redirect_count": 2}
-
-        # Mock resolution: safe.example.com -> public IP, but the redirect history contains private IP
-        def mock_resolver(hostname):
-            if hostname == "safe.example.com":
-                return [ipaddress.IPv4Address("8.8.8.8")]  # Public IP
-            elif hostname == "192.168.1.1":
-                return [ipaddress.IPv4Address("192.168.1.1")]  # Private IP
-            return [ipaddress.IPv4Address("8.8.8.8")]
-
-        mock_resolve.side_effect = mock_resolver
-
-        client = create_secure_http_client()
-
-        # Test the response hook directly
-        validate_response_redirects = None
-        if hasattr(client, "event_hooks") and "response" in client.event_hooks:
-            validate_response_redirects = client.event_hooks["response"][0]
-
-        # Should raise NetworkSecurityError when validating redirect chain
-        if validate_response_redirects:
-            with pytest.raises(NetworkSecurityError):
-                validate_response_redirects(mock_response)
-
-    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
-    def test_event_hooks_client_creation_success(self, mock_resolve):
-        """Test that event hooks client is created successfully with valid configuration."""
+    def test_client_creation_success(self, mock_resolve):
+        """Test that the secure client is created with the expected configuration."""
         from all2md.utils.network_security import create_secure_http_client
 
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
@@ -599,165 +561,155 @@ class TestEventHooksImplementation:
             timeout=15.0, max_redirects=3, allowed_hosts=["example.com"], require_https=True
         )
 
-        # Verify client configuration - focus on event hooks
         assert client.follow_redirects is True
+        assert client.max_redirects == 3
         assert hasattr(client, "event_hooks")
         assert "request" in client.event_hooks
-        assert "response" in client.event_hooks
         assert len(client.event_hooks["request"]) == 1
-        assert len(client.event_hooks["response"]) == 1
 
         # Verify timeout is set (as an httpx.Timeout object)
         assert client.timeout is not None
 
 
+def _make_secure_client_with_transport(handler, **client_kwargs):
+    """Create a secure client whose requests are served by an httpx.MockTransport.
+
+    create_secure_http_client does not expose a transport parameter, so patch
+    httpx.Client during construction to inject the mock transport. Event hooks
+    and redirect handling behave exactly as in production.
+    """
+    import httpx
+
+    from all2md.utils.network_security import create_secure_http_client
+
+    real_client_cls = httpx.Client
+    transport = httpx.MockTransport(handler)
+
+    def patched_client(**kwargs):
+        kwargs["transport"] = transport
+        return real_client_cls(**kwargs)
+
+    with patch.object(httpx, "Client", new=patched_client):
+        return create_secure_http_client(**client_kwargs)
+
+
+def _redirect_chain_handler(scheme="http", host="example.com"):
+    """Handler where /hop/N redirects to /hop/N-1 and /hop/0 returns 200."""
+    import httpx
+
+    def handler(request):
+        path = request.url.path
+        n = int(path.rsplit("/", 1)[1])
+        if n > 0:
+            return httpx.Response(302, headers={"location": f"{scheme}://{host}/hop/{n - 1}"})
+        return httpx.Response(200, content=b"ok")
+
+    return handler
+
+
 @pytest.mark.unit
 @pytest.mark.security
 class TestRedirectLimitEdgeCases:
-    """Test redirect limit enforcement edge cases."""
+    """Test redirect limit enforcement through real redirect-following behavior."""
 
     @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_exactly_at_redirect_limit(self, mock_resolve):
-        """Test that exactly max_redirects redirects are allowed."""
-        from all2md.utils.network_security import create_secure_http_client
-
+        """Exactly max_redirects redirects are allowed."""
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-        # Create client with max_redirects=3, allow HTTP for this test
-        client = create_secure_http_client(max_redirects=3, require_https=False)
-
-        # Create mock response with exactly 3 redirects in history
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.history = [
-            Mock(url="http://example.com/1"),
-            Mock(url="http://example.com/2"),
-            Mock(url="http://example.com/3"),
-        ]
-        mock_response.request = Mock()
-        mock_response.request.extensions = {"redirect_count": 3}
-
-        # Get the response validation hook
-        validate_response = client.event_hooks["response"][0]
-
-        # Should not raise - exactly at limit
-        validate_response(mock_response)
+        client = _make_secure_client_with_transport(_redirect_chain_handler(), max_redirects=3, require_https=False)
+        with client:
+            response = client.get("http://example.com/hop/3")
+        assert response.status_code == 200
+        assert len(response.history) == 3
 
     @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_one_over_redirect_limit(self, mock_resolve):
-        """Test that max_redirects + 1 redirects are blocked."""
-        from all2md.utils.network_security import create_secure_http_client
+        """max_redirects + 1 redirects are blocked by httpx."""
+        import httpx
 
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-        client = create_secure_http_client(max_redirects=3)
+        client = _make_secure_client_with_transport(_redirect_chain_handler(), max_redirects=3, require_https=False)
+        with client, pytest.raises(httpx.TooManyRedirects):
+            client.get("http://example.com/hop/4")
 
-        # Create mock response with 4 redirects (one over limit)
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.history = [
-            Mock(url="http://example.com/1"),
-            Mock(url="http://example.com/2"),
-            Mock(url="http://example.com/3"),
-            Mock(url="http://example.com/4"),
-        ]
-        mock_response.request = Mock()
-        mock_response.request.extensions = {"redirect_count": 4}
+    @patch("all2md.utils.network_security._resolve_hostname_to_ips")
+    def test_over_limit_wrapped_by_fetch(self, mock_resolve):
+        """fetch_content_securely surfaces redirect-limit violations as NetworkSecurityError."""
+        import httpx
 
-        validate_response = client.event_hooks["response"][0]
+        from all2md.utils.network_security import fetch_content_securely
 
-        # Should raise - over limit
-        with pytest.raises(NetworkSecurityError, match="Too many redirects"):
-            validate_response(mock_response)
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
+
+        real_client_cls = httpx.Client
+        transport = httpx.MockTransport(_redirect_chain_handler())
+
+        def patched_client(**kwargs):
+            kwargs["transport"] = transport
+            return real_client_cls(**kwargs)
+
+        with patch.object(httpx, "Client", new=patched_client):
+            with pytest.raises(NetworkSecurityError, match="HTTP request failed"):
+                fetch_content_securely(
+                    url="http://example.com/hop/4",
+                    require_https=False,
+                    require_head_success=False,
+                    max_redirects=3,
+                )
 
     @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_redirect_loop_detection(self, mock_resolve):
-        """Test that redirect loops eventually get blocked by limit."""
-        from all2md.utils.network_security import create_secure_http_client
+        """Redirect loops eventually get blocked by the limit."""
+        import httpx
 
         mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-        client = create_secure_http_client(max_redirects=5)
+        def loop_handler(request):
+            target = "/b" if request.url.path == "/a" else "/a"
+            return httpx.Response(302, headers={"location": f"http://example.com{target}"})
 
-        # Simulate redirect loop
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.history = [
-            Mock(url="http://example.com/a"),
-            Mock(url="http://example.com/b"),
-            Mock(url="http://example.com/a"),
-            Mock(url="http://example.com/b"),
-            Mock(url="http://example.com/a"),
-            Mock(url="http://example.com/b"),
-        ]
-        mock_response.request = Mock()
-        mock_response.request.extensions = {"redirect_count": 6}
-
-        validate_response = client.event_hooks["response"][0]
-
-        # Should raise - exceeds limit
-        with pytest.raises(NetworkSecurityError, match="Too many redirects"):
-            validate_response(mock_response)
+        client = _make_secure_client_with_transport(loop_handler, max_redirects=5, require_https=False)
+        with client, pytest.raises(httpx.TooManyRedirects):
+            client.get("http://example.com/a")
 
     @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_redirect_from_https_to_http_blocked_with_require_https(self, mock_resolve):
-        """Test that HTTPS->HTTP redirects are blocked when require_https=True."""
-        from all2md.utils.network_security import create_secure_http_client
+        """HTTPS->HTTP redirect targets are blocked by the request hook when require_https=True."""
+        import httpx
 
-        def mock_resolver(hostname):
-            return [ipaddress.IPv4Address("8.8.8.8")]
+        mock_resolve.return_value = [ipaddress.IPv4Address("8.8.8.8")]
 
-        mock_resolve.side_effect = mock_resolver
+        def downgrade_handler(request):
+            if request.url.scheme == "https":
+                return httpx.Response(302, headers={"location": "http://example.com/insecure"})
+            return httpx.Response(200, content=b"insecure")
 
-        client = create_secure_http_client(max_redirects=5, require_https=True)
-
-        # Simulate redirect from HTTPS to HTTP
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.history = [
-            Mock(url="https://example.com/secure"),
-            Mock(url="http://example.com/insecure"),  # Downgrade to HTTP
-        ]
-        mock_response.request = Mock()
-        mock_response.request.extensions = {"redirect_count": 2}
-
-        validate_response = client.event_hooks["response"][0]
-
-        # Should raise due to HTTP in redirect chain
-        with pytest.raises(NetworkSecurityError, match="HTTPS required"):
-            validate_response(mock_response)
+        client = _make_secure_client_with_transport(downgrade_handler, max_redirects=5, require_https=True)
+        with client, pytest.raises(NetworkSecurityError, match="HTTPS required"):
+            client.get("https://example.com/secure")
 
     @patch("all2md.utils.network_security._resolve_hostname_to_ips")
     def test_redirect_to_private_ip_blocked(self, mock_resolve):
-        """Test that redirects to private IPs are blocked."""
-        from all2md.utils.network_security import create_secure_http_client
+        """Redirect targets resolving to private IPs are blocked by the request hook."""
+        import httpx  # noqa: F401 (used in the nested handler)
 
         def mock_resolver(hostname):
-            if hostname == "public.com":
-                return [ipaddress.IPv4Address("8.8.8.8")]
-            elif hostname == "192.168.1.1":
+            if hostname == "192.168.1.1":
                 return [ipaddress.IPv4Address("192.168.1.1")]
             return [ipaddress.IPv4Address("8.8.8.8")]
 
         mock_resolve.side_effect = mock_resolver
 
-        client = create_secure_http_client(max_redirects=5)
+        def redirect_to_private(request):
+            if request.url.host == "public.com":
+                return httpx.Response(302, headers={"location": "http://192.168.1.1/admin"})
+            return httpx.Response(200, content=b"internal")
 
-        # Simulate redirect to private IP
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.history = [
-            Mock(url="http://public.com/start"),
-            Mock(url="http://192.168.1.1/admin"),  # Private IP
-        ]
-        mock_response.request = Mock()
-        mock_response.request.extensions = {"redirect_count": 2}
-
-        validate_response = client.event_hooks["response"][0]
-
-        # Should raise due to private IP in redirect
-        with pytest.raises(NetworkSecurityError):
-            validate_response(mock_response)
+        client = _make_secure_client_with_transport(redirect_to_private, max_redirects=5, require_https=False)
+        with client, pytest.raises(NetworkSecurityError, match="private/reserved IP"):
+            client.get("http://public.com/start")
 
 
 @pytest.mark.unit
@@ -1122,3 +1074,98 @@ class TestRateLimiter:
         assert elapsed < 0.2, f"Request should succeed immediately with refunded token, took {elapsed}s"
 
         limiter.release()
+
+
+class TestNetworkOptionsWiring:
+    """Test that NetworkFetchOptions fields are forwarded to the fetch layer."""
+
+    def _make_options(self, **overrides):
+        from all2md.options.common import NetworkFetchOptions
+
+        values = {
+            "allow_remote_fetch": True,
+            "allowed_hosts": ["cdn.example.com"],
+            "require_https": False,
+            "require_head_success": False,
+            "network_timeout": 7.5,
+            "max_redirects": 2,
+            "allowed_content_types": ("image/", "text/"),
+            "max_requests_per_second": 3.0,
+            "max_concurrent_requests": 2,
+        }
+        values.update(overrides)
+        return NetworkFetchOptions(**values)
+
+    def test_rate_limiter_from_options(self):
+        """RateLimiter.from_options reads rate/concurrency fields."""
+        limiter = RateLimiter.from_options(self._make_options())
+        assert limiter.max_requests_per_second == 3.0
+        assert limiter.max_concurrent == 2
+
+    @patch("all2md.utils.network_security.fetch_content_securely")
+    def test_fetch_image_with_network_options_forwards_all_fields(self, mock_fetch):
+        """Every NetworkFetchOptions field must reach fetch_content_securely."""
+        from all2md.utils.network_security import fetch_image_with_network_options
+
+        mock_fetch.return_value = b"data"
+        options = self._make_options()
+        limiter = RateLimiter.from_options(options)
+
+        result = fetch_image_with_network_options(
+            url="http://cdn.example.com/a.png",
+            network_options=options,
+            max_size_bytes=1234,
+            rate_limiter=limiter,
+        )
+
+        assert result == b"data"
+        kwargs = mock_fetch.call_args.kwargs
+        assert kwargs["allowed_hosts"] == ["cdn.example.com"]
+        assert kwargs["require_https"] is False
+        assert kwargs["require_head_success"] is False
+        assert kwargs["timeout"] == 7.5
+        assert kwargs["max_redirects"] == 2
+        assert kwargs["expected_content_types"] == ["image/", "text/"]
+        assert kwargs["max_size_bytes"] == 1234
+        assert kwargs["rate_limiter"] is limiter
+
+    @patch("all2md.utils.network_security.fetch_content_securely")
+    def test_fetch_image_defaults_to_image_content_types(self, mock_fetch):
+        """allowed_content_types=None keeps the image/ restriction for image fetches."""
+        from all2md.utils.network_security import fetch_image_with_network_options
+
+        mock_fetch.return_value = b"data"
+        options = self._make_options(allowed_content_types=None)
+
+        fetch_image_with_network_options(
+            url="http://cdn.example.com/a.png",
+            network_options=options,
+            max_size_bytes=1234,
+        )
+
+        assert mock_fetch.call_args.kwargs["expected_content_types"] == ["image/"]
+
+    def test_all_network_fetch_options_fields_are_wired(self):
+        """Guard: adding a NetworkFetchOptions field requires wiring it through the fetch helper.
+
+        If this test fails, forward the new field in
+        fetch_image_with_network_options (or RateLimiter.from_options) and add
+        it to the expected set below.
+        """
+        from dataclasses import fields
+
+        from all2md.options.common import NetworkFetchOptions
+
+        wired_fields = {
+            "allow_remote_fetch",  # checked by converters before fetching
+            "allowed_hosts",
+            "require_https",
+            "require_head_success",
+            "network_timeout",
+            "max_redirects",
+            "allowed_content_types",
+            "max_requests_per_second",  # via RateLimiter.from_options
+            "max_concurrent_requests",  # via RateLimiter.from_options
+        }
+        actual_fields = {field.name for field in fields(NetworkFetchOptions)}
+        assert actual_fields == wired_fields

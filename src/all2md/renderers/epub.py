@@ -38,7 +38,7 @@ from all2md.renderers.base import BaseRenderer
 from all2md.renderers.html import HtmlRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image, detect_image_format_from_bytes
-from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.network_security import RateLimiter, fetch_image_with_network_options, is_network_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,7 @@ class EpubRenderer(BaseRenderer):
 
         # Track temporary files for cleanup
         self._temp_files: list[str] = []
+        self._network_rate_limiter: RateLimiter | None = None
 
     @requires_dependencies("epub_render", DEPS_EPUB_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -396,13 +397,14 @@ class EpubRenderer(BaseRenderer):
 
         try:
             # Fetch image data securely
-            image_data = fetch_image_securely(
+            if self._network_rate_limiter is None:
+                self._network_rate_limiter = RateLimiter.from_options(self.options.network)
+
+            image_data = fetch_image_with_network_options(
                 url=url,
-                allowed_hosts=self.options.network.allowed_hosts,
-                require_https=self.options.network.require_https,
+                network_options=self.options.network,
                 max_size_bytes=self.options.max_asset_size_bytes,
-                timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success,
+                rate_limiter=self._network_rate_limiter,
             )
 
             # Detect image format from URL or content

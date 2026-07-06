@@ -72,7 +72,7 @@ from all2md.options.docx import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.images import decode_base64_image_to_file
-from all2md.utils.network_security import fetch_image_securely, is_network_disabled
+from all2md.utils.network_security import RateLimiter, fetch_image_with_network_options, is_network_disabled
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +116,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._list_level: int = 0
         self._in_table: bool = False
         self._temp_files: list[str] = []
+        self._network_rate_limiter: RateLimiter | None = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
         self._available_styles: set[str] = set()  # Populated after document creation
@@ -1358,13 +1359,14 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return None
 
         try:
-            image_data = fetch_image_securely(
+            if self._network_rate_limiter is None:
+                self._network_rate_limiter = RateLimiter.from_options(self.options.network)
+
+            image_data = fetch_image_with_network_options(
                 url=url,
-                allowed_hosts=self.options.network.allowed_hosts,
-                require_https=self.options.network.require_https,
+                network_options=self.options.network,
                 max_size_bytes=self.options.max_asset_size_bytes,
-                timeout=self.options.network.network_timeout,
-                require_head_success=self.options.network.require_head_success,
+                rate_limiter=self._network_rate_limiter,
             )
 
             # Determine extension from URL
