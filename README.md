@@ -369,7 +369,7 @@ After installation, agents automatically discover the skills and use them when r
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 | **Jinja2 Templates (Custom)** | User-defined (`.jinja2`, `.j2`)               |       ❌       |        ✅      | `jinja2`           |
 
-> **💡 New!** Create custom output formats using Jinja2 templates without writing Python code. See [Template Guide](https://all2md.readthedocs.io/en/latest/templates.html) and [examples/jinja-templates/](examples/jinja-templates/) for DocBook XML, YAML, ANSI terminal, and more.
+> **💡 New!** Create custom output formats using Jinja2 templates without writing Python code. See [Template Guide](https://all2md.readthedocs.io/en/latest/templates.html) and [examples/templates/](examples/templates/) for DocBook XML, YAML, ANSI terminal, and more.
 
 ## Installation
 
