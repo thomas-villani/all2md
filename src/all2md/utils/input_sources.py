@@ -107,6 +107,14 @@ class RemoteInputOptions(CloneFrozenMixin):
             "cli_negated_name": "allow-http",
         },
     )
+    require_head_success: bool = field(
+        default=True,
+        metadata={
+            "help": "Require a successful HEAD request before downloading remote documents. "
+            "Disable for servers that reject or mishandle HEAD requests.",
+            "importance": "security",
+        },
+    )
     timeout: float = field(
         default=10.0,
         metadata={
@@ -424,6 +432,7 @@ class HttpRetriever(DocumentSourceRetriever):
                 url=url,
                 allowed_hosts=list(remote_options.allowed_hosts) if remote_options.allowed_hosts is not None else None,
                 require_https=remote_options.require_https,
+                require_head_success=remote_options.require_head_success,
                 max_size_bytes=remote_options.max_size_bytes,
                 timeout=remote_options.timeout,
                 user_agent=remote_options.user_agent,

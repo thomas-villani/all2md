@@ -37,10 +37,13 @@ def test_http_retriever_requires_remote_input_enabled(loader):
 def test_http_retriever_fetches_when_enabled(monkeypatch, loader):
     captured = {}
 
-    def fake_fetch_content_securely(*, url, allowed_hosts, require_https, max_size_bytes, timeout, user_agent):
+    def fake_fetch_content_securely(
+        *, url, allowed_hosts, require_https, require_head_success, max_size_bytes, timeout, user_agent
+    ):
         captured["url"] = url
         captured["allowed_hosts"] = allowed_hosts
         captured["require_https"] = require_https
+        captured["require_head_success"] = require_head_success
         captured["max_size_bytes"] = max_size_bytes
         captured["timeout"] = timeout
         captured["user_agent"] = user_agent
@@ -65,8 +68,30 @@ def test_http_retriever_fetches_when_enabled(monkeypatch, loader):
     assert captured["url"] == "https://example.com/file.txt"
     assert captured["allowed_hosts"] == ["example.com"]
     assert captured["require_https"] is True
+    assert captured["require_head_success"] is True
     assert captured["max_size_bytes"] == 1024
     assert captured["timeout"] == 3.5
+
+
+def test_http_retriever_can_disable_head_requirement(monkeypatch, loader):
+    captured = {}
+
+    def fake_fetch_content_securely(**kwargs):
+        captured.update(kwargs)
+        return b"payload"
+
+    monkeypatch.setattr("all2md.utils.input_sources.fetch_content_securely", fake_fetch_content_securely)
+
+    remote_options = RemoteInputOptions(
+        allow_remote_input=True,
+        allowed_hosts=["example.com"],
+        require_head_success=False,
+    )
+    request = DocumentSourceRequest(raw_input="https://example.com/file.txt", remote_options=remote_options)
+
+    loader.load(request)
+
+    assert captured["require_head_success"] is False
 
 
 def test_text_content_retriever_handles_inline_strings(loader):
@@ -97,7 +122,9 @@ def test_http_retriever_empty_allowlist_denies_all_hosts(monkeypatch, loader):
     """
     captured = {}
 
-    def fake_fetch_content_securely(*, url, allowed_hosts, require_https, max_size_bytes, timeout, user_agent):
+    def fake_fetch_content_securely(
+        *, url, allowed_hosts, require_https, require_head_success, max_size_bytes, timeout, user_agent
+    ):
         captured["allowed_hosts"] = allowed_hosts
         return b"should not reach here"
 
