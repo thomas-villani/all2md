@@ -140,6 +140,7 @@ class HtmlToAstConverter(BaseParser):
             "legend",
             "hgroup",
             "dialog",  # Additional semantic HTML5 elements
+            "center",  # Legacy block container (still used by e.g. Hacker News)
             "en-note",  # Evernote ENEX note container
         }
     )
