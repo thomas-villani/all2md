@@ -735,11 +735,16 @@ def to_ast(
 
     # Consult the opt-in conversion cache before the expensive parse. Only local
     # file sources are cacheable (a stable path + stat signature); streams, bytes,
-    # and remote URLs fall through to a normal parse.
+    # and remote URLs fall through to a normal parse. The loader already validated
+    # and resolved local paths to a ``Path`` payload (LocalPathRetriever is the
+    # only retriever that yields one), so we key off that rather than re-statting
+    # the caller-supplied ``source`` directly.
     cache = get_active_cache()
     cache_key: str | None = None
-    if cache is not None and isinstance(source, (str, Path)) and Path(source).is_file():
-        cache_key = make_cache_key(str(source), source_format=actual_format, options_repr=repr(final_parser_options))
+    if cache is not None and isinstance(resolved_payload, Path):
+        cache_key = make_cache_key(
+            str(resolved_payload), source_format=actual_format, options_repr=repr(final_parser_options)
+        )
         cached_doc = cache.get(cache_key)
         if cached_doc is not None:
             _record_source_path(cached_doc, source)
