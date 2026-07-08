@@ -24,6 +24,44 @@ from all2md.utils.packages import check_version_requirement, get_package_version
 _GLOB_CHARS = "*?["
 
 
+def add_cache_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the shared opt-in conversion-cache flags to a subcommand parser.
+
+    Commands that convert documents (grep, search, chunk, view, serve) share this
+    so the flag names and help text stay consistent.
+    """
+    group = parser.add_argument_group("Conversion cache")
+    group.add_argument(
+        "--cache",
+        action="store_true",
+        default=False,
+        help=(
+            "Reuse parsed documents from an on-disk cache, skipping re-conversion of "
+            "unchanged files (keyed by content signature + options). Also enabled by "
+            "ALL2MD_CACHE=1."
+        ),
+    )
+    group.add_argument(
+        "--cache-dir",
+        metavar="DIR",
+        default=None,
+        help="Directory for the conversion cache (default: per-OS user cache dir, or $ALL2MD_CACHE_DIR).",
+    )
+
+
+def conversion_cache_from_args(parsed: "argparse.Namespace") -> Any:
+    """Return the ``use_conversion_cache`` context configured from parsed args.
+
+    ``--cache`` forces caching on; without it the ``ALL2MD_CACHE`` environment
+    variable still applies (``enabled=None`` defers to the env). Safe to call on a
+    namespace lacking the attributes (returns an inert, disabled context).
+    """
+    from all2md.conversion_cache import use_conversion_cache
+
+    enabled = True if getattr(parsed, "cache", False) else None
+    return use_conversion_cache(enabled=enabled, cache_dir=getattr(parsed, "cache_dir", None))
+
+
 def split_glob_pattern(raw: str) -> tuple[Path, str, bool]:
     """Split a glob pattern into ``(anchor_dir, name_pattern, recursive)``.
 

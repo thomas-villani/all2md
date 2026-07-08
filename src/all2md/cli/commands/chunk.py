@@ -34,6 +34,7 @@ from all2md.cli.builder import (
     EXIT_SUCCESS,
     EXIT_VALIDATION_ERROR,
 )
+from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.config import apply_config_to_parser
 from all2md.exceptions import All2MdError, DependencyError
 
@@ -190,6 +191,7 @@ def _create_chunk_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable configuration file loading for this command.",
     )
+    add_cache_arguments(parser)
 
     return parser
 
@@ -320,29 +322,35 @@ def handle_chunk_command(args: list[str] | None = None) -> int:
 
     all_chunks: list[ProvenanceChunk] = []
     try:
-        for source in parsed.inputs:
-            doc, document_id, document_path = _load_ast(source, converter_options)
-            if drop_transform is not None:
-                doc = cast(Document, drop_transform.transform(doc))
-            label = document_path or document_id
-            print(f"Chunking {label} (strategy={parsed.strategy}, max_tokens={parsed.max_tokens})...", file=sys.stderr)
-            chunks = chunk_ast(
-                doc,
-                strategy=parsed.strategy,
-                max_tokens=parsed.max_tokens,
-                overlap=parsed.overlap,
-                document_id=document_id,
-                document_path=document_path,
-                include_preamble=parsed.include_preamble,
-                heading_merge=parsed.heading_merge,
-                max_heading_level=parsed.max_heading_level,
-                avoid_table_split=parsed.avoid_table_split,
-                avoid_code_split=parsed.avoid_code_split,
-                elide_data_uris=parsed.elide_data_uris,
-                min_tokens=parsed.min_tokens,
-                token_counter=parsed.token_counter,
-            )
-            all_chunks.extend(chunks)
+        # Conversion happens in _load_ast (to_ast); an opt-in cache lets repeated
+        # chunk runs over the same files skip re-parsing.
+        with conversion_cache_from_args(parsed):
+            for source in parsed.inputs:
+                doc, document_id, document_path = _load_ast(source, converter_options)
+                if drop_transform is not None:
+                    doc = cast(Document, drop_transform.transform(doc))
+                label = document_path or document_id
+                print(
+                    f"Chunking {label} (strategy={parsed.strategy}, max_tokens={parsed.max_tokens})...",
+                    file=sys.stderr,
+                )
+                chunks = chunk_ast(
+                    doc,
+                    strategy=parsed.strategy,
+                    max_tokens=parsed.max_tokens,
+                    overlap=parsed.overlap,
+                    document_id=document_id,
+                    document_path=document_path,
+                    include_preamble=parsed.include_preamble,
+                    heading_merge=parsed.heading_merge,
+                    max_heading_level=parsed.max_heading_level,
+                    avoid_table_split=parsed.avoid_table_split,
+                    avoid_code_split=parsed.avoid_code_split,
+                    elide_data_uris=parsed.elide_data_uris,
+                    min_tokens=parsed.min_tokens,
+                    token_counter=parsed.token_counter,
+                )
+                all_chunks.extend(chunks)
     except DependencyError as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR

@@ -19,6 +19,7 @@ from pathlib import Path
 from all2md import HtmlRendererOptions, from_ast, to_ast
 from all2md.cli import EXIT_FILE_ERROR, window
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
+from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
 from all2md.cli.config import apply_config_to_parser, load_config_with_priority
 
@@ -95,6 +96,7 @@ def _create_view_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable configuration file loading for this command.",
     )
+    add_cache_arguments(parser)
     return parser
 
 
@@ -167,7 +169,8 @@ def handle_view_command(args: list[str] | None = None) -> int:
         # detected format (None path for stdin falls back to format-qualified keys).
         opts_path = None if is_stdin else Path(parsed.input)
         to_ast_kwargs = prepare_options_for_execution(converter_options, opts_path, "auto")
-        doc = to_ast(input_source, **to_ast_kwargs)
+        with conversion_cache_from_args(parsed):
+            doc = to_ast(input_source, **to_ast_kwargs)
 
         # Apply section extraction if requested
         if parsed.extract:

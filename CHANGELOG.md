@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Opt-in conversion cache (`--cache`).** `grep`, `search`, `chunk`, and `view`
+  gain a `--cache` flag (and `--cache-dir DIR`) that stashes parsed documents on
+  disk so repeated runs over unchanged files skip the expensive parse step. The
+  cache is keyed by a fingerprint over the source file (path + size + mtime), the
+  resolved format and parser options, and the all2md version + AST schema — so a
+  changed file, changed options, or a version bump all miss cleanly rather than
+  serving a stale AST. Off by default; also enable globally with `ALL2MD_CACHE=1`,
+  and point it anywhere with `ALL2MD_CACHE_DIR` (defaults to the per-OS user cache
+  directory via `platformdirs`). Exposed programmatically as
+  `all2md.conversion_cache.use_conversion_cache(...)`, which transparently caches
+  every `to_ast()` call made inside the context.
+
 ### Fixed
 
 - **Persistent search index no longer serves stale results.** A keyword index
