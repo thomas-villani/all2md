@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Persistent search index no longer serves stale results.** A keyword index
+  saved with `--search-index-dir` (MCP `search_documents`) was reused whenever the
+  directory existed, with no record of the corpus it was built from — so pointing
+  it at a changed corpus, or a different `paths` set, could silently return stale
+  hits. The index now records a fingerprint of the documents and index-relevant
+  options at save time and is rebuilt when they no longer match.
+
 ## [1.8.1] - 2026-07-06
 
 ### Added
