@@ -64,6 +64,7 @@ name = "all2md"
 version = "1.8.1"
 source = { editable = "." }
 dependencies = [
+    { name = "platformdirs" },
     { name = "pyyaml" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "tomli-w" },
@@ -343,6 +344,7 @@ requires-dist = [
     { name = "pillow", marker = "extra == 'all'", specifier = ">=11.3.0" },
     { name = "pillow", marker = "extra == 'ocr'", specifier = ">=11.3.0" },
     { name = "pillow", marker = "extra == 'ocr-easyocr'", specifier = ">=11.3.0" },
+    { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.6.0" },
     { name = "py7zr", marker = "extra == 'all'", specifier = ">=0.22.0" },
     { name = "py7zr", marker = "extra == 'archive'", specifier = ">=0.22.0" },

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
-from all2md.cli.commands.shared import collect_input_files
+from all2md.cli.commands.shared import add_cache_arguments, collect_input_files, conversion_cache_from_args
 from all2md.cli.config import load_config_with_priority
 from all2md.cli.input_items import CLIInputItem
 from all2md.exceptions import DependencyError
@@ -661,6 +661,7 @@ def _build_search_argument_parser() -> argparse.ArgumentParser:
         choices=["grep", "keyword", "vector", "hybrid"],
         help="Update the default mode recorded with persisted indexes",
     )
+    add_cache_arguments(parser)
 
     return parser
 
@@ -843,7 +844,10 @@ def handle_search_command(args: list[str] | None = None) -> int:
     enable_progress = parsed.progress or resolved_mode == "vector"
     progress_callback = _make_search_progress_callback(enable_progress)
 
-    service, error_code = _build_or_load_index(parsed, options, resolved_mode, items, progress_callback)
+    # Conversion happens inside index build; wrap so an opt-in cache can skip
+    # re-parsing unchanged files (reused-index loads convert nothing anyway).
+    with conversion_cache_from_args(parsed):
+        service, error_code = _build_or_load_index(parsed, options, resolved_mode, items, progress_callback)
     if error_code is not None:
         return error_code
     assert service is not None
@@ -943,6 +947,7 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     parser.add_argument("--recursive", action="store_true", help="Recurse into directories when searching")
     parser.add_argument("--exclude", action="append", help="Glob pattern to exclude (repeatable)")
     parser.add_argument("--rich", action="store_true", help="Enable rich-style output formatting")
+    add_cache_arguments(parser)
 
     parsed = parser.parse_args(args)
 
@@ -988,10 +993,12 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         print("Error: No input documents available for searching", file=sys.stderr)
         return EXIT_FILE_ERROR
 
-    # Build index and search (grep mode, no persistence)
+    # Build index and search (grep mode, no persistence). Conversion happens in
+    # build_indexes; wrap it so an opt-in cache can skip re-parsing unchanged files.
     service = SearchService(options=options)
     try:
-        service.build_indexes(documents, modes={SearchMode.GREP})
+        with conversion_cache_from_args(parsed):
+            service.build_indexes(documents, modes={SearchMode.GREP})
     except DependencyError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR

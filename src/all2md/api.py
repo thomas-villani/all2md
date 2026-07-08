@@ -10,6 +10,7 @@ from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_t
 
 from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
+from all2md.conversion_cache import get_active_cache, make_cache_key
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, FormatError, ParsingError
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -732,6 +733,18 @@ def to_ast(
         # No options provided - use None (parser will use defaults)
         final_parser_options = None
 
+    # Consult the opt-in conversion cache before the expensive parse. Only local
+    # file sources are cacheable (a stable path + stat signature); streams, bytes,
+    # and remote URLs fall through to a normal parse.
+    cache = get_active_cache()
+    cache_key: str | None = None
+    if cache is not None and isinstance(source, (str, Path)) and Path(source).is_file():
+        cache_key = make_cache_key(str(source), source_format=actual_format, options_repr=repr(final_parser_options))
+        cached_doc = cache.get(cache_key)
+        if cached_doc is not None:
+            _record_source_path(cached_doc, source)
+            return cached_doc
+
     # Use the parser class system to convert to AST
     try:
         parser_class = registry.get_parser(actual_format)
@@ -742,6 +755,8 @@ def to_ast(
         # same format using preserve_formatting=True without manually
         # threading the path through. Skipped for streams and bytes.
         _record_source_path(ast_doc, source)
+        if cache is not None and cache_key is not None:
+            cache.put(cache_key, ast_doc)
         return ast_doc
 
     except All2MdError:
