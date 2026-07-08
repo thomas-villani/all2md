@@ -2,9 +2,17 @@
 
 > A living, intentionally-wide brainstorm of where `all2md` could go. Nothing here is
 > committed — it's a menu of directions, sequenced roughly by leverage and effort.
-> Tactical, near-term items live in [`todo.md`](todo.md); this doc is the big picture.
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
+· 🚢 **shipped**
+
+> **Status note (updated 2026-07-08).** Since this roadmap was first written we've
+> shipped the headline Theme 1 item — `all2md chunk` (provenance-aware chunking, 11
+> strategies, `all2md.chunk()` Python API, `[chunk]` extra) — plus mermaid/syntax-
+> highlighting in `view`/`serve` and one-click `uv` install scripts. Shipped items are
+> marked 🚢 inline below; the license question that gated chunking is resolved (chunkers
+> vendored, optional extra). Tactical near-term work still lives in [`todo.md`](todo.md);
+> the highest-signal outstanding todo items are cross-referenced into the themes below.
 
 ---
 
@@ -32,18 +40,24 @@ We have an AST with line mapping and source spans; `localvectordb` (sister lib) 
 composable, position-tracking chunkers and a clean `ChunkerFactory` API. The synergy is
 obvious.
 
-- 🌱 **First-class `all2md chunk`** — `all2md chunk doc.pdf --strategy semantic|heading|token
-  --max-tokens 512 --overlap 64` emitting chunks + metadata + source spans as JSONL.
-  Draw chunking strategies from `localvectordb.ChunkerFactory` (sentence, token, word,
-  line, char, paragraph, section/heading, code-block) rather than reinventing them.
-- 🚀 **Provenance-preserving conversion** — every output node retains a pointer back to
-  source (page, bbox, char offset). We already track line mapping in the AST; extend it
-  end-to-end so an LLM answer can cite *exactly* where it came from. This is a genuine
-  RAG-trust differentiator.
-- 🌱 **Token-budget conversion** — grow `llm-minify` into "fit this 400-page PDF into
-  100k tokens" with section-aware elision/summarization.
-- 🚀 **Structured extraction** — `all2md extract doc.pdf --schema invoice.json` → typed,
-  schema-validated JSON (tables → records, key/value fields). Document → data, not prose.
+- 🚢 **First-class `all2md chunk`** — *shipped (v1.8.0).* Eleven strategies (`semantic`
+  default, `heading`, `section`, `auto`, `token`, `sentence`, `paragraph`, `word`, `line`,
+  `char`, `code`), JSONL/JSON/pretty output, `--max-tokens`/`--overlap`/`--min-tokens`,
+  tiktoken-backed real BPE counting via the `[chunk]` extra, atomic table/code chunks,
+  data-URI elision, and a one-call `all2md.chunk()` Python API. Fine-grained chunkers are
+  vendored from `localvectordb`.
+- 🚀 **Provenance-preserving conversion** — *partially shipped.* `all2md chunk` records
+  provenance now include section heading/level and (where the parser tracks it, e.g. PDF)
+  the source page span. The remaining ambition is end-to-end node-level provenance
+  (page, bbox, char offset) on *every* output node so an LLM answer can cite exactly where
+  it came from — the RAG-trust differentiator. Bbox/char-offset spans are the gap.
+- 🌱 **Token-budget conversion** — `llm-minify` (🚢 v1.3.0) and `--slice X/Y` paging
+  (🚢 v1.7.1) exist; the open piece is "fit this 400-page PDF into 100k tokens" with
+  section-aware elision/summarization rather than uniform minification.
+- 🚀 **Structured extraction** — *not started* (distinct from the shipped `--extract`
+  selector, which pulls sections/tables/figures as Markdown). The ambition here is
+  `all2md extract doc.pdf --schema invoice.json` → typed, schema-validated JSON
+  (tables → records, key/value fields). Document → data, not prose.
 - 🚀 **Loader adapters (two tiers).** Every framework wants the same payload —
   *text + metadata records* — which our AST + chunker already produces. Split the work:
   - **RAG-framework adapters** (🌱, easy, high-visibility) — one thin module each:
@@ -62,10 +76,11 @@ obvious.
     - *TensorFlow* — `tf.data.from_generator` for live use, but the real story is
       pre-sharded TFRecords from the batch engine.
 
-**Reuse note:** `localvectordb` is PolyForm Noncommercial-licensed. For an MIT/permissive
-`all2md`, prefer extracting/porting the chunking *primitives* (they're self-contained and
-depend mostly on `tiktoken`) rather than taking a hard dependency — or expose chunking
-behind an optional extra. Decide license posture before wiring it in.
+**Reuse note (resolved):** `localvectordb` is PolyForm Noncommercial-licensed. We took the
+recommended path — the fine-grained chunking primitives were **vendored** into `all2md`
+(self-contained, `tiktoken`-based) rather than added as a hard dependency, and BPE counting
+lives behind the optional `[chunk]` extra. License posture settled; no runtime dependency
+on the noncommercial package.
 
 ---
 
@@ -75,7 +90,14 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
 
 - 🌱 **Round-trip fidelity scoring** — `all2md roundtrip doc.docx` converts → md → back and
   reports a structural diff score (built on the existing diff engine). Turns fidelity into
-  a measurable, regression-testable, marketable metric.
+  a measurable, regression-testable, marketable metric. *Groundwork exists:* the corpus
+  benchmark harness under `benchmarks/corpus/` (🚢 v1.1.1) already times conversion across a
+  stratified real-world corpus and has an `inspect` mode; a `roundtrip` score sits naturally
+  on top of it plus the diff engine. **Still the single best leverage-per-effort item.**
+- 🌱 **DOCX round-trip: character styles** — *outstanding (see `todo.md`).* Paragraph-level
+  `source_style` already round-trips (🚢 v1.1.1); extend the same approach to run-level named
+  character styles ("Quote Char", "Intense Reference") by folding the style name into the
+  run-grouping key in `_process_paragraph_runs_to_inline`. Concrete, scoped fidelity win.
 - 🚀 **Layout-aware PDF reconstruction** — correct reading order across columns,
   footnote/endnote linking, running header/footer stripping, caption↔figure association.
   The eternal PDF pain points; we already have `_pdf_layout.py` to build on.
@@ -83,8 +105,11 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   HTML MathML, and (optionally) images of equations via OCR. Huge for academic/technical
   users and a natural pairing with the existing arxiv packager.
 - 🚀 **Public fidelity benchmark** — a golden corpus + scores vs markitdown / pandoc /
-  docling. Marketing + regression guard in one. Cheap given the diff engine. Corpora,
-  split by job:
+  docling. Marketing + regression guard in one. Cheap given the diff engine. *Groundwork
+  exists:* `benchmarks/corpus/` already pulls deterministic samples from arxiv, PubMed
+  Central, govdocs1, Apache POI, and Enron and emits a stratified report (🚢 v1.1.1); a
+  manual-dispatch CI workflow runs it on a clean VM. What's missing is the *quality* score
+  (vs. ground truth) and the head-to-head against other tools. Corpora, split by job:
   - **Structure ground-truth (headline metric):** [**OmniDocBench**](https://github.com/opendatalab/OmniDocBench)
     (CVPR 2025) — 981 pages, 9 doc types, with table (Markdown/HTML/LaTeX), formula, and
     reading-order metrics that map directly onto our output. Anchor the public score here.
@@ -101,7 +126,30 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
 - 🌱 **Conversion confidence report** — surface per-document warnings (dropped elements,
-  OCR confidence, ambiguous tables) as a structured "quality card."
+  OCR confidence, ambiguous tables) as a structured "quality card." *Note:* many of these
+  signals are already computed as **guards** inside the PDF parser (table cell-fill density,
+  uniformity, dot-leader ratio; ghost/tiny-image counts; near-empty-page ratio). This item
+  is largely about *surfacing* them as structured output instead of log noise — and doing so
+  is the enabling substrate for the **conversion optimizer** below.
+- 🚀 **Conversion optimizer (`all2md optimize`)** — auto-tune converter settings for a
+  difficult document (headline case: gnarly PDFs). Searches the parameter space
+  (`table_detection_mode`, `detect_columns`, OCR mode/engine, `min_image_dimension`,
+  header/footer filtering, dehyphenation, layout model, heading size-ratio, …) and returns
+  the settings that maximize a quality score — emitted as a reusable preset / `.all2md.toml`
+  snippet.
+  - **Objective (the crux):** difficult PDFs rarely have a reference to diff against, so the
+    optimizer needs a **reference-free** quality score — exactly the vector the *confidence
+    report* produces (real-word ratio, table sanity, ghost-image count, reading-order
+    coherence, near-empty-page ratio, hyphenation-merge success). **This item is therefore
+    gated on the confidence report + round-trip scoring; it's the capstone of the fidelity
+    batch, not a standalone.**
+  - **Search shape (keep it cheap):** score a handful of named presets first (interpretable,
+    fast), then a 1-D refine on the highest-impact continuous knob — not a full grid. Sample
+    a page subset (first N + random) rather than reconverting a 400-page doc, and **cache per
+    (param-set × content-hash)**, reusing the Theme 3 conversion-cache fingerprint.
+  - **Two levels:** per-document autotune, *and* a corpus-level mode that tunes over
+    `benchmarks/corpus/` to improve **shipped defaults** — a concrete step toward the
+    self-improving converters in Theme 7.
 - 🌙 **Vision-model fallback** — when structural parsing fails (scanned tables, complex
   figures, handwriting), optionally hand the page to a vision LLM and merge its structured
   output back into the AST.
@@ -118,8 +166,16 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 - 🚀 **Deferred asset resolution** — parse to AST with asset placeholders, then resolve all
   remote assets concurrently (`asyncio.gather`), then finalize. Turns N serial fetches into
   one concurrent batch — the real user-visible speedup for asset-heavy HTML.
-- 🌱 **Persistent / incremental search index** — the existing TODO; key conversion + BM25
-  index off a content-hash + mtime fingerprint (ties into `todo.md` cache item).
+- 🌱 **Persistent / incremental search index + shared conversion cache** — *outstanding
+  (`todo.md`).* Today `--search-index-dir` (`mcp/query_tools.py`) is keyed only by directory,
+  so reusing an index across a changed corpus or a different `paths` set can return **stale
+  results**. Roll the MCP search index together with a general conversion cache: stash
+  converted documents/ASTs keyed by content-hash + mtime, and key/invalidate the BM25 index
+  off the same fingerprint. Fixes correctness *and* avoids redundant re-conversions across
+  tools — a rare "fixes a bug and adds a feature" item. The same cache is reusable well
+  beyond MCP: `view` and `serve` re-convert a file on every scan/request today and would
+  skip unchanged files, and the **conversion optimizer** (Theme 2) reuses the fingerprint to
+  avoid reconverting identical param-sets.
 - 🚀 **Parallel batch engine v2** — the `ProcessPoolExecutor` path with resume, a failure
   manifest, and as-completed streaming progress.
 - 🌙 **WASM build** — `all2md` in-browser (Pyodide, or a Rust core for hot paths) for
@@ -136,11 +192,18 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 - 🚀 **Spreadsheet semantics** — preserve formulas, named ranges, and cross-sheet refs,
   not just rendered values.
 - 🌙 **Diagram intelligence** — Mermaid / Graphviz / draw.io / PlantUML round-tripping, and
-  reverse-engineering diagrams from images.
+  reverse-engineering diagrams from images. *Down-payment:* `view`/`serve` now **render**
+  ```mermaid``` fences via mermaid.js and the HTML renderer has `render_mermaid`
+  (🚢 v1.8.0) — rendering exists; parsing/round-tripping other diagram formats is the gap.
 
 ---
 
 ## Theme 5 — Ecosystem & distribution
+
+> **Install experience — decided.** We shipped one-click **`uv`-based install scripts**
+> (🚢 v1.8.0) rather than a frozen PyInstaller binary; that resolves the "build a binary so
+> people can install directly?" question in `todo.md`. A browser/web-UI is still planned
+> (local-only design spec). The channels below (Docker, Action, hosted API) are unstarted.
 
 - 🌱 **Docker image** — `docker run all2md` as a one-line microservice / CI step. Also the
   building block for the GitHub Action and hosted API below — bake PyMuPDF/tesseract in once.
@@ -171,8 +234,17 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 
 ## Theme 6 — Editing, collaboration & live workflows
 
-- 🌱 **Expand the edit API** — beyond section ops: table-cell edits, find-and-restructure,
+- 🌱 **Expand the edit API** — *groundwork shipped:* the MCP `edit_document` tool does
+  atomic, in-place batch edits with format-preserving write-back (🚢 v1.6.0) and the
+  `all2md edit` web editor exists (🚢 v1.1.0). Outstanding: **CLI** insert/replace/delete
+  commands (`todo.md`), and beyond section ops — table-cell edits, find-and-restructure,
   programmatic AST patches with undo.
+- 🌱 **Element re-routing on conversion** — *outstanding (`todo.md`).* One pass that can
+  drop images/tables entirely, extract tables to separate file(s) (combined or per-table),
+  or collate all images/tables to the end of the document. Overlaps the chunker's
+  `--drop-elements` (🚢) but as a conversion-output restructuring, not just chunking; useful
+  for both human reading and RAG prep. Also: **extract text around a table/anchor** and
+  **extend `--extract` to all AST element types**.
 - 🚀 **Watch-and-sync daemon** — keep a markdown mirror of a source doc continuously
   updated; optionally bidirectional.
 - 🌙 **Bidirectional live editing** — edit the markdown, regenerate the DOCX *preserving the
@@ -230,14 +302,26 @@ CPU core.
 
 ## Suggested sequencing
 
-A rough first arc, ordered by leverage-per-effort:
+**Done since first draft:** ~~`all2md chunk`~~ 🚢 (was #2) — the biggest single item is
+shipped, along with mermaid rendering and `uv` install scripts.
 
-1. **Round-trip fidelity scoring** + **conversion confidence report** — small, build on the
-   diff engine, immediately useful and marketable.
-2. **`all2md chunk`** (porting `localvectordb` chunkers) — high demand, foundation exists.
-3. **Async facade + async I/O edge** — unblocks the server/MCP story.
-4. **GitHub Action + Docker image** — adoption channels for a project gaining stars.
-5. **Math support** + **layout-aware PDF** — deepen the fidelity moat.
-6. **Public fidelity benchmark** — once round-trip scoring exists, productize it.
+Revised arc for the **next batch**, ordered by leverage-per-effort:
 
-Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for.
+1. **Round-trip fidelity scoring** + **conversion confidence report** — still the top pick:
+   small, builds on the diff engine *and* the existing corpus harness, immediately useful and
+   marketable. Pairs naturally with the **DOCX character-style** round-trip fix. Together
+   these two produce the quality score that unlocks the **conversion optimizer**
+   (`all2md optimize`) as the batch capstone — build them first, in that order.
+2. **Search-index / conversion-cache correctness** — fixes a real staleness *bug* in
+   `--search-index-dir` while adding a broadly useful cache layer. Small, high-certainty.
+3. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
+   Architecture Decision); the deferred-asset-resolution phase is the user-visible win.
+4. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
+   is the shared building block for the Action and a future hosted API.
+5. **Math support** + **layout-aware PDF** — deepen the fidelity moat (larger efforts).
+6. **Public fidelity benchmark** — once round-trip scoring exists, productize it into a
+   head-to-head vs. markitdown / pandoc / docling.
+
+Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
+small `todo.md` bug-fixes (filename-hint detection, leading blank line in DOCX, smarter
+capitalization-aware dehyphenation, rich `--help` by default) are independent quick wins.
