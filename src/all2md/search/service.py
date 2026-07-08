@@ -20,6 +20,40 @@ from all2md.search.chunking import ChunkingContext, chunk_document
 from all2md.search.hybrid import blend_results
 from all2md.search.types import Chunk, SearchMode, SearchQuery, SearchResult
 from all2md.search.vector import VectorIndex, VectorIndexConfig
+from all2md.utils.fingerprint import corpus_fingerprint
+
+# Name of the sidecar manifest recording the corpus fingerprint a persisted
+# index was built from, so a stale index can be detected and rebuilt.
+_CORPUS_MANIFEST_NAME = "corpus.json"
+
+# Option fields that change the *content* of the index (chunk boundaries or
+# scoring), and so must invalidate a persisted index when altered. Grep/display
+# options are deliberately excluded — changing them should not force a rebuild.
+_INDEX_RELEVANT_OPTION_KEYS: tuple[str, ...] = (
+    "chunk_size_tokens",
+    "chunk_overlap_tokens",
+    "min_chunk_tokens",
+    "include_preamble",
+    "heading_merge",
+    "max_heading_level",
+    "bm25_k1",
+    "bm25_b",
+    "vector_model_name",
+    "vector_normalize_embeddings",
+)
+
+
+def _index_relevant_options(options: SearchOptions) -> dict[str, object]:
+    """Extract the option subset that affects a persisted index's contents."""
+    return {key: getattr(options, key) for key in _INDEX_RELEVANT_OPTION_KEYS}
+
+
+def compute_corpus_fingerprint(documents: Sequence[SearchDocumentInput], options: SearchOptions) -> str:
+    """Fingerprint a document set + index-relevant options for cache validation."""
+    return corpus_fingerprint(
+        [doc.source for doc in documents],
+        extra=_index_relevant_options(options),
+    )
 
 
 @dataclass(frozen=True)
@@ -192,6 +226,41 @@ class SearchService:
             self._state.keyword_index.save(directory / "keyword")
         if self._state.vector_index:
             self._state.vector_index.save(directory / "vector")
+
+        # Record the corpus fingerprint so a later load can tell whether the
+        # persisted index still matches the documents/options it was built from.
+        if self._state.documents is not None:
+            fingerprint = corpus_fingerprint(
+                [doc_input.source for _doc, doc_input in self._state.documents],
+                extra=_index_relevant_options(self.options),
+            )
+            manifest = {"fingerprint": fingerprint}
+            (directory / _CORPUS_MANIFEST_NAME).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    @staticmethod
+    def persisted_index_matches(
+        directory: Path,
+        documents: Sequence[SearchDocumentInput],
+        options: SearchOptions,
+    ) -> bool:
+        """Return True if a persisted index in ``directory`` is still current.
+
+        Compares the fingerprint recorded at save time (corpus files +
+        index-relevant options) against the fingerprint of the documents/options
+        supplied now. A missing or unreadable manifest, or any mismatch, returns
+        False — the caller should rebuild rather than serve a stale index.
+        """
+        manifest_path = directory / _CORPUS_MANIFEST_NAME
+        if not manifest_path.exists():
+            return False
+        try:
+            stored = json.loads(manifest_path.read_text(encoding="utf-8")).get("fingerprint")
+        except (OSError, ValueError):
+            return False
+        if not stored:
+            return False
+        current = compute_corpus_fingerprint(documents, options)
+        return bool(stored == current)
 
     @classmethod
     def load(cls, directory: Path, options: SearchOptions | None = None) -> "SearchService":

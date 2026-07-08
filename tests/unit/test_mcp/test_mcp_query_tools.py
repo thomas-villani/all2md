@@ -223,11 +223,40 @@ class TestSearch:
         assert (index_dir / "keyword").exists()
         assert (index_dir / "chunks.jsonl").exists()
 
+        # A fingerprint manifest is written so staleness can be detected later.
+        assert (index_dir / "corpus.json").exists()
+
         # Second call reuses the persisted index and still returns results
         second = search_documents_impl(
             SearchDocumentsInput(query="alpha protocol", mode="keyword", paths=[str(corpus)]), config
         )
         assert second.total >= 1
+
+    @pytest.mark.skipif(not HAS_BM25, reason="rank-bm25 not installed")
+    def test_keyword_persistence_rebuilds_when_corpus_changes(self, tmp_path):
+        """A persisted index must not serve stale results after the corpus changes."""
+        corpus = tmp_path / "corpus"
+        corpus.mkdir()
+        (corpus / "doc.md").write_text("# Doc\n\nThe alpha protocol is described here.\n", encoding="utf-8")
+        index_dir = tmp_path / "idx"
+        config = _make_config(tmp_path, search_index_dir=str(index_dir))
+
+        # Build + persist against the original content.
+        first = search_documents_impl(SearchDocumentsInput(query="alpha", mode="keyword", paths=[str(corpus)]), config)
+        assert first.total >= 1
+        assert any("alpha" in item.snippet.lower() for item in first.results)
+
+        # Replace the document's content entirely: "alpha" is gone, "zeta" is new.
+        (corpus / "doc.md").write_text("# Doc\n\nThe zeta procedure supersedes everything.\n", encoding="utf-8")
+
+        # The stale term must no longer match (the index was rebuilt, not reused)...
+        stale = search_documents_impl(SearchDocumentsInput(query="alpha", mode="keyword", paths=[str(corpus)]), config)
+        assert all("alpha" not in item.snippet.lower() for item in stale.results)
+
+        # ...and the new term must be found.
+        fresh = search_documents_impl(SearchDocumentsInput(query="zeta", mode="keyword", paths=[str(corpus)]), config)
+        assert fresh.total >= 1
+        assert any("zeta" in item.snippet.lower() for item in fresh.results)
 
     @pytest.mark.skipif(not HAS_BM25, reason="rank-bm25 not installed")
     def test_index_dir_outside_write_allowlist_denied(self, tmp_path):
