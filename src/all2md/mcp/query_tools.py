@@ -173,10 +173,18 @@ def search_documents_impl(input_data: SearchDocumentsInput, config: MCPConfig) -
         persist_dir = _validate_index_dir(config.search_index_dir, config.write_allowlist)
 
     try:
-        if persist_dir is not None and (persist_dir / "keyword").exists():
+        index_is_current = (
+            persist_dir is not None
+            and (persist_dir / "keyword").exists()
+            and SearchService.persisted_index_matches(persist_dir, documents, options)
+        )
+        if index_is_current:
+            assert persist_dir is not None  # narrowed by index_is_current
             logger.info(f"Loading persisted keyword index from: {persist_dir}")
             service = SearchService.load(persist_dir, options=options)
         else:
+            if persist_dir is not None and (persist_dir / "keyword").exists():
+                logger.info(f"Persisted index at {persist_dir} is stale (corpus/options changed); rebuilding")
             service = SearchService(options=options)
             service.build_indexes(documents, modes={service_mode})
             if persist_dir is not None:
