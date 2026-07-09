@@ -22,10 +22,12 @@ Examples
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Iterator, cast
 
 from all2md.ast.nodes import Document
 from all2md.cli.builder import (
@@ -50,6 +52,33 @@ _INFO_SIGNALS = {
     "image_count",
     "running_headings_demoted",
 }
+
+
+@contextlib.contextmanager
+def _protect_stdout() -> Iterator[None]:
+    """Redirect OS-level stdout (fd 1) to stderr for the duration.
+
+    Some libraries in the conversion pipeline (notably PyMuPDF) print advisories
+    straight to stdout, which would corrupt the ``--json`` output stream. We
+    point fd 1 at stderr while parsing, then restore it before emitting the
+    report. This catches both Python-level ``print`` and C-level writes. Falls
+    back to a no-op if fd duplication is unavailable (e.g. a captured stdout with
+    no real file descriptor).
+    """
+    try:
+        saved_fd = os.dup(1)
+    except (OSError, ValueError):
+        yield
+        return
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        os.dup2(2, 1)
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved_fd, 1)
+        os.close(saved_fd)
 
 
 def _create_report_parser() -> argparse.ArgumentParser:
@@ -233,7 +262,9 @@ def handle_report_command(args: list[str] | None = None) -> int:
 
     results: list[tuple[str, ConfidenceReport]] = []
     try:
-        with conversion_cache_from_args(parsed):
+        # Guard fd 1 so PyMuPDF (and friends) advisory prints during parsing
+        # cannot corrupt the report — especially the machine-readable --json stream.
+        with _protect_stdout(), conversion_cache_from_args(parsed):
             for source in parsed.inputs:
                 doc, label = _load_ast(source, converter_options)
                 results.append((label, confidence_report(doc)))
