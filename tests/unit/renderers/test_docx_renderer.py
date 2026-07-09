@@ -364,6 +364,106 @@ class TestListRendering:
         assert "Second" in text_content
 
 
+def _template_lacking_list_styles(tmp_path, *, drop_numbering_part: bool):
+    """Build a template with no List Bullet/List Number styles.
+
+    Real-world templates omit these styles; some also ship without a numbering part
+    at all, which exercises a different branch of ``_ensure_list_styles``.
+    """
+    import re
+    import zipfile
+
+    template = tmp_path / "template.docx"
+    doc = DocxDocument()
+    for name in ("List Bullet", "List Number"):
+        doc.styles[name].delete()
+    doc.save(str(template))
+
+    if not drop_numbering_part:
+        return template
+
+    stripped = tmp_path / "template_no_numbering.docx"
+    with zipfile.ZipFile(template) as zin, zipfile.ZipFile(stripped, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename == "word/numbering.xml":
+                continue
+            data = zin.read(item.filename)
+            if item.filename == "[Content_Types].xml":
+                data = re.sub(rb"<Override PartName=\"/word/numbering\.xml\"[^/]*/>", b"", data)
+            elif item.filename == "word/_rels/document.xml.rels":
+                data = re.sub(rb"<Relationship [^>]*Target=\"numbering\.xml\"[^>]*/>", b"", data)
+            zout.writestr(item, data)
+    return stripped
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+@pytest.mark.parametrize("drop_numbering_part", [False, True], ids=["existing-numbering", "no-numbering"])
+def test_template_numbering_keeps_schema_element_order(tmp_path, drop_numbering_part):
+    """Regression: interleaved w:abstractNum/w:num silently killed bullets in Word.
+
+    CT_Numbering is a strict sequence -- every w:abstractNum must precede every
+    w:num.  Word does not reject an out-of-order part; it mis-associates the stray
+    definition, so bulleted lists render as plain paragraphs.
+    """
+    from docx.oxml.ns import qn
+
+    from all2md.options.docx import DocxRendererOptions
+    from all2md.renderers.docx import DocxRenderer
+
+    template = _template_lacking_list_styles(tmp_path, drop_numbering_part=drop_numbering_part)
+    doc = Document(
+        children=[
+            List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Bullet")])])]),
+            List(ordered=True, items=[ListItem(children=[Paragraph(content=[Text(content="Number")])])]),
+        ]
+    )
+    output_file = tmp_path / "out.docx"
+    DocxRenderer(options=DocxRendererOptions(template_path=str(template))).render(doc, output_file)
+
+    rendered = DocxDocument(str(output_file))
+    numbering = rendered.part.numbering_part._element
+    order = [child.tag.split("}")[-1] for child in numbering if child.tag in (qn("w:abstractNum"), qn("w:num"))]
+    assert "abstractNum" in order and "num" in order
+    last_abstract = len(order) - 1 - order[::-1].index("abstractNum")
+    assert last_abstract < order.index("num"), f"w:num precedes a w:abstractNum: {order}"
+
+    # Each recreated style must resolve to a numbering definition that exists.
+    styles = {s.name for s in rendered.styles}
+    assert {"List Bullet", "List Number"} <= styles
+
+    defined_num_ids = {int(n.get(qn("w:numId"))) for n in numbering.findall(qn("w:num"))}
+    for style_name in ("List Bullet", "List Number"):
+        num_pr = rendered.styles[style_name]._element.find(qn("w:pPr")).find(qn("w:numPr"))
+        num_id = int(num_pr.find(qn("w:numId")).get(qn("w:val")))
+        assert num_id in defined_num_ids, f"{style_name} references undefined numId {num_id}"
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+def test_template_bullet_uses_symbol_font_codepoint(tmp_path):
+    """The Symbol font's bullet is U+F0B7; U+00B7 renders as the wrong glyph."""
+    from docx.oxml.ns import qn
+
+    from all2md.options.docx import DocxRendererOptions
+    from all2md.renderers.docx import DocxRenderer
+
+    template = _template_lacking_list_styles(tmp_path, drop_numbering_part=True)
+    doc = Document(
+        children=[List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Bullet")])])])]
+    )
+    output_file = tmp_path / "out.docx"
+    DocxRenderer(options=DocxRendererOptions(template_path=str(template))).render(doc, output_file)
+
+    numbering = DocxDocument(str(output_file)).part.numbering_part._element
+    bullet_lvl = next(
+        lvl
+        for lvl in numbering.iter(qn("w:lvl"))
+        if lvl.find(qn("w:numFmt")) is not None and lvl.find(qn("w:numFmt")).get(qn("w:val")) == "bullet"
+    )
+    assert bullet_lvl.find(qn("w:lvlText")).get(qn("w:val")) == ""
+
+
 @pytest.mark.unit
 @pytest.mark.docx
 class TestTableRendering:

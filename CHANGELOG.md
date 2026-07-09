@@ -66,6 +66,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hits. The index now records a fingerprint of the documents and index-relevant
   options at save time and is rebuilt when they no longer match.
 
+## [1.8.2] - 2026-07-09
+
+### Fixed
+
+- **Bullet lists no longer disappear when rendering DOCX with a custom template.**
+  When a template lacked the `List Bullet` / `List Number` styles, the generated
+  numbering part interleaved `w:abstractNum` and `w:num` elements. `CT_Numbering`
+  requires every `w:abstractNum` to precede every `w:num`; Word does not reject the
+  malformed part but silently mis-associates the stray definition, so bulleted lists
+  rendered as plain paragraphs. Numbering definitions are now spliced in ahead of any
+  existing `w:num`, which also fixes templates that already ship a numbering part
+  (`--docx-renderer-template-path`, `DocxRendererOptions.template_path`).
+- **Generated bullets use the correct glyph.** The bullet level specified `U+00B7`
+  (MIDDLE DOT) while pinning the run font to Symbol, yielding the wrong character.
+  It now uses `U+F0B7`, the Symbol font's bullet, matching Word's own output.
+- **Generated list styles keep their names.** `List Bullet` / `List Number` were
+  created as custom styles, colliding with Word's latent built-ins and getting
+  renamed to `List Bullet1` / `List Number1` — so any styling a template applied to
+  `List Bullet` never took effect. They are now created as built-in styles.
+
+### Changed
+
+- CI now runs on pushes to and pull requests against `release/**` branches, so patch
+  releases cut from a release tag get a full lint/type/test run before merge.
+
 ## [1.8.1] - 2026-07-06
 
 ### Added
@@ -680,7 +705,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.8.2...HEAD
+[1.8.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.2
 [1.8.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.1
 [1.8.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.0
 [1.7.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.7.1
