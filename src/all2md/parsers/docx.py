@@ -759,12 +759,13 @@ class DocxToAstConverter(BaseParser):
         current_text: list[str] = []
         current_format: tuple[bool, bool, bool, bool, bool, bool, bool] | None = None
         current_url: str | None = None
+        current_style: str | None = None
 
         def flush_group() -> None:
             if not current_text:
                 return
             text_value = "".join(current_text)
-            result.append(self._build_formatted_inline_node(text_value, current_format, current_url))
+            result.append(self._build_formatted_inline_node(text_value, current_format, current_url, current_style))
             current_text.clear()
 
         from docx.text.hyperlink import Hyperlink
@@ -772,11 +773,13 @@ class DocxToAstConverter(BaseParser):
         for run in paragraph.iter_inner_content():
             url, run_to_parse = self._process_hyperlink(run)
             format_key = self._get_run_formatting_key(run_to_parse, url is not None)
+            style_name = self._get_run_character_style(run_to_parse)
 
-            if format_key != current_format or url != current_url:
+            if format_key != current_format or url != current_url or style_name != current_style:
                 flush_group()
                 current_format = format_key
                 current_url = url
+                current_style = style_name
 
             math_nodes = self._extract_math_from_run(run_to_parse)
             if math_nodes:
@@ -841,6 +844,7 @@ class DocxToAstConverter(BaseParser):
         text: str,
         format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
         url: str | None,
+        source_style: str | None = None,
     ) -> Node:
         inline_node: Node = Text(content=text)
 
@@ -860,6 +864,13 @@ class DocxToAstConverter(BaseParser):
 
         if url:
             inline_node = Link(url=url, content=[inline_node])
+
+        # Stash a named character style on the outermost node so a template-aware
+        # renderer can re-apply it. Markdown cannot represent character styles, so
+        # this only round-trips through the AST / back to DOCX (see
+        # _get_run_character_style).
+        if source_style:
+            inline_node.metadata["source_style"] = source_style
 
         return inline_node
 
@@ -1038,6 +1049,26 @@ class DocxToAstConverter(BaseParser):
             run.font.superscript or False,
             is_hyperlink,
         )
+
+    def _get_run_character_style(self, run: Any) -> str | None:
+        """Return the run's named character style, or ``None`` when unstyled.
+
+        The run-level analog of the paragraph ``source_style`` (see
+        :meth:`_build_paragraph_node`). ``"Default Paragraph Font"`` is Word's
+        default run style — it carries no round-trip information — so it is
+        treated the same as no style. A named character style ("Intense
+        Emphasis", "Quote Char", …) is returned so the renderer can re-apply it
+        when a template defines that style. Character styles are not directly
+        representable in Markdown, so the name only survives an AST/DOCX round
+        trip, never Markdown serialization.
+        """
+        from docx.text.hyperlink import Hyperlink
+
+        style = run.runs[0].style if isinstance(run, Hyperlink) and run.runs else getattr(run, "style", None)
+        name = getattr(style, "name", None)
+        if not name or name == "Default Paragraph Font":
+            return None
+        return name
 
     def _has_bottom_border(self, paragraph: "Paragraph") -> bool:
         """Check if paragraph has a bottom border that could represent a horizontal rule.
