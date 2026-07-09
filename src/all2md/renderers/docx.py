@@ -321,12 +321,20 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # ------------------------------------------------------------------
         W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
+        # CT_Numbering is a strict sequence: every w:abstractNum must precede every
+        # w:num.  Collect the new definitions here and splice them into the right
+        # positions once both are built (see step 3 below).
+        new_abstract_nums = []
+        new_nums = []
+
         if need_bullet:
             abs_id = next_abstract_id
             num_id = next_num_id
             next_abstract_id += 1
             next_num_id += 1
 
+            # U+F0B7 is the Symbol font's bullet glyph; a literal U+00B7 renders as
+            # the wrong character once w:rFonts pins the run to Symbol.
             bullet_abstract_xml = (
                 f'<w:abstractNum xmlns:w="{W}" w:abstractNumId="{abs_id}">'
                 f'  <w:multiLevelType w:val="singleLevel"/>'
@@ -334,21 +342,24 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 f'    <w:start w:val="1"/>'
                 f'    <w:numFmt w:val="bullet"/>'
                 f'    <w:pStyle w:val="ListBullet"/>'
-                f'    <w:lvlText w:val="\u00b7"/>'
+                f'    <w:lvlText w:val="\uf0b7"/>'
                 f'    <w:lvlJc w:val="left"/>'
                 f'    <w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
                 f'    <w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr>'
                 f"  </w:lvl>"
                 f"</w:abstractNum>"
             ).encode("utf-8")
-            numbering_el.append(parse_xml(bullet_abstract_xml))
+            new_abstract_nums.append(parse_xml(bullet_abstract_xml))
 
             num_xml = (f'<w:num xmlns:w="{W}" w:numId="{num_id}">  <w:abstractNumId w:val="{abs_id}"/></w:num>').encode(
                 "utf-8"
             )
-            numbering_el.append(parse_xml(num_xml))
+            new_nums.append(parse_xml(num_xml))
 
-            bullet_style = self.document.styles.add_style("List Bullet", WD_STYLE_TYPE.PARAGRAPH)
+            # builtin=True keeps the name as "List Bullet"; a custom style of that name
+            # collides with Word's latent built-in and gets renamed to "List Bullet1",
+            # so any styling the template applies to "List Bullet" would never take.
+            bullet_style = self.document.styles.add_style("List Bullet", WD_STYLE_TYPE.PARAGRAPH, builtin=True)
             bullet_style.base_style = self.document.styles["Normal"]
             pPr = bullet_style._element.get_or_add_pPr()
             numPr = OxmlElement("w:numPr")
@@ -376,14 +387,14 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 f"  </w:lvl>"
                 f"</w:abstractNum>"
             ).encode("utf-8")
-            numbering_el.append(parse_xml(number_abstract_xml))
+            new_abstract_nums.append(parse_xml(number_abstract_xml))
 
             num_xml = (f'<w:num xmlns:w="{W}" w:numId="{num_id}">  <w:abstractNumId w:val="{abs_id}"/></w:num>').encode(
                 "utf-8"
             )
-            numbering_el.append(parse_xml(num_xml))
+            new_nums.append(parse_xml(num_xml))
 
-            number_style = self.document.styles.add_style("List Number", WD_STYLE_TYPE.PARAGRAPH)
+            number_style = self.document.styles.add_style("List Number", WD_STYLE_TYPE.PARAGRAPH, builtin=True)
             number_style.base_style = self.document.styles["Normal"]
             pPr2 = number_style._element.get_or_add_pPr()
             numPr2 = OxmlElement("w:numPr")
@@ -393,6 +404,26 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             pPr2.append(numPr2)
             pPr2.append(OxmlElement("w:contextualSpacing"))
             self._available_styles.add("List Number")
+
+        # ------------------------------------------------------------------
+        # 3. Splice the definitions in, preserving CT_Numbering's element order.
+        #    Word doesn't reject an out-of-order numbering part outright -- it
+        #    silently mis-associates the stray w:abstractNum, so the affected list
+        #    loses its numbering and renders as plain paragraphs.
+        # ------------------------------------------------------------------
+        first_num = numbering_el.find(qn("w:num"))
+        for abstract_el in new_abstract_nums:
+            if first_num is None:
+                numbering_el.append(abstract_el)
+            else:
+                first_num.addprevious(abstract_el)
+
+        trailing = numbering_el.find(qn("w:numIdMacAtCleanup"))
+        for num_el in new_nums:
+            if trailing is None:
+                numbering_el.append(num_el)
+            else:
+                trailing.addprevious(num_el)
 
         logger.debug(
             "Created missing list styles: %s",
