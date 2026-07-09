@@ -64,6 +64,7 @@ from all2md.ast import (
 from all2md.ast import (
     Table as AstTable,
 )
+from all2md.ast.transforms import extract_nodes
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.docx import DocxOptions
 from all2md.parsers.base import BaseParser
@@ -457,9 +458,62 @@ class DocxToAstConverter(BaseParser):
             metadata_dict = metadata.to_dict()
 
         document = Document(children=children, metadata=metadata_dict)
+        self._record_docx_quality_signals(doc, document)
         self._footnote_collector = None
         self._comments_map = {}
         return document
+
+    # DrawingML ``graphicData/@uri`` values for content types all2md does not
+    # render (and therefore drops): embedded charts and SmartArt diagrams.
+    _DOCX_CHART_URI = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+    _DOCX_DIAGRAM_URI = "http://schemas.openxmlformats.org/drawingml/2006/diagram"
+
+    def _record_docx_quality_signals(self, source_doc: Any, document: Document) -> None:
+        """Populate the confidence-report signals from the finished DOCX conversion.
+
+        DOCX is a high-fidelity structured format, so — unlike PDF — there is no
+        text-density risk. The meaningful confidence signal is *silently dropped
+        content*: embedded OLE objects, charts, and SmartArt diagrams that the
+        DrawingML/VML XML carries but all2md has no Markdown representation for.
+        Each is surfaced as a signal count and a degraded-content event. Table
+        and image counts are recorded as informative (non-scoring) signals.
+        """
+        self._set_quality_signal("table_count", sum(1 for _ in extract_nodes(document, AstTable)))
+        self._set_quality_signal("image_count", sum(1 for _ in extract_nodes(document, Image)))
+
+        dropped = self._count_dropped_docx_objects(source_doc)
+        for kind, count in dropped.items():
+            if count:
+                self._set_quality_signal(kind, count)
+                self._record_degraded(kind, count=count, severity="warn")
+
+    def _count_dropped_docx_objects(self, source_doc: Any) -> dict[str, int]:
+        """Count embedded objects/charts/SmartArt in the source that all2md drops.
+
+        Walks the document body XML once, matching classic embedded OLE objects
+        (``w:object``) and DrawingML graphic frames whose ``graphicData/@uri``
+        marks a chart or SmartArt diagram. Best-effort: returns zero counts if
+        the underlying XML is not reachable.
+        """
+        counts = {"embedded_object_dropped": 0, "chart_dropped": 0, "smartart_dropped": 0}
+        try:
+            body = source_doc.element.body
+        except AttributeError:
+            return counts
+        for element in body.iter():
+            tag = element.tag
+            if not isinstance(tag, str):
+                continue
+            local = tag.rsplit("}", 1)[-1]
+            if local == "object":
+                counts["embedded_object_dropped"] += 1
+            elif local == "graphicData":
+                uri = element.get("uri") or ""
+                if uri == self._DOCX_CHART_URI:
+                    counts["chart_dropped"] += 1
+                elif uri == self._DOCX_DIAGRAM_URI:
+                    counts["smartart_dropped"] += 1
+        return counts
 
     def _try_process_heading(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
         """Try to process paragraph as a heading. Returns Heading or None."""

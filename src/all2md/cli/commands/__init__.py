@@ -114,6 +114,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_chunk_command(args[1:])
 
+    # Check for report command (conversion confidence "quality card")
+    if args[0] == "report":
+        from all2md.cli.commands.report import handle_report_command
+
+        return handle_report_command(args[1:])
+
     # Check for lint command
     if args[0] == "lint":
         from all2md.cli.commands.lint import handle_lint_command
