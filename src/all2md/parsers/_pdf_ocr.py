@@ -41,6 +41,24 @@ logger = logging.getLogger(__name__)
 _HYPHEN_LINEBREAK_RE = re.compile(r"([^\W\d_])[-­‐][ \t]*\r?\n[ \t]*([^\W\d_])", re.UNICODE)
 
 
+def _merge_hyphenation(match: "re.Match[str]") -> str:
+    r"""Join the two halves of a line-break-hyphenated word.
+
+    When the continuation letter is uppercase the hyphen is *kept* (only the line
+    break is removed), because an uppercase second half signals a genuine
+    hyphenated compound — "Anglo-\\nSaxon" → "Anglo-Saxon", "Marie-\\nClaire" →
+    "Marie-Claire" — rather than a word soft-wrapped mid-token. A lowercase
+    continuation is treated as ordinary hyphenation and the hyphen is dropped:
+    "be-\\nwusst" → "bewusst". The kept hyphen is normalized to a plain
+    hyphen-minus so an invisible soft hyphen at the break still renders as a
+    visible "-" in the compound.
+    """
+    lead, cont = match.group(1), match.group(2)
+    if cont.isupper():
+        return f"{lead}-{cont}"
+    return f"{lead}{cont}"
+
+
 def dehyphenate_text(text: str) -> str:
     r"""Merge words split across line breaks by hyphenation.
 
@@ -54,7 +72,12 @@ def dehyphenate_text(text: str) -> str:
 
     Only hyphens that sit at a line break between two letters are merged;
     hyphens followed by digits, punctuation, or whitespace (e.g. em-dash usage
-    or a trailing "- " list marker) are left untouched.
+    or a trailing "- " list marker) are left untouched. The merge is
+    capitalization-aware: an uppercase continuation letter keeps the hyphen
+    (dropping only the line break) so legitimately hyphenated compounds such as
+    "Anglo-\\nSaxon" survive as "Anglo-Saxon" instead of collapsing to
+    "AngloSaxon". Numeric continuations ("COVID-\\n19") are already excluded by
+    the letter-only pattern.
 
     Parameters
     ----------
@@ -69,7 +92,7 @@ def dehyphenate_text(text: str) -> str:
     """
     if not text:
         return text
-    return _HYPHEN_LINEBREAK_RE.sub(r"\1\2", text)
+    return _HYPHEN_LINEBREAK_RE.sub(_merge_hyphenation, text)
 
 
 def calculate_image_coverage(page: "fitz.Page") -> float:

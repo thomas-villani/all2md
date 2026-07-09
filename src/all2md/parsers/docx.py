@@ -505,18 +505,29 @@ class DocxToAstConverter(BaseParser):
             para.metadata["source_style"] = style_name
         return para
 
+    @staticmethod
+    def _is_effectively_empty(content: list[Node]) -> bool:
+        """Return True if inline content is empty or only whitespace ``Text`` nodes.
+
+        Empty paragraphs carry no meaning in this AST — inter-block spacing is
+        synthesized by the renderer — so they are dropped everywhere they can
+        appear (regular, list-item, and post-list paragraphs) to avoid emitting
+        stray blank lines such as a DOCX template's empty first paragraph.
+        """
+        if not content:
+            return True
+        return not any(not isinstance(node, Text) or node.content.strip() for node in content)
+
     def _process_regular_paragraph(
         self, paragraph: "Paragraph", math_blocks: list[MathBlock], style_name: str = ""
     ) -> Node | list[Node] | None:
         """Process a regular (non-list) paragraph with optional math blocks."""
         content = self._process_paragraph_runs_to_inline(paragraph)
-        if content:
-            has_non_whitespace = any(not isinstance(node, Text) or node.content.strip() for node in content)
-            if has_non_whitespace:
-                para_node = self._build_paragraph_node(content, style_name)
-                if math_blocks:
-                    return [para_node, *math_blocks]
-                return para_node
+        if not self._is_effectively_empty(content):
+            para_node = self._build_paragraph_node(content, style_name)
+            if math_blocks:
+                return [para_node, *math_blocks]
+            return para_node
 
         if math_blocks:
             return math_blocks[0] if len(math_blocks) == 1 else cast(list[Node], math_blocks)
@@ -566,7 +577,7 @@ class DocxToAstConverter(BaseParser):
             nodes: list[Node] = []
             if accumulated_list:
                 nodes.append(accumulated_list)
-            if content:
+            if not self._is_effectively_empty(content):
                 nodes.append(self._build_paragraph_node(content, style_name))
             if math_blocks:
                 nodes.extend(math_blocks)
@@ -595,8 +606,13 @@ class DocxToAstConverter(BaseParser):
             Completed list node if transitioning out, None if still accumulating
 
         """
-        # Process paragraph content
+        # Process paragraph content. An effectively-empty list paragraph (e.g. a
+        # blank paragraph that merely carries list styling) is dropped rather than
+        # emitted as an empty bullet; accumulation of the surrounding list is
+        # otherwise unaffected.
         content = self._process_paragraph_runs_to_inline(paragraph)
+        if self._is_effectively_empty(content):
+            return None
         item_node = ListItem(children=[AstParagraph(content=content)])
 
         # Handle level changes

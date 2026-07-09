@@ -43,6 +43,7 @@ from all2md.ast import (
 from all2md.ast.transforms import extract_nodes
 from all2md.options import DocxOptions
 from all2md.parsers.docx import DocxToAstConverter
+from all2md.renderers.markdown import MarkdownRenderer
 
 FIXTURE_FOOTNOTES_DOC = FIXTURES_PATH / "documents" / "footnotes-endnotes-comments.docx"
 FIXTURE_MATH_DOC = FIXTURES_PATH / "documents" / "math-basic.docx"
@@ -155,6 +156,37 @@ class TestBasicElements:
         assert len(ast_doc.children) == 2
         assert ast_doc.children[0].content[0].content == "First"
         assert ast_doc.children[1].content[0].content == "Second"
+
+    def test_empty_list_styled_paragraph_skipped(self) -> None:
+        """An empty paragraph carrying a list style must not emit a blank bullet.
+
+        Regression: a stray empty leading paragraph styled ``List Bullet`` (a
+        common DOCX template artifact) previously slipped past the empty-paragraph
+        filter and produced a leading blank list item / blank line.
+        """
+        doc = docx.Document()
+        empty = doc.add_paragraph("")
+        try:
+            empty.style = doc.styles["List Bullet"]
+        except KeyError:  # pragma: no cover - style always present in default template
+            pytest.skip("List Bullet style unavailable")
+        doc.add_paragraph("Hello world")
+
+        converter = DocxToAstConverter()
+        ast_doc = converter.convert_to_ast(doc)
+
+        assert len(ast_doc.children) == 1
+        assert isinstance(ast_doc.children[0], Paragraph)
+        assert ast_doc.children[0].content[0].content == "Hello world"
+
+    def test_leading_empty_paragraph_no_blank_line(self) -> None:
+        """The rendered markdown must not open with a blank line."""
+        doc = docx.Document()
+        doc.add_paragraph("")  # stray leading empty paragraph (template artifact)
+        doc.add_paragraph("Title text")
+
+        md = MarkdownRenderer().render_to_string(DocxToAstConverter().convert_to_ast(doc))
+        assert md.startswith("Title text")
 
     def test_inline_math_extraction(self) -> None:
         """Inline OMML equations should become MathInline nodes."""

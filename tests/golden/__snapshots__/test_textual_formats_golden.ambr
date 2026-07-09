@@ -117,7 +117,6 @@
 # ---
 # name: TestLatexGolden.test_latex_with_math
   '''
-  
   Inline math such as 
   
   $E = mc^2$

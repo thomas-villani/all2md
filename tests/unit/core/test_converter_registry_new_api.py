@@ -161,6 +161,41 @@ class TestRegistryNewAPI:
         detected = registry.detect_format(html_stream)
         assert detected == "html"
 
+    @pytest.mark.parametrize("ext", [".md", ".markdown", ".mdown", ".mkd", ".mkdn"])
+    def test_markdown_extension_detected_from_filename(self, ext):
+        """A markdown file extension routes to the markdown parser (filename hint)."""
+        assert registry.detect_format(f"notes{ext}") == "markdown"
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            b"<html><body><h1>hi</h1></body></html>",
+            b"<?xml version='1.0'?><root/>",
+            b'{"a": 1}',
+            b"import os\nprint(os.getcwd())\n",
+        ],
+    )
+    def test_markdown_extension_wins_over_content(self, tmp_path, content):
+        """A .md extension takes precedence over content that resembles another format.
+
+        Filename detection runs before content sniffing, so a markdown file whose
+        body happens to look like HTML/XML/JSON/source code is still parsed as
+        markdown rather than misclassified from its content.
+        """
+        f = tmp_path / "readme.md"
+        f.write_bytes(content)
+        assert registry.detect_format(str(f)) == "markdown"
+
+    def test_markdown_beats_sourcecode_for_md_extension(self):
+        """Guard the latent markdown/sourcecode extension overlap.
+
+        Both the ``markdown`` and ``sourcecode`` converters claim ``.md`` in their
+        extension lists; markdown only wins because it has the higher detection
+        priority. This locks that ordering in so a future priority change or
+        manifest regeneration can't silently reroute ``.md`` to sourcecode.
+        """
+        assert registry.detect_format("example.md") == "markdown"
+
     def test_options_class_can_be_instantiated(self):
         """Test that options classes returned by get_parser_options_class are usable."""
         options_class = registry.get_parser_options_class("pdf")

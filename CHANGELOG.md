@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DOCX no longer opens with a stray blank line.** A Word document whose first
+  paragraph is empty (a common template artifact) produced a leading blank line
+  in the Markdown output — including when that empty paragraph carried a list
+  style, which slipped past the empty-paragraph filter as a blank bullet. Empty
+  paragraphs are now dropped uniformly across regular, list-item, and post-list
+  paths, and the Markdown renderer strips any leading blank line as a final
+  safeguard (so no converter can emit one).
+- **Capitalization-aware dehyphenation.** When merging words split across a line
+  break by a hyphen (OCR text, `merge_hyphenated_words`), an uppercase
+  continuation letter now keeps the hyphen — "Anglo-\nSaxon" becomes
+  "Anglo-Saxon" rather than "AngloSaxon" — so legitimately hyphenated compounds
+  and names survive instead of being fused.
 - **Persistent search index no longer serves stale results.** A keyword index
   saved with `--search-index-dir` (MCP `search_documents`) was reused whenever the
   directory existed, with no record of the corpus it was built from — so pointing
