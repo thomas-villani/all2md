@@ -505,3 +505,18 @@ replace = 'version = "{new_version}"'
 filename = "mcpb/pyproject.toml"
 search = '>={current_version}'
 replace = '>={new_version}'
+
+# uv.lock records the project's own version. Anchor the match on the preceding
+# `name = "all2md"` line: a bare version search would also match any dependency
+# that happens to be pinned at the same version. Without this, a release tag
+# ships a lock recording the previous version (v1.8.1 shipped one saying 1.8.0),
+# and the next `uv run` rewrites it -- which makes the format-sync pre-commit
+# hook report modified files and abort every commit on a fresh release branch.
+[[tool.bumpversion.files]]
+filename = "uv.lock"
+search = '''
+name = "all2md"
+version = "{current_version}"'''
+replace = '''
+name = "all2md"
+version = "{new_version}"'''
