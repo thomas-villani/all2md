@@ -7,10 +7,10 @@
 # [tool.bumpversion] config — do NOT hand-edit the version strings below.
 [project]
 name = "all2md-mcpb"
-version = "1.8.1"
+version = "1.8.2"
 requires-python = ">=3.10"
 dependencies = [
-    "all2md[mcp,pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]>=1.8.1",
+    "all2md[mcp,pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]>=1.8.2",
     # The search_documents MCP tool defaults to keyword (BM25) mode, which needs
     # rank-bm25. Depend on it directly rather than via the `search` extra: that
     # extra also pulls faiss-cpu and sentence-transformers for vector/hybrid

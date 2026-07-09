@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "all2md",
   "display_name": "all2md",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Convert PDFs, Office files, HTML, email, and 40+ formats to Markdown and back, directly inside Claude.",
   "long_description": "all2md's built-in MCP server, packaged for one-click install. Lets AI assistants read and convert documents across 40+ formats via an AST-based conversion pipeline, render Markdown back out to PDF/DOCX/PPTX/EPUB/HTML/RST, and edit documents section-by-section. Read-only query tools let assistants search across a corpus (grep + keyword/BM25), diff two documents, and outline a document's headings. Includes smart source auto-detection (file path, data URI, base64, plain text), section extraction, and security controls (a user-chosen workspace folder, network off by default, and path validation).",
   "author": {
