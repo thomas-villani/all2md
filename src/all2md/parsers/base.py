@@ -236,6 +236,103 @@ class BaseParser(ABC):
             # Log but don't interrupt conversion if callback fails
             logger.warning(f"Progress callback raised exception: {e}", exc_info=True)
 
+    # --- Conversion-confidence collection ------------------------------------
+    #
+    # Parsers accumulate two kinds of evidence while converting: discrete
+    # "degraded content" incidents (a rejected table, an unparsed archive member,
+    # a fallback path taken) and continuous quality signals (chars/page, OCR
+    # fraction, ...). ``to_ast`` calls :meth:`build_confidence_report` after
+    # ``parse`` returns and stashes the result on ``Document.metadata["confidence"]``.
+    #
+    # The backing stores are created lazily via ``setdefault`` rather than in
+    # ``__init__`` so a parser subclass that forgets to call ``super().__init__``
+    # (or records before doing so) still works.
+
+    def _producer_label(self) -> str:
+        """Return a short, stable label for this parser (e.g. ``"pdf"``, ``"docx"``).
+
+        Derived from the class name by stripping the conventional
+        ``ToAstConverter`` / ``Converter`` / ``Parser`` suffixes and lowercasing.
+        Used as the ``parser`` / ``producer`` field on confidence records.
+        """
+        name = type(self).__name__
+        for suffix in ("ToAstConverter", "Converter", "Parser"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+                break
+        return name.lower() or "unknown"
+
+    def _record_degraded(
+        self,
+        kind: str,
+        *,
+        count: int = 1,
+        detail: str | None = None,
+        severity: str = "warn",
+    ) -> None:
+        """Record a discrete degraded/approximated-content incident.
+
+        Call this wherever the converter knowingly drops, skips, or approximates
+        content (rejecting a non-tabular "table", inserting an "(unparsed)"
+        placeholder, taking an alt-text/readability fallback, an OCR failure).
+        The incidents feed the conversion :class:`~all2md.confidence.ConfidenceReport`.
+
+        Parameters
+        ----------
+        kind : str
+            Machine-readable event category (e.g. ``"table_rejected"``).
+        count : int, default = 1
+            Number of occurrences represented by this call.
+        detail : str or None, default = None
+            Optional human-readable qualifier (e.g. the rejection reason).
+        severity : {"info", "warn", "error"}, default = "warn"
+            How much the incident weighs on the confidence score.
+
+        """
+        from all2md.confidence import DegradedEvent
+
+        events: list[Any] = self.__dict__.setdefault("_degraded_events", [])
+        events.append(
+            DegradedEvent(
+                parser=self._producer_label(),
+                kind=kind,
+                count=count,
+                detail=detail,
+                severity=severity,  # type: ignore[arg-type]
+            )
+        )
+
+    def _set_quality_signal(self, key: str, value: Any) -> None:
+        """Record a continuous per-document quality signal for the confidence report."""
+        signals: dict[str, Any] = self.__dict__.setdefault("_quality_signals", {})
+        signals[key] = value
+
+    def build_confidence_report(self, document: Document) -> dict[str, Any]:
+        """Assemble the conversion :class:`~all2md.confidence.ConfidenceReport` as a dict.
+
+        Combines the quality signals and degraded events collected during
+        :meth:`parse` into a scored report. Returns the JSON-safe ``to_dict``
+        form ready to stash on ``Document.metadata["confidence"]``.
+
+        Parameters
+        ----------
+        document : Document
+            The freshly parsed document (available for subclasses that want to
+            derive additional signals from the finished AST).
+
+        Returns
+        -------
+        dict
+            The report's ``to_dict()`` representation.
+
+        """
+        from all2md.confidence import build_report
+
+        signals: dict[str, Any] = dict(self.__dict__.get("_quality_signals", {}))
+        events: list[Any] = list(self.__dict__.get("_degraded_events", []))
+        report = build_report(producer=self._producer_label(), signals=signals, events=events)
+        return report.to_dict()
+
     @staticmethod
     def _validate_zip_security(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
         """Validate security of a zip archive across different input types.

@@ -123,12 +123,14 @@ if TYPE_CHECKING:
 
 from all2md.api import (
     chunk,
+    confidence_report,
     convert,
     from_ast,
     from_markdown,
     to_ast,
     to_markdown,
 )
+from all2md.confidence import ConfidenceReport, DegradedEvent
 from all2md.constants import DocumentFormat
 
 # Extensions lists moved to constants.py - keep references for backward compatibility
@@ -201,6 +203,10 @@ __all__ = [
     "from_markdown",
     "convert",
     "chunk",
+    # Conversion confidence ("quality card")
+    "confidence_report",
+    "ConfidenceReport",
+    "DegradedEvent",
     # Registry system
     "registry",
     # Type definitions

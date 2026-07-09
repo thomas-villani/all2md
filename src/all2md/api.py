@@ -27,6 +27,7 @@ from all2md.utils.io_utils import write_content
 
 if TYPE_CHECKING:
     from all2md.chunking import ProvenanceChunk
+    from all2md.confidence import ConfidenceReport
 
 logger = logging.getLogger(__name__)
 
@@ -755,6 +756,11 @@ def to_ast(
         parser_class = registry.get_parser(actual_format)
         parser = parser_class(options=final_parser_options, progress_callback=progress_callback)
         ast_doc = parser.parse(resolved_payload)
+        # Attach the conversion confidence report ("quality card") assembled from
+        # the sanity signals and degraded-content incidents the parser collected
+        # during parse(). Stashed here (rather than inside each parser's parse())
+        # so every format gets it uniformly and it lands before the cache put.
+        _attach_confidence_report(ast_doc, parser)
         # Auto-stash the originating file path on the document so callers
         # (including LLM-driven edit workflows) can round-trip back to the
         # same format using preserve_formatting=True without manually
@@ -880,6 +886,90 @@ def chunk(
         document_id=doc_id,
         document_path=doc_path,
     )
+
+
+def _attach_confidence_report(ast_doc: "Document", parser: Any) -> None:
+    """Stash the parser's conversion confidence report on the AST.
+
+    Populates ``ast_doc.metadata['confidence']`` with the JSON-safe quality card
+    (score, band, signals, degraded events) assembled from what the parser
+    observed during ``parse``. Best-effort: a failure here must never break an
+    otherwise-successful conversion, so any error is swallowed with a debug log.
+    """
+    builder = getattr(parser, "build_confidence_report", None)
+    if builder is None:
+        return
+    try:
+        ast_doc.metadata["confidence"] = builder(ast_doc)
+    except Exception as exc:  # noqa: BLE001 - reporting is auxiliary; never fail the parse
+        logger.debug("Confidence report assembly failed: %r", exc)
+
+
+def confidence_report(
+    source: Union[str, Path, IO[bytes], bytes, Document],
+    *,
+    parser_options: Optional[BaseParserOptions] = None,
+    source_format: DocumentFormat = "auto",
+    progress_callback: Optional[ProgressCallback] = None,
+    remote_input_options: Optional[RemoteInputOptions] = None,
+    **kwargs: Any,
+) -> "ConfidenceReport":
+    """Convert a document and return its conversion confidence report ("quality card").
+
+    A reference-free read on how much to trust a conversion, built from the
+    sanity signals converters already compute (meaningful-text density, OCR
+    reliance, rejected tables, dropped images) plus discrete degraded-content
+    incidents. The single ``0-100`` ``score`` doubles as an optimizer fitness
+    function.
+
+    Parameters
+    ----------
+    source : str, Path, IO[bytes], bytes, or Document
+        Document to inspect. A pre-parsed ``Document`` is read directly (its
+        report was attached when it was first parsed via :func:`to_ast`).
+    parser_options : BaseParserOptions, optional
+        Pre-configured parser options.
+    source_format : DocumentFormat, default "auto"
+        Explicit source format, or auto-detect.
+    progress_callback : ProgressCallback, optional
+        Optional progress callback forwarded to parsing.
+    remote_input_options : RemoteInputOptions, optional
+        Controls remote retrieval behaviour. Defaults to None (disabled).
+    kwargs : Any
+        Individual parser options forwarded to :func:`to_ast`.
+
+    Returns
+    -------
+    ConfidenceReport
+        The scored quality card. Formats that produce no signals and record no
+        degraded events yield a perfect ``score`` of 100 (band ``"high"``).
+
+    Examples
+    --------
+        >>> from all2md import confidence_report
+        >>> report = confidence_report("scan.pdf")
+        >>> report.score, report.band  # doctest: +SKIP
+        (72, 'medium')
+
+    """
+    from all2md.confidence import ConfidenceReport
+
+    if isinstance(source, Document):
+        ast_doc = source
+    else:
+        ast_doc = to_ast(
+            source,
+            parser_options=parser_options,
+            source_format=source_format,
+            progress_callback=progress_callback,
+            remote_input_options=remote_input_options,
+            **kwargs,
+        )
+    raw = ast_doc.metadata.get("confidence") if ast_doc.metadata else None
+    if isinstance(raw, dict):
+        return ConfidenceReport.from_dict(raw)
+    # No report attached (e.g. a hand-built Document): report a clean card.
+    return ConfidenceReport(score=100, band="high", producer="", signals={}, degraded_events=[])
 
 
 def _record_source_path(ast_doc: "Document", source: Any) -> None:

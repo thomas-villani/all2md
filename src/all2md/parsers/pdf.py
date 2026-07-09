@@ -52,7 +52,7 @@ from all2md.ast import (
 from all2md.ast import (
     extract_text as extract_node_text,
 )
-from all2md.ast.transforms import InlineFormattingConsolidator
+from all2md.ast.transforms import InlineFormattingConsolidator, extract_nodes
 from all2md.constants import (
     DEFAULT_OVERLAP_THRESHOLD_PX,
     DEPS_PDF,
@@ -165,7 +165,7 @@ def _normalize_heading_for_dedup(text: str) -> str:
     return " ".join(text.lower().split())
 
 
-def _demote_running_headings(doc: "Document", total_pages: int) -> None:
+def _demote_running_headings(doc: "Document", total_pages: int) -> int:
     """Convert headings that recur on >50% of pages into paragraphs.
 
     A real document section usually appears once. Headings that recur on
@@ -173,9 +173,15 @@ def _demote_running_headings(doc: "Document", total_pages: int) -> None:
     or per-page footers misclassified by the layout model. Convert them
     to paragraphs in place so downstream readers don't see fake section
     breaks.
+
+    Returns
+    -------
+    int
+        The number of heading nodes demoted (a structural-confidence signal).
+
     """
     if total_pages < 3:
-        return
+        return 0
 
     # First pass: count distinct pages each normalized heading appears on.
     pages_per_heading: dict[str, set[int]] = {}
@@ -191,9 +197,10 @@ def _demote_running_headings(doc: "Document", total_pages: int) -> None:
     threshold = max(2, total_pages // 2 + 1)
     running_headings = {norm for norm, pages in pages_per_heading.items() if len(pages) >= threshold}
     if not running_headings:
-        return
+        return 0
 
     # Second pass: rebuild children, demoting matched headings.
+    demoted = 0
     new_children: list[Node] = []
     for child in doc.children:
         if isinstance(child, Heading):
@@ -206,9 +213,11 @@ def _demote_running_headings(doc: "Document", total_pages: int) -> None:
                         source_location=child.source_location,
                     )
                 )
+                demoted += 1
                 continue
         new_children.append(child)
     doc.children = new_children
+    return demoted
 
 
 def _strip_leading_whitespace_in_place(nodes: list[Node]) -> None:
@@ -785,6 +794,11 @@ class PdfToAstConverter(BaseParser):
         # Count pages OCR was applied to this conversion (drives the doc-level
         # OCR safety net below).
         self._ocr_pages_applied = 0
+        # Reset per-conversion confidence collectors (degraded events accumulate
+        # via _record_degraded; _tables_rejected feeds the quality-card signals).
+        self._degraded_events: list[Any] = []
+        self._quality_signals: dict[str, Any] = {}
+        self._tables_rejected = 0
 
         total_pages = len(list(pages_to_use))
 
@@ -850,10 +864,37 @@ class PdfToAstConverter(BaseParser):
         # Demote headings that recur on more than half the document pages —
         # those are running titles or per-page form labels masquerading as
         # section headings, not real document structure.
+        headings_demoted = 0
         if self.options.dedup_running_headings and total_pages >= 3:
-            _demote_running_headings(ast_doc, total_pages)
+            headings_demoted = _demote_running_headings(ast_doc, total_pages)
+
+        self._record_pdf_quality_signals(ast_doc, total_pages, headings_demoted)
 
         return ast_doc
+
+    def _record_pdf_quality_signals(self, ast_doc: Document, total_pages: int, headings_demoted: int) -> None:
+        """Populate the confidence-report signals from the finished PDF conversion.
+
+        Derives the reference-free quality metrics — meaningful-text density,
+        OCR reliance, and detected/rejected table counts — that feed the
+        conversion :class:`~all2md.confidence.ConfidenceReport` assembled in
+        ``to_ast``. ``chars_per_page`` is the primary text-density signal (a
+        near-empty scanned page yields a low value); ``ocr_page_fraction``
+        captures how much of the document leaned on OCR.
+        """
+        meaningful_chars = self._count_meaningful_chars(ast_doc.children)
+        pages = max(1, total_pages)
+        tables_emitted = sum(1 for _ in extract_nodes(ast_doc, AstTable))
+        tables_rejected = getattr(self, "_tables_rejected", 0)
+
+        self._set_quality_signal("page_count", total_pages)
+        self._set_quality_signal("meaningful_chars", meaningful_chars)
+        self._set_quality_signal("chars_per_page", round(meaningful_chars / pages, 1))
+        self._set_quality_signal("ocr_page_fraction", round(self._ocr_pages_applied / pages, 3))
+        self._set_quality_signal("tables_detected", tables_emitted + tables_rejected)
+        self._set_quality_signal("tables_emitted", tables_emitted)
+        self._set_quality_signal("tables_rejected", tables_rejected)
+        self._set_quality_signal("running_headings_demoted", headings_demoted)
 
     def _render_pages(
         self,
@@ -922,6 +963,16 @@ class PdfToAstConverter(BaseParser):
         content_nodes = [n for n in children if not isinstance(n, Comment)]
         text = extract_node_text(content_nodes, joiner="")
         return sum(1 for char in text if char.isalnum())
+
+    def _record_table_rejection(self, reason: str) -> None:
+        """Note a detected "table" discarded as non-tabular (empty frame, TOC, ...).
+
+        Bumps the rejection counter used for the ``tables_rejected`` confidence
+        signal and records a degraded-content event carrying the reason, so the
+        quality card reflects structure the converter chose to drop.
+        """
+        self._tables_rejected = getattr(self, "_tables_rejected", 0) + 1
+        self._record_degraded("table_rejected", detail=reason, severity="warn")
 
     def _maybe_retry_with_ocr(
         self,
@@ -2479,6 +2530,7 @@ class PdfToAstConverter(BaseParser):
                 logger.debug(
                     f"Rejecting pymupdf table on page {page_num + 1}: {n_rows}x{n_cols} grid exceeds size caps"
                 )
+                self._record_table_rejection("oversized_grid")
                 return None
             n_empty = sum(1 for r in table_data for c in r if c is None or not str(c).strip())
             if n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
@@ -2486,6 +2538,7 @@ class PdfToAstConverter(BaseParser):
                     f"Rejecting pymupdf table on page {page_num + 1}: "
                     f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
                 )
+                self._record_table_rejection("mostly_empty")
                 return None
             unique_texts = {str(c).strip() for r in table_data for c in r if c is not None and str(c).strip()}
             n_filled = n_cells - n_empty
@@ -2494,6 +2547,7 @@ class PdfToAstConverter(BaseParser):
                     f"Rejecting pymupdf table on page {page_num + 1}: "
                     f"all {n_filled} non-empty cells have identical content"
                 )
+                self._record_table_rejection("uniform_cells")
                 return None
             n_dot_leader = sum(1 for r in table_data for c in r if c is not None and is_dot_leader_cell(str(c)))
             if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
@@ -2502,6 +2556,7 @@ class PdfToAstConverter(BaseParser):
                     f"{n_dot_leader}/{n_filled} ({n_dot_leader / n_filled:.0%}) cells are "
                     f"dot-leader noise (looks like TOC region)"
                 )
+                self._record_table_rejection("dot_leader_toc")
                 return None
 
             # Separate header row (first row) from data rows
@@ -2674,6 +2729,7 @@ class PdfToAstConverter(BaseParser):
                 f"Rejecting ruling-line table on page {page_num + 1}: "
                 f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
             )
+            self._record_table_rejection("mostly_empty")
             return None
 
         # Uniformity guard: a "table" where every non-empty cell has the same
@@ -2685,6 +2741,7 @@ class PdfToAstConverter(BaseParser):
                 f"Rejecting ruling-line table on page {page_num + 1}: "
                 f"all {n_filled} non-empty cells have identical content"
             )
+            self._record_table_rejection("uniform_cells")
             return None
 
         if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
@@ -2693,6 +2750,7 @@ class PdfToAstConverter(BaseParser):
                 f"{n_dot_leader}/{n_filled} ({n_dot_leader / n_filled:.0%}) cells are "
                 f"dot-leader noise (looks like TOC region)"
             )
+            self._record_table_rejection("dot_leader_toc")
             return None
 
         # Separate header and data rows

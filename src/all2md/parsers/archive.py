@@ -707,6 +707,7 @@ class ArchiveToAstConverter(BaseParser):
                     if self.options.create_section_headings:
                         children.append(Heading(level=2, content=[Text(content=display_path)]))
                     children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
+                    self._record_degraded("unparsed_member", detail=display_path, severity="warn")
 
                 processed_count += 1
 
@@ -951,6 +952,7 @@ class ArchiveToAstConverter(BaseParser):
                 if self.options.create_section_headings:
                     children.append(Heading(level=2, content=[Text(content=display_path)]))
                 children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
+                self._record_degraded("unparsed_member", detail=display_path, severity="warn")
 
         return children
 

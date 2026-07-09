@@ -38,6 +38,7 @@ SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "arxiv",
     "generate-site",
     "chunk",
+    "report",
 )
 
 

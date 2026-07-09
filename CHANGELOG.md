@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Conversion confidence report ("quality card").** Every conversion now
+  attaches a reference-free `ConfidenceReport` to `Document.metadata['confidence']`
+  — a `0-100` `score`, a `high`/`medium`/`low` `band`, the signals behind it, and
+  the discrete degraded-content incidents the converter recorded — surfacing
+  sanity signals converters previously computed and threw away. PDF reports
+  meaningful-text density (`chars_per_page`), OCR reliance (`ocr_page_fraction`),
+  detected/rejected table counts (each rejected non-tabular region is recorded
+  with its reason), and running-heading demotions; DOCX reports table/image
+  counts and flags silently-dropped embedded objects, charts, and SmartArt. The
+  single `score` doubles as an optimizer fitness function (no ground-truth needed).
+  Read it programmatically with `all2md.confidence_report(source)` or from the
+  command line with the new `all2md report <file>` verb (aligned pretty card by
+  default, `--json` for machine use, `--fail-under SCORE` as a CI gate). Any
+  parser can contribute incidents via `BaseParser._record_degraded`; container
+  formats (`zip`, archives) already flag members that could not be parsed.
 - **Opt-in conversion cache (`--cache`).** `grep`, `search`, `chunk`, and `view`
   gain a `--cache` flag (and `--cache-dir DIR`) that stashes parsed documents on
   disk so repeated runs over unchanged files skip the expensive parse step. The

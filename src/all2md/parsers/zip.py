@@ -331,6 +331,7 @@ class ZipToAstConverter(BaseParser):
                     if self.options.create_section_headings:
                         children.append(Heading(level=2, content=[Text(content=display_path)]))
                     children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
+                    self._record_degraded("unparsed_member", detail=display_path, severity="warn")
 
                 processed_count += 1
 
@@ -520,6 +521,7 @@ class ZipToAstConverter(BaseParser):
                 if self.options.create_section_headings:
                     children.append(Heading(level=2, content=[Text(content=display_path)]))
                 children.append(Paragraph(content=[Text(content="(Could not parse this file)")]))
+                self._record_degraded("unparsed_member", detail=display_path, severity="warn")
 
         # Add resource manifest if requested and resources were extracted
         if self.options.include_resource_manifest and self.options.extract_resource_files and self._extracted_resources:
