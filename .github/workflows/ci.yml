@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
+      - 'release/**'
 
 permissions:
   contents: write  # Required for `gh release create` in the release job
