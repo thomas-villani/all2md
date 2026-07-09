@@ -264,7 +264,6 @@
 # ---
 # name: test_generated_fixture[latex-math.tex]
   '''
-  
   Inline math such as 
   
   $E = mc^2$

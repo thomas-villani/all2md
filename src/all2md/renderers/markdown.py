@@ -250,6 +250,10 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         text = text.replace("\r\n", "\n").replace("\r", "\n")
         if self.options.collapse_blank_lines:
             text = re.sub(r"\n{3,}", "\n\n", text)
+        # Drop leading blank/whitespace-only lines so a document never opens with
+        # a stray blank line (e.g. a DOCX template's empty first paragraph). The
+        # first real line's own indentation is preserved.
+        text = re.sub(r"\A(?:[ \t]*\n)+", "", text)
         text = text.rstrip()
         return text
 

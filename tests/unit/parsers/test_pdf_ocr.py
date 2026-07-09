@@ -405,6 +405,26 @@ class TestDehyphenateText:
     def test_leaves_non_hyphenation_untouched(self, text: str) -> None:
         assert dehyphenate_text(text) == text
 
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            # An uppercase continuation signals a genuine hyphenated compound:
+            # keep the hyphen, drop only the line break.
+            ("Anglo-\nSaxon heritage", "Anglo-Saxon heritage"),
+            ("Marie-\nClaire arrived", "Marie-Claire arrived"),
+            ("Sino-\nAmerican relations", "Sino-American relations"),
+            # Preserves the whichever hyphen character was used at the break.
+            ("Nord­\nSüd", "Nord-Süd"),
+            ("Judeo‐\nChristian", "Judeo-Christian"),
+            # Windows line endings and surrounding whitespace still collapse to
+            # a bare hyphen join.
+            ("Anglo-\r\nSaxon", "Anglo-Saxon"),
+            ("Anglo- \n  Saxon", "Anglo-Saxon"),
+        ],
+    )
+    def test_uppercase_continuation_keeps_hyphen(self, text: str, expected: str) -> None:
+        assert dehyphenate_text(text) == expected
+
     def test_empty_string(self) -> None:
         assert dehyphenate_text("") == ""
 
