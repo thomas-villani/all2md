@@ -348,6 +348,69 @@ class TestTextFormatting:
         assert isinstance(para_node.content[3], Emphasis)
 
 
+class TestRunCharacterStyle:
+    """Tests for run-level named character style capture (round-trip fidelity)."""
+
+    def test_named_character_style_stashed_on_inline_node(self) -> None:
+        """A run's named character style rides on the built inline node's metadata."""
+        doc = docx.Document()
+        para = doc.add_paragraph()
+        run = para.add_run("quoted")
+        run.style = doc.styles["Intense Emphasis"]
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        node = ast_doc.children[0].content[0]
+        assert isinstance(node, Text)
+        assert node.metadata.get("source_style") == "Intense Emphasis"
+
+    def test_default_run_style_not_stashed(self) -> None:
+        """The default 'Default Paragraph Font' style carries no metadata."""
+        doc = docx.Document()
+        para = doc.add_paragraph()
+        para.add_run("plain")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        node = ast_doc.children[0].content[0]
+        assert isinstance(node, Text)
+        assert "source_style" not in node.metadata
+
+    def test_character_style_stashed_on_outermost_formatted_node(self) -> None:
+        """A styled *and* bold run stashes the style on the wrapping Strong node."""
+        doc = docx.Document()
+        para = doc.add_paragraph()
+        run = para.add_run("strong-styled")
+        run.bold = True
+        run.style = doc.styles["Intense Reference"]
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        strong = ast_doc.children[0].content[0]
+        assert isinstance(strong, Strong)
+        assert strong.metadata.get("source_style") == "Intense Reference"
+        # The inner Text is unstyled — the style lives on the outermost node only.
+        assert "source_style" not in strong.content[0].metadata
+
+    def test_style_change_splits_run_group(self) -> None:
+        """Adjacent runs with the same formatting but different styles do not merge."""
+        doc = docx.Document()
+        para = doc.add_paragraph()
+        first = para.add_run("alpha")
+        first.style = doc.styles["Intense Emphasis"]
+        second = para.add_run("beta")
+        second.style = doc.styles["Intense Reference"]
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        content = ast_doc.children[0].content
+        assert len(content) == 2
+        assert content[0].content == "alpha"
+        assert content[0].metadata.get("source_style") == "Intense Emphasis"
+        assert content[1].content == "beta"
+        assert content[1].metadata.get("source_style") == "Intense Reference"
+
+
 @pytest.mark.unit
 class TestLists:
     """Tests for list conversion."""

@@ -232,3 +232,94 @@ def test_clear_template_body_helper_preserves_sectpr(docx_with_caption: Path) ->
     # No paragraphs or tables should remain in the body.
     assert body.find(qn("w:p")) is None
     assert body.find(qn("w:tbl")) is None
+
+
+# A *custom* character style name (not a python-docx built-in) so assertions can
+# tell "renderer applied the source style from the template" apart from "the
+# default skeleton happened to define it too" — same rationale as
+# CUSTOM_STYLE_NAME for paragraphs.
+CUSTOM_RUN_STYLE_NAME = "RunQuote_Roundtrip"
+
+
+def _make_docx_with_run_styles(path: Path) -> None:
+    """Build a docx whose paragraph mixes plain and character-styled runs."""
+    doc = DocxDocument()
+    if CUSTOM_RUN_STYLE_NAME not in {s.name for s in doc.styles}:
+        char_style = doc.styles.add_style(CUSTOM_RUN_STYLE_NAME, WD_STYLE_TYPE.CHARACTER)
+        char_style.font.small_caps = True
+
+    para = doc.add_paragraph()
+    para.add_run("plain ")
+    quoted = para.add_run("quoted")
+    quoted.style = doc.styles[CUSTOM_RUN_STYLE_NAME]
+    para.add_run(" and ")
+    strong = para.add_run("strong-styled")
+    strong.bold = True
+    strong.style = doc.styles[CUSTOM_RUN_STYLE_NAME]
+    doc.save(str(path))
+
+
+@pytest.fixture
+def docx_with_run_styles(tmp_path: Path) -> Path:
+    path = tmp_path / "run-styles-source.docx"
+    _make_docx_with_run_styles(path)
+    return path
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+def test_run_character_style_captured_on_ast(docx_with_run_styles: Path) -> None:
+    """The parser stashes the run character style on the inline node metadata."""
+    doc = to_ast(str(docx_with_run_styles))
+    captured = [
+        node.metadata.get("source_style")
+        for para in doc.children
+        for node in getattr(para, "content", [])
+        if node.metadata.get("source_style")
+    ]
+    # Both the plain styled run and the bold+styled run carry the style name.
+    assert captured.count(CUSTOM_RUN_STYLE_NAME) == 2
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+def test_run_character_style_round_trips_through_template(docx_with_run_styles: Path, tmp_path: Path) -> None:
+    """A named character style on a run survives docx → AST → docx with a template."""
+    doc = to_ast(str(docx_with_run_styles))
+    out_path = tmp_path / "out.docx"
+    from_ast(
+        doc,
+        "docx",
+        output=out_path,
+        template_path=str(docx_with_run_styles),
+        clear_template_body=True,
+    )
+
+    rendered = DocxDocument(str(out_path))
+    runs = {run.text: run for para in rendered.paragraphs for run in para.runs}
+    assert runs["quoted"].style is not None and runs["quoted"].style.name == CUSTOM_RUN_STYLE_NAME
+    # The bold-and-styled run keeps *both* the character style and direct bold.
+    assert runs["strong-styled"].style is not None and runs["strong-styled"].style.name == CUSTOM_RUN_STYLE_NAME
+    assert runs["strong-styled"].bold is True
+    # Unstyled runs stay on the default run style.
+    assert runs["plain "].style.name == "Default Paragraph Font"
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+def test_run_character_style_no_op_without_template(docx_with_run_styles: Path, tmp_path: Path) -> None:
+    """Without a template the custom run style falls through silently."""
+    doc = to_ast(str(docx_with_run_styles))
+    out_path = tmp_path / "out.docx"
+    from_ast(doc, "docx", output=out_path)
+
+    rendered = DocxDocument(str(out_path))
+    # The custom character style only exists in the source; the default skeleton
+    # has no such style, so the source_style application falls through.
+    styled = [
+        run
+        for para in rendered.paragraphs
+        for run in para.runs
+        if run.style and run.style.name == CUSTOM_RUN_STYLE_NAME
+    ]
+    assert not styled, "Custom character style must not appear without a template that defines it"

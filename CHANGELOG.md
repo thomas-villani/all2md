@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directory via `platformdirs`). Exposed programmatically as
   `all2md.conversion_cache.use_conversion_cache(...)`, which transparently caches
   every `to_ast()` call made inside the context.
+- **DOCX run-level character styles round-trip.** Named character styles on runs
+  ("Intense Emphasis", "Quote Char", a custom style, …) are now captured on the
+  AST inline node's `metadata['source_style']` and re-applied when rendering back
+  to DOCX with a template — the run-level analog of the existing paragraph
+  `source_style` handling. This preserves run styling across a DOCX → AST → DOCX
+  round-trip (and combines with direct bold/italic). Character styles have no
+  Markdown representation, so the name rides only the AST and is dropped on
+  Markdown serialization; without a template that defines the style, application
+  falls through silently, so default output is unchanged.
 
 ### Fixed
 

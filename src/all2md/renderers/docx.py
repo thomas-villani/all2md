@@ -24,6 +24,7 @@ from urllib.parse import urlparse
 if TYPE_CHECKING:
     from docx.table import _Cell
     from docx.text.paragraph import Paragraph
+    from docx.text.run import Run
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -971,6 +972,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         superscript: bool = False,
         subscript: bool = False,
         code_font: bool = False,
+        character_style: str | None = None,
     ) -> None:
         """Render inline nodes directly into a paragraph with formatting.
 
@@ -998,9 +1000,16 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Apply subscript formatting
         code_font : bool, default = False
             Apply code font formatting
+        character_style : str or None, default = None
+            Named character style inherited from an enclosing inline node, applied
+            to leaf runs when the template defines it (see _apply_character_style).
 
         """
         for node in nodes:
+            # A named character style stashed by the DOCX parser lives on the
+            # outermost inline node; inherit it into nested runs so it reaches the
+            # leaf Text where the run is actually created (see _apply_character_style).
+            node_style = node.metadata.get("source_style") or character_style
             if isinstance(node, Text):
                 # Create run with text and apply all formatting
                 run = paragraph.add_run(node.content)
@@ -1019,6 +1028,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 if code_font:
                     run.font.name = self.options.code_font
                     run.font.size = self._Pt(self.options.code_font_size)
+                self._apply_character_style(run, node_style)
 
             elif isinstance(node, Strong):
                 # Recursively render with bold flag
@@ -1032,6 +1042,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=subscript,
                     code_font=code_font,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Emphasis):
@@ -1046,6 +1057,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=subscript,
                     code_font=code_font,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Underline):
@@ -1060,6 +1072,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=subscript,
                     code_font=code_font,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Strikethrough):
@@ -1074,6 +1087,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=subscript,
                     code_font=code_font,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Superscript):
@@ -1088,6 +1102,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=True,
                     subscript=subscript,
                     code_font=code_font,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Subscript):
@@ -1102,6 +1117,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=True,
                     code_font=code_font,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Code):
@@ -1116,6 +1132,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=subscript,
                     code_font=True,
+                    character_style=node_style,
                 )
 
             elif isinstance(node, Link):
@@ -1141,7 +1158,18 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                         superscript=superscript,
                         subscript=subscript,
                         code_font=code_font,
+                        character_style=node_style,
                     )
+
+    def _apply_character_style(self, run: "Run", style_name: str | None) -> None:
+        """Apply a named character style to a run when the template defines it.
+
+        Mirrors the paragraph-level ``source_style`` handling: only acts when
+        styles are enabled and the style exists in the active template, so it is
+        a silent no-op for the default (template-less) render path.
+        """
+        if style_name and self.options.use_styles and self._has_style(style_name):
+            run.style = style_name
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -1157,7 +1185,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._current_paragraph = self.document.add_paragraph()
 
         if self._current_paragraph:
-            self._current_paragraph.add_run(node.content)
+            run = self._current_paragraph.add_run(node.content)
+            self._apply_character_style(run, node.metadata.get("source_style"))
 
     def visit_emphasis(self, node: Emphasis) -> None:
         """Render an Emphasis node.
@@ -1174,7 +1203,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Use efficient inline rendering
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, node.content, italic=True)
+            self._render_inlines(
+                self._current_paragraph, node.content, italic=True, character_style=node.metadata.get("source_style")
+            )
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -1191,7 +1222,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Use efficient inline rendering
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, node.content, bold=True)
+            self._render_inlines(
+                self._current_paragraph, node.content, bold=True, character_style=node.metadata.get("source_style")
+            )
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -1421,7 +1454,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Use efficient inline rendering
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, node.content, strike=True)
+            self._render_inlines(
+                self._current_paragraph, node.content, strike=True, character_style=node.metadata.get("source_style")
+            )
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.
@@ -1438,7 +1473,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Use efficient inline rendering
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, node.content, underline=True)
+            self._render_inlines(
+                self._current_paragraph, node.content, underline=True, character_style=node.metadata.get("source_style")
+            )
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -1455,7 +1492,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Use efficient inline rendering
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, node.content, superscript=True)
+            self._render_inlines(
+                self._current_paragraph,
+                node.content,
+                superscript=True,
+                character_style=node.metadata.get("source_style"),
+            )
 
     def visit_subscript(self, node: Subscript) -> None:
         """Render a Subscript node.
@@ -1472,7 +1514,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Use efficient inline rendering
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, node.content, subscript=True)
+            self._render_inlines(
+                self._current_paragraph, node.content, subscript=True, character_style=node.metadata.get("source_style")
+            )
 
     def visit_html_inline(self, node: HTMLInline) -> None:
         """Render an HTMLInline node.
