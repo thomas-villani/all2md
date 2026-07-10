@@ -6,13 +6,17 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
-> **Status note (updated 2026-07-08).** Since this roadmap was first written we've
+> **Status note (updated 2026-07-09).** Since this roadmap was first written we've
 > shipped the headline Theme 1 item — `all2md chunk` (provenance-aware chunking, 11
 > strategies, `all2md.chunk()` Python API, `[chunk]` extra) — plus mermaid/syntax-
-> highlighting in `view`/`serve` and one-click `uv` install scripts. Shipped items are
-> marked 🚢 inline below; the license question that gated chunking is resolved (chunkers
-> vendored, optional extra). Tactical near-term work still lives in [`todo.md`](todo.md);
-> the highest-signal outstanding todo items are cross-referenced into the themes below.
+> highlighting in `view`/`serve` and one-click `uv` install scripts. The **Fidelity &
+> Trust** batch has since landed the conversion cache, the confidence report
+> (`all2md report`), DOCX character-style round-tripping, and round-trip fidelity scoring
+> (`all2md roundtrip`), leaving the conversion optimizer unblocked as its capstone.
+> Shipped items are marked 🚢 inline below; the license question that gated chunking is
+> resolved (chunkers vendored, optional extra). Tactical near-term work lives in `todo.md`,
+> which is developer-local (git-ignored) — anything that needs to outlive a working tree is
+> cross-referenced into the themes below or filed as an issue.
 
 ---
 
@@ -88,16 +92,32 @@ on the noncommercial package.
 
 People star us because "it just converted my gnarly PDF perfectly." Protect and extend that.
 
-- 🌱 **Round-trip fidelity scoring** — `all2md roundtrip doc.docx` converts → md → back and
-  reports a structural diff score (built on the existing diff engine). Turns fidelity into
-  a measurable, regression-testable, marketable metric. *Groundwork exists:* the corpus
-  benchmark harness under `benchmarks/corpus/` (🚢 v1.1.1) already times conversion across a
-  stratified real-world corpus and has an `inspect` mode; a `roundtrip` score sits naturally
-  on top of it plus the diff engine. **Still the single best leverage-per-effort item.**
-- 🌱 **DOCX round-trip: character styles** — *outstanding (see `todo.md`).* Paragraph-level
-  `source_style` already round-trips (🚢 v1.1.1); extend the same approach to run-level named
-  character styles ("Quote Char", "Intense Reference") by folding the style name into the
-  run-grouping key in `_process_paragraph_runs_to_inline`. Concrete, scoped fidelity win.
+- 🚢 **Round-trip fidelity scoring** — *shipped (unreleased; lands in v1.9.0).* `all2md
+  roundtrip doc.docx` renders to an intermediate format, parses it straight back, and scores
+  the structure that survived — `0-100` plus per-dimension metrics and itemized
+  `StructuralDelta`s. Built on the **AST**, not on `all2md.diff` as originally planned: that
+  engine is a text `difflib` and cannot see a demoted heading. A clean document round-trips
+  through Markdown at exactly `100`, so the metric is a real regression guard rather than
+  noise. *Still open:* wiring it into the `benchmarks/corpus/` harness (🚢 v1.1.1) for a
+  corpus-wide fidelity report — the remaining half of the "marketable metric" story.
+- 🚢 **DOCX round-trip: character styles** — *shipped (unreleased).* Run-level named
+  character styles ("Quote Char", "Intense Reference") now ride on the inline node's
+  `metadata['source_style']` and are re-applied when rendering to DOCX with a template,
+  matching the paragraph-level behaviour (🚢 v1.1.1).
+- 🌱 **DOCX/HTML round-trip asymmetries** — *found by `all2md roundtrip`, unfixed.* Each is a
+  renderer/parser pair that does not invert:
+  - [#70](https://github.com/thomas-villani/all2md/issues/70) — rendering to DOCX applies
+    `TitlePromotionTransform` (leading H1 → Word "Title", every later heading shifted up
+    one), but the DOCX parser maps "Title" → `Paragraph`. So `md → docx → md` demotes the
+    title *and* shifts H2→H1.
+  - [#71](https://github.com/thomas-villani/all2md/issues/71) — the DOCX round trip drops
+    inline `Code`, and writes a `BlockQuote` as an indented `Normal` paragraph that the
+    parser reads back as a bullet list.
+  - [#72](https://github.com/thomas-villani/all2md/issues/72) — the HTML parser wraps `<li>`
+    content in a `Paragraph` unconditionally, so `<li><p>x</p></li>` parses to
+    `ListItem > Paragraph > Paragraph > Text`.
+
+  Reproduce any of them with `all2md roundtrip <file> --via docx` (or `--via html`).
 - 🚀 **Layout-aware PDF reconstruction** — correct reading order across columns,
   footnote/endnote linking, running header/footer stripping, caption↔figure association.
   The eternal PDF pain points; we already have `_pdf_layout.py` to build on.
@@ -105,11 +125,12 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   HTML MathML, and (optionally) images of equations via OCR. Huge for academic/technical
   users and a natural pairing with the existing arxiv packager.
 - 🚀 **Public fidelity benchmark** — a golden corpus + scores vs markitdown / pandoc /
-  docling. Marketing + regression guard in one. Cheap given the diff engine. *Groundwork
-  exists:* `benchmarks/corpus/` already pulls deterministic samples from arxiv, PubMed
-  Central, govdocs1, Apache POI, and Enron and emits a stratified report (🚢 v1.1.1); a
-  manual-dispatch CI workflow runs it on a clean VM. What's missing is the *quality* score
-  (vs. ground truth) and the head-to-head against other tools. Corpora, split by job:
+  docling. Marketing + regression guard in one. *Groundwork exists:* `benchmarks/corpus/`
+  already pulls deterministic samples from arxiv, PubMed Central, govdocs1, Apache POI, and
+  Enron and emits a stratified report (🚢 v1.1.1); a manual-dispatch CI workflow runs it on a
+  clean VM. **A self-referential quality score now exists too** (`roundtrip_report`, 🚢), so
+  what remains is (a) running it corpus-wide, (b) scoring against an external *ground truth*
+  where one exists, and (c) the head-to-head against other tools. Corpora, split by job:
   - **Structure ground-truth (headline metric):** [**OmniDocBench**](https://github.com/opendatalab/OmniDocBench)
     (CVPR 2025) — 981 pages, 9 doc types, with table (Markdown/HTML/LaTeX), formula, and
     reading-order metrics that map directly onto our output. Anchor the public score here.
@@ -125,12 +146,11 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     (financial DOCX/HTML/XBRL), the Enron corpus (mbox/eml threading torture-test),
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
-- 🌱 **Conversion confidence report** — surface per-document warnings (dropped elements,
-  OCR confidence, ambiguous tables) as a structured "quality card." *Note:* many of these
-  signals are already computed as **guards** inside the PDF parser (table cell-fill density,
-  uniformity, dot-leader ratio; ghost/tiny-image counts; near-empty-page ratio). This item
-  is largely about *surfacing* them as structured output instead of log noise — and doing so
-  is the enabling substrate for the **conversion optimizer** below.
+- 🚢 **Conversion confidence report** — *shipped (unreleased).* `all2md report <file>` and
+  `Document.metadata['confidence']` surface the sanity signals the PDF/DOCX parsers already
+  computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
+  near-empty-page ratio) as a structured "quality card" instead of log noise. Reference-free,
+  so it works on documents with no ground truth.
 - 🚀 **Conversion optimizer (`all2md optimize`)** — auto-tune converter settings for a
   difficult document (headline case: gnarly PDFs). Searches the parameter space
   (`table_detection_mode`, `detect_columns`, OCR mode/engine, `min_image_dimension`,
@@ -140,9 +160,12 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   - **Objective (the crux):** difficult PDFs rarely have a reference to diff against, so the
     optimizer needs a **reference-free** quality score — exactly the vector the *confidence
     report* produces (real-word ratio, table sanity, ghost-image count, reading-order
-    coherence, near-empty-page ratio, hyphenation-merge success). **This item is therefore
-    gated on the confidence report + round-trip scoring; it's the capstone of the fidelity
-    batch, not a standalone.**
+    coherence, near-empty-page ratio, hyphenation-merge success). **Both halves of that
+    substrate now exist** (confidence 🚢, round-trip 🚢), so this is *unblocked* and is the
+    next item up. Use `confidence_report(...).score` where no reference can be manufactured
+    and `roundtrip_report(...).score` where one can; both respond to converter options — e.g.
+    `html_passthrough_mode="pass-through"` moves `basic.md` from 98 to 100 — which is exactly
+    what makes them hill-climbable.
   - **Search shape (keep it cheap):** score a handful of named presets first (interpretable,
     fast), then a 1-D refine on the highest-impact continuous knob — not a full grid. Sample
     a page subset (first N + random) rather than reconverting a 400-page doc, and **cache per
@@ -305,22 +328,26 @@ CPU core.
 **Done since first draft:** ~~`all2md chunk`~~ 🚢 (was #2) — the biggest single item is
 shipped, along with mermaid rendering and `uv` install scripts.
 
+**Done in the Fidelity & Trust batch** (unreleased, lands in v1.9.0): ~~round-trip fidelity
+scoring~~ 🚢, ~~conversion confidence report~~ 🚢, ~~DOCX character-style round-trip~~ 🚢,
+~~search-index / conversion-cache correctness~~ 🚢. That closes the previous arc's top two
+entries and unblocks the batch capstone, which leads the revised arc below.
+
 Revised arc for the **next batch**, ordered by leverage-per-effort:
 
-1. **Round-trip fidelity scoring** + **conversion confidence report** — still the top pick:
-   small, builds on the diff engine *and* the existing corpus harness, immediately useful and
-   marketable. Pairs naturally with the **DOCX character-style** round-trip fix. Together
-   these two produce the quality score that unlocks the **conversion optimizer**
-   (`all2md optimize`) as the batch capstone — build them first, in that order.
-2. **Search-index / conversion-cache correctness** — fixes a real staleness *bug* in
-   `--search-index-dir` while adding a broadly useful cache layer. Small, high-certainty.
-3. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
+1. **Conversion optimizer (`all2md optimize`)** — the capstone, now unblocked: both quality
+   scores it hill-climbs on exist and are exercised by tests. Start here.
+2. **Public fidelity benchmark** — round-trip scoring exists, so productize it: wire it into
+   the `benchmarks/corpus/` harness for a corpus-wide report, then a head-to-head vs.
+   markitdown / pandoc / docling.
+3. **DOCX/HTML round-trip asymmetries** — the concrete defects `all2md roundtrip` surfaced
+   on its first run (Theme 2). Small, well-specified, and each one raises the benchmark
+   number above.
+4. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
    Architecture Decision); the deferred-asset-resolution phase is the user-visible win.
-4. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
+5. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
    is the shared building block for the Action and a future hosted API.
-5. **Math support** + **layout-aware PDF** — deepen the fidelity moat (larger efforts).
-6. **Public fidelity benchmark** — once round-trip scoring exists, productize it into a
-   head-to-head vs. markitdown / pandoc / docling.
+6. **Math support** + **layout-aware PDF** — deepen the fidelity moat (larger efforts).
 
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
 small `todo.md` bug-fixes (filename-hint detection, leading blank line in DOCX, smarter
