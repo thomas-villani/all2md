@@ -68,6 +68,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The options reference regenerates reproducibly.** Two `MarkdownRendererOptions`
+  fields default to an `UNSET` sentinel, and the generator rendered it with
+  `repr()` — emitting `<object object at 0x...>`, a memory address that changed on
+  every run. `docs/source/options.rst` therefore showed a spurious diff after any
+  documentation build, burying real option changes in noise. Those fields now
+  render as `unset`, matching the wording `all2md --help` already used. Running
+  `scripts/generate_options_doc.py` standalone also works now: its `--output` and
+  `--narrative` defaults resolved against `scripts/` rather than the `docs/source/`
+  tree they named, so a hand-run always failed on a missing narrative file.
 - **DOCX no longer opens with a stray blank line.** A Word document whose first
   paragraph is empty (a common template artifact) produced a leading blank line
   in the Markdown output — including when that empty paragraph carried a list

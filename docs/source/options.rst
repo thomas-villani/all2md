@@ -5266,7 +5266,7 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
    How to handle tables when flavor doesn't support them: drop (skip entirely), ascii (render as ASCII art), force (render as pipe tables anyway), html (render as HTML table)
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
-   :Default: ``<object object at 0x00000231462C0D50>``
+   :Default: ``unset`` (resolved from ``flavor`` at construction)
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -5275,7 +5275,7 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
    How to handle inline elements unsupported by flavor: plain (render content without formatting), force (use markdown syntax anyway), html (use HTML tags)
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
-   :Default: ``<object object at 0x00000231462C0D50>``
+   :Default: ``unset`` (resolved from ``flavor`` at construction)
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
@@ -11252,7 +11252,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['drop', 'ascii', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-table-mode``
-   :Default: ``<object object at 0x00000231462C0D50>``
+   :Default: ``unset`` (resolved from ``flavor`` at construction)
    :Choices: ``drop``, ``ascii``, ``force``, ``html``
    :Importance: advanced
 
@@ -11262,7 +11262,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['plain', 'force', 'html'] | object``
    :CLI flag: ``--markdown-unsupported-inline-mode``
-   :Default: ``<object object at 0x00000231462C0D50>``
+   :Default: ``unset`` (resolved from ``flavor`` at construction)
    :Choices: ``plain``, ``force``, ``html``
    :Importance: advanced
 
