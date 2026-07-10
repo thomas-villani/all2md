@@ -26,7 +26,7 @@ Quick Links
    * - :doc:`utilities`
      - Internal utilities for input handling, images, and security
    * - :doc:`advanced`
-     - AST nodes, search, diffing, and MCP integration
+     - AST nodes, search, diffing, quality scoring, and MCP integration
 
 .. toctree::
    :maxdepth: 2

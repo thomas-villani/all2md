@@ -167,6 +167,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("grep", "Search for text patterns in documents (like grep for any format)"),
     ("chunk", "Split documents into provenance-carrying chunks (JSONL) for RAG/LLM pipelines"),
     ("report", "Print a conversion confidence report ('quality card') scoring how much to trust a conversion"),
+    ("roundtrip", "Convert a document through another format and back, scoring the structure that survived"),
     ("lint", "Lint converted documents for structural, heading, link, list, table, and typography issues"),
     ("generate-site", "Generate Hugo, Jekyll, MkDocs, Zola, or Eleventy static site from documents"),
     ("arxiv", "Generate an ArXiv-ready LaTeX submission package from a document"),

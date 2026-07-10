@@ -39,6 +39,7 @@ SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "generate-site",
     "chunk",
     "report",
+    "roundtrip",
 )
 
 

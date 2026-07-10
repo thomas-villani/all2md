@@ -120,6 +120,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_report_command(args[1:])
 
+    # Check for roundtrip command (structural fidelity score)
+    if args[0] == "roundtrip":
+        from all2md.cli.commands.roundtrip import handle_roundtrip_command
+
+        return handle_roundtrip_command(args[1:])
+
     # Check for lint command
     if args[0] == "lint":
         from all2md.cli.commands.lint import handle_lint_command
