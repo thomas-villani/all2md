@@ -31,7 +31,7 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 from all2md.converter_registry import registry  # noqa: E402
-from all2md.options.base import BaseParserOptions, BaseRendererOptions  # noqa: E402
+from all2md.options.base import UNSET, BaseParserOptions, BaseRendererOptions  # noqa: E402
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions  # noqa: E402
 from all2md.options.markdown import MarkdownRendererOptions  # noqa: E402
 from all2md.utils.input_sources import RemoteInputOptions  # noqa: E402
@@ -410,7 +410,12 @@ class OptionsRenderer:
             lines.append(f"   :CLI flag: ``{cli_flag}``")
 
         default_value, factory_name = get_field_default(field)
-        if default_value is not None:
+        if default_value is UNSET:
+            # repr(object()) embeds the sentinel's memory address, which changes
+            # every run and made options.rst impossible to regenerate reproducibly.
+            # Match the wording the CLI help already uses for these fields.
+            lines.append("   :Default: ``unset`` (resolved from ``flavor`` at construction)")
+        elif default_value is not None:
             lines.append(f"   :Default: ``{default_value!r}``")
         elif factory_name:
             lines.append(f"   :Default factory: ``{factory_name}``")
@@ -610,19 +615,23 @@ def generate_options_document(output_path: Path, narrative_path: Optional[Path] 
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     """Parse command line arguments."""
+    # The Sphinx build passes both paths explicitly; these defaults only serve a
+    # standalone run, and they resolved against ``scripts/`` rather than the docs
+    # tree they name -- so running the script by hand always failed.
+    docs_source = Path(__file__).resolve().parent.parent / "docs" / "source"
     parser = argparse.ArgumentParser(description="Generate options.rst documentation.")
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        default=Path(__file__).resolve().parent / "options.rst",
+        default=docs_source / "options.rst",
         help="Output .rst path (defaults to docs/source/options.rst)",
     )
     parser.add_argument(
         "-n",
         "--narrative",
         type=Path,
-        default=Path(__file__).resolve().parent / "_templates" / "_options-narrative.rst",
+        default=docs_source / "_templates" / "_options-narrative.rst",
         help="Narrative preface file",
     )
     return parser.parse_args(argv)
