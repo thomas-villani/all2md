@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Round-trip fidelity scoring (`all2md roundtrip`).** Converts a document to
+  another format, parses it straight back, and scores the structure that
+  survived. Unlike the confidence report this comparison has a ground truth —
+  the source document itself — so a lossless round trip scores exactly `100` and
+  anything less is a concrete, itemized loss. Five dimensions are scored against
+  independent alignments and combined: `structure` (0.40 — heading levels, list
+  nesting, table placement), `text` (0.30 — the document-wide word stream),
+  `inline` (0.15), `tables` (0.10) and `references` (0.05); dimensions the source
+  does not exercise are dropped and the rest renormalized, so a document with no
+  tables is neither rewarded nor punished for the tables it lacks. Alongside the
+  score the report lists concrete `StructuralDelta` incidents ("heading(h1) ->
+  paragraph", "table 1: 4x3 -> 4x2", "3 of 229 words") so a low score is
+  actionable. Tight/loose list items and nested-paragraph artifacts are
+  normalized away, so format-legal spelling differences do not read as loss.
+  Available from Python as `all2md.roundtrip_report(source, via=...)` (with
+  `roundtrippable_formats()` listing the 24 valid `via` formats) and from the
+  command line as `all2md roundtrip <file>` (aligned card by default, `--via` to
+  pick the intermediate format, `--json`, `--fail-under SCORE` as a CI gate,
+  `--max-deltas N`, `--format` to override source detection for stdin). The score
+  responds to converter options, which is what makes it usable as the fitness
+  function for the planned `all2md optimize`.
 - **Conversion confidence report ("quality card").** Every conversion now
   attaches a reference-free `ConfidenceReport` to `Document.metadata['confidence']`
   — a `0-100` `score`, a `high`/`medium`/`low` `band`, the signals behind it, and

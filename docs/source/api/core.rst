@@ -18,6 +18,15 @@ The primary functions for document conversion:
    all2md.from_markdown
    all2md.convert
 
+Quality scoring, for deciding how much to trust a conversion:
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.confidence_report
+   all2md.roundtrip_report
+   all2md.roundtrippable_formats
+
 For full function signatures and detailed documentation, see :doc:`all2md.api`.
 
 Base Classes
