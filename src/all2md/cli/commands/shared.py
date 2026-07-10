@@ -8,13 +8,15 @@ version information, system diagnostics, and batch file list parsing.
 """
 
 import argparse
+import contextlib
 import fnmatch
 import logging
+import os
 import platform
 import sys
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import unquote, urlparse
 
 from all2md.cli.input_items import CLIInputItem
@@ -22,6 +24,33 @@ from all2md.converter_registry import registry
 from all2md.utils.packages import check_version_requirement, get_package_version
 
 _GLOB_CHARS = "*?["
+
+
+@contextlib.contextmanager
+def protect_stdout() -> Iterator[None]:
+    """Redirect OS-level stdout (fd 1) to stderr for the duration.
+
+    Some libraries in the conversion pipeline (notably PyMuPDF) print advisories
+    straight to stdout, which would corrupt a command's own output stream --
+    especially a machine-readable ``--json`` one. We point fd 1 at stderr while
+    parsing, then restore it before emitting results. This catches both
+    Python-level ``print`` and C-level writes. Falls back to a no-op if fd
+    duplication is unavailable (e.g. a captured stdout with no real descriptor).
+    """
+    try:
+        saved_fd = os.dup(1)
+    except (OSError, ValueError):
+        yield
+        return
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        os.dup2(2, 1)
+        yield
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved_fd, 1)
+        os.close(saved_fd)
 
 
 def add_cache_arguments(parser: argparse.ArgumentParser) -> None:

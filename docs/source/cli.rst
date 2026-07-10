@@ -762,6 +762,91 @@ extra keyword arguments to the converter (e.g. ``attachment_mode="skip"``).
 For lower-level control over an AST you already hold, call
 ``all2md.chunking.chunk_ast(doc, strategy=..., max_tokens=...)`` directly.
 
+Roundtrip Command
+-----------------
+
+``all2md roundtrip`` converts a document to another format, parses it straight
+back, and scores the structure that survived. Because the source document is its
+own ground truth, a lossless round trip scores exactly ``100`` — anything less is
+a concrete, itemized loss.
+
+.. code-block:: bash
+
+   # How much does converting this DOCX to Markdown cost?
+   all2md roundtrip report.docx
+
+   # What would it cost to publish these notes as reStructuredText?
+   all2md roundtrip notes.md --via rst
+
+   # Gate a corpus in CI
+   all2md roundtrip docs/*.md --fail-under 95
+
+The card reports an overall score plus the five dimensions behind it. Here a real
+DOCX loses only its underlines, which Markdown cannot express:
+
+.. code-block:: text
+
+   $ all2md roundtrip basic.docx
+   basic.docx
+     fidelity:  97/100  (HIGH)
+     pipeline:  parse docx -> render markdown -> parse markdown
+
+     metrics
+       structure   100/100   headings, lists, tables, code blocks
+       text        100/100   the document's word stream
+       inline       82/100   bold, italic, code, links
+       tables      100/100   table dimensions and cell text
+       references  100/100   link and image targets
+
+     differences
+       warn  inline_lost  (underline)
+
+``structure`` carries the most weight (0.40), then ``text`` (0.30), ``inline``
+(0.15), ``tables`` (0.10) and ``references`` (0.05). Dimensions the source does
+not exercise are dropped and the rest renormalized, so a document with no tables
+is neither rewarded nor punished for the tables it does not have.
+
+Key Options
+~~~~~~~~~~~
+
+* ``--via FORMAT`` — the intermediate format (default ``markdown``). It must have
+  both a renderer and a parser; passing an unknown value prints the valid list.
+* ``--format FORMAT`` — the source format, overriding auto-detection. Worth
+  setting for stdin: piped Markdown sniffs as plaintext.
+* ``--fail-under SCORE`` — exit non-zero if any document scores below ``SCORE``.
+* ``--max-deltas N`` — show at most ``N`` differences per document (``0`` for all).
+* ``--json`` — emit the report(s) as JSON for machine consumption.
+
+Parser and renderer options come from the configuration file's converter sections
+(see :doc:`configuration`), not from flags on this subcommand.
+
+Python API
+~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import roundtrip_report, roundtrippable_formats
+
+   report = roundtrip_report("report.docx", via="markdown")
+   print(report.score, report.band, report.metrics["structure"])
+   for delta in report.deltas:
+       print(delta.severity, delta.kind, delta.detail)
+
+   print(roundtrippable_formats())  # formats usable as `via`
+
+Because the score responds to converter options, it also prices a setting.
+``basic.md`` contains raw ``<u>`` tags, which the Markdown renderer escapes by
+default as a security posture — that costs two points, and turning the escape off
+recovers them:
+
+.. code-block:: python
+
+   roundtrip_report("basic.md").score                                  # 98
+   roundtrip_report("basic.md", html_passthrough_mode="pass-through").score  # 100
+
+This is exactly the property the planned ``all2md optimize`` capstone hill-climbs
+on: a scalar that improves as converter settings improve.
+
 Lint Command
 ------------
 

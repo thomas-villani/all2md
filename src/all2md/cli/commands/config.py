@@ -137,6 +137,7 @@ def _subcommand_parser_factories() -> Dict[str, Any]:
     from all2md.cli.commands.edit import _create_edit_parser
     from all2md.cli.commands.generate_site import _create_generate_site_parser
     from all2md.cli.commands.report import _create_report_parser
+    from all2md.cli.commands.roundtrip import _create_roundtrip_parser
     from all2md.cli.commands.server import _create_serve_parser
     from all2md.cli.commands.view import _create_view_parser
 
@@ -149,6 +150,7 @@ def _subcommand_parser_factories() -> Dict[str, Any]:
         "generate-site": _create_generate_site_parser,
         "chunk": _create_chunk_parser,
         "report": _create_report_parser,
+        "roundtrip": _create_roundtrip_parser,
     }
 
 

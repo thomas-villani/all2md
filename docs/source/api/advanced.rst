@@ -96,6 +96,22 @@ Document comparison and diff rendering:
    all2md.diff.text_diff
    all2md.diff.renderers
 
+Quality Scoring
+---------------
+
+Two complementary reads on conversion quality. :mod:`all2md.confidence` is
+*reference-free*: it scores a conversion from the sanity signals the parser
+observed, which is the only option for a document with no ground truth (a
+scanned PDF). :mod:`all2md.roundtrip` manufactures a reference by converting a
+document to another format and parsing it straight back, then scores the
+structure that survived.
+
+.. autosummary::
+   :nosignatures:
+
+   all2md.confidence
+   all2md.roundtrip
+
 MCP Server
 ----------
 
@@ -132,6 +148,8 @@ Complete References
    all2md.ast
    all2md.search
    all2md.diff
+   all2md.confidence
+   all2md.roundtrip
    all2md.mcp
    all2md.packagers
    all2md.packagers.arxiv

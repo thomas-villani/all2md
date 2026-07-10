@@ -127,6 +127,8 @@ from all2md.api import (
     convert,
     from_ast,
     from_markdown,
+    roundtrip_report,
+    roundtrippable_formats,
     to_ast,
     to_markdown,
 )
@@ -141,6 +143,7 @@ from all2md.exceptions import All2MdError, DependencyError, FormatError, Parsing
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
 from all2md.progress import ProgressCallback, ProgressEvent
+from all2md.roundtrip import RoundTripReport, StructuralDelta
 
 # Import parsers to trigger registration (must be eager, not lazy)
 from . import parsers  # noqa: F401
@@ -207,6 +210,11 @@ __all__ = [
     "confidence_report",
     "ConfidenceReport",
     "DegradedEvent",
+    # Round-trip fidelity scoring
+    "roundtrip_report",
+    "roundtrippable_formats",
+    "RoundTripReport",
+    "StructuralDelta",
     # Registry system
     "registry",
     # Type definitions

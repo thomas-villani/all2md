@@ -28,6 +28,7 @@ from all2md.utils.io_utils import write_content
 if TYPE_CHECKING:
     from all2md.chunking import ProvenanceChunk
     from all2md.confidence import ConfidenceReport
+    from all2md.roundtrip import RoundTripReport
 
 logger = logging.getLogger(__name__)
 
@@ -970,6 +971,139 @@ def confidence_report(
         return ConfidenceReport.from_dict(raw)
     # No report attached (e.g. a hand-built Document): report a clean card.
     return ConfidenceReport(score=100, band="high", producer="", signals={}, degraded_events=[])
+
+
+def roundtrippable_formats() -> list[str]:
+    """Return the formats that can be both rendered to and parsed back from.
+
+    These are the formats accepted by :func:`roundtrip_report`'s ``via``
+    parameter: a round trip needs a renderer to get there and a parser to get
+    back.
+    """
+    formats = []
+    for name in registry.list_formats():
+        entries = registry.get_format_info(name) or []
+        if any(entry.parser_class and entry.renderer_class for entry in entries):
+            formats.append(name)
+    return sorted(formats)
+
+
+def roundtrip_report(
+    source: Union[str, Path, IO[bytes], bytes, Document],
+    *,
+    via: DocumentFormat = "markdown",
+    source_format: DocumentFormat = "auto",
+    parser_options: Optional[BaseParserOptions] = None,
+    renderer_options: Optional[BaseRendererOptions] = None,
+    progress_callback: Optional[ProgressCallback] = None,
+    remote_input_options: Optional[RemoteInputOptions] = None,
+    **kwargs: Any,
+) -> "RoundTripReport":
+    """Round-trip a document through ``via`` and score what survived.
+
+    Renders the parsed document to the ``via`` format, parses the result straight
+    back, and compares the two ASTs structurally. Unlike
+    :func:`confidence_report`, this has a ground truth to measure against -- the
+    source AST -- so a clean document round-tripping through a lossless format
+    scores exactly ``100`` and any drift is a real defect.
+
+    Parameters
+    ----------
+    source : str, Path, IO[bytes], bytes, or Document
+        Document to round-trip. A pre-parsed ``Document`` is used directly as the
+        ground truth, in which case ``source_format`` is only a label.
+    via : DocumentFormat, default "markdown"
+        Intermediate format to round-trip through. Must have both a renderer and
+        a parser -- see :func:`roundtrippable_formats`.
+    source_format : DocumentFormat, default "auto"
+        Explicit source format, or auto-detect.
+    parser_options : BaseParserOptions, optional
+        Options for parsing the source. The intermediate is always parsed with
+        that format's defaults, since it is machine-generated.
+    renderer_options : BaseRendererOptions, optional
+        Options for rendering to ``via``.
+    progress_callback : ProgressCallback, optional
+        Optional progress callback forwarded to the initial parse.
+    remote_input_options : RemoteInputOptions, optional
+        Controls remote retrieval behaviour. Defaults to None (disabled).
+    kwargs : Any
+        Individual options, split between the source parser and the ``via`` renderer.
+
+    Returns
+    -------
+    RoundTripReport
+        The ``0-100`` fidelity score, per-dimension metrics, and the concrete
+        structural differences found.
+
+    Raises
+    ------
+    FormatError
+        If ``via`` cannot be both rendered to and parsed back from.
+
+    Examples
+    --------
+        >>> from all2md import roundtrip_report
+        >>> report = roundtrip_report("report.docx")  # doctest: +SKIP
+        >>> report.score, report.metrics["structure"]  # doctest: +SKIP
+        (94, 91)
+
+    Check what a conversion to reStructuredText would cost:
+        >>> report = roundtrip_report("notes.md", via="rst")  # doctest: +SKIP
+
+    """
+    from all2md.roundtrip import build_report
+
+    if via not in roundtrippable_formats():
+        raise FormatError(
+            f"Cannot round-trip through {via!r}: it needs both a renderer and a parser. "
+            f"Available: {', '.join(roundtrippable_formats())}"
+        )
+
+    if isinstance(source, Document):
+        original = source
+        actual_source_format: str = source_format if source_format != "auto" else "ast"
+    else:
+        resolved_payload = _resolve_document_source(source, remote_input_options, progress_callback).payload
+        if source_format != "auto":
+            actual_source_format = source_format
+        elif isinstance(resolved_payload, (str, Path, bytes)) or (
+            hasattr(resolved_payload, "read") and hasattr(resolved_payload, "seek")
+        ):
+            actual_source_format = registry.detect_format(resolved_payload)  # type: ignore[arg-type]
+        else:
+            raise FormatError("Cannot auto-detect format from text-mode stream. Please specify source_format.")
+
+        parser_kwargs, _ = _split_kwargs_for_parser_and_renderer(
+            cast(DocumentFormat, actual_source_format), via, dict(kwargs)
+        )
+        original = to_ast(
+            cast(Union[str, Path, IO[bytes], bytes], resolved_payload),
+            parser_options=parser_options,
+            source_format=cast(DocumentFormat, actual_source_format),
+            progress_callback=progress_callback,
+            **parser_kwargs,
+        )
+
+    _, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
+        cast(DocumentFormat, actual_source_format), via, dict(kwargs)
+    )
+    final_renderer_options: Optional[BaseRendererOptions]
+    if renderer_kwargs and renderer_options:
+        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+    elif renderer_kwargs:
+        final_renderer_options = _create_renderer_options_from_kwargs(via, **renderer_kwargs)
+    else:
+        final_renderer_options = renderer_options
+
+    rendered = _transforms().render(original, renderer=via, options=final_renderer_options)
+    payload = rendered.encode("utf-8") if isinstance(rendered, str) else rendered
+
+    # The intermediate is machine-generated, so it is parsed with plain defaults:
+    # reusing the source's parser options would be a category error (they belong
+    # to a different format) and would let a parsing quirk mask a rendering loss.
+    roundtripped = to_ast(payload, source_format=via)
+
+    return build_report(original, roundtripped, source_format=actual_source_format, via=via)
 
 
 def _record_source_path(ast_doc: "Document", source: Any) -> None:
