@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from all2md.constants import DEPS_PDF_LANGDETECT
 from all2md.options.common import OCROptions
@@ -28,6 +28,7 @@ __all__ = [
     "detect_page_language",
     "calculate_image_coverage",
     "dehyphenate_text",
+    "dehyphenate_blocks",
 ]
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,71 @@ def dehyphenate_text(text: str) -> str:
     if not text:
         return text
     return _HYPHEN_LINEBREAK_RE.sub(_merge_hyphenation, text)
+
+
+# A hyphen ending a line: a letter, a hyphen character, then only trailing blanks.
+_LINE_END_HYPHEN_RE = re.compile(r"([^\W\d_])[-­‐][ \t]*$", re.UNICODE)
+# The continuation word: the leading letters of the following line.
+_CONTINUATION_RE = re.compile(r"^([^\W\d_]+)", re.UNICODE)
+
+
+def dehyphenate_blocks(blocks: list[dict[str, Any]]) -> None:
+    r"""Merge line-break hyphenation across the lines of PyMuPDF text blocks, in place.
+
+    PyMuPDF exposes a ``TEXT_DEHYPHENATE`` extraction flag, and the PDF parser used
+    to rely on it for natively-extracted text. It is inert — on PyMuPDF 1.28 /
+    MuPDF 1.29 it does not alter ``get_text()`` output in any extraction mode — so
+    ``merge_hyphenated_words`` silently did nothing for every non-OCR PDF. This
+    reproduces the intended behaviour structurally instead of trusting the flag.
+
+    Blocks are dicts from ``page.get_text("dict")``. A word split at a line break
+    lives in two different ``lines``, so merging the *text* is not enough: callers
+    join lines with a space, which would leave "hyphen- ation". The continuation
+    word is therefore moved up into the preceding line's final span, and removed
+    from the following line, so every downstream consumer sees the joined word.
+
+    The hyphen/capitalization rules match :func:`dehyphenate_text` exactly — an
+    uppercase continuation keeps the hyphen ("Anglo-\\nSaxon" → "Anglo-Saxon"),
+    a lowercase one drops it ("be-\\nwusst" → "bewusst"), and hyphens not sitting
+    between two letters are left alone.
+
+    Parameters
+    ----------
+    blocks : list of dict
+        Text blocks from ``page.get_text("dict")["blocks"]``. Mutated in place.
+
+    """
+    for block in blocks:
+        if block.get("type") != 0:
+            continue
+        lines = block.get("lines") or []
+        index = 0
+        while index < len(lines) - 1:
+            spans = lines[index].get("spans") or []
+            next_spans = lines[index + 1].get("spans") or []
+            if not spans or not next_spans:
+                index += 1
+                continue
+
+            last, first = spans[-1], next_spans[0]
+            hyphen = _LINE_END_HYPHEN_RE.search(last.get("text", ""))
+            continuation = _CONTINUATION_RE.match(first.get("text", "").lstrip())
+            if not hyphen or not continuation:
+                index += 1
+                continue
+
+            word = continuation.group(1)
+            # An uppercase continuation signals a real compound: keep the hyphen.
+            joiner = "-" if word[0].isupper() else ""
+            last["text"] = _LINE_END_HYPHEN_RE.sub(rf"\1{joiner}{word}", last["text"])
+            first["text"] = first["text"].lstrip()[len(word) :].lstrip()
+
+            if not first["text"]:
+                next_spans.pop(0)
+            if not next_spans:
+                lines.pop(index + 1)
+                continue  # the line vanished; re-test this line against the new next one
+            index += 1
 
 
 def calculate_image_coverage(page: "fitz.Page") -> float:

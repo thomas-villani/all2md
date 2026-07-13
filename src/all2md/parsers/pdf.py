@@ -76,6 +76,7 @@ from all2md.parsers._pdf_layout import (
 )
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
+    dehyphenate_blocks,
     dehyphenate_text,
 )
 from all2md.parsers._pdf_ocr import (
@@ -1195,10 +1196,9 @@ class PdfToAstConverter(BaseParser):
                 logger.warning("OCR returned empty text, keeping original extraction")
                 return all_blocks, False
 
-            # PyMuPDF's TEXT_DEHYPHENATE flag only affects its native extraction,
-            # not OCR output, so line-break hyphenation ("be-\nwusst") survives in
-            # OCR text. Merge it here so merge_hyphenated_words behaves the same
-            # regardless of whether a page went through OCR.
+            # OCR returns a flat string rather than the span structure
+            # dehyphenate_blocks() walks, so line-break hyphenation ("be-\nwusst")
+            # is merged here on the text instead. Same rules, same option.
             if self.options.merge_hyphenated_words:
                 ocr_text = dehyphenate_text(ocr_text)
 
@@ -1462,11 +1462,9 @@ class PdfToAstConverter(BaseParser):
 
         # Extract all text blocks from the page
         try:
-            text_flags = fitz.TEXTFLAGS_TEXT
+            all_blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT, sort=False)["blocks"]
             if self.options.merge_hyphenated_words:
-                text_flags |= fitz.TEXT_DEHYPHENATE
-
-            all_blocks = page.get_text("dict", flags=text_flags, sort=False)["blocks"]
+                dehyphenate_blocks(all_blocks)
         except (AttributeError, KeyError, Exception):
             return []
 
@@ -1774,17 +1772,14 @@ class PdfToAstConverter(BaseParser):
 
         # Extract text blocks
         try:
-            # Build flags: always include TEXTFLAGS_TEXT, conditionally add TEXT_DEHYPHENATE
-            text_flags = fitz.TEXTFLAGS_TEXT
-            if self.options.merge_hyphenated_words:
-                text_flags |= fitz.TEXT_DEHYPHENATE
-
             blocks = page.get_text(
                 "dict",
                 clip=clip,
-                flags=text_flags,
+                flags=fitz.TEXTFLAGS_TEXT,
                 sort=False,
             )["blocks"]
+            if self.options.merge_hyphenated_words:
+                dehyphenate_blocks(blocks)
         except (AttributeError, KeyError, Exception):
             # If extraction fails (e.g., in tests), return empty
             return []
