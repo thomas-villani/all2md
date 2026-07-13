@@ -68,6 +68,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`merge_hyphenated_words` now actually works on text PDFs.** The option is on
+  by default, but for any PDF that did not go through OCR it silently did
+  nothing: the parser delegated the merge to PyMuPDF's `TEXT_DEHYPHENATE`
+  extraction flag, and that flag is inert — on PyMuPDF 1.28 / MuPDF 1.29 it does
+  not change `get_text()` output in any extraction mode. A word split at a line
+  break came back as `"hyphen- ation"` instead of `"hyphenation"` in every
+  ordinary text PDF. The merge is now performed directly on the extracted text
+  blocks (`dehyphenate_blocks()`), moving the continuation word up into the
+  preceding line so the joined word survives the line-to-paragraph join that
+  callers perform. The existing capitalization rule is unchanged and now applies
+  to native text too: an uppercase continuation keeps the hyphen
+  (`"Anglo-\nSaxon"` → `"Anglo-Saxon"`), a lowercase one drops it
+  (`"be-\nwusst"` → `"bewusst"`), and hyphens not between two letters
+  (`"10-\n20"`) are left alone. This is the other half of the fix for #51, which
+  addressed only the OCR path — on the explicit assumption that the flag already
+  covered native extraction.
 - **The options reference regenerates reproducibly.** Two `MarkdownRendererOptions`
   fields default to an `UNSET` sentinel, and the generator rendered it with
   `repr()` — emitting `<object object at 0x...>`, a memory address that changed on
