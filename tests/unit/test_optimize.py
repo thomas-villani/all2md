@@ -9,7 +9,7 @@ back if someone "simplified" the scoring.
 
 import pytest
 
-from all2md.ast.nodes import Document, Heading, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast.nodes import Document, Heading, Paragraph, Strong, Table, TableCell, TableRow, Text
 from all2md.optimize import (
     DIMENSION_WEIGHTS,
     Candidate,
@@ -120,6 +120,72 @@ class TestBoilerplateDetection:
         doc = _doc(_para("the same five words here the same five words here"))
 
         assert extract_metrics(doc).boilerplate_words == 0
+
+    def test_furniture_is_pooled_across_candidates(self):
+        """Furniture is a property of the DOCUMENT, not of one parse of it.
+
+        A parse whose block segmentation happens to hide the repetition finds no
+        furniture *in itself* -- and would then bank its running header as recovered
+        body text, breaking the tie on text and letting "keep the boilerplate" win
+        again. This is the failure that got through local testing and only showed up
+        on another platform, where the blocks happened to segment differently.
+        """
+        foot_a, foot_b = "Page 1 of 2 ACME CONFIDENTIAL", "Page 2 of 2 ACME CONFIDENTIAL"
+        body_a = "alpha revenue climbed sharply after the spring reorganisation"
+        body_b = "beta margins held despite unusually volatile freight costs"
+
+        # This parse glued the footer onto each body block: the repeat spans two blocks.
+        glued = Candidate(
+            options={"trim": False},
+            metrics=extract_metrics(_doc(_para(f"{foot_a} {body_a}"), _para(f"{foot_b} {body_b}"))),
+        )
+        # This parse merged everything into ONE block, so nothing repeats *within it*.
+        merged = Candidate(
+            options={"trim": False, "other": 1},
+            metrics=extract_metrics(_doc(_para(f"{foot_a} {body_a} {foot_b} {body_b}"))),
+        )
+        trimmed = Candidate(options={"trim": True}, metrics=extract_metrics(_doc(_para(body_a), _para(body_b))))
+
+        # On its own the merged parse sees no furniture at all...
+        assert merged.metrics.boilerplate_words == 0
+
+        score_candidates([glued, merged, trimmed])
+
+        # ...but pooled with the others, its furniture is found and discounted, so all
+        # three agree on how much body text the document actually has.
+        assert merged.metrics.boilerplate_words > 0
+        assert glued.metrics.unique_words == merged.metrics.unique_words == trimmed.metrics.unique_words
+        assert trimmed.fitness > glued.fitness
+        assert trimmed.fitness > merged.fitness
+
+
+@pytest.mark.unit
+class TestTextIsNotInflatable:
+    """The word count must not be gameable by a setting that adds no text."""
+
+    def test_inline_runs_join_without_a_space(self):
+        """Adjacent inline runs are contiguous characters, not separate words.
+
+        A bolded middle of a word arrives as three runs. Joining them with a space
+        turns "hello" into "hel lo" and conjures a word out of nothing -- and because
+        the optimizer scores recovered text, that is *exploitable*: on real arXiv
+        papers it learned to recommend ``consolidate_inline_formatting=False``, which
+        leaves runs unmerged and inflated the count from 2325 to 2412 words with no
+        more text on the page. Fragmenting a word must not pay.
+        """
+        whole = _doc(Paragraph(content=[Text(content="hello world")]))
+        fragmented = _doc(
+            Paragraph(content=[Text(content="hel"), Strong(content=[Text(content="lo")]), Text(content=" world")])
+        )
+
+        assert extract_metrics(whole).words == 2
+        assert extract_metrics(fragmented).words == 2
+
+    def test_separate_blocks_still_get_a_separator(self):
+        """Blocks are genuinely distinct runs of prose and must not be run together."""
+        doc = _doc(_para("alpha"), _para("beta"))
+
+        assert extract_metrics(doc).words == 2
 
 
 @pytest.mark.unit

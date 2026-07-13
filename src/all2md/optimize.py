@@ -37,10 +37,22 @@ yields strictly more text than trimming them, so a naive text-volume objective
 prefers the worse conversion. Measured against a fixture whose correct parse is
 known, that objective was *anti*-correlated with the truth (Pearson r = -0.88): it
 picked the worst candidate nearly every time. Text is therefore scored over body
-content only, with repeated furniture excluded — see :func:`_boilerplate_words`,
-and note that block-level deduplication is *not* sufficient, because the parser
-frequently glues a footer into an adjacent body block where no block comparison can
-ever see it.
+content only, with repeated furniture excluded.
+
+Getting that exclusion right took two corrections, both forced by measurement:
+
+1. **Block-level deduplication is not enough.** The parser frequently glues a footer
+   into an adjacent body block ("Page 1 of 2 | ACME CONFIDENTIAL Beta sentence
+   B1 ..."). That block is unique, so no block comparison can ever see it. Furniture
+   must be found as a repeated *word sequence* spanning blocks — :func:`find_furniture`.
+2. **Furniture is a property of the document, not of one parse of it.** Deriving it
+   per-candidate lets a candidate whose block segmentation happens to hide the
+   repetition escape detection and bank its running header as recovered body text.
+   The candidates then stop tying on text and keeping the boilerplate wins again.
+   :func:`score_candidates` therefore pools what *every* candidate revealed and
+   applies the union to all of them. This one bit differs between platforms and
+   PyMuPDF versions, so a per-candidate rule can look perfectly correct locally and
+   invert the ranking somewhere else.
 
 **It rewards an over-eager table detector**, because any junk region promoted to a
 table adds cells. Tables are therefore scored on **well-formedness** — cell fill
@@ -67,9 +79,13 @@ import re
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from all2md.ast.nodes import Document, Heading, Link, ListItem, Node, Table, Text, get_node_children
+
+# One definition of "inline", shared with the round-trip scorer. A second copy here
+# would be free to drift, and getting this set wrong silently corrupts word counts.
+from all2md.roundtrip import _INLINE_TYPES
 
 # Pin the public surface. Without this, autodoc also documents the names this
 # module imports, and their docstrings are not valid reStructuredText.
@@ -79,8 +95,10 @@ __all__ = [
     "KNOBS",
     "Candidate",
     "DocumentMetrics",
+    "Furniture",
     "OptimizationReport",
     "extract_metrics",
+    "find_furniture",
     "score_candidates",
     "search",
     "tunable_knobs",
@@ -166,6 +184,12 @@ class DocumentMetrics:
     table_regularity: float = 0.0
     #: ``100 - confidence.score``: how much real breakage the converter reported.
     breakage: float = 0.0
+
+    #: The document's top-level block texts. Kept so the furniture found by *any*
+    #: candidate can be re-applied to *this* one -- see :func:`score_candidates`.
+    block_texts: list[str] = field(default_factory=list, repr=False, compare=False)
+    #: The repeated content this parse revealed.
+    furniture: Furniture = field(default_factory=lambda: Furniture(set(), set()), repr=False, compare=False)
 
     @property
     def table_quality(self) -> float:
@@ -281,11 +305,29 @@ def _node_text(node: Node) -> str:
     Text lives in ``Text.content`` as a string, while every other node uses
     ``content``/``children``/``rows`` as a *container*. ``get_node_children``
     normalizes that difference; reading ``.content`` directly does not.
+
+    Inline siblings are joined with **no separator**, because they are contiguous
+    character runs, not separate words: a bolded middle of a word arrives as three
+    runs and must come back as one word. Joining them with a space instead turns
+    "hello" into "hel lo" and conjures a word out of nothing — which is not merely
+    inaccurate, it is *exploitable*. The optimizer scores recovered text, so on real
+    papers it learned to recommend ``consolidate_inline_formatting=False`` purely
+    because leaving runs unmerged inflated the word count (2325 -> 2412 words on an
+    arXiv paper, with no more text on the page). Blocks still get a separator: they
+    are genuinely distinct runs of prose.
     """
     if isinstance(node, Text):
         return node.content
-    parts = [_node_text(child) for child in get_node_children(node)]
-    return " ".join(p for p in parts if p)
+
+    result = ""
+    for child in get_node_children(node):
+        part = _node_text(child)
+        if not part:
+            continue
+        if result and type(child).__name__ not in _INLINE_TYPES:
+            result += " "
+        result += part
+    return result
 
 
 _DIGITS = re.compile(r"\d+")
@@ -305,19 +347,30 @@ def _boilerplate_key(text: str) -> str:
     return _DIGITS.sub("#", " ".join(text.lower().split()))
 
 
-def _boilerplate_words(texts: list[str]) -> int:
-    """Count the words that are repeated furniture rather than body content.
+class Furniture(NamedTuple):
+    """The repeated content of a document: running headers, footers, watermarks.
 
-    Furniture is detected two ways, because one alone is not enough:
+    Two shapes, because one alone is not enough:
 
-    * **A whole block that repeats** -- a running heading, an unglued header.
-    * **A repeated word sequence spanning blocks** -- because a header or footer is
-      frequently *glued into an adjacent body block* by the parser, producing a
-      block like "Page 1 of 2 | ACME CONFIDENTIAL Beta sentence B1 ...". That block
-      is unique (it contains body text), so no amount of block-level comparison will
-      ever flag it, and its footer words get counted as body. Measured against ground
-      truth, that one leak was enough to make keeping the boilerplate outscore
-      trimming it.
+    * ``sequences`` -- word windows appearing in two or more distinct blocks. Needed
+      because a header or footer is frequently *glued into an adjacent body block* by
+      the parser ("Page 1 of 2 | ACME CONFIDENTIAL Beta sentence B1 ..."). Such a
+      block is unique -- it contains body text -- so no block-level comparison can
+      ever flag it, and its footer words would count as recovered body content.
+    * ``blocks`` -- whole blocks that repeat. Needed because a short running heading
+      ("Quarterly Report") is below the n-gram window and no sequence can catch it.
+    """
+
+    sequences: set[tuple[str, ...]]
+    blocks: set[str]
+
+    def union(self, other: Furniture) -> Furniture:
+        """Combine what two parses each revealed about the document's furniture."""
+        return Furniture(self.sequences | other.sequences, self.blocks | other.blocks)
+
+
+def find_furniture(texts: list[str]) -> Furniture:
+    """Identify the repeated furniture in one parse of a document.
 
     Only sequences appearing in **two or more distinct blocks** count, so a single
     block that happens to repeat a phrase internally is not mistaken for furniture.
@@ -328,27 +381,44 @@ def _boilerplate_words(texts: list[str]) -> int:
     """
     tokens = [_boilerplate_key(text).split() for text in texts]
 
-    whole_block: Counter[str] = Counter(_boilerplate_key(t) for t in texts if t.strip())
-    covered = [[False] * len(block) for block in tokens]
+    counts: Counter[str] = Counter(_boilerplate_key(t) for t in texts if t.strip())
+    blocks = {key for key, count in counts.items() if count > 1}
 
-    # Where does each n-gram appear? Furniture shows up in more than one block.
-    seen: dict[tuple[str, ...], set[int]] = {}
+    where: dict[tuple[str, ...], set[int]] = {}
     for index, block in enumerate(tokens):
         for start in range(len(block) - BOILERPLATE_NGRAM + 1):
-            seen.setdefault(tuple(block[start : start + BOILERPLATE_NGRAM]), set()).add(index)
+            where.setdefault(tuple(block[start : start + BOILERPLATE_NGRAM]), set()).add(index)
 
-    for index, block in enumerate(tokens):
-        # A short running heading ("Quarterly Report") is below the n-gram window,
-        # so catch it as a whole-block repeat instead.
-        if texts[index].strip() and whole_block[_boilerplate_key(texts[index])] > 1:
-            covered[index] = [True] * len(block)
+    sequences = {gram for gram, seen_in in where.items() if len(seen_in) > 1}
+    return Furniture(sequences, blocks)
+
+
+def _boilerplate_words(texts: list[str], furniture: Furniture) -> int:
+    """Count how many of ``texts``' words belong to ``furniture``.
+
+    ``furniture`` is passed in rather than derived here, because *what counts as
+    furniture is a property of the document, not of one parse of it*. Deriving it
+    per-candidate lets a candidate whose block segmentation happens to hide the
+    repetition escape detection -- its furniture words then read as recovered body
+    text, and keeping the boilerplate starts paying again. That is exactly how the
+    over-detection trap came back on a document where every local run looked fine:
+    the candidates stopped tying on text, and the untrimmed one won.
+    """
+    total = 0
+    for text in texts:
+        block = _boilerplate_key(text).split()
+        if not block:
             continue
+        if _boilerplate_key(text) in furniture.blocks:
+            total += len(block)
+            continue
+        covered = [False] * len(block)
         for start in range(len(block) - BOILERPLATE_NGRAM + 1):
-            if len(seen[tuple(block[start : start + BOILERPLATE_NGRAM])]) > 1:
+            if tuple(block[start : start + BOILERPLATE_NGRAM]) in furniture.sequences:
                 for offset in range(start, start + BOILERPLATE_NGRAM):
-                    covered[index][offset] = True
-
-    return sum(sum(block) for block in covered)
+                    covered[offset] = True
+        total += sum(covered)
+    return total
 
 
 def _table_shape(table: Table) -> tuple[int, int, int]:
@@ -386,8 +456,10 @@ def extract_metrics(document: Document) -> DocumentMetrics:
     # a trimmed and an untrimmed conversion tie on text, so `cleanliness` -- which
     # counts the furniture still present -- decides, and the trimmed one wins.
     texts = [_node_text(block).strip() for block in top_level]
+    metrics.block_texts = texts
+    metrics.furniture = find_furniture(texts)
     metrics.words = sum(len(text.split()) for text in texts)
-    metrics.boilerplate_words = _boilerplate_words(texts)
+    metrics.boilerplate_words = _boilerplate_words(texts, metrics.furniture)
     metrics.unique_words = metrics.words - metrics.boilerplate_words
 
     repeats = Counter(_boilerplate_key(text) for text in texts if text)
@@ -433,6 +505,23 @@ def score_candidates(candidates: list[Candidate]) -> None:
     """
     if not candidates:
         return
+
+    # What counts as furniture is a property of the DOCUMENT, not of one parse of it.
+    # Pool every candidate's findings and re-apply the union to all of them, so a
+    # candidate whose block segmentation happened to hide the repetition does not get
+    # to bank its running header as recovered body text. Without this the candidates
+    # stop tying on text and keeping the boilerplate wins again -- which is precisely
+    # what happened on a document where every local run had looked correct.
+    pooled = Furniture(set(), set())
+    for candidate in candidates:
+        pooled = pooled.union(candidate.metrics.furniture)
+
+    for candidate in candidates:
+        metrics = candidate.metrics
+        if not metrics.block_texts:
+            continue
+        metrics.boilerplate_words = _boilerplate_words(metrics.block_texts, pooled)
+        metrics.unique_words = metrics.words - metrics.boilerplate_words
 
     best_words = max(c.metrics.unique_words for c in candidates)
     best_structure = max(c.metrics.headings + c.metrics.list_items + c.metrics.links for c in candidates)
