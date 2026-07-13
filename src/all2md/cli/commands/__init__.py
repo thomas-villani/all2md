@@ -126,6 +126,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_roundtrip_command(args[1:])
 
+    # Check for optimize command (converter option auto-tuning)
+    if args[0] == "optimize":
+        from all2md.cli.commands.optimize import handle_optimize_command
+
+        return handle_optimize_command(args[1:])
+
     # Check for lint command
     if args[0] == "lint":
         from all2md.cli.commands.lint import handle_lint_command

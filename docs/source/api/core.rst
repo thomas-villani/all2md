@@ -26,6 +26,8 @@ Quality scoring, for deciding how much to trust a conversion:
    all2md.confidence_report
    all2md.roundtrip_report
    all2md.roundtrippable_formats
+   all2md.optimize_options
+   all2md.optimizable_formats
 
 For full function signatures and detailed documentation, see :doc:`all2md.api`.
 

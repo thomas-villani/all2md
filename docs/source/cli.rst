@@ -844,8 +844,91 @@ recovers them:
    roundtrip_report("basic.md").score                                  # 98
    roundtrip_report("basic.md", html_passthrough_mode="pass-through").score  # 100
 
-This is exactly the property the planned ``all2md optimize`` capstone hill-climbs
-on: a scalar that improves as converter settings improve.
+That makes this score a good way to *price a renderer setting*. It is not, however,
+what ``all2md optimize`` searches on — re-parsing rendered output measures the
+renderer, so it is blind to a parser that garbled the document in the first place (a
+mangled table round-trips through Markdown perfectly). See :ref:`optimize-command`.
+
+.. _optimize-command:
+
+Optimize Command
+----------------
+
+``all2md optimize`` converts a document many times under different converter
+settings and reports the ones that recover the most well-formed structure — as a
+command you can run and a ``.all2md.toml`` snippet you can paste.
+
+It is built for the documents that need it most: the gnarly PDF with no known-good
+output to compare against. So the objective is **reference-free**, and it is
+deliberately *neither* of the other two scores:
+
+* The **confidence** score (``all2md report``) is a saturating breakage detector. On
+  anything not visibly broken it pins to ``100`` regardless of settings — across a
+  16-combination sweep on a two-column PDF it produced **one** distinct score while
+  the parsed AST produced **four** distinct outcomes. A flat objective cannot be
+  searched.
+* The **round-trip** score measures the renderer, not the parser (see above).
+
+So the optimizer scores the parsed AST directly: how much body text, how many
+well-formed tables, how much structure each setting recovers — and how much repeated
+furniture it left behind.
+
+.. code-block:: console
+
+   $ all2md optimize scanned.pdf
+   scanned.pdf
+     format:     pdf
+     evaluated:  31 candidates
+     fitness:    98.93  (defaults scored 97.84, +1.09)
+
+     command
+       all2md scanned.pdf --pdf-trim-headers-footers
+
+     .all2md.toml
+       [pdf]
+       trim_headers_footers = true
+
+The reported fitness ranks candidates **against each other**; it is not an absolute
+quality score. For that, use ``all2md report`` (trust) or ``all2md roundtrip``
+(fidelity).
+
+This is not cheap — it is tens of conversions. ``--sample-pages`` tunes against a
+slice of a long document, and ``--cache`` makes repeat runs nearly free (a warm
+cache cut a 31-candidate run from 18.5s to 0.3s).
+
+Key Options
+~~~~~~~~~~~
+
+* ``--sample-pages N`` — tune against only the first ``N`` pages. Use at least 2:
+  running headers and footers are identified by the fact that they *repeat*, so a
+  single-page sample cannot detect them at all.
+* ``--rounds N`` — coordinate-descent passes over the knobs (default ``1``). More
+  rounds can find knobs that only pay off in combination, at proportionally more
+  conversions.
+* ``--no-presets`` — skip scoring the named presets and refine from the defaults only.
+* ``--top N`` — how many ranked candidates to show (``0`` for all).
+* ``--out FILE`` — write the TOML snippet to ``FILE``.
+* ``--json`` — emit the full report, including ``command`` and ``toml``, as JSON.
+* ``--cache`` — reuse conversions across runs.
+
+Tunable formats are ``pdf``, ``html``, and ``docx``. The searched knobs are curated,
+not derived from every option: an optimizer has no business flipping a security
+posture such as ``strip_dangerous_elements``.
+
+Python API
+~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import optimize_options, optimizable_formats
+
+   report = optimize_options("scanned.pdf", sample_pages=5)
+   print(report.best_options)      # {'trim_headers_footers': True}
+   print(report.gain)              # +1.09 over the defaults
+   for candidate in report.candidates[:5]:
+       print(candidate.fitness, candidate.origin, candidate.options)
+
+   print(optimizable_formats())    # ['docx', 'html', 'pdf']
 
 Lint Command
 ------------

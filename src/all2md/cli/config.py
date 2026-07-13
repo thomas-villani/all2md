@@ -40,6 +40,7 @@ SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "chunk",
     "report",
     "roundtrip",
+    "optimize",
 )
 
 
