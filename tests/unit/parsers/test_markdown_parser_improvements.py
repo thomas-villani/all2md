@@ -198,3 +198,69 @@ Second line"""
         assert isinstance(para.content[1], LineBreak)
         assert para.content[1].soft is True
         assert isinstance(para.content[2], Text)
+
+
+class TestMarkdownFootnotes:
+    """Regression tests for footnote reference/definition parsing.
+
+    mistune 3.x groups definitions in a ``footnotes`` container of
+    ``footnote_item`` tokens (label in ``attrs['key']`` / the ref's ``raw``),
+    not the legacy ``footnote_def`` token with ``attrs['label']``. When the
+    parser only handled the legacy shape, every reference identifier came back
+    empty and every definition was silently dropped from the AST.
+    """
+
+    @staticmethod
+    def _collect(node, out):
+        name = type(node).__name__
+        if name in ("FootnoteReference", "FootnoteDefinition"):
+            out.setdefault(name, []).append(node)
+        for child in getattr(node, "children", None) or []:
+            TestMarkdownFootnotes._collect(child, out)
+        content = getattr(node, "content", None)
+        if isinstance(content, list):
+            for child in content:
+                TestMarkdownFootnotes._collect(child, out)
+
+    def test_footnote_reference_keeps_identifier(self) -> None:
+        markdown = "See this[^1].\n\n[^1]: the note\n"
+        doc = MarkdownToAstConverter().parse(markdown)
+
+        found: dict = {}
+        self._collect(doc, found)
+        refs = found.get("FootnoteReference", [])
+
+        assert len(refs) == 1
+        assert refs[0].identifier == "1"
+
+    def test_footnote_definitions_are_not_dropped(self) -> None:
+        markdown = "A[^1] B[^2] C[^foo].\n\n[^1]: first\n[^2]: second\n[^foo]: third\n"
+        doc = MarkdownToAstConverter().parse(markdown)
+
+        found: dict = {}
+        self._collect(doc, found)
+        defs = found.get("FootnoteDefinition", [])
+        refs = found.get("FootnoteReference", [])
+
+        ref_ids = [r.identifier for r in refs]
+        def_ids = {d.identifier for d in defs}
+
+        assert ref_ids == ["1", "2", "FOO"]
+        # All three definitions survive with distinct identifiers matching the refs.
+        assert def_ids == {"1", "2", "FOO"}
+
+    def test_footnotes_roundtrip_on_supporting_flavor(self) -> None:
+        from all2md import convert
+        from all2md.options.markdown import MarkdownRendererOptions
+
+        markdown = "A[^1] and B[^foo].\n\n[^1]: first note\n[^foo]: second note\n"
+        out = convert(
+            markdown,
+            source_format="markdown",
+            target_format="markdown",
+            renderer_options=MarkdownRendererOptions(flavor="pandoc"),
+        )
+
+        assert "[^1]" in out
+        assert "[^1]: first note" in out
+        assert "[^FOO]: second note" in out
