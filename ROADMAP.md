@@ -80,12 +80,6 @@ obvious.
     - *TensorFlow* — `tf.data.from_generator` for live use, but the real story is
       pre-sharded TFRecords from the batch engine.
 
-**Reuse note (resolved):** `localvectordb` is PolyForm Noncommercial-licensed. We took the
-recommended path — the fine-grained chunking primitives were **vendored** into `all2md`
-(self-contained, `tiktoken`-based) rather than added as a hard dependency, and BPE counting
-lives behind the optional `[chunk]` extra. License posture settled; no runtime dependency
-on the noncommercial package.
-
 ---
 
 ## Theme 2 — Conversion fidelity (deepen the core moat)

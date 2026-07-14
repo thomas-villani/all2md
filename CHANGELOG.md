@@ -104,6 +104,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`auto_trim_headers_footers` now removes running headers and footers.** It largely
+  did not. Three defects compounded, and each was hidden by the optional `pdf_layout`
+  extra, which labels headers and footers directly — so on a development machine with
+  the extra installed the feature looked fine, while a stock install got almost nothing.
+  (1) Candidates were keyed on their **exact text**, so `Page 1 of 12` and `Page 2 of 12`
+  looked like two unrelated blocks, neither ever repeated, and a footer carrying a page
+  number — very nearly every running footer there is — could never be detected at all.
+  Digit runs are now collapsed when keying, so a running footer is recognized as one.
+  (2) Detection refused to run on documents with fewer than **three pages**, making the
+  option a silent no-op on every two-page document; two pages are enough to show
+  repetition. (3) The zone filter dropped any block that *began* inside the header zone,
+  rather than one that lies **entirely** within it — so a body paragraph starting a few
+  points below the running head was deleted in full, taking the rest of the page with it.
+  On a real FCC filing whose body opened 4pt under the header, the opening paragraph of
+  every page was destroyed. Furniture is always fully contained in the zone (the zone is
+  derived from furniture's own far edge); body text merely pokes into it.
+
+  Because collapsing digits makes `Section 1` and `Section 2` key alike, a candidate must
+  now also **hold still**: real furniture is anchored to the page, whereas a heading that
+  merely recurs is anchored to the text flow and lands somewhere different on each page.
+  Verified against arXiv's HTML rendering of 29 papers as an external ground truth —
+  recall did not fall on a single one — and the feature now has tests, which it did not
+  before.
+- **PDF table detection no longer invents tables out of prose — or deletes the prose
+  when it declines to.** `find_tables()` fires on plenty of things that are not tables,
+  and a grid with only one dimension is never one: a single column is prose wrapped in
+  pipes, and a single row is a line of text chopped at its word boundaries (on one
+  arXiv paper the sentence *"What is the capital of this country?"* was rendered as an
+  eight-column table). Those detections are now rejected — but rejecting them was not
+  simply a matter of dropping them. Text inside a detected table's bbox is removed from
+  the ordinary text stream *before* the table is validated, so a rejection path that
+  returned nothing did not demote the region to prose, it **deleted** it: doing that
+  silently cost 256 words of real body text across the corpus. Rejected regions now come
+  back as paragraphs. The same applied to regions the layout model predicted as tables
+  and which turned out not to be — a common misfire on academic PDFs, where suppressing
+  the fake tables also removed 530 words of body text with them. Measured across the PDF
+  corpus: junk tables `21 → 2`, real tables `37 → 37` (none lost), and body text strictly
+  *improves* — the junk grids had been shredding words into per-cell fragments
+  (`Gender` → `G` + `ender`), so ~500 real words come back.
+- **`merge_hyphenated_words` now actually works on text PDFs.** The option is on
+  by default, but for any PDF that did not go through OCR it silently did
+  nothing: the parser delegated the merge to PyMuPDF's `TEXT_DEHYPHENATE`
+  extraction flag, and that flag is inert — on PyMuPDF 1.28 / MuPDF 1.29 it does
+  not change `get_text()` output in any extraction mode. A word split at a line
+  break came back as `"hyphen- ation"` instead of `"hyphenation"` in every
+  ordinary text PDF. The merge is now performed directly on the extracted text
+  blocks (`dehyphenate_blocks()`), moving the continuation word up into the
+  preceding line so the joined word survives the line-to-paragraph join that
+  callers perform. The existing capitalization rule is unchanged and now applies
+  to native text too: an uppercase continuation keeps the hyphen
+  (`"Anglo-\nSaxon"` → `"Anglo-Saxon"`), a lowercase one drops it
+  (`"be-\nwusst"` → `"bewusst"`), and hyphens not between two letters
+  (`"10-\n20"`) are left alone. This is the other half of the fix for #51, which
+  addressed only the OCR path — on the explicit assumption that the flag already
+  covered native extraction.
 - **The options reference regenerates reproducibly.** Two `MarkdownRendererOptions`
   fields default to an `UNSET` sentinel, and the generator rendered it with
   `repr()` — emitting `<object object at 0x...>`, a memory address that changed on

@@ -76,6 +76,7 @@ from all2md.parsers._pdf_layout import (
 )
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
+    dehyphenate_blocks,
     dehyphenate_text,
 )
 from all2md.parsers._pdf_ocr import (
@@ -87,6 +88,8 @@ from all2md.parsers._pdf_tables import (
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
+    MIN_TABLE_COLS,
+    MIN_TABLE_ROWS,
     detect_tables_by_ruling_lines,
     is_dot_leader_cell,
     page_has_table_signals,
@@ -110,6 +113,38 @@ from all2md.utils.metadata import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Fractions of the page height treated as the header and footer zones when
+#: auto-detecting running furniture.
+HEADER_ZONE_FRACTION = 0.2
+FOOTER_ZONE_FRACTION = 0.8
+
+#: Fewest pages that can show repetition. Two pages are enough: a block in the same
+#: place on both has repeated. (Three used to be required, which silently disabled
+#: ``auto_trim_headers_footers`` on every two-page document.)
+MIN_PAGES_FOR_RUNNING_DETECTION = 2
+
+#: How far, in points, a running header/footer may drift between pages and still count
+#: as the same one. Real furniture is anchored to the page; body text that happens to
+#: recur is anchored to the text flow and moves. The zone boundary is taken from the
+#: innermost matching block, so a false positive trims everything outside it on every
+#: page -- this tolerance is what keeps that aimed at furniture.
+RUNNING_POSITION_TOLERANCE = 5.0
+
+#: Runs of digits in a running header/footer, which differ from page to page precisely
+#: because it is running furniture.
+_RUNNING_DIGITS = re.compile(r"\d+")
+
+
+def _running_text_key(text: str) -> str:
+    """Key a header/footer candidate by what stays the same from page to page.
+
+    ``Page 1 of 12`` and ``Page 2 of 12`` are the same running footer, but keying on
+    raw text makes each of them unique, so neither ever reaches ``min_occurrences``
+    and the footer is never detected. Collapsing digit runs is what lets the most
+    common footer in existence -- one with a page number in it -- be recognized at all.
+    """
+    return _RUNNING_DIGITS.sub("#", text).strip()
 
 
 def _collapse_text_whitespace_in_place(node: Node) -> None:
@@ -504,10 +539,16 @@ class PdfToAstConverter(BaseParser):
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
     def _get_sample_pages(self, pages_to_use: range | list[int]) -> list[int] | None:
-        """Get evenly distributed sample pages for header/footer detection."""
+        """Get evenly distributed sample pages for header/footer detection.
+
+        Two pages are enough. Repetition is the entire signal, and a block that appears
+        at the same position on both pages of a two-page document has already repeated;
+        ``min_occurrences`` still requires it on every sampled page. The previous floor
+        of three made ``auto_trim_headers_footers`` a silent no-op on two-page documents.
+        """
         total_pages = len(list(pages_to_use))
-        if total_pages < 3:
-            return None  # Need at least 3 pages to detect patterns
+        if total_pages < MIN_PAGES_FOR_RUNNING_DETECTION:
+            return None  # A single page cannot show repetition.
 
         sample_size = min(10, total_pages)
         if isinstance(pages_to_use, range):
@@ -555,19 +596,25 @@ class PdfToAstConverter(BaseParser):
     def _classify_header_footer_candidates(
         self, page_blocks: dict[int, list[tuple[str, float, float]]], page_height: float
     ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
-        """Classify blocks into header/footer candidates based on position."""
+        """Classify blocks into header/footer candidates based on position.
+
+        Candidates are keyed on their text with digit runs collapsed (see
+        :func:`_running_text_key`), so ``Page 1 of 12`` and ``Page 2 of 12`` are
+        recognized as the same running footer rather than as two unrelated blocks.
+        """
         header_candidates: dict[str, list[float]] = {}
         footer_candidates: dict[str, list[float]] = {}
 
-        header_zone_threshold = page_height * 0.2
-        footer_zone_threshold = page_height * 0.8
+        header_zone_threshold = page_height * HEADER_ZONE_FRACTION
+        footer_zone_threshold = page_height * FOOTER_ZONE_FRACTION
 
         for blocks in page_blocks.values():
             for text, y_top, y_bottom in blocks:
+                key = _running_text_key(text)
                 if y_bottom < header_zone_threshold:
-                    header_candidates.setdefault(text, []).append(y_bottom)
+                    header_candidates.setdefault(key, []).append(y_bottom)
                 if y_top > footer_zone_threshold:
-                    footer_candidates.setdefault(text, []).append(y_top)
+                    footer_candidates.setdefault(key, []).append(y_top)
 
         return header_candidates, footer_candidates
 
@@ -578,16 +625,28 @@ class PdfToAstConverter(BaseParser):
         page_height: float,
         min_occurrences: int,
     ) -> tuple[float, float]:
-        """Find boundaries of repeating header/footer zones."""
+        """Find boundaries of repeating header/footer zones.
+
+        A candidate must repeat *and hold still*. The zone boundary is taken from the
+        innermost matching block, so a single false positive does not just drop its own
+        line -- it drops everything outside it, on every page. Requiring the block to
+        occupy the same vertical position on each page (within
+        :data:`RUNNING_POSITION_TOLERANCE`) is what keeps that blast radius aimed at
+        real furniture: a running head is anchored to the page, whereas a heading that
+        merely recurs sits wherever the text flow leaves it.
+        """
         max_header_y = 0.0
         max_footer_y = page_height
 
+        def anchored(y_values: list[float]) -> bool:
+            return len(y_values) >= min_occurrences and max(y_values) - min(y_values) <= RUNNING_POSITION_TOLERANCE
+
         for y_values in header_candidates.values():
-            if len(y_values) >= min_occurrences:
+            if anchored(y_values):
                 max_header_y = max(max_header_y, max(y_values))
 
         for y_values in footer_candidates.values():
-            if len(y_values) >= min_occurrences:
+            if anchored(y_values):
                 max_footer_y = min(max_footer_y, min(y_values))
 
         return max_header_y, max_footer_y
@@ -1195,10 +1254,9 @@ class PdfToAstConverter(BaseParser):
                 logger.warning("OCR returned empty text, keeping original extraction")
                 return all_blocks, False
 
-            # PyMuPDF's TEXT_DEHYPHENATE flag only affects its native extraction,
-            # not OCR output, so line-break hyphenation ("be-\nwusst") survives in
-            # OCR text. Merge it here so merge_hyphenated_words behaves the same
-            # regardless of whether a page went through OCR.
+            # OCR returns a flat string rather than the span structure
+            # dehyphenate_blocks() walks, so line-break hyphenation ("be-\nwusst")
+            # is merged here on the text instead. Same rules, same option.
             if self.options.merge_hyphenated_words:
                 ocr_text = dehyphenate_text(ocr_text)
 
@@ -1462,11 +1520,9 @@ class PdfToAstConverter(BaseParser):
 
         # Extract all text blocks from the page
         try:
-            text_flags = fitz.TEXTFLAGS_TEXT
+            all_blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT, sort=False)["blocks"]
             if self.options.merge_hyphenated_words:
-                text_flags |= fitz.TEXT_DEHYPHENATE
-
-            all_blocks = page.get_text("dict", flags=text_flags, sort=False)["blocks"]
+                dehyphenate_blocks(all_blocks)
         except (AttributeError, KeyError, Exception):
             return []
 
@@ -1774,17 +1830,14 @@ class PdfToAstConverter(BaseParser):
 
         # Extract text blocks
         try:
-            # Build flags: always include TEXTFLAGS_TEXT, conditionally add TEXT_DEHYPHENATE
-            text_flags = fitz.TEXTFLAGS_TEXT
-            if self.options.merge_hyphenated_words:
-                text_flags |= fitz.TEXT_DEHYPHENATE
-
             blocks = page.get_text(
                 "dict",
                 clip=clip,
-                flags=text_flags,
+                flags=fitz.TEXTFLAGS_TEXT,
                 sort=False,
             )["blocks"]
+            if self.options.merge_hyphenated_words:
+                dehyphenate_blocks(blocks)
         except (AttributeError, KeyError, Exception):
             # If extraction fails (e.g., in tests), return empty
             return []
@@ -2486,7 +2539,7 @@ class PdfToAstConverter(BaseParser):
             return ""
         return str(cell_text).strip()
 
-    def _process_table_to_ast(self, table: Any, page: "fitz.Page", page_num: int) -> AstTable | None:
+    def _process_table_to_ast(self, table: Any, page: "fitz.Page", page_num: int) -> Node | None:
         """Process a PyMuPDF table to AST Table node.
 
         Directly accesses table cell data from PyMuPDF table object instead of
@@ -2497,18 +2550,21 @@ class PdfToAstConverter(BaseParser):
         table : PyMuPDF Table
             Table object from find_tables()
         page : fitz.Page
-            Page containing the table (accepted for API symmetry with the
-            ruling-line and layout extraction paths).
+            Page containing the table. Used to recover the region's text when the
+            detection is rejected as a degenerate grid.
         page_num : int
             Page number for source tracking
 
         Returns
         -------
-        AstTable or None
-            Table node if table has content
+        Node or None
+            A table when the detection is a real grid; a paragraph carrying the
+            region's text when it is a degenerate (1xN / Nx1) grid; ``None`` when
+            the region has no usable content.
 
         """
-        del page  # accepted for API symmetry with other extraction paths
+        import fitz
+
         try:
             # Try to extract cells directly from PyMuPDF table object
             # PyMuPDF tables have a `extract()` method that returns cell data
@@ -2526,6 +2582,24 @@ class PdfToAstConverter(BaseParser):
             n_cells = sum(len(r) for r in table_data)
             if n_cells == 0:
                 return None
+            # A grid needs two dimensions to be a table. One column is prose wrapped in
+            # pipes; one row is a single line of text chopped at its word boundaries --
+            # find_tables() emits both, and on an academic paper it turned the sentence
+            # "What is the capital of this country?" into an eight-column table. Neither
+            # shape can carry tabular meaning, and rendering them as tables is strictly
+            # worse than leaving the text alone.
+            #
+            # Return the region's text as a paragraph rather than None: the text inside a
+            # table bbox has already been excluded from the ordinary text blocks, so
+            # returning None here would delete it, not demote it.
+            if n_rows < MIN_TABLE_ROWS or n_cols < MIN_TABLE_COLS:
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: "
+                    f"{n_rows}x{n_cols} is not a grid (needs at least "
+                    f"{MIN_TABLE_ROWS}x{MIN_TABLE_COLS})"
+                )
+                self._record_table_rejection("degenerate_grid")
+                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
             if n_cols > MAX_TABLE_COLS or n_rows > MAX_TABLE_ROWS:
                 logger.debug(
                     f"Rejecting pymupdf table on page {page_num + 1}: {n_rows}x{n_cols} grid exceeds size caps"
@@ -2763,17 +2837,30 @@ class PdfToAstConverter(BaseParser):
 
     def _extract_table_from_layout_region(
         self, page: "fitz.Page", table_rect: "fitz.Rect", page_num: int
-    ) -> AstTable | None:
-        """Extract a table from a region identified by layout analysis.
+    ) -> Node | None:
+        """Extract the content of a region the layout model predicted to be a table.
 
-        Uses ``page.find_tables()`` scoped to the predicted region. Falls back
-        to extracting the raw text as a single-cell table if no structured
-        table is found.
+        Uses ``page.find_tables()`` scoped to the predicted region. When no structured
+        table can be recovered there, the region's text is returned as a **paragraph**.
+
+        It used to be returned as a single-column table -- one row per line of text --
+        and that was wrong twice over. A one-column table is not a table: it is prose
+        wrapped in pipes, so the output was *worse* than plain text, not better. And
+        because these tables are the only copy of the region's text (it is excluded
+        from the ordinary text blocks to avoid duplication), the mangling could not
+        simply be dropped either: suppressing them on a real arXiv paper removed 144
+        junk table rows and 530 words of body text along with them.
+
+        The layout model over-fires on academic PDFs -- on one paper it predicted six
+        "table" regions and none of them held a table -- so this path is common, and
+        every one of those six became a fake table. No converter option changed that;
+        the same six appeared under every ``table_detection_mode``, because they never
+        came from the table detector at all.
 
         Parameters
         ----------
         page : fitz.Page
-            PDF page containing the table.
+            PDF page containing the region.
         table_rect : fitz.Rect
             Bounding box predicted by the layout model.
         page_num : int
@@ -2781,22 +2868,47 @@ class PdfToAstConverter(BaseParser):
 
         Returns
         -------
-        AstTable or None
-            Table node if extraction succeeded.
+        Node or None
+            A table when the region really holds one, otherwise a paragraph carrying
+            its text. ``None`` only when the region is empty.
 
         """
-        # Try PyMuPDF's find_tables within the predicted region
+        # Try PyMuPDF's find_tables within the predicted region. Only a real table is
+        # accepted here: a rejected detection may hand back a paragraph covering just
+        # the grid's bbox, which can be narrower than the region the layout model
+        # predicted. Falling through instead keeps the whole region's text.
         try:
             tabs = page.find_tables(clip=table_rect)
             if tabs.tables:
-                return self._process_table_to_ast(tabs.tables[0], page, page_num)
+                table = self._process_table_to_ast(tabs.tables[0], page, page_num)
+                if isinstance(table, AstTable):
+                    return table
         except Exception:
-            # PyMuPDF table detection is best-effort; fall through to the
-            # caller's fallback handling on any error.
+            # PyMuPDF table detection is best-effort; fall through to the text path.
             pass
 
-        # Fallback: extract raw text from the region as a simple table
-        text = page.get_textbox(table_rect)
+        # No table here -- the layout model was wrong. Keep the text, drop the pipes.
+        paragraph = self._region_text_as_paragraph(page, table_rect, page_num)
+        if paragraph is not None:
+            self._record_table_rejection("layout_region_not_tabular")
+        return paragraph
+
+    def _region_text_as_paragraph(self, page: "fitz.Page", region: "fitz.Rect", page_num: int) -> AstParagraph | None:
+        """Return a region's text as a paragraph, for regions rejected as tables.
+
+        Text inside a detected table's bbox is removed from the ordinary text blocks so
+        it is not emitted twice, and that removal happens *before* the table is validated.
+        So a rejection path that simply returns ``None`` does not fall back to prose --
+        it deletes the region's text outright. Rejecting degenerate grids this way cost
+        256 words of real body text across the corpus.
+
+        Returns
+        -------
+        AstParagraph or None
+            The region's text as a paragraph, or ``None`` if the region holds no text.
+
+        """
+        text = page.get_textbox(region)
         if not text or not text.strip():
             return None
 
@@ -2804,11 +2916,9 @@ class PdfToAstConverter(BaseParser):
         if not lines:
             return None
 
-        # Build a single-column table from the lines
-        header_row = TableRow(cells=[TableCell(content=[Text(content=lines[0])])], is_header=True)
-        data_rows = [TableRow(cells=[TableCell(content=[Text(content=line)])]) for line in lines[1:]]
-        return AstTable(
-            header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
+        return AstParagraph(
+            content=[Text(content=" ".join(lines))],
+            source_location=SourceLocation(format="pdf", page=page_num + 1),
         )
 
     def _parse_markdown_table_row(self, row_line: str) -> list[str]:
@@ -2920,12 +3030,16 @@ class PdfToAstConverter(BaseParser):
                 filtered_blocks.append(block)
                 continue
 
-            # Check if block is in header zone (top of page)
-            if header_zone > 0 and bbox[1] < header_zone:
+            # A block must lie ENTIRELY inside the zone to be furniture. Testing only the
+            # near edge -- does the block *start* above header_height -- deletes any body
+            # paragraph that happens to begin near the top margin, and takes the rest of
+            # the page with it: on an FCC filing whose body opened 4pt below the running
+            # head, the whole opening paragraph of every page was dropped. Real furniture
+            # is always fully contained, because the zone is derived from its own far edge.
+            if header_zone > 0 and bbox[3] <= header_zone:
                 continue  # Skip this block
 
-            # Check if block is in footer zone (bottom of page)
-            if footer_zone > 0 and bbox[3] > (page_height - footer_zone):
+            if footer_zone > 0 and bbox[1] >= (page_height - footer_zone):
                 continue  # Skip this block
 
             filtered_blocks.append(block)
