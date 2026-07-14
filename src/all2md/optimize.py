@@ -741,7 +741,6 @@ def search(
     baseline = consider({}, "default")
     rank()
 
-    best = baseline
     for name, config in (presets or {}).items():
         # A preset that sets nothing for this format is the default under another
         # name; evaluating it would just be a duplicate.
