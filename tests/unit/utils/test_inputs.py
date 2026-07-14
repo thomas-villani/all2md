@@ -144,32 +144,38 @@ class TestValidatePageRange:
 
     def test_string_range_simple(self):
         """Test parsing simple string range (1-based input, 0-based output)."""
-        result = validate_page_range("2-4", max_pages=10)
-        # "2-4" means pages 2,3,4 which map to 0-based indices 1,2,3
-        # But parse_page_ranges already returns 0-based, so we get [1,2,3]
-        assert result == [
-            0,
-            1,
-            2,
-        ]  # parse_page_ranges("2-4") returns pages at indices 1,2,3 but in 0-based that's actually 0,1,2
+        # Pages 2,3,4 (1-based) -> indices 1,2,3 (0-based)
+        assert validate_page_range("2-4", max_pages=10) == [1, 2, 3]
+
+    def test_string_range_including_first_page(self):
+        """A range starting at page 1 is valid and maps to index 0."""
+        assert validate_page_range("1-3", max_pages=10) == [0, 1, 2]
 
     def test_string_range_with_single_page(self):
         """Test parsing string with single page."""
-        result = validate_page_range("5", max_pages=10)
         # Page 5 (1-based) -> index 4 (0-based)
-        assert result == [3]  # parse_page_ranges returns 0-based already
+        assert validate_page_range("5", max_pages=10) == [4]
 
     def test_string_range_with_comma(self):
         """Test parsing string with comma-separated pages."""
-        result = validate_page_range("2-4,6", max_pages=10)
         # Pages 2-4,6 (1-based) -> indices 1,2,3,5 (0-based)
-        assert result == [0, 1, 2, 4]  # parse_page_ranges returns 0-based
+        assert validate_page_range("2-4,6", max_pages=10) == [1, 2, 3, 5]
 
     def test_string_range_open_ended(self):
         """Test parsing open-ended range (e.g., '8-')."""
-        result = validate_page_range("8-", max_pages=10)
         # Pages 8,9,10 (1-based) -> indices 7,8,9 (0-based)
-        assert result == [6, 7, 8]  # parse_page_ranges returns 0-based
+        assert validate_page_range("8-", max_pages=10) == [7, 8, 9]
+
+    def test_string_and_list_paths_agree(self):
+        """The string and list forms of the same selection must produce identical indices."""
+        assert validate_page_range("1-3,5", max_pages=10) == validate_page_range([1, 2, 3, 5], max_pages=10)
+        assert validate_page_range("2", max_pages=10) == validate_page_range([2], max_pages=10)
+
+    def test_string_range_selecting_no_pages_raises(self):
+        """A range that selects nothing must raise, not silently return an empty selection."""
+        with pytest.raises(PageRangeError) as excinfo:
+            validate_page_range("99", max_pages=10)
+        assert "selects no pages" in str(excinfo.value)
 
     def test_string_range_without_max_pages_raises(self):
         """Test that string range without max_pages raises error."""
@@ -616,11 +622,9 @@ class TestIntegration:
 
     def test_page_range_workflow(self):
         """Test complete page range workflow."""
-        # Parse string range - parse_page_ranges converts from 1-based to 0-based
+        # "2-4,6,9-" means pages 2,3,4,6,9,10 (1-based) -> indices 1,2,3,5,8,9 (0-based)
         pages = validate_page_range("2-4,6,9-", max_pages=10)
-        # "2-4,6,9-" means pages 2,3,4,6,9,10 -> 0-based: 1,2,3,5,8,9
-        # But parse_page_ranges("2-4") actually returns [0,1,2] not [1,2,3]
-        assert pages == [0, 1, 2, 4, 7, 8]
+        assert pages == [1, 2, 3, 5, 8, 9]
 
         # Validate list range - these are converted from 1-based to 0-based
         pages2 = validate_page_range([1, 5, 10], max_pages=10)

@@ -462,6 +462,12 @@ class DynamicCLIBuilder:
         if "choices" in metadata:
             return {"choices": metadata["choices"]}, None
 
+        # An explicit metadata "type" overrides inference. Fields whose annotation is a union
+        # of several concrete types (e.g. pages: list[int] | str) rely on this to pick the one
+        # the CLI should accept, since inference cannot choose between them.
+        if metadata.get("type") in (int, float, str):
+            return {"type": metadata["type"]}, None
+
         # Handle Union types
         if get_origin(resolved_type) in (Union, types.UnionType):
             return self._handle_union_type(resolved_type)
@@ -584,10 +590,6 @@ class DynamicCLIBuilder:
 
         if help_suffix:
             kwargs["help"] = f"{kwargs['help']} {help_suffix}"
-
-        # Handle metadata-specified types that override type inference
-        if metadata.get("type") in (int, float):
-            kwargs["type"] = metadata["type"]
 
         # Honor metadata-specified action (e.g., append) if present
         # This allows fields to explicitly request append behavior
