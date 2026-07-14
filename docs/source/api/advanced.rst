@@ -99,18 +99,30 @@ Document comparison and diff rendering:
 Quality Scoring
 ---------------
 
-Two complementary reads on conversion quality. :mod:`all2md.confidence` is
-*reference-free*: it scores a conversion from the sanity signals the parser
-observed, which is the only option for a document with no ground truth (a
-scanned PDF). :mod:`all2md.roundtrip` manufactures a reference by converting a
-document to another format and parsing it straight back, then scores the
-structure that survived.
+Three reads on conversion quality, answering three different questions.
+
+:mod:`all2md.confidence` answers *"can I trust this conversion?"* It is
+**reference-free**, scoring from the sanity signals the parser observed, which is
+the only option for a document with no ground truth (a scanned PDF).
+
+:mod:`all2md.roundtrip` answers *"what did this conversion lose?"* It **manufactures
+a reference** by converting a document to another format and parsing it straight
+back, then scores the structure that survived.
+
+:mod:`all2md.optimize` answers *"which of these settings is best?"* — a distinct
+question, and it needs a distinct objective. The confidence score cannot be used to
+search: it saturates at ``100`` on anything not visibly broken, so across a sweep of
+converter options it is flat and there is no gradient to climb. The round-trip score
+cannot be used either, because re-parsing rendered output measures the *renderer* —
+a garbled table round-trips through Markdown perfectly. So the optimizer scores the
+parsed AST directly, on how much *well-formed* structure each setting recovers.
 
 .. autosummary::
    :nosignatures:
 
    all2md.confidence
    all2md.roundtrip
+   all2md.optimize
 
 MCP Server
 ----------
@@ -150,6 +162,7 @@ Complete References
    all2md.diff
    all2md.confidence
    all2md.roundtrip
+   all2md.optimize
    all2md.mcp
    all2md.packagers
    all2md.packagers.arxiv

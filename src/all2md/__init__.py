@@ -127,6 +127,8 @@ from all2md.api import (
     convert,
     from_ast,
     from_markdown,
+    optimizable_formats,
+    optimize_options,
     roundtrip_report,
     roundtrippable_formats,
     to_ast,
@@ -138,6 +140,7 @@ from all2md.constants import DocumentFormat
 # Extensions lists moved to constants.py - keep references for backward compatibility
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError, FormatError, ParsingError
+from all2md.optimize import Candidate, DocumentMetrics, OptimizationReport
 
 # Keep only base and common option classes that are lightweight and frequently used
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -215,6 +218,12 @@ __all__ = [
     "roundtrippable_formats",
     "RoundTripReport",
     "StructuralDelta",
+    # Conversion optimizer
+    "optimize_options",
+    "optimizable_formats",
+    "OptimizationReport",
+    "Candidate",
+    "DocumentMetrics",
     # Registry system
     "registry",
     # Type definitions

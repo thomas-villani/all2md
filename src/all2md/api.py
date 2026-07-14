@@ -12,7 +12,7 @@ from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
 from all2md.conversion_cache import get_active_cache, make_cache_key
 from all2md.converter_registry import registry
-from all2md.exceptions import All2MdError, FormatError, ParsingError
+from all2md.exceptions import All2MdError, FormatError, ParsingError, ValidationError
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions
 from all2md.progress import ProgressCallback
@@ -28,6 +28,7 @@ from all2md.utils.io_utils import write_content
 if TYPE_CHECKING:
     from all2md.chunking import ProvenanceChunk
     from all2md.confidence import ConfidenceReport
+    from all2md.optimize import OptimizationReport
     from all2md.roundtrip import RoundTripReport
 
 logger = logging.getLogger(__name__)
@@ -1104,6 +1105,153 @@ def roundtrip_report(
     roundtripped = to_ast(payload, source_format=via)
 
     return build_report(original, roundtripped, source_format=actual_source_format, via=via)
+
+
+def optimizable_formats() -> list[str]:
+    """Return the formats :func:`optimize_options` knows how to tune."""
+    from all2md.optimize import KNOBS
+
+    return sorted(KNOBS)
+
+
+def optimize_options(
+    source: Union[str, Path, IO[bytes], bytes],
+    *,
+    source_format: DocumentFormat = "auto",
+    parser_options: Optional[BaseParserOptions] = None,
+    rounds: int = 1,
+    include_presets: bool = True,
+    sample_pages: Optional[int] = None,
+    remote_input_options: Optional[RemoteInputOptions] = None,
+) -> "OptimizationReport":
+    """Search converter options for the settings that convert ``source`` best.
+
+    Converts the document many times under different settings and ranks them by a
+    reference-free fidelity objective (see :mod:`all2md.optimize`), so this works on
+    the documents that need it most: the ones with no known-good output to compare
+    against. Returns the winning options as a diff from the defaults, ready to drop
+    into an ``.all2md.toml``.
+
+    This is *not* cheap — it is tens of conversions. Use ``sample_pages`` to tune on
+    a slice of a long document, and enable the conversion cache
+    (:func:`all2md.conversion_cache.use_conversion_cache`) to skip re-converting
+    option sets already tried.
+
+    Parameters
+    ----------
+    source : str or Path or file-like or bytes
+        The document to tune against.
+    source_format : str, default "auto"
+        Override format detection.
+    parser_options : BaseParserOptions, optional
+        Starting point for the search. Options outside the searched knobs are held
+        fixed at whatever this specifies, so it doubles as a way to pin settings the
+        optimizer must not touch.
+    rounds : int, default 1
+        Coordinate-descent passes over the knobs. More rounds can recover knobs that
+        only pay off in combination, at proportionally more conversions.
+    include_presets : bool, default True
+        Score the named presets (``quality``, ``complete``, ...) before refining.
+    sample_pages : int, optional
+        Tune against only the first N pages, so a 400-page document does not have to
+        be reconverted in full for every candidate. Paginated formats only. Use at
+        least 2 (ideally 3+): running headers and footers are recognized by the fact
+        that they *repeat*, so a single-page sample cannot see them at all.
+    remote_input_options : RemoteInputOptions, optional
+        Controls retrieval when ``source`` is a URL.
+
+    Returns
+    -------
+    OptimizationReport
+        The winning options, the fitness they scored, what the defaults scored, and
+        every candidate evaluated.
+
+    Raises
+    ------
+    FormatError
+        If the detected format has no tunable knobs.
+
+    Examples
+    --------
+        >>> from all2md import optimize_options
+        >>> report = optimize_options("scanned.pdf")  # doctest: +SKIP
+        >>> report.best_options  # doctest: +SKIP
+        {'table_detection_mode': 'ruling', 'detect_columns': True}
+
+    """
+    from all2md.cli.presets import PRESETS
+    from all2md.optimize import DocumentMetrics, extract_metrics, search, tunable_knobs
+
+    resolved = _resolve_document_source(source, remote_input_options, None).payload
+
+    # The search parses the same source dozens of times, so a stream -- which can
+    # only be read once -- has to be materialized up front.
+    if hasattr(resolved, "read"):
+        resolved = resolved.read()
+
+    if source_format != "auto":
+        actual_format: str = source_format
+    elif isinstance(resolved, (str, Path, bytes)):
+        actual_format = registry.detect_format(resolved)
+    else:
+        raise FormatError("Cannot auto-detect format from this source. Please specify source_format.")
+
+    knobs = tunable_knobs(actual_format)
+    if not knobs:
+        raise FormatError(
+            f"No tunable options for format {actual_format!r}. "
+            f"Optimizable formats: {', '.join(optimizable_formats())}"
+        )
+
+    options_class = _get_parser_options_class_for_format(cast(DocumentFormat, actual_format))
+    if options_class is None:
+        raise FormatError(f"No parser options class for format {actual_format!r}")
+
+    base = parser_options if parser_options is not None else options_class()
+    if sample_pages is not None:
+        if not hasattr(base, "pages"):
+            raise FormatError(f"Format {actual_format!r} is not paginated; sample_pages does not apply.")
+        if sample_pages < 1:
+            raise ValidationError("sample_pages must be >= 1", parameter_name="sample_pages")
+        if sample_pages < 2:
+            # Running headers and footers are identified by the fact that they
+            # *repeat*. One page has nothing to repeat against, so the furniture
+            # dimension goes blind and header/footer trimming looks free.
+            logger.warning(
+                "sample_pages=1 leaves no repetition signal, so running headers and footers "
+                "cannot be detected. Sample at least 2 pages (3+ is better)."
+            )
+        # A 1-based list, not the "1-N" string form: string page ranges are
+        # double-converted to 0-based and come back off by one (see #75).
+        base = base.create_updated(pages=list(range(1, sample_pages + 1)))
+
+    def evaluate(overrides: dict[str, Any]) -> DocumentMetrics:
+        candidate_options = base.create_updated(**overrides) if overrides else base
+        document = to_ast(
+            cast(Union[str, Path, IO[bytes], bytes], resolved),
+            parser_options=candidate_options,
+            source_format=cast(DocumentFormat, actual_format),
+        )
+        return extract_metrics(document)
+
+    presets: dict[str, dict[str, Any]] = {}
+    if include_presets:
+        for name, preset in PRESETS.items():
+            # Presets are nested by format; only this format's section is relevant.
+            section = preset.get("config", {}).get(actual_format, {})
+            if section:
+                presets[name] = section
+
+    report = search(knobs, evaluate, presets=presets, rounds=rounds)
+    report.source_format = actual_format
+
+    # Coordinate descent accumulates whatever it walked through, so the winner can
+    # carry knobs it set to the value they already had. Those are no-ops: drop them
+    # so "recommended settings" means settings you actually have to change.
+    report.best_options = {
+        name: value for name, value in report.best_options.items() if getattr(base, name, object()) != value
+    }
+    return report
 
 
 def _record_source_path(ast_doc: "Document", source: Any) -> None:

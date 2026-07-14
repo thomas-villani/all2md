@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Conversion optimizer (`all2md optimize`).** Converts a document many times under
+  different converter settings and reports the ones that recover the most well-formed
+  structure — emitted both as a runnable command and as a `.all2md.toml` snippet.
+  Built for the documents that need it most (the gnarly PDF with no known-good output
+  to diff against), so the objective is reference-free — and it is deliberately
+  neither of the two existing scores. The **confidence** score is a saturating
+  breakage detector: on anything not visibly broken it pins to `100` regardless of
+  settings, so it has no gradient to search (measured: 16 option combinations on a
+  two-column PDF produced *one* distinct confidence score while the parsed AST
+  produced *four* distinct outcomes). The **round-trip** score measures the renderer,
+  not the parser — a garbled table round-trips through Markdown perfectly. So
+  `all2md.optimize` scores the parsed AST directly.
+
+  **Body text gates the score rather than contributing to it.** Losing a paragraph is
+  data loss; leaving a running header in is an annoyance, and the two are not
+  interchangeable at any exchange rate — so a candidate's body-text retention
+  *multiplies* its fitness (cubed), and no amount of tidiness buys back deleted
+  content. The weighted dimensions are the ones that are genuinely tradeable: tables
+  (scored as quality-weighted *recall* — filled cells discounted by shape regularity,
+  so a hallucinated table earns almost nothing while a missed real one still costs its
+  cells), structure, and cleanliness (how much repeated furniture the setting left
+  behind, where furniture is content that repeats across a substantial fraction of the
+  document's pages).
+
+  The search is cheap by construction — the named presets first, then coordinate
+  descent, which costs `sum(len(values))` conversions instead of a full grid's
+  `prod(len(values))`. It is still tens of full conversions, though, and a PDF page
+  costs about a second to parse, so `--sample-pages` tunes against a slice of a long
+  document and `--cache` makes repeat runs nearly free (18.5s → 0.3s warm, on a
+  31-candidate run); the command warns up front when it is about to tune a whole
+  document. Available from Python as `all2md.optimize_options(source, ...)` (with
+  `optimizable_formats()`), and from the command line as `all2md optimize <file>`
+  (`--rounds`, `--sample-pages`, `--no-presets`, `--top`, `--out`, `--json`). Tunable
+  formats: `pdf`, `html`, `docx`. The reported fitness ranks candidates *against each
+  other* and is not an absolute quality score — `all2md report` and `all2md roundtrip`
+  remain the scores for that.
 - **Round-trip fidelity scoring (`all2md roundtrip`).** Converts a document to
   another format, parses it straight back, and scores the structure that
   survived. Unlike the confidence report this comparison has a ground truth —
