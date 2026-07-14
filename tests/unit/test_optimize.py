@@ -12,8 +12,11 @@ import pytest
 from all2md.ast.nodes import Document, Heading, Paragraph, Strong, Table, TableCell, TableRow, Text
 from all2md.optimize import (
     DIMENSION_WEIGHTS,
+    FORBIDDEN_KNOBS,
+    KNOBS,
     Candidate,
     DocumentMetrics,
+    content_tokens,
     extract_metrics,
     score_candidates,
     search,
@@ -476,3 +479,68 @@ class TestSearch:
 def test_tunable_knobs_is_empty_for_an_untuned_format():
     assert tunable_knobs("pdf")
     assert tunable_knobs("nonexistent-format") == {}
+
+
+@pytest.mark.unit
+class TestFragmentationCannotBeRewarded:
+    """The objective must not pay a candidate for chopping words in half.
+
+    The text signal is a word count, so a parse that splits one word into two looks like
+    it recovered *more* text. This has bitten the objective three times now:
+    ``consolidate_inline_formatting=False`` counted "hello" as "hel" + "lo", and
+    ``merge_hyphenated_words=False`` left "hyphen-" + "ation" unrepaired -- which the
+    optimizer recommended on 17 of 17 real papers, making every one of them measurably
+    worse against ground truth.
+
+    Fixing each setting as it surfaces does not work, because the defect is in the metric,
+    not the settings -- there is always another door. These tests pin the *metric*.
+    """
+
+    def test_a_hyphen_broken_word_counts_as_one_word(self):
+        assert content_tokens("hyphen- ation") == content_tokens("hyphenation")
+
+    def test_the_capitalized_compound_case_agrees_too(self):
+        """all2md keeps the hyphen for an uppercase continuation, drops it for lowercase."""
+        assert content_tokens("Anglo- Saxon") == content_tokens("Anglo-Saxon")
+        assert content_tokens("be- wusst") == content_tokens("bewusst")
+
+    def test_a_lone_dash_is_not_a_word_fragment(self):
+        assert content_tokens("a - b") == ["a", "b"]
+
+    def test_a_fragmented_parse_scores_no_higher_than_a_clean_one(self):
+        """The property that actually matters, stated end to end.
+
+        Same document, same words. One parse left every hyphenated word broken across the
+        line; the other repaired them. The broken one must not win -- and before the fix it
+        did, because it had strictly more whitespace-separated tokens.
+        """
+        repaired = "the hyphenation of unusually long compound words in typesetting"
+        fragmented = "the hyphen- ation of unusual- ly long compound words in typesetting"
+
+        clean = Candidate(options={"merge": True}, metrics=extract_metrics(_doc(_para(repaired))))
+        broken = Candidate(options={"merge": False}, metrics=extract_metrics(_doc(_para(fragmented))))
+
+        assert clean.metrics.words == broken.metrics.words, "fragmenting a word changed the word count"
+
+        score_candidates([clean, broken])
+
+        assert broken.fitness <= clean.fitness, "the optimizer would recommend breaking words apart"
+
+
+@pytest.mark.unit
+class TestForbiddenKnobs:
+    """Some settings are not trade-offs, and must never be searched.
+
+    Enforced as a test because every entry in ``FORBIDDEN_KNOBS`` was added *after* the
+    optimizer found and exploited it. A future contributor adding one back would otherwise
+    reintroduce advice that measurably damages documents.
+    """
+
+    def test_no_format_searches_a_forbidden_knob(self):
+        for fmt, knobs in KNOBS.items():
+            for knob in knobs:
+                assert knob not in FORBIDDEN_KNOBS, f"{fmt}.{knob} must not be searched: {FORBIDDEN_KNOBS.get(knob)}"
+
+    def test_the_hyphenation_repair_is_not_searchable(self):
+        """The specific one that shipped bad advice, named so the regression is unmissable."""
+        assert "merge_hyphenated_words" not in KNOBS["pdf"]
