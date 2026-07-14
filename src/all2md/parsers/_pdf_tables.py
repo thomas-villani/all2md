@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 __all__ = [
     "MAX_DOT_LEADER_CELL_RATIO",
     "MAX_TABLE_COLS",
+    "MIN_TABLE_COLS",
+    "MIN_TABLE_ROWS",
     "MAX_TABLE_EMPTY_RATIO",
     "MAX_TABLE_ROWS",
     "MIN_FILLED_FOR_UNIFORMITY_CHECK",
@@ -36,6 +38,13 @@ __all__ = [
 # on the same false-positive shapes.
 MAX_TABLE_COLS = 25
 MAX_TABLE_ROWS = 200
+# A grid needs two dimensions to mean anything. A one-column "table" is prose wrapped
+# in pipes; a one-row "table" is a single line of text chopped at its word boundaries.
+# find_tables() emits both on academic PDFs -- on one paper it rendered the sentence
+# "What is the capital of this country?" as an eight-column table -- and both are
+# strictly worse than leaving the text as text.
+MIN_TABLE_COLS = 2
+MIN_TABLE_ROWS = 2
 MAX_TABLE_EMPTY_RATIO = 0.70
 MIN_FILLED_FOR_UNIFORMITY_CHECK = 5
 # When more than this fraction of non-empty cells are dot-leader cells
