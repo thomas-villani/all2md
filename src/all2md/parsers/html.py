@@ -50,6 +50,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
     Underline,
+    get_node_children,
 )
 from all2md.constants import (
     DANGEROUS_HTML_ELEMENTS,
@@ -937,9 +938,10 @@ class HtmlToAstConverter(BaseParser):
             return handler(node)
 
         # For unknown elements, route based on whether they're block or inline
-        if self._is_block_element(node):
-            # Unknown block element (e.g., <header>, <footer>, <nav>, <section>)
-            # Process as block container to properly handle block children
+        if self._carries_block_content(node):
+            # Unknown block element (e.g., <header>, <footer>, <nav>, <section>), or an
+            # inline element being used as a layout wrapper around block content.
+            # Process as block container to properly handle block children.
             return self._process_block_to_ast(node)
         else:
             # Unknown inline element - process children as inline
@@ -963,6 +965,32 @@ class HtmlToAstConverter(BaseParser):
             return False
         return node.name in self.BLOCK_ELEMENTS
 
+    def _contains_block_element(self, node: Any) -> bool:
+        """Check whether a node has a block-level element anywhere beneath it.
+
+        Distinct from :meth:`_has_block_children`, which only looks one level down.
+
+        """
+        if not hasattr(node, "children"):
+            return False
+        for child in node.children:
+            if self._is_block_element(child) or self._contains_block_element(child):
+                return True
+        return False
+
+    def _carries_block_content(self, node: Any) -> bool:
+        """Check whether a node must be processed as a block, not as inline content.
+
+        True for block elements, and also for *inline* elements that wrap block content.
+        The latter are layout wrappers rather than real inline content -- LaTeXML (arXiv's
+        renderer) emits ``<span class="ltx_transformed_inner">`` around a scaled ``<table>``,
+        and processing that span as inline discards the table, rows and all. An inline
+        element containing a block is invalid HTML anyway, so there is no valid construct
+        to misread here.
+
+        """
+        return self._is_block_element(node) or self._contains_block_element(node)
+
     def _has_block_children(self, node: Any) -> bool:
         """Check if node has any block-level children.
 
@@ -980,11 +1008,11 @@ class HtmlToAstConverter(BaseParser):
         if not hasattr(node, "children"):
             return False
         for child in node.children:
-            if self._is_block_element(child):
+            if self._carries_block_content(child):
                 return True
         return False
 
-    def _process_block_container(self, node: Any) -> list[Node]:
+    def _process_block_container(self, node: Any, skip: Any = None) -> list[Node]:
         """Process a block container element (div, section, etc.).
 
         Extracts and returns direct block children, properly handling
@@ -995,6 +1023,9 @@ class HtmlToAstConverter(BaseParser):
         ----------
         node : Any
             Block container element
+        skip : Any, default = None
+            A child element to leave out of the walk. Used by ``<figure>``, whose
+            ``<figcaption>`` is rendered separately from the figure's content.
 
         Returns
         -------
@@ -1006,7 +1037,10 @@ class HtmlToAstConverter(BaseParser):
         inline_buffer: list[Node] = []
 
         for child in node.children:
-            if self._is_block_element(child):
+            if skip is not None and child is skip:
+                continue
+
+            if self._carries_block_content(child):
                 # Block element: flush inline buffer first
                 if inline_buffer:
                     children.append(Paragraph(content=inline_buffer))
@@ -1207,8 +1241,14 @@ class HtmlToAstConverter(BaseParser):
 
         return BlockQuote(children=children)
 
-    def _process_figure_to_ast(self, node: Any) -> BlockQuote | Paragraph | HTMLBlock | None:
-        """Process HTML figure element to AST node.
+    def _process_figure_to_ast(self, node: Any) -> Node | list[Node] | None:
+        """Process HTML figure element to AST node(s).
+
+        A ``<figure>`` is a *container* that also carries a caption, not an image
+        wrapper: HTML5 recommends it for captioning tables, code listings and media
+        too, and LaTeXML (arXiv's renderer) wraps every table in one. So the figure's
+        content goes through the normal block dispatch -- whatever it happens to be --
+        and only the ``<figcaption>`` is treated specially.
 
         Parameters
         ----------
@@ -1217,51 +1257,80 @@ class HtmlToAstConverter(BaseParser):
 
         Returns
         -------
-        BlockQuote, Paragraph, HTMLBlock, or None
-            Converted node based on figures_parsing option
+        Node, list of Node, or None
+            Converted node(s) based on the figures_parsing option
 
         """
-        if self.options.figures_parsing == "html":
+        mode = self.options.figures_parsing
+
+        if mode == "html":
             # Preserve as HTML
             return HTMLBlock(content=str(node))
 
-        # Extract figcaption if present
-        figcaption = node.find("figcaption")
+        if mode == "skip":
+            return None
+
+        # Only a direct child is this figure's caption. HTML5 requires figcaption to be
+        # the first or last child, and a recursive search would steal the caption of a
+        # nested figure.
+        figcaption = node.find("figcaption", recursive=False)
         caption_text = figcaption.get_text(strip=True) if figcaption else None
 
-        # Find image in figure
-        img_node = node.find("img")
+        if mode == "caption_only":
+            if caption_text:
+                return Paragraph(content=[Emphasis(content=[Text(content=caption_text)])])
+            return None
 
-        if self.options.figures_parsing == "image_with_caption":
-            # Render as image with caption in alt text or below
-            if img_node:
-                img_ast = self._process_image_to_ast(img_node)
-                if caption_text and isinstance(img_ast, Image):
-                    # Update alt text with caption if not already set
-                    if not img_ast.alt_text or img_ast.alt_text == "Image":
-                        img_ast.alt_text = caption_text
+        content = self._process_block_container(node, skip=figcaption)
 
-                # Return image in a paragraph
-                if img_ast:
-                    return Paragraph(content=[img_ast])
+        # A figure that held elements but yielded nothing (e.g. a bare <video>) is real
+        # content loss, and the confidence report should see it.
+        if not content and self._has_element_children(node, skip=figcaption):
+            self._record_degraded(
+                "figure_content_dropped",
+                detail="figure content produced no output",
+            )
+
+        if mode == "image_with_caption" and caption_text:
+            # Fold the caption into the image's alt text instead of emitting it as its own
+            # paragraph -- but only if there is an image to carry it and that image has no
+            # meaningful alt text of its own. A caption that cannot be absorbed falls
+            # through below and is emitted as a paragraph, rather than being dropped.
+            image = self._find_first_image(content)
+            if image is not None and (not image.alt_text or image.alt_text == "Image"):
+                image.alt_text = caption_text
+                caption_text = None
+
+        if caption_text:
+            content = [*content, Paragraph(content=[Emphasis(content=[Text(content=caption_text)])])]
+
+        if not content:
+            return None
+
+        if mode in ("paragraph", "image_with_caption"):
+            return content
 
         # Default: blockquote rendering
-        children: list[Node] = []
+        return BlockQuote(children=content)
 
-        # Add image if present
-        if img_node:
-            img_ast = self._process_image_to_ast(img_node)
-            if img_ast:
-                children.append(Paragraph(content=[img_ast]))
+    def _has_element_children(self, node: Any, skip: Any = None) -> bool:
+        """Check whether a node has any child *elements* (ignoring whitespace/text)."""
+        for child in node.children:
+            if skip is not None and child is skip:
+                continue
+            if getattr(child, "name", None):
+                return True
+        return False
 
-        # Add caption as italic text if present
-        if caption_text:
-            caption_inline = Emphasis(content=[Text(content=caption_text)])
-            children.append(Paragraph(content=[caption_inline]))
-
-        if children:
-            return BlockQuote(children=children)
-
+    @staticmethod
+    def _find_first_image(nodes: list[Node]) -> Image | None:
+        """Find the first Image anywhere in a list of block nodes."""
+        for node in nodes:
+            if isinstance(node, Image):
+                return node
+            found = HtmlToAstConverter._find_first_image(list(get_node_children(node)))
+            if found is not None:
+                return found
         return None
 
     def _process_details_to_ast(self, node: Any) -> BlockQuote | HTMLBlock | None:
@@ -1904,11 +1973,19 @@ class HtmlToAstConverter(BaseParser):
         consecutive_breaks = 0
 
         for child in node.children:
-            # Skip block elements - they shouldn't be here with proper separation
+            # Block elements cannot be represented here -- an inline context has nowhere to
+            # put them. Callers route inline wrappers around blocks to _process_block_container
+            # (see _carries_block_content), so what reaches this point is a block inside a
+            # genuinely inline element (e.g. <a><div>...</div></a>), which we cannot keep.
+            # Dropping it is real content loss, so record it rather than only logging.
             if self._is_block_element(child):
                 logger.debug(
                     f"Block element <{child.name}> found in inline context - skipping. "
                     f"This indicates the element should be processed as a block container."
+                )
+                self._record_degraded(
+                    "block_in_inline_context_dropped",
+                    detail=f"<{child.name}> inside <{getattr(node, 'name', '?')}>",
                 )
                 continue
 
