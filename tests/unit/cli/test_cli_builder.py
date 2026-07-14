@@ -592,11 +592,16 @@ class TestCLIParser:
         """Test that dynamically generated arguments exist in the parser."""
         parser = create_parser()
 
-        # Test that PDF options exist
+        # Test that PDF options exist. The page spec is passed through verbatim -- PdfOptions
+        # accepts the documented string form, so the CLI must not coerce it to a list of ints
+        # (that coercion rejected every range: '1-3', '10-', ...).
         args = parser.parse_args(["test.pdf", "--pdf-pages", "1,2,3"])
         assert hasattr(args, "pdf.pages")
-        # Pages are now correctly parsed as a list of integers
-        assert getattr(args, "pdf.pages") == [1, 2, 3]
+        assert getattr(args, "pdf.pages") == "1,2,3"
+
+        # Ranges are accepted, not rejected as "expected comma-separated integers"
+        args = parser.parse_args(["test.pdf", "--pdf-pages", "1-3,5,10-"])
+        assert getattr(args, "pdf.pages") == "1-3,5,10-"
 
         # Test that HTML options exist
         args = parser.parse_args(["test.html", "--html-extract-title"])

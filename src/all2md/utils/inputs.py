@@ -138,13 +138,22 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
                 parameter_value=pages,
             )
         try:
-            # Use utility function to parse page range string
-            pages = parse_page_ranges(pages, max_pages)
+            # parse_page_ranges() already returns 0-based indices clamped to the document,
+            # so it needs no further conversion or bounds checking.
+            parsed = parse_page_ranges(pages, max_pages)
         except (ValueError, IndexError) as e:
             raise PageRangeError(
                 f"Invalid page range format: {str(e)}. Use format like '1-3,5,10-'",
                 parameter_value=pages,
             ) from e
+
+        if not parsed:
+            raise PageRangeError(
+                f"Page range '{pages}' selects no pages. Document has {max_pages} pages (1-{max_pages}).",
+                parameter_value=pages,
+            )
+
+        return parsed
 
     if not isinstance(pages, list):
         raise PageRangeError(
@@ -152,7 +161,7 @@ def validate_page_range(pages: list[int] | str | None, max_pages: int | None = N
             parameter_value=pages,
         )
 
-    # Convert from 1-based to 0-based and validate
+    # List input arrives 1-based: convert to 0-based and validate
     converted_pages = []
     for page_num in pages:
         if not isinstance(page_num, int):

@@ -104,6 +104,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **String page ranges select the pages you asked for.** `validate_page_range()` converted
+  1-based page numbers to 0-based **twice** on the string path: `parse_page_ranges()` already
+  returns 0-based indices, and the result was then decremented again. So every string range
+  was wrong — one including page 1 (`pages="1-3"`) raised `Invalid page number: 0`, and every
+  other one *silently returned the wrong pages*, shifted by one: `PdfOptions(pages="2")` gave
+  you page 1. The list form (`pages=[2]`) was correct, and the tests only ever exercised
+  lists, so nothing caught it. The string path now returns the already-0-based parse directly.
+
+  Two adjacent failures went with it. **The CLI could not express the ranges the option
+  documents:** `--pdf-pages 1-3` was rejected with "Expected comma-separated integers",
+  because the builder resolved `pages: list[int] | str | None` to just `list[int]` — it takes
+  the first non-`None` member of a union — and ignored the field's own `"type": str` metadata,
+  which only `int` and `float` were honored. An explicit metadata type now overrides inference,
+  so the page spec reaches the converter verbatim. (`--pdf-pages` is the only option in the
+  library whose declared metadata type differs from its annotation, so nothing else changes.
+  `--save-config` now records the spec as written — `"pdf.pages": "1-3"` — and configs
+  carrying the older list form still load.) And **a range that selected nothing converted the
+  whole document**: `pages="99"` on a 10-page PDF parsed to an empty selection, which
+  `pdf.py` read as "no selection, use every page". It now raises.
 - **HTML: tables no longer vanish inside `<figure>` or inline layout wrappers.** On a real
   arXiv paper (LaTeXML output), **13 tables / 150 rows / 794 cells parsed to 3 empty tables
   and not a single row**. The captions survived, so the output still looked plausible. Two
