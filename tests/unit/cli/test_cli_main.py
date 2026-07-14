@@ -179,7 +179,8 @@ class TestCLIIntegration:
             kwargs = call_args[1]
 
             assert "pages" in kwargs
-            assert kwargs["pages"] == [1, 2]
+            # The spec reaches the converter verbatim; PdfOptions resolves both string and list forms
+            assert kwargs["pages"] == "1,2"
             assert kwargs["password"] == "secret"
             assert kwargs["detect_columns"] is False
 
@@ -1464,7 +1465,7 @@ class TestEnhancedCLIIntegration:
             config = json.load(f)
 
         assert "pdf.pages" in config
-        assert config["pdf.pages"] == [1, 2, 3]
+        assert config["pdf.pages"] == "1,2,3"
         assert "markdown.emphasis_symbol" in config
         assert config["markdown.emphasis_symbol"] == "_"
         assert "rich" in config
@@ -1649,7 +1650,7 @@ class TestEnhancedCLIIntegration:
             config = json.load(f)
 
         # Should include all relevant options
-        assert config["pdf.pages"] == [1, 3, 5]
+        assert config["pdf.pages"] == "1,3,5"
         assert config["pdf.password"] == "secret123"
         assert config["pdf.detect_columns"] is False
         assert config["markdown.emphasis_symbol"] == "_"
