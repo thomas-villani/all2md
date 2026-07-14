@@ -137,7 +137,7 @@ __all__ = [
     "tunable_knobs",
 ]
 
-logger = logging.getLogger(__name__)
+_unused_logger = logging.getLogger(__name__)
 
 #: How the fitness dimensions are combined. Dimensions the candidate pool does not
 #: exercise (no candidate found a table) are dropped and the rest renormalized, so a
