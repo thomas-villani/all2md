@@ -264,3 +264,33 @@ class TestMarkdownFootnotes:
         assert "[^1]" in out
         assert "[^1]: first note" in out
         assert "[^FOO]: second note" in out
+
+    def test_multiparagraph_footnote_definition_survives_roundtrip(self) -> None:
+        """A footnote whose body has several paragraphs must not collapse.
+
+        The renderer separated a definition's paragraphs with a single newline,
+        so ``[^1]: first`` and ``    second`` landed on adjacent lines. On
+        reparse that indented line is a lazy continuation and the two
+        paragraphs silently merge into one; the fix emits a blank line between
+        them and indents every continuation line four spaces.
+        """
+        from all2md import convert, to_ast
+        from all2md.ast import FootnoteDefinition, Paragraph
+        from all2md.options.markdown import MarkdownRendererOptions
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        markdown = "text[^1]\n\n[^1]: first\n\n    second\n"
+
+        once = convert(markdown, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "multi-paragraph footnote is not idempotent"
+
+        # The blank line between the two paragraphs is preserved.
+        assert "[^1]: first\n\n    second" in once
+
+        # After a full roundtrip the definition still carries two paragraphs.
+        ast = to_ast(once, source_format="markdown")
+        defs = [n for n in ast.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        paragraphs = [c for c in defs[0].content if isinstance(c, Paragraph)]
+        assert len(paragraphs) == 2
