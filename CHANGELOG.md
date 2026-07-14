@@ -123,6 +123,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carrying the older list form still load.) And **a range that selected nothing converted the
   whole document**: `pages="99"` on a 10-page PDF parsed to an empty selection, which
   `pdf.py` read as "no selection, use every page". It now raises.
+- **HTML: tables no longer vanish inside `<figure>` or inline layout wrappers.** On a real
+  arXiv paper (LaTeXML output), **13 tables / 150 rows / 794 cells parsed to 3 empty tables
+  and not a single row**. The captions survived, so the output still looked plausible. Two
+  independent defects, either of which was enough to lose every table in the document:
+
+  `<figure>` was special-cased to images — `_process_figure_to_ast` looked for a
+  `<figcaption>` and an `<img>` and built its result from those two alone, so any other child
+  (a `<table>`, a `<pre>`, a `<video>`) was never visited. With a caption present it returned
+  a `BlockQuote` holding only the caption; with neither image nor caption it returned `None`
+  and dropped the figure whole. A figure is a *container that carries a caption* — HTML5
+  recommends it for captioning tables and code listings too — so its content now goes through
+  the normal block dispatch, whatever that content happens to be.
+
+  Separately, **a block element inside an inline element was discarded outright**. An inline
+  context has nowhere to put a block, so `_process_children_to_inline` skipped it behind a
+  `logger.debug` whose message said this "should not happen with proper block/inline
+  separation". It happens constantly: LaTeXML scales an oversized table by wrapping it in
+  `<span class="ltx_transformed_inner" style="transform:scale(0.7)">`, and a `<table>` inside
+  a `<span>` was lost — figure or no figure. An inline element wrapping block content is a
+  layout wrapper, not inline content, and is now processed as a block container. Where a
+  block genuinely cannot be kept (`<a><div>…</div></a>`, since a link cannot hold a block),
+  the drop is now recorded as a degraded-content incident instead of being silent, so
+  `all2md report` can see it.
+
+  The same paper now parses to **13 tables, 150 rows, 794 cells** — every row and cell in the
+  source. Four of the six documented `figures_parsing` modes were also unimplemented and fell
+  through to the blockquote branch: `skip` did not skip, `paragraph` returned a blockquote,
+  and `caption_only` kept the image. All six now behave as documented, and
+  `image_with_caption` no longer drops a caption it cannot fold into the image's alt text.
 - **`all2md optimize` no longer recommends breaking words in half.** The objective's text
   signal was a count of whitespace-separated tokens, which *rewards* a parse that fragments
   words — chop one word into two and the document appears to contain more text. When
