@@ -91,6 +91,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Verified against arXiv's HTML rendering of 29 papers as an external ground truth —
   recall did not fall on a single one — and the feature now has tests, which it did not
   before.
+- **PDF table detection no longer invents tables out of prose — or deletes the prose
+  when it declines to.** `find_tables()` fires on plenty of things that are not tables,
+  and a grid with only one dimension is never one: a single column is prose wrapped in
+  pipes, and a single row is a line of text chopped at its word boundaries (on one
+  arXiv paper the sentence *"What is the capital of this country?"* was rendered as an
+  eight-column table). Those detections are now rejected — but rejecting them was not
+  simply a matter of dropping them. Text inside a detected table's bbox is removed from
+  the ordinary text stream *before* the table is validated, so a rejection path that
+  returned nothing did not demote the region to prose, it **deleted** it: doing that
+  silently cost 256 words of real body text across the corpus. Rejected regions now come
+  back as paragraphs. The same applied to regions the layout model predicted as tables
+  and which turned out not to be — a common misfire on academic PDFs, where suppressing
+  the fake tables also removed 530 words of body text with them. Measured across the PDF
+  corpus: junk tables `21 → 2`, real tables `37 → 37` (none lost), and body text strictly
+  *improves* — the junk grids had been shredding words into per-cell fragments
+  (`Gender` → `G` + `ender`), so ~500 real words come back.
 - **`merge_hyphenated_words` now actually works on text PDFs.** The option is on
   by default, but for any PDF that did not go through OCR it silently did
   nothing: the parser delegated the merge to PyMuPDF's `TEXT_DEHYPHENATE`

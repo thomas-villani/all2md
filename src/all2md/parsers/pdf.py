@@ -88,6 +88,8 @@ from all2md.parsers._pdf_tables import (
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
+    MIN_TABLE_COLS,
+    MIN_TABLE_ROWS,
     detect_tables_by_ruling_lines,
     is_dot_leader_cell,
     page_has_table_signals,
@@ -2537,7 +2539,7 @@ class PdfToAstConverter(BaseParser):
             return ""
         return str(cell_text).strip()
 
-    def _process_table_to_ast(self, table: Any, page: "fitz.Page", page_num: int) -> AstTable | None:
+    def _process_table_to_ast(self, table: Any, page: "fitz.Page", page_num: int) -> Node | None:
         """Process a PyMuPDF table to AST Table node.
 
         Directly accesses table cell data from PyMuPDF table object instead of
@@ -2548,18 +2550,21 @@ class PdfToAstConverter(BaseParser):
         table : PyMuPDF Table
             Table object from find_tables()
         page : fitz.Page
-            Page containing the table (accepted for API symmetry with the
-            ruling-line and layout extraction paths).
+            Page containing the table. Used to recover the region's text when the
+            detection is rejected as a degenerate grid.
         page_num : int
             Page number for source tracking
 
         Returns
         -------
-        AstTable or None
-            Table node if table has content
+        Node or None
+            A table when the detection is a real grid; a paragraph carrying the
+            region's text when it is a degenerate (1xN / Nx1) grid; ``None`` when
+            the region has no usable content.
 
         """
-        del page  # accepted for API symmetry with other extraction paths
+        import fitz
+
         try:
             # Try to extract cells directly from PyMuPDF table object
             # PyMuPDF tables have a `extract()` method that returns cell data
@@ -2577,6 +2582,24 @@ class PdfToAstConverter(BaseParser):
             n_cells = sum(len(r) for r in table_data)
             if n_cells == 0:
                 return None
+            # A grid needs two dimensions to be a table. One column is prose wrapped in
+            # pipes; one row is a single line of text chopped at its word boundaries --
+            # find_tables() emits both, and on an academic paper it turned the sentence
+            # "What is the capital of this country?" into an eight-column table. Neither
+            # shape can carry tabular meaning, and rendering them as tables is strictly
+            # worse than leaving the text alone.
+            #
+            # Return the region's text as a paragraph rather than None: the text inside a
+            # table bbox has already been excluded from the ordinary text blocks, so
+            # returning None here would delete it, not demote it.
+            if n_rows < MIN_TABLE_ROWS or n_cols < MIN_TABLE_COLS:
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: "
+                    f"{n_rows}x{n_cols} is not a grid (needs at least "
+                    f"{MIN_TABLE_ROWS}x{MIN_TABLE_COLS})"
+                )
+                self._record_table_rejection("degenerate_grid")
+                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
             if n_cols > MAX_TABLE_COLS or n_rows > MAX_TABLE_ROWS:
                 logger.debug(
                     f"Rejecting pymupdf table on page {page_num + 1}: {n_rows}x{n_cols} grid exceeds size caps"
@@ -2814,17 +2837,30 @@ class PdfToAstConverter(BaseParser):
 
     def _extract_table_from_layout_region(
         self, page: "fitz.Page", table_rect: "fitz.Rect", page_num: int
-    ) -> AstTable | None:
-        """Extract a table from a region identified by layout analysis.
+    ) -> Node | None:
+        """Extract the content of a region the layout model predicted to be a table.
 
-        Uses ``page.find_tables()`` scoped to the predicted region. Falls back
-        to extracting the raw text as a single-cell table if no structured
-        table is found.
+        Uses ``page.find_tables()`` scoped to the predicted region. When no structured
+        table can be recovered there, the region's text is returned as a **paragraph**.
+
+        It used to be returned as a single-column table -- one row per line of text --
+        and that was wrong twice over. A one-column table is not a table: it is prose
+        wrapped in pipes, so the output was *worse* than plain text, not better. And
+        because these tables are the only copy of the region's text (it is excluded
+        from the ordinary text blocks to avoid duplication), the mangling could not
+        simply be dropped either: suppressing them on a real arXiv paper removed 144
+        junk table rows and 530 words of body text along with them.
+
+        The layout model over-fires on academic PDFs -- on one paper it predicted six
+        "table" regions and none of them held a table -- so this path is common, and
+        every one of those six became a fake table. No converter option changed that;
+        the same six appeared under every ``table_detection_mode``, because they never
+        came from the table detector at all.
 
         Parameters
         ----------
         page : fitz.Page
-            PDF page containing the table.
+            PDF page containing the region.
         table_rect : fitz.Rect
             Bounding box predicted by the layout model.
         page_num : int
@@ -2832,22 +2868,47 @@ class PdfToAstConverter(BaseParser):
 
         Returns
         -------
-        AstTable or None
-            Table node if extraction succeeded.
+        Node or None
+            A table when the region really holds one, otherwise a paragraph carrying
+            its text. ``None`` only when the region is empty.
 
         """
-        # Try PyMuPDF's find_tables within the predicted region
+        # Try PyMuPDF's find_tables within the predicted region. Only a real table is
+        # accepted here: a rejected detection may hand back a paragraph covering just
+        # the grid's bbox, which can be narrower than the region the layout model
+        # predicted. Falling through instead keeps the whole region's text.
         try:
             tabs = page.find_tables(clip=table_rect)
             if tabs.tables:
-                return self._process_table_to_ast(tabs.tables[0], page, page_num)
+                table = self._process_table_to_ast(tabs.tables[0], page, page_num)
+                if isinstance(table, AstTable):
+                    return table
         except Exception:
-            # PyMuPDF table detection is best-effort; fall through to the
-            # caller's fallback handling on any error.
+            # PyMuPDF table detection is best-effort; fall through to the text path.
             pass
 
-        # Fallback: extract raw text from the region as a simple table
-        text = page.get_textbox(table_rect)
+        # No table here -- the layout model was wrong. Keep the text, drop the pipes.
+        paragraph = self._region_text_as_paragraph(page, table_rect, page_num)
+        if paragraph is not None:
+            self._record_table_rejection("layout_region_not_tabular")
+        return paragraph
+
+    def _region_text_as_paragraph(self, page: "fitz.Page", region: "fitz.Rect", page_num: int) -> AstParagraph | None:
+        """Return a region's text as a paragraph, for regions rejected as tables.
+
+        Text inside a detected table's bbox is removed from the ordinary text blocks so
+        it is not emitted twice, and that removal happens *before* the table is validated.
+        So a rejection path that simply returns ``None`` does not fall back to prose --
+        it deletes the region's text outright. Rejecting degenerate grids this way cost
+        256 words of real body text across the corpus.
+
+        Returns
+        -------
+        AstParagraph or None
+            The region's text as a paragraph, or ``None`` if the region holds no text.
+
+        """
+        text = page.get_textbox(region)
         if not text or not text.strip():
             return None
 
@@ -2855,11 +2916,9 @@ class PdfToAstConverter(BaseParser):
         if not lines:
             return None
 
-        # Build a single-column table from the lines
-        header_row = TableRow(cells=[TableCell(content=[Text(content=lines[0])])], is_header=True)
-        data_rows = [TableRow(cells=[TableCell(content=[Text(content=line)])]) for line in lines[1:]]
-        return AstTable(
-            header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
+        return AstParagraph(
+            content=[Text(content=" ".join(lines))],
+            source_location=SourceLocation(format="pdf", page=page_num + 1),
         )
 
     def _parse_markdown_table_row(self, row_line: str) -> list[str]:
