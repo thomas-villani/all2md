@@ -310,6 +310,18 @@ def handle_optimize_command(args: list[str] | None = None) -> int:
         print("Error: stdin ('-') may only be used once.", file=sys.stderr)
         return EXIT_FILE_ERROR
 
+    # Say up front what this is about to cost. The search is tens of full conversions,
+    # and a PDF page costs roughly a second to parse -- so a 20-page report is minutes
+    # of silence, and a 100-page one is far worse. Users should not have to discover
+    # --sample-pages by waiting.
+    if parsed.sample_pages is None and not parsed.json:
+        print(
+            "Tuning against the whole document: this runs tens of full conversions, "
+            "and a PDF page costs about a second to parse.\n"
+            "  --sample-pages 5  tunes on a slice instead;  --cache  makes repeat runs near-instant.",
+            file=sys.stderr,
+        )
+
     results: list[tuple[str, OptimizationReport]] = []
     try:
         # Guard fd 1 so PyMuPDF advisories during the (many) parses cannot corrupt

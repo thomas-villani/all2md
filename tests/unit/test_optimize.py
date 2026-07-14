@@ -261,8 +261,104 @@ class TestScoreCandidates:
         score_candidates([])  # must not raise
 
     def test_weights_cover_every_dimension_once(self):
-        assert set(DIMENSION_WEIGHTS) == {"text", "tables", "structure", "cleanliness"}
+        """Body text is deliberately absent: it gates the score, it is not weighted in."""
+        assert set(DIMENSION_WEIGHTS) == {"tables", "structure", "cleanliness"}
         assert sum(DIMENSION_WEIGHTS.values()) == pytest.approx(1.0)
+        assert "text" not in DIMENSION_WEIGHTS
+
+
+@pytest.mark.unit
+class TestBodyTextGatesEverything:
+    """Losing content and keeping a header are not commensurable defects."""
+
+    def test_cleanliness_cannot_buy_back_lost_body_text(self):
+        """Body text gates the score; it is not tradeable against tidiness.
+
+        As a weighted dimension the two were interchangeable (0.45 vs 0.15), so a
+        setting that destroyed body text could buy its way back by removing clutter.
+        That is the wrong trade at any exchange rate: a perfectly clean conversion that
+        lost 10% of the document must lose to a slightly dirty one that kept everything.
+        """
+        lossy_but_spotless = Candidate(
+            options={"trim": True},
+            metrics=DocumentMetrics(blocks=10, words=90, unique_words=90, boilerplate_words=0),
+        )
+        intact_but_dirty = Candidate(
+            options={},
+            metrics=DocumentMetrics(blocks=10, words=105, unique_words=100, boilerplate_words=5),
+        )
+
+        score_candidates([lossy_but_spotless, intact_but_dirty])
+
+        assert intact_but_dirty.fitness > lossy_but_spotless.fitness
+
+    def test_trimming_furniture_still_wins_when_no_text_is_lost(self):
+        """The gate must not make the optimizer inert: free wins are still taken."""
+        trimmed = Candidate(
+            options={"trim": True},
+            metrics=DocumentMetrics(blocks=10, words=100, unique_words=100, boilerplate_words=0),
+        )
+        untrimmed = Candidate(
+            options={},
+            metrics=DocumentMetrics(blocks=12, words=120, unique_words=100, boilerplate_words=20),
+        )
+
+        score_candidates([trimmed, untrimmed])
+
+        assert trimmed.fitness > untrimmed.fitness
+
+
+@pytest.mark.unit
+class TestTablesScoreRecallNotJustQuality:
+    """Well-formedness alone rewards missing real tables."""
+
+    def test_finding_more_real_tables_beats_finding_fewer_clean_ones(self):
+        """The under-detection trap, from a real arXiv paper.
+
+        Scoring well-formedness alone made ``table_detection_mode="ruling"`` score 0.98
+        against ``"pymupdf"``'s 0.68 while recovering *fewer* tables: missing a real
+        table cost nothing, so the objective preferred the detector that found less.
+        """
+        found_all = Candidate(
+            options={"mode": "pymupdf"},
+            metrics=extract_metrics(
+                _doc(_para("body"), _table([["a", "b"], ["c", "d"]]), _table([["e", "f"], ["g", "h"]]))
+            ),
+        )
+        missed_one = Candidate(
+            options={"mode": "ruling"},
+            metrics=extract_metrics(_doc(_para("body"), _table([["a", "b"], ["c", "d"]]))),
+        )
+
+        score_candidates([found_all, missed_one])
+
+        assert found_all.dimensions["tables"] > missed_one.dimensions["tables"]
+        assert found_all.fitness > missed_one.fitness
+
+    def test_a_hallucinated_table_still_loses(self):
+        """The original trap must not reopen: junk cells must not outscore real ones."""
+        junk = Candidate(
+            options={"mode": "aggressive"},
+            metrics=extract_metrics(_doc(_para("body"), _table([["x", "", "", ""], ["", "", ""], [""], ["", ""]]))),
+        )
+        real = Candidate(
+            options={"mode": "strict"},
+            metrics=extract_metrics(_doc(_para("body"), _table([["a", "b"], ["c", "d"]]))),
+        )
+
+        score_candidates([junk, real])
+
+        assert real.fitness > junk.fitness
+
+    def test_a_single_column_table_is_not_a_table(self):
+        """A one-column 'table' is a paragraph the detector captured.
+
+        Counting it would let an aggressive detector bank body text as table content.
+        """
+        metrics = extract_metrics(_doc(_table([["just"], ["some"], ["lines"]])))
+
+        assert metrics.tables == 1
+        assert metrics.good_cells == 0.0
 
 
 @pytest.mark.unit
@@ -330,6 +426,39 @@ class TestSearch:
 
         origins = {c.origin for c in report.candidates}
         assert "preset:quality" in origins
+
+    def test_settings_that_do_not_pay_for_themselves_are_dropped(self):
+        """Coordinate descent picks up passengers; they must not be reported as advice.
+
+        The winner accumulates whatever the walk went through, including knobs that
+        merely *tied*. On a real arXiv paper that surfaced as a recommendation to set
+        ``table_detection_mode="none"`` for a document whose only "table" was a
+        one-column artifact -- the knob could not affect fitness at all. A setting we
+        have no evidence for is not a finding, and printing it invites the user to
+        believe it matters.
+        """
+        knobs = {"real": [True, False], "irrelevant": [True, False]}
+
+        def evaluate(options):
+            # "irrelevant" changes nothing; only "real" pays.
+            words = 20 if options.get("real") else 10
+            return DocumentMetrics(blocks=1, words=words, unique_words=words)
+
+        report = search(knobs, evaluate)
+
+        assert report.best_options == {"real": True}
+        assert "irrelevant" not in report.best_options
+
+    def test_minimization_never_gives_up_a_real_gain(self):
+        knobs = {"a": [True, False], "b": [True, False]}
+
+        def evaluate(options):
+            words = 10 + (5 if options.get("a") else 0) + (5 if options.get("b") else 0)
+            return DocumentMetrics(blocks=1, words=words, unique_words=words)
+
+        report = search(knobs, evaluate)
+
+        assert report.best_options == {"a": True, "b": True}
 
     def test_a_preset_touching_no_searched_knob_is_skipped(self):
         """It would just be the defaults under another name."""

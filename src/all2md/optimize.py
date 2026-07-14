@@ -54,21 +54,49 @@ Getting that exclusion right took two corrections, both forced by measurement:
    PyMuPDF versions, so a per-candidate rule can look perfectly correct locally and
    invert the ranking somewhere else.
 
-**It rewards an over-eager table detector**, because any junk region promoted to a
-table adds cells. Tables are therefore scored on **well-formedness** — cell fill
-density and column regularity — not on count. A hallucinated table is sparse and
-ragged, and scores near zero.
-
 With furniture excluded, a trimmed and an untrimmed conversion *tie* on text, which
 frees the ``cleanliness`` dimension to break the tie in favour of the one that
 actually removed it. On the same fixture that took the objective from r = -0.88 to
 r = +1.00.
+
+**It rewards an over-eager table detector**, because any junk region promoted to a
+table adds cells. But scoring well-formedness *alone* — the obvious correction —
+simply inverts the bias into rewarding an **under**-eager one: finding five clean
+tables and missing the sixth then beats finding all six with one messy. That is not
+theoretical; on a real arXiv paper ``table_detection_mode="ruling"`` scored 0.98 on
+well-formedness against ``"pymupdf"``'s 0.68 while recovering *fewer* tables. Tables
+are therefore scored on **quality-weighted recall** (:func:`_table_shape`): filled
+cells, discounted by shape regularity. A hallucinated table is sparse and ragged and
+contributes almost nothing; a missed real one costs its cells.
+
+**And furniture must repeat like furniture.** A sequence counted as boilerplate if it
+appeared in merely *two* blocks — correct only for the two-page fixture it was written
+against. On a 21-page paper it fired on ordinary recurring academic phrasing and
+flagged 746 words of real body text as boilerplate (against 131 with the corrected
+rule). False furniture is not harmless: it makes body text look like clutter, so a
+setting that *deletes* that text scores as if it had tidied up. The bar now scales
+with page count — :func:`furniture_threshold`.
+
+Body text is not a dimension at all
+-----------------------------------
+It **gates** the others. Losing a paragraph is data loss; leaving a running header in
+is an annoyance, and no exchange rate between them is defensible. As a weighted
+dimension the two were interchangeable at 0.45 versus 0.15, which means a setting
+that destroyed 1% of the body could buy its way back with a 3% tidiness gain. That is
+the wrong trade at any exchange rate, so retention instead *multiplies* the score,
+raised to :data:`TEXT_RETENTION_EXPONENT`: shedding 1% of the body costs ~3% of
+fitness and no amount of polish buys it back. This is a deliberately conservative
+posture — the optimizer's advice is only worth taking if it cannot destroy content.
 
 Fitness is *relative to the candidate pool*, not absolute: the best text recovery
 observed across the candidates stands in for the reference we do not have. This is
 deliberate. The job is to *rank* candidates, and inventing an absolute 0-100 quality
 number would both duplicate :mod:`all2md.confidence` and imply a precision these
 signals do not support.
+
+Every correction above was forced by measurement, and several of them by documents
+from the wild, which broke an objective that looked perfectly healthy on a synthetic
+fixture. Changing the scoring without re-running that evaluation is not advisable.
 
 """
 
@@ -92,6 +120,10 @@ from all2md.roundtrip import _INLINE_TYPES
 __all__ = [
     "BOILERPLATE_NGRAM",
     "DIMENSION_WEIGHTS",
+    "MINIMIZE_TOLERANCE",
+    "MIN_STRUCTURE_ELEMENTS",
+    "MIN_TABLE_CELLS",
+    "TEXT_RETENTION_EXPONENT",
     "KNOBS",
     "Candidate",
     "DocumentMetrics",
@@ -99,6 +131,7 @@ __all__ = [
     "OptimizationReport",
     "extract_metrics",
     "find_furniture",
+    "furniture_threshold",
     "score_candidates",
     "search",
     "tunable_knobs",
@@ -109,12 +142,45 @@ logger = logging.getLogger(__name__)
 #: How the fitness dimensions are combined. Dimensions the candidate pool does not
 #: exercise (no candidate found a table) are dropped and the rest renormalized, so a
 #: table-free document is neither rewarded nor punished for the tables it lacks.
+#:
+#: Body text is deliberately **not** here. It is not a dimension to be traded against
+#: the others; it is a multiplicative gate -- see :data:`TEXT_RETENTION_EXPONENT`.
 DIMENSION_WEIGHTS: dict[str, float] = {
-    "text": 0.45,
-    "tables": 0.25,
-    "structure": 0.15,
-    "cleanliness": 0.15,
+    "tables": 0.45,
+    "structure": 0.25,
+    "cleanliness": 0.30,
 }
+
+#: How steeply losing body text is punished. Retention (this candidate's body words
+#: over the best candidate's) multiplies the whole score raised to this power, so
+#: shedding 1% of the body costs roughly 3% of fitness.
+#:
+#: This exists because losing a paragraph and keeping a running header are not
+#: commensurable defects. As a mere weighted dimension, body text was interchangeable
+#: with tidiness, so a setting that destroyed content could buy its way back by
+#: removing clutter. A conservative posture is the point: advice that can silently
+#: delete text is not advice worth taking.
+TEXT_RETENTION_EXPONENT = 3.0
+
+#: How much fitness a recommended setting must be worth to survive the minimization
+#: pass. Anything that can be removed without dropping below this is a passenger the
+#: search happened to pick up, not a finding, and reporting it as advice is worse than
+#: saying nothing: the user cannot tell the difference.
+MINIMIZE_TOLERANCE = 1e-9
+
+#: How much of a dimension the best candidate must actually find before that dimension
+#: is allowed to influence the ranking.
+#:
+#: Every dimension is normalized against the best candidate in the pool, which turns a
+#: *trivial* absolute difference into a *total* relative one. On a real arXiv paper
+#: with no real tables at all, one setting happened to find a single two-column table
+#: worth four cells while the default found none: the tables dimension read 1.0 against
+#: 0.0 -- a maximal swing, worth its full weight -- and the optimizer reported a **45
+#: point** gain for a change that measurably did nothing. A dimension the document
+#: barely exercises carries no information about it, and must not be allowed to decide
+#: the ranking. Below these floors it is dropped, exactly as it already is at zero.
+MIN_TABLE_CELLS = 8.0
+MIN_STRUCTURE_ELEMENTS = 3
 
 #: The option values worth searching, per format. Deliberately curated rather than
 #: derived from the dataclass fields: most options are irrelevant to fidelity
@@ -177,6 +243,11 @@ class DocumentMetrics:
     links: int = 0
     tables: int = 0
     table_cells: int = 0
+    #: Filled cells discounted by shape regularity, summed over tables with 2+ columns.
+    #: Quality-weighted *recall*: this, not ``table_quality``, is what the objective
+    #: scores. Well-formedness alone rewards missing real tables; count alone rewards
+    #: inventing them.
+    good_cells: float = 0.0
     #: Fraction of table cells that are non-empty. A hallucinated table is sparse.
     table_fill: float = 0.0
     #: Fraction of table rows whose column count matches the table's modal count.
@@ -190,6 +261,9 @@ class DocumentMetrics:
     block_texts: list[str] = field(default_factory=list, repr=False, compare=False)
     #: The repeated content this parse revealed.
     furniture: Furniture = field(default_factory=lambda: Furniture(set(), set()), repr=False, compare=False)
+    #: How many distinct blocks a sequence must span before it counts as furniture.
+    #: Scales with page count: furniture repeats page after page, ordinary prose does not.
+    min_furniture_blocks: int = 2
 
     @property
     def table_quality(self) -> float:
@@ -211,6 +285,7 @@ class DocumentMetrics:
             "links": self.links,
             "tables": self.tables,
             "table_cells": self.table_cells,
+            "good_cells": round(self.good_cells, 2),
             "table_fill": round(self.table_fill, 4),
             "table_regularity": round(self.table_regularity, 4),
             "table_quality": round(self.table_quality, 4),
@@ -369,11 +444,28 @@ class Furniture(NamedTuple):
         return Furniture(self.sequences | other.sequences, self.blocks | other.blocks)
 
 
-def find_furniture(texts: list[str]) -> Furniture:
+def furniture_threshold(page_count: int | None) -> int:
+    """How many distinct blocks a sequence must appear in before it is furniture.
+
+    Furniture is content that repeats on *page after page*, so the bar has to scale
+    with the document. A flat "appears twice" rule is only correct for a two-page
+    document -- which is exactly the fixture it was written against. On a 21-page
+    arXiv paper it fired on ordinary recurring academic phrasing and flagged 746 words
+    of real body text as boilerplate, against 131 once the bar scaled with the page
+    count. False furniture is not harmless: it makes body text look like clutter, so a
+    setting that *deletes* that text scores as if it had tidied up.
+    """
+    if not page_count or page_count < 2:
+        return 2
+    return max(2, round(page_count / 2))
+
+
+def find_furniture(texts: list[str], min_blocks: int = 2) -> Furniture:
     """Identify the repeated furniture in one parse of a document.
 
-    Only sequences appearing in **two or more distinct blocks** count, so a single
-    block that happens to repeat a phrase internally is not mistaken for furniture.
+    A sequence must appear in at least ``min_blocks`` distinct blocks -- see
+    :func:`furniture_threshold`. Counting *distinct blocks* (not occurrences) means a
+    single block that repeats a phrase internally is never mistaken for furniture.
 
     Repetition is the only reference-free evidence that content is furniture, so a
     one-page document offers no signal and its header cannot be recognized. That is
@@ -382,14 +474,14 @@ def find_furniture(texts: list[str]) -> Furniture:
     tokens = [_boilerplate_key(text).split() for text in texts]
 
     counts: Counter[str] = Counter(_boilerplate_key(t) for t in texts if t.strip())
-    blocks = {key for key, count in counts.items() if count > 1}
+    blocks = {key for key, count in counts.items() if count >= min_blocks}
 
     where: dict[tuple[str, ...], set[int]] = {}
     for index, block in enumerate(tokens):
         for start in range(len(block) - BOILERPLATE_NGRAM + 1):
             where.setdefault(tuple(block[start : start + BOILERPLATE_NGRAM]), set()).add(index)
 
-    sequences = {gram for gram, seen_in in where.items() if len(seen_in) > 1}
+    sequences = {gram for gram, seen_in in where.items() if len(seen_in) >= min_blocks}
     return Furniture(sequences, blocks)
 
 
@@ -421,16 +513,34 @@ def _boilerplate_words(texts: list[str], furniture: Furniture) -> int:
     return total
 
 
-def _table_shape(table: Table) -> tuple[int, int, int]:
-    """Return ``(cells, filled_cells, regular_rows)`` for one table."""
+def _table_shape(table: Table) -> tuple[int, int, int, float]:
+    """Return ``(cells, filled_cells, regular_rows, good_cells)`` for one table.
+
+    ``good_cells`` is the table's contribution to the objective: its filled cells,
+    discounted by how regular its shape is. It is *quality-weighted recall*, and both
+    halves are load-bearing:
+
+    * Scoring quality **alone** rewards under-detection — finding five clean tables
+      and missing the sixth beats finding all six with one messy. Measured on a real
+      arXiv paper, ``table_detection_mode="ruling"`` scored 0.98 on well-formedness
+      against ``"pymupdf"``'s 0.68 while recovering *fewer* tables.
+    * Scoring count **alone** rewards hallucination — any junk region promoted to a
+      table adds cells.
+
+    A single-column "table" is not tabular: it is a paragraph the detector captured,
+    and counting it would let an aggressive detector bank body text as table content.
+    """
     counts = [len(row.cells) for row in table.rows]
     if not counts:
-        return 0, 0, 0
+        return 0, 0, 0, 0.0
     modal = Counter(counts).most_common(1)[0][0]
     cells = sum(counts)
     filled = sum(1 for row in table.rows for cell in row.cells if _node_text(cell).strip())
     regular = sum(1 for count in counts if count == modal)
-    return cells, filled, regular
+
+    regularity = regular / len(counts)
+    good = 0.0 if modal < 2 else filled * regularity
+    return cells, filled, regular, good
 
 
 def extract_metrics(document: Document) -> DocumentMetrics:
@@ -455,17 +565,25 @@ def extract_metrics(document: Document) -> DocumentMetrics:
     # (r = -0.88): it reliably picked the *worst* conversion. Excluding furniture makes
     # a trimmed and an untrimmed conversion tie on text, so `cleanliness` -- which
     # counts the furniture still present -- decides, and the trimmed one wins.
+    confidence = (document.metadata or {}).get("confidence") or {}
+    signals = confidence.get("signals") or {} if isinstance(confidence, dict) else {}
+    page_count = signals.get("page_count")
+    metrics.min_furniture_blocks = furniture_threshold(page_count if isinstance(page_count, int) else None)
+
     texts = [_node_text(block).strip() for block in top_level]
     metrics.block_texts = texts
-    metrics.furniture = find_furniture(texts)
+    metrics.furniture = find_furniture(texts, metrics.min_furniture_blocks)
     metrics.words = sum(len(text.split()) for text in texts)
     metrics.boilerplate_words = _boilerplate_words(texts, metrics.furniture)
     metrics.unique_words = metrics.words - metrics.boilerplate_words
 
     repeats = Counter(_boilerplate_key(text) for text in texts if text)
-    metrics.duplicate_blocks = sum(1 for text in texts if text and repeats[_boilerplate_key(text)] > 1)
+    metrics.duplicate_blocks = sum(
+        1 for text in texts if text and repeats[_boilerplate_key(text)] >= metrics.min_furniture_blocks
+    )
 
     cells = filled = regular = rows = 0
+    good = 0.0
     for node in _iter_nodes(document):
         if isinstance(node, Heading):
             metrics.headings += 1
@@ -475,17 +593,18 @@ def extract_metrics(document: Document) -> DocumentMetrics:
             metrics.links += 1
         elif isinstance(node, Table):
             metrics.tables += 1
-            table_cells, table_filled, table_regular = _table_shape(node)
+            table_cells, table_filled, table_regular, table_good = _table_shape(node)
             cells += table_cells
             filled += table_filled
             regular += table_regular
             rows += len(node.rows)
+            good += table_good
 
     metrics.table_cells = cells
+    metrics.good_cells = good
     metrics.table_fill = filled / cells if cells else 0.0
     metrics.table_regularity = regular / rows if rows else 0.0
 
-    confidence = (document.metadata or {}).get("confidence")
     if isinstance(confidence, dict):
         metrics.breakage = max(0.0, 100.0 - float(confidence.get("score", 100)))
 
@@ -525,14 +644,17 @@ def score_candidates(candidates: list[Candidate]) -> None:
 
     best_words = max(c.metrics.unique_words for c in candidates)
     best_structure = max(c.metrics.headings + c.metrics.list_items + c.metrics.links for c in candidates)
-    any_tables = any(c.metrics.tables for c in candidates)
+    best_cells = max(c.metrics.good_cells for c in candidates)
 
+    # A dimension the document barely exercises says nothing about it. Because every
+    # dimension is normalized against the pool's best, a trivial absolute difference
+    # (four table cells against none, on a paper with no real tables) would otherwise
+    # read as a total one -- 1.0 against 0.0 -- and swing the ranking by its full
+    # weight. Drop it, exactly as we already do when it is entirely absent.
     active = dict(DIMENSION_WEIGHTS)
-    if not any_tables:
-        active.pop("tables")
-    if not best_words:
-        active.pop("text", None)
-    if not best_structure:
+    if best_cells < MIN_TABLE_CELLS:
+        active.pop("tables", None)
+    if best_structure < MIN_STRUCTURE_ELEMENTS:
         active.pop("structure", None)
     total_weight = sum(active.values()) or 1.0
 
@@ -540,12 +662,10 @@ def score_candidates(candidates: list[Candidate]) -> None:
         metrics = candidate.metrics
         dimensions: dict[str, float] = {}
 
-        if "text" in active:
-            dimensions["text"] = metrics.unique_words / best_words
-
         if "tables" in active:
-            # Well-formedness, not count: a junk table is sparse and ragged.
-            dimensions["tables"] = metrics.table_quality
+            # Quality-weighted *recall*: filled cells discounted by shape regularity.
+            # Quality alone rewards under-detection; count alone rewards hallucination.
+            dimensions["tables"] = metrics.good_cells / best_cells
 
         if "structure" in active:
             structure = metrics.headings + metrics.list_items + metrics.links
@@ -557,9 +677,20 @@ def score_candidates(candidates: list[Candidate]) -> None:
         boilerplate_ratio = metrics.boilerplate_words / metrics.words if metrics.words else 0.0
         dimensions["cleanliness"] = 1.0 - boilerplate_ratio
 
+        # Body text is not a dimension to be traded against the others -- it GATES
+        # them. Losing a paragraph is data loss; leaving a running header in is an
+        # annoyance, and the two must not be interchangeable at any exchange rate.
+        # As a weighted dimension they were, so a candidate that destroyed body text
+        # could buy its way back with a tidiness gain. Retention is therefore a
+        # multiplier raised to TEXT_RETENTION_EXPONENT: shedding 1% of the body costs
+        # ~3% of fitness and no amount of polish can buy it back.
+        retention = metrics.unique_words / best_words if best_words else 1.0
+        dimensions["retention"] = retention
+
         weighted = sum(dimensions[name] * active[name] for name in active if name in dimensions)
+        gated = (weighted / total_weight) * (retention**TEXT_RETENTION_EXPONENT)
         # Breakage is a real defect the converter itself reported: subtract it.
-        candidate.fitness = max(0.0, (weighted / total_weight) * 100.0 - metrics.breakage)
+        candidate.fitness = max(0.0, gated * 100.0 - metrics.breakage)
         candidate.dimensions = dimensions
 
 
@@ -638,8 +769,33 @@ def search(
             break  # a full pass changed nothing; another one cannot either
 
     rank()
+    best = max(seen.values(), key=lambda c: c.fitness)
+
+    # Drop passengers. Coordinate descent accumulates whatever it walked through, so
+    # the winner can carry settings that merely *tied* rather than won -- on a real
+    # arXiv paper it reported ``table_detection_mode="none"`` for a document whose only
+    # "table" was a one-column artifact, so the knob could not affect fitness at all.
+    # A setting we have no evidence for is not a finding, and printing it as advice
+    # invites the user to believe it matters. Try removing each one; if fitness does
+    # not fall, it was never earning its place.
+    #
+    # This also makes the recommendation strictly more conservative -- everything
+    # dropped reverts to the shipped default.
+    shrinking = True
+    while shrinking:
+        shrinking = False
+        for knob in list(best.options):
+            trial = {name: value for name, value in best.options.items() if name != knob}
+            candidate = consider(trial, f"minimize:{knob}")
+            rank()
+            if candidate.fitness >= best.fitness - MINIMIZE_TOLERANCE:
+                best = candidate
+                shrinking = True
+                break
+
+    rank()
     ranked = sorted(seen.values(), key=lambda c: -c.fitness)
-    best = ranked[0]
+    best = seen[signature(best.options)]
 
     return OptimizationReport(
         best_options=dict(best.options),

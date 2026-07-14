@@ -869,9 +869,15 @@ deliberately *neither* of the other two scores:
   searched.
 * The **round-trip** score measures the renderer, not the parser (see above).
 
-So the optimizer scores the parsed AST directly: how much body text, how many
-well-formed tables, how much structure each setting recovers — and how much repeated
-furniture it left behind.
+So the optimizer scores the parsed AST directly: how many well-formed tables, how much
+structure each setting recovers, and how much repeated furniture it left behind.
+
+**Body text is not one of those dimensions — it gates them.** Losing a paragraph is
+data loss; leaving a running header in is an annoyance, and the two are not
+interchangeable at any exchange rate. A candidate's body-text retention *multiplies*
+its score (cubed), so shedding 1% of the document costs roughly 3% of fitness and no
+amount of tidiness buys it back. The optimizer is deliberately conservative: advice
+that can silently delete text is not advice worth taking.
 
 .. code-block:: console
 
@@ -892,9 +898,17 @@ The reported fitness ranks candidates **against each other**; it is not an absol
 quality score. For that, use ``all2md report`` (trust) or ``all2md roundtrip``
 (fidelity).
 
-This is not cheap — it is tens of conversions. ``--sample-pages`` tunes against a
-slice of a long document, and ``--cache`` makes repeat runs nearly free (a warm
-cache cut a 31-candidate run from 18.5s to 0.3s).
+This is not cheap, and it is worth being concrete about why: the search runs **tens of
+full conversions**, and a PDF page costs roughly a second to parse. A 12-page paper is
+about 10 seconds per candidate, so a full run is **~5 minutes**; a 100-page report is
+far worse. Two levers make that manageable:
+
+* ``--sample-pages N`` tunes against a slice rather than the whole document.
+* ``--cache`` makes repeat runs nearly free — a warm cache cut a 31-candidate run from
+  18.5s to 0.3s.
+
+Without ``--sample-pages`` the command says so on stderr before it starts, rather than
+leaving you watching a blank terminal.
 
 Key Options
 ~~~~~~~~~~~
