@@ -68,6 +68,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`auto_trim_headers_footers` now removes running headers and footers.** It largely
+  did not. Three defects compounded, and each was hidden by the optional `pdf_layout`
+  extra, which labels headers and footers directly — so on a development machine with
+  the extra installed the feature looked fine, while a stock install got almost nothing.
+  (1) Candidates were keyed on their **exact text**, so `Page 1 of 12` and `Page 2 of 12`
+  looked like two unrelated blocks, neither ever repeated, and a footer carrying a page
+  number — very nearly every running footer there is — could never be detected at all.
+  Digit runs are now collapsed when keying, so a running footer is recognized as one.
+  (2) Detection refused to run on documents with fewer than **three pages**, making the
+  option a silent no-op on every two-page document; two pages are enough to show
+  repetition. (3) The zone filter dropped any block that *began* inside the header zone,
+  rather than one that lies **entirely** within it — so a body paragraph starting a few
+  points below the running head was deleted in full, taking the rest of the page with it.
+  On a real FCC filing whose body opened 4pt under the header, the opening paragraph of
+  every page was destroyed. Furniture is always fully contained in the zone (the zone is
+  derived from furniture's own far edge); body text merely pokes into it.
+
+  Because collapsing digits makes `Section 1` and `Section 2` key alike, a candidate must
+  now also **hold still**: real furniture is anchored to the page, whereas a heading that
+  merely recurs is anchored to the text flow and lands somewhere different on each page.
+  Verified against arXiv's HTML rendering of 29 papers as an external ground truth —
+  recall did not fall on a single one — and the feature now has tests, which it did not
+  before.
 - **PDF table detection no longer invents tables out of prose — or deletes the prose
   when it declines to.** `find_tables()` fires on plenty of things that are not tables,
   and a grid with only one dimension is never one: a single column is prose wrapped in

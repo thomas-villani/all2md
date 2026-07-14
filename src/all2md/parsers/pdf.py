@@ -114,6 +114,38 @@ from all2md.utils.metadata import (
 
 logger = logging.getLogger(__name__)
 
+#: Fractions of the page height treated as the header and footer zones when
+#: auto-detecting running furniture.
+HEADER_ZONE_FRACTION = 0.2
+FOOTER_ZONE_FRACTION = 0.8
+
+#: Fewest pages that can show repetition. Two pages are enough: a block in the same
+#: place on both has repeated. (Three used to be required, which silently disabled
+#: ``auto_trim_headers_footers`` on every two-page document.)
+MIN_PAGES_FOR_RUNNING_DETECTION = 2
+
+#: How far, in points, a running header/footer may drift between pages and still count
+#: as the same one. Real furniture is anchored to the page; body text that happens to
+#: recur is anchored to the text flow and moves. The zone boundary is taken from the
+#: innermost matching block, so a false positive trims everything outside it on every
+#: page -- this tolerance is what keeps that aimed at furniture.
+RUNNING_POSITION_TOLERANCE = 5.0
+
+#: Runs of digits in a running header/footer, which differ from page to page precisely
+#: because it is running furniture.
+_RUNNING_DIGITS = re.compile(r"\d+")
+
+
+def _running_text_key(text: str) -> str:
+    """Key a header/footer candidate by what stays the same from page to page.
+
+    ``Page 1 of 12`` and ``Page 2 of 12`` are the same running footer, but keying on
+    raw text makes each of them unique, so neither ever reaches ``min_occurrences``
+    and the footer is never detected. Collapsing digit runs is what lets the most
+    common footer in existence -- one with a page number in it -- be recognized at all.
+    """
+    return _RUNNING_DIGITS.sub("#", text).strip()
+
 
 def _collapse_text_whitespace_in_place(node: Node) -> None:
     """Collapse 2+ horizontal-whitespace runs in every Text descendant.
@@ -507,10 +539,16 @@ class PdfToAstConverter(BaseParser):
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
     def _get_sample_pages(self, pages_to_use: range | list[int]) -> list[int] | None:
-        """Get evenly distributed sample pages for header/footer detection."""
+        """Get evenly distributed sample pages for header/footer detection.
+
+        Two pages are enough. Repetition is the entire signal, and a block that appears
+        at the same position on both pages of a two-page document has already repeated;
+        ``min_occurrences`` still requires it on every sampled page. The previous floor
+        of three made ``auto_trim_headers_footers`` a silent no-op on two-page documents.
+        """
         total_pages = len(list(pages_to_use))
-        if total_pages < 3:
-            return None  # Need at least 3 pages to detect patterns
+        if total_pages < MIN_PAGES_FOR_RUNNING_DETECTION:
+            return None  # A single page cannot show repetition.
 
         sample_size = min(10, total_pages)
         if isinstance(pages_to_use, range):
@@ -558,19 +596,25 @@ class PdfToAstConverter(BaseParser):
     def _classify_header_footer_candidates(
         self, page_blocks: dict[int, list[tuple[str, float, float]]], page_height: float
     ) -> tuple[dict[str, list[float]], dict[str, list[float]]]:
-        """Classify blocks into header/footer candidates based on position."""
+        """Classify blocks into header/footer candidates based on position.
+
+        Candidates are keyed on their text with digit runs collapsed (see
+        :func:`_running_text_key`), so ``Page 1 of 12`` and ``Page 2 of 12`` are
+        recognized as the same running footer rather than as two unrelated blocks.
+        """
         header_candidates: dict[str, list[float]] = {}
         footer_candidates: dict[str, list[float]] = {}
 
-        header_zone_threshold = page_height * 0.2
-        footer_zone_threshold = page_height * 0.8
+        header_zone_threshold = page_height * HEADER_ZONE_FRACTION
+        footer_zone_threshold = page_height * FOOTER_ZONE_FRACTION
 
         for blocks in page_blocks.values():
             for text, y_top, y_bottom in blocks:
+                key = _running_text_key(text)
                 if y_bottom < header_zone_threshold:
-                    header_candidates.setdefault(text, []).append(y_bottom)
+                    header_candidates.setdefault(key, []).append(y_bottom)
                 if y_top > footer_zone_threshold:
-                    footer_candidates.setdefault(text, []).append(y_top)
+                    footer_candidates.setdefault(key, []).append(y_top)
 
         return header_candidates, footer_candidates
 
@@ -581,16 +625,28 @@ class PdfToAstConverter(BaseParser):
         page_height: float,
         min_occurrences: int,
     ) -> tuple[float, float]:
-        """Find boundaries of repeating header/footer zones."""
+        """Find boundaries of repeating header/footer zones.
+
+        A candidate must repeat *and hold still*. The zone boundary is taken from the
+        innermost matching block, so a single false positive does not just drop its own
+        line -- it drops everything outside it, on every page. Requiring the block to
+        occupy the same vertical position on each page (within
+        :data:`RUNNING_POSITION_TOLERANCE`) is what keeps that blast radius aimed at
+        real furniture: a running head is anchored to the page, whereas a heading that
+        merely recurs sits wherever the text flow leaves it.
+        """
         max_header_y = 0.0
         max_footer_y = page_height
 
+        def anchored(y_values: list[float]) -> bool:
+            return len(y_values) >= min_occurrences and max(y_values) - min(y_values) <= RUNNING_POSITION_TOLERANCE
+
         for y_values in header_candidates.values():
-            if len(y_values) >= min_occurrences:
+            if anchored(y_values):
                 max_header_y = max(max_header_y, max(y_values))
 
         for y_values in footer_candidates.values():
-            if len(y_values) >= min_occurrences:
+            if anchored(y_values):
                 max_footer_y = min(max_footer_y, min(y_values))
 
         return max_header_y, max_footer_y
@@ -2974,12 +3030,16 @@ class PdfToAstConverter(BaseParser):
                 filtered_blocks.append(block)
                 continue
 
-            # Check if block is in header zone (top of page)
-            if header_zone > 0 and bbox[1] < header_zone:
+            # A block must lie ENTIRELY inside the zone to be furniture. Testing only the
+            # near edge -- does the block *start* above header_height -- deletes any body
+            # paragraph that happens to begin near the top margin, and takes the rest of
+            # the page with it: on an FCC filing whose body opened 4pt below the running
+            # head, the whole opening paragraph of every page was dropped. Real furniture
+            # is always fully contained, because the zone is derived from its own far edge.
+            if header_zone > 0 and bbox[3] <= header_zone:
                 continue  # Skip this block
 
-            # Check if block is in footer zone (bottom of page)
-            if footer_zone > 0 and bbox[3] > (page_height - footer_zone):
+            if footer_zone > 0 and bbox[1] >= (page_height - footer_zone):
                 continue  # Skip this block
 
             filtered_blocks.append(block)
