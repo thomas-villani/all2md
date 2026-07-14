@@ -588,15 +588,49 @@ class TestLists:
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
         lines = result.split("\n")
-        # All markers are aligned properly
+        # Markers are aligned by width, and because the list is loose the two
+        # paragraphs inside each item are separated by a blank line (rendering
+        # them adjacent would lazily merge them into one paragraph on reparse).
         assert lines[0] == "8. Item 8"
-        assert lines[1] == "   Continuation 8"  # 3 spaces (marker "8. ")
-        assert lines[2] == ""  # blank line between items
-        assert lines[3] == "9. Item 9"
-        assert lines[4] == "   Continuation 9"  # 3 spaces (marker "9. ")
-        assert lines[5] == ""  # blank line
-        assert lines[6] == "10. Item 10"
-        assert lines[7] == "    Continuation 10"  # 4 spaces (marker "10. ")
+        assert lines[1] == ""
+        assert lines[2] == "   Continuation 8"  # 3 spaces (marker "8. ")
+        assert lines[3] == ""  # blank line between items
+        assert lines[4] == "9. Item 9"
+        assert lines[5] == ""
+        assert lines[6] == "   Continuation 9"  # 3 spaces (marker "9. ")
+        assert lines[7] == ""  # blank line
+        assert lines[8] == "10. Item 10"
+        assert lines[9] == ""
+        assert lines[10] == "    Continuation 10"  # 4 spaces (marker "10. ")
+
+    def test_loose_multiparagraph_list_roundtrips_without_collapsing(self):
+        """A loose list item with two paragraphs must survive a reparse.
+
+        Regression: the parser read the loose/tight flag only from ``attrs``,
+        where mistune 3.x never puts it, so every list was treated as tight and
+        the renderer emitted the item's second paragraph on the immediately
+        following line. On reparse that line is a lazy continuation, silently
+        merging the two paragraphs into one.
+        """
+        from all2md import convert, to_ast
+
+        source = "1. first\n\n   second para\n\n2. next\n"
+        opts = MarkdownRendererOptions(flavor="pandoc")
+
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "loose multi-paragraph list is not idempotent"
+
+        # The two paragraphs stay separated by a blank line, never collapsed.
+        assert "first\n\n   second para" in once
+        assert "first\nsecond para" not in once
+
+        # The AST still carries a loose list whose first item has two paragraphs.
+        ast = to_ast(source, source_format="markdown")
+        lists = [c for c in ast.children if isinstance(c, List)]
+        assert lists and lists[0].tight is False
+        first_item_paragraphs = [c for c in lists[0].items[0].children if isinstance(c, Paragraph)]
+        assert len(first_item_paragraphs) == 2
 
 
 @pytest.mark.unit

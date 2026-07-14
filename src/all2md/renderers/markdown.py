@@ -166,6 +166,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output = []
         self._indent_level = 0
         self._in_list = False
+        self._list_tight = True
         self._list_marker_stack = []
         self._marker_width_stack = []
         self._link_references = {}
@@ -775,12 +776,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         was_in_list = self._in_list
+        was_tight = self._list_tight
 
         # Increment indent level for nested lists
         if self._in_list:
             self._indent_level += 1
 
         self._in_list = True
+        self._list_tight = node.tight
 
         for i, item in enumerate(node.items):
             if node.ordered:
@@ -801,6 +804,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     self._output.append("\n\n")
 
         self._in_list = was_in_list
+        self._list_tight = was_tight
 
         # Decrement indent level when exiting nested list
         if was_in_list:
@@ -858,8 +862,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
                 # Subsequent children are indented
                 # Both nested lists and other blocks (paragraphs, code blocks, etc.)
-                # will use _current_indent() which now includes the marker width
-                self._output.append("\n")
+                # will use _current_indent() which now includes the marker width.
+                # In a loose list, block-level siblings (paragraphs, code) are
+                # separated by a blank line; a nested list attaches directly.
+                if not self._list_tight and not isinstance(child, List):
+                    self._output.append("\n\n")
+                else:
+                    self._output.append("\n")
                 child.accept(self)
 
         # Pop marker width from stack if we pushed it
