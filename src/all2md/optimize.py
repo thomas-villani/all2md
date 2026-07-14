@@ -120,6 +120,7 @@ from all2md.roundtrip import _INLINE_TYPES
 __all__ = [
     "BOILERPLATE_NGRAM",
     "DIMENSION_WEIGHTS",
+    "FORBIDDEN_KNOBS",
     "MINIMIZE_TOLERANCE",
     "MIN_STRUCTURE_ELEMENTS",
     "MIN_TABLE_CELLS",
@@ -129,6 +130,7 @@ __all__ = [
     "DocumentMetrics",
     "Furniture",
     "OptimizationReport",
+    "content_tokens",
     "extract_metrics",
     "find_furniture",
     "furniture_threshold",
@@ -182,11 +184,45 @@ MINIMIZE_TOLERANCE = 1e-9
 MIN_TABLE_CELLS = 8.0
 MIN_STRUCTURE_ELEMENTS = 3
 
+#: Settings that must never be searched, and why. Enforced by a test, because every entry
+#: here was added *after* the optimizer found and exploited it.
+#:
+#: A knob only belongs in :data:`KNOBS` if it is a genuine **fidelity trade-off** -- a
+#: setting where the better value depends on the document and cannot be known in advance.
+#: Two other kinds of setting look superficially tunable and are not:
+#:
+#: *Correctness settings*, where one value is simply right. ``merge_hyphenated_words``
+#: repairs a word broken across a line break; leaving it off is a defect, not a trade-off.
+#: The optimizer recommended disabling it on **17 of 17** real papers -- and ground truth
+#: confirmed it made every one of them worse -- because the repair joins two tokens into
+#: one and so *looks* like losing a word. (:func:`content_tokens` now removes that
+#: incentive, but the setting still has no business being searched: there is no document
+#: for which the broken word is the better answer.)
+#:
+#: *Content-inclusion preferences*, which change what the user asked for rather than how
+#: well it was extracted. The objective rewards recovering more content, so it will always
+#: say yes to ``include_comments`` -- not because leaking reviewer comments into the output
+#: improves fidelity, but because comments are words and words score. That is a tautology
+#: dressed up as a finding, and for comments specifically it is advice that leaks content
+#: the author never meant to publish.
+FORBIDDEN_KNOBS: dict[str, str] = {
+    "merge_hyphenated_words": (
+        "correctness, not a trade-off: the repair joins two tokens into one, so disabling it games a word count"
+    ),
+    "consolidate_inline_formatting": (
+        "correctness, not a trade-off: disabling it fragments inline runs ('hello' -> 'hel' + 'lo')"
+    ),
+    "include_comments": (
+        "a content-inclusion preference: more words always score, so this would always be recommended"
+    ),
+}
+
 #: The option values worth searching, per format. Deliberately curated rather than
 #: derived from the dataclass fields: most options are irrelevant to fidelity
 #: (``password``), or are a security posture that an optimizer has no business
 #: flipping (``strip_dangerous_elements``), or would explode the search space for no
-#: gain. Only knobs that plausibly change *what structure is recovered* belong here.
+#: gain. Only knobs that are a genuine fidelity **trade-off** belong here -- see
+#: :data:`FORBIDDEN_KNOBS` for the two categories that are not.
 KNOBS: dict[str, dict[str, list[Any]]] = {
     "pdf": {
         "table_detection_mode": ["pymupdf", "ruling", "both", "none"],
@@ -198,8 +234,6 @@ KNOBS: dict[str, dict[str, list[Any]]] = {
         "trim_headers_footers": [True, False],
         "auto_trim_headers_footers": [True, False],
         "dedup_running_headings": [True, False],
-        "merge_hyphenated_words": [True, False],
-        "consolidate_inline_formatting": [True, False],
     },
     "html": {
         "extract_readable": [True, False],
@@ -213,7 +247,6 @@ KNOBS: dict[str, dict[str, list[Any]]] = {
         "preserve_tables": [True, False],
         "include_footnotes": [True, False],
         "include_endnotes": [True, False],
-        "include_comments": [True, False],
         "include_image_captions": [True, False],
     },
 }
@@ -412,14 +445,65 @@ _DIGITS = re.compile(r"\d+")
 BOILERPLATE_NGRAM = 5
 
 
+def content_tokens(text: str) -> list[str]:
+    """Split text into words in a way that cannot be gamed by *fragmenting* them.
+
+    The objective's text signal is a word count, so any setting that chops one word into
+    two makes the document look like it contains *more* text. That is not a hypothetical:
+    it has now bitten this objective three separate times.
+
+    * ``consolidate_inline_formatting=False`` split runs so that "hello" was counted as
+      "hel" + "lo".
+    * ``merge_hyphenated_words=False`` leaves a word broken across a line break, so
+      repairing "hyphen-" + "ation" into "hyphenation" *reduces* the count by one -- and
+      the optimizer learned to recommend switching the repair off. It did so on 17 of 17
+      real papers, and ground truth confirmed the advice made every one of them worse.
+
+    Patching each setting as it appears does not work, because the defect is in the
+    *metric*, not in the settings: a count of whitespace-separated tokens rewards
+    fragmentation, so there is always another door. The fix is to count words the same way
+    no matter how the parse happened to break them up -- rejoin a token that ends in a
+    hyphen with the one after it, and then drop hyphens entirely, so that
+
+        "hyphen-" + "ation"   ->   "hyphenation"
+        "hyphenation"         ->   "hyphenation"
+        "Anglo-" + "Saxon"    ->   "anglosaxon"
+        "Anglo-Saxon"         ->   "anglosaxon"
+
+    all collapse to one identical token. A candidate that fragments text and one that does
+    not now produce the *same* count, so the metric has no preference and cannot be gamed.
+
+    Note this deliberately conflates "well-known" with "wellknown". That is fine: it does so
+    for every candidate equally, and the count is only ever compared against other counts of
+    the same document.
+    """
+    merged: list[str] = []
+    carry = ""
+    for token in text.lower().split():
+        if carry:
+            token = carry + token
+            carry = ""
+        # A token that is *only* punctuation ("-", "--") is not a word fragment.
+        if len(token) > 1 and token.endswith("-"):
+            carry = token[:-1]
+            continue
+        merged.append(token)
+    if carry:
+        merged.append(carry)
+    return [stripped for token in merged if (stripped := token.replace("-", ""))]
+
+
 def _boilerplate_key(text: str) -> str:
     """Normalize text so page-varying furniture still compares equal.
 
     A running footer is not byte-identical across pages -- "Page 1 of 12" and
     "Page 2 of 12" differ -- so digits are masked before comparing. Without this the
     header dedupes and the footer does not, and keeping the footer still pays.
+
+    Uses :func:`content_tokens`, so furniture is recognized identically however the parse
+    happened to break its words up.
     """
-    return _DIGITS.sub("#", " ".join(text.lower().split()))
+    return _DIGITS.sub("#", " ".join(content_tokens(text)))
 
 
 class Furniture(NamedTuple):
@@ -573,7 +657,9 @@ def extract_metrics(document: Document) -> DocumentMetrics:
     texts = [_node_text(block).strip() for block in top_level]
     metrics.block_texts = texts
     metrics.furniture = find_furniture(texts, metrics.min_furniture_blocks)
-    metrics.words = sum(len(text.split()) for text in texts)
+    # content_tokens, not str.split: a whitespace token count rewards a parse that
+    # fragments words, and the optimizer will find that and exploit it.
+    metrics.words = sum(len(content_tokens(text)) for text in texts)
     metrics.boilerplate_words = _boilerplate_words(texts, metrics.furniture)
     metrics.unique_words = metrics.words - metrics.boilerplate_words
 

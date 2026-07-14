@@ -104,6 +104,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`all2md optimize` no longer recommends breaking words in half.** The objective's text
+  signal was a count of whitespace-separated tokens, which *rewards* a parse that fragments
+  words — chop one word into two and the document appears to contain more text. When
+  `merge_hyphenated_words` began working on native-text PDFs (it was previously a silent
+  no-op), the optimizer immediately found this: repairing `hyphen-` + `ation` into
+  `hyphenation` joins two tokens into one and so read as *losing a word*, and it recommended
+  disabling the repair on **17 of 17** real papers. Judged against the publisher's HTML
+  rendering, that advice made every one of them measurably worse (mean −0.03, worst −0.066).
+  Word counts now go through `content_tokens()`, which rejoins hyphen-broken tokens and drops
+  hyphens, so a fragmented parse and a clean one produce an *identical* count and the metric
+  cannot have a preference. This is the third time this exploit surfaced (previously via
+  `consolidate_inline_formatting`, where "hello" was counted as "hel" + "lo"); fixing the
+  metric rather than the setting closes the whole class.
+
+  Relatedly, `KNOBS` is now guarded by `FORBIDDEN_KNOBS`, because two categories of setting
+  look tunable and are not. **Correctness settings** (`merge_hyphenated_words`,
+  `consolidate_inline_formatting`) have one right value — there is no document for which the
+  broken word is the better answer, so there is nothing to search. **Content-inclusion
+  preferences** (`include_comments`) change *what the user asked for* rather than how well it
+  was extracted; the objective rewards recovering more content and comments are words, so it
+  would have recommended `include_comments=True` on essentially every DOCX — advice that
+  leaks reviewer comments the author never meant to publish.
 - **`auto_trim_headers_footers` now removes running headers and footers.** It largely
   did not. Three defects compounded, and each was hidden by the optional `pdf_layout`
   extra, which labels headers and footers directly — so on a development machine with
