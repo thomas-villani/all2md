@@ -285,10 +285,17 @@ class LocalPathRetriever(DocumentSourceRetriever):
 
         """
         value = request.raw_input
-        if isinstance(value, Path):
-            return value.exists() and value.is_file()
-        if isinstance(value, str) and "://" not in value and _looks_like_path(value):
-            return Path(value).exists()
+        # Stat calls on over-long or otherwise invalid strings raise OSError
+        # (e.g. ENAMETOOLONG when a path component exceeds NAME_MAX). An
+        # un-stattable path is not a handleable local file, so treat it as
+        # inline content rather than letting the OSError escape convert().
+        try:
+            if isinstance(value, Path):
+                return value.exists() and value.is_file()
+            if isinstance(value, str) and "://" not in value and _looks_like_path(value):
+                return Path(value).exists()
+        except OSError:
+            return False
         return False
 
     def load(self, request: DocumentSourceRequest) -> DocumentSource:
