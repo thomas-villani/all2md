@@ -632,6 +632,53 @@ class TestLists:
         first_item_paragraphs = [c for c in lists[0].items[0].children if isinstance(c, Paragraph)]
         assert len(first_item_paragraphs) == 2
 
+    def test_list_item_block_children_stay_indented_on_roundtrip(self):
+        """A code block or quote inside a list item must not break out.
+
+        The code-block and block-quote renderers ignored the current
+        indentation, so as a later child of a list item they landed at column
+        zero. On reparse they became siblings of the list rather than children
+        of the item, dropping the trailing paragraph out of the item too.
+        """
+        from all2md import convert, to_ast
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        for source in (
+            "- a\n\n  ```\n  x\n  ```\n\n  after\n",  # para, code, para
+            "- item\n\n  > quoted\n",  # para then block quote
+        ):
+            once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+            twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+            assert once == twice, f"list item with a block child is not idempotent: {source!r}"
+
+            # The block child stays inside the single list, not beside it.
+            ast = to_ast(once, source_format="markdown")
+            assert sum(isinstance(c, List) for c in ast.children) == 1
+            assert len(ast.children) == 1
+
+    def test_task_list_item_continuation_is_not_indented_as_code(self):
+        """A task item's second paragraph must reparse as a paragraph.
+
+        The checkbox ("[ ] ") was counted into the marker width, so a
+        continuation paragraph indented six spaces and reparsed as an indented
+        code block. Continuations indent to the base marker width instead.
+        """
+        from all2md import convert, to_ast
+        from all2md.ast import CodeBlock
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        source = "- [ ] task\n\n  more detail\n"
+
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "task-list continuation is not idempotent"
+
+        ast = to_ast(once, source_format="markdown")
+        item = [c for c in ast.children if isinstance(c, List)][0].items[0]
+        assert item.task_status
+        assert not any(isinstance(c, CodeBlock) for c in item.children)
+        assert sum(isinstance(c, Paragraph) for c in item.children) == 2
+
 
 @pytest.mark.unit
 class TestTables:
