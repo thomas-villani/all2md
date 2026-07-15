@@ -778,12 +778,22 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             else:
                 # Capitalize and format the admonition type
                 label = admonition_type.capitalize()
+            label_md = f"**{label}:**"
 
-            # Prepend label to first non-empty line
-            for i, line in enumerate(lines):
-                if line.strip():  # Find first non-empty line
-                    lines[i] = f"**{label}:** {line}"
-                    break
+            first_child = node.children[0] if node.children else None
+            if isinstance(first_child, Paragraph):
+                # First block is a paragraph: inline the label into its first
+                # line, e.g. "> **Note:** body text".
+                for i, line in enumerate(lines):
+                    if line.strip():  # Find first non-empty line
+                        lines[i] = f"{label_md} {line}"
+                        break
+            else:
+                # First block is a list, code block, table, etc. Inlining the
+                # label would fold that block into the label's paragraph and
+                # break the roundtrip (e.g. "> **Tip:** * item"). Emit the
+                # label as its own paragraph so the block stays intact.
+                lines = [label_md, "", *lines]
 
         # Quote all lines, honoring the current indentation so a block quote
         # nested inside a list item stays under the item's margin instead of

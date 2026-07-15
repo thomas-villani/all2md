@@ -26,7 +26,13 @@ from .oracles import CheckResult, html_equivalence_check, idempotency_check
 
 
 def evaluate_case(case: Case) -> list[CheckResult]:
-    """Run every oracle against one case, honoring policy skips."""
+    """Run every oracle against one case, honoring policy skips.
+
+    Idempotency always runs. The HTML-equivalence oracle is skipped for cases it
+    cannot fairly judge: raw HTML (lossy by all2md's escape policy) and
+    admonitions (the reference mistune renderer has no method for all2md's custom
+    admonition block token). Skips are neither a pass nor a failure.
+    """
     results = [idempotency_check(case.markdown)]
     if case.has_raw_html:
         results.append(
@@ -35,6 +41,15 @@ def evaluate_case(case: Case) -> list[CheckResult]:
                 passed=True,
                 skipped=True,
                 detail="raw HTML present; lossy by policy (html_passthrough_mode='escape')",
+            )
+        )
+    elif case.has_admonitions:
+        results.append(
+            CheckResult(
+                "html_equivalence",
+                passed=True,
+                skipped=True,
+                detail="admonitions present; reference renderer has no admonition token (idempotency still judges)",
             )
         )
     else:

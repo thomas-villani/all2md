@@ -120,6 +120,15 @@ def test_raw_html_detection() -> None:
     assert not corpus._looks_like_raw_html("```html\n<div>example</div>\n```")
 
 
+def test_admonition_detection() -> None:
+    assert corpus._looks_like_admonition("!!! note\n    body\n")
+    assert corpus._looks_like_admonition('??? warning "T"\n    body\n')
+    assert corpus._looks_like_admonition("???+ tip\n    body\n")
+    assert not corpus._looks_like_admonition("plain text with !!! bang in the middle")
+    # An admonition marker shown inside a fenced code block is an example.
+    assert not corpus._looks_like_admonition("```\n!!! note\n    body\n```")
+
+
 def test_synthetic_corpus_loads() -> None:
     cases = corpus.load_synthetic_corpus()
     assert cases, "synthetic corpus should not be empty"
@@ -128,6 +137,9 @@ def test_synthetic_corpus_loads() -> None:
     # The raw-html document must be flagged so the HTML oracle skips it.
     raw = next(c for c in cases if c.name == "raw-html")
     assert raw.has_raw_html
+    # The admonitions document must be flagged so the HTML oracle skips it.
+    adm = next(c for c in cases if c.name == "admonitions")
+    assert adm.has_admonitions
 
 
 def test_evaluate_case_skips_html_oracle_for_raw_html() -> None:
@@ -135,3 +147,11 @@ def test_evaluate_case_skips_html_oracle_for_raw_html() -> None:
     results = {r.oracle: r for r in evaluate_case(case)}
     assert results["html_equivalence"].skipped
     assert "idempotency" in results
+
+
+def test_evaluate_case_skips_html_oracle_for_admonitions() -> None:
+    case = corpus.Case(name="x", markdown="!!! note\n    body\n", has_admonitions=True)
+    results = {r.oracle: r for r in evaluate_case(case)}
+    assert results["html_equivalence"].skipped
+    # Idempotency still runs and should pass for a well-formed admonition.
+    assert results["idempotency"].passed

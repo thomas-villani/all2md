@@ -171,6 +171,22 @@ class TestAdmonitions:
         out = _render(_parse('!!! note "Heads up"\n    Body text.\n'), flavor="gfm")
         assert "> **Heads up:** Body text." in out
 
+    def test_gfm_degradation_puts_label_on_own_line_before_list(self) -> None:
+        # When the admonition body opens with a non-paragraph block (a list),
+        # inlining the label would fold the list into the label's paragraph
+        # ("> **Tip:** * item") and break the roundtrip. The label must land on
+        # its own line so the list stays a list. See #104.
+        out = _render(_parse("!!! tip\n    - one\n    - two\n"), flavor="gfm")
+        assert "> **Tip:** *" not in out
+        assert "> **Tip:**\n" in out
+        assert "> * one" in out
+
+    def test_gfm_degradation_with_list_is_idempotent(self) -> None:
+        src = "!!! tip\n    - one\n    - two\n"
+        first = _render(_parse(src), flavor="gfm")
+        second = _render(_parse(first), flavor="gfm")
+        assert first == second
+
     def test_round_trip_is_idempotent(self) -> None:
         src = '!!! note "Heads up"\n    Para one.\n\n    Para two.\n\nOutside.\n'
         doc = _parse(src)
