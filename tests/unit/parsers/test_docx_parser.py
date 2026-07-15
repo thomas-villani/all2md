@@ -946,6 +946,8 @@ class TestCodeAndBlockquoteRoundTrip:
         assert "`inline code`" in rendered
         assert "> a quoted line" in rendered
         assert "* a quoted line" not in rendered
+
+
 class TestTitleRoundTrip:
     """Tests for the Word 'Title' style inverse (issue #70)."""
 
