@@ -1478,17 +1478,21 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content = self._render_inline_content(node.content)
         if self._flavor.supports_strikethrough():
             self._output.append(f"~~{content}~~")
-        else:
-            mode = self.options.unsupported_inline_mode
-            if mode == "plain":
-                # Strip formatting, render content only
-                self._output.append(content)
-            elif mode == "force":
-                # Use markdown syntax anyway
-                self._output.append(f"~~{content}~~")
-            else:  # mode == "html"
-                # Use HTML tags
-                self._output.append(f"<del>{content}</del>")
+            return
+
+        # Smart fallback: an unset "html" default becomes "force" so a flavor
+        # without ~~ still emits ~~text~~ (which the parser reads back) instead of
+        # a raw <del> that the default html_passthrough policy escapes on the next
+        # pass. Mirrors visit_mark.
+        mode = self.options.unsupported_inline_mode
+        if mode == "html" and not self.options._unsupported_inline_mode_was_explicit:
+            mode = "force"
+        if mode == "plain":
+            self._output.append(content)
+        elif mode == "html":
+            self._output.append(f"<del>{content}</del>")
+        else:  # "force" (also the resolved default)
+            self._output.append(f"~~{content}~~")
 
     def visit_mark(self, node: Mark) -> None:
         """Render a Mark (highlight) node.
@@ -1532,12 +1536,22 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        mode = self.options.underline_mode
 
+        # A flavor that natively supports ^^text^^ (MarkdownPlus) emits it directly,
+        # like visit_superscript does for ^. Other flavors fall back per
+        # underline_mode (default "markdown", which roundtrips through the insert
+        # plugin; set "html" for wider display). Note "markdown" emits ^^ -- the
+        # pymdownx "insert" spelling the parser reads back as Underline -- not __,
+        # which every flavor parses as strong emphasis, silently losing the underline.
+        if self._flavor.supports_underline():
+            self._output.append(f"^^{content}^^")
+            return
+
+        mode = self.options.underline_mode
         if mode == "html":
             self._output.append(f"<u>{content}</u>")
         elif mode == "markdown":
-            self._output.append(f"__{content}__")
+            self._output.append(f"^^{content}^^")
         else:
             self._output.append(content)
 
