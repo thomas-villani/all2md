@@ -96,6 +96,18 @@ class TestInlineMarks:
         out = _render(_parse("a ==hi== b"), flavor="gfm", unsupported_inline_mode="html")
         assert "<mark>hi</mark>" in out
 
+    def test_superscript_subscript_native_on_markdown_plus(self) -> None:
+        # markdown_plus natively supports ^sup^ / ~sub~; the flavor drives it,
+        # like ==highlight==, so it emits Markdown regardless of the *_mode option.
+        assert "2^10^" in _render(_parse("2^10^"), flavor="markdown_plus", superscript_mode="html")
+        assert "H~2~O" in _render(_parse("H~2~O"), flavor="markdown_plus", subscript_mode="html")
+
+    def test_superscript_falls_back_to_mode_on_gfm(self) -> None:
+        # GFM has no ^sup^ syntax, so the superscript_mode fallback applies:
+        # default "markdown" (roundtrips), explicit "html" for display.
+        assert "2^10^" in _render(_parse("2^10^"), flavor="gfm")
+        assert "2<sup>10</sup>" in _render(_parse("2^10^"), flavor="gfm", superscript_mode="html")
+
 
 class TestAdmonitions:
     """Material for MkDocs admonitions and collapsible variants."""
