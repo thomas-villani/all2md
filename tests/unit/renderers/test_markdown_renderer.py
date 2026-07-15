@@ -927,6 +927,54 @@ class TestEscaping:
 class TestFootnotes:
     """Tests for footnote rendering."""
 
+    def test_footnote_roundtrips_under_default_flavor(self):
+        """Footnotes must roundtrip as Markdown under the default (GFM) flavor.
+
+        The default ``unsupported_inline_mode='html'`` made GFM emit a raw
+        ``<sup>`` reference and ``<div id="fn-...">`` definition, which the
+        default html_passthrough policy then escaped to ``&lt;sup&gt;`` on the
+        next pass -- output the renderer's own parser corrupts.
+        """
+        from all2md import convert
+
+        source = "Text with a note.[^1]\n\n[^1]: The footnote body.\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice, "footnote roundtrip is not idempotent"
+        assert "[^1]" in once
+        assert "[^1]: The footnote body." in once
+        assert "<sup>" not in once
+        assert "fn-1" not in once
+
+    def test_multiparagraph_footnote_definition_does_not_collapse(self):
+        """A multi-paragraph footnote definition keeps both paragraphs on reparse."""
+        from all2md import convert, to_ast
+        from all2md.ast.nodes import FootnoteDefinition, Paragraph
+
+        source = "See note.[^1]\n\n[^1]: First paragraph.\n\n    Second paragraph.\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice
+        doc = to_ast(once, source_format="markdown")
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        assert sum(1 for c in defs[0].content if isinstance(c, Paragraph)) == 2
+
+    def test_footnote_explicit_html_mode_still_emits_html(self):
+        """An explicit ``unsupported_inline_mode='html'`` is still honored."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="Body")])]),
+            ]
+        )
+        options = MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="html")
+        result = MarkdownRenderer(options).render_to_string(doc)
+        assert "<sup>1</sup>" in result
+        assert '<div id="fn-1">' in result
+
     def test_footnote_reference_pandoc_flavor(self):
         """Test footnote reference with Pandoc flavor (supports footnotes)."""
         doc = Document(
