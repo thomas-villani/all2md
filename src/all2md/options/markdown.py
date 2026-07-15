@@ -190,10 +190,12 @@ class MarkdownRendererOptions(BaseRendererOptions):
         Characters to cycle through for nested bullet lists.
     list_indent_width : int, default 4
         Number of spaces to use for each level of list indentation.
-    underline_mode : {"html", "markdown", "ignore"}, default "html"
-        How to handle underlined text:
-        - "html": Use <u>text</u> tags
-        - "markdown": Use __text__ (non-standard)
+    underline_mode : {"html", "markdown", "ignore"}, default "markdown"
+        Fallback for flavors that don't natively support underline. Flavors that
+        do (markdown_plus) always emit ``^^text^^``; for the rest:
+        - "markdown": Use ^^text^^ (the pymdownx "insert" spelling; roundtrips, but
+          needs an extension to render)
+        - "html": Use <u>text</u> tags (wider display support, but escaped on roundtrip)
         - "ignore": Strip underline formatting
     superscript_mode : {"html", "markdown", "ignore"}, default "markdown"
         Fallback for flavors that don't natively support superscript. Flavors
