@@ -104,6 +104,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DOCX: inline code and block quotes survive the Markdown round trip.** Two independent
+  renderer/parser asymmetries on the `md → docx → md` path, both filed as #71:
+
+  *Inline code was dropped.* The renderer emitted a `` `code` `` run with a monospace font
+  but no named character style, so the parser — which recovers inline styling from run
+  *styles*, not fonts — had nothing to key on, and `` `inline code` `` came back as plain
+  `inline code`. The renderer now tags inline-code runs with a `Verbatim Char` character
+  style (matching pandoc's name; created on demand and only when `use_styles` is on), and the
+  parser maps that style back to a `Code` node. Recognized style names are configurable via
+  the new `code_char_style_names` DOCX parser option.
+
+  *A block quote came back as a bullet list.* The renderer wrote the quoted paragraph as a
+  `Normal` paragraph with a left indent, and the parser read that indent as list nesting — so
+  `> a quoted line` silently became `* a quoted line`, which looks intentional and is arguably
+  worse than dropping it. The renderer now applies Word's built-in `Quote` paragraph style
+  (which also makes the generated document look right in Word) and, for a single level, no
+  longer sets a bare indent that the parser would misread; the parser maps `Quote` /
+  `Intense Quote` back to a `BlockQuote`, coalescing adjacent quote paragraphs into one quote.
+  Recognized style names are configurable via the new `quote_style_names` DOCX parser option.
+
+  Together these take `all2md roundtrip … --via docx` on a document with inline code and a
+  quote from `structure: 33 / inline: 0` to `100 / 100`. Both recoveries require styles
+  (`use_styles=True`, the default); with styles disabled the render still falls back to
+  font-and-indent as before.
 - **DOCX: a document title survives the Markdown round trip.** Rendering to DOCX applies
   `TitlePromotionTransform` — a leading `# H1` becomes Word's **Title** style and every
   following heading is promoted one level (H2 → "Heading 1") so the document reads correctly
