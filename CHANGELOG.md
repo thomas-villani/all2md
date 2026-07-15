@@ -104,6 +104,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **HTML: loose list items no longer grow a paragraph-inside-a-paragraph.** A *loose* item —
+  one whose `<li>` already holds a block, `<li><p>x</p></li>` — was parsed to
+  `ListItem > Paragraph > Paragraph > Text`, because `_process_list_item_to_ast` wrapped every
+  item's content in a freshly synthesized `Paragraph` whether or not that content was already a
+  block. No format represents a paragraph nested directly in a paragraph, so the inner node was
+  pure artifact: a consumer walking the AST saw a different `ListItem` shape depending on how the
+  source HTML happened to be written, and — because our own HTML renderer emits `<li><p>…</p></li>`
+  — an `html → html` round trip accreted one extra `Paragraph` per item on every pass. The parser
+  now adopts a `<li>`'s block children directly and only synthesizes a wrapping `Paragraph` for
+  loose inline runs, so `<li><p>x</p></li>` and `<li>x</li>` produce the identical AST and the
+  round trip is stable.
 - **String page ranges select the pages you asked for.** `validate_page_range()` converted
   1-based page numbers to 0-based **twice** on the string path: `parse_page_ranges()` already
   returns 0-based indices, and the result was then decremented again. So every string range
