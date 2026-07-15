@@ -25,6 +25,12 @@ SYNTHETIC_DIR = HERE / "corpus" / "synthetic"
 # raw-HTML and let the HTML oracle skip it (all2md escapes raw HTML by policy).
 _RAW_HTML = re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(\s[^<>]*)?/?>")
 
+# A Material for MkDocs admonition marker: !!! type, ??? type, or ???+ type at
+# the start of a line. Admonitions use all2md's custom block token, which the
+# oracle's stock mistune renderer can't render, so the HTML oracle can't judge
+# them (idempotency still can).
+_ADMONITION = re.compile(r"^(?:!!!|\?\?\?\+?)\s", re.MULTILINE)
+
 
 @dataclass
 class Case:
@@ -40,6 +46,7 @@ class Case:
     source: str = "synthetic"
     path: Path | None = None
     has_raw_html: bool = False
+    has_admonitions: bool = False
     tags: list[str] = field(default_factory=list)
 
 
@@ -50,6 +57,10 @@ def _strip_fenced_code(md: str) -> str:
 
 def _looks_like_raw_html(md: str) -> bool:
     return bool(_RAW_HTML.search(_strip_fenced_code(md)))
+
+
+def _looks_like_admonition(md: str) -> bool:
+    return bool(_ADMONITION.search(_strip_fenced_code(md)))
 
 
 def load_synthetic_corpus(directory: Path | None = None) -> list[Case]:
@@ -65,6 +76,7 @@ def load_synthetic_corpus(directory: Path | None = None) -> list[Case]:
                 source="synthetic",
                 path=path,
                 has_raw_html=_looks_like_raw_html(md),
+                has_admonitions=_looks_like_admonition(md),
                 tags=[path.stem],
             )
         )
