@@ -347,6 +347,37 @@ class TestLists:
         assert nested_list.ordered is False
         assert len(nested_list.items) == 2
 
+    def test_loose_item_not_double_wrapped(self) -> None:
+        """A loose <li><p>x</p></li> must not nest a Paragraph inside a Paragraph (#72)."""
+        converter = HtmlToAstConverter()
+        loose = converter.convert_to_ast("<ul><li><p>x</p></li></ul>")
+
+        item = loose.children[0].items[0]
+        assert len(item.children) == 1
+        para = item.children[0]
+        assert isinstance(para, Paragraph)
+        # The paragraph holds inline content directly, not another Paragraph.
+        assert isinstance(para.content[0], Text)
+        assert para.content[0].content == "x"
+
+    def test_loose_and_tight_items_agree(self) -> None:
+        """A loose item and its tight equivalent produce identical AST (#72)."""
+        converter = HtmlToAstConverter()
+        tight = converter.convert_to_ast("<ul><li>x</li></ul>")
+        loose = converter.convert_to_ast("<ul><li><p>x</p></li></ul>")
+        assert tight == loose
+
+    def test_loose_multi_paragraph_item(self) -> None:
+        """Multiple block paragraphs in one <li> are adopted as separate Paragraphs (#72)."""
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast("<ul><li><p>x</p><p>y</p></li></ul>")
+
+        item = doc.children[0].items[0]
+        assert len(item.children) == 2
+        assert all(isinstance(child, Paragraph) for child in item.children)
+        assert item.children[0].content[0].content == "x"
+        assert item.children[1].content[0].content == "y"
+
 
 @pytest.mark.unit
 class TestCodeBlocks:
