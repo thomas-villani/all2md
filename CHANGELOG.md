@@ -128,6 +128,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quote from `structure: 33 / inline: 0` to `100 / 100`. Both recoveries require styles
   (`use_styles=True`, the default); with styles disabled the render still falls back to
   font-and-indent as before.
+- **DOCX: a document title survives the Markdown round trip.** Rendering to DOCX applies
+  `TitlePromotionTransform` — a leading `# H1` becomes Word's **Title** style and every
+  following heading is promoted one level (H2 → "Heading 1") so the document reads correctly
+  in Word. The parser had no inverse: it mapped the `Title` style to a plain paragraph and
+  left the promoted headings where they were, so `# Title` / `## Section` came back as body
+  text plus `# Section` — the title silently demoted to prose and every heading shifted up a
+  level (`all2md roundtrip … --via docx` scored `structure: 67`). The parser now maps Word's
+  `Title` back to `Heading(level=1, is_title=True)` and, when that title leads the document,
+  demotes the following headings one level to undo the promotion — making the transform
+  exactly invertible (`structure: 100`) while keeping the nice-looking Word output. Word's
+  `Title` is semantically the document title, so this also gives natively-authored Word
+  documents a sensible outline (Title → `#`, its Heading 1 → `##`).
+- **HTML: loose list items no longer grow a paragraph-inside-a-paragraph.** A *loose* item —
+  one whose `<li>` already holds a block, `<li><p>x</p></li>` — was parsed to
+  `ListItem > Paragraph > Paragraph > Text`, because `_process_list_item_to_ast` wrapped every
+  item's content in a freshly synthesized `Paragraph` whether or not that content was already a
+  block. No format represents a paragraph nested directly in a paragraph, so the inner node was
+  pure artifact: a consumer walking the AST saw a different `ListItem` shape depending on how the
+  source HTML happened to be written, and — because our own HTML renderer emits `<li><p>…</p></li>`
+  — an `html → html` round trip accreted one extra `Paragraph` per item on every pass. The parser
+  now adopts a `<li>`'s block children directly and only synthesizes a wrapping `Paragraph` for
+  loose inline runs, so `<li><p>x</p></li>` and `<li>x</li>` produce the identical AST and the
+  round trip is stable.
 - **String page ranges select the pages you asked for.** `validate_page_range()` converted
   1-based page numbers to 0-based **twice** on the string path: `parse_page_ranges()` already
   returns 0-based indices, and the result was then decremented again. So every string range
