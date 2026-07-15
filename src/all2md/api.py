@@ -959,8 +959,10 @@ def confidence_report(
     Returns
     -------
     ConfidenceReport
-        The scored quality card. Formats that produce no signals and record no
-        degraded events yield a perfect ``score`` of 100 (band ``"high"``).
+        The scored quality card. Formats that produce no scored signals and record
+        no degraded events yield a ``score`` of 100 banded ``"not_assessed"`` --
+        the converter ran no quality checks, so the 100 is not a clean bill of
+        health.
 
     Examples
     --------
@@ -986,8 +988,10 @@ def confidence_report(
     raw = ast_doc.metadata.get("confidence") if ast_doc.metadata else None
     if isinstance(raw, dict):
         return ConfidenceReport.from_dict(raw)
-    # No report attached (e.g. a hand-built Document): report a clean card.
-    return ConfidenceReport(score=100, band="high", producer="", signals={}, degraded_events=[])
+    # No report attached (e.g. a hand-built Document, or a format with no quality
+    # instrumentation): the conversion was never assessed, so band it as such
+    # rather than implying a verified-clean 100.
+    return ConfidenceReport(score=100, band="not_assessed", producer="", signals={}, degraded_events=[])
 
 
 def roundtrippable_formats() -> list[str]:

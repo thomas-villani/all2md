@@ -62,11 +62,17 @@ class TestPdfProducer:
 @pytest.mark.integration
 @pytest.mark.docx
 class TestDocxProducer:
-    def test_clean_docx_scores_high(self):
+    def test_clean_docx_is_not_assessed(self):
+        """Docx emits no scored signals, so a clean file is 100/not_assessed.
+
+        The 100 means "no quality detector ran", not "verified clean" -- banding
+        it ``"not_assessed"`` keeps a mangled .docx from reading as 100/HIGH.
+        """
         report = confidence_report(str(BASIC_DOCX))
         assert report.producer == "docx"
         assert report.score == 100
         assert not report.degraded_events
+        assert report.band == "not_assessed"
 
     def test_dropped_chart_is_surfaced_and_penalized(self):
         # complex.docx embeds a chart, which all2md has no Markdown form for.
@@ -99,10 +105,12 @@ class TestConfidenceApi:
         payload = json.loads(ast_to_json(doc))
         assert "confidence" in payload["metadata"]
 
-    def test_handbuilt_document_reports_clean(self):
+    def test_handbuilt_document_is_not_assessed(self):
+        # A Document with no attached confidence metadata was never assessed;
+        # the card must say so rather than implying a verified-clean 100.
         report = confidence_report(Document(children=[]))
         assert report.score == 100
-        assert report.band == "high"
+        assert report.band == "not_assessed"
         assert report.degraded_events == []
 
 
