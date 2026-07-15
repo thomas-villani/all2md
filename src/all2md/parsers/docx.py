@@ -510,7 +510,12 @@ class DocxToAstConverter(BaseParser):
 
         for child in children[title_index + 1 :]:
             if isinstance(child, Heading):
-                child.level += 1
+                # Clamp at 6: Heading enforces a 1-6 level, so an H6 here would
+                # otherwise be mutated to an out-of-spec level 7 (the Markdown
+                # renderer hides it, but serialization and the round-trip scorer
+                # see the invalid node). Mirrors the forward transform's max(1, ..)
+                # bottom clamp. An H6 simply stays an H6 -- there is no level above it.
+                child.level = min(6, child.level + 1)
 
     # DrawingML ``graphicData/@uri`` values for content types all2md does not
     # render (and therefore drops): embedded charts and SmartArt diagrams.
