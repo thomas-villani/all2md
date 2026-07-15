@@ -1157,19 +1157,26 @@ class HtmlToAstConverter(BaseParser):
             List item node
 
         """
-        # Process children, separating inline content from nested lists
+        # Separate inline content (wrapped in a synthesized Paragraph) from block children,
+        # which are adopted directly. A block child includes a nested list but also a loose
+        # item's own <p>, <blockquote>, <table>, etc. Wrapping such a block in a Paragraph
+        # would nest a paragraph inside a paragraph -- an artifact no format represents, and
+        # the source of the <li><p>x</p></li> double-wrap (#72).
         children: list[Node] = []
         inline_content: list[Node] = []
 
         for child in node.children:
-            if hasattr(child, "name") and child.name in ["ul", "ol"]:
-                # Nested list - first add accumulated inline content as paragraph
+            if self._carries_block_content(child):
+                # Flush accumulated inline content as a paragraph before the block child.
                 if inline_content:
                     children.append(Paragraph(content=inline_content))
                     inline_content = []
-                # Add nested list
-                nested_list = self._process_list_to_ast(child)
-                children.append(nested_list)
+                block_nodes = self._process_node_to_ast(child)
+                if block_nodes:
+                    if isinstance(block_nodes, list):
+                        children.extend(block_nodes)
+                    else:
+                        children.append(block_nodes)
             else:
                 # Inline content
                 inline_nodes = self._process_node_to_ast(child)
