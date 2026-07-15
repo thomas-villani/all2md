@@ -31,8 +31,29 @@ class TestBands:
 
 
 class TestScoreConversion:
-    def test_no_signals_no_events_is_perfect(self):
-        assert score_conversion({}, []) == (100, "high")
+    def test_no_signals_no_events_is_not_assessed(self):
+        """A conversion with no scored signals and no events was never assessed.
+
+        The score is a vacuous 100 (nothing to subtract), which must band as
+        ``"not_assessed"`` -- "no detector ran" -- not ``"high"`` / verified clean.
+        This is the docx/pptx/html case.
+        """
+        assert score_conversion({}, []) == (100, "not_assessed")
+
+    def test_non_scored_signals_alone_are_not_assessed(self):
+        """Bare counts alone are not quality assessment.
+
+        They do not move the score, so a report carrying only them is still a
+        vacuous 100 and must band ``"not_assessed"``.
+        """
+        score, band = score_conversion({"tables": 4, "images": 2}, [])
+        assert (score, band) == (100, "not_assessed")
+
+    def test_a_single_event_makes_it_assessed(self):
+        """One degraded event is enough instrumentation to earn a real band."""
+        score, band = score_conversion({}, [DegradedEvent(parser="docx", kind="x", severity="warn")])
+        assert band == "high"
+        assert score < 100
 
     def test_healthy_pdf_signals_stay_perfect(self):
         signals = {"chars_per_page": 800.0, "ocr_page_fraction": 0.0, "tables_rejected": 0}

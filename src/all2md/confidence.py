@@ -35,7 +35,10 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 Severity = Literal["info", "warn", "error"]
-Band = Literal["high", "medium", "low"]
+#: ``"not_assessed"`` is distinct from ``"high"``: it means the converter ran no
+#: quality instrumentation at all (no scored signals, no degraded events), so the
+#: vacuous 100 must not be read as "verified clean". See :func:`score_conversion`.
+Band = Literal["high", "medium", "low", "not_assessed"]
 
 # --- Scoring model -----------------------------------------------------------
 #
@@ -44,6 +47,11 @@ Band = Literal["high", "medium", "low"]
 # module constants so the ``optimize`` capstone (and tests) can reason about —
 # and tune — them. The score is reference-free: it only inspects what the
 # converter itself observed, never a ground-truth original.
+#
+# A subtlety this creates: a converter that observed *nothing* (no scored signals,
+# no degraded events) also starts and stays at 100. That is not a clean bill of
+# health, it is the absence of a detector, so such a report is banded
+# ``"not_assessed"`` rather than ``"high"`` — see ``score_conversion``.
 
 #: Points a fully text-empty page-image document can lose to the text-density
 #: penalty. Recovering that text (e.g. by enabling OCR) claws these points back,
@@ -72,6 +80,13 @@ DEGRADED_EVENT_PENALTY_CAP = 45.0
 BAND_HIGH_THRESHOLD = 80
 #: Score at or above which confidence is reported as ``"medium"`` (below is ``"low"``).
 BAND_MEDIUM_THRESHOLD = 50
+
+#: Signal keys that actually feed the score: the text-density and OCR-reliance
+#: penalties read exactly these. A report carrying none of them *and* no degraded
+#: events was never quality-assessed -- its 100 is the absence of a detector, not
+#: a clean bill of health -- so it is banded ``"not_assessed"``. Keep this in sync
+#: with the signals :func:`_text_density_penalty` / :func:`_ocr_reliance_penalty` read.
+SCORED_SIGNAL_KEYS: tuple[str, ...] = ("chars_per_page", "ocr_page_fraction")
 
 
 @dataclass
@@ -238,12 +253,29 @@ def _degraded_event_penalty(events: list[DegradedEvent]) -> float:
 
 
 def band_for_score(score: int) -> Band:
-    """Bucket a ``0-100`` score into ``"high"`` / ``"medium"`` / ``"low"``."""
+    """Bucket a ``0-100`` score into ``"high"`` / ``"medium"`` / ``"low"``.
+
+    Never returns ``"not_assessed"``: that band depends on *what evidence exists*,
+    not on the score, so it is decided in :func:`score_conversion`.
+    """
     if score >= BAND_HIGH_THRESHOLD:
         return "high"
     if score >= BAND_MEDIUM_THRESHOLD:
         return "medium"
     return "low"
+
+
+def _has_quality_evidence(signals: dict[str, Any], events: list[DegradedEvent]) -> bool:
+    """Whether a report carries any input the score can actually assess.
+
+    True when there is at least one degraded event or one scored signal
+    (:data:`SCORED_SIGNAL_KEYS`). Non-scored signals (bare counts) do not count:
+    they do not move the score, so a report carrying only those is still a
+    vacuous 100.
+    """
+    if events:
+        return True
+    return any(signals.get(key) is not None for key in SCORED_SIGNAL_KEYS)
 
 
 def score_conversion(signals: dict[str, Any], events: list[DegradedEvent]) -> tuple[int, Band]:
@@ -252,6 +284,12 @@ def score_conversion(signals: dict[str, Any], events: list[DegradedEvent]) -> tu
     Reference-free: the score starts at ``100`` and subtracts a text-density
     penalty, an OCR-reliance penalty, and a (capped) degraded-event penalty. The
     result is clamped to ``[0, 100]``.
+
+    A conversion that produced no scored signals and no degraded events is banded
+    ``"not_assessed"`` rather than ``"high"``. Formats without quality
+    instrumentation (docx, pptx, html) hit this path: their score is a vacuous
+    100 that means "no detector ran", not "verified clean", and conflating the two
+    would let a mangled ``.docx`` report ``100/HIGH``.
 
     Parameters
     ----------
@@ -268,6 +306,8 @@ def score_conversion(signals: dict[str, Any], events: list[DegradedEvent]) -> tu
     """
     penalty = _text_density_penalty(signals) + _ocr_reliance_penalty(signals) + _degraded_event_penalty(events)
     score = int(round(max(0.0, min(100.0, 100.0 - penalty))))
+    if not _has_quality_evidence(signals, events):
+        return score, "not_assessed"
     return score, band_for_score(score)
 
 
