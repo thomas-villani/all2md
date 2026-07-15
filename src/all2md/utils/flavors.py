@@ -141,6 +141,35 @@ class MarkdownFlavor(ABC):
         """
         pass
 
+    def supports_superscript(self) -> bool:
+        """Check if this flavor natively supports ``^text^`` superscript syntax.
+
+        Concrete (default ``False``) rather than abstract: superscript is part of
+        the pymdownx / Material mark family, natively supported only by the
+        MarkdownPlus flavor. Other flavors fall back per ``superscript_mode``.
+
+        Returns
+        -------
+        bool
+            True if ``^text^`` superscript syntax is supported
+
+        """
+        return False
+
+    def supports_subscript(self) -> bool:
+        """Check if this flavor natively supports ``~text~`` subscript syntax.
+
+        See :meth:`supports_superscript`; defaults to ``False`` and is overridden
+        by the MarkdownPlus flavor.
+
+        Returns
+        -------
+        bool
+            True if ``~text~`` subscript syntax is supported
+
+        """
+        return False
+
     @abstractmethod
     def supports_admonitions(self) -> bool:
         """Check if this flavor supports Material for MkDocs admonitions.
@@ -913,6 +942,28 @@ class MarkdownPlusFlavor(MarkdownFlavor):
 
     def supports_mark(self) -> bool:
         """MarkdownPlus supports ``==`` highlight syntax.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_superscript(self) -> bool:
+        """MarkdownPlus supports ``^text^`` superscript syntax.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_subscript(self) -> bool:
+        """MarkdownPlus supports ``~text~`` subscript syntax.
 
         Returns
         -------

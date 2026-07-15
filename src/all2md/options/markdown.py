@@ -196,12 +196,14 @@ class MarkdownRendererOptions(BaseRendererOptions):
         - "markdown": Use __text__ (non-standard)
         - "ignore": Strip underline formatting
     superscript_mode : {"html", "markdown", "ignore"}, default "markdown"
-        How to handle superscript text:
+        Fallback for flavors that don't natively support superscript. Flavors
+        that do (markdown_plus) always emit ``^text^``; for the rest:
         - "markdown": Use ^text^ (roundtrips; non-standard, needs an extension to render)
         - "html": Use <sup>text</sup> tags (wider display support, but escaped on roundtrip)
         - "ignore": Strip superscript formatting
     subscript_mode : {"html", "markdown", "ignore"}, default "markdown"
-        How to handle subscript text:
+        Fallback for flavors that don't natively support subscript. Flavors that
+        do (markdown_plus) always emit ``~text~``; for the rest:
         - "markdown": Use ~text~ (roundtrips; non-standard, needs an extension to render)
         - "html": Use <sub>text</sub> tags (wider display support, but escaped on roundtrip)
         - "ignore": Strip subscript formatting

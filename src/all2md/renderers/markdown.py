@@ -1503,8 +1503,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        mode = self.options.superscript_mode
 
+        # A flavor that natively supports ^text^ (MarkdownPlus) emits it directly,
+        # like visit_mark does for ==. Other flavors fall back per superscript_mode
+        # (default "markdown", which roundtrips; set "html" for wider display).
+        if self._flavor.supports_superscript():
+            self._output.append(f"^{content}^")
+            return
+
+        mode = self.options.superscript_mode
         if mode == "html":
             self._output.append(f"<sup>{content}</sup>")
         elif mode == "markdown":
@@ -1522,8 +1529,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        mode = self.options.subscript_mode
 
+        # See visit_superscript: a flavor that natively supports ~text~
+        # (MarkdownPlus) emits it directly; others fall back per subscript_mode.
+        if self._flavor.supports_subscript():
+            self._output.append(f"~{content}~")
+            return
+
+        mode = self.options.subscript_mode
         if mode == "html":
             self._output.append(f"<sub>{content}</sub>")
         elif mode == "markdown":
