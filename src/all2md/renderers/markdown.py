@@ -1719,24 +1719,34 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # else: mode == "force", continue with markdown rendering below
         for i, (term, descriptions) in enumerate(node.items):
             if i > 0:
-                self._output.append("\n")
+                # A blank line separates definition groups; a single newline
+                # would make the next term lazily merge into the previous
+                # description when the list is reparsed.
+                self._output.append("\n\n")
             term_content = self._render_inline_content(term.content)
             self._output.append(term_content)
             for desc in descriptions:
                 self._output.append("\n: ")
                 for j, child in enumerate(desc.content):
-                    if j > 0:
-                        self._output.append("\n    ")
                     saved_output = self._output
                     self._output = []
                     child.accept(self)
                     child_content = "".join(self._output)
                     self._output = saved_output
-                    if j > 0:
-                        indent_lines = child_content.split("\n")
-                        self._output.append("\n    ".join(indent_lines))
+                    lines = child_content.split("\n")
+                    if j == 0:
+                        self._output.append(lines[0])
+                        for line in lines[1:]:
+                            self._output.append("\n" + ("    " + line if line else ""))
                     else:
-                        self._output.append(child_content)
+                        # Later blocks in a description are separate paragraphs:
+                        # they need a blank line before them and four-space
+                        # indentation on every line, otherwise a bare newline
+                        # makes them lazily merge into the previous paragraph
+                        # when the definition list is reparsed.
+                        self._output.append("\n")
+                        for line in lines:
+                            self._output.append("\n" + ("    " + line if line else ""))
 
     def visit_definition_term(self, node: "DefinitionTerm") -> None:
         """Render a DefinitionTerm node.
