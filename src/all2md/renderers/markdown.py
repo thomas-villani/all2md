@@ -1673,8 +1673,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         preferred = self.options.math_mode
         content, notation = node.get_preferred_representation(preferred)
 
+        # Inline display math ($$...$$ that appeared after text on the same line)
+        # is kept as a MathInline flagged "display"; emit the $$ delimiter so it
+        # roundtrips instead of collapsing to inline $...$.
+        delim = "$$" if node.metadata.get("display") else "$"
+
         if self._flavor.supports_math() and notation == "latex":
-            self._output.append(f"${content}$")
+            self._output.append(f"{delim}{content}{delim}")
             return
 
         if self._flavor.supports_math():
@@ -1685,7 +1690,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if mode == "plain":
             self._output.append(content)
         elif mode == "force" and notation == "latex":
-            self._output.append(f"${content}$")
+            self._output.append(f"{delim}{content}{delim}")
         else:
             self._output.append(render_math_html(content, notation, inline=True))
 

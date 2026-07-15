@@ -1127,6 +1127,17 @@ class MarkdownToAstConverter(BaseParser):
         content = token.get("raw", "")
         return MathInline(content=content)
 
+    def _handle_inline_block_math_token(self, token: dict[str, Any]) -> MathInline:
+        """Handle a ``block_math`` token that mistune emitted inline.
+
+        ``$$...$$`` after text on the same line is tokenized as a ``block_math``
+        token nested in the paragraph's inline children. Without a handler it was
+        dropped; keep it as inline display math (the ``display`` metadata flag
+        makes the renderer emit ``$$...$$`` again so it roundtrips).
+        """
+        content = token.get("raw", "")
+        return MathInline(content=content, metadata={"display": True})
+
     def _handle_footnote_ref_token(self, token: dict[str, Any]) -> FootnoteReference:
         """Handle footnote_ref token."""
         attrs = token.get("attrs", {})
@@ -1171,6 +1182,7 @@ class MarkdownToAstConverter(BaseParser):
             "subscript": self._handle_subscript_token,
             "inline_html": self._handle_inline_html_token,
             "inline_math": self._handle_inline_math_token,
+            "block_math": self._handle_inline_block_math_token,
             "footnote_ref": self._handle_footnote_ref_token,
         }
 
