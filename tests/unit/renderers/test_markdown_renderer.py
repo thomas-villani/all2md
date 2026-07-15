@@ -628,6 +628,38 @@ class TestLists:
         assert once.startswith("1. - [x] first line\n")
         assert "\nsecond line" not in once  # never at column zero
 
+    def test_table_in_list_item_stays_indented(self):
+        """A table nested in a list item must stay under the item's margin.
+
+        The table was emitted at column zero, so on reparse it broke out of the
+        list item to the document top level (splitting the surrounding list).
+        """
+        from all2md import convert, to_ast
+        from all2md.ast.nodes import List as ListNode
+        from all2md.ast.nodes import Table
+
+        source = "- lead:\n\n  | k | v |\n  |---|---|\n  | 1 | 2 |\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice, "table-in-list-item is not idempotent"
+        # Every table line sits at the item's content column (two spaces), not column zero.
+        assert "\n  | k | v |" in once
+        assert "\n| k | v |" not in once
+
+        # And it re-parses as a child of the list item, not a top-level sibling.
+        doc = to_ast(once, source_format="markdown")
+        assert not any(isinstance(child, Table) for child in doc.children), "table broke out of the list"
+        item_tables = [
+            node
+            for lst in doc.children
+            if isinstance(lst, ListNode)
+            for item in lst.items
+            for node in item.children
+            if isinstance(node, Table)
+        ]
+        assert len(item_tables) == 1
+
     def test_deeply_nested_list(self):
         """Test rendering deeply nested lists (3 levels)."""
         level3_list = List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Level 3")])])])
@@ -961,6 +993,54 @@ class TestEscaping:
 @pytest.mark.unit
 class TestFootnotes:
     """Tests for footnote rendering."""
+
+    def test_footnote_roundtrips_under_default_flavor(self):
+        """Footnotes must roundtrip as Markdown under the default (GFM) flavor.
+
+        The default ``unsupported_inline_mode='html'`` made GFM emit a raw
+        ``<sup>`` reference and ``<div id="fn-...">`` definition, which the
+        default html_passthrough policy then escaped to ``&lt;sup&gt;`` on the
+        next pass -- output the renderer's own parser corrupts.
+        """
+        from all2md import convert
+
+        source = "Text with a note.[^1]\n\n[^1]: The footnote body.\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice, "footnote roundtrip is not idempotent"
+        assert "[^1]" in once
+        assert "[^1]: The footnote body." in once
+        assert "<sup>" not in once
+        assert "fn-1" not in once
+
+    def test_multiparagraph_footnote_definition_does_not_collapse(self):
+        """A multi-paragraph footnote definition keeps both paragraphs on reparse."""
+        from all2md import convert, to_ast
+        from all2md.ast.nodes import FootnoteDefinition, Paragraph
+
+        source = "See note.[^1]\n\n[^1]: First paragraph.\n\n    Second paragraph.\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice
+        doc = to_ast(once, source_format="markdown")
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        assert sum(1 for c in defs[0].content if isinstance(c, Paragraph)) == 2
+
+    def test_footnote_explicit_html_mode_still_emits_html(self):
+        """An explicit ``unsupported_inline_mode='html'`` is still honored."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Text"), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="Body")])]),
+            ]
+        )
+        options = MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="html")
+        result = MarkdownRenderer(options).render_to_string(doc)
+        assert "<sup>1</sup>" in result
+        assert '<div id="fn-1">' in result
 
     def test_footnote_reference_pandoc_flavor(self):
         """Test footnote reference with Pandoc flavor (supports footnotes)."""

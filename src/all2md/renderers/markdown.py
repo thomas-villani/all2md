@@ -474,6 +474,20 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return " " * sum(self._marker_width_stack)
         return " " * (self._indent_level * self.options.list_indent_width)
 
+    def _resolve_unsupported_inline_mode(self) -> str:
+        """Resolve ``unsupported_inline_mode`` with the shared smart fallback.
+
+        An *unset* ``"html"`` default becomes ``"force"`` so a construct the
+        flavor doesn't support (footnotes, marks, ...) emits readable Markdown
+        instead of raw HTML that the default ``html_passthrough_mode="escape"``
+        policy mangles on the next roundtrip. An explicit ``"html"`` is honored.
+        This mirrors the fallback ``visit_definition_list`` applies inline.
+        """
+        mode = str(self.options.unsupported_inline_mode)
+        if mode == "html" and not self.options._unsupported_inline_mode_was_explicit:
+            return "force"
+        return mode
+
     def _get_bullet_symbol(self, depth: int) -> str:
         """Get the bullet symbol for a given nesting depth.
 
@@ -1074,6 +1088,34 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Table to render
 
         """
+        # Render the table into a temporary buffer, then shift every line to the
+        # current indent (mirrors visit_code_block). A table nested in a list
+        # item must stay under the item's margin; emitted at column zero it
+        # reparses as a sibling of the list instead of a child of the item. At
+        # the top level the indent is empty and the output is unchanged.
+        indent = self._current_indent()
+        saved_output = self._output
+        self._output = []
+        try:
+            self._render_table_grid(node)
+        finally:
+            table_text = "".join(self._output)
+            self._output = saved_output
+
+        if indent and table_text:
+            table_text = "\n".join(indent + line if line else line for line in table_text.split("\n"))
+        self._output.append(table_text)
+
+        # Emit block references if using after_block placement
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
+            self._emit_block_references()
+
+    def _render_table_grid(self, node: Table) -> None:
+        """Render a table's caption and rows to ``self._output`` (no indent).
+
+        Split out from ``visit_table`` so the caller can capture the table in a
+        buffer and shift it to the current indentation.
+        """
         # Render caption if present
         if node.caption:
             self._output.append(f"*{node.caption}*\n\n")
@@ -1103,10 +1145,6 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._render_padded_table(node, rendered_rows, num_cols)
         else:
             self._render_minimal_table(node, rendered_rows, num_cols)
-
-        # Emit block references if using after_block placement
-        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
-            self._emit_block_references()
 
     def _render_table_as_html(self, node: Table) -> None:
         """Render a table as HTML when markdown tables are not supported.
@@ -1611,14 +1649,17 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         if self._flavor.supports_footnotes():
             self._output.append(f"[^{node.identifier}]")
-        else:
-            mode = self.options.unsupported_inline_mode
-            if mode == "plain":
-                pass
-            elif mode == "force":
-                self._output.append(f"[^{node.identifier}]")
-            else:
-                self._output.append(f"<sup>{node.identifier}</sup>")
+            return
+
+        mode = self._resolve_unsupported_inline_mode()
+        if mode == "plain":
+            pass
+        elif mode == "html":
+            # Only when the user explicitly asked for HTML: a raw <sup> is escaped
+            # by the default html_passthrough policy on the next roundtrip.
+            self._output.append(f"<sup>{node.identifier}</sup>")
+        else:  # "force" (also the resolved default): emit real Markdown syntax
+            self._output.append(f"[^{node.identifier}]")
 
     def visit_math_inline(self, node: "MathInline") -> None:
         """Render a MathInline node.
@@ -1658,41 +1699,55 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         if self._flavor.supports_footnotes():
-            self._output.append(f"[^{node.identifier}]: ")
-            for i, child in enumerate(node.content):
-                saved_output = self._output
-                self._output = []
+            self._render_footnote_definition_markdown(node)
+            return
+
+        mode = self._resolve_unsupported_inline_mode()
+        if mode == "drop":
+            return
+        if mode == "html":
+            # Explicit HTML only. Note the emitted <div> is escaped by the default
+            # html_passthrough policy on the next roundtrip.
+            self._output.append(f'<div id="fn-{node.identifier}">')
+            for child in node.content:
                 child.accept(self)
-                child_content = "".join(self._output)
-                self._output = saved_output
-                lines = child_content.split("\n")
-                if i == 0:
-                    # First block starts right after the "[^id]: " marker; any
-                    # continuation lines align four spaces under it.
-                    self._output.append(lines[0])
-                    for line in lines[1:]:
-                        self._output.append("\n" + ("    " + line if line else ""))
-                else:
-                    # Later blocks are separate paragraphs. They need a blank
-                    # line before them and four-space indentation on every line,
-                    # otherwise a bare newline makes them lazily merge into the
-                    # previous paragraph when the footnote is reparsed.
-                    self._output.append("\n")
-                    for line in lines:
-                        self._output.append("\n" + ("    " + line if line else ""))
+            self._output.append("</div>")
         else:
-            mode = self.options.unsupported_inline_mode
-            if mode == "drop":
-                return
-            elif mode == "html":
-                self._output.append(f'<div id="fn-{node.identifier}">')
-                for child in node.content:
-                    child.accept(self)
-                self._output.append("</div>")
+            # "force" (also the resolved default) and "plain": emit real Markdown
+            # footnote syntax, which roundtrips. Routing through the shared helper
+            # (not a bare child dump) keeps multi-paragraph definitions from
+            # collapsing into one paragraph on reparse.
+            self._render_footnote_definition_markdown(node)
+
+    def _render_footnote_definition_markdown(self, node: "FootnoteDefinition") -> None:
+        """Render a footnote definition as ``[^id]: ...`` Markdown.
+
+        Continuation lines and later block paragraphs are indented four spaces so
+        the definition re-parses with its structure (and multiple paragraphs)
+        intact instead of lazily merging.
+        """
+        self._output.append(f"[^{node.identifier}]: ")
+        for i, child in enumerate(node.content):
+            saved_output = self._output
+            self._output = []
+            child.accept(self)
+            child_content = "".join(self._output)
+            self._output = saved_output
+            lines = child_content.split("\n")
+            if i == 0:
+                # First block starts right after the "[^id]: " marker; any
+                # continuation lines align four spaces under it.
+                self._output.append(lines[0])
+                for line in lines[1:]:
+                    self._output.append("\n" + ("    " + line if line else ""))
             else:
-                self._output.append(f"[^{node.identifier}]: ")
-                for child in node.content:
-                    child.accept(self)
+                # Later blocks are separate paragraphs. They need a blank
+                # line before them and four-space indentation on every line,
+                # otherwise a bare newline makes them lazily merge into the
+                # previous paragraph when the footnote is reparsed.
+                self._output.append("\n")
+                for line in lines:
+                    self._output.append("\n" + ("    " + line if line else ""))
 
     def visit_definition_list(self, node: "DefinitionList") -> None:
         """Render a DefinitionList node.
