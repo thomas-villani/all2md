@@ -275,21 +275,54 @@ class TestExtendedInlineFormatting:
         result = renderer.render_to_string(doc)
         assert result == "~~deleted~~"
 
-    def test_strikethrough_commonmark(self):
-        """Test strikethrough fallback with CommonMark."""
+    def test_strikethrough_commonmark_default_roundtrips(self):
+        """On a flavor without ~~, the unset default emits ~~ (not <del>).
+
+        A raw <del> is escaped by the default html_passthrough policy on the next
+        Markdown pass, so the roundtrip-safe force spelling is the default. Mirrors
+        the mark fallback.
+        """
         doc = Document(children=[Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])])
         options = MarkdownRendererOptions(flavor="commonmark")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
+        assert result == "~~deleted~~"
+
+    def test_strikethrough_commonmark_explicit_html(self):
+        """An explicit unsupported_inline_mode='html' still opts into <del>."""
+        doc = Document(children=[Paragraph(content=[Strikethrough(content=[Text(content="deleted")])])])
+        options = MarkdownRendererOptions(flavor="commonmark", unsupported_inline_mode="html")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
         assert result == "<del>deleted</del>"
 
+    def test_underline_default_roundtrips(self):
+        """The default underline_mode emits ^^ (roundtrips via the insert plugin).
+
+        A raw <u> is escaped by the default html_passthrough policy on the next
+        Markdown pass; ^^text^^ is read back as an Underline. __text__ is *not* a
+        safe alternative -- every flavor parses it as strong emphasis.
+        """
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        assert result == "^^underlined^^"
+
     def test_underline_html_mode(self):
-        """Test underline with HTML mode."""
+        """An explicit underline_mode='html' opts into <u>."""
         doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
         options = MarkdownRendererOptions(underline_mode="html")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<u>underlined</u>"
+
+    def test_underline_markdown_plus_flavor_is_native(self):
+        """MarkdownPlus supports ^^ natively, so it wins even over underline_mode='html'."""
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
+        options = MarkdownRendererOptions(flavor="markdown_plus", underline_mode="html")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
+        assert result == "^^underlined^^"
 
     def test_superscript_html_mode(self):
         """Test superscript with HTML mode."""

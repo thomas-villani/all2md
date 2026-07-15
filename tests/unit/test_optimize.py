@@ -544,3 +544,33 @@ class TestForbiddenKnobs:
     def test_the_hyphenation_repair_is_not_searchable(self):
         """The specific one that shipped bad advice, named so the regression is unmissable."""
         assert "merge_hyphenated_words" not in KNOBS["pdf"]
+
+
+@pytest.mark.unit
+class TestKnobValuesAreValid:
+    """Every value the optimizer searches must be one the parser actually accepts.
+
+    Enforced as a test because ``figures_parsing``/``details_parsing`` once shipped
+    invented values (``"figure"``, ``"image"``, ``"details"``, ``"content"``) that no
+    parser recognized: they were silently accepted, behaved as no-ops, and could be
+    emitted into a recommended ``.all2md.toml`` as advice that does nothing. There is no
+    runtime validation of enum option values, so this test is the only guard.
+    """
+
+    def test_every_string_knob_value_is_a_valid_choice(self):
+        import dataclasses
+
+        from all2md.converter_registry import registry
+
+        for fmt, knobs in KNOBS.items():
+            options_class = registry.get_parser_options_class(fmt)
+            assert options_class is not None, f"no options class registered for {fmt!r}"
+            fields_by_name = {f.name: f for f in dataclasses.fields(options_class)}
+            for knob, values in knobs.items():
+                assert knob in fields_by_name, f"{fmt}.{knob} is not a field of {options_class.__name__}"
+                choices = fields_by_name[knob].metadata.get("choices")
+                for value in values:
+                    if isinstance(value, bool) or choices is None:
+                        # Booleans and free-form options have no enumerated choice set.
+                        continue
+                    assert value in choices, f"{fmt}.{knob}={value!r} is not one of {list(choices)}"

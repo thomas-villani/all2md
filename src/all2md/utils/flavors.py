@@ -170,6 +170,21 @@ class MarkdownFlavor(ABC):
         """
         return False
 
+    def supports_underline(self) -> bool:
+        """Check if this flavor natively supports ``^^text^^`` underline syntax.
+
+        Concrete (default ``False``) rather than abstract: underline is the
+        pymdownx / Material "insert" extension, natively supported only by the
+        MarkdownPlus flavor. Other flavors fall back per ``underline_mode``.
+
+        Returns
+        -------
+        bool
+            True if ``^^text^^`` underline syntax is supported
+
+        """
+        return False
+
     @abstractmethod
     def supports_admonitions(self) -> bool:
         """Check if this flavor supports Material for MkDocs admonitions.
@@ -964,6 +979,17 @@ class MarkdownPlusFlavor(MarkdownFlavor):
 
     def supports_subscript(self) -> bool:
         """MarkdownPlus supports ``~text~`` subscript syntax.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def supports_underline(self) -> bool:
+        """MarkdownPlus supports ``^^text^^`` underline syntax.
 
         Returns
         -------
