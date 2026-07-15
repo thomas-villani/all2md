@@ -297,9 +297,13 @@ class MarkdownRendererOptions(BaseRendererOptions):
         },
     )
     underline_mode: UnderlineMode = field(
-        default="html",
+        # Default to Markdown (``^^text^^``, the pymdownx "insert" spelling) so
+        # underline roundtrips: the HTML ``<u>`` alternative is escaped by the
+        # default html_passthrough policy on the next Markdown roundtrip. Mirrors
+        # superscript_mode/subscript_mode. Set to "html" for wider display support.
+        default="markdown",
         metadata={
-            "help": "How to handle underlined text",
+            "help": "How to handle underlined text: markdown (^^text^^), html (<u>), or ignore",
             "choices": ["html", "markdown", "ignore"],
             "importance": "advanced",
         },
