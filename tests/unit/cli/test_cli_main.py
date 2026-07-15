@@ -57,6 +57,41 @@ class TestRcatMain:
 
 
 @pytest.mark.unit
+class TestEarlyExitFlags:
+    """--version/--about short-circuit before the expensive parser build."""
+
+    @pytest.mark.parametrize("flag", ["--version", "-V"])
+    def test_version_prints_and_exits(self, flag, capsys):
+        """--version/-V print `all2md <version>` and return 0."""
+        from all2md.cli.commands.shared import get_version
+
+        rc = main([flag])
+
+        assert rc == 0
+        assert capsys.readouterr().out == f"all2md {get_version()}\n"
+
+    @pytest.mark.parametrize("flag", ["--version", "-V", "--about", "-A"])
+    def test_early_exit_skips_parser_build(self, flag):
+        """The short-circuit must not build the full dynamic parser."""
+        with patch("all2md.cli.create_parser") as mock_create:
+            rc = main([flag])
+
+        assert rc == 0
+        mock_create.assert_not_called()
+
+    def test_version_after_terminator_is_not_a_flag(self):
+        """A `--` terminator ends flag scanning, matching argparse semantics."""
+        # `-- --version` treats --version as a positional (a missing input file),
+        # so it must NOT short-circuit; the full parser runs and reports an error.
+        with patch("all2md.cli.create_parser") as mock_create:
+            mock_create.return_value.parse_args.side_effect = SystemExit(2)
+            with pytest.raises(SystemExit):
+                main(["--", "--version"])
+
+        mock_create.assert_called_once()
+
+
+@pytest.mark.unit
 class TestStdinAutoRead:
     """Tests for stdin auto-detection when no input argument is given."""
 
