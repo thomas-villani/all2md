@@ -762,6 +762,74 @@ extra keyword arguments to the converter (e.g. ``attachment_mode="skip"``).
 For lower-level control over an AST you already hold, call
 ``all2md.chunking.chunk_ast(doc, strategy=..., max_tokens=...)`` directly.
 
+Report Command
+--------------
+
+``all2md report`` prints a conversion **confidence report** — a reference-free
+"quality card" for each document. Unlike ``roundtrip`` it needs no ground truth:
+it surfaces the sanity signals the parsers already compute (text density, table
+cell-fill and dot-leader ratios, OCR reliance, dropped-content events) as a
+structured score instead of log noise.
+
+.. code-block:: bash
+
+   # How much should I trust this conversion?
+   all2md report scan.pdf
+
+   # Gate a batch in CI: fail if any document scores below 80
+   all2md report inbox/*.docx --fail-under 80
+
+   # Machine-readable (an array when multiple inputs are given)
+   all2md report scan.pdf --json
+
+.. code-block:: text
+
+   $ all2md report scan.pdf
+   scan.pdf
+     confidence: 72/100  (MEDIUM)
+     producer:   pdf
+
+     signals
+       chars per page      41   warn
+       ocr page fraction   1
+       tables detected     3
+
+     degraded events
+       warn  table_rejected  (mostly_empty)
+
+The score starts at 100 and subtracts for observed evidence of lost or
+low-fidelity content, so it inspects only what the converter itself saw. A
+conversion that produced **no** quality instrumentation — no scored signals and
+no degraded events, as docx, pptx and html do today — is banded ``NOT_ASSESSED``
+rather than ``HIGH``: its 100 means "no detector ran", not "verified clean".
+
+Key Options
+~~~~~~~~~~~
+
+* ``--fail-under SCORE`` — exit non-zero if any document scores below ``SCORE``
+  (0-100). Useful as a CI gate.
+* ``--json`` — emit the report(s) as JSON (an array for multiple inputs).
+* ``--out, -o FILE`` — write to a file instead of stdout.
+* ``--attachment-mode {skip,alt_text,save,base64}`` — the report is unaffected by
+  the choice; use ``skip``/``alt_text`` to avoid decoding large embedded images.
+* ``--cache`` / ``--cache-dir DIR`` — reuse parsed documents from an on-disk cache
+  (see :ref:`conversion-cache`).
+
+Python API
+~~~~~~~~~~
+
+.. code-block:: python
+
+   from all2md import confidence_report
+
+   report = confidence_report("scan.pdf")
+   print(report.score, report.band)          # e.g. 72 medium
+   for event in report.degraded_events:
+       print(event.severity, event.kind, event.detail)
+
+The same card rides on ``Document.metadata['confidence']`` for every conversion,
+so you can read it off any ``to_ast`` result without a second pass.
+
 Roundtrip Command
 -----------------
 
@@ -943,6 +1011,37 @@ Python API
        print(candidate.fitness, candidate.origin, candidate.options)
 
    print(optimizable_formats())    # ['docx', 'html', 'pdf']
+
+.. _conversion-cache:
+
+Conversion Cache
+----------------
+
+Parsing is the expensive step, and several commands re-read the same files
+repeatedly — ``optimize`` reconverts a document dozens of times, and ``grep`` /
+``search`` / ``chunk`` re-parse an unchanged corpus on every run. An **opt-in**
+on-disk cache stores the parsed result keyed by the input's fingerprint and the
+conversion options, so a repeat run skips the re-parse entirely (a warm cache cut
+a 31-candidate ``optimize`` run from 18.5s to 0.3s).
+
+The cache is available on ``grep``, ``search``, ``chunk``, ``view``, ``report``,
+``roundtrip`` and ``optimize``:
+
+.. code-block:: bash
+
+   all2md optimize scanned.pdf --cache
+   all2md report inbox/*.docx --cache
+   all2md grep "revenue" reports/ --cache
+
+* ``--cache`` — enable the cache for the command. Off by default. Also enabled by
+  setting ``ALL2MD_CACHE=1`` in the environment.
+* ``--cache-dir DIR`` — where to store it. Defaults to a per-OS user cache
+  directory, or ``$ALL2MD_CACHE_DIR`` if set.
+
+An entry is reused only when both the input fingerprint and the conversion options
+match, so editing a file or changing a parser option transparently produces a
+fresh conversion. The environment variables are listed in
+:doc:`environment_variables`.
 
 Lint Command
 ------------

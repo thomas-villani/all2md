@@ -1737,6 +1737,24 @@ handling from AttachmentOptionsMixin for embedded images and media.
    :Default factory: ``DocxOptions.<lambda>``
    :Importance: advanced
 
+**code_char_style_names**
+
+   List of run character style names to treat as inline code (case-insensitive exact match). The DOCX renderer writes inline code with the 'Verbatim Char' style; pandoc uses the same name.
+
+   :Type: ``list[str]``
+   :CLI flag: ``--docx-code-char-style-names``
+   :Default factory: ``DocxOptions.<lambda>``
+   :Importance: advanced
+
+**quote_style_names**
+
+   List of paragraph style names to treat as block quotes (case-insensitive exact match)
+
+   :Type: ``list[str]``
+   :CLI flag: ``--docx-quote-style-names``
+   :Default factory: ``DocxOptions.<lambda>``
+   :Importance: advanced
+
 DOCX Renderer Options
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -5211,10 +5229,10 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
 
 **underline_mode**
 
-   How to handle underlined text
+   How to handle underlined text: markdown (^^text^^), html (<u>), or ignore
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
-   :Default: ``'html'``
+   :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
 
@@ -5223,7 +5241,7 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
    How to handle superscript text
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
-   :Default: ``'html'``
+   :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
 
@@ -5232,7 +5250,7 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
    How to handle subscript text
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
-   :Default: ``'html'``
+   :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
 
@@ -11190,11 +11208,11 @@ modules to ensure consistent Markdown generation.
 
 **underline_mode**
 
-   How to handle underlined text
+   How to handle underlined text: markdown (^^text^^), html (<u>), or ignore
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-underline-mode``
-   :Default: ``'html'``
+   :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
 
@@ -11204,7 +11222,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-superscript-mode``
-   :Default: ``'html'``
+   :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
 
@@ -11214,7 +11232,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-subscript-mode``
-   :Default: ``'html'``
+   :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced
 

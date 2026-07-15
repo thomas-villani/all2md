@@ -11,8 +11,8 @@ Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundat
 > strategies, `all2md.chunk()` Python API, `[chunk]` extra) — plus mermaid/syntax-
 > highlighting in `view`/`serve` and one-click `uv` install scripts. The **Fidelity &
 > Trust** batch has since landed the conversion cache, the confidence report
-> (`all2md report`), DOCX character-style round-tripping, and round-trip fidelity scoring
-> (`all2md roundtrip`), leaving the conversion optimizer unblocked as its capstone.
+> (`all2md report`), DOCX character-style round-tripping, round-trip fidelity scoring
+> (`all2md roundtrip`), and its capstone the conversion optimizer (`all2md optimize`).
 > Shipped items are marked 🚢 inline below; the license question that gated chunking is
 > resolved (chunkers vendored, optional extra). Tactical near-term work lives in `todo.md`,
 > which is developer-local (git-ignored) — anything that needs to outlive a working tree is
@@ -98,20 +98,24 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   character styles ("Quote Char", "Intense Reference") now ride on the inline node's
   `metadata['source_style']` and are re-applied when rendering to DOCX with a template,
   matching the paragraph-level behaviour (🚢 v1.1.1).
-- 🌱 **DOCX/HTML round-trip asymmetries** — *found by `all2md roundtrip`, unfixed.* Each is a
-  renderer/parser pair that does not invert:
+- 🚢 **DOCX/HTML round-trip asymmetries** — *found by `all2md roundtrip`, now fixed
+  (unreleased).* Each was a renderer/parser pair that did not invert:
   - [#70](https://github.com/thomas-villani/all2md/issues/70) — rendering to DOCX applies
     `TitlePromotionTransform` (leading H1 → Word "Title", every later heading shifted up
-    one), but the DOCX parser maps "Title" → `Paragraph`. So `md → docx → md` demotes the
-    title *and* shifts H2→H1.
-  - [#71](https://github.com/thomas-villani/all2md/issues/71) — the DOCX round trip drops
-    inline `Code`, and writes a `BlockQuote` as an indented `Normal` paragraph that the
-    parser reads back as a bullet list.
-  - [#72](https://github.com/thomas-villani/all2md/issues/72) — the HTML parser wraps `<li>`
-    content in a `Paragraph` unconditionally, so `<li><p>x</p></li>` parses to
-    `ListItem > Paragraph > Paragraph > Text`.
+    one), but the DOCX parser mapped "Title" → `Paragraph`, so `md → docx → md` demoted the
+    title *and* shifted H2→H1. The parser now maps "Title" back to a title heading and
+    inverts the promotion (clamped at level 6).
+  - [#71](https://github.com/thomas-villani/all2md/issues/71) — the DOCX round trip dropped
+    inline `Code`, and wrote a `BlockQuote` as an indented `Normal` paragraph that the
+    parser read back as a bullet list. Inline code now rides on a `Verbatim Char` style and
+    quotes on named quote styles.
+  - [#72](https://github.com/thomas-villani/all2md/issues/72) — the HTML parser wrapped `<li>`
+    content in a `Paragraph` unconditionally, so `<li><p>x</p></li>` parsed to
+    `ListItem > Paragraph > Paragraph > Text`; loose items no longer double-wrap.
 
-  Reproduce any of them with `all2md roundtrip <file> --via docx` (or `--via html`).
+  The round-trip scorer that surfaced these now also scores code/math/HTML block content,
+  so a regression in any of them shows up in `all2md roundtrip <file> --via docx` (or
+  `--via html`).
 - 🚀 **Layout-aware PDF reconstruction** — correct reading order across columns,
   footnote/endnote linking, running header/footer stripping, caption↔figure association.
   The eternal PDF pain points; we already have `_pdf_layout.py` to build on.
@@ -145,7 +149,8 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
   near-empty-page ratio) as a structured "quality card" instead of log noise. Reference-free,
   so it works on documents with no ground truth.
-- 🚀 **Conversion optimizer (`all2md optimize`)** — auto-tune converter settings for a
+- 🚢 **Conversion optimizer (`all2md optimize`)** — *shipped (unreleased; lands in v1.9.0).*
+  Auto-tune converter settings for a
   difficult document (headline case: gnarly PDFs). Searches the parameter space
   (`table_detection_mode`, `detect_columns`, OCR mode/engine, `min_image_dimension`,
   header/footer filtering, dehyphenation, layout model, heading size-ratio, …) and returns
@@ -155,8 +160,8 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     optimizer needs a **reference-free** quality score — exactly the vector the *confidence
     report* produces (real-word ratio, table sanity, ghost-image count, reading-order
     coherence, near-empty-page ratio, hyphenation-merge success). **Both halves of that
-    substrate now exist** (confidence 🚢, round-trip 🚢), so this is *unblocked* and is the
-    next item up. Use `confidence_report(...).score` where no reference can be manufactured
+    substrate exist** (confidence 🚢, round-trip 🚢), and the optimizer shipped on top of
+    them. Use `confidence_report(...).score` where no reference can be manufactured
     and `roundtrip_report(...).score` where one can; both respond to converter options — e.g.
     `html_passthrough_mode="pass-through"` moves `basic.md` from 98 to 100 — which is exactly
     what makes them hill-climbable.
@@ -324,24 +329,20 @@ shipped, along with mermaid rendering and `uv` install scripts.
 
 **Done in the Fidelity & Trust batch** (unreleased, lands in v1.9.0): ~~round-trip fidelity
 scoring~~ 🚢, ~~conversion confidence report~~ 🚢, ~~DOCX character-style round-trip~~ 🚢,
-~~search-index / conversion-cache correctness~~ 🚢. That closes the previous arc's top two
-entries and unblocks the batch capstone, which leads the revised arc below.
+~~search-index / conversion-cache correctness~~ 🚢, ~~conversion optimizer~~ 🚢 (the batch
+capstone), and ~~the DOCX/HTML round-trip asymmetries #70/#71/#72~~ 🚢 that the round-trip
+scorer surfaced. That closes the previous arc's top entries and the capstone both.
 
 Revised arc for the **next batch**, ordered by leverage-per-effort:
 
-1. **Conversion optimizer (`all2md optimize`)** — the capstone, now unblocked: both quality
-   scores it hill-climbs on exist and are exercised by tests. Start here.
-2. **Public fidelity benchmark** — round-trip scoring exists, so productize it: wire it into
+1. **Public fidelity benchmark** — round-trip scoring exists, so productize it: wire it into
    the `benchmarks/corpus/` harness for a corpus-wide report, then a head-to-head vs.
    markitdown / pandoc / docling.
-3. **DOCX/HTML round-trip asymmetries** — the concrete defects `all2md roundtrip` surfaced
-   on its first run (Theme 2). Small, well-specified, and each one raises the benchmark
-   number above.
-4. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
+2. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
    Architecture Decision); the deferred-asset-resolution phase is the user-visible win.
-5. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
+3. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
    is the shared building block for the Action and a future hosted API.
-6. **Math support** + **layout-aware PDF** — deepen the fidelity moat (larger efforts).
+4. **Math support** + **layout-aware PDF** — deepen the fidelity moat (larger efforts).
 
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
 small `todo.md` bug-fixes (filename-hint detection, leading blank line in DOCX, smarter
