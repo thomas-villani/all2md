@@ -12,6 +12,7 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    MathBlock,
     Paragraph,
     Strong,
     Table,
@@ -200,6 +201,40 @@ class TestStructureTextIndependence:
         _, metrics, _ = score_roundtrip(source, reversed_words)
         # A bag comparison cannot see the reordering, so text reads as intact.
         assert metrics["text"] == 100
+
+
+class TestBlockPayloadContent:
+    """A leaf's string payload must be scored, not just its ``Text`` children.
+
+    Code / math / raw-HTML / image-alt payloads live in a ``str`` attribute, not
+    ``Text`` children. If the text dimension ignores them, a round trip that
+    dropped or mangled a whole code block scores a false 100 -- the worst kind of
+    blind spot for a fidelity tool.
+    """
+
+    def test_dropped_code_block_content_is_not_a_perfect_score(self):
+        source = doc(CodeBlock(content="def f():\n    return secret_value", language="python"))
+        emptied = doc(CodeBlock(content="", language="python"))
+        score, metrics, _ = score_roundtrip(source, emptied)
+        assert score < 100, "losing a code block's entire body must not score 100"
+        assert metrics["text"] < 100
+
+    def test_intact_code_block_still_scores_perfect(self):
+        source = doc(CodeBlock(content="def f():\n    return 42", language="python"))
+        score, _, _ = score_roundtrip(source, source)
+        assert score == 100, "an unchanged code block must not be penalised"
+
+    def test_mangled_math_body_loses_points(self):
+        source = doc(MathBlock(content="E = mc^2"))
+        mangled = doc(MathBlock(content="E = mc^3"))
+        _, metrics, _ = score_roundtrip(source, mangled)
+        assert metrics["text"] < 100
+
+    def test_image_alt_text_is_scored(self):
+        source = doc(Paragraph(content=[Image(url="a.png", alt_text="a red bicycle")]))
+        stripped = doc(Paragraph(content=[Image(url="a.png", alt_text="")]))
+        _, metrics, _ = score_roundtrip(source, stripped)
+        assert metrics["text"] < 100
 
 
 # --- Per-dimension deltas ----------------------------------------------------
