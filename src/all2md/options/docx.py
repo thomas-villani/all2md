@@ -264,3 +264,18 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
             "importance": "advanced",
         },
     )
+    code_char_style_names: list[str] = field(
+        default_factory=lambda: ["Verbatim Char", "Code Char"],
+        metadata={
+            "help": "List of run character style names to treat as inline code (case-insensitive exact match). "
+            "The DOCX renderer writes inline code with the 'Verbatim Char' style; pandoc uses the same name.",
+            "importance": "advanced",
+        },
+    )
+    quote_style_names: list[str] = field(
+        default_factory=lambda: ["Quote", "Intense Quote"],
+        metadata={
+            "help": "List of paragraph style names to treat as block quotes (case-insensitive exact match)",
+            "importance": "advanced",
+        },
+    )

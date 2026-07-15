@@ -22,6 +22,7 @@ from fixtures import FIXTURES_PATH
 
 from all2md.ast import (
     BlockQuote,
+    Code,
     CommentInline,
     Document,
     Emphasis,
@@ -881,3 +882,67 @@ class TestMathExtraction:
         assert "=-1" in content
         assert math_nodes[0].notation == "latex"
         assert math_nodes[0].representations["latex"].replace(" ", "") == content
+
+
+@pytest.mark.unit
+class TestCodeAndBlockquoteRoundTrip:
+    """Tests for inline code and blockquote DOCX round-trip fidelity (issue #71)."""
+
+    def test_quote_style_paragraph_becomes_blockquote(self) -> None:
+        """A Word 'Quote' paragraph parses to a BlockQuote, not a list item."""
+        doc = docx.Document()
+        doc.add_paragraph("a quoted line", style="Quote")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        blockquotes = extract_nodes(ast_doc, BlockQuote)
+        assert len(blockquotes) == 1
+        assert not extract_nodes(ast_doc, List), "Quote paragraph must not be read as a list"
+        assert _inline_text(blockquotes[0].children[0].content) == "a quoted line"
+
+    def test_consecutive_quote_paragraphs_coalesce(self) -> None:
+        """Adjacent 'Quote' paragraphs merge into a single multi-paragraph BlockQuote."""
+        doc = docx.Document()
+        doc.add_paragraph("line one", style="Quote")
+        doc.add_paragraph("line two", style="Quote")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        blockquotes = extract_nodes(ast_doc, BlockQuote)
+        assert len(blockquotes) == 1
+        assert len(blockquotes[0].children) == 2
+
+    def test_inline_code_char_style_becomes_code_node(self) -> None:
+        """A run wearing the inline-code character style parses to a Code node."""
+        from docx.enum.style import WD_STYLE_TYPE
+
+        doc = docx.Document()
+        doc.styles.add_style("Verbatim Char", WD_STYLE_TYPE.CHARACTER)
+        para = doc.add_paragraph("Use ")
+        code_run = para.add_run("f(x)")
+        code_run.style = "Verbatim Char"
+        para.add_run(" here")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        code_nodes = extract_nodes(ast_doc, Code)
+        assert len(code_nodes) == 1
+        assert code_nodes[0].content == "f(x)"
+
+    def test_markdown_docx_markdown_preserves_inline_code_and_quote(self) -> None:
+        """Md -> docx -> md keeps inline code as code and a quote as a quote (#71)."""
+        from all2md import from_ast, to_ast
+
+        source = "Body with `inline code`.\n\n> a quoted line\n"
+        ast = to_ast(source.encode(), source_format="markdown")
+        docx_bytes = from_ast(ast, target_format="docx")
+        back = to_ast(docx_bytes, source_format="docx")
+
+        assert len(extract_nodes(back, Code)) == 1
+        assert len(extract_nodes(back, BlockQuote)) == 1
+        assert not extract_nodes(back, List), "Quote must not decay into a bullet list"
+
+        rendered = from_ast(back, target_format="markdown")
+        assert "`inline code`" in rendered
+        assert "> a quoted line" in rendered
+        assert "* a quoted line" not in rendered
