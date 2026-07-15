@@ -120,6 +120,29 @@ def _get_renderer_options_class_for_format(format: DocumentFormat) -> type[BaseR
         return None
 
 
+_OPTION_TYPE_HINTS_CACHE: dict[type, dict[str, Any]] = {}
+
+
+def _option_type_hints(options_class: type) -> dict[str, Any]:
+    """Resolve and cache ``get_type_hints`` for an options dataclass.
+
+    ``get_type_hints`` walks the full MRO and re-evaluates every string annotation.
+    On the conversion hot path both ``_collect_nested_dataclass_kwargs`` and
+    ``_create_options_from_kwargs`` call it for the same class on every call, so we
+    memoize per class here. Falls back to an empty mapping when hints can't be
+    resolved, matching the previous inline behavior. The returned dict is shared and
+    must be treated as read-only.
+    """
+    cached = _OPTION_TYPE_HINTS_CACHE.get(options_class)
+    if cached is None:
+        try:
+            cached = get_type_hints(options_class)
+        except Exception:
+            cached = {}
+        _OPTION_TYPE_HINTS_CACHE[options_class] = cached
+    return cached
+
+
 def _collect_nested_dataclass_kwargs(
     options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
 ) -> dict:
@@ -154,12 +177,8 @@ def _collect_nested_dataclass_kwargs(
     nested_kwargs = {}
     remaining_kwargs = {}
 
-    # Use get_type_hints to properly resolve string annotations
-    try:
-        type_hints = get_type_hints(options_class)
-    except Exception:
-        # Fallback if type hints can't be resolved
-        type_hints = {}
+    # Use get_type_hints to properly resolve string annotations (memoized per class)
+    type_hints = _option_type_hints(options_class)
 
     # Build a mapping of field_name -> nested_dataclass_type
     nested_fields = {}
@@ -232,10 +251,7 @@ def _create_options_from_kwargs(
     nested_dataclass_kwargs = nested_info["nested"]
     flat_kwargs = nested_info["remaining"]
 
-    try:
-        type_hints = get_type_hints(options_class)
-    except Exception:
-        type_hints = {}
+    type_hints = _option_type_hints(options_class)
 
     # Create instances of nested dataclasses
     for nested_field_name, nested_kwargs in nested_dataclass_kwargs.items():

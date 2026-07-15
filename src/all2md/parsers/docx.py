@@ -1960,6 +1960,15 @@ def _iter_block_items(
                 ):
                     has_image = True
 
+                    # attachment_mode="skip" discards every image, and
+                    # process_attachment already returns empty markdown for it, so no
+                    # ImageData is ever emitted. Short-circuit before the relationship
+                    # lookup + blob read (extract_docx_image_data) to avoid loading
+                    # image bytes we would only throw away. Output is unchanged: the
+                    # paragraph is still yielded, just without any image nodes.
+                    if options.attachment_mode == "skip":
+                        continue
+
                     # Get image info
                     title = None
 

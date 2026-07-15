@@ -15,7 +15,7 @@ import io
 import logging
 import mimetypes
 from pathlib import Path
-from typing import IO, Dict, List, NoReturn, Optional, Union
+from typing import IO, Dict, List, NoReturn, Optional, Tuple, Union
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, FormatError
@@ -215,6 +215,7 @@ class ConverterRegistry:
     _instance: Optional[ConverterRegistry] = None
     _converters: Dict[str, List[ConverterMetadata]] = {}
     _initialized: bool = False
+    _sorted_converters_cache: Optional[List[Tuple[str, ConverterMetadata]]] = None
 
     def __new__(cls) -> ConverterRegistry:
         """Create or return singleton instance."""
@@ -222,7 +223,25 @@ class ConverterRegistry:
             cls._instance = super().__new__(cls)
             cls._instance._converters = {}
             cls._instance._initialized = False
+            cls._instance._sorted_converters_cache = None
         return cls._instance
+
+    def _sorted_converter_list(self) -> List[Tuple[str, ConverterMetadata]]:
+        """Return all converters flattened and sorted by priority (highest first).
+
+        ``detect_format`` is on the conversion hot path and previously rebuilt and
+        re-sorted this list on every call. The registry only changes via
+        ``register``/``unregister``, so we memoize the sorted list and invalidate it
+        there. Returns the shared cached list; callers must treat it as read-only.
+        """
+        if self._sorted_converters_cache is None:
+            all_converters = [
+                (format_name, metadata)
+                for format_name, metadata_list in self._converters.items()
+                for metadata in metadata_list
+            ]
+            self._sorted_converters_cache = sorted(all_converters, key=lambda x: x[1].priority, reverse=True)
+        return self._sorted_converters_cache
 
     def register(self, metadata: ConverterMetadata) -> None:
         """Register a converter with its metadata.
@@ -251,6 +270,7 @@ class ConverterRegistry:
         # Add to list and sort by priority (highest first)
         self._converters[metadata.format_name].append(metadata)
         self._converters[metadata.format_name].sort(key=lambda m: m.priority, reverse=True)
+        self._sorted_converters_cache = None
 
     def unregister(self, format_name: str) -> bool:
         """Unregister a converter.
@@ -268,6 +288,7 @@ class ConverterRegistry:
         """
         if format_name in self._converters:
             del self._converters[format_name]
+            self._sorted_converters_cache = None
             logger.debug(f"Unregistered converter: {format_name}")
             return True
         return False
@@ -593,13 +614,8 @@ class ConverterRegistry:
         for ambiguous extensions like .json (which could be OpenAPI, generic JSON data, etc.)
 
         """
-        # Flatten all converters and sort by priority
-        all_converters = [
-            (format_name, metadata)
-            for format_name, metadata_list in self._converters.items()
-            for metadata in metadata_list
-        ]
-        sorted_converters = sorted(all_converters, key=lambda x: x[1].priority, reverse=True)
+        # Flattened, priority-sorted converters (memoized; see _sorted_converter_list)
+        sorted_converters = self._sorted_converter_list()
 
         # Check extensions with content validation
         for format_name, metadata in sorted_converters:
@@ -643,13 +659,8 @@ class ConverterRegistry:
             Format name if detected
 
         """
-        # Flatten all converters and sort by priority
-        all_converters = [
-            (format_name, metadata)
-            for format_name, metadata_list in self._converters.items()
-            for metadata in metadata_list
-        ]
-        sorted_converters = sorted(all_converters, key=lambda x: x[1].priority, reverse=True)
+        # Flattened, priority-sorted converters (memoized; see _sorted_converter_list)
+        sorted_converters = self._sorted_converter_list()
 
         # Check magic bytes first
         for format_name, metadata in sorted_converters:
