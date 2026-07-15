@@ -5,6 +5,7 @@
 # src/all2md/utils/packages.py
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Optional, Tuple
 
 
@@ -34,6 +35,7 @@ def get_package_version(package_name: str) -> Optional[str]:
         return None
 
 
+@lru_cache(maxsize=None)
 def check_version_requirement(package_name: str, version_spec: str) -> Tuple[bool, Optional[str]]:
     """Check if installed package meets version requirement.
 
@@ -48,6 +50,13 @@ def check_version_requirement(package_name: str, version_spec: str) -> Tuple[boo
     -------
     tuple
         (meets_requirement, installed_version)
+
+    Notes
+    -----
+    Results are memoized on ``(package_name, version_spec)``. A package's installed
+    version and the parsed ``SpecifierSet`` are stable for the life of the process,
+    so the ``requires_dependencies`` decorator can call this on every parse/render
+    without re-running ``importlib.metadata.version`` or re-parsing the specifier.
 
     """
     installed_version = get_package_version(package_name)

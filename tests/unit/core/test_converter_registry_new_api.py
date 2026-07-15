@@ -428,6 +428,46 @@ class TestMultiConverterSupport:
         assert len(metadata_list) == 2
 
 
+class TestDetectionCacheInvalidation:
+    """The memoized flattened/sorted converter list must track register/unregister.
+
+    ``detect_format`` reuses a cached, priority-sorted converter list
+    (``_sorted_converter_list``) instead of rebuilding it on every call. These tests
+    guard that ``register`` and ``unregister`` invalidate that cache so detection
+    never goes stale.
+    """
+
+    def setup_method(self):
+        """Ensure registry is initialized."""
+        registry.auto_discover()
+
+    def test_detection_cache_invalidated_on_register_and_unregister(self):
+        """A newly registered format is detectable, and vanishes after unregister."""
+        from all2md.converter_metadata import ConverterMetadata
+
+        # Warm the cache first so a missing invalidation would leave it stale.
+        registry.detect_format("warmup.md")
+
+        # The bespoke extension is unknown until we register a converter for it.
+        assert registry.detect_format("file.zzcachetest") == "plaintext"
+
+        metadata = ConverterMetadata(
+            format_name="test_cache_invalidation",
+            extensions=[".zzcachetest"],
+            parser_class="all2md.parsers.html.HtmlToAstConverter",
+            priority=10,
+        )
+        registry.register(metadata)
+        try:
+            # register() must have invalidated the cache for this to be seen.
+            assert registry.detect_format("file.zzcachetest") == "test_cache_invalidation"
+        finally:
+            assert registry.unregister("test_cache_invalidation") is True
+
+        # unregister() must invalidate the cache too, so detection reverts.
+        assert registry.detect_format("file.zzcachetest") == "plaintext"
+
+
 class TestFormatSynchronization:
     """Test that DocumentFormat Literal stays in sync with registry."""
 

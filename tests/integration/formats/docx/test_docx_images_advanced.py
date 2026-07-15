@@ -251,6 +251,46 @@ class TestDocxImagesAdvanced:
         assert "Text after image" in markdown
         assert "![" not in markdown  # No image markdown
 
+    def test_skip_mode_does_not_read_image_blobs(self):
+        """attachment_mode='skip' short-circuits before reading image bytes.
+
+        Skip mode discards every image, so the parser must not pay to resolve the
+        relationship and read the blob via ``extract_docx_image_data``. A base64
+        conversion of the same document is used as a control to prove the spied
+        function really is on the image hot path.
+        """
+        from unittest.mock import patch
+
+        import all2md.parsers.docx as docx_parser
+
+        png_path, _, _ = self.create_test_images()
+
+        doc = docx.Document()
+        doc.add_paragraph("Text before image")
+        doc.add_picture(str(png_path), width=Inches(2))
+        doc.add_paragraph("Text after image")
+
+        temp_file = self.temp_dir / "skip_no_blob.docx"
+        doc.save(str(temp_file))
+
+        real = docx_parser.extract_docx_image_data
+
+        # Control: base64 mode DOES read the blob, so the spy target is meaningful.
+        with patch.object(docx_parser, "extract_docx_image_data", wraps=real) as spy:
+            docx_to_markdown(str(temp_file), parser_options=DocxOptions(attachment_mode="base64"))
+        assert spy.called, "base64 mode should read image data (spy sanity check)"
+
+        # Skip mode must never call it.
+        with patch.object(docx_parser, "extract_docx_image_data", wraps=real) as spy:
+            markdown = docx_to_markdown(str(temp_file), parser_options=DocxOptions(attachment_mode="skip"))
+        assert not spy.called, "skip mode must not read image blobs"
+
+        # Output is unchanged: text preserved, no image markdown emitted.
+        assert_markdown_valid(markdown)
+        assert "Text before image" in markdown
+        assert "Text after image" in markdown
+        assert "![" not in markdown
+
     def test_corrupted_or_missing_images(self):
         """Test handling of corrupted or missing image references."""
         # Create a document that references a non-existent image
