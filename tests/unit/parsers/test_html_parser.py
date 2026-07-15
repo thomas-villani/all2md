@@ -316,6 +316,45 @@ class TestLists:
         assert isinstance(list_node, List)
         assert list_node.ordered is True
         assert len(list_node.items) == 2
+        # No explicit start attribute defaults to 1.
+        assert list_node.start == 1
+
+    def test_ordered_list_preserves_start_attribute(self) -> None:
+        """<ol start="N"> must keep N instead of resetting numbering to 1."""
+        converter = HtmlToAstConverter()
+
+        list_node = converter.convert_to_ast('<ol start="3"><li>three</li><li>four</li></ol>').children[0]
+        assert isinstance(list_node, List)
+        assert list_node.ordered is True
+        assert list_node.start == 3
+
+        list_node = converter.convert_to_ast('<ol start="5"><li>a</li></ol>').children[0]
+        assert list_node.start == 5
+
+    def test_ordered_list_invalid_start_falls_back_to_one(self) -> None:
+        """A non-numeric start attribute must not crash; it defaults to 1."""
+        converter = HtmlToAstConverter()
+        list_node = converter.convert_to_ast('<ol start="notnum"><li>x</li></ol>').children[0]
+        assert isinstance(list_node, List)
+        assert list_node.start == 1
+
+    def test_unordered_list_ignores_start_attribute(self) -> None:
+        """A start attribute on <ul> is meaningless and stays at the default."""
+        converter = HtmlToAstConverter()
+        list_node = converter.convert_to_ast('<ul start="4"><li>x</li></ul>').children[0]
+        assert isinstance(list_node, List)
+        assert list_node.ordered is False
+        assert list_node.start == 1
+
+    def test_ordered_list_start_survives_markdown_html_markdown(self) -> None:
+        """The start value must survive a Markdown -> HTML -> Markdown roundtrip."""
+        from all2md import convert
+        from all2md.options import MarkdownRendererOptions
+
+        opts = MarkdownRendererOptions(flavor="gfm")
+        html = convert("3. three\n4. four", source_format="markdown", target_format="html")
+        back = convert(html, source_format="html", target_format="markdown", renderer_options=opts)
+        assert back.strip().splitlines()[0].startswith("3.")
 
     def test_nested_list(self) -> None:
         """Test converting nested lists."""

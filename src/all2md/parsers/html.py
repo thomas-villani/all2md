@@ -1141,7 +1141,18 @@ class HtmlToAstConverter(BaseParser):
             if item:
                 items.append(item)
 
-        return List(ordered=ordered, items=items)
+        # Preserve the ordered-list start value (<ol start="N">). Without this
+        # the numbering was silently reset to 1 on every HTML -> AST conversion.
+        start = 1
+        if ordered:
+            start_attr = node.get("start")
+            if start_attr is not None:
+                try:
+                    start = int(str(start_attr).strip())
+                except (TypeError, ValueError):
+                    start = 1
+
+        return List(ordered=ordered, items=items, start=start)
 
     def _process_list_item_to_ast(self, node: Any) -> ListItem:
         """Process list item element to ListItem node.
