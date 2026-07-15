@@ -978,6 +978,23 @@ class TestTitleRoundTrip:
         assert [h.level for h in headings] == [1, 2, 3]
         assert headings[0].metadata.get("is_title") is True
 
+    def test_demotion_after_title_is_clamped_at_level_6(self) -> None:
+        """An H6 after a title must stay an H6, not become an out-of-spec level 7.
+
+        ``Heading`` enforces a 1-6 level; the demotion mutates ``.level`` directly,
+        which would otherwise leave an invalid node that serialization and the
+        round-trip scorer see even though the Markdown renderer hides it.
+        """
+        doc = docx.Document()
+        doc.add_paragraph("My Title", style="Title")
+        doc.add_heading("Deep", level=6)
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+        headings = [c for c in ast_doc.children if isinstance(c, Heading)]
+
+        assert [h.level for h in headings] == [1, 6]
+        assert all(1 <= h.level <= 6 for h in headings), "demotion produced an out-of-range heading level"
+
     def test_non_leading_title_does_not_shift_headings(self) -> None:
         """A title that is not the first content leaves following headings untouched."""
         doc = docx.Document()
