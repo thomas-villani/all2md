@@ -2605,7 +2605,7 @@ class PdfToAstConverter(BaseParser):
                     f"Rejecting pymupdf table on page {page_num + 1}: {n_rows}x{n_cols} grid exceeds size caps"
                 )
                 self._record_table_rejection("oversized_grid")
-                return None
+                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
             n_empty = sum(1 for r in table_data for c in r if c is None or not str(c).strip())
             if n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
                 logger.debug(
@@ -2613,7 +2613,7 @@ class PdfToAstConverter(BaseParser):
                     f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
                 )
                 self._record_table_rejection("mostly_empty")
-                return None
+                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
             unique_texts = {str(c).strip() for r in table_data for c in r if c is not None and str(c).strip()}
             n_filled = n_cells - n_empty
             if len(unique_texts) == 1 and n_filled >= MIN_FILLED_FOR_UNIFORMITY_CHECK:
@@ -2622,7 +2622,7 @@ class PdfToAstConverter(BaseParser):
                     f"all {n_filled} non-empty cells have identical content"
                 )
                 self._record_table_rejection("uniform_cells")
-                return None
+                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
             n_dot_leader = sum(1 for r in table_data for c in r if c is not None and is_dot_leader_cell(str(c)))
             if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
                 logger.debug(
@@ -2631,7 +2631,7 @@ class PdfToAstConverter(BaseParser):
                     f"dot-leader noise (looks like TOC region)"
                 )
                 self._record_table_rejection("dot_leader_toc")
-                return None
+                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
 
             # Separate header row (first row) from data rows
             header_row_data = table_data[0] if table_data else []
