@@ -1297,3 +1297,32 @@ class TestDefinitionListRendering:
         assert "Example" in result
         assert "Here's how to use it:" in result
         assert "code example" in result
+
+    def test_definition_list_roundtrips_without_collapsing(self):
+        """Multi-paragraph descriptions and multiple terms survive a roundtrip.
+
+        Two regressions in one place: a description's paragraphs were joined by
+        a single newline (so the second lazily merged into the first on
+        reparse), and consecutive term/description groups were separated by a
+        single newline (so the next term merged into the previous description).
+        Both need a blank-line separator; continuation lines are indented four
+        spaces.
+        """
+        from all2md import convert, to_ast
+        from all2md.ast import DefinitionList
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        markdown = "term one\n\n:   first para\n\n    second para\n\nterm two\n\n:   only para\n"
+
+        once = convert(markdown, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "definition list is not idempotent"
+
+        # Blank line kept between the two paragraphs of the first description.
+        assert "first para\n\n    second para" in once
+
+        # Both terms survive as two separate definition items.
+        ast = to_ast(once, source_format="markdown")
+        dls = [n for n in ast.children if isinstance(n, DefinitionList)]
+        assert len(dls) == 1
+        assert len(dls[0].items) == 2

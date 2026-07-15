@@ -36,8 +36,8 @@ from all2md.exceptions import (
     SecurityError,
     ValidationError,
 )
-from all2md.options import AttachmentOptionsMixin
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
+from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.utils.input_sources import RemoteInputOptions
 
@@ -52,6 +52,25 @@ logger = logging.getLogger(__name__)
 CLI_METADATA_NEGATES_DEFAULT = "cli_negates_default"
 CLI_METADATA_FLATTEN = "cli_flatten"
 CLI_METADATA_NEGATED_NAME = "cli_negated_name"
+
+
+_TYPE_HINTS_CACHE: Dict[type, Dict[str, Any]] = {}
+
+
+def _cached_type_hints(options_class: type) -> Dict[str, Any]:
+    """Resolve and cache ``get_type_hints`` for an options dataclass.
+
+    ``get_type_hints`` walks the full MRO and re-resolves every annotation on each
+    call, and the CLI builder resolves field types once *per field*. Caching per
+    class collapses that from O(fields) MRO walks per class to one, which is a large
+    share of the parser-build cost. The option classes form a bounded set, so an
+    unbounded cache is safe.
+    """
+    cached = _TYPE_HINTS_CACHE.get(options_class)
+    if cached is None:
+        cached = get_type_hints(options_class, include_extras=True)
+        _TYPE_HINTS_CACHE[options_class] = cached
+    return cached
 
 
 class DynamicCLIBuilder:
@@ -137,8 +156,9 @@ class DynamicCLIBuilder:
         """
         try:
             # Use get_type_hints without explicit globalns/localns
-            # This allows proper resolution across module boundaries and inheritance
-            type_hints = get_type_hints(options_class, include_extras=True)
+            # This allows proper resolution across module boundaries and inheritance.
+            # Cached per class since this runs once per field (see _cached_type_hints).
+            type_hints = _cached_type_hints(options_class)
             if field.name in type_hints:
                 return type_hints[field.name]
         except (NameError, AttributeError, TypeError):

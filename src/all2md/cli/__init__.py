@@ -71,7 +71,7 @@ from all2md.cli.commands import (
 )
 from all2md.cli.commands.config import save_config_to_file
 from all2md.cli.commands.help import handle_help_command
-from all2md.cli.commands.shared import collect_input_files, get_about_info, parse_batch_list
+from all2md.cli.commands.shared import collect_input_files, get_about_info, get_version, parse_batch_list
 
 # Note: processors imports are lazy-loaded to avoid loading AST and transforms
 # for simple commands like --help
@@ -268,6 +268,33 @@ def _handle_watch_mode(
     )
 
 
+def _handle_early_exit_flags(args: list[str] | None) -> int | None:
+    """Handle ``--version``/``--about`` before building the full parser.
+
+    Building the dynamic parser imports every format's options module and
+    introspects each field, costing well over a second. ``--version`` and
+    ``--about`` need none of that, so scan for them up front and short-circuit.
+
+    Only tokens before a ``--`` terminator are considered, matching argparse: a
+    file literally named ``--version`` is reached via ``all2md -- --version`` and
+    is left untouched here. ``--version`` fires during argparse parsing (before any
+    other validation) and always wins over ``--about`` when both are present, so it
+    is checked first. Anything exotic (e.g. ``--version=x``) is not matched here and
+    falls through to the full parser, preserving today's error behavior.
+
+    Returns an exit code to return immediately, or ``None`` to continue normally.
+    """
+    argv = list(sys.argv[1:] if args is None else args)
+    scan = argv[: argv.index("--")] if "--" in argv else argv
+    if "--version" in scan or "-V" in scan:
+        print(f"all2md {get_version()}")
+        return 0
+    if "--about" in scan or "-A" in scan:
+        print(get_about_info())
+        return 0
+    return None
+
+
 def main(args: list[str] | None = None) -> int:
     """Execute main CLI entry point with focused delegation to specialized processors."""
     # Handle special commands
@@ -278,6 +305,11 @@ def main(args: list[str] | None = None) -> int:
     deps_result = dispatch_command(args)
     if deps_result is not None:
         return deps_result
+
+    # Short-circuit trivial flags before paying the full parser-build cost.
+    early_exit = _handle_early_exit_flags(args)
+    if early_exit is not None:
+        return early_exit
 
     # Parse arguments
     parser = create_parser()
