@@ -479,6 +479,47 @@ Supports both JSON and TOML formats. TOML is preferred for human editing as it s
        environment:
          ALL2MD_CONFIG: /etc/all2md/config.toml
 
+Conversion Cache
+----------------
+
+The opt-in on-disk conversion cache (``--cache`` on ``grep``, ``search``,
+``chunk``, ``view``, ``report``, ``roundtrip`` and ``optimize``) is also
+controllable from the environment. See :ref:`conversion-cache` for what it does.
+
+ALL2MD_CACHE
+~~~~~~~~~~~~
+
+**Purpose:** Enable the conversion cache without passing ``--cache`` on every command.
+
+**Type:** Boolean
+
+**Default:** ``false`` (cache disabled)
+
+**Valid Values:** ``1``, ``true``, ``yes``, ``on`` (case-insensitive) enable it.
+
+**Example:**
+
+.. code-block:: bash
+
+   export ALL2MD_CACHE=1
+   all2md optimize scanned.pdf        # cache used without --cache
+
+ALL2MD_CACHE_DIR
+~~~~~~~~~~~~~~~~
+
+**Purpose:** Directory for the on-disk conversion cache.
+
+**Type:** String (directory path)
+
+**Default:** A per-OS user cache directory. Overridden by ``--cache-dir`` when both are set.
+
+**Example:**
+
+.. code-block:: bash
+
+   export ALL2MD_CACHE_DIR=/var/cache/all2md
+   all2md report inbox/*.docx --cache
+
 CLI Option Environment Variables
 ---------------------------------
 

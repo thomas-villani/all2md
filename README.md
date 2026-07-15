@@ -82,6 +82,19 @@ all2md search "project timeline" --semantic ./docs/
 # Chunk documents for RAG/LLM pipelines (JSONL with section + page provenance)
 all2md chunk report.pdf --strategy semantic --max-tokens 512 --overlap 64
 
+# Score how much to trust a conversion (reference-free "quality card")
+all2md report scan.pdf
+all2md report inbox/*.docx --fail-under 80   # CI gate
+
+# Measure round-trip fidelity: convert -> parse back -> score what survived
+all2md roundtrip notes.md --via docx
+
+# Auto-tune converter settings for a difficult document (headline: gnarly PDFs)
+all2md optimize scanned.pdf --sample-pages 5
+
+# Speed up repeat runs on unchanged files with the opt-in on-disk cache
+all2md optimize scanned.pdf --cache        # also: export ALL2MD_CACHE=1
+
 # Pipe and chain commands with stdin/stdout support (use '-' for stdin)
 curl https://example.com/doc.pdf | all2md - | grep "important"
 cat report.html | all2md - --format html --rich
@@ -185,8 +198,17 @@ Beyond basic conversion, the CLI includes advanced features for production workf
 - **Config Management** - Generate, validate, and manage conversion configs
 - **Format Discovery** - `all2md list-formats` shows all supported formats and dependencies
 - **Agent-Friendly** - Clean, intuitive interface that AI agents can use directly, plus pre-built agent skills installable via `all2md install-skills`
+- **Conversion Cache** - Opt-in on-disk cache (`--cache`, or `ALL2MD_CACHE=1`) reuses parsed documents across runs of `grep`, `search`, `chunk`, `view`, `report`, `roundtrip`, and `optimize`
 
-### 4. AI-Native Integration
+### 4. Conversion Quality & Tuning
+
+Know how good a conversion is — and make it better — without a ground-truth reference:
+
+- **`all2md report`** — a reference-free confidence "quality card" for any document, built from the sanity signals the parsers already compute (text density, table cell-fill/dot-leader ratios, OCR reliance, dropped-content events). Also rides on `Document.metadata['confidence']`. Use `--fail-under` as a CI gate.
+- **`all2md roundtrip`** — round-trip fidelity scoring: convert a document to another format, parse it straight back, and score the structure that survived (`0-100` plus per-dimension metrics and itemized differences). A lossless round trip scores exactly `100`.
+- **`all2md optimize`** — auto-tune converter settings for a difficult document (headline case: gnarly PDFs) against a reference-free objective, emitted as a runnable command and a `.all2md.toml` snippet.
+
+### 5. AI-Native Integration
 
 **RAG-Native Chunking** — Split any document into chunks ready for retrieval-augmented generation, with provenance most chunkers throw away.
 
