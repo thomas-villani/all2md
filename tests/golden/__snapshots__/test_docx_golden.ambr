@@ -203,18 +203,18 @@
   
   Here we go!
   
-  The first footnote will come in this sentence<sup>1</sup>. And now this sentence can have an endnote<sup>end1</sup>. It’s just that easy. I’m telling you, it’s quite simple. Although, it’s strange to use *both* endnotes<sup>end2</sup> **and** footnotes<sup>2</sup>. Usually someone would choose one or the other, not usually both.
+  The first footnote will come in this sentence[^1]. And now this sentence can have an endnote[^end1]. It’s just that easy. I’m telling you, it’s quite simple. Although, it’s strange to use *both* endnotes[^end2] **and** footnotes[^2]. Usually someone would choose one or the other, not usually both.
   
   Now we can have another paragraph here. This one won’t have any endnotes or footnotes. However, it will have a comment. Something hilarious I’m sure.
   
   This should probably be all we need for the test document. So buh bye!
   
-  <div id="fn-1"> The first footnote</div>
+  [^1]:  The first footnote
   
-  <div id="fn-2"> Footnotes are this.</div>
+  [^2]:  Footnotes are this.
   
-  <div id="fn-end1"> Here’s an endnote.</div>
+  [^end1]:  Here’s an endnote.
   
-  <div id="fn-end2"> Endnotes are this.</div>
+  [^end2]:  Endnotes are this.
   '''
 # ---
