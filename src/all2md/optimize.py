@@ -239,8 +239,8 @@ KNOBS: dict[str, dict[str, list[Any]]] = {
         "extract_readable": [True, False],
         "detect_table_alignment": [True, False],
         "collapse_whitespace": [True, False],
-        "figures_parsing": ["figure", "image", "skip"],
-        "details_parsing": ["details", "content", "skip"],
+        "figures_parsing": ["image_with_caption", "caption_only", "paragraph", "skip"],
+        "details_parsing": ["blockquote", "html", "skip"],
         "extract_microdata": [True, False],
     },
     "docx": {
