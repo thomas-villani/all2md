@@ -151,3 +151,43 @@ def test_empty_region_yields_nothing(converter):
     node = converter._process_table_to_ast(_FakeTable(SINGLE_ROW, (0, 0, 100, 50)), page, page_num=0)
 
     assert node is None
+
+
+# Grids that each trip a *different* rejection branch. #77 demoted only the
+# degenerate-grid branch to prose; these four still returned None, silently
+# deleting a sparse-but-real table (a financial statement or form crosses the
+# 70%-empty bar), a TOC region, or an oversized grid. Each grid is built to fire
+# exactly one branch given the _pdf_tables thresholds (MIN 2x2, MAX 25 cols /
+# 200 rows, empty > 0.70, uniform >= 5 filled, dot-leader > 0.30).
+OVERSIZED_GRID = [[f"h{i}" for i in range(26)], [f"v{i}" for i in range(26)]]
+MOSTLY_EMPTY_GRID = [["a", "b", ""], ["", "", ""], ["", "", ""]]
+UNIFORM_GRID = [["X", "X"], ["X", "X"], ["X", "X"]]
+DOT_LEADER_GRID = [["Introduction", ".........."], ["Methods", ".........."]]
+
+
+@pytest.mark.parametrize(
+    ("grid", "rejection"),
+    [
+        pytest.param(OVERSIZED_GRID, "oversized_grid", id="oversized"),
+        pytest.param(MOSTLY_EMPTY_GRID, "mostly_empty", id="mostly-empty"),
+        pytest.param(UNIFORM_GRID, "uniform_cells", id="uniform"),
+        pytest.param(DOT_LEADER_GRID, "dot_leader_toc", id="dot-leader-toc"),
+    ],
+)
+def test_every_rejection_branch_demotes_to_prose(converter, grid, rejection):
+    """Every table-rejection branch must preserve the region's text, never delete it.
+
+    The text inside a rejected table's bbox is already gone from the ordinary text
+    blocks, so a ``return None`` drops it on the floor. Only the degenerate-grid
+    branch was fixed for that; the rest are pinned here.
+    """
+    region_text = "alpha beta gamma delta"
+    page = _FakePage(region_text)
+    node = converter._process_table_to_ast(_FakeTable(grid, (0, 0, 100, 50)), page, page_num=0)
+
+    assert not isinstance(node, AstTable), f"a {rejection} detection is not a real table"
+    assert isinstance(node, AstParagraph), f"{rejection} must demote to prose, not delete (returned {node!r})"
+    recovered = _text_of(node).split()
+    for word in region_text.split():
+        assert word in recovered, f"rejecting the {rejection} region lost the word {word!r}"
+    assert converter._tables_rejected == 1, f"{rejection} demotion must be recorded for the quality card"
