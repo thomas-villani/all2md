@@ -532,6 +532,67 @@ class TestLists:
         assert lines[1] == "  Second paragraph"
         assert lines[2] == "* Next item"
 
+    def test_soft_wrapped_paragraph_indented_in_item(self):
+        """A multi-line (soft-wrapped) paragraph in a list item keeps its indent.
+
+        The continuation line was emitted at column zero, so on reparse it became a
+        lazy continuation that collapsed the wrapped lines into one; a nested item
+        broke apart entirely.
+        """
+        from all2md import convert
+
+        opts = MarkdownRendererOptions(flavor="gfm")
+        source = "* a line that\n  wraps here\n"
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+
+        assert once == twice, "soft-wrapped list item is not idempotent"
+        # Continuation aligned under the marker's content column, not at column zero.
+        assert "* a line that\n  wraps here" in once
+        assert "\nwraps here" not in once
+
+    def test_nested_list_as_first_child_not_double_indented(self):
+        """A nested list that is a list item's first child must not double-indent.
+
+        The first-child branch cleared the indent stack but left ``_in_list`` set, so a
+        nested list added its own indent level on top of the marker -- rendering the item
+        as ``1.     - x`` (five stray spaces) instead of ``1. - x``.
+        """
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=1,
+                    items=[
+                        ListItem(
+                            children=[
+                                List(
+                                    ordered=False,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="alpha")])])],
+                                )
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert result.splitlines()[0] == "1. - alpha"
+
+    def test_ordered_task_multiline_roundtrips(self):
+        """The Part 6 shape: an ordered item wrapping a multi-line task item."""
+        from all2md import convert
+
+        opts = MarkdownRendererOptions(flavor="gfm")
+        source = "1. - [x] first line\n     second line\n"
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+
+        assert once == twice, "ordered>task>multiline is not idempotent"
+        # Clean marker (no stray padding) and the continuation aligned under the content.
+        assert once.startswith("1. - [x] first line\n")
+        assert "\nsecond line" not in once  # never at column zero
+
     def test_deeply_nested_list(self):
         """Test rendering deeply nested lists (3 levels)."""
         level3_list = List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Level 3")])])])
