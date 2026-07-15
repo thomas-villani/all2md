@@ -33,6 +33,8 @@ if TYPE_CHECKING:
     from docx.text.paragraph import Paragraph
 
 from all2md.ast import (
+    BlockQuote,
+    Code,
     CodeBlock,
     Comment,
     CommentInline,
@@ -457,11 +459,58 @@ class DocxToAstConverter(BaseParser):
             metadata = self.extract_metadata(doc)
             metadata_dict = metadata.to_dict()
 
+        self._coalesce_blockquotes(children)
+        self._invert_title_promotion(children)
+
         document = Document(children=children, metadata=metadata_dict)
         self._record_docx_quality_signals(doc, document)
         self._footnote_collector = None
         self._comments_map = {}
         return document
+
+    def _coalesce_blockquotes(self, children: list[Node]) -> None:
+        """Merge consecutive top-level :class:`BlockQuote` siblings into one.
+
+        Each Word ``Quote`` paragraph parses to its own single-paragraph block quote;
+        a multi-paragraph quote is therefore several adjacent block quotes. Merge them
+        so the round trip yields one quote with several paragraphs rather than several
+        one-paragraph quotes. The parser produces block quotes only from quote-styled
+        paragraphs, so adjacent ones are always safe to join. Mutates ``children``.
+        """
+        i = 0
+        while i < len(children) - 1:
+            current = children[i]
+            following = children[i + 1]
+            if isinstance(current, BlockQuote) and isinstance(following, BlockQuote):
+                current.children.extend(following.children)
+                del children[i + 1]
+            else:
+                i += 1
+
+    def _invert_title_promotion(self, children: list[Node]) -> None:
+        """Undo :class:`TitlePromotionTransform`'s heading shift when a title leads.
+
+        The renderer promotes every heading after a leading title up one level
+        (H2 -> "Heading 1"); :meth:`_try_process_title` has already mapped the "Title"
+        paragraph back to a title heading, so here we demote the remaining headings one
+        level to restore the original outline. Mirrors the transform's leading-only rule:
+        nothing shifts unless the first real content node is the title heading. Mutates
+        ``children`` in place.
+        """
+        title_index: int | None = None
+        for i, child in enumerate(children):
+            if isinstance(child, AstParagraph) and self._is_effectively_empty(child.content):
+                continue  # skip blank spacer paragraphs, as the promotion did
+            if isinstance(child, Heading) and child.metadata.get("is_title"):
+                title_index = i
+            break  # only the first real content node can be the title
+
+        if title_index is None:
+            return
+
+        for child in children[title_index + 1 :]:
+            if isinstance(child, Heading):
+                child.level += 1
 
     # DrawingML ``graphicData/@uri`` values for content types all2md does not
     # render (and therefore drops): embedded charts and SmartArt diagrams.
@@ -515,6 +564,25 @@ class DocxToAstConverter(BaseParser):
                     counts["smartart_dropped"] += 1
         return counts
 
+    def _try_process_title(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
+        """Try to process a Word ``Title`` paragraph as a title heading.
+
+        This is the inverse of :class:`TitlePromotionTransform`, which the DOCX
+        renderer applies to send a leading ``# H1`` to Word's ``Title`` style. Word's
+        ``Title`` is the document title -- semantically a level-1 heading -- so it maps
+        back to ``Heading(level=1, is_title=True)`` rather than a plain paragraph, which
+        dropped the title to body text and left every following heading shifted up a
+        level (#70). The subsequent-heading shift is undone document-wide by
+        :class:`TitleDemotionTransform` once the whole body is parsed.
+        """
+        if style_name != "Title":
+            return None
+        content = self._process_paragraph_runs_to_inline(paragraph)
+        heading = Heading(level=1, content=content)
+        heading.metadata["is_title"] = True
+        heading.metadata["source_style"] = style_name
+        return heading
+
     def _try_process_heading(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
         """Try to process paragraph as a heading. Returns Heading or None."""
         heading_match = re.match(r"Heading (\d+)", style_name)
@@ -526,6 +594,39 @@ class DocxToAstConverter(BaseParser):
                 heading.metadata["source_style"] = style_name
             return heading
         return None
+
+    def _is_code_char_style(self, style_name: str) -> bool:
+        """Whether a run character style name marks inline code (case-insensitive)."""
+        lowered = style_name.lower()
+        return any(lowered == name.lower() for name in self.options.code_char_style_names)
+
+    def _is_quote_style(self, style_name: str) -> bool:
+        """Whether a paragraph style name marks a block quote (case-insensitive)."""
+        lowered = style_name.lower()
+        return any(lowered == name.lower() for name in self.options.quote_style_names)
+
+    def _process_quote_paragraph(self, paragraph: "Paragraph", style_name: str) -> Node | list[Node] | None:
+        """Map a Word ``Quote``-styled paragraph back to a :class:`BlockQuote`.
+
+        The inverse of the renderer, which sends a ``BlockQuote`` to Word's ``Quote``
+        style (#71). Before this existed the parser saw only the quote style's left
+        indent and mis-read it as a list item, turning ``> a quoted line`` into
+        ``* a quoted line``. Each quote paragraph becomes its own single-paragraph
+        ``BlockQuote``; adjacent ones are merged by :meth:`_coalesce_blockquotes`.
+        Any list still accumulating is finalized first, since a quote ends it.
+        """
+        content = self._process_paragraph_runs_to_inline(paragraph)
+        nodes: list[Node] = []
+        if self._list_stack:
+            accumulated_list = self._finalize_current_list()
+            self._list_stack = []
+            if accumulated_list:
+                nodes.append(accumulated_list)
+        if not self._is_effectively_empty(content):
+            nodes.append(BlockQuote(children=[AstParagraph(content=content)]))
+        if not nodes:
+            return None
+        return nodes[0] if len(nodes) == 1 else nodes
 
     def _try_process_code_block(self, paragraph: "Paragraph", style_name: str) -> CodeBlock | None:
         """Try to process paragraph as a code block. Returns CodeBlock or None."""
@@ -609,12 +710,19 @@ class DocxToAstConverter(BaseParser):
         style_name = paragraph.style.name if paragraph.style else ""
 
         # Try special paragraph types first
+        if title_result := self._try_process_title(paragraph, style_name):
+            return title_result
         if heading_result := self._try_process_heading(paragraph, style_name):
             return heading_result
         if code_result := self._try_process_code_block(paragraph, style_name):
             return code_result
         if break_result := self._try_process_thematic_break(paragraph):
             return break_result
+
+        # A Quote-styled paragraph is a block quote, not a list -- detect it before list
+        # detection so its style (or leftover indent) is never mistaken for list nesting.
+        if self._is_quote_style(style_name):
+            return self._process_quote_paragraph(paragraph, style_name)
 
         # Handle lists
         list_type, level = _detect_list_level(paragraph, doc)
@@ -900,6 +1008,15 @@ class DocxToAstConverter(BaseParser):
         url: str | None,
         source_style: str | None = None,
     ) -> Node:
+        # A run wearing the inline-code character style becomes a Code node -- the inverse
+        # of the renderer's inline-code style (#71). Code has no sub-formatting to preserve,
+        # but a code run can still be a hyperlink, so keep an enclosing Link.
+        if source_style and self._is_code_char_style(source_style):
+            code_node: Node = Code(content=text)
+            if url:
+                code_node = Link(url=url, content=[code_node])
+            return code_node
+
         inline_node: Node = Text(content=text)
 
         if format_key:

@@ -106,6 +106,13 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
     """
 
+    # Character style written for inline Code, and paragraph style written for
+    # BlockQuote. Both are recovered by the DOCX parser so the round trip is lossless
+    # (#71). "Verbatim Char" matches pandoc's inline-code style; "Quote" is a Word
+    # built-in present in the default template.
+    _INLINE_CODE_CHAR_STYLE = "Verbatim Char"
+    _BLOCKQUOTE_STYLE = "Quote"
+
     def __init__(self, options: DocxRendererOptions | None = None):
         """Initialize the DOCX renderer with options."""
         BaseRenderer._validate_options_type(options, DocxRendererOptions, "docx")
@@ -524,6 +531,19 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             style.paragraph_format.space_before = self._Pt(6)
             style.paragraph_format.space_after = self._Pt(6)
 
+    def _ensure_inline_code_style(self) -> None:
+        """Create the inline-code character style if it doesn't already exist."""
+        if not self.document:
+            return
+
+        name = self._INLINE_CODE_CHAR_STYLE
+        if not self._has_style(name):
+            styles = self.document.styles
+            style = styles.add_style(name, self._WD_STYLE_TYPE.CHARACTER)
+            self._available_styles.add(name)
+            style.font.name = self.options.code_font
+            style.font.size = self._Pt(self.options.code_font_size)
+
     def _set_document_properties(self, metadata: dict) -> None:
         """Set document properties from metadata.
 
@@ -641,14 +661,26 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Don't create new paragraph if we're already in one (e.g., heading)
         if self._current_paragraph is None:
             source_style = node.metadata.get("source_style")
+            # Inside a blockquote, prefer Word's "Quote" paragraph style over a raw left
+            # indent: it looks right in Word and, unlike a bare indent, the parser can tell
+            # it apart from a list item (#71). An explicit source_style still wins.
+            use_quote_style = (
+                self._blockquote_depth > 0 and self.options.use_styles and self._has_style(self._BLOCKQUOTE_STYLE)
+            )
             if self.options.use_styles and source_style and self._has_style(source_style):
                 self._current_paragraph = self.document.add_paragraph(style=source_style)
+            elif use_quote_style:
+                self._current_paragraph = self.document.add_paragraph(style=self._BLOCKQUOTE_STYLE)
             else:
                 self._current_paragraph = self.document.add_paragraph()
 
-            # Apply blockquote indentation if inside a blockquote
+            # Indent for blockquote depth. With the Quote style the style supplies the
+            # first level's indent (and a bare direct indent would be misread as a list),
+            # so only add a direct indent for the fallback path or for deeper nesting.
             if self._blockquote_depth > 0:
-                self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5 * self._blockquote_depth)
+                extra_depth = self._blockquote_depth - 1 if use_quote_style else self._blockquote_depth
+                if extra_depth > 0:
+                    self._current_paragraph.paragraph_format.left_indent = self._Inches(0.5 * extra_depth)
 
         # Render content
         for child in node.content:
@@ -1152,7 +1184,13 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 )
 
             elif isinstance(node, Code):
-                # Render as code with code font
+                # Render as code with code font, and tag the run with a named character
+                # style so the DOCX parser can recover the inline code (#71). An inherited
+                # style (node_style) wins if present; otherwise apply our own, creating it
+                # on demand. Falls back to font-only when styles are disabled.
+                code_style = node_style or self._INLINE_CODE_CHAR_STYLE
+                if self.options.use_styles and code_style == self._INLINE_CODE_CHAR_STYLE:
+                    self._ensure_inline_code_style()
                 self._render_inlines(
                     paragraph,
                     [Text(content=node.content)],
@@ -1163,7 +1201,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     superscript=superscript,
                     subscript=subscript,
                     code_font=True,
-                    character_style=node_style,
+                    character_style=code_style,
                 )
 
             elif isinstance(node, Link):
@@ -1270,9 +1308,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        # Use efficient inline rendering with code font
+        # Render the Code node through the shared path so it also gets the inline-code
+        # character style that lets the DOCX parser recover it (#71).
         if self._current_paragraph:
-            self._render_inlines(self._current_paragraph, [Text(content=node.content)], code_font=True)
+            self._render_inlines(self._current_paragraph, [node])
 
     def visit_link(self, node: Link) -> None:
         """Render a Link node.
