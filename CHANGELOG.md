@@ -104,6 +104,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DOCX: a document title survives the Markdown round trip.** Rendering to DOCX applies
+  `TitlePromotionTransform` — a leading `# H1` becomes Word's **Title** style and every
+  following heading is promoted one level (H2 → "Heading 1") so the document reads correctly
+  in Word. The parser had no inverse: it mapped the `Title` style to a plain paragraph and
+  left the promoted headings where they were, so `# Title` / `## Section` came back as body
+  text plus `# Section` — the title silently demoted to prose and every heading shifted up a
+  level (`all2md roundtrip … --via docx` scored `structure: 67`). The parser now maps Word's
+  `Title` back to `Heading(level=1, is_title=True)` and, when that title leads the document,
+  demotes the following headings one level to undo the promotion — making the transform
+  exactly invertible (`structure: 100`) while keeping the nice-looking Word output. Word's
+  `Title` is semantically the document title, so this also gives natively-authored Word
+  documents a sensible outline (Title → `#`, its Heading 1 → `##`).
 - **HTML: loose list items no longer grow a paragraph-inside-a-paragraph.** A *loose* item —
   one whose `<li>` already holds a block, `<li><p>x</p></li>` — was parsed to
   `ListItem > Paragraph > Paragraph > Text`, because `_process_list_item_to_ast` wrapped every

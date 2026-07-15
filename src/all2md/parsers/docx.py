@@ -457,11 +457,38 @@ class DocxToAstConverter(BaseParser):
             metadata = self.extract_metadata(doc)
             metadata_dict = metadata.to_dict()
 
+        self._invert_title_promotion(children)
+
         document = Document(children=children, metadata=metadata_dict)
         self._record_docx_quality_signals(doc, document)
         self._footnote_collector = None
         self._comments_map = {}
         return document
+
+    def _invert_title_promotion(self, children: list[Node]) -> None:
+        """Undo :class:`TitlePromotionTransform`'s heading shift when a title leads.
+
+        The renderer promotes every heading after a leading title up one level
+        (H2 -> "Heading 1"); :meth:`_try_process_title` has already mapped the "Title"
+        paragraph back to a title heading, so here we demote the remaining headings one
+        level to restore the original outline. Mirrors the transform's leading-only rule:
+        nothing shifts unless the first real content node is the title heading. Mutates
+        ``children`` in place.
+        """
+        title_index: int | None = None
+        for i, child in enumerate(children):
+            if isinstance(child, AstParagraph) and self._is_effectively_empty(child.content):
+                continue  # skip blank spacer paragraphs, as the promotion did
+            if isinstance(child, Heading) and child.metadata.get("is_title"):
+                title_index = i
+            break  # only the first real content node can be the title
+
+        if title_index is None:
+            return
+
+        for child in children[title_index + 1 :]:
+            if isinstance(child, Heading):
+                child.level += 1
 
     # DrawingML ``graphicData/@uri`` values for content types all2md does not
     # render (and therefore drops): embedded charts and SmartArt diagrams.
@@ -514,6 +541,25 @@ class DocxToAstConverter(BaseParser):
                 elif uri == self._DOCX_DIAGRAM_URI:
                     counts["smartart_dropped"] += 1
         return counts
+
+    def _try_process_title(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
+        """Try to process a Word ``Title`` paragraph as a title heading.
+
+        This is the inverse of :class:`TitlePromotionTransform`, which the DOCX
+        renderer applies to send a leading ``# H1`` to Word's ``Title`` style. Word's
+        ``Title`` is the document title -- semantically a level-1 heading -- so it maps
+        back to ``Heading(level=1, is_title=True)`` rather than a plain paragraph, which
+        dropped the title to body text and left every following heading shifted up a
+        level (#70). The subsequent-heading shift is undone document-wide by
+        :class:`TitleDemotionTransform` once the whole body is parsed.
+        """
+        if style_name != "Title":
+            return None
+        content = self._process_paragraph_runs_to_inline(paragraph)
+        heading = Heading(level=1, content=content)
+        heading.metadata["is_title"] = True
+        heading.metadata["source_style"] = style_name
+        return heading
 
     def _try_process_heading(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
         """Try to process paragraph as a heading. Returns Heading or None."""
@@ -609,6 +655,8 @@ class DocxToAstConverter(BaseParser):
         style_name = paragraph.style.name if paragraph.style else ""
 
         # Try special paragraph types first
+        if title_result := self._try_process_title(paragraph, style_name):
+            return title_result
         if heading_result := self._try_process_heading(paragraph, style_name):
             return heading_result
         if code_result := self._try_process_code_block(paragraph, style_name):
