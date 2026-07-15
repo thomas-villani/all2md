@@ -30,7 +30,7 @@
   
   Text with **bold**, *italic*, `code`, ~~strikethrough~~, and highlighted text.
   
-  Text with <sub>subscript</sub> and <sup>superscript</sup>.
+  Text with ~subscript~ and ^superscript^.
   
   A paragraph with  
   line  

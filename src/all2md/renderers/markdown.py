@@ -1458,14 +1458,21 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content = self._render_inline_content(node.content)
         if self._flavor.supports_mark():
             self._output.append(f"=={content}==")
-        else:
-            mode = self.options.unsupported_inline_mode
-            if mode == "plain":
-                self._output.append(content)
-            elif mode == "force":
-                self._output.append(f"=={content}==")
-            else:  # mode == "html"
-                self._output.append(f"<mark>{content}</mark>")
+            return
+
+        # Smart fallback: an unset "html" default becomes "force" so the mark
+        # emits ==text== (which roundtrips) instead of a raw <mark> that the
+        # default html_passthrough policy escapes on the next pass. Mirrors the
+        # fallback visit_footnote_reference/visit_definition_list apply.
+        mode = self.options.unsupported_inline_mode
+        if mode == "html" and not self.options._unsupported_inline_mode_was_explicit:
+            mode = "force"
+        if mode == "plain":
+            self._output.append(content)
+        elif mode == "html":
+            self._output.append(f"<mark>{content}</mark>")
+        else:  # "force" (also the resolved default)
+            self._output.append(f"=={content}==")
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.

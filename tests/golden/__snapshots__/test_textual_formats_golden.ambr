@@ -29,7 +29,7 @@
   
   ## Advanced Formatting
   
-  Text with <sup>superscript</sup> and <sub>subscript</sub>.
+  Text with ^superscript^ and ~subscript~.
   
   Text with ~~strikethrough~~ content.
   
@@ -304,7 +304,7 @@
   ## Introduction
   
   This document demonstrates **all** the *major* features of `Textile` formatting.  
-   It includes <sup>superscript</sup> and <sub>subscript</sub> text.
+   It includes ^superscript^ and ~subscript~ text.
   
   Visit [our website](https://example.com) for more information.
   
@@ -418,7 +418,7 @@
   
   ## Advanced Formatting
   
-  Text with <sup>superscript</sup> and <sub>subscript</sub>.
+  Text with ^superscript^ and ~subscript~.
   
   Text with ~~strikethrough~~ content and underline text.
   
