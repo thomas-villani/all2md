@@ -3,7 +3,7 @@
   '''
   # Formatting Test Document
   
-  This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
+  This paragraph contains **bold text**, *italic text*, and ^^underlined text^^.
   
   This paragraph has ***bold and italic text*** together.
   
@@ -24,7 +24,7 @@
   '''
   # Formatting Test Document
   
-  This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
+  This paragraph contains **bold text**, *italic text*, and ^^underlined text^^.
   
   This paragraph has ***bold and italic text*** together.
   
@@ -45,7 +45,7 @@
   '''
   # Formatting Test Document
   
-  This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
+  This paragraph contains **bold text**, *italic text*, and ^^underlined text^^.
   
   This paragraph has ***bold and italic text*** together.
   
@@ -66,7 +66,7 @@
   '''
   # Formatting Test Document
   
-  This paragraph contains **bold text**, *italic text*, and <u>underlined text</u>.
+  This paragraph contains **bold text**, *italic text*, and ^^underlined text^^.
   
   This paragraph has ***bold and italic text*** together.
   
@@ -145,7 +145,7 @@
   
   Second paragraph with **bold** text and *italic* text and ***both***
   
-  Here’s some <u>underlined text</u>.
+  Here’s some ^^underlined text^^.
   
   Here we want a longer paragraph that can span a few lines in a document. It should be like 3 or 4 sentences, which is the normal length of a paragraph. We can even include some **formatting** for emphasis. It’s getting pretty long now, I think we’re almost done.
   

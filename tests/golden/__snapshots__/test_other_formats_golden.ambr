@@ -130,7 +130,7 @@
   
   ## Second content slide
   
-  This one has**formatting**that is<u>fancier</u>*sometimes*even***too fancy***
+  This one has**formatting**that is^^fancier^^*sometimes*even***too fancy***
   
   * And we’ll do a nested list
   * Here’s the first nested item
