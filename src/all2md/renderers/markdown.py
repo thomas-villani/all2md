@@ -1088,6 +1088,34 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Table to render
 
         """
+        # Render the table into a temporary buffer, then shift every line to the
+        # current indent (mirrors visit_code_block). A table nested in a list
+        # item must stay under the item's margin; emitted at column zero it
+        # reparses as a sibling of the list instead of a child of the item. At
+        # the top level the indent is empty and the output is unchanged.
+        indent = self._current_indent()
+        saved_output = self._output
+        self._output = []
+        try:
+            self._render_table_grid(node)
+        finally:
+            table_text = "".join(self._output)
+            self._output = saved_output
+
+        if indent and table_text:
+            table_text = "\n".join(indent + line if line else line for line in table_text.split("\n"))
+        self._output.append(table_text)
+
+        # Emit block references if using after_block placement
+        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
+            self._emit_block_references()
+
+    def _render_table_grid(self, node: Table) -> None:
+        """Render a table's caption and rows to ``self._output`` (no indent).
+
+        Split out from ``visit_table`` so the caller can capture the table in a
+        buffer and shift it to the current indentation.
+        """
         # Render caption if present
         if node.caption:
             self._output.append(f"*{node.caption}*\n\n")
@@ -1117,10 +1145,6 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._render_padded_table(node, rendered_rows, num_cols)
         else:
             self._render_minimal_table(node, rendered_rows, num_cols)
-
-        # Emit block references if using after_block placement
-        if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
-            self._emit_block_references()
 
     def _render_table_as_html(self, node: Table) -> None:
         """Render a table as HTML when markdown tables are not supported.
