@@ -56,13 +56,18 @@ from difflib import SequenceMatcher
 from typing import Any
 
 from all2md.ast.nodes import (
+    Code,
     CodeBlock,
     Document,
     Heading,
+    HTMLBlock,
+    HTMLInline,
     Image,
     Link,
     List,
     ListItem,
+    MathBlock,
+    MathInline,
     Node,
     Paragraph,
     Table,
@@ -319,6 +324,28 @@ def _own_words(node: Node) -> list[str]:
     return words
 
 
+#: Leaf nodes whose textual payload is a bare ``content`` string rather than
+#: ``Text`` children. ``get_node_children`` returns nothing for them, so a naive
+#: ``Text``-only walk never sees their words -- and a round trip that dropped or
+#: mangled a code block, a math expression, or a raw HTML span would score a
+#: false 100 on the text dimension.
+_CONTENT_STRING_TYPES = (CodeBlock, MathBlock, HTMLBlock, Code, MathInline, HTMLInline)
+
+
+def _payload_words(node: Node) -> list[str]:
+    """Words carried by a leaf whose content is a plain string, not ``Text``.
+
+    Covers code, math and raw-HTML payloads (block and inline) and an image's
+    alt text. Returns ``[]`` for every other node, so callers can add it
+    unconditionally alongside the ordinary ``Text`` walk.
+    """
+    if isinstance(node, _CONTENT_STRING_TYPES):
+        return node.content.split()
+    if isinstance(node, Image):
+        return (node.alt_text or "").split()
+    return []
+
+
 def _all_words(node: Node) -> list[str]:
     """Words from every ``Text`` descendant, crossing block boundaries.
 
@@ -326,6 +353,11 @@ def _all_words(node: Node) -> list[str]:
     table cell is free to wrap its content in a paragraph in one format and not
     in another -- and a cell whose text vanished must not read as an empty cell
     faithfully preserved.
+
+    Also folds in :func:`_payload_words`: code, math, raw-HTML and image-alt
+    payloads live in a ``str`` attribute with no ``Text`` children, so a
+    ``Text``-only walk would let a mangled code block round-trip as a perfect
+    score.
     """
     words: list[str] = []
 
@@ -334,10 +366,12 @@ def _all_words(node: Node) -> list[str]:
             if isinstance(child, Text):
                 words.extend(child.content.split())
             else:
+                words.extend(_payload_words(child))
                 walk(child)
 
     if isinstance(node, Text):
         return node.content.split()
+    words.extend(_payload_words(node))
     walk(node)
     return words
 
