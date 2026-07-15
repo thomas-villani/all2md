@@ -42,7 +42,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: '.*\.ambr$'
+        # Roundtrip corpus files carry meaningful trailing whitespace (two-space
+        # Markdown hard breaks) as test data, like the .ambr snapshots.
+        exclude: '(\.ambr$|^benchmarks/roundtrip/corpus/)'
       - id: end-of-file-fixer
         exclude: '.*\.ambr$'
       - id: check-yaml
