@@ -104,6 +104,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Markdown: multi-paragraph and multi-line list items round-trip without collapsing.**
+  Three problems in the same surface conspired to flatten lists on a Markdown round trip:
+
+  *Loose lists were read as tight.* mistune 3.x carries the loose/tight flag on the list
+  token itself, not in `attrs`; reading it only from `attrs` marked every list tight, so the
+  renderer dropped the blank lines that separate a loose item's paragraphs and they merged
+  into one on reparse.
+
+  *Continuation lines were emitted at column zero.* A list item whose content wrapped across
+  several lines (soft-wrapped source, or a multi-paragraph item) indented only its first line;
+  every continuation went to the margin, where it reparses as a lazy continuation that
+  collapses the wrapped lines together — or, when a nested block landed there, breaks the item
+  apart. Code blocks and block quotes inside a list item had the same flaw and could escape to
+  column zero as siblings of the list. Continuation lines, and nested code/quote blocks, now
+  carry the item's indentation.
+
+  *A nested list as an item's first child double-indented.* The first-child render path
+  cleared the indent stacks but left the in-list flag set, so a nested list added its own
+  indent level on top of the marker — rendering `1. - x` as `1.     - x`. It now renders flush
+  and is shifted to the marker's content column like any other continuation.
+
+  A task checkbox (`[ ] `) is treated as first-line content rather than marker width, so
+  continuations align to the list marker and don't over-indent into an accidental code block.
+  Net effect: a document like a nested ordered/task list with wrapped prose now survives
+  `markdown → markdown` unchanged (idempotent), where before it flattened onto single lines.
 - **DOCX: inline code and block quotes survive the Markdown round trip.** Two independent
   renderer/parser asymmetries on the `md → docx → md` path, both filed as #71:
 

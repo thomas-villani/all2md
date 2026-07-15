@@ -605,6 +605,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         content = self._render_inline_content(node.content)
         indent = self._current_indent()
+        # A paragraph inside a list item may span several lines (soft-wrapped source
+        # becomes embedded newlines). Every continuation line must carry the same indent
+        # as the first, or it lands at column zero and reparses as a lazy continuation --
+        # collapsing the wrapped lines into one and, in a nested list, breaking the item.
+        if indent and "\n" in content:
+            content = content.replace("\n", "\n" + indent)
         self._output.append(f"{indent}{content}")
 
         # Emit block references if using after_block placement
@@ -855,21 +861,36 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 saved_output = self._output
                 self._output = []
 
-                # Save and clear both marker width stack and indent level
-                # so first child doesn't add any indentation
+                # Save and clear the marker width stack, indent level, and in-list flag
+                # so the first child renders flush (its indentation is supplied below by
+                # content_indent). Leaving _in_list set made a nested list as the first
+                # child add its own indent level on top of the marker, double-indenting it.
                 saved_stack = self._marker_width_stack.copy()
                 saved_indent_level = self._indent_level
+                saved_in_list = self._in_list
                 self._marker_width_stack.clear()
                 self._indent_level = 0
+                self._in_list = False
 
                 child.accept(self)
 
                 # Restore state
                 self._marker_width_stack = saved_stack
                 self._indent_level = saved_indent_level
+                self._in_list = saved_in_list
 
                 child_content = "".join(self._output)
                 self._output = saved_output
+                # The first child rendered with indentation cleared, so its own
+                # continuation lines (and any nested block/list lines) sit at column
+                # zero. Shift every line after the first to the marker's content column
+                # so they stay part of this item instead of reparsing at the margin.
+                # Nested levels each add their own shift, so the totals compound correctly.
+                content_indent = indent + " " * marker_width
+                if content_indent and "\n" in child_content:
+                    first, _, rest = child_content.partition("\n")
+                    rest = "\n".join(content_indent + line if line else line for line in rest.split("\n"))
+                    child_content = f"{first}\n{rest}"
                 self._output.append(child_content)
             else:
                 # For subsequent children, push marker width to stack first
