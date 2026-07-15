@@ -532,6 +532,67 @@ class TestLists:
         assert lines[1] == "  Second paragraph"
         assert lines[2] == "* Next item"
 
+    def test_soft_wrapped_paragraph_indented_in_item(self):
+        """A multi-line (soft-wrapped) paragraph in a list item keeps its indent.
+
+        The continuation line was emitted at column zero, so on reparse it became a
+        lazy continuation that collapsed the wrapped lines into one; a nested item
+        broke apart entirely.
+        """
+        from all2md import convert
+
+        opts = MarkdownRendererOptions(flavor="gfm")
+        source = "* a line that\n  wraps here\n"
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+
+        assert once == twice, "soft-wrapped list item is not idempotent"
+        # Continuation aligned under the marker's content column, not at column zero.
+        assert "* a line that\n  wraps here" in once
+        assert "\nwraps here" not in once
+
+    def test_nested_list_as_first_child_not_double_indented(self):
+        """A nested list that is a list item's first child must not double-indent.
+
+        The first-child branch cleared the indent stack but left ``_in_list`` set, so a
+        nested list added its own indent level on top of the marker -- rendering the item
+        as ``1.     - x`` (five stray spaces) instead of ``1. - x``.
+        """
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=1,
+                    items=[
+                        ListItem(
+                            children=[
+                                List(
+                                    ordered=False,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="alpha")])])],
+                                )
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert result.splitlines()[0] == "1. - alpha"
+
+    def test_ordered_task_multiline_roundtrips(self):
+        """The Part 6 shape: an ordered item wrapping a multi-line task item."""
+        from all2md import convert
+
+        opts = MarkdownRendererOptions(flavor="gfm")
+        source = "1. - [x] first line\n     second line\n"
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+
+        assert once == twice, "ordered>task>multiline is not idempotent"
+        # Clean marker (no stray padding) and the continuation aligned under the content.
+        assert once.startswith("1. - [x] first line\n")
+        assert "\nsecond line" not in once  # never at column zero
+
     def test_deeply_nested_list(self):
         """Test rendering deeply nested lists (3 levels)."""
         level3_list = List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Level 3")])])])
@@ -588,15 +649,96 @@ class TestLists:
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
         lines = result.split("\n")
-        # All markers are aligned properly
+        # Markers are aligned by width, and because the list is loose the two
+        # paragraphs inside each item are separated by a blank line (rendering
+        # them adjacent would lazily merge them into one paragraph on reparse).
         assert lines[0] == "8. Item 8"
-        assert lines[1] == "   Continuation 8"  # 3 spaces (marker "8. ")
-        assert lines[2] == ""  # blank line between items
-        assert lines[3] == "9. Item 9"
-        assert lines[4] == "   Continuation 9"  # 3 spaces (marker "9. ")
-        assert lines[5] == ""  # blank line
-        assert lines[6] == "10. Item 10"
-        assert lines[7] == "    Continuation 10"  # 4 spaces (marker "10. ")
+        assert lines[1] == ""
+        assert lines[2] == "   Continuation 8"  # 3 spaces (marker "8. ")
+        assert lines[3] == ""  # blank line between items
+        assert lines[4] == "9. Item 9"
+        assert lines[5] == ""
+        assert lines[6] == "   Continuation 9"  # 3 spaces (marker "9. ")
+        assert lines[7] == ""  # blank line
+        assert lines[8] == "10. Item 10"
+        assert lines[9] == ""
+        assert lines[10] == "    Continuation 10"  # 4 spaces (marker "10. ")
+
+    def test_loose_multiparagraph_list_roundtrips_without_collapsing(self):
+        """A loose list item with two paragraphs must survive a reparse.
+
+        Regression: the parser read the loose/tight flag only from ``attrs``,
+        where mistune 3.x never puts it, so every list was treated as tight and
+        the renderer emitted the item's second paragraph on the immediately
+        following line. On reparse that line is a lazy continuation, silently
+        merging the two paragraphs into one.
+        """
+        from all2md import convert, to_ast
+
+        source = "1. first\n\n   second para\n\n2. next\n"
+        opts = MarkdownRendererOptions(flavor="pandoc")
+
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "loose multi-paragraph list is not idempotent"
+
+        # The two paragraphs stay separated by a blank line, never collapsed.
+        assert "first\n\n   second para" in once
+        assert "first\nsecond para" not in once
+
+        # The AST still carries a loose list whose first item has two paragraphs.
+        ast = to_ast(source, source_format="markdown")
+        lists = [c for c in ast.children if isinstance(c, List)]
+        assert lists and lists[0].tight is False
+        first_item_paragraphs = [c for c in lists[0].items[0].children if isinstance(c, Paragraph)]
+        assert len(first_item_paragraphs) == 2
+
+    def test_list_item_block_children_stay_indented_on_roundtrip(self):
+        """A code block or quote inside a list item must not break out.
+
+        The code-block and block-quote renderers ignored the current
+        indentation, so as a later child of a list item they landed at column
+        zero. On reparse they became siblings of the list rather than children
+        of the item, dropping the trailing paragraph out of the item too.
+        """
+        from all2md import convert, to_ast
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        for source in (
+            "- a\n\n  ```\n  x\n  ```\n\n  after\n",  # para, code, para
+            "- item\n\n  > quoted\n",  # para then block quote
+        ):
+            once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+            twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+            assert once == twice, f"list item with a block child is not idempotent: {source!r}"
+
+            # The block child stays inside the single list, not beside it.
+            ast = to_ast(once, source_format="markdown")
+            assert sum(isinstance(c, List) for c in ast.children) == 1
+            assert len(ast.children) == 1
+
+    def test_task_list_item_continuation_is_not_indented_as_code(self):
+        """A task item's second paragraph must reparse as a paragraph.
+
+        The checkbox ("[ ] ") was counted into the marker width, so a
+        continuation paragraph indented six spaces and reparsed as an indented
+        code block. Continuations indent to the base marker width instead.
+        """
+        from all2md import convert, to_ast
+        from all2md.ast import CodeBlock
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        source = "- [ ] task\n\n  more detail\n"
+
+        once = convert(source, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "task-list continuation is not idempotent"
+
+        ast = to_ast(once, source_format="markdown")
+        item = [c for c in ast.children if isinstance(c, List)][0].items[0]
+        assert item.task_status
+        assert not any(isinstance(c, CodeBlock) for c in item.children)
+        assert sum(isinstance(c, Paragraph) for c in item.children) == 2
 
 
 @pytest.mark.unit
@@ -1155,3 +1297,32 @@ class TestDefinitionListRendering:
         assert "Example" in result
         assert "Here's how to use it:" in result
         assert "code example" in result
+
+    def test_definition_list_roundtrips_without_collapsing(self):
+        """Multi-paragraph descriptions and multiple terms survive a roundtrip.
+
+        Two regressions in one place: a description's paragraphs were joined by
+        a single newline (so the second lazily merged into the first on
+        reparse), and consecutive term/description groups were separated by a
+        single newline (so the next term merged into the previous description).
+        Both need a blank-line separator; continuation lines are indented four
+        spaces.
+        """
+        from all2md import convert, to_ast
+        from all2md.ast import DefinitionList
+
+        opts = MarkdownRendererOptions(flavor="pandoc")
+        markdown = "term one\n\n:   first para\n\n    second para\n\nterm two\n\n:   only para\n"
+
+        once = convert(markdown, source_format="markdown", target_format="markdown", renderer_options=opts)
+        twice = convert(once, source_format="markdown", target_format="markdown", renderer_options=opts)
+        assert once == twice, "definition list is not idempotent"
+
+        # Blank line kept between the two paragraphs of the first description.
+        assert "first para\n\n    second para" in once
+
+        # Both terms survive as two separate definition items.
+        ast = to_ast(once, source_format="markdown")
+        dls = [n for n in ast.children if isinstance(n, DefinitionList)]
+        assert len(dls) == 1
+        assert len(dls[0].items) == 2

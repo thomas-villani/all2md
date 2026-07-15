@@ -113,6 +113,36 @@ def test_local_path_retriever_requires_existing_file(tmp_path, loader):
     assert source.payload == existing
 
 
+def test_local_path_retriever_handles_overlong_content_without_oserror():
+    """Long path-like content must not leak OSError (ENAMETOOLONG) from can_handle."""
+    retriever = LocalPathRetriever()
+    # Single-line string that _looks_like_path accepts (trailing ".md" suffix) but
+    # whose path component far exceeds NAME_MAX (255); Path.exists() would raise
+    # OSError [Errno 36] File name too long if the stat call were left unguarded.
+    overlong = "This is a perfectly normal long single line of prose that a user pasted " * 5 + " summary.md"
+    request = DocumentSourceRequest(raw_input=overlong, remote_options=None)
+
+    assert retriever.can_handle(request) is False
+
+
+def test_convert_overlong_content_raises_all2md_error_not_oserror():
+    """convert() must surface a library result/error, never a raw OSError, for long content."""
+    from all2md import convert
+    from all2md.exceptions import All2MdError
+
+    overlong = "This is a perfectly normal long single line of prose that a user pasted " * 5 + " summary.md"
+
+    try:
+        result = convert(overlong, source_format="markdown")
+    except OSError as exc:  # pragma: no cover - fails only on regression
+        pytest.fail(f"convert() leaked a raw OSError for long content: {exc!r}")
+    except All2MdError:
+        pass  # a wrapped library error is acceptable; a raw OSError is not
+    else:
+        assert isinstance(result, str)
+        assert "summary.md" in result
+
+
 def test_http_retriever_empty_allowlist_denies_all_hosts(monkeypatch, loader):
     """Test that an empty allowed_hosts list denies all remote hosts.
 

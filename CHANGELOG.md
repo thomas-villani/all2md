@@ -104,6 +104,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Markdown: multi-paragraph and multi-line list items round-trip without collapsing.**
+  Three problems in the same surface conspired to flatten lists on a Markdown round trip:
+
+  *Loose lists were read as tight.* mistune 3.x carries the loose/tight flag on the list
+  token itself, not in `attrs`; reading it only from `attrs` marked every list tight, so the
+  renderer dropped the blank lines that separate a loose item's paragraphs and they merged
+  into one on reparse.
+
+  *Continuation lines were emitted at column zero.* A list item whose content wrapped across
+  several lines (soft-wrapped source, or a multi-paragraph item) indented only its first line;
+  every continuation went to the margin, where it reparses as a lazy continuation that
+  collapses the wrapped lines together — or, when a nested block landed there, breaks the item
+  apart. Code blocks and block quotes inside a list item had the same flaw and could escape to
+  column zero as siblings of the list. Continuation lines, and nested code/quote blocks, now
+  carry the item's indentation.
+
+  *A nested list as an item's first child double-indented.* The first-child render path
+  cleared the indent stacks but left the in-list flag set, so a nested list added its own
+  indent level on top of the marker — rendering `1. - x` as `1.     - x`. It now renders flush
+  and is shifted to the marker's content column like any other continuation.
+
+  A task checkbox (`[ ] `) is treated as first-line content rather than marker width, so
+  continuations align to the list marker and don't over-indent into an accidental code block.
+  Net effect: a document like a nested ordered/task list with wrapped prose now survives
+  `markdown → markdown` unchanged (idempotent), where before it flattened onto single lines.
+- **DOCX: inline code and block quotes survive the Markdown round trip.** Two independent
+  renderer/parser asymmetries on the `md → docx → md` path, both filed as #71:
+
+  *Inline code was dropped.* The renderer emitted a `` `code` `` run with a monospace font
+  but no named character style, so the parser — which recovers inline styling from run
+  *styles*, not fonts — had nothing to key on, and `` `inline code` `` came back as plain
+  `inline code`. The renderer now tags inline-code runs with a `Verbatim Char` character
+  style (matching pandoc's name; created on demand and only when `use_styles` is on), and the
+  parser maps that style back to a `Code` node. Recognized style names are configurable via
+  the new `code_char_style_names` DOCX parser option.
+
+  *A block quote came back as a bullet list.* The renderer wrote the quoted paragraph as a
+  `Normal` paragraph with a left indent, and the parser read that indent as list nesting — so
+  `> a quoted line` silently became `* a quoted line`, which looks intentional and is arguably
+  worse than dropping it. The renderer now applies Word's built-in `Quote` paragraph style
+  (which also makes the generated document look right in Word) and, for a single level, no
+  longer sets a bare indent that the parser would misread; the parser maps `Quote` /
+  `Intense Quote` back to a `BlockQuote`, coalescing adjacent quote paragraphs into one quote.
+  Recognized style names are configurable via the new `quote_style_names` DOCX parser option.
+
+  Together these take `all2md roundtrip … --via docx` on a document with inline code and a
+  quote from `structure: 33 / inline: 0` to `100 / 100`. Both recoveries require styles
+  (`use_styles=True`, the default); with styles disabled the render still falls back to
+  font-and-indent as before.
+- **DOCX: a document title survives the Markdown round trip.** Rendering to DOCX applies
+  `TitlePromotionTransform` — a leading `# H1` becomes Word's **Title** style and every
+  following heading is promoted one level (H2 → "Heading 1") so the document reads correctly
+  in Word. The parser had no inverse: it mapped the `Title` style to a plain paragraph and
+  left the promoted headings where they were, so `# Title` / `## Section` came back as body
+  text plus `# Section` — the title silently demoted to prose and every heading shifted up a
+  level (`all2md roundtrip … --via docx` scored `structure: 67`). The parser now maps Word's
+  `Title` back to `Heading(level=1, is_title=True)` and, when that title leads the document,
+  demotes the following headings one level to undo the promotion — making the transform
+  exactly invertible (`structure: 100`) while keeping the nice-looking Word output. Word's
+  `Title` is semantically the document title, so this also gives natively-authored Word
+  documents a sensible outline (Title → `#`, its Heading 1 → `##`).
+- **HTML: loose list items no longer grow a paragraph-inside-a-paragraph.** A *loose* item —
+  one whose `<li>` already holds a block, `<li><p>x</p></li>` — was parsed to
+  `ListItem > Paragraph > Paragraph > Text`, because `_process_list_item_to_ast` wrapped every
+  item's content in a freshly synthesized `Paragraph` whether or not that content was already a
+  block. No format represents a paragraph nested directly in a paragraph, so the inner node was
+  pure artifact: a consumer walking the AST saw a different `ListItem` shape depending on how the
+  source HTML happened to be written, and — because our own HTML renderer emits `<li><p>…</p></li>`
+  — an `html → html` round trip accreted one extra `Paragraph` per item on every pass. The parser
+  now adopts a `<li>`'s block children directly and only synthesizes a wrapping `Paragraph` for
+  loose inline runs, so `<li><p>x</p></li>` and `<li>x</li>` produce the identical AST and the
+  round trip is stable.
 - **String page ranges select the pages you asked for.** `validate_page_range()` converted
   1-based page numbers to 0-based **twice** on the string path: `parse_page_ranges()` already
   returns 0-based indices, and the result was then decremented again. So every string range

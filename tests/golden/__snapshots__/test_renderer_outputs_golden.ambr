@@ -91,6 +91,7 @@
   
   Pipeline
   : Processes sources into a shared AST for rendering.
+  
   Renderer
   : Produces target format while honoring **comments** and math.
   
