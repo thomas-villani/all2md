@@ -881,3 +881,67 @@ class TestMathExtraction:
         assert "=-1" in content
         assert math_nodes[0].notation == "latex"
         assert math_nodes[0].representations["latex"].replace(" ", "") == content
+
+
+@pytest.mark.unit
+class TestTitleRoundTrip:
+    """Tests for the Word 'Title' style inverse (issue #70)."""
+
+    def test_title_style_becomes_title_heading(self) -> None:
+        """A 'Title' paragraph maps back to a level-1 heading marked is_title."""
+        doc = docx.Document()
+        doc.add_paragraph("My Title", style="Title")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        assert isinstance(ast_doc.children[0], Heading)
+        title = ast_doc.children[0]
+        assert title.level == 1
+        assert title.metadata.get("is_title") is True
+        assert _inline_text(title.content) == "My Title"
+
+    def test_headings_after_title_are_demoted(self) -> None:
+        """Headings following a leading title shift down one level to undo promotion."""
+        doc = docx.Document()
+        doc.add_paragraph("My Title", style="Title")
+        doc.add_heading("Section", level=1)
+        doc.add_heading("Subsection", level=2)
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+        headings = [c for c in ast_doc.children if isinstance(c, Heading)]
+
+        # Title stays at 1; "Heading 1"/"Heading 2" become level 2/3.
+        assert [h.level for h in headings] == [1, 2, 3]
+        assert headings[0].metadata.get("is_title") is True
+
+    def test_non_leading_title_does_not_shift_headings(self) -> None:
+        """A title that is not the first content leaves following headings untouched."""
+        doc = docx.Document()
+        doc.add_paragraph("Intro paragraph.")
+        doc.add_paragraph("Mid Title", style="Title")
+        doc.add_heading("Section", level=1)
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+        headings = [c for c in ast_doc.children if isinstance(c, Heading)]
+
+        # The non-leading title still becomes a heading, but no promotion was applied
+        # by the renderer in this shape, so the "Heading 1" must stay at level 1.
+        assert headings[0].metadata.get("is_title") is True
+        assert headings[0].level == 1
+        assert headings[1].level == 1
+
+    def test_markdown_docx_markdown_round_trip_preserves_outline(self) -> None:
+        """Md -> docx -> md keeps the title a heading and the outline intact (#70)."""
+        from all2md import from_ast, to_ast
+
+        source = "# Title\n\n## Section\n\nBody.\n"
+        ast = to_ast(source.encode(), source_format="markdown")
+        docx_bytes = from_ast(ast, target_format="docx")
+        back = to_ast(docx_bytes, source_format="docx")
+        rendered = from_ast(back, target_format="markdown")
+
+        assert "# Title" in rendered
+        assert "## Section" in rendered
+        # The title must not have decayed into body text, nor Section into an H1.
+        assert "\nTitle\n" not in rendered
+        assert "\n# Section" not in rendered
