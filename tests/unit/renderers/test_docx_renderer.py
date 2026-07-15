@@ -545,7 +545,7 @@ class TestBlockElements:
         assert found
 
     def test_blockquote(self, tmp_path):
-        """Test blockquote rendering with indentation."""
+        """Test blockquote rendering uses Word's Quote style (#71)."""
         doc = Document(
             children=[
                 Paragraph(content=[Text(content="Normal text")]),
@@ -570,17 +570,16 @@ class TestBlockElements:
         assert quoted_para is not None, "Quoted text not found"
         assert normal_para is not None, "Normal text not found"
 
-        # Verify blockquote has indentation
-        quoted_indent = quoted_para.paragraph_format.left_indent
-        normal_indent = normal_para.paragraph_format.left_indent or 0
-
-        assert quoted_indent is not None, "Blockquote paragraph has no indentation"
-        assert (
-            quoted_indent > normal_indent
-        ), f"Blockquote indent ({quoted_indent}) should be greater than normal ({normal_indent})"
+        # The quote paragraph carries the Quote style (not a bare left indent, which the
+        # parser would misread as a list); the normal paragraph does not.
+        assert quoted_para.style.name == "Quote"
+        assert normal_para.style.name != "Quote"
+        # A single-level quote relies on the style for its indent, so it must not set a
+        # direct left indent -- that is exactly what got mistaken for list nesting.
+        assert quoted_para.paragraph_format.left_indent is None
 
     def test_nested_blockquote(self, tmp_path):
-        """Test nested blockquote rendering with increased indentation."""
+        """Test nested blockquote rendering with increased indentation (#71)."""
         doc = Document(
             children=[
                 BlockQuote(
@@ -609,15 +608,13 @@ class TestBlockElements:
         assert level1_para is not None, "Level 1 text not found"
         assert level2_para is not None, "Level 2 text not found"
 
-        # Verify nested blockquote has more indentation
-        level1_indent = level1_para.paragraph_format.left_indent
-        level2_indent = level2_para.paragraph_format.left_indent
-
-        assert level1_indent is not None, "Level 1 has no indentation"
-        assert level2_indent is not None, "Level 2 has no indentation"
-        assert (
-            level2_indent > level1_indent
-        ), f"Level 2 indent ({level2_indent}) should be greater than Level 1 ({level1_indent})"
+        # Both levels use the Quote style; the style supplies level 1's indent, and the
+        # deeper level adds a direct indent on top so nesting is still visible in Word.
+        assert level1_para.style.name == "Quote"
+        assert level2_para.style.name == "Quote"
+        assert level1_para.paragraph_format.left_indent is None
+        assert level2_para.paragraph_format.left_indent is not None
+        assert level2_para.paragraph_format.left_indent > 0
 
     def test_thematic_break(self, tmp_path):
         """Test horizontal rule rendering."""
