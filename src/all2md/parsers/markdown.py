@@ -568,6 +568,14 @@ class MarkdownToAstConverter(BaseParser):
         elif token_type == "footnote_def":
             self._process_footnote_def(token)
             return None
+        elif token_type == "footnotes":
+            # mistune 3.x groups definitions in a ``footnotes`` container whose
+            # children are ``footnote_item`` tokens; older versions emitted
+            # ``footnote_def`` directly. Handle both.
+            for item in token.get("children", []) or []:
+                if isinstance(item, dict):
+                    self._process_footnote_def(item)
+            return None
         elif token_type == "def_list":
             return self._process_definition_list(token)
         elif token_type == "admonition":
@@ -916,7 +924,11 @@ class MarkdownToAstConverter(BaseParser):
 
         """
         attrs = token.get("attrs", {})
-        identifier = attrs.get("label", "")
+        if not isinstance(attrs, dict):
+            attrs = {}
+        # mistune 3.x uses ``key`` on footnote_item tokens; older versions used
+        # ``label``. Fall back to the raw label text if neither is present.
+        identifier = attrs.get("key") or attrs.get("label") or token.get("raw", "")
         children = token.get("children", [])
         content = self._process_tokens(children)
 
@@ -1117,7 +1129,10 @@ class MarkdownToAstConverter(BaseParser):
         attrs = token.get("attrs", {})
         if not isinstance(attrs, dict):
             attrs = {}
-        identifier = attrs.get("label", "")
+        # mistune 3.x carries the label in the token's ``raw`` field (attrs only
+        # holds a numeric ``index``); older versions used ``attrs['label']``.
+        # Use the label text so references match their definitions' keys.
+        identifier = attrs.get("label") or token.get("raw", "")
         return FootnoteReference(identifier=identifier)
 
     def _process_inline_token(self, token: dict[str, Any]) -> Node | list[Node] | None:

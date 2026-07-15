@@ -1598,11 +1598,21 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 child.accept(self)
                 child_content = "".join(self._output)
                 self._output = saved_output
+                lines = child_content.split("\n")
                 if i == 0:
-                    self._output.append(child_content)
+                    # First block starts right after the "[^id]: " marker; any
+                    # continuation lines align four spaces under it.
+                    self._output.append(lines[0])
+                    for line in lines[1:]:
+                        self._output.append("\n" + ("    " + line if line else ""))
                 else:
-                    indent_lines = child_content.split("\n")
-                    self._output.append("\n    " + "\n    ".join(indent_lines))
+                    # Later blocks are separate paragraphs. They need a blank
+                    # line before them and four-space indentation on every line,
+                    # otherwise a bare newline makes them lazily merge into the
+                    # previous paragraph when the footnote is reparsed.
+                    self._output.append("\n")
+                    for line in lines:
+                        self._output.append("\n" + ("    " + line if line else ""))
         else:
             mode = self.options.unsupported_inline_mode
             if mode == "drop":
