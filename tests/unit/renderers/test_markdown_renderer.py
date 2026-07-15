@@ -131,6 +131,33 @@ class TestMathRendering:
         result = renderer.render_to_string(doc)
         assert '<div class="math math-block" data-notation="mathml">' in result
 
+    def test_inline_display_math_roundtrips(self) -> None:
+        """`$$...$$` after text on the same line survives and roundtrips (#97).
+
+        mistune tokenizes it as an inline block_math child; without a handler it
+        was dropped entirely, leaving just the surrounding text.
+        """
+        from all2md import convert
+
+        source = "Lead text $$\\sum x$$ trailing\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice, "inline display math is not idempotent"
+        assert "$$\\sum x$$" in once  # kept as inline display math, not dropped or collapsed to $...$
+
+    def test_inline_display_math_parsed_as_display_flagged_inline(self) -> None:
+        from all2md import to_ast
+        from all2md.ast.nodes import MathInline, Paragraph
+
+        doc = to_ast("Lead text $$\\sum x$$", source_format="markdown")
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        maths = [n for n in para.content if isinstance(n, MathInline)]
+        assert len(maths) == 1
+        assert maths[0].content == "\\sum x"
+        assert maths[0].metadata.get("display") is True
+
 
 @pytest.mark.unit
 class TestHeadingRendering:
