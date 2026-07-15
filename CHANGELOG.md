@@ -104,6 +104,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Markdown: footnotes round-trip as Markdown under the default flavor.** A footnote
+  reference and its definition rendered to raw HTML on the default flavor, which the
+  default `html_passthrough` policy then escaped on the next pass — so a footnote did
+  not survive a `markdown → markdown` round trip. Footnotes now render in Markdown
+  syntax by default and round-trip intact.
+- **Markdown: inline marks, superscript and subscript are flavor-aware and round-trip
+  by default.** Highlight (`==text==`), superscript (`^text^`) and subscript (`~text~`)
+  defaulted to HTML tags that the default passthrough policy escaped on reparse. They
+  now default to the roundtrip-safe Markdown spelling (flavors that support the syntax
+  natively emit it directly); set the corresponding `*_mode` option to `html` for
+  wider display support.
+- **Markdown: underline (`^^text^^`) and non-GFM strikethrough round-trip instead of
+  self-escaping.** Underline rendered `<u>…</u>` by default and the `<del>` fallback
+  for flavors without `~~` did the same, both of which the default passthrough policy
+  escaped to `&lt;u&gt;…` on the next pass. Underline now defaults to the pymdownx
+  `^^text^^` insert spelling (the old `"markdown"` mode emitted `__…__`, which every
+  flavor parses as **bold**, silently losing the underline); strikethrough on a flavor
+  without `~~` now emits `~~` by default. Explicit `html` still opts into the tags.
+- **Markdown: inline `$$…$$` display math is kept, not dropped.** An inline `$$…$$`
+  span was silently discarded instead of being preserved as display math.
+- **Markdown: a list survives an admonition that degrades to a labelled quote.** When
+  an admonition inside a list item degraded to a labelled block quote, the surrounding
+  list was broken apart; it now stays intact.
+- **PDF: prose from *every* rejected table is preserved, not just degenerate grids.**
+  Text inside a detected table's bbox is stripped from the ordinary text stream before
+  the table is validated, so a rejection path that returned `None` deleted that text.
+  A prior fix covered only degenerate (1×N / N×1) grids; the oversized-grid,
+  mostly-empty, uniform-cell and dot-leader-TOC rejections still dropped a
+  sparse-but-real table (a financial statement, a form) or a table of contents. All
+  four now demote the region to a paragraph.
+- **Round-trip scoring counts code, math and raw-HTML block content.** `CodeBlock`,
+  `MathBlock`, `HTMLBlock` and their inline siblings keep their payload in a plain
+  string with no `Text` children, so the text dimension never compared it — a round
+  trip that dropped or mangled an entire code block scored a false `100`. Their content
+  (and image alt text) is now part of the comparison.
+- **Confidence: conversions with no quality instrumentation report `not_assessed`,
+  not a false `high`.** Formats that emit no scored signals and no degraded events
+  (docx, pptx, html) scored a vacuous `100/HIGH`, so a mangled `.docx` read as verified
+  clean. Such a report is now banded `not_assessed`; the numeric score is unchanged.
+- **DOCX: title-promotion inversion clamps heading levels at 6.** Demoting the headings
+  after a leading title used an unbounded `level += 1`, pushing an H6 to an out-of-spec
+  level 7 that serialization and the round-trip scorer saw. It is now clamped, mirroring
+  the forward transform's bottom clamp.
+- **`all2md optimize` searches only valid `figures_parsing` / `details_parsing` values.**
+  The HTML search space listed values (`figure`, `image`, `details`, `content`) that no
+  parser accepts; they were silently no-ops and could be written into a recommended
+  `.all2md.toml`. Replaced with valid choices, guarded by a test.
 - **Markdown: multi-paragraph and multi-line list items round-trip without collapsing.**
   Three problems in the same surface conspired to flatten lists on a Markdown round trip:
 
