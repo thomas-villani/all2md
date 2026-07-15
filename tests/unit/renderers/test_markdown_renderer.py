@@ -593,6 +593,38 @@ class TestLists:
         assert once.startswith("1. - [x] first line\n")
         assert "\nsecond line" not in once  # never at column zero
 
+    def test_table_in_list_item_stays_indented(self):
+        """A table nested in a list item must stay under the item's margin.
+
+        The table was emitted at column zero, so on reparse it broke out of the
+        list item to the document top level (splitting the surrounding list).
+        """
+        from all2md import convert, to_ast
+        from all2md.ast.nodes import List as ListNode
+        from all2md.ast.nodes import Table
+
+        source = "- lead:\n\n  | k | v |\n  |---|---|\n  | 1 | 2 |\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice, "table-in-list-item is not idempotent"
+        # Every table line sits at the item's content column (two spaces), not column zero.
+        assert "\n  | k | v |" in once
+        assert "\n| k | v |" not in once
+
+        # And it re-parses as a child of the list item, not a top-level sibling.
+        doc = to_ast(once, source_format="markdown")
+        assert not any(isinstance(child, Table) for child in doc.children), "table broke out of the list"
+        item_tables = [
+            node
+            for lst in doc.children
+            if isinstance(lst, ListNode)
+            for item in lst.items
+            for node in item.children
+            if isinstance(node, Table)
+        ]
+        assert len(item_tables) == 1
+
     def test_deeply_nested_list(self):
         """Test rendering deeply nested lists (3 levels)."""
         level3_list = List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="Level 3")])])])
