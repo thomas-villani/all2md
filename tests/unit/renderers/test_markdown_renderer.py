@@ -32,6 +32,7 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Paragraph,
@@ -278,6 +279,40 @@ class TestExtendedInlineFormatting:
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<sub>0</sub>"
+
+    def test_superscript_defaults_to_markdown(self):
+        """Superscript defaults to ``^text^`` so it roundtrips (was raw <sup>)."""
+        doc = Document(children=[Paragraph(content=[Superscript(content=[Text(content="2")])])])
+        assert MarkdownRenderer().render_to_string(doc) == "^2^"
+
+    def test_subscript_defaults_to_markdown(self):
+        """Subscript defaults to ``~text~`` so it roundtrips (was raw <sub>)."""
+        doc = Document(children=[Paragraph(content=[Subscript(content=[Text(content="0")])])])
+        assert MarkdownRenderer().render_to_string(doc) == "~0~"
+
+    def test_marks_roundtrip_under_default_flavor(self):
+        """Mark/superscript/subscript emit Markdown (not self-escaping HTML) by default.
+
+        The default GFM flavor rendered ==x== as <mark>, ^x^ as <sup>, ~x~ as
+        <sub>; the default html_passthrough policy then escaped that HTML to
+        &lt;mark&gt; on the next roundtrip. They must roundtrip as Markdown.
+        """
+        from all2md import convert
+
+        source = "==hi== and 2^10^ and H~2~O and ~~gone~~\n"
+        once = convert(source, source_format="markdown", target_format="markdown")
+        twice = convert(once, source_format="markdown", target_format="markdown")
+
+        assert once == twice
+        for token in ("==hi==", "2^10^", "H~2~O", "~~gone~~"):
+            assert token in once
+        assert "<mark>" not in once and "<sup>" not in once and "<sub>" not in once
+
+    def test_mark_explicit_html_mode_still_emits_html(self):
+        """An explicit ``unsupported_inline_mode='html'`` still emits <mark>."""
+        doc = Document(children=[Paragraph(content=[Mark(content=[Text(content="hi")])])])
+        options = MarkdownRendererOptions(flavor="gfm", unsupported_inline_mode="html")
+        assert MarkdownRenderer(options).render_to_string(doc) == "<mark>hi</mark>"
 
 
 @pytest.mark.unit

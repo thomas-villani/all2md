@@ -195,15 +195,15 @@ class MarkdownRendererOptions(BaseRendererOptions):
         - "html": Use <u>text</u> tags
         - "markdown": Use __text__ (non-standard)
         - "ignore": Strip underline formatting
-    superscript_mode : {"html", "markdown", "ignore"}, default "html"
+    superscript_mode : {"html", "markdown", "ignore"}, default "markdown"
         How to handle superscript text:
-        - "html": Use <sup>text</sup> tags
-        - "markdown": Use ^text^ (non-standard)
+        - "markdown": Use ^text^ (roundtrips; non-standard, needs an extension to render)
+        - "html": Use <sup>text</sup> tags (wider display support, but escaped on roundtrip)
         - "ignore": Strip superscript formatting
-    subscript_mode : {"html", "markdown", "ignore"}, default "html"
+    subscript_mode : {"html", "markdown", "ignore"}, default "markdown"
         How to handle subscript text:
-        - "html": Use <sub>text</sub> tags
-        - "markdown": Use ~text~ (non-standard)
+        - "markdown": Use ~text~ (roundtrips; non-standard, needs an extension to render)
+        - "html": Use <sub>text</sub> tags (wider display support, but escaped on roundtrip)
         - "ignore": Strip subscript formatting
     use_hash_headings : bool, default True
         Whether to use # syntax for headings instead of underline style.
@@ -303,7 +303,10 @@ class MarkdownRendererOptions(BaseRendererOptions):
         },
     )
     superscript_mode: SuperscriptMode = field(
-        default="html",
+        # Default to Markdown (``^text^``) so superscript roundtrips: the HTML
+        # ``<sup>`` alternative is escaped by the default html_passthrough policy
+        # on the next Markdown roundtrip. Set to "html" for wider display support.
+        default="markdown",
         metadata={
             "help": "How to handle superscript text",
             "choices": ["html", "markdown", "ignore"],
@@ -311,7 +314,9 @@ class MarkdownRendererOptions(BaseRendererOptions):
         },
     )
     subscript_mode: SubscriptMode = field(
-        default="html",
+        # Default to Markdown (``~text~``) so subscript roundtrips; see
+        # superscript_mode. Set to "html" for wider display support.
+        default="markdown",
         metadata={
             "help": "How to handle subscript text",
             "choices": ["html", "markdown", "ignore"],

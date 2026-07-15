@@ -85,8 +85,15 @@ class TestInlineMarks:
         out = _render(_parse("a ==hi== b"), flavor="markdown_plus")
         assert "==hi==" in out
 
-    def test_highlight_degrades_to_html_on_gfm(self) -> None:
+    def test_highlight_roundtrips_on_gfm_by_default(self) -> None:
+        # GFM doesn't support ==highlight==, but the default emits Markdown (not a
+        # raw <mark> that self-escapes on the next roundtrip). See #95.
         out = _render(_parse("a ==hi== b"), flavor="gfm")
+        assert "==hi==" in out
+        assert "<mark>" not in out
+
+    def test_highlight_degrades_to_html_on_gfm_when_explicit(self) -> None:
+        out = _render(_parse("a ==hi== b"), flavor="gfm", unsupported_inline_mode="html")
         assert "<mark>hi</mark>" in out
 
 
