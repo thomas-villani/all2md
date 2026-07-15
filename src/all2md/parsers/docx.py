@@ -486,6 +486,7 @@ class DocxToAstConverter(BaseParser):
                 del children[i + 1]
             else:
                 i += 1
+
     def _invert_title_promotion(self, children: list[Node]) -> None:
         """Undo :class:`TitlePromotionTransform`'s heading shift when a title leads.
 
