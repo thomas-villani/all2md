@@ -750,7 +750,10 @@ class MarkdownToAstConverter(BaseParser):
 
         ordered = attrs.get("ordered", False)
         start = attrs.get("start", 1)
-        tight = attrs.get("tight", True)
+        # mistune 3.x carries the loose/tight flag on the token itself, not in
+        # attrs. Reading it only from attrs marked every list tight, collapsing
+        # the blank lines of a loose (multi-paragraph) list.
+        tight = token.get("tight", attrs.get("tight", True))
 
         children = token.get("children", [])
         # Guard against children not being a list

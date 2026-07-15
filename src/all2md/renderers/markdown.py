@@ -166,6 +166,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output = []
         self._indent_level = 0
         self._in_list = False
+        self._list_tight = True
         self._list_marker_stack = []
         self._marker_width_stack = []
         self._link_references = {}
@@ -641,11 +642,19 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         fence = fence_char * fence_length
         lang = node.language or ""
 
-        self._output.append(f"{fence}{lang}\n")
-        self._output.append(node.content)
+        block = f"{fence}{lang}\n{node.content}"
         if not node.content.endswith("\n"):
-            self._output.append("\n")
-        self._output.append(fence)
+            block += "\n"
+        block += fence
+
+        # Honor the current indentation so a code block nested inside a list
+        # item stays under the item's margin instead of breaking out to column
+        # zero (which reparses as a sibling of the list). At the top level the
+        # indent is empty and the output is unchanged.
+        indent = self._current_indent()
+        if indent:
+            block = "\n".join(indent + line if line else line for line in block.split("\n"))
+        self._output.append(block)
 
         # Emit block references if using after_block placement
         if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
@@ -756,8 +765,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     lines[i] = f"**{label}:** {line}"
                     break
 
-        # Quote all lines
-        quoted_lines = ["> " + line for line in lines]
+        # Quote all lines, honoring the current indentation so a block quote
+        # nested inside a list item stays under the item's margin instead of
+        # breaking out to column zero. At the top level the indent is empty.
+        indent = self._current_indent()
+        quoted_lines = [f"{indent}> " + line for line in lines]
 
         self._output.append("\n".join(quoted_lines))
 
@@ -775,12 +787,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         was_in_list = self._in_list
+        was_tight = self._list_tight
 
         # Increment indent level for nested lists
         if self._in_list:
             self._indent_level += 1
 
         self._in_list = True
+        self._list_tight = node.tight
 
         for i, item in enumerate(node.items):
             if node.ordered:
@@ -801,6 +815,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     self._output.append("\n\n")
 
         self._in_list = was_in_list
+        self._list_tight = was_tight
 
         # Decrement indent level when exiting nested list
         if was_in_list:
@@ -816,15 +831,21 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         indent = self._current_indent()
-        marker = self._list_marker_stack[-1] if self._list_marker_stack else "* "
+        base_marker = self._list_marker_stack[-1] if self._list_marker_stack else "* "
+        marker = base_marker
 
         if node.task_status and self._flavor.supports_task_lists():
             checkbox = "[x]" if node.task_status == "checked" else "[ ]"
-            marker = f"{marker}{checkbox} "
+            marker = f"{base_marker}{checkbox} "
 
         self._output.append(f"{indent}{marker}")
 
-        marker_width = len(marker)
+        # Continuation blocks indent to the list-marker width. A task checkbox
+        # ("[ ] ") is inline content of the first line, not part of the marker,
+        # so it must not widen the indent: indenting continuations under the
+        # checkbox pushes them four-plus spaces past the content column, where
+        # they reparse as an indented code block instead of a paragraph.
+        marker_width = len(base_marker)
 
         # Render children - first child inline with marker, others indented
         for i, child in enumerate(node.children):
@@ -858,8 +879,13 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
                 # Subsequent children are indented
                 # Both nested lists and other blocks (paragraphs, code blocks, etc.)
-                # will use _current_indent() which now includes the marker width
-                self._output.append("\n")
+                # will use _current_indent() which now includes the marker width.
+                # In a loose list, block-level siblings (paragraphs, code) are
+                # separated by a blank line; a nested list attaches directly.
+                if not self._list_tight and not isinstance(child, List):
+                    self._output.append("\n\n")
+                else:
+                    self._output.append("\n")
                 child.accept(self)
 
         # Pop marker width from stack if we pushed it
