@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-15
+
 ### Added
 
 - **Conversion optimizer (`all2md optimize`).** Converts a document many times under
@@ -375,6 +377,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it at a changed corpus, or a different `paths` set, could silently return stale
   hits. The index now records a fingerprint of the documents and index-relevant
   options at save time and is rebuilt when they no longer match.
+- **HTML: an ordered list keeps its `start` attribute instead of renumbering from 1.**
+  The HTML parser built the `List` node without ever reading `<ol start="N">`, so
+  `<ol start="3">` came back numbered from 1 on every HTML conversion — the Markdown
+  renderer already honored `List.start`, the parser just never populated it. Ordered
+  lists now carry their start value through (a non-numeric `start` falls back to 1), so
+  a list that does not begin at 1 survives conversion and the `markdown → html →
+  markdown` round trip.
+- **Markdown: multi-paragraph definition lists round-trip without collapsing.** Two
+  defects in the definition-list renderer flattened a list on a Markdown round trip: a
+  description's paragraphs were joined with a single newline (so a second paragraph
+  merged into the first as a lazy continuation on reparse), and consecutive
+  term/description groups were separated by a single newline (so the next term merged
+  into the previous description). Description blocks and term groups are now separated
+  by a blank line and continuation lines indented four spaces, so multi-paragraph
+  descriptions and multiple terms survive intact.
+- **Markdown: footnote definitions survive parsing under mistune 3.x.** The parser
+  recognized only the legacy `footnote_def` token and read identifiers from
+  `attrs['label']`; mistune 3.x instead groups definitions in a `footnotes` container of
+  `footnote_item` tokens (the label living in `attrs['key']` / the reference's `raw`
+  field, with `attrs` holding only a numeric index), so every footnote definition was
+  dropped from the AST and every reference lost its identifier. The parser now handles
+  the `footnotes` container and reads `key`/`raw` with a `label` fallback; a
+  multi-paragraph footnote is additionally rendered with a blank line between its blocks
+  and four-space continuation indent, so it no longer collapses into one paragraph on
+  reparse.
+- **Markdown: a table nested in a list item stays in the list.** A table inside a list
+  item was emitted at column zero instead of under the item's content margin, so on a
+  Markdown round trip it re-parsed as a top-level sibling and broke the list apart.
+  Idempotency did not catch it — the broken output was stable — but the round-trip
+  benchmark's HTML-equivalence oracle did. Table rendering now shifts every line to the
+  current indent, mirroring code-block handling, so the table stays inside its item; at
+  the top level the indent is empty and output is unchanged.
+- **A long single line is no longer mistaken for a file path and leaked as `OSError`.**
+  During source resolution `LocalPathRetriever.can_handle` called `Path(value).exists()`
+  on raw input before the parse-error wrapper, so a one-line string whose path component
+  exceeds the OS name limit raised `OSError(ENAMETOOLONG)` and escaped `convert()`
+  instead of surfacing as an `All2MdError`. The stat calls are now guarded (mirroring the
+  existing guard in the parser base), so oversized inline content is handled as content.
+
+### Performance
+
+- **Faster CLI cold start.** Building the dynamic CLI parser imported every format's
+  options module and introspected each field, adding ~1.7s to startup even when the
+  invocation never needed it. `--version`/`-V` and `--about`/`-A` are now short-circuited
+  before the parser is built (dropping `--version` from ~2.0s to ~0.8s, the bare import
+  cost), `AttachmentOptionsMixin` is imported from `all2md.options.common` rather than the
+  eager `all2md.options` package, and `get_type_hints()` is memoized per options class —
+  cutting `create_parser()` from ~1.7s to ~0.24s after a warm import, which also roughly
+  halves the small-file conversion path. A cold-start benchmark (`benchmarks/startup.py`)
+  guards these wins against regression.
+- **Cheaper repeated and batch conversions.** Four conversion-hot-path wins help
+  many-small-file and repeated-conversion workloads: the flattened, priority-sorted
+  converter list is memoized — and invalidated on register/unregister — instead of being
+  rebuilt on every `detect_format`; `check_version_requirement` is cached per
+  `(package, spec)` so the dependency-guard decorator stops re-reading installed versions
+  and re-parsing specifiers on every parse/render; resolved option type hints are shared
+  across option construction; and DOCX conversion with `attachment_mode="skip"`
+  short-circuits before reading the image blob (output is byte-identical).
 
 ## [1.8.2] - 2026-07-09
 
@@ -1015,7 +1075,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.8.2...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.9.0
 [1.8.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.2
 [1.8.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.1
 [1.8.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.0
