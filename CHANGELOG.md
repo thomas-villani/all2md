@@ -83,8 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default, `--json` for machine use, `--fail-under SCORE` as a CI gate). Any
   parser can contribute incidents via `BaseParser._record_degraded`; container
   formats (`zip`, archives) already flag members that could not be parsed.
-- **Opt-in conversion cache (`--cache`).** `grep`, `search`, `chunk`, and `view`
-  gain a `--cache` flag (and `--cache-dir DIR`) that stashes parsed documents on
+- **Opt-in conversion cache (`--cache`).** `grep`, `search`, `chunk`, `view`,
+  `report`, `roundtrip` and `optimize` all take a `--cache` flag (and
+  `--cache-dir DIR`) that stashes parsed documents on
   disk so repeated runs over unchanged files skip the expensive parse step. The
   cache is keyed by a fingerprint over the source file (path + size + mtime), the
   resolved format and parser options, and the all2md version + AST schema — so a

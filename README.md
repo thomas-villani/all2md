@@ -988,6 +988,13 @@ python -m benchmarks.corpus.inspect --criteria random --sources pmc --n 5 --seed
 
 See [`benchmarks/corpus/README.md`](benchmarks/corpus/README.md) for the full configuration reference and the [Performance Tuning docs](https://all2md.readthedocs.io/en/latest/performance.html#corpus-benchmark-harness) for an overview.
 
+Where the corpus harness times conversion, [`benchmarks/roundtrip/`](benchmarks/roundtrip/) checks **fidelity** — whether `Markdown → AST → Markdown` preserves a document. Each document is judged by two independent oracles (render-twice idempotency, and HTML-equivalence against a reference renderer), and the run exits non-zero if any oracle fails, so it doubles as an ad-hoc check:
+
+```bash
+python -m benchmarks.roundtrip              # per-document pass/fail table
+python -m benchmarks.roundtrip --show-diff  # + unified diffs for failures
+```
+
 ## Contributing
 
 Contributions are welcome! We appreciate bug reports, feature requests, documentation improvements, and code contributions.
