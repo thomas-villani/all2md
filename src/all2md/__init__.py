@@ -85,7 +85,7 @@ if sys.version_info < (3, 10):
         f"all2md requires Python 3.10 or later. You are using Python {sys.version_info.major}.{sys.version_info.minor}."
     )
 
-__version__ = "1.8.1"
+__version__ = "1.9.0"
 
 from typing import TYPE_CHECKING, Any
 
