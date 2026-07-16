@@ -6,13 +6,15 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
-> **Status note (updated 2026-07-09).** Since this roadmap was first written we've
+> **Status note (updated 2026-07-16).** Since this roadmap was first written we've
 > shipped the headline Theme 1 item — `all2md chunk` (provenance-aware chunking, 11
 > strategies, `all2md.chunk()` Python API, `[chunk]` extra) — plus mermaid/syntax-
 > highlighting in `view`/`serve` and one-click `uv` install scripts. The **Fidelity &
-> Trust** batch has since landed the conversion cache, the confidence report
-> (`all2md report`), DOCX character-style round-tripping, round-trip fidelity scoring
-> (`all2md roundtrip`), and its capstone the conversion optimizer (`all2md optimize`).
+> Trust** batch landed in **v1.9.0** (released 2026-07-15): the conversion cache, the
+> confidence report (`all2md report`), DOCX character-style round-tripping, round-trip
+> fidelity scoring (`all2md roundtrip`), and its capstone the conversion optimizer
+> (`all2md optimize`) — plus the Markdown round-trip fixes that the new
+> `benchmarks/roundtrip` harness surfaced.
 > Shipped items are marked 🚢 inline below; the license question that gated chunking is
 > resolved (chunkers vendored, optional extra). Tactical near-term work lives in `todo.md`,
 > which is developer-local (git-ignored) — anything that needs to outlive a working tree is
@@ -86,7 +88,7 @@ obvious.
 
 People star us because "it just converted my gnarly PDF perfectly." Protect and extend that.
 
-- 🚢 **Round-trip fidelity scoring** — *shipped (unreleased; lands in v1.9.0).* `all2md
+- 🚢 **Round-trip fidelity scoring** — *shipped (v1.9.0).* `all2md
   roundtrip doc.docx` renders to an intermediate format, parses it straight back, and scores
   the structure that survived — `0-100` plus per-dimension metrics and itemized
   `StructuralDelta`s. Built on the **AST**, not on `all2md.diff` as originally planned: that
@@ -94,12 +96,28 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   through Markdown at exactly `100`, so the metric is a real regression guard rather than
   noise. *Still open:* wiring it into the `benchmarks/corpus/` harness (🚢 v1.1.1) for a
   corpus-wide fidelity report — the remaining half of the "marketable metric" story.
-- 🚢 **DOCX round-trip: character styles** — *shipped (unreleased).* Run-level named
+  A separate, narrower harness now exists (`benchmarks/roundtrip`, 🚢 v1.9.0): it judges
+  `markdown → AST → markdown` on a synthetic corpus with two independent oracles
+  (idempotency, and HTML-equivalence via a reference mistune renderer). It is Markdown-only
+  and synthetic-only by design — the CommonMark/GFM spec suites are its planned Phase 2 —
+  so it complements rather than closes the corpus-wide item above.
+- 🚢 **Markdown round-trip losses** — *found by `benchmarks/roundtrip`, fixed in v1.9.0.*
+  The scorer and harness turned up a class of losses in our own default flavor, not just in
+  the Office formats: footnotes, highlight/superscript/subscript and underline all rendered
+  to raw HTML that the default `html_passthrough` policy then escaped on the next pass, so
+  they did not survive `md → md`; inline `$$…$$` display math was dropped; tables nested in
+  list items broke out of the list; and loose multi-paragraph list items collapsed onto one
+  line (three separate bugs — a mistune 3.x loose/tight flag read from the wrong place,
+  continuation lines emitted at column zero, and a nested first-child list double-indenting).
+  All now round-trip by default. *Lesson worth keeping:* fidelity here is flavor-dependent —
+  the roundtrip-safe spelling and the widely-displayable spelling are not always the same, so
+  each of these landed as a flavor-aware default plus an explicit `html` opt-out.
+- 🚢 **DOCX round-trip: character styles** — *shipped (v1.9.0).* Run-level named
   character styles ("Quote Char", "Intense Reference") now ride on the inline node's
   `metadata['source_style']` and are re-applied when rendering to DOCX with a template,
   matching the paragraph-level behaviour (🚢 v1.1.1).
-- 🚢 **DOCX/HTML round-trip asymmetries** — *found by `all2md roundtrip`, now fixed
-  (unreleased).* Each was a renderer/parser pair that did not invert:
+- 🚢 **DOCX/HTML round-trip asymmetries** — *found by `all2md roundtrip`, fixed in v1.9.0.*
+  Each was a renderer/parser pair that did not invert:
   - [#70](https://github.com/thomas-villani/all2md/issues/70) — rendering to DOCX applies
     `TitlePromotionTransform` (leading H1 → Word "Title", every later heading shifted up
     one), but the DOCX parser mapped "Title" → `Paragraph`, so `md → docx → md` demoted the
@@ -144,34 +162,48 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     (financial DOCX/HTML/XBRL), the Enron corpus (mbox/eml threading torture-test),
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
-- 🚢 **Conversion confidence report** — *shipped (unreleased).* `all2md report <file>` and
+- 🚢 **Conversion confidence report** — *shipped (v1.9.0).* `all2md report <file>` and
   `Document.metadata['confidence']` surface the sanity signals the PDF/DOCX parsers already
   computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
   near-empty-page ratio) as a structured "quality card" instead of log noise. Reference-free,
-  so it works on documents with no ground truth.
-- 🚢 **Conversion optimizer (`all2md optimize`)** — *shipped (unreleased; lands in v1.9.0).*
+  so it works on documents with no ground truth. It is a **breakage detector, not a quality
+  gradient** — see the optimizer entry below — and a format that emits no scored signals at
+  all is banded `not_assessed` rather than a vacuous `high`.
+- 🚢 **Conversion optimizer (`all2md optimize`)** — *shipped (v1.9.0).*
   Auto-tune converter settings for a
   difficult document (headline case: gnarly PDFs). Searches the parameter space
   (`table_detection_mode`, `detect_columns`, OCR mode/engine, `min_image_dimension`,
   header/footer filtering, dehyphenation, layout model, heading size-ratio, …) and returns
-  the settings that maximize a quality score — emitted as a reusable preset / `.all2md.toml`
-  snippet.
-  - **Objective (the crux):** difficult PDFs rarely have a reference to diff against, so the
-    optimizer needs a **reference-free** quality score — exactly the vector the *confidence
-    report* produces (real-word ratio, table sanity, ghost-image count, reading-order
-    coherence, near-empty-page ratio, hyphenation-merge success). **Both halves of that
-    substrate exist** (confidence 🚢, round-trip 🚢), and the optimizer shipped on top of
-    them. Use `confidence_report(...).score` where no reference can be manufactured
-    and `roundtrip_report(...).score` where one can; both respond to converter options — e.g.
-    `html_passthrough_mode="pass-through"` moves `basic.md` from 98 to 100 — which is exactly
-    what makes them hill-climbable.
-  - **Search shape (keep it cheap):** score a handful of named presets first (interpretable,
-    fast), then a 1-D refine on the highest-impact continuous knob — not a full grid. Sample
-    a page subset (first N + random) rather than reconverting a 400-page doc, and **cache per
-    (param-set × content-hash)**, reusing the Theme 3 conversion-cache fingerprint.
-  - **Two levels:** per-document autotune, *and* a corpus-level mode that tunes over
-    `benchmarks/corpus/` to improve **shipped defaults** — a concrete step toward the
-    self-improving converters in Theme 7.
+  the settings that maximize a quality score — emitted as a runnable command and a
+  `.all2md.toml` snippet. Tunable formats today: `pdf`, `html`, `docx`.
+  - **Objective — the original plan was wrong, and shipping proved it.** The premise (reuse
+    `confidence_report(...).score` where no reference exists, `roundtrip_report(...).score`
+    where one can be manufactured) did not survive contact with the search. **Confidence
+    saturates:** it is a breakage detector, so on anything not visibly broken it pins to
+    `100` regardless of settings — measured, 16 option combinations on a two-column PDF
+    produced *one* distinct confidence score while the parsed AST produced *four* distinct
+    outcomes. No gradient, nothing to hill-climb. **Round-trip measures the wrong half:** it
+    scores the renderer, not the parser, and a garbled table round-trips through Markdown
+    perfectly. So `all2md optimize` scores the **parsed AST directly**, and is deliberately
+    neither existing score. *Generalizable lesson:* a score being reference-free and
+    responsive-in-principle is not enough — an objective has to actually vary across the
+    space you intend to search, which is a thing to measure before building on it.
+  - **What the shipped objective does:** body-text retention **gates** the score rather than
+    contributing to it (losing a paragraph is data loss; a leftover running header is an
+    annoyance, and the two aren't interchangeable at any exchange rate) — so retention
+    multiplies fitness, cubed, and no amount of tidiness buys back deleted content. The
+    genuinely tradeable dimensions are weighted: tables (quality-weighted *recall*, so a
+    hallucinated table earns almost nothing while a missed real one still costs its cells),
+    structure, and cleanliness. The fitness ranks candidates *against each other* — it is not
+    an absolute quality score, and `report` / `roundtrip` remain the scores for that.
+  - **Search shape (kept cheap, as planned):** named presets first, then **coordinate
+    descent** — `sum(len(values))` conversions instead of a grid's `prod(len(values))`. Still
+    tens of full conversions at ~1s per PDF page, so `--sample-pages` tunes against a slice
+    and `--cache` makes repeat runs nearly free (18.5s → 0.3s warm on a 31-candidate run),
+    reusing the Theme 3 conversion-cache fingerprint as intended.
+  - **Two levels:** per-document autotune 🚢, *and* — still open — a corpus-level mode that
+    tunes over `benchmarks/corpus/` to improve **shipped defaults**, a concrete step toward
+    the self-improving converters in Theme 7.
 - 🌙 **Vision-model fallback** — when structural parsing fails (scanned tables, complex
   figures, handwriting), optionally hand the page to a vision LLM and merge its structured
   output back into the AST.
@@ -188,16 +220,22 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 - 🚀 **Deferred asset resolution** — parse to AST with asset placeholders, then resolve all
   remote assets concurrently (`asyncio.gather`), then finalize. Turns N serial fetches into
   one concurrent batch — the real user-visible speedup for asset-heavy HTML.
-- 🌱 **Persistent / incremental search index + shared conversion cache** — *outstanding
-  (`todo.md`).* Today `--search-index-dir` (`mcp/query_tools.py`) is keyed only by directory,
-  so reusing an index across a changed corpus or a different `paths` set can return **stale
-  results**. Roll the MCP search index together with a general conversion cache: stash
-  converted documents/ASTs keyed by content-hash + mtime, and key/invalidate the BM25 index
-  off the same fingerprint. Fixes correctness *and* avoids redundant re-conversions across
-  tools — a rare "fixes a bug and adds a feature" item. The same cache is reusable well
-  beyond MCP: `view` and `serve` re-convert a file on every scan/request today and would
-  skip unchanged files, and the **conversion optimizer** (Theme 2) reuses the fingerprint to
-  avoid reconverting identical param-sets.
+- 🚢 **Persistent / incremental search index + shared conversion cache** — *shipped
+  (v1.9.0).* Both halves of the "fixes a bug and adds a feature" item landed. The
+  **correctness** half: `--search-index-dir` (`mcp/query_tools.py`) was keyed only by
+  directory, so reusing an index across a changed corpus or a different `paths` set returned
+  **stale results**; the persisted index is now invalidated when the corpus or the options
+  change. The **feature** half: an opt-in on-disk conversion cache (`--cache` /
+  `--cache-dir`, or `ALL2MD_CACHE=1` / `ALL2MD_CACHE_DIR`) stashes parsed ASTs keyed by a
+  fingerprint over the source (path + size + mtime), the resolved format and parser options,
+  and the all2md version + AST schema — so a changed file, changed options, or a version bump
+  all miss cleanly rather than serving a stale AST. Wired into `grep`, `search`, `chunk`,
+  `view`, `report`, `roundtrip` and `optimize`, and available programmatically as
+  `all2md.conversion_cache.use_conversion_cache(...)`, which caches every `to_ast()` inside
+  the context. The **conversion optimizer** (Theme 2) reuses the same fingerprint to avoid
+  reconverting identical param-sets — worth 18.5s → 0.3s on a warm 31-candidate run.
+  *Still open:* `serve` is the one holdout — it has its own in-process render cache
+  (`--no-cache`) that dies with the process, rather than the persistent, fingerprinted one.
 - 🚀 **Parallel batch engine v2** — the `ProcessPoolExecutor` path with resume, a failure
   manifest, and as-completed streaming progress.
 - 🌙 **WASM build** — `all2md` in-browser (Pyodide, or a Rust core for hot paths) for
@@ -327,17 +365,20 @@ CPU core.
 **Done since first draft:** ~~`all2md chunk`~~ 🚢 (was #2) — the biggest single item is
 shipped, along with mermaid rendering and `uv` install scripts.
 
-**Done in the Fidelity & Trust batch** (unreleased, lands in v1.9.0): ~~round-trip fidelity
-scoring~~ 🚢, ~~conversion confidence report~~ 🚢, ~~DOCX character-style round-trip~~ 🚢,
-~~search-index / conversion-cache correctness~~ 🚢, ~~conversion optimizer~~ 🚢 (the batch
-capstone), and ~~the DOCX/HTML round-trip asymmetries #70/#71/#72~~ 🚢 that the round-trip
-scorer surfaced. That closes the previous arc's top entries and the capstone both.
+**Shipped in the Fidelity & Trust batch** (released in **v1.9.0**, 2026-07-15): ~~round-trip
+fidelity scoring~~ 🚢, ~~conversion confidence report~~ 🚢, ~~DOCX character-style
+round-trip~~ 🚢, ~~search-index / conversion-cache correctness~~ 🚢, ~~conversion optimizer~~
+🚢 (the batch capstone), ~~the DOCX/HTML round-trip asymmetries #70/#71/#72~~ 🚢 that the
+round-trip scorer surfaced, and ~~the Markdown round-trip losses~~ 🚢 that the new
+`benchmarks/roundtrip` harness surfaced. That closes the previous arc's top entries and the
+capstone both.
 
 Revised arc for the **next batch**, ordered by leverage-per-effort:
 
 1. **Public fidelity benchmark** — round-trip scoring exists, so productize it: wire it into
    the `benchmarks/corpus/` harness for a corpus-wide report, then a head-to-head vs.
-   markitdown / pandoc / docling.
+   markitdown / pandoc / docling. Note the caveat the optimizer taught us: pick the metric by
+   measuring that it *varies* across the corpus, not by assuming it does.
 2. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
    Architecture Decision); the deferred-asset-resolution phase is the user-visible win.
 3. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
