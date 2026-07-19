@@ -643,14 +643,14 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 row_parts.append(padded)
             self._output.append("| " + " | ".join(row_parts) + " |")
 
-            if i < len(rendered_grid) - 1:
-                self._output.append("\n")
-
-            # Add separator after header
+            # Header rule must end with a newline before the next body row
             if i == 0 and node.header:
                 self._output.append("\n|")
                 for width in col_widths:
                     self._output.append("-" * (width + 2) + "|")
+
+            if i < len(rendered_grid) - 1:
+                self._output.append("\n")
 
     def visit_table_row(self, node: TableRow) -> None:
         """Render a TableRow node.
