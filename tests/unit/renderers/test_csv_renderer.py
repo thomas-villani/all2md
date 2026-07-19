@@ -15,7 +15,8 @@ Tests cover:
 
 import pytest
 
-from all2md.ast import Document, Heading, Paragraph, Table, TableCell, TableRow, Text
+from all2md import convert
+from all2md.ast import Document, Heading, HTMLInline, LineBreak, Paragraph, Table, TableCell, TableRow, Text
 from all2md.exceptions import RenderingError
 from all2md.options.csv import CsvRendererOptions
 from all2md.renderers.csv import CsvRenderer
@@ -368,3 +369,58 @@ class TestCsvDialect:
 
         # With single quote as quote char and quoting=all, should use single quotes
         assert "'" in result
+
+
+@pytest.mark.unit
+class TestCellLineBreaks:
+    """Multiline cell content must survive CSV export."""
+
+    def test_markdown_cell_br_preserves_newline(self) -> None:
+        """HTML <br> inside a markdown table cell becomes a quoted CSV newline."""
+        source = "| A | B |\n| --- | --- |\n| line1<br>line2 | x |\n"
+        result = convert(source, source_format="markdown", target_format="csv")
+        assert result == 'A,B\n"line1\nline2",x\n'
+
+    def test_linebreak_node_preserves_newline(self) -> None:
+        """AST LineBreak between Text nodes is emitted as a CSV cell newline."""
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])]),
+            rows=[
+                TableRow(
+                    cells=[
+                        TableCell(
+                            content=[
+                                Text(content="line1"),
+                                LineBreak(),
+                                Text(content="line2"),
+                            ]
+                        ),
+                        TableCell(content=[Text(content="x")]),
+                    ]
+                ),
+            ],
+        )
+        result = CsvRenderer().render_to_string(Document(children=[table]))
+        assert result == 'A,B\n"line1\nline2",x\n'
+
+    def test_html_inline_br_preserves_newline(self) -> None:
+        """HTMLInline <br> between Text nodes is emitted as a CSV cell newline."""
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])]),
+            rows=[
+                TableRow(
+                    cells=[
+                        TableCell(
+                            content=[
+                                Text(content="line1"),
+                                HTMLInline(content="<br>"),
+                                Text(content="line2"),
+                            ]
+                        ),
+                        TableCell(content=[Text(content="x")]),
+                    ]
+                ),
+            ],
+        )
+        result = CsvRenderer().render_to_string(Document(children=[table]))
+        assert result == 'A,B\n"line1\nline2",x\n'

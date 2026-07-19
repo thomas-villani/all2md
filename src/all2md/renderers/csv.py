@@ -23,7 +23,18 @@ import logging
 from pathlib import Path
 from typing import IO, Union
 
-from all2md.ast.nodes import Comment, CommentInline, Document, Heading, Node, Table, TableRow, Text
+from all2md.ast.nodes import (
+    Comment,
+    CommentInline,
+    Document,
+    Heading,
+    HTMLInline,
+    LineBreak,
+    Node,
+    Table,
+    TableRow,
+    Text,
+)
 from all2md.exceptions import RenderingError
 from all2md.options.csv import CsvRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -347,7 +358,13 @@ class CsvRenderer(BaseRenderer):
         for node in nodes:
             if isinstance(node, Text):
                 parts.append(node.content)
-            elif hasattr(node, "content"):
+            elif isinstance(node, LineBreak):
+                parts.append("\n")
+            elif isinstance(node, HTMLInline):
+                raw = node.content.strip().lower().replace(" ", "")
+                if raw in {"<br>", "<br/>"}:
+                    parts.append("\n")
+            elif hasattr(node, "content") and isinstance(node.content, list):
                 # Recurse into inline containers (Strong, Emphasis, Link, etc.)
                 parts.append(self._extract_text_content(node.content))
 
