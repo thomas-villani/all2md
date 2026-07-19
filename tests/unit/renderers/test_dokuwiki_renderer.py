@@ -435,6 +435,23 @@ class TestDokuWikiLists:
         assert "  * Nested item" in output
         assert "* Item 2" in output
 
+    def test_render_empty_list_item(self) -> None:
+        """Empty list items must still emit a bullet (sibling formats do)."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="a")])]),
+                        ListItem(children=[]),
+                        ListItem(children=[Paragraph(content=[Text(content="c")])]),
+                    ],
+                )
+            ]
+        )
+        output = DokuWikiRenderer().render_to_string(doc)
+        assert output == "* a\n* \n* c\n"
+
 
 @pytest.mark.unit
 class TestDokuWikiTables:

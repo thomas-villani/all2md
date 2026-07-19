@@ -268,6 +268,8 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append(f"{indent}{marker} \n")
                 for child in node.children:
                     child.accept(self)
+        else:
+            self._output.append(f"{indent}{marker} \n")
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
