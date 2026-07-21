@@ -433,6 +433,19 @@ all2md-mcp --temp --enable-from-md
 }
 ```
 
+Using `uvx` (which does not require system installation of `all2md`):
+
+```json
+{
+  "mcpServers": {
+    "all2md": {
+      "command": "uvx",
+      "args": ["--from", "all2md[all]", "all2md-mcp", "--temp", "--enable-from-md"]
+    }
+  }
+}
+```
+
 See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) and [Agent Skills documentation](https://all2md.readthedocs.io/en/latest/agent_skills.html) for full details.
 
 </details>
