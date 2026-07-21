@@ -1887,7 +1887,8 @@ class AsciiDocParser(BaseParser):
                 # Also supports: 2* for duplication (treated as colspan)
 
                 span_pattern = r"^(\d+)?\.?(\d+)?([+*])\s*"
-                match = re.match(span_pattern, part.strip())
+                stripped = part.strip()
+                match = re.match(span_pattern, stripped)
 
                 if match:
                     col_spec = match.group(1)
@@ -1911,8 +1912,8 @@ class AsciiDocParser(BaseParser):
                         if col_spec:
                             colspan = int(col_spec)
 
-                    # Remove the span specification from content
-                    part = part[match.end() :]
+                    # Slice stripped text — match was against strip(), not raw part
+                    part = stripped[match.end() :]
 
             # Strip whitespace but preserve empty cells
             content_text = part.strip()
