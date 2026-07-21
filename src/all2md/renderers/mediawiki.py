@@ -265,9 +265,11 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output.append('{| class="wikitable"\n')
 
-        # Render caption if present
+        # Render caption if present (single-line: newlines would break |+ markup)
         if node.caption:
-            self._output.append(f"|+ {node.caption}\n")
+            caption = " ".join(node.caption.split())
+            if caption:
+                self._output.append(f"|+ {caption}\n")
 
         # Render header
         if node.header:
