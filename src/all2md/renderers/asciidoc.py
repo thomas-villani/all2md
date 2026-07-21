@@ -537,21 +537,24 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 return f".{cell.rowspan}+|"
             return ""
 
+        def render_row(cells: list[TableCell]) -> None:
+            # A span spec attaches to the cell after the `|` it precedes, so the
+            # first cell's spec has to replace the row-opening `|` rather than
+            # follow it — otherwise it would apply to a phantom empty cell.
+            self._output.append((cell_span(cells[0]) if cells else "") or "|")
+            for index, cell in enumerate(cells):
+                content = self._render_inline_content(cell.content)
+                prefix = "" if index == 0 else cell_span(cell)
+                self._output.append(f"{prefix}{content} |")
+            self._output.append("\n")
+
         # Render header
         if node.header:
-            self._output.append("|")
-            for cell in node.header.cells:
-                content = self._render_inline_content(cell.content)
-                self._output.append(f"{cell_span(cell)}{content} |")
-            self._output.append("\n")
+            render_row(node.header.cells)
 
         # Render rows
         for row in node.rows:
-            self._output.append("|")
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                self._output.append(f"{cell_span(cell)}{content} |")
-            self._output.append("\n")
+            render_row(row.cells)
 
         self._output.append("|===")
 

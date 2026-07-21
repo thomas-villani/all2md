@@ -32,6 +32,7 @@ from all2md.ast import (
     Text,
 )
 from all2md.options.asciidoc import AsciiDocRendererOptions
+from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.renderers.asciidoc import AsciiDocRenderer
 
 
@@ -893,7 +894,16 @@ class TestTableRendering:
         )
         result = AsciiDocRenderer().render_to_string(doc)
 
-        assert result == "|===\n|2+|Wide |.3+|Tall |2.3+|Both |\n|===\n"
+        # The leading cell's spec replaces the row-opening `|`; a `|2+|Wide`
+        # form would read as an empty cell followed by a spanning one.
+        assert result == "|===\n2+|Wide |.3+|Tall |2.3+|Both |\n|===\n"
+
+        reparsed = AsciiDocParser().parse(result)
+        table = reparsed.children[0]
+        assert isinstance(table, Table)
+        cells = table.header.cells if table.header else table.rows[0].cells
+        assert [(c.colspan, c.rowspan) for c in cells[:3]] == [(2, 1), (1, 3), (2, 3)]
+        assert [c.content[0].content for c in cells[:3]] == ["Wide", "Tall", "Both"]
 
 
 @pytest.mark.unit
