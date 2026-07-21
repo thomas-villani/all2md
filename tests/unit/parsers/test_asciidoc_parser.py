@@ -1,6 +1,8 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for AsciiDoc parser and renderer."""
 
+import signal
+
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -417,6 +419,29 @@ class TestAsciiDocEscaping:
         para = doc.children[0]
         text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
         assert "{is not}" in text_content
+
+    def test_escaped_brace_forming_attr_shape_does_not_hang(self) -> None:
+        """Escaped `{` inside `{...}` must parse as literal text, not hang."""
+
+        class _Timeout(Exception):
+            pass
+
+        def _on_alarm(signum: int, frame: object) -> None:
+            raise _Timeout()
+
+        parser = AsciiDocParser()
+        previous = signal.signal(signal.SIGALRM, _on_alarm)
+        try:
+            signal.alarm(2)
+            doc = parser.parse(r"{\{}")
+            signal.alarm(0)
+        finally:
+            signal.signal(signal.SIGALRM, previous)
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        text_content = "".join(n.content if isinstance(n, Text) else "" for n in para.content)
+        assert text_content == "{{}"
 
 
 class TestAsciiDocUnconstrainedFormatting:

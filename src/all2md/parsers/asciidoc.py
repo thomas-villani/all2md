@@ -1374,6 +1374,10 @@ class AsciiDocParser(BaseParser):
                 next_match = self.combined_inline_pattern.search(remaining)
                 next_special = next_match.start() if next_match else len(remaining)
 
+                # Rejected combined match at cursor must advance or the loop hangs.
+                if next_special == 0 and next_match is not None:
+                    next_special = next_match.end()
+
                 text_content = remaining[:next_special]
                 if text_content:
                     text_content = self._postprocess_escapes(text_content, escape_map)
