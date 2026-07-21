@@ -146,9 +146,11 @@ class IniRenderer(BaseRenderer):
             else:
                 config = configparser.ConfigParser(allow_no_value=self.options.allow_no_value)
 
-            # Add sections and values
+            # Add sections and values.
+            # configparser reserves DEFAULT; set its keys directly (no add_section).
             for section, values in data.items():
-                config.add_section(section)
+                if section != configparser.DEFAULTSECT:
+                    config.add_section(section)
                 for key, value in values.items():
                     if value is None or value == "":
                         if self.options.allow_no_value:

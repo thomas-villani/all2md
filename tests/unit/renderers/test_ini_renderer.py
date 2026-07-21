@@ -333,6 +333,40 @@ class TestDataExtractor:
         assert "DEFAULT" in data
         assert data["DEFAULT"]["key"] == "value"
 
+    def test_render_orphan_list_uses_default_section(self) -> None:
+        """Orphan key/value lists render under [DEFAULT], not ValueError."""
+        doc = Document(
+            children=[
+                List(
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(
+                                    content=[
+                                        Strong(content=[Text(content="host")]),
+                                        Text(content=": localhost"),
+                                    ]
+                                )
+                            ]
+                        )
+                    ],
+                    ordered=False,
+                )
+            ]
+        )
+        result = IniRenderer().render_to_string(doc)
+
+        assert "[DEFAULT]" in result
+        assert "host = localhost" in result
+
+    def test_render_heading_named_default(self) -> None:
+        """A heading literally named DEFAULT is a valid section."""
+        doc = create_ini_document({"DEFAULT": {"host": "localhost"}})
+        result = IniRenderer().render_to_string(doc)
+
+        assert "[DEFAULT]" in result
+        assert "host = localhost" in result
+
 
 @pytest.mark.unit
 class TestIniEdgeCases:
