@@ -424,6 +424,58 @@ class TestRtfRendererDefinitionLists:
         assert "Term" in rtf_output
         assert "Definition" in rtf_output
 
+    def test_render_definition_list_with_nested_list(self) -> None:
+        """Nested lists in definitions must not crash (pyth List subclasses Paragraph)."""
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="Term")]),
+                            [
+                                DefinitionDescription(
+                                    content=[
+                                        Paragraph(content=[Text(content="Definition")]),
+                                        List(
+                                            ordered=False,
+                                            items=[
+                                                ListItem(children=[Paragraph(content=[Text(content="nested-item")])])
+                                            ],
+                                        ),
+                                    ]
+                                )
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = RtfRenderer()
+        rtf_output = renderer.render_to_string(doc)
+        assert "Term" in rtf_output
+        assert "Definition" in rtf_output
+        assert "nested-item" in rtf_output
+
+    def test_render_blockquote_with_nested_list(self) -> None:
+        """Block quotes that contain lists must render without TypeError."""
+        doc = Document(
+            children=[
+                BlockQuote(
+                    children=[
+                        Paragraph(content=[Text(content="quoted")]),
+                        List(
+                            ordered=False,
+                            items=[ListItem(children=[Paragraph(content=[Text(content="quoted-item")])])],
+                        ),
+                    ]
+                )
+            ]
+        )
+        renderer = RtfRenderer()
+        rtf_output = renderer.render_to_string(doc)
+        assert "quoted" in rtf_output
+        assert "quoted-item" in rtf_output
+
 
 @pytest.mark.unit
 class TestRtfRendererInlineFormatting:
