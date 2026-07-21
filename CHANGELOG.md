@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **INI renderer: `DEFAULT` section no longer fails to render.** `configparser`
+  reserves `DEFAULT`, so `add_section("DEFAULT")` raises `ValueError` — which meant
+  any document whose keys landed in the default section (orphan key/value lists with
+  no heading, or a heading literally named `DEFAULT`) aborted the whole conversion
+  with a `RenderingError`. Keys are now set on the parser directly for that section.
+  Thanks [@santhreal](https://github.com/santhreal) (#116).
+- **Org renderer: table header separators now end with a newline.** The header rule
+  and the first body row were emitted glued together (`|---|---|| 1 | 2 |`), which
+  is not a valid Org table and loses every body cell when re-parsed. Thanks
+  [@santhreal](https://github.com/santhreal) (#117).
+- **CSV renderer: line breaks inside table cells survive export.** `LineBreak` nodes
+  and `<br>` HTML inlines were dropped when flattening a cell to text, silently
+  joining the two lines. They now emit a newline, which the CSV writer quotes.
+  Thanks [@santhreal](https://github.com/santhreal) (#118).
+- **DokuWiki renderer: empty list items keep their bullet.** An empty `ListItem`
+  produced no output at all, so `- a` / `-` / `- c` rendered as two bullets instead
+  of three and shifted the list. Matches the Markdown/MediaWiki/AsciiDoc/RST
+  renderers, which already preserve the blank bullet. Thanks
+  [@santhreal](https://github.com/santhreal) (#119).
+
+### Changed
+
+- CI: bumped `actions/setup-python` 6 → 7 and `actions/setup-node` 6 → 7 (#120, #121).
+
 ## [1.9.0] - 2026-07-15
 
 ### Added
