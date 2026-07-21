@@ -6,31 +6,13 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
-> **Status note (updated 2026-07-16).** Since this roadmap was first written we've
-> shipped the headline Theme 1 item — `all2md chunk` (provenance-aware chunking, 11
-> strategies, `all2md.chunk()` Python API, `[chunk]` extra) — plus mermaid/syntax-
-> highlighting in `view`/`serve` and one-click `uv` install scripts. The **Fidelity &
-> Trust** batch landed in **v1.9.0** (released 2026-07-15): the conversion cache, the
-> confidence report (`all2md report`), DOCX character-style round-tripping, round-trip
-> fidelity scoring (`all2md roundtrip`), and its capstone the conversion optimizer
-> (`all2md optimize`) — plus the Markdown round-trip fixes that the new
-> `benchmarks/roundtrip` harness surfaced.
-> Shipped items are marked 🚢 inline below; the license question that gated chunking is
-> resolved (chunkers vendored, optional extra). Tactical near-term work lives in `todo.md`,
-> which is developer-local (git-ignored) — anything that needs to outlive a working tree is
-> cross-referenced into the themes below or filed as an issue.
->
-> **Two structural changes in this revision, both worth knowing about:**
-> 1. **Theme 8 is new** and consolidates four entries that were scattered across Themes 1, 2
->    and 4 (pluggable OCR, node-level provenance, layout-aware PDF, vision fallback). They are
->    one dependency chain, not four items; read apart, each looked like deferrable plumbing.
-> 2. **The head-to-head vs markitdown / pandoc / docling is dropped**, not deferred —
->    rationale recorded in Theme 2 so it doesn't get re-proposed. The regression-guard half of
->    what it promised is the ratchet; the marketing half doesn't survive the fact that those
->    tools optimise for different jobs than we do.
->
-> The **next batch** is *Quality & Speed Ratchets* — see *Suggested sequencing*, plan in
-> `design/quality-speed-ratchets.md`.
+**Status (2026-07-16).** The headline Theme 1 item — `all2md chunk` — is shipped, along with
+mermaid/syntax highlighting in `view`/`serve` and one-click `uv` install scripts. The
+**Fidelity & Trust** batch landed in **v1.9.0**: the conversion cache, the confidence report
+(`all2md report`), DOCX character-style round-tripping, round-trip fidelity scoring
+(`all2md roundtrip`), and its capstone the conversion optimizer (`all2md optimize`). Shipped
+items are marked 🚢 inline below. The **next batch** is *Quality & Speed Ratchets* — see
+*Suggested sequencing*.
 
 ---
 
@@ -42,16 +24,14 @@ is about turning that foundation into **the default substrate for getting docume
 and out of LLM workflows** — with best-in-class fidelity, measurable quality, and the
 scale to handle real corpora.
 
-Three bets stand out as highest-leverage for us specifically:
+Three bets stand out as highest-leverage:
 
 1. **A quality & speed ratchet** — we have three good benchmark harnesses (`corpus`,
    `roundtrip`, `startup`) and automation on none of them. Making a regression *fail* is
    cheaper than building anything new, and it is the precondition for honestly evaluating
-   bets 2 and 3 — every large item left in Theme 2 is currently unevaluable. See
-   **Theme 2**; the near-term batch is scoped in `design/quality-speed-ratchets.md`.
+   bets 2 and 3 — every large item left in Theme 2 is currently unevaluable. See **Theme 2**.
 2. **Positional fidelity** — OCR geometry → node-level provenance → layout-aware PDF. The
-   single thread that makes RAG citations real, consolidated in **Theme 8** from what used
-   to be three scattered entries that nobody could sequence because they read as unrelated.
+   single thread that makes RAG citations real; see **Theme 8**.
 3. **Async + scale** — unblocks the server/MCP story we've already started.
 
 ---
@@ -68,13 +48,13 @@ obvious.
   tiktoken-backed real BPE counting via the `[chunk]` extra, atomic table/code chunks,
   data-URI elision, and a one-call `all2md.chunk()` Python API. Fine-grained chunkers are
   vendored from `localvectordb`.
-- 🚀 **Provenance-preserving conversion** — *partially shipped; the rest now lives in
-  **Theme 8**.* `all2md chunk` records provenance now include section heading/level and
-  (where the parser tracks it, e.g. PDF) the source page span. The remaining ambition is
-  end-to-end node-level provenance (page, bbox, char offset) on *every* output node so an
-  LLM answer can cite exactly where it came from — the RAG-trust differentiator.
-  Bbox/char-offset spans are the gap, and closing it is not a Theme 1 job: the geometry has
-  to survive the *parsers* first. Tracked in Theme 8.
+- 🚀 **Provenance-preserving conversion** — *partially shipped; the rest lives in **Theme 8**.*
+  `all2md chunk` records provenance now include section heading/level and (where the parser
+  tracks it, e.g. PDF) the source page span. The remaining ambition is end-to-end node-level
+  provenance (page, bbox, char offset) on *every* output node, so an LLM answer can cite
+  exactly where it came from — the RAG-trust differentiator. Bbox/char-offset spans are the
+  gap, and closing it means making the geometry survive the *parsers* first. Tracked in
+  Theme 8.
 - 🌱 **Token-budget conversion** — `llm-minify` (🚢 v1.3.0) and `--slice X/Y` paging
   (🚢 v1.7.1) exist; the open piece is "fit this 400-page PDF into 100k tokens" with
   section-aware elision/summarization rather than uniform minification.
@@ -84,14 +64,11 @@ obvious.
   (tables → records, key/value fields). Document → data, not prose.
 - 🚀 **Loader adapters (two tiers).** Every framework wants the same payload —
   *text + metadata records* — which our AST + chunker already produces. Split the work:
-  - **RAG-framework adapters** (🌱, easy, high-visibility) — one thin module each. *Zero
-    footprint today: no langchain / llamaindex / haystack anywhere in the tree.* Each is
-    roughly a day. **Sequencing note:** shipped before Theme 8, these are *commodity*
-    loaders — same as everyone else's, plus better conversion. The differentiator below is
-    real only once node-level provenance exists. That is an argument for ordering, not for
-    waiting: `metadata` is a plain dict, so a commodity loader shipped now can be enriched
-    with provenance later without an API break. Treat them as cheap opportunistic filler,
-    never as a batch spine.
+  - **RAG-framework adapters** (🌱, easy, high-visibility) — one thin module each, roughly a
+    day apiece. Shipped before Theme 8 these are *commodity* loaders — the same as everyone
+    else's, plus better conversion. That is an argument for ordering, not for waiting:
+    `metadata` is a plain dict, so a commodity loader shipped now can be enriched with
+    provenance later without an API break. Good opportunistic filler, never a batch spine.
     - *LangChain* — `BaseLoader` subclass with `.load() → list[Document]`
       (`Document = {page_content, metadata}`); add `.lazy_load()` generator for streaming.
     - *LlamaIndex* — `BaseReader` with `.load_data() → list[Document]`; list on LlamaHub.
@@ -113,30 +90,28 @@ obvious.
 
 People star us because "it just converted my gnarly PDF perfectly." Protect and extend that.
 
-- 🚢 **Round-trip fidelity scoring** — *shipped (v1.9.0).* `all2md
-  roundtrip doc.docx` renders to an intermediate format, parses it straight back, and scores
-  the structure that survived — `0-100` plus per-dimension metrics and itemized
-  `StructuralDelta`s. Built on the **AST**, not on `all2md.diff` as originally planned: that
-  engine is a text `difflib` and cannot see a demoted heading. A clean document round-trips
-  through Markdown at exactly `100`, so the metric is a real regression guard rather than
-  noise. *Still open:* wiring it into the `benchmarks/corpus/` harness (🚢 v1.1.1) for a
-  corpus-wide fidelity report — the remaining half of the "marketable metric" story.
-  A separate, narrower harness now exists (`benchmarks/roundtrip`, 🚢 v1.9.0): it judges
-  `markdown → AST → markdown` on a synthetic corpus with two independent oracles
-  (idempotency, and HTML-equivalence via a reference mistune renderer). It is Markdown-only
-  and synthetic-only by design — the CommonMark/GFM spec suites are its planned Phase 2 —
-  so it complements rather than closes the corpus-wide item above.
+- 🚢 **Round-trip fidelity scoring** — *shipped (v1.9.0).* `all2md roundtrip doc.docx` renders
+  to an intermediate format, parses it straight back, and scores the structure that survived —
+  `0-100` plus per-dimension metrics and itemized `StructuralDelta`s. It is built on the
+  **AST** rather than on `all2md.diff`, which is a text `difflib` and cannot see a demoted
+  heading. A clean document round-trips through Markdown at exactly `100`, so the metric is a
+  real regression guard rather than noise. *Still open:* wiring it into the
+  `benchmarks/corpus/` harness (🚢 v1.1.1) for a corpus-wide fidelity report — the remaining
+  half of the "marketable metric" story. A separate, narrower harness now exists
+  (`benchmarks/roundtrip`, 🚢 v1.9.0): it judges `markdown → AST → markdown` on a synthetic
+  corpus with two independent oracles (idempotency, and HTML-equivalence via a reference
+  mistune renderer). It is Markdown-only and synthetic-only by design — the CommonMark/GFM
+  spec suites are its planned Phase 2 — so it complements rather than closes the corpus-wide
+  item above.
 - 🚢 **Markdown round-trip losses** — *found by `benchmarks/roundtrip`, fixed in v1.9.0.*
-  The scorer and harness turned up a class of losses in our own default flavor, not just in
-  the Office formats: footnotes, highlight/superscript/subscript and underline all rendered
-  to raw HTML that the default `html_passthrough` policy then escaped on the next pass, so
-  they did not survive `md → md`; inline `$$…$$` display math was dropped; tables nested in
-  list items broke out of the list; and loose multi-paragraph list items collapsed onto one
-  line (three separate bugs — a mistune 3.x loose/tight flag read from the wrong place,
-  continuation lines emitted at column zero, and a nested first-child list double-indenting).
-  All now round-trip by default. *Lesson worth keeping:* fidelity here is flavor-dependent —
-  the roundtrip-safe spelling and the widely-displayable spelling are not always the same, so
-  each of these landed as a flavor-aware default plus an explicit `html` opt-out.
+  A class of losses in our own default flavor, not just in the Office formats: footnotes,
+  highlight/superscript/subscript and underline all rendered to raw HTML that the default
+  `html_passthrough` policy then escaped on the next pass; inline `$$…$$` display math was
+  dropped; tables nested in list items broke out of the list; and loose multi-paragraph list
+  items collapsed onto one line. All now round-trip by default. Fidelity here is
+  flavor-dependent — the roundtrip-safe spelling and the widely-displayable spelling are not
+  always the same — so each fix landed as a flavor-aware default plus an explicit `html`
+  opt-out.
 - 🚢 **DOCX round-trip: character styles** — *shipped (v1.9.0).* Run-level named
   character styles ("Quote Char", "Intense Reference") now ride on the inline node's
   `metadata['source_style']` and are re-applied when rendering to DOCX with a template,
@@ -144,10 +119,9 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
 - 🚢 **DOCX/HTML round-trip asymmetries** — *found by `all2md roundtrip`, fixed in v1.9.0.*
   Each was a renderer/parser pair that did not invert:
   - [#70](https://github.com/thomas-villani/all2md/issues/70) — rendering to DOCX applies
-    `TitlePromotionTransform` (leading H1 → Word "Title", every later heading shifted up
-    one), but the DOCX parser mapped "Title" → `Paragraph`, so `md → docx → md` demoted the
-    title *and* shifted H2→H1. The parser now maps "Title" back to a title heading and
-    inverts the promotion (clamped at level 6).
+    `TitlePromotionTransform`, but the DOCX parser mapped "Title" → `Paragraph`, so
+    `md → docx → md` demoted the title *and* shifted H2→H1. The parser now maps "Title" back
+    to a title heading and inverts the promotion (clamped at level 6).
   - [#71](https://github.com/thomas-villani/all2md/issues/71) — the DOCX round trip dropped
     inline `Code`, and wrote a `BlockQuote` as an indented `Normal` paragraph that the
     parser read back as a bullet list. Inline code now rides on a `Verbatim Char` style and
@@ -161,16 +135,13 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   `--via html`).
 - 🚀 **Layout-aware PDF reconstruction** — *moved to **Theme 8**.* Correct reading order
   across columns, footnote/endnote linking, running header/footer stripping, caption↔figure
-  association. The eternal PDF pain points; we already have `_pdf_layout.py` to build on.
-  Every one of those is a *geometry* problem, which is why it now sits with the OCR and
-  provenance work rather than alone here.
+  association. Every one of those is a *geometry* problem, which is why it now sits with the
+  OCR and provenance work rather than alone here.
 - 🚀 **Math everywhere** — emit LaTeX from DOCX (OMML→LaTeX), PDF equation regions,
   HTML MathML, and (optionally) images of equations via OCR. Huge for academic/technical
   users and a natural pairing with the existing arxiv packager.
-- 🌱 **The ratchet: automate the harnesses we already built.** *This is the next batch —
-  full plan in `design/quality-speed-ratchets.md`.* The gap here was misdiagnosed for two
-  drafts of this roadmap. We do not need to *build* a benchmark; we have three good ones and
-  **automation on none of them**:
+- 🌱 **The ratchet: automate the harnesses we already built.** *This is the next batch.* We do
+  not need to *build* a benchmark; we have three good ones and **automation on none of them**:
   - `benchmarks/corpus/` — throughput over ~160 real arxiv/govdocs1/POI/Enron docs
     (🚢 v1.1.1). One **manual-dispatch** CI workflow. Results are gitignored, so cross-run
     comparison is local-only and by hand.
@@ -183,15 +154,13 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   So: **we have measurement and no ratchet.** Nothing fails when quality or speed degrades.
   `tests/performance` has ~24 timing assertions, but all are loose absolute ceilings
   (`< 10.0`, `< 5.0`) that catch a hang, not a 2× regression — and they are skipped unless
-  `--benchmark` is passed, so they never run in CI anyway. No pytest-benchmark / asv /
-  codspeed; the only committed timing data is two `benchmarks/reference/` snapshots that no
-  code compares against. Making regressions fail is cheaper than any new feature here, and
-  it is what makes the rest of this theme evaluable.
+  `--benchmark` is passed, so they never run in CI anyway. Making regressions fail is cheaper
+  than any new feature here, and it is what makes the rest of this theme evaluable.
 - 🚀 **External ground truth** — *the headline metric, once the ratchet exists.*
   `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own parsers, not
   that we read the document correctly. A garbled table round-trips perfectly. So the open
   work is (a) running fidelity corpus-wide via the ratchet, and (b) scoring against a real
-  external ground truth. Once the ratchet is in place, (b) is just another oracle plugged
+  external ground truth — which, once the ratchet is in place, is just another oracle plugged
   into a socket that already works. Corpora, split by job:
   - **Structure ground-truth (headline metric):** [**OmniDocBench**](https://github.com/opendatalab/OmniDocBench)
     (CVPR 2025) — 981 pages, 9 doc types, with table (Markdown/HTML/LaTeX), formula, and
@@ -209,17 +178,14 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
 
-  **Dropped: the head-to-head vs markitdown / pandoc / docling.** Earlier drafts sold this
-  as "marketing + regression guard in one." Splitting those two jobs is what killed it. The
-  *guard* half is the ratchet above and needs no competitor. The *marketing* half doesn't
-  survive contact with the fact that **we and those tools have genuinely different use
-  cases** — markitdown optimises for a fast minimal LLM payload, pandoc for typesetting
-  round-trips, docling for layout ML. A single fidelity number across four tools with four
-  goals measures whose goal the corpus happened to match, not who is better. It also costs
-  more than it looks: publishing a benchmark you win invites scrutiny that obliges you to
-  defend a rival's config choices forever. Our score against an external ground truth stands
-  on its own and needs no foil. *If* a comparison ever gets built, it should be
-  per-use-case, run their config as they'd recommend it, and be prepared to lose a column.
+  **Not planned: a head-to-head vs markitdown / pandoc / docling.** The regression-guard half
+  of what such a benchmark would offer is the ratchet above, which needs no competitor. The
+  comparison half doesn't survive the fact that these tools optimise for genuinely different
+  jobs — markitdown for a fast minimal LLM payload, pandoc for typesetting round-trips,
+  docling for layout ML. A single fidelity number across four tools with four goals measures
+  whose goal the corpus happened to match. Our score against an external ground truth stands
+  on its own. *If* a comparison ever gets built, it should be per-use-case, run each tool's
+  config as its maintainers would recommend it, and be prepared to lose a column.
 - 🚢 **Conversion confidence report** — *shipped (v1.9.0).* `all2md report <file>` and
   `Document.metadata['confidence']` surface the sanity signals the PDF/DOCX parsers already
   computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
@@ -227,38 +193,33 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   so it works on documents with no ground truth. It is a **breakage detector, not a quality
   gradient** — see the optimizer entry below — and a format that emits no scored signals at
   all is banded `not_assessed` rather than a vacuous `high`.
-- 🚢 **Conversion optimizer (`all2md optimize`)** — *shipped (v1.9.0).*
-  Auto-tune converter settings for a
-  difficult document (headline case: gnarly PDFs). Searches the parameter space
+- 🚢 **Conversion optimizer (`all2md optimize`)** — *shipped (v1.9.0).* Auto-tune converter
+  settings for a difficult document (headline case: gnarly PDFs). Searches the parameter space
   (`table_detection_mode`, `detect_columns`, OCR mode/engine, `min_image_dimension`,
   header/footer filtering, dehyphenation, layout model, heading size-ratio, …) and returns
   the settings that maximize a quality score — emitted as a runnable command and a
   `.all2md.toml` snippet. Tunable formats today: `pdf`, `html`, `docx`.
-  - **Objective — the original plan was wrong, and shipping proved it.** The premise (reuse
-    `confidence_report(...).score` where no reference exists, `roundtrip_report(...).score`
-    where one can be manufactured) did not survive contact with the search. **Confidence
-    saturates:** it is a breakage detector, so on anything not visibly broken it pins to
-    `100` regardless of settings — measured, 16 option combinations on a two-column PDF
-    produced *one* distinct confidence score while the parsed AST produced *four* distinct
-    outcomes. No gradient, nothing to hill-climb. **Round-trip measures the wrong half:** it
-    scores the renderer, not the parser, and a garbled table round-trips through Markdown
-    perfectly. So `all2md optimize` scores the **parsed AST directly**, and is deliberately
-    neither existing score. *Generalizable lesson:* a score being reference-free and
-    responsive-in-principle is not enough — an objective has to actually vary across the
-    space you intend to search, which is a thing to measure before building on it.
-  - **What the shipped objective does:** body-text retention **gates** the score rather than
-    contributing to it (losing a paragraph is data loss; a leftover running header is an
-    annoyance, and the two aren't interchangeable at any exchange rate) — so retention
+  - **Objective:** neither of the two existing scores. Confidence **saturates** — it is a
+    breakage detector, so on anything not visibly broken it pins to `100` regardless of
+    settings (measured: 16 option combinations on a two-column PDF produced *one* distinct
+    confidence score while the parsed AST produced *four* distinct outcomes). Round-trip
+    **measures the wrong half** — it scores the renderer, not the parser, and a garbled table
+    round-trips through Markdown perfectly. So `all2md optimize` scores the **parsed AST**
+    directly. The lesson generalizes: an objective has to actually vary across the space you
+    intend to search, which is worth measuring before building on it.
+  - **What the objective does:** body-text retention **gates** the score rather than
+    contributing to it — losing a paragraph is data loss, a leftover running header is an
+    annoyance, and the two aren't interchangeable at any exchange rate — so retention
     multiplies fitness, cubed, and no amount of tidiness buys back deleted content. The
-    genuinely tradeable dimensions are weighted: tables (quality-weighted *recall*, so a
-    hallucinated table earns almost nothing while a missed real one still costs its cells),
-    structure, and cleanliness. The fitness ranks candidates *against each other* — it is not
-    an absolute quality score, and `report` / `roundtrip` remain the scores for that.
-  - **Search shape (kept cheap, as planned):** named presets first, then **coordinate
-    descent** — `sum(len(values))` conversions instead of a grid's `prod(len(values))`. Still
-    tens of full conversions at ~1s per PDF page, so `--sample-pages` tunes against a slice
-    and `--cache` makes repeat runs nearly free (18.5s → 0.3s warm on a 31-candidate run),
-    reusing the Theme 3 conversion-cache fingerprint as intended.
+    tradeable dimensions are weighted: tables (quality-weighted *recall*, so a hallucinated
+    table earns almost nothing while a missed real one still costs its cells), structure, and
+    cleanliness. Fitness ranks candidates *against each other*; it is not an absolute quality
+    score, and `report` / `roundtrip` remain the scores for that.
+  - **Search shape:** named presets first, then **coordinate descent** — `sum(len(values))`
+    conversions instead of a grid's `prod(len(values))`. Still tens of full conversions at
+    ~1s per PDF page, so `--sample-pages` tunes against a slice and `--cache` makes repeat
+    runs nearly free (18.5s → 0.3s warm on a 31-candidate run), reusing the Theme 3
+    conversion-cache fingerprint.
   - **Two levels:** per-document autotune 🚢, *and* — still open — a corpus-level mode that
     tunes over `benchmarks/corpus/` to improve **shipped defaults**, a concrete step toward
     the self-improving converters in Theme 7.
@@ -280,21 +241,18 @@ See the **Async Architecture Decision** below for the strategy. The shape:
   remote assets concurrently (`asyncio.gather`), then finalize. Turns N serial fetches into
   one concurrent batch — the real user-visible speedup for asset-heavy HTML.
 - 🚢 **Persistent / incremental search index + shared conversion cache** — *shipped
-  (v1.9.0).* Both halves of the "fixes a bug and adds a feature" item landed. The
-  **correctness** half: `--search-index-dir` (`mcp/query_tools.py`) was keyed only by
-  directory, so reusing an index across a changed corpus or a different `paths` set returned
-  **stale results**; the persisted index is now invalidated when the corpus or the options
-  change. The **feature** half: an opt-in on-disk conversion cache (`--cache` /
-  `--cache-dir`, or `ALL2MD_CACHE=1` / `ALL2MD_CACHE_DIR`) stashes parsed ASTs keyed by a
-  fingerprint over the source (path + size + mtime), the resolved format and parser options,
-  and the all2md version + AST schema — so a changed file, changed options, or a version bump
-  all miss cleanly rather than serving a stale AST. Wired into `grep`, `search`, `chunk`,
-  `view`, `report`, `roundtrip` and `optimize`, and available programmatically as
-  `all2md.conversion_cache.use_conversion_cache(...)`, which caches every `to_ast()` inside
-  the context. The **conversion optimizer** (Theme 2) reuses the same fingerprint to avoid
-  reconverting identical param-sets — worth 18.5s → 0.3s on a warm 31-candidate run.
-  *Still open:* `serve` is the one holdout — it has its own in-process render cache
-  (`--no-cache`) that dies with the process, rather than the persistent, fingerprinted one.
+  (v1.9.0).* The **correctness** half: `--search-index-dir` was keyed only by directory, so
+  reusing an index across a changed corpus or a different `paths` set returned **stale
+  results**; the persisted index is now invalidated when the corpus or the options change.
+  The **feature** half: an opt-in on-disk conversion cache (`--cache` / `--cache-dir`, or
+  `ALL2MD_CACHE=1` / `ALL2MD_CACHE_DIR`) stashes parsed ASTs keyed by a fingerprint over the
+  source (path + size + mtime), the resolved format and parser options, and the all2md
+  version + AST schema — so a changed file, changed options, or a version bump all miss
+  cleanly rather than serving a stale AST. Wired into `grep`, `search`, `chunk`, `view`,
+  `report`, `roundtrip` and `optimize`, and available programmatically as
+  `all2md.conversion_cache.use_conversion_cache(...)`. *Still open:* `serve` is the one
+  holdout — it has its own in-process render cache (`--no-cache`) that dies with the process,
+  rather than the persistent, fingerprinted one.
 - 🚀 **Parallel batch engine v2** — the `ProcessPoolExecutor` path with resume, a failure
   manifest, and as-completed streaming progress.
 - 🌙 **WASM build** — `all2md` in-browser (Pyodide, or a Rust core for hot paths) for
@@ -320,9 +278,8 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 ## Theme 5 — Ecosystem & distribution
 
 > **Install experience — decided.** We shipped one-click **`uv`-based install scripts**
-> (🚢 v1.8.0) rather than a frozen PyInstaller binary; that resolves the "build a binary so
-> people can install directly?" question in `todo.md`. A browser/web-UI is still planned
-> (local-only design spec). The channels below (Docker, Action, hosted API) are unstarted.
+> (🚢 v1.8.0) rather than a frozen PyInstaller binary. A browser/web UI is still planned.
+> The channels below (Docker, Action, hosted API) are unstarted.
 
 - 🌱 **Docker image** — *scheduled in the ratchet batch.* `docker run all2md` as a one-line
   microservice / CI step. Also the building block for the GitHub Action and hosted API below —
@@ -332,18 +289,14 @@ See the **Async Architecture Decision** below for the strategy. The shape:
   concedes ±20-30% drift on one dev box). It also narrows a real pain class —
   "tesseract works standalone but not through all2md" is an environment bug.
 - 🌱 **GitHub Action** — *scheduled in the ratchet batch, and **re-scoped**.* The original
-  pitch — "convert docs in this repo to markdown on commit" — is stars-bait for a
-  stars-collecting project, and solves nobody's actual problem. v1.9.0 shipped
-  `report --fail-under` and `roundtrip --fail-under`, so the differentiated product is a
-  **conversion-quality gate**: *fail the build when document fidelity degrades.* Nobody else
-  ships that, because nobody else has the scores. It's the Theme 2 ratchet pointed outward —
-  we build it for ourselves first, then ship it. *How it works:* two pieces — (1) a **reusable
-  action repo** (e.g. `all2md-action`) with an `action.yml` at its root; best as a **Docker
-  action** (points at a Dockerfile) since we have heavy native deps, so they're baked in once
-  rather than `pip install`ed per run. (2) a documented **example workflow** users drop into
-  their `.github/workflows/` (`uses: thomas-villani/all2md-action@v1`). No registration step —
-  GitHub auto-discovers workflow YAML; we just tag releases and optionally list on the
-  **Marketplace** (a checkbox on a release; the action still runs from our repo).
+  pitch — "convert docs in this repo to markdown on commit" — solves nobody's actual problem.
+  v1.9.0 shipped `report --fail-under` and `roundtrip --fail-under`, so the differentiated
+  product is a **conversion-quality gate**: *fail the build when document fidelity degrades.*
+  Nobody else ships that, because nobody else has the scores. It's the Theme 2 ratchet pointed
+  outward — we build it for ourselves first, then ship it. *Shape:* a **reusable action repo**
+  (e.g. `all2md-action`) with an `action.yml` at its root, best as a **Docker action** given
+  our heavy native deps, plus a documented example workflow users drop into
+  `.github/workflows/` (`uses: thomas-villani/all2md-action@v1`).
 - 🚀 **Hosted conversion API** — a freemium endpoint (could fund the project); the Docker
   image is the building block. Also the backend for the browser extension and Node SDK.
 - 🚀 **Node / JS SDK** — *not a port.* The JS conversion ecosystem is fragmented and weaker
@@ -365,14 +318,14 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 - 🌱 **Expand the edit API** — *groundwork shipped:* the MCP `edit_document` tool does
   atomic, in-place batch edits with format-preserving write-back (🚢 v1.6.0) and the
   `all2md edit` web editor exists (🚢 v1.1.0). Outstanding: **CLI** insert/replace/delete
-  commands (`todo.md`), and beyond section ops — table-cell edits, find-and-restructure,
-  programmatic AST patches with undo.
-- 🌱 **Element re-routing on conversion** — *outstanding (`todo.md`).* One pass that can
-  drop images/tables entirely, extract tables to separate file(s) (combined or per-table),
-  or collate all images/tables to the end of the document. Overlaps the chunker's
-  `--drop-elements` (🚢) but as a conversion-output restructuring, not just chunking; useful
-  for both human reading and RAG prep. Also: **extract text around a table/anchor** and
-  **extend `--extract` to all AST element types**.
+  commands, and beyond section ops — table-cell edits, find-and-restructure, programmatic AST
+  patches with undo.
+- 🌱 **Element re-routing on conversion** — one pass that can drop images/tables entirely,
+  extract tables to separate file(s) (combined or per-table), or collate all images/tables to
+  the end of the document. Overlaps the chunker's `--drop-elements` (🚢) but as a
+  conversion-output restructuring, not just chunking; useful for both human reading and RAG
+  prep. Also: **extract text around a table/anchor** and **extend `--extract` to all AST
+  element types**.
 - 🚀 **Watch-and-sync daemon** — keep a markdown mirror of a source doc continuously
   updated; optionally bidirectional.
 - 🌙 **Bidirectional live editing** — edit the markdown, regenerate the DOCX *preserving the
@@ -393,26 +346,24 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 
 ## Theme 8 — Positional fidelity (OCR geometry → provenance → layout)
 
-> **Its own thread, deliberately.** This theme is not new work so much as a *correction*:
-> four entries scattered across Themes 1, 2 and 4 ("pluggable OCR engines", "node-level
-> provenance", "layout-aware PDF reconstruction", "vision-model fallback") turned out to be
-> one dependency chain wearing four hats. Read separately, each looked like plumbing and
-> each got deferred as "nice to have." Read together they are the RAG-trust differentiator
-> and the largest remaining bet on this roadmap. Sequenced after the Theme 2 ratchet, on
-> purpose — see *Suggested sequencing*.
+> **Its own thread, deliberately.** Four items that used to sit in Themes 1, 2 and 4
+> ("pluggable OCR engines", "node-level provenance", "layout-aware PDF reconstruction",
+> "vision-model fallback") are one dependency chain wearing four hats. Read separately, each
+> looks like deferrable plumbing. Read together they are the RAG-trust differentiator and the
+> largest remaining bet on this roadmap. Sequenced after the Theme 2 ratchet, on purpose.
 
 **The thesis in one line:** everything that makes a document citable is geometry, and we
 throw the geometry away.
 
-### The mis-scoping worth not repeating
+### Why the obvious scoping is wrong
 
-The obvious framing of the OCR item — *"add an abstraction for plugging in other OCR
-engines"* — is the easy 20% and **the wrong 20%**. Building the socket is genuinely cheap:
-dispatch today is a single lazy `if/else` in `parsers/_ocr/__init__.py:43-47` over two
-duck-typed adapters, and there are already **three** entry-point registries to copy
-(`all2md.converters`, `all2md.transforms`, `all2md.lint_rules`). The transforms registry is
-the cleanest precedent — it registers its own built-ins *through the public entry-point
-table*, so there is no privileged first-party path to unwind later.
+The obvious framing — *"add an abstraction for plugging in other OCR engines"* — is the cheap
+part and **the wrong part**. Building the socket is genuinely easy: dispatch today is a single
+lazy `if/else` in `parsers/_ocr/` over two duck-typed adapters, and there are already three
+entry-point registries to copy (`all2md.converters`, `all2md.transforms`,
+`all2md.lint_rules`). The transforms registry is the cleanest precedent — it registers its own
+built-ins *through the public entry-point table*, so there is no privileged first-party path
+to unwind later.
 
 But the adapter contract is:
 
@@ -420,12 +371,10 @@ But the adapter contract is:
 def ocr_pixmap(pix: fitz.Pixmap, page: fitz.Page, options: PdfOptions) -> str
 ```
 
-It returns **`str`**. And the geometry is destroyed *twice* on the way out:
-
-1. EasyOCR already returns bounding boxes; `_results_to_text` (`parsers/_ocr/easyocr.py:170-212`)
-   uses them to reconstruct reading order and then **discards them**.
-2. `_apply_ocr_if_needed` (`parsers/pdf.py:1269-1298`) wraps the resulting flat string in a
-   single synthetic PyMuPDF block spanning **the whole page** (`"bbox": page.rect`).
+It returns **`str`**, and the geometry is destroyed twice on the way out: EasyOCR already
+returns bounding boxes, and our adapter uses them to reconstruct reading order and then
+discards them; then the PDF parser wraps the resulting flat string in a single synthetic
+PyMuPDF block spanning the whole page.
 
 So a socket on top of this contract lets you plug in Textract, Azure Document Intelligence,
 Google Document AI, surya or olmOCR — and then discard precisely the thing you are paying
@@ -433,41 +382,34 @@ them for. **The valuable change is the result type, not the plug.** That is a pa
 and it is the same change that node-level provenance and layout-aware PDF both need. Hence:
 one thread.
 
-*Generalizable lesson, and a sibling to the optimizer's:* when an item's stated scope is
-suspiciously cheap, check whether the cheap part is load-bearing. "Pluggable OCR" and
-"OCR that preserves layout" sound like the same item and differ by an order of magnitude in
-both cost and value.
+### Known blockers
 
-### Known blockers (all surfaced by source review, all real)
-
-- **The engine type is closed.** `OCREngine = Literal["tesseract", "easyocr"]`
-  (`constants.py:78`), with the `choices` list duplicated in the options metadata
-  (`options/common.py:651`) — an engine name lives in **three** places. A registry-backed
-  `str` with dynamically-populated choices is needed; the transforms registry has the same
-  tension and resolves it by validating at lookup time.
+- **The engine type is closed.** `OCREngine = Literal["tesseract", "easyocr"]` in
+  `constants.py`, with the `choices` list duplicated in the options metadata — an engine name
+  lives in three places. A registry-backed `str` with dynamically-populated choices is needed;
+  the transforms registry resolves the same tension by validating at lookup time.
 - **The "generic" OCR layer is PyMuPDF-coupled.** `fitz.Pixmap` + a live `fitz.Page` in the
-  signature — the page only for language auto-detection (`_pdf_ocr.py:369`), which both
-  adapters call themselves. Any non-PDF caller would have to fabricate a `fitz.Page`. Both
-  adapters immediately convert to PIL anyway (`tesseract.py:66`, `easyocr.py:253`), so the
-  natural contract is image-bytes/PIL + `OCROptions`, with language detection hoisted out.
+  signature — the page only for language auto-detection, which both adapters call themselves.
+  Any non-PDF caller would have to fabricate a `fitz.Page`. Both adapters immediately convert
+  to PIL anyway, so the natural contract is image-bytes/PIL + `OCROptions`, with language
+  detection hoisted out.
 - **Engine-specific fields sit on shared options.** `tesseract_config` and `gpu` both live on
-  `OCROptions` (`options/common.py:597`, `:655`). This does not scale and a plugin cannot add
-  its own — wants an `engine_options: dict[str, Any]` passthrough.
-- **OCR is PDF-only in practice.** `OCROptions` is attached only to `PdfOptions`
-  (`options/pdf.py:565`) despite its own docstring (`options/common.py:539-541`) claiming it
-  "can be used by any parser." No image parser does OCR at all.
+  `OCROptions`. This does not scale and a plugin cannot add its own — wants an
+  `engine_options: dict[str, Any]` passthrough.
+- **OCR is PDF-only in practice.** `OCROptions` is attached only to `PdfOptions` despite its
+  own docstring claiming it "can be used by any parser." No image parser does OCR at all.
 
 ### Shape (staged, each stage independently useful)
 
 1. 🌱 **A geometry-carrying OCR result type.** Replace `-> str` with a result object
-   carrying text + per-span bboxes + confidence. Stop `_results_to_text` from flattening;
-   stop `_apply_ocr_if_needed` from collapsing to one page-sized block. **No new engine, no
-   plugin API** — this stage is pure internal correctness and is where the value is. Tesseract
+   carrying text + per-span bboxes + confidence. Stop the EasyOCR adapter from flattening;
+   stop the PDF parser from collapsing to one page-sized block. **No new engine, no plugin
+   API** — this stage is pure internal correctness and is where the value is. Tesseract
    exposes boxes via `image_to_data`, so both existing engines can honour it.
 2. 🌱 **Decouple + then socket.** Move to PIL/bytes + `OCROptions`, hoist language detection,
    add `engine_options` passthrough, *then* add an `all2md.ocr_engines` entry-point group
    modelled on the transforms registry. Cheap once (1) fixed the contract; actively harmful
-   before it, because we would be freezing the lossy signature into a public API.
+   before it, because it would freeze the lossy signature into a public API.
 3. 🚀 **Node-level provenance.** With geometry surviving the parsers, attach (page, bbox,
    char-offset) spans to output nodes and thread them through `all2md chunk` records — closing
    the Theme 1 gap. *This is the RAG-trust differentiator*, and it retroactively upgrades the
@@ -525,22 +467,17 @@ CPU core.
 
 ## Suggested sequencing
 
-**Done since first draft:** ~~`all2md chunk`~~ 🚢 (was #2) — the biggest single item is
-shipped, along with mermaid rendering and `uv` install scripts.
+**Shipped in the Fidelity & Trust batch** (**v1.9.0**, 2026-07-15): round-trip fidelity
+scoring 🚢, conversion confidence report 🚢, DOCX character-style round-trip 🚢, search-index /
+conversion-cache correctness 🚢, conversion optimizer 🚢 (the batch capstone), the DOCX/HTML
+round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢 that the new
+`benchmarks/roundtrip` harness surfaced.
 
-**Shipped in the Fidelity & Trust batch** (released in **v1.9.0**, 2026-07-15): ~~round-trip
-fidelity scoring~~ 🚢, ~~conversion confidence report~~ 🚢, ~~DOCX character-style
-round-trip~~ 🚢, ~~search-index / conversion-cache correctness~~ 🚢, ~~conversion optimizer~~
-🚢 (the batch capstone), ~~the DOCX/HTML round-trip asymmetries #70/#71/#72~~ 🚢 that the
-round-trip scorer surfaced, and ~~the Markdown round-trip losses~~ 🚢 that the new
-`benchmarks/roundtrip` harness surfaced. That closes the previous arc's top entries and the
-capstone both.
+Ordered by leverage-per-effort:
 
-Revised arc, ordered by leverage-per-effort:
-
-**Next batch — Quality & Speed Ratchets** (plan: `design/quality-speed-ratchets.md`).
-Deliberately *invisible*: no API change, no new library feature, so it cuts as a **patch
-release**. The theme is turning quality and speed into ratchets instead of vibes.
+**Next batch — Quality & Speed Ratchets.** Deliberately *invisible*: no API change, no new
+library feature, so it cuts as a **patch release**. The theme is turning quality and speed
+into ratchets instead of vibes.
 
 1. **Wire the three harnesses to committed baselines in CI** — `corpus`, `roundtrip`,
    `startup` all exist and all are unautomated (Theme 2). Make regressions *fail*. This also
@@ -554,11 +491,10 @@ release**. The theme is turning quality and speed into ratchets instead of vibes
 3. **Docker image** — the reproducible, version-pinned environment the ratchet needs to be
    comparable across machines *and* the shared building block for the Action and a future
    hosted API (Theme 5). Bakes PyMuPDF/tesseract in once.
-4. **GitHub Action, re-scoped** — *not* "convert docs on commit," which is stars-bait
-   solving nobody's problem. We shipped `report --fail-under` and `roundtrip --fail-under` in
-   v1.9.0, so the differentiated product is a **conversion-quality gate**: fail the build when
-   document fidelity degrades. Nobody else ships this. It is the same ratchet as (1), pointed
-   outward, and it falls out of (1)+(3) nearly free.
+4. **GitHub Action, re-scoped** — a **conversion-quality gate** built on the
+   `report --fail-under` / `roundtrip --fail-under` flags shipped in v1.9.0: fail the build
+   when document fidelity degrades. It is the same ratchet as (1), pointed outward, and it
+   falls out of (1)+(3) nearly free.
 
 **Then, in rough order:**
 
@@ -577,5 +513,4 @@ release**. The theme is turning quality and speed into ratchets instead of vibes
 
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
 RAG-framework loader adapters (Theme 1) are the cheapest filler on the board (~a day each)
-if a batch needs something user-visible to announce. The small `todo.md` bug-fixes (rich
-`--help` by default, element re-routing, CLI edit commands) are independent quick wins.
+if a batch needs something user-visible to announce.

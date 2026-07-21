@@ -1137,8 +1137,9 @@ class AsciiDocParser(BaseParser):
 
         match = self.xref_pattern.match(text)
         if match:
-            ref_id = match.group(1)
-            ref_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ref_id
+            ref_id = self._postprocess_escapes(match.group(1), escape_map)
+            ref_text_raw = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
+            ref_text = self._postprocess_escapes(ref_text_raw, escape_map) if ref_text_raw is not None else ref_id
             url = sanitize_url(f"#{ref_id}")
             return [Link(url=url, content=[Text(content=ref_text)])], match.end()
 
@@ -1887,7 +1888,8 @@ class AsciiDocParser(BaseParser):
                 # Also supports: 2* for duplication (treated as colspan)
 
                 span_pattern = r"^(\d+)?\.?(\d+)?([+*])\s*"
-                match = re.match(span_pattern, part.strip())
+                stripped = part.strip()
+                match = re.match(span_pattern, stripped)
 
                 if match:
                     col_spec = match.group(1)
@@ -1911,8 +1913,8 @@ class AsciiDocParser(BaseParser):
                         if col_spec:
                             colspan = int(col_spec)
 
-                    # Remove the span specification from content
-                    part = part[match.end() :]
+                    # Slice stripped text — match was against strip(), not raw part
+                    part = stripped[match.end() :]
 
             # Strip whitespace but preserve empty cells
             content_text = part.strip()

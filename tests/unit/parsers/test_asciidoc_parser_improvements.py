@@ -190,6 +190,23 @@ class TestAsciiDocTableColspanRowspan:
         # Verify content is correct
         assert first_cell.content[0].content == "Spanning Cell"
 
+    def test_colspan_syntax_with_space_after_pipe(self) -> None:
+        """Leading space after | must not leave a stray '+' cell."""
+        asciidoc = """|===
+| 2+| spans two
+|Cell 1|Cell 2
+|==="""
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.header.cells) == 1
+        first_cell = table.header.cells[0]
+        assert first_cell.colspan == 2
+        assert first_cell.content[0].content == "spans two"
+
     def test_rowspan_syntax(self) -> None:
         """Test .3+|cell creates rowspan=3."""
         asciidoc = """|===

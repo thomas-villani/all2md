@@ -304,13 +304,14 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         delimiter = "^" if is_header else "|"
 
         self._output.append(delimiter)
-        for _, cell in enumerate(row.cells):
-            # Render cell content
+        for cell in row.cells:
             content = self._render_inline_content(cell.content)
-            # Escape content for table context
             content = escape_dokuwiki(content, context="table")
             self._output.append(f" {content} ")
             self._output.append(delimiter)
+            # DokuWiki colspan: empty continuation cells (trailing ||).
+            for _ in range(max(cell.colspan, 1) - 1):
+                self._output.append(delimiter)
         self._output.append("\n")
 
     def visit_table_row(self, node: TableRow) -> None:

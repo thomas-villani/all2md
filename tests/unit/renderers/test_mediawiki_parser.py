@@ -362,6 +362,24 @@ class TestMediaWikiRenderer:
 
         assert "|+ Table Caption" in output
 
+    def test_render_table_caption_flattens_newlines(self) -> None:
+        """Newlines in captions must not break the single-line |+ markup."""
+        doc = Document(
+            children=[
+                Table(
+                    caption="Summer\n2024",
+                    header=TableRow(cells=[TableCell(content=[Text(content="H")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                )
+            ]
+        )
+        output = MediaWikiRenderer().render_to_string(doc)
+
+        assert "|+ Summer 2024\n" in output
+        assert "|+ Summer\n2024" not in output
+        # Caption stays on one wiki line; a bare "2024" row would be invalid markup.
+        assert "\n2024\n" not in output
+
     def test_render_definition_list(self) -> None:
         """Test rendering definition list."""
         doc = Document(
