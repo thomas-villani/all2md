@@ -28,6 +28,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of three and shifted the list. Matches the Markdown/MediaWiki/AsciiDoc/RST
   renderers, which already preserve the blank bullet. Thanks
   [@santhreal](https://github.com/santhreal) (#119).
+- **RTF renderer: lists nested in block quotes and definitions no longer crash.**
+  pyth's `List` subclasses `Paragraph`, so prefixing a paragraph rewrapped a nested
+  list as `Paragraph(content=[ListEntry…])` and raised `TypeError` — any Markdown
+  with a list inside a block quote failed to convert. Thanks
+  [@santhreal](https://github.com/santhreal) (#122).
+- **AsciiDoc parser: escaped braces in an attribute-ref shape no longer hang.**
+  Input as small as `{\{}` spun forever: escape preprocessing left a `{…}` shape, the
+  combined inline pattern matched at the cursor, every handler declined, and the
+  fallback advanced by zero. An unclaimed match is now consumed as literal text.
+  Thanks [@santhreal](https://github.com/santhreal) (#123).
+- **AsciiDoc parser: cross-reference targets restore their escapes.** `<<id>>` and
+  `<<id,text>>` skipped escape postprocessing that the sibling `link:` branch already
+  did, leaking internal placeholders into the URL and link text. Thanks
+  [@santhreal](https://github.com/santhreal) (#124).
+- **AsciiDoc parser: column spans survive a space after the pipe.** The span regex ran
+  against the stripped cell but sliced the unstripped one, so `| 2+| spans two` left a
+  stray `+` cell and split the row wrong. Thanks
+  [@santhreal](https://github.com/santhreal) (#130).
+- **AsciiDoc renderer: merged table cells keep their spans.** `colspan`/`rowspan` were
+  dropped entirely, so an HTML table with merged cells lost its structure on
+  conversion even though the AsciiDoc parser already understood `2+|`, `.3+|`, and
+  `2.3+|`. A leading cell's spec replaces the row-opening `|`, since a spec binds to
+  the cell after the pipe it precedes. Thanks
+  [@santhreal](https://github.com/santhreal) (#131).
+- **MediaWiki parser: literal pipes in table cells survive.** Cell-attribute stripping
+  matched any cell whose text merely contained a `|`, so `pipe: a|b` became `b` and
+  `[[Target|label]]` lost its target. A leading segment is now treated as attributes
+  only when it contains `=`. Thanks [@santhreal](https://github.com/santhreal) (#125).
+- **MediaWiki parser: table captions are read from `|+` lines.** `|+` was skipped
+  outright, so `Table.caption` was always `None` and real wikitable captions were lost
+  on parse and round-trip even though the renderer already emitted them. Thanks
+  [@santhreal](https://github.com/santhreal) (#132).
+- **MediaWiki renderer: table captions stay on one line.** A caption containing a
+  newline (common from HTML `<caption>`) split across lines, which is invalid
+  wikitable markup and dropped the remainder of the caption. Thanks
+  [@santhreal](https://github.com/santhreal) (#129).
+- **DokuWiki renderer: table column spans are emitted.** `TableCell.colspan` was
+  ignored, so merged columns were lost; DokuWiki expresses a span with empty
+  continuation cells (`| Wide || Tall |`). Thanks
+  [@santhreal](https://github.com/santhreal) (#127).
+- **Textile renderer: block children of a list item are separated properly.** Children
+  were joined with a single space, so a table after a list item's lead paragraph
+  became `* intro |_.H|` — ordinary text to Textile, and the table vanished on
+  round-trip. Thanks [@santhreal](https://github.com/santhreal) (#126).
+- **AST serialization: `Comment`, `CommentInline`, and `Mark` nodes are supported.**
+  The dispatch tables had no entries for them, so serializing any document containing
+  a Markdown HTML comment, `==mark==`, an AsciiDoc `//` comment, or an RST `..`
+  comment raised `ValueError: Unknown node type for serialization`. Thanks
+  [@santhreal](https://github.com/santhreal) (#128).
 
 ### Changed
 
