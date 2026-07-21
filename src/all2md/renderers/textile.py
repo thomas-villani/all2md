@@ -268,16 +268,21 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output.append(f"{prefix} ")
 
-        # Render children inline
         for i, child in enumerate(node.children):
+            if i > 0:
+                prev = node.children[i - 1]
+                if isinstance(child, List) or isinstance(prev, List):
+                    self._output.append("\n")
+                elif isinstance(child, Paragraph) and isinstance(prev, Paragraph):
+                    self._output.append(" ")
+                else:
+                    self._output.append("\n\n")
+
             if isinstance(child, Paragraph):
                 content = self._render_inline_content(child.content)
                 self._output.append(content)
             else:
                 child.accept(self)
-
-            if i < len(node.children) - 1:
-                self._output.append(" ")
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
