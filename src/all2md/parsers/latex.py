@@ -172,7 +172,7 @@ class LatexParser(BaseParser):
             from pylatexenc.latexwalker import LatexWalker
         except ImportError as e:
             raise ParsingError(
-                "LaTeX parsing requires the 'pylatexenc' package. " "Install it with: pip install pylatexenc"
+                "LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc"
             ) from e
 
         # Parse LaTeX using pylatexenc
@@ -409,53 +409,34 @@ class LatexParser(BaseParser):
         }
         level = level_map.get(node.macroname, 1)
 
-        # Extract content from first argument
+        # pylatexenc section macros use argspec '*[{' (star, optional [short], {title}).
+        # Do not take argnlist[0]: for \section*{Title} that slot is the '*' marker.
         content_nodes: list[Node] = []
+        title_arg = self._section_title_arg(node)
 
-        # Try different ways to access the argument
-        if node.nodeargd:
-            # Try accessing via argnlist
-            if hasattr(node.nodeargd, "argnlist") and node.nodeargd.argnlist:
-                first_arg = node.nodeargd.argnlist[0]
-                if first_arg:
-                    # Try nodelist
-                    if hasattr(first_arg, "nodelist") and first_arg.nodelist:
-                        for child in first_arg.nodelist:
-                            converted = self._convert_node(child)
-                            if converted:
-                                if isinstance(converted, list):
-                                    content_nodes.extend(converted)
-                                else:
-                                    content_nodes.append(converted)
+        if title_arg is not None:
+            if hasattr(title_arg, "nodelist") and title_arg.nodelist:
+                for child in title_arg.nodelist:
+                    converted = self._convert_node(child)
+                    if converted:
+                        if isinstance(converted, list):
+                            content_nodes.extend(converted)
+                        else:
+                            content_nodes.append(converted)
 
-                    # Try latex_verbatim
-                    if not content_nodes and hasattr(first_arg, "latex_verbatim"):
-                        text = first_arg.latex_verbatim().strip()
-                        if text:
-                            content_nodes.append(Text(content=text))
+            if not content_nodes and hasattr(title_arg, "latex_verbatim"):
+                text = title_arg.latex_verbatim().strip()
+                if text.startswith("{") and text.endswith("}"):
+                    text = text[1:-1].strip()
+                if text:
+                    content_nodes.append(Text(content=text))
 
-            # Try accessing via argspec attribute
-            elif hasattr(node.nodeargd, "argspec") and hasattr(node.nodeargd, "arguments_spec_list"):
-                # This is for newer versions of pylatexenc
-                for arg_spec in node.nodeargd.arguments_spec_list:
-                    if hasattr(arg_spec, "nodelist") and arg_spec.nodelist:
-                        for child in arg_spec.nodelist:
-                            converted = self._convert_node(child)
-                            if converted:
-                                if isinstance(converted, list):
-                                    content_nodes.extend(converted)
-                                else:
-                                    content_nodes.append(converted)
-                        break  # Only process first argument
-
-        # Fallback: try to get text from the whole node
+        # Fallback: extract text between the first braces in the macro source
         if not content_nodes:
             try:
-                # Get the LaTeX source and extract text between braces
                 if hasattr(node, "latex_verbatim"):
                     latex_str = node.latex_verbatim()
-                    # Extract text between first { and }
-                    match = re.search(r"\{([^}]+)\}", latex_str)
+                    match = re.search(r"\{([^}]*)\}", latex_str)
                     if match:
                         text = match.group(1).strip()
                         if text:
@@ -464,6 +445,40 @@ class LatexParser(BaseParser):
                 pass
 
         return Heading(level=level, content=content_nodes)
+
+    def _section_title_arg(self, node: Any) -> Any | None:
+        """Return the mandatory ``{title}`` argument for a sectioning macro.
+
+        Parameters
+        ----------
+        node : LatexMacroNode
+            Section macro node from pylatexenc
+
+        Returns
+        -------
+        Any or None
+            The title group node, or None if unavailable
+
+        """
+        if not node.nodeargd:
+            return None
+
+        argnlist = getattr(node.nodeargd, "argnlist", None)
+        if argnlist:
+            argspec = getattr(node.nodeargd, "argspec", "") or ""
+            if argspec == "*[{" and len(argnlist) >= 3:
+                return argnlist[2]
+            for arg in reversed(argnlist):
+                if arg is not None and hasattr(arg, "nodelist"):
+                    return arg
+
+        arguments_spec_list = getattr(node.nodeargd, "arguments_spec_list", None)
+        if arguments_spec_list:
+            for arg_spec in reversed(arguments_spec_list):
+                if hasattr(arg_spec, "nodelist") and arg_spec.nodelist is not None:
+                    return arg_spec
+
+        return None
 
     def _convert_formatting(self, node: Any) -> Node | list[Node]:
         """Convert LaTeX formatting command to AST node.

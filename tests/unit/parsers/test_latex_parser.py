@@ -69,6 +69,31 @@ class TestLatexParser:
         assert len(headings) >= 1
         assert headings[0].level == 2
 
+    def test_starred_section_keeps_title(self) -> None:
+        """Starred sectioning macros must use {title}, not the '*' marker."""
+        parser = LatexParser()
+        doc = parser.parse(r"\section*{Introduction} body")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 1
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Introduction"
+        assert title != "*"
+
+    def test_starred_subsection_with_short_title(self) -> None:
+        """\\subsection*[short]{Long} must keep the mandatory long title."""
+        parser = LatexParser()
+        doc = parser.parse(r"\subsection*[short]{Long Title} body")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 2
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Long Title"
+        assert "short" not in title
+        assert "*" not in title
+
     def test_textbf_bold(self) -> None:
         """Test parsing bold text."""
         parser = LatexParser()
