@@ -798,6 +798,7 @@ class MediaWikiParser(BaseParser):
 
         rows: list[TableRow] = []
         header: Optional[TableRow] = None
+        caption: Optional[str] = None
         current_row_cells: list[TableCell] = []
         in_header = False
 
@@ -816,7 +817,9 @@ class MediaWikiParser(BaseParser):
                 continue
 
             elif line.startswith("|+"):
-                # Caption - skip for now
+                caption_text = line[2:].strip()
+                if caption_text:
+                    caption = caption_text
                 continue
 
             elif line.startswith("!"):
@@ -852,7 +855,7 @@ class MediaWikiParser(BaseParser):
         if not rows and not header:
             return None
 
-        return Table(header=header, rows=rows)
+        return Table(header=header, rows=rows, caption=caption)
 
     def _is_block_quote(self, text: str) -> bool:
         """Check if text is a block quote.
