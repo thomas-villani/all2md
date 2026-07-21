@@ -32,6 +32,7 @@ from all2md.ast import (
     Text,
 )
 from all2md.options.asciidoc import AsciiDocRendererOptions
+from all2md.parsers.asciidoc import AsciiDocParser
 from all2md.renderers.asciidoc import AsciiDocRenderer
 
 
@@ -872,6 +873,37 @@ class TestTableRendering:
         result = renderer.render_to_string(doc)
 
         assert "|===" in result
+
+    def test_table_cell_colspan_rowspan_prefixes(self):
+        """Table cells emit AsciiDoc span prefixes (2+|, .3+|, 2.3+|)."""
+        doc = Document(
+            children=[
+                Table(
+                    header=None,
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Wide")], colspan=2),
+                                TableCell(content=[Text(content="Tall")], rowspan=3),
+                                TableCell(content=[Text(content="Both")], colspan=2, rowspan=3),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        result = AsciiDocRenderer().render_to_string(doc)
+
+        # The leading cell's spec replaces the row-opening `|`; a `|2+|Wide`
+        # form would read as an empty cell followed by a spanning one.
+        assert result == "|===\n2+|Wide |.3+|Tall |2.3+|Both |\n|===\n"
+
+        reparsed = AsciiDocParser().parse(result)
+        table = reparsed.children[0]
+        assert isinstance(table, Table)
+        cells = table.header.cells if table.header else table.rows[0].cells
+        assert [(c.colspan, c.rowspan) for c in cells[:3]] == [(2, 1), (1, 3), (2, 3)]
+        assert [c.content[0].content for c in cells[:3]] == ["Wide", "Tall", "Both"]
 
 
 @pytest.mark.unit
