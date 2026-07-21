@@ -778,6 +778,16 @@ class MediaWikiParser(BaseParser):
         consumed = i - start_idx
         return BlockQuote(children=[Paragraph(content=cast(list[Node], content))]), consumed
 
+    @staticmethod
+    def _strip_cell_attributes(cell_text: str) -> str:
+        """Drop leading MediaWiki cell attrs (key=value|...), keep literal pipes."""
+        if "|" not in cell_text:
+            return cell_text.strip()
+        before, after = cell_text.split("|", 1)
+        if "=" in before:
+            return after.strip()
+        return cell_text.strip()
+
     def _process_table(self, table_tag: Any) -> Table | None:
         """Parse a MediaWiki table.
 
@@ -829,8 +839,7 @@ class MediaWikiParser(BaseParser):
                 # Handle multiple cells on one line (!! separator)
                 cell_texts = cell_text.split("!!")
                 for ct in cell_texts:
-                    # Remove cell attributes (e.g., style="...")
-                    ct = re.sub(r"^\s*[^|]*\|\s*", "", ct).strip()
+                    ct = self._strip_cell_attributes(ct)
                     content = [Text(content=ct)]
                     current_row_cells.append(TableCell(content=cast(list[Node], content)))
 
@@ -840,8 +849,7 @@ class MediaWikiParser(BaseParser):
                 # Handle multiple cells on one line (|| separator)
                 cell_texts = cell_text.split("||")
                 for ct in cell_texts:
-                    # Remove cell attributes
-                    ct = re.sub(r"^\s*[^|]*\|\s*", "", ct).strip()
+                    ct = self._strip_cell_attributes(ct)
                     content = [Text(content=ct)]
                     current_row_cells.append(TableCell(content=cast(list[Node], content)))
 
