@@ -516,6 +516,25 @@ class TestDokuWikiTables:
 
         assert "| Cell 1 |" in output or "| Cell 1  |" in output
 
+    def test_render_table_colspan_empty_continuations(self) -> None:
+        """Colspan>1 must emit empty continuation cells (DokuWiki || syntax)."""
+        doc = Document(
+            children=[
+                Table(
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Wide")], colspan=2),
+                                TableCell(content=[Text(content="Tall")]),
+                            ]
+                        ),
+                    ]
+                )
+            ]
+        )
+        output = DokuWikiRenderer().render_to_string(doc)
+        assert output == "| Wide || Tall |\n"
+
 
 @pytest.mark.unit
 class TestDokuWikiLinks:
