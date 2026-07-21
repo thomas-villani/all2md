@@ -1137,8 +1137,9 @@ class AsciiDocParser(BaseParser):
 
         match = self.xref_pattern.match(text)
         if match:
-            ref_id = match.group(1)
-            ref_text = match.group(2) if len(match.groups()) >= 2 and match.group(2) else ref_id
+            ref_id = self._postprocess_escapes(match.group(1), escape_map)
+            ref_text_raw = match.group(2) if len(match.groups()) >= 2 and match.group(2) else None
+            ref_text = self._postprocess_escapes(ref_text_raw, escape_map) if ref_text_raw is not None else ref_id
             url = sanitize_url(f"#{ref_id}")
             return [Link(url=url, content=[Text(content=ref_text)])], match.end()
 

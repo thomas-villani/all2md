@@ -933,6 +933,23 @@ class TestAsciiDocAnchorsAndXrefs:
                 # Check that custom text is used
                 assert node.content[0].content == "the introduction"
 
+    def test_xref_with_escaped_brace_restores_literal(self) -> None:
+        """Escaped braces inside <<xref>> must not leak escape placeholders."""
+        parser = AsciiDocParser()
+        doc = parser.parse(r"See <<\{}>> and <<\{foo},label \{x}>>")
+
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        links = [n for n in para.content if isinstance(n, Link)]
+        assert len(links) == 2
+        assert links[0].url == "#{}"
+        assert links[0].content[0].content == "{}"
+        assert links[1].url == "#{foo}"
+        assert links[1].content[0].content == "label {x}"
+        for link in links:
+            assert "\x00ESC\x00" not in link.url
+            assert "\x00ESC\x00" not in link.content[0].content
+
 
 class TestAsciiDocRoundTrip:
     """Tests for round-trip conversion (parse -> render)."""
