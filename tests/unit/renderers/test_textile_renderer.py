@@ -329,7 +329,6 @@ class TestTextileLists:
         assert len(tables[0].header.cells) == 1
         assert tables[0].rows[0].cells[0].content[0].content == "1"
 
-
     def test_math_block_inside_list_item_keeps_bc_markup(self) -> None:
         """MathBlock uses bc. markup and needs a blank line like CodeBlock."""
         doc = Document(
