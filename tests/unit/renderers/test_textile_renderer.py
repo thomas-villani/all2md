@@ -21,7 +21,7 @@ Tests cover:
 
 """
 
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 
 import pytest
@@ -63,6 +63,7 @@ from all2md.ast import (
 )
 from all2md.exceptions import InvalidOptionsError
 from all2md.options.textile import TextileRendererOptions
+from all2md.parsers.textile import TextileParser
 from all2md.renderers.textile import TextileRenderer
 
 
@@ -292,6 +293,63 @@ class TestTextileLists:
         assert "* Top" in result
         assert "** Nested 1" in result
         assert "** Nested 2" in result
+        # Nested markers must start on their own line, not share the parent item line.
+        assert "* Top\n** Nested 1" in result
+
+    def test_table_inside_list_item_keeps_table_markup(self) -> None:
+        """Tables inside list items must stay recognizable Textile table markup."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="intro")]),
+                                Table(
+                                    header=TableRow(cells=[TableCell(content=[Text(content="H")])]),
+                                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                                ),
+                                Paragraph(content=[Text(content="outro")]),
+                            ]
+                        ),
+                    ],
+                )
+            ]
+        )
+        result = TextileRenderer().render_to_string(doc)
+
+        assert result == "* intro\n\n|_.H|\n|1|\n\noutro\n"
+        assert "intro |_.H|" not in result
+
+        reparsed = TextileParser().parse(BytesIO(result.encode()))
+        tables = [c for c in reparsed.children if isinstance(c, Table)]
+        assert len(tables) == 1
+        assert tables[0].header is not None
+        assert len(tables[0].header.cells) == 1
+        assert tables[0].rows[0].cells[0].content[0].content == "1"
+
+    def test_math_block_inside_list_item_keeps_bc_markup(self) -> None:
+        """MathBlock uses bc. markup and needs a blank line like CodeBlock."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="intro")]),
+                                MathBlock(content="x^2"),
+                            ]
+                        ),
+                    ],
+                )
+            ]
+        )
+        result = TextileRenderer().render_to_string(doc)
+
+        assert result == "* intro\n\nbc. x^2\n"
+        assert "intro bc." not in result
 
 
 @pytest.mark.unit
