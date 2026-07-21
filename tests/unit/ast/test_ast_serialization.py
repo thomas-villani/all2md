@@ -6,6 +6,8 @@ import json
 import pytest
 
 from all2md.ast import (
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -18,6 +20,7 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Paragraph,
@@ -635,3 +638,62 @@ class TestFootnoteSerialization:
         # Check definitions
         assert restored.children[1].metadata["author"] == "Smith"  # type: ignore
         assert restored.children[2].metadata["author"] == "Jones"  # type: ignore
+
+
+@pytest.mark.unit
+class TestCommentAndMarkSerialization:
+    """Test serialization of Comment, CommentInline, and Mark nodes."""
+
+    def test_comment_roundtrip(self) -> None:
+        """Block comments must serialize and restore with content and metadata."""
+        original = Comment(content="Needs review", metadata={"author": "Ada", "comment_type": "html"})
+        restored = json_to_ast(ast_to_json(original))
+
+        assert isinstance(restored, Comment)
+        assert restored.content == "Needs review"
+        assert restored.metadata["author"] == "Ada"
+        assert restored.metadata["comment_type"] == "html"
+
+    def test_comment_inline_roundtrip(self) -> None:
+        """Inline comments embedded in paragraphs must round-trip."""
+        original = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Hello "),
+                        CommentInline(content="todo", metadata={"author": "Bob"}),
+                        Text(content=" world"),
+                    ]
+                )
+            ]
+        )
+        restored = json_to_ast(ast_to_json(original))
+
+        assert isinstance(restored, Document)
+        para = restored.children[0]
+        assert isinstance(para, Paragraph)
+        assert isinstance(para.content[1], CommentInline)
+        assert para.content[1].content == "todo"
+        assert para.content[1].metadata["author"] == "Bob"
+
+    def test_mark_roundtrip(self) -> None:
+        """Mark (highlight) nodes must serialize their inline children."""
+        original = Paragraph(content=[Mark(content=[Text(content="highlighted")])])
+        restored = json_to_ast(ast_to_json(original))
+
+        assert isinstance(restored, Paragraph)
+        assert isinstance(restored.content[0], Mark)
+        assert isinstance(restored.content[0].content[0], Text)
+        assert restored.content[0].content[0].content == "highlighted"
+
+    def test_document_with_comment_via_ast_json_renderer(self) -> None:
+        """AstJsonRenderer must accept documents that contain Comment nodes."""
+        from all2md.renderers.ast_json import AstJsonRenderer
+
+        doc = Document(children=[Comment(content="block note")])
+        json_str = AstJsonRenderer().render_to_string(doc)
+        restored = json_to_ast(json_str)
+
+        assert isinstance(restored, Document)
+        assert isinstance(restored.children[0], Comment)
+        assert restored.children[0].content == "block note"
