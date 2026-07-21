@@ -366,6 +366,32 @@ class TestTables:
         assert "| 1" in org
         assert "| 2" in org
 
+    def test_header_separator_ends_before_body_row(self) -> None:
+        """Body rows must start on a new line after the header rule."""
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])],
+                        is_header=True,
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[TableCell(content=[Text(content="1")]), TableCell(content=[Text(content="2")])]
+                        ),
+                    ],
+                )
+            ]
+        )
+        org = OrgRenderer().render_to_string(doc)
+        lines = [line for line in org.splitlines() if line.strip()]
+
+        assert "| A | B |" in org
+        assert "| 1 | 2 |" in org
+        assert any(line.startswith("|---") or line.startswith("|--") for line in lines)
+        # Separator and body must not be glued on one line (loses the body on parse).
+        assert not any("---|" in line and "| 1" in line for line in lines)
+
 
 @pytest.mark.unit
 class TestBlockQuotes:
