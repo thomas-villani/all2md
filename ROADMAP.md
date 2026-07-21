@@ -19,6 +19,18 @@ Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundat
 > resolved (chunkers vendored, optional extra). Tactical near-term work lives in `todo.md`,
 > which is developer-local (git-ignored) — anything that needs to outlive a working tree is
 > cross-referenced into the themes below or filed as an issue.
+>
+> **Two structural changes in this revision, both worth knowing about:**
+> 1. **Theme 8 is new** and consolidates four entries that were scattered across Themes 1, 2
+>    and 4 (pluggable OCR, node-level provenance, layout-aware PDF, vision fallback). They are
+>    one dependency chain, not four items; read apart, each looked like deferrable plumbing.
+> 2. **The head-to-head vs markitdown / pandoc / docling is dropped**, not deferred —
+>    rationale recorded in Theme 2 so it doesn't get re-proposed. The regression-guard half of
+>    what it promised is the ratchet; the marketing half doesn't survive the fact that those
+>    tools optimise for different jobs than we do.
+>
+> The **next batch** is *Quality & Speed Ratchets* — see *Suggested sequencing*, plan in
+> `design/quality-speed-ratchets.md`.
 
 ---
 
@@ -32,10 +44,14 @@ scale to handle real corpora.
 
 Three bets stand out as highest-leverage for us specifically:
 
-1. **RAG-native output** (chunking + provenance) — we have the AST and search; nobody
-   does provenance-preserving chunking well, and we have a sister library to draw from.
-2. **A public fidelity benchmark** — cheap to build on our existing diff engine, doubles
-   as marketing and a regression guard.
+1. **A quality & speed ratchet** — we have three good benchmark harnesses (`corpus`,
+   `roundtrip`, `startup`) and automation on none of them. Making a regression *fail* is
+   cheaper than building anything new, and it is the precondition for honestly evaluating
+   bets 2 and 3 — every large item left in Theme 2 is currently unevaluable. See
+   **Theme 2**; the near-term batch is scoped in `design/quality-speed-ratchets.md`.
+2. **Positional fidelity** — OCR geometry → node-level provenance → layout-aware PDF. The
+   single thread that makes RAG citations real, consolidated in **Theme 8** from what used
+   to be three scattered entries that nobody could sequence because they read as unrelated.
 3. **Async + scale** — unblocks the server/MCP story we've already started.
 
 ---
@@ -52,11 +68,13 @@ obvious.
   tiktoken-backed real BPE counting via the `[chunk]` extra, atomic table/code chunks,
   data-URI elision, and a one-call `all2md.chunk()` Python API. Fine-grained chunkers are
   vendored from `localvectordb`.
-- 🚀 **Provenance-preserving conversion** — *partially shipped.* `all2md chunk` records
-  provenance now include section heading/level and (where the parser tracks it, e.g. PDF)
-  the source page span. The remaining ambition is end-to-end node-level provenance
-  (page, bbox, char offset) on *every* output node so an LLM answer can cite exactly where
-  it came from — the RAG-trust differentiator. Bbox/char-offset spans are the gap.
+- 🚀 **Provenance-preserving conversion** — *partially shipped; the rest now lives in
+  **Theme 8**.* `all2md chunk` records provenance now include section heading/level and
+  (where the parser tracks it, e.g. PDF) the source page span. The remaining ambition is
+  end-to-end node-level provenance (page, bbox, char offset) on *every* output node so an
+  LLM answer can cite exactly where it came from — the RAG-trust differentiator.
+  Bbox/char-offset spans are the gap, and closing it is not a Theme 1 job: the geometry has
+  to survive the *parsers* first. Tracked in Theme 8.
 - 🌱 **Token-budget conversion** — `llm-minify` (🚢 v1.3.0) and `--slice X/Y` paging
   (🚢 v1.7.1) exist; the open piece is "fit this 400-page PDF into 100k tokens" with
   section-aware elision/summarization rather than uniform minification.
@@ -66,7 +84,14 @@ obvious.
   (tables → records, key/value fields). Document → data, not prose.
 - 🚀 **Loader adapters (two tiers).** Every framework wants the same payload —
   *text + metadata records* — which our AST + chunker already produces. Split the work:
-  - **RAG-framework adapters** (🌱, easy, high-visibility) — one thin module each:
+  - **RAG-framework adapters** (🌱, easy, high-visibility) — one thin module each. *Zero
+    footprint today: no langchain / llamaindex / haystack anywhere in the tree.* Each is
+    roughly a day. **Sequencing note:** shipped before Theme 8, these are *commodity*
+    loaders — same as everyone else's, plus better conversion. The differentiator below is
+    real only once node-level provenance exists. That is an argument for ordering, not for
+    waiting: `metadata` is a plain dict, so a commodity loader shipped now can be enriched
+    with provenance later without an API break. Treat them as cheap opportunistic filler,
+    never as a batch spine.
     - *LangChain* — `BaseLoader` subclass with `.load() → list[Document]`
       (`Document = {page_content, metadata}`); add `.lazy_load()` generator for streaming.
     - *LlamaIndex* — `BaseReader` with `.load_data() → list[Document]`; list on LlamaHub.
@@ -134,19 +159,40 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   The round-trip scorer that surfaced these now also scores code/math/HTML block content,
   so a regression in any of them shows up in `all2md roundtrip <file> --via docx` (or
   `--via html`).
-- 🚀 **Layout-aware PDF reconstruction** — correct reading order across columns,
-  footnote/endnote linking, running header/footer stripping, caption↔figure association.
-  The eternal PDF pain points; we already have `_pdf_layout.py` to build on.
+- 🚀 **Layout-aware PDF reconstruction** — *moved to **Theme 8**.* Correct reading order
+  across columns, footnote/endnote linking, running header/footer stripping, caption↔figure
+  association. The eternal PDF pain points; we already have `_pdf_layout.py` to build on.
+  Every one of those is a *geometry* problem, which is why it now sits with the OCR and
+  provenance work rather than alone here.
 - 🚀 **Math everywhere** — emit LaTeX from DOCX (OMML→LaTeX), PDF equation regions,
   HTML MathML, and (optionally) images of equations via OCR. Huge for academic/technical
   users and a natural pairing with the existing arxiv packager.
-- 🚀 **Public fidelity benchmark** — a golden corpus + scores vs markitdown / pandoc /
-  docling. Marketing + regression guard in one. *Groundwork exists:* `benchmarks/corpus/`
-  already pulls deterministic samples from arxiv, PubMed Central, govdocs1, Apache POI, and
-  Enron and emits a stratified report (🚢 v1.1.1); a manual-dispatch CI workflow runs it on a
-  clean VM. **A self-referential quality score now exists too** (`roundtrip_report`, 🚢), so
-  what remains is (a) running it corpus-wide, (b) scoring against an external *ground truth*
-  where one exists, and (c) the head-to-head against other tools. Corpora, split by job:
+- 🌱 **The ratchet: automate the harnesses we already built.** *This is the next batch —
+  full plan in `design/quality-speed-ratchets.md`.* The gap here was misdiagnosed for two
+  drafts of this roadmap. We do not need to *build* a benchmark; we have three good ones and
+  **automation on none of them**:
+  - `benchmarks/corpus/` — throughput over ~160 real arxiv/govdocs1/POI/Enron docs
+    (🚢 v1.1.1). One **manual-dispatch** CI workflow. Results are gitignored, so cross-run
+    comparison is local-only and by hand.
+  - `benchmarks/roundtrip/` — MD→AST→MD fidelity, two independent oracles (🚢 v1.9.0).
+    **No CI job at all.** Exits non-zero on oracle failure, so it is gate-ready today.
+  - `benchmarks/startup.py` — cold start, fresh interpreter per sample. **No CI job**,
+    despite its own docstring calling it "the guard for the startup wins... so they can't
+    silently regress." The wins landed; the guard never ran.
+
+  So: **we have measurement and no ratchet.** Nothing fails when quality or speed degrades.
+  `tests/performance` has ~24 timing assertions, but all are loose absolute ceilings
+  (`< 10.0`, `< 5.0`) that catch a hang, not a 2× regression — and they are skipped unless
+  `--benchmark` is passed, so they never run in CI anyway. No pytest-benchmark / asv /
+  codspeed; the only committed timing data is two `benchmarks/reference/` snapshots that no
+  code compares against. Making regressions fail is cheaper than any new feature here, and
+  it is what makes the rest of this theme evaluable.
+- 🚀 **External ground truth** — *the headline metric, once the ratchet exists.*
+  `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own parsers, not
+  that we read the document correctly. A garbled table round-trips perfectly. So the open
+  work is (a) running fidelity corpus-wide via the ratchet, and (b) scoring against a real
+  external ground truth. Once the ratchet is in place, (b) is just another oracle plugged
+  into a socket that already works. Corpora, split by job:
   - **Structure ground-truth (headline metric):** [**OmniDocBench**](https://github.com/opendatalab/OmniDocBench)
     (CVPR 2025) — 981 pages, 9 doc types, with table (Markdown/HTML/LaTeX), formula, and
     reading-order metrics that map directly onto our output. Anchor the public score here.
@@ -162,6 +208,18 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     (financial DOCX/HTML/XBRL), the Enron corpus (mbox/eml threading torture-test),
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
+
+  **Dropped: the head-to-head vs markitdown / pandoc / docling.** Earlier drafts sold this
+  as "marketing + regression guard in one." Splitting those two jobs is what killed it. The
+  *guard* half is the ratchet above and needs no competitor. The *marketing* half doesn't
+  survive contact with the fact that **we and those tools have genuinely different use
+  cases** — markitdown optimises for a fast minimal LLM payload, pandoc for typesetting
+  round-trips, docling for layout ML. A single fidelity number across four tools with four
+  goals measures whose goal the corpus happened to match, not who is better. It also costs
+  more than it looks: publishing a benchmark you win invites scrutiny that obliges you to
+  defend a rival's config choices forever. Our score against an external ground truth stands
+  on its own and needs no foil. *If* a comparison ever gets built, it should be
+  per-use-case, run their config as they'd recommend it, and be prepared to lose a column.
 - 🚢 **Conversion confidence report** — *shipped (v1.9.0).* `all2md report <file>` and
   `Document.metadata['confidence']` surface the sanity signals the PDF/DOCX parsers already
   computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
@@ -204,9 +262,10 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   - **Two levels:** per-document autotune 🚢, *and* — still open — a corpus-level mode that
     tunes over `benchmarks/corpus/` to improve **shipped defaults**, a concrete step toward
     the self-improving converters in Theme 7.
-- 🌙 **Vision-model fallback** — when structural parsing fails (scanned tables, complex
-  figures, handwriting), optionally hand the page to a vision LLM and merge its structured
-  output back into the AST.
+- 🌙 **Vision-model fallback** — *moved to **Theme 8**.* When structural parsing fails
+  (scanned tables, complex figures, handwriting), optionally hand the page to a vision LLM
+  and merge its structured output back into the AST. "Merge back into the AST" is the same
+  geometry-carrying boundary the OCR engines need, so it is the same interface question.
 
 ---
 
@@ -265,17 +324,26 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 > people can install directly?" question in `todo.md`. A browser/web-UI is still planned
 > (local-only design spec). The channels below (Docker, Action, hosted API) are unstarted.
 
-- 🌱 **Docker image** — `docker run all2md` as a one-line microservice / CI step. Also the
-  building block for the GitHub Action and hosted API below — bake PyMuPDF/tesseract in once.
-- 🌱 **GitHub Action** — "convert docs in this repo to markdown on commit." A direct
-  adoption channel for a stars-collecting project. *How it works:* two pieces —
-  (1) a **reusable action repo** (e.g. `all2md-action`) with an `action.yml` at its root;
-  best as a **Docker action** (points at a Dockerfile) since we have heavy native deps, so
-  they're baked in once rather than `pip install`ed per run. (2) a documented **example
-  workflow** users drop into their `.github/workflows/` (`uses: thomas-villani/all2md-action@v1`).
-  No registration step — GitHub auto-discovers workflow YAML; we just tag releases and
-  optionally list on the **Marketplace** (a checkbox on a release; the action still runs
-  from our repo).
+- 🌱 **Docker image** — *scheduled in the ratchet batch.* `docker run all2md` as a one-line
+  microservice / CI step. Also the building block for the GitHub Action and hosted API below —
+  bake PyMuPDF/tesseract in once. It earns its place in an otherwise inward-facing batch by
+  doing a second job: it's the version-pinned environment that makes `benchmarks/corpus/`
+  numbers comparable across runs and machines (`benchmarks/reference/README.md` already
+  concedes ±20-30% drift on one dev box). It also narrows a real pain class —
+  "tesseract works standalone but not through all2md" is an environment bug.
+- 🌱 **GitHub Action** — *scheduled in the ratchet batch, and **re-scoped**.* The original
+  pitch — "convert docs in this repo to markdown on commit" — is stars-bait for a
+  stars-collecting project, and solves nobody's actual problem. v1.9.0 shipped
+  `report --fail-under` and `roundtrip --fail-under`, so the differentiated product is a
+  **conversion-quality gate**: *fail the build when document fidelity degrades.* Nobody else
+  ships that, because nobody else has the scores. It's the Theme 2 ratchet pointed outward —
+  we build it for ourselves first, then ship it. *How it works:* two pieces — (1) a **reusable
+  action repo** (e.g. `all2md-action`) with an `action.yml` at its root; best as a **Docker
+  action** (points at a Dockerfile) since we have heavy native deps, so they're baked in once
+  rather than `pip install`ed per run. (2) a documented **example workflow** users drop into
+  their `.github/workflows/` (`uses: thomas-villani/all2md-action@v1`). No registration step —
+  GitHub auto-discovers workflow YAML; we just tag releases and optionally list on the
+  **Marketplace** (a checkbox on a release; the action still runs from our repo).
 - 🚀 **Hosted conversion API** — a freemium endpoint (could fund the project); the Docker
   image is the building block. Also the backend for the browser extension and Node SDK.
 - 🚀 **Node / JS SDK** — *not a port.* The JS conversion ecosystem is fragmented and weaker
@@ -320,6 +388,101 @@ See the **Async Architecture Decision** below for the strategy. The shape:
   (entities, cross-references, citations) you can query.
 - 🌙 **Self-improving converters** — log failures, auto-generate test fixtures from them,
   and eventually suggest parser fixes.
+
+---
+
+## Theme 8 — Positional fidelity (OCR geometry → provenance → layout)
+
+> **Its own thread, deliberately.** This theme is not new work so much as a *correction*:
+> four entries scattered across Themes 1, 2 and 4 ("pluggable OCR engines", "node-level
+> provenance", "layout-aware PDF reconstruction", "vision-model fallback") turned out to be
+> one dependency chain wearing four hats. Read separately, each looked like plumbing and
+> each got deferred as "nice to have." Read together they are the RAG-trust differentiator
+> and the largest remaining bet on this roadmap. Sequenced after the Theme 2 ratchet, on
+> purpose — see *Suggested sequencing*.
+
+**The thesis in one line:** everything that makes a document citable is geometry, and we
+throw the geometry away.
+
+### The mis-scoping worth not repeating
+
+The obvious framing of the OCR item — *"add an abstraction for plugging in other OCR
+engines"* — is the easy 20% and **the wrong 20%**. Building the socket is genuinely cheap:
+dispatch today is a single lazy `if/else` in `parsers/_ocr/__init__.py:43-47` over two
+duck-typed adapters, and there are already **three** entry-point registries to copy
+(`all2md.converters`, `all2md.transforms`, `all2md.lint_rules`). The transforms registry is
+the cleanest precedent — it registers its own built-ins *through the public entry-point
+table*, so there is no privileged first-party path to unwind later.
+
+But the adapter contract is:
+
+```python
+def ocr_pixmap(pix: fitz.Pixmap, page: fitz.Page, options: PdfOptions) -> str
+```
+
+It returns **`str`**. And the geometry is destroyed *twice* on the way out:
+
+1. EasyOCR already returns bounding boxes; `_results_to_text` (`parsers/_ocr/easyocr.py:170-212`)
+   uses them to reconstruct reading order and then **discards them**.
+2. `_apply_ocr_if_needed` (`parsers/pdf.py:1269-1298`) wraps the resulting flat string in a
+   single synthetic PyMuPDF block spanning **the whole page** (`"bbox": page.rect`).
+
+So a socket on top of this contract lets you plug in Textract, Azure Document Intelligence,
+Google Document AI, surya or olmOCR — and then discard precisely the thing you are paying
+them for. **The valuable change is the result type, not the plug.** That is a parser change,
+and it is the same change that node-level provenance and layout-aware PDF both need. Hence:
+one thread.
+
+*Generalizable lesson, and a sibling to the optimizer's:* when an item's stated scope is
+suspiciously cheap, check whether the cheap part is load-bearing. "Pluggable OCR" and
+"OCR that preserves layout" sound like the same item and differ by an order of magnitude in
+both cost and value.
+
+### Known blockers (all surfaced by source review, all real)
+
+- **The engine type is closed.** `OCREngine = Literal["tesseract", "easyocr"]`
+  (`constants.py:78`), with the `choices` list duplicated in the options metadata
+  (`options/common.py:651`) — an engine name lives in **three** places. A registry-backed
+  `str` with dynamically-populated choices is needed; the transforms registry has the same
+  tension and resolves it by validating at lookup time.
+- **The "generic" OCR layer is PyMuPDF-coupled.** `fitz.Pixmap` + a live `fitz.Page` in the
+  signature — the page only for language auto-detection (`_pdf_ocr.py:369`), which both
+  adapters call themselves. Any non-PDF caller would have to fabricate a `fitz.Page`. Both
+  adapters immediately convert to PIL anyway (`tesseract.py:66`, `easyocr.py:253`), so the
+  natural contract is image-bytes/PIL + `OCROptions`, with language detection hoisted out.
+- **Engine-specific fields sit on shared options.** `tesseract_config` and `gpu` both live on
+  `OCROptions` (`options/common.py:597`, `:655`). This does not scale and a plugin cannot add
+  its own — wants an `engine_options: dict[str, Any]` passthrough.
+- **OCR is PDF-only in practice.** `OCROptions` is attached only to `PdfOptions`
+  (`options/pdf.py:565`) despite its own docstring (`options/common.py:539-541`) claiming it
+  "can be used by any parser." No image parser does OCR at all.
+
+### Shape (staged, each stage independently useful)
+
+1. 🌱 **A geometry-carrying OCR result type.** Replace `-> str` with a result object
+   carrying text + per-span bboxes + confidence. Stop `_results_to_text` from flattening;
+   stop `_apply_ocr_if_needed` from collapsing to one page-sized block. **No new engine, no
+   plugin API** — this stage is pure internal correctness and is where the value is. Tesseract
+   exposes boxes via `image_to_data`, so both existing engines can honour it.
+2. 🌱 **Decouple + then socket.** Move to PIL/bytes + `OCROptions`, hoist language detection,
+   add `engine_options` passthrough, *then* add an `all2md.ocr_engines` entry-point group
+   modelled on the transforms registry. Cheap once (1) fixed the contract; actively harmful
+   before it, because we would be freezing the lossy signature into a public API.
+3. 🚀 **Node-level provenance.** With geometry surviving the parsers, attach (page, bbox,
+   char-offset) spans to output nodes and thread them through `all2md chunk` records — closing
+   the Theme 1 gap. *This is the RAG-trust differentiator*, and it retroactively upgrades the
+   Theme 1 loader adapters from commodity to "the only loader that can cite a bbox."
+4. 🚀 **Layout-aware PDF reconstruction** (from Theme 2) — reading order across columns,
+   footnote/endnote linking, header/footer stripping, caption↔figure association. All
+   geometry consumers; all much easier once (1) and (3) exist.
+5. 🌙 **Vision-model fallback** (from Theme 2) — a VLM is just another engine that returns
+   structured, positioned output. If (1)–(2) are designed right this is a plugin, not a
+   rewrite. Good forcing function for the interface: *design (1) so that a VLM adapter is
+   expressible.*
+
+**Release shape:** unlike the Theme 2 ratchet batch, this one is **not** invisible — it
+changes a public options surface (2), adds AST metadata (3), and alters output (4). Minor
+version, not a patch.
 
 ---
 
@@ -373,18 +536,46 @@ round-trip scorer surfaced, and ~~the Markdown round-trip losses~~ 🚢 that the
 `benchmarks/roundtrip` harness surfaced. That closes the previous arc's top entries and the
 capstone both.
 
-Revised arc for the **next batch**, ordered by leverage-per-effort:
+Revised arc, ordered by leverage-per-effort:
 
-1. **Public fidelity benchmark** — round-trip scoring exists, so productize it: wire it into
-   the `benchmarks/corpus/` harness for a corpus-wide report, then a head-to-head vs.
-   markitdown / pandoc / docling. Note the caveat the optimizer taught us: pick the metric by
-   measuring that it *varies* across the corpus, not by assuming it does.
-2. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
-   Architecture Decision); the deferred-asset-resolution phase is the user-visible win.
-3. **GitHub Action + Docker image** — adoption channels for a project gaining stars; Docker
-   is the shared building block for the Action and a future hosted API.
-4. **Math support** + **layout-aware PDF** — deepen the fidelity moat (larger efforts).
+**Next batch — Quality & Speed Ratchets** (plan: `design/quality-speed-ratchets.md`).
+Deliberately *invisible*: no API change, no new library feature, so it cuts as a **patch
+release**. The theme is turning quality and speed into ratchets instead of vibes.
+
+1. **Wire the three harnesses to committed baselines in CI** — `corpus`, `roundtrip`,
+   `startup` all exist and all are unautomated (Theme 2). Make regressions *fail*. This also
+   converts our recurring unpinned-dependency drift from a mystery red CI into a number that
+   moved.
+2. **Startup performance** — the ratchet's first customer, and a *scaling* bug rather than a
+   micro-opt: `all2md --version` eagerly imports **31 options modules**, so cold start is
+   O(number of formats) and gets worse every time Theme 4 succeeds. Then reconcile
+   `performance.rst`, whose two headline tables are hand-authored estimates from before the
+   harness existed — source them from a real run or delete them.
+3. **Docker image** — the reproducible, version-pinned environment the ratchet needs to be
+   comparable across machines *and* the shared building block for the Action and a future
+   hosted API (Theme 5). Bakes PyMuPDF/tesseract in once.
+4. **GitHub Action, re-scoped** — *not* "convert docs on commit," which is stars-bait
+   solving nobody's problem. We shipped `report --fail-under` and `roundtrip --fail-under` in
+   v1.9.0, so the differentiated product is a **conversion-quality gate**: fail the build when
+   document fidelity degrades. Nobody else ships this. It is the same ratchet as (1), pointed
+   outward, and it falls out of (1)+(3) nearly free.
+
+**Then, in rough order:**
+
+5. **External ground truth** (Theme 2) — OmniDocBench as the headline score. Cheap *after*
+   the ratchet, because by then it is just another oracle in a working socket. Heed the
+   caveat the optimizer taught us: pick the metric by measuring that it *varies* across the
+   corpus, not by assuming it does. Be prepared for it to say something we don't want to hear
+   — finding that out before sinking a batch into Theme 8 is the entire point.
+6. **Theme 8 — positional fidelity** (OCR geometry → provenance → layout). The big bet, and
+   the one that is currently unevaluable, which is exactly why it sits behind (1) and (5).
+7. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
+   Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
+   a prerequisite for clean multi-worker training-corpus loading (Theme 1).
+8. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
+   ground-truth corpus.
 
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
-small `todo.md` bug-fixes (filename-hint detection, leading blank line in DOCX, smarter
-capitalization-aware dehyphenation, rich `--help` by default) are independent quick wins.
+RAG-framework loader adapters (Theme 1) are the cheapest filler on the board (~a day each)
+if a batch needs something user-visible to announce. The small `todo.md` bug-fixes (rich
+`--help` by default, element re-routing, CLI edit commands) are independent quick wins.
