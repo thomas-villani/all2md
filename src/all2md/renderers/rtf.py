@@ -155,6 +155,10 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
 
     def _prefix_paragraph(self, paragraph: Any, prefix: str) -> Any:
         """Return a copy of a paragraph with prefix text prepended."""
+        # pyth List subclasses Paragraph; do not rewrap ListEntry children.
+        List_cls = cast(Any, self._List)
+        if List_cls is not None and isinstance(paragraph, List_cls):
+            return paragraph
         runs = [self._create_text_run(prefix)]
         runs.extend(paragraph.content)
         return cast(Any, self._Paragraph)(content=runs)
