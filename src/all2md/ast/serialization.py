@@ -43,6 +43,8 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -58,6 +60,7 @@ from all2md.ast.nodes import (
     Link,
     List,
     ListItem,
+    Mark,
     MathBlock,
     MathInline,
     Node,
@@ -405,6 +408,9 @@ _SERIALIZATION_DISPATCH: dict[type, Any] = {
     HTMLInline: lambda n: _serialize_text_content_node(n, "HTMLInline"),
     FootnoteReference: _serialize_footnote_reference,
     FootnoteDefinition: _serialize_footnote_definition,
+    Comment: lambda n: _serialize_text_content_node(n, "Comment"),
+    CommentInline: lambda n: _serialize_text_content_node(n, "CommentInline"),
+    Mark: lambda n: _serialize_inline_content_node(n, "Mark"),
 }
 
 
@@ -795,6 +801,33 @@ def _deserialize_footnote_definition(data: dict[str, Any]) -> FootnoteDefinition
     )
 
 
+def _deserialize_comment(data: dict[str, Any]) -> Comment:
+    """Deserialize Comment node."""
+    return Comment(
+        content=data.get("content", ""),
+        metadata=data.get("metadata", {}),
+        source_location=_deserialize_source_location(data.get("source_location")),
+    )
+
+
+def _deserialize_comment_inline(data: dict[str, Any]) -> CommentInline:
+    """Deserialize CommentInline node."""
+    return CommentInline(
+        content=data.get("content", ""),
+        metadata=data.get("metadata", {}),
+        source_location=_deserialize_source_location(data.get("source_location")),
+    )
+
+
+def _deserialize_mark(data: dict[str, Any]) -> Mark:
+    """Deserialize Mark node."""
+    return Mark(
+        content=_deserialize_children(data.get("content", [])),
+        metadata=data.get("metadata", {}),
+        source_location=_deserialize_source_location(data.get("source_location")),
+    )
+
+
 # Dispatch table mapping node type strings to deserializer functions
 _DESERIALIZATION_DISPATCH: dict[str, Any] = {
     "SourceLocation": _deserialize_source_location_node,
@@ -829,6 +862,9 @@ _DESERIALIZATION_DISPATCH: dict[str, Any] = {
     "MathBlock": _deserialize_math_block,
     "FootnoteReference": _deserialize_footnote_reference,
     "FootnoteDefinition": _deserialize_footnote_definition,
+    "Comment": _deserialize_comment,
+    "CommentInline": _deserialize_comment_inline,
+    "Mark": _deserialize_mark,
 }
 
 
