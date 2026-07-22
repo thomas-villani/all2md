@@ -367,6 +367,20 @@ Bob & 25 & LA
         # Should have body rows
         assert len(table.rows) >= 1
 
+    def test_tabular_strips_hline_from_cell_text(self) -> None:
+        """\\hline / \\cline must not leak into markdown cell text."""
+        from all2md import to_markdown
+        from io import StringIO
+
+        latex = r"\begin{tabular}{cc} a & b \\ \hline c & d \end{tabular}"
+        md = to_markdown(StringIO(latex), source_format="latex")
+
+        assert "a" in md
+        assert "b" in md
+        assert "c" in md
+        assert "d" in md
+        assert "hline" not in md
+
     def test_unknown_macro_nonstrict_mode(self) -> None:
         """Test handling of unknown macros in non-strict mode."""
         parser = LatexParser(LatexOptions(strict_mode=False))
