@@ -101,11 +101,14 @@ class Fb2ToAstConverter(BaseParser):
             body_nodes = self._process_body(body, heading_level=1)
             if self._is_notes_body(body):
                 if self.options.include_notes:
-                    # Drop only a body-level <title>; keep the first section heading.
-                    had_body_title = self._find_child(body, "title") is not None
+                    # Drop body-level title only when it emitted a Heading.
+                    body_title = self._find_child(body, "title")
+                    emitted_body_title = bool(
+                        body_title is not None and self._title_to_heading(body_title, heading_level=1)
+                    )
                     filtered = (
                         body_nodes[1:]
-                        if had_body_title and body_nodes and isinstance(body_nodes[0], Heading)
+                        if emitted_body_title and body_nodes and isinstance(body_nodes[0], Heading)
                         else body_nodes
                     )
                     note_children.extend(filtered)
