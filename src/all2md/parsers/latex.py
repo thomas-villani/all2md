@@ -60,7 +60,7 @@ class LatexParser(BaseParser):
     Supported LaTeX Features
     ------------------------
     Sectioning Commands:
-        - \section, \subsection, \subsubsection
+        - \chapter, \section, \subsection, \subsubsection
         - \paragraph, \subparagraph
 
     Text Formatting:
@@ -169,15 +169,24 @@ class LatexParser(BaseParser):
 
         # Try to import pylatexenc
         try:
-            from pylatexenc.latexwalker import LatexWalker
+            from pylatexenc.latexwalker import LatexWalker, get_default_latex_context_db
+            from pylatexenc.macrospec import MacroSpec
         except ImportError as e:
             raise ParsingError(
                 "LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc"
             ) from e
 
+        # Default pylatexenc context omits \paragraph (section/subparagraph are present).
+        latex_context = get_default_latex_context_db()
+        latex_context.add_context_category(
+            "all2md-paragraph-titles",
+            macros=[MacroSpec("paragraph", "*[{")],
+            prepend=True,
+        )
+
         # Parse LaTeX using pylatexenc
         try:
-            walker = LatexWalker(content)
+            walker = LatexWalker(content, latex_context=latex_context)
             nodelist, pos, length = walker.get_latex_nodes()
         except Exception as e:
             if self.options.strict_mode:
@@ -335,7 +344,14 @@ class LatexParser(BaseParser):
         macro_name = node.macroname
 
         # Sectioning commands
-        if macro_name in ("section", "subsection", "subsubsection", "paragraph", "subparagraph"):
+        if macro_name in (
+            "chapter",
+            "section",
+            "subsection",
+            "subsubsection",
+            "paragraph",
+            "subparagraph",
+        ):
             return self._convert_section(node)
 
         # Text formatting
@@ -401,6 +417,7 @@ class LatexParser(BaseParser):
         """
         # Map LaTeX sections to heading levels
         level_map = {
+            "chapter": 1,
             "section": 1,
             "subsection": 2,
             "subsubsection": 3,

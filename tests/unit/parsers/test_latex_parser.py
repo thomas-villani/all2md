@@ -27,6 +27,7 @@ from all2md.ast import (
 from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.parsers.latex import LatexParser
 from all2md.renderers.latex import LatexRenderer
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 class TestLatexParser:
@@ -81,6 +82,23 @@ class TestLatexParser:
         assert title == "Introduction"
         assert title != "*"
 
+    def test_paragraph_title_not_split_to_sibling(self) -> None:
+        r"""\paragraph{Title} must be one level-4 heading, not empty #### + Title."""
+        parser = LatexParser()
+        doc = parser.parse(r"\paragraph{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 4
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert not any(isinstance(child, Text) and child.content == "Title" for child in doc.children)
+        assert not any(
+            isinstance(child, Paragraph)
+            and any(isinstance(node, Text) and node.content == "Title" for node in child.content)
+            for child in doc.children
+        )
+
     def test_starred_subsection_with_short_title(self) -> None:
         """\\subsection*[short]{Long} must keep the mandatory long title."""
         parser = LatexParser()
@@ -93,6 +111,32 @@ class TestLatexParser:
         assert title == "Long Title"
         assert "short" not in title
         assert "*" not in title
+
+    def test_chapter_heading(self) -> None:
+        """\\chapter{Title} must become a level-1 heading (book/report class)."""
+        parser = LatexParser()
+        doc = parser.parse(r"\chapter{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 1
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert not any(isinstance(child, Text) and child.content == "Title" for child in doc.children)
+        assert MarkdownRenderer().render_to_string(doc).strip() == "# Title"
+
+    def test_starred_chapter_keeps_title(self) -> None:
+        """\\chapter*{Title} must keep the title, not the '*' marker."""
+        parser = LatexParser()
+        doc = parser.parse(r"\chapter*{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 1
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert title != "*"
+        assert MarkdownRenderer().render_to_string(doc).strip() == "# Title"
 
     def test_textbf_bold(self) -> None:
         """Test parsing bold text."""
