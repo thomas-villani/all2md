@@ -603,12 +603,21 @@ class TestRtfRendererMisc:
         assert "8212" in rtf_output or "—" in rtf_output
 
     def test_render_line_break(self) -> None:
-        """Render a line break."""
+        """Render a hard line break as \\line."""
         doc = Document(children=[Paragraph(content=[Text(content="Line 1"), LineBreak(), Text(content="Line 2")])])
         renderer = RtfRenderer()
         rtf_output = renderer.render_to_string(doc)
-        assert "Line 1" in rtf_output
-        assert "Line 2" in rtf_output
+        assert "Line 1\\line Line 2" in rtf_output
+
+    def test_render_soft_line_break(self) -> None:
+        """Render a soft line break as a space, not \\line."""
+        doc = Document(
+            children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=True), Text(content="Line 2")])]
+        )
+        renderer = RtfRenderer()
+        rtf_output = renderer.render_to_string(doc)
+        assert "Line 1 Line 2" in rtf_output
+        assert "\\line" not in rtf_output
 
     def test_render_html_block(self) -> None:
         """Render an HTML block as literal text."""

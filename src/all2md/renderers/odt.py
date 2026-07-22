@@ -991,7 +991,11 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         from odf.text import LineBreak as OdfLineBreak
 
         if self._current_paragraph:
-            self._current_paragraph.addElement(OdfLineBreak())
+            if node.soft:
+                # Soft breaks are source-wrapping artifacts; render as a space
+                self._current_paragraph.addText(" ")
+            else:
+                self._current_paragraph.addElement(OdfLineBreak())
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.

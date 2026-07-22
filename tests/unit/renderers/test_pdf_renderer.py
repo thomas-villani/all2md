@@ -1183,6 +1183,31 @@ class TestLineBreakInline:
         renderer.render(doc, output_file)
 
         assert output_file.exists()
+
+    def test_soft_line_break_renders_as_space(self, tmp_path):
+        """Test soft line break renders as a space, keeping text on one line."""
+        import fitz
+
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line 1"),
+                        LineBreak(soft=True),
+                        Text(content="Line 2"),
+                    ]
+                )
+            ]
+        )
+        renderer = PdfRenderer()
+        output_file = tmp_path / "soft_line_break.pdf"
+        renderer.render(doc, output_file)
+
+        with fitz.open(str(output_file)) as pdf:
+            text = pdf[0].get_text()
+        assert "Line 1 Line 2" in text
         if PDF_VERIFICATION_AVAILABLE:
             text = get_pdf_text(output_file)
             assert "Line 1" in text
