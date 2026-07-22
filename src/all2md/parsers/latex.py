@@ -677,33 +677,7 @@ class LatexParser(BaseParser):
             List node
 
         """
-        items = []
-        if hasattr(node, "nodelist"):
-            for child in node.nodelist:
-                if hasattr(child, "macroname") and child.macroname == "item":
-                    item_nodes = []
-                    # Get content after \item
-                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
-                        for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, "nodelist"):
-                                for item_child in arg.nodelist:
-                                    converted = self._convert_node(item_child)
-                                    if converted:
-                                        if isinstance(converted, list):
-                                            item_nodes.extend(converted)
-                                        else:
-                                            item_nodes.append(converted)
-
-                    # Wrap in paragraph if not empty
-                    if item_nodes:
-                        all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                        content: list[Node] = (
-                            item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
-                        )
-                        para = Paragraph(content=content)
-                        items.append(ListItem(children=[para]))
-
-        return List(ordered=False, items=items)
+        return self._convert_list_environment(node, ordered=False)
 
     def _convert_enumerate(self, node: Any) -> List:
         """Convert enumerate environment to ordered List.
@@ -719,33 +693,72 @@ class LatexParser(BaseParser):
             Ordered list node
 
         """
-        items = []
-        if hasattr(node, "nodelist"):
-            for child in node.nodelist:
-                if hasattr(child, "macroname") and child.macroname == "item":
-                    item_nodes = []
-                    # Get content after \item
-                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
-                        for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, "nodelist"):
-                                for item_child in arg.nodelist:
-                                    converted = self._convert_node(item_child)
-                                    if converted:
-                                        if isinstance(converted, list):
-                                            item_nodes.extend(converted)
-                                        else:
-                                            item_nodes.append(converted)
+        return self._convert_list_environment(node, ordered=True)
 
-                    # Wrap in paragraph
-                    if item_nodes:
-                        all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                        content: list[Node] = (
-                            item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
-                        )
-                        para = Paragraph(content=content)
-                        items.append(ListItem(children=[para]))
+    def _convert_list_environment(self, node: Any, *, ordered: bool) -> List:
+        """Convert itemize/enumerate by collecting sibling nodes after each ``\\item``.
 
-        return List(ordered=True, items=items)
+        In real LaTeX, ``\\item`` body text is sibling nodes until the next ``\\item``,
+        not braced macro arguments. Optional ``[label]`` args are still converted.
+
+        Parameters
+        ----------
+        node : LatexEnvironmentNode
+            Itemize or enumerate environment node
+        ordered : bool
+            Whether the list is ordered
+
+        Returns
+        -------
+        List
+            List node with converted items
+
+        """
+        items: list[ListItem] = []
+        nodelist = getattr(node, "nodelist", None) or []
+        i = 0
+        while i < len(nodelist):
+            child = nodelist[i]
+            if not (hasattr(child, "macroname") and child.macroname == "item"):
+                i += 1
+                continue
+
+            item_nodes: list[Node] = []
+
+            # Optional [label] for description-style items
+            if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
+                for arg in child.nodeargd.argnlist:
+                    if arg and hasattr(arg, "nodelist"):
+                        for item_child in arg.nodelist:
+                            converted = self._convert_node(item_child)
+                            if converted:
+                                if isinstance(converted, list):
+                                    item_nodes.extend(converted)
+                                else:
+                                    item_nodes.append(converted)
+
+            # Body text: siblings after \item until the next \item
+            j = i + 1
+            while j < len(nodelist):
+                sibling = nodelist[j]
+                if hasattr(sibling, "macroname") and sibling.macroname == "item":
+                    break
+                converted = self._convert_node(sibling)
+                if converted:
+                    if isinstance(converted, list):
+                        item_nodes.extend(converted)
+                    else:
+                        item_nodes.append(converted)
+                j += 1
+
+            if item_nodes:
+                all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
+                content: list[Node] = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
+                items.append(ListItem(children=[Paragraph(content=content)]))
+
+            i = j
+
+        return List(ordered=ordered, items=items)
 
     def _convert_quote(self, node: Any) -> BlockQuote:
         """Convert quote environment to BlockQuote.
