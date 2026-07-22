@@ -296,33 +296,60 @@ class TestExtendedInlineFormatting:
         result = renderer.render_to_string(doc)
         assert result == "<del>deleted</del>"
 
-    def test_underline_default_roundtrips(self):
-        """The default underline_mode emits ^^ (roundtrips via the insert plugin).
+    def test_underline_default_is_html(self):
+        """The default underline_mode emits <u>, which the parser reads back.
 
-        A raw <u> is escaped by the default html_passthrough policy on the next
-        Markdown pass; ^^text^^ is read back as an Underline. __text__ is *not* a
-        safe alternative -- every flavor parses it as strong emphasis.
+        Markdown has no underline syntax of its own: ``^^text^^`` is pymdownx
+        *insert* (see the insert tests below) and ``__text__`` is strong emphasis
+        in every flavor. ``<u>`` is the only spelling that means underline and
+        survives a round trip (#113).
         """
         doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
+        assert result == "<u>underlined</u>"
+
+    def test_underline_markdown_mode_uses_insert_spelling(self):
+        """An explicit underline_mode='markdown' opts into the legacy ^^ spelling."""
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
+        options = MarkdownRendererOptions(underline_mode="markdown")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(doc)
         assert result == "^^underlined^^"
 
-    def test_underline_html_mode(self):
-        """An explicit underline_mode='html' opts into <u>."""
+    def test_underline_ignore_mode_strips_markup(self):
         doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
-        options = MarkdownRendererOptions(underline_mode="html")
+        options = MarkdownRendererOptions(underline_mode="ignore")
+        renderer = MarkdownRenderer(options)
+        assert renderer.render_to_string(doc) == "underlined"
+
+    def test_underline_stays_html_in_markdown_plus(self):
+        """MarkdownPlus's native ^^ is *insert*, so underline still emits <u>."""
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
+        options = MarkdownRendererOptions(flavor="markdown_plus")
         renderer = MarkdownRenderer(options)
         result = renderer.render_to_string(doc)
         assert result == "<u>underlined</u>"
 
-    def test_underline_markdown_plus_flavor_is_native(self):
-        """MarkdownPlus supports ^^ natively, so it wins even over underline_mode='html'."""
-        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="underlined")])])])
-        options = MarkdownRendererOptions(flavor="markdown_plus", underline_mode="html")
+    def test_insert_default_roundtrips(self):
+        """Insert keeps ^^ by default -- the pymdownx spelling it came from."""
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="added")], semantic="insert")])])
+        renderer = MarkdownRenderer()
+        assert renderer.render_to_string(doc) == "^^added^^"
+
+    def test_insert_html_mode(self):
+        """An explicit insert_mode='html' opts into <ins>, distinct from <u>."""
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="added")], semantic="insert")])])
+        options = MarkdownRendererOptions(insert_mode="html")
         renderer = MarkdownRenderer(options)
-        result = renderer.render_to_string(doc)
-        assert result == "^^underlined^^"
+        assert renderer.render_to_string(doc) == "<ins>added</ins>"
+
+    def test_insert_markdown_plus_flavor_is_native(self):
+        """MarkdownPlus supports ^^ natively, so it wins even over insert_mode='html'."""
+        doc = Document(children=[Paragraph(content=[Underline(content=[Text(content="added")], semantic="insert")])])
+        options = MarkdownRendererOptions(flavor="markdown_plus", insert_mode="html")
+        renderer = MarkdownRenderer(options)
+        assert renderer.render_to_string(doc) == "^^added^^"
 
     def test_superscript_html_mode(self):
         """Test superscript with HTML mode."""

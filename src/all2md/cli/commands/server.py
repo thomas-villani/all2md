@@ -433,6 +433,8 @@ def _generate_directory_index(
                 if created_ts is not None:
                     created_str = _format_timestamp(created_ts)
             except OSError:
+                # File vanished or became unreadable between listing and stat;
+                # keep the "?"/"—" placeholders rather than dropping the row.
                 pass
             rows += (
                 f"<tr><td><a href='{url}'>{name}</a></td>"

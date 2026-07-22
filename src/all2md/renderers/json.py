@@ -338,10 +338,19 @@ class DataExtractor:
         """
         # Get column names from header
         columns: list[str] = []
+        used_columns: set[str] = set()
         if table.header:
             for cell in table.header.cells:
                 col_name = self._extract_cell_text(cell)
+                if col_name in used_columns:
+                    suffix = 2
+                    candidate = f"{col_name}_{suffix}"
+                    while candidate in used_columns:
+                        suffix += 1
+                        candidate = f"{col_name}_{suffix}"
+                    col_name = candidate
                 columns.append(col_name)
+                used_columns.add(col_name)
 
         if not columns:
             return []
