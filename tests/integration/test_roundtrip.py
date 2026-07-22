@@ -48,10 +48,26 @@ print("hi")
 """
 
 
+#: Raw inline HTML the Markdown parser has no node for, so it survives as an
+#: HTMLInline and is escaped on the way back out. ``<u>``/``<ins>`` deliberately
+#: do *not* belong here -- they parse into Underline nodes and roundtrip cleanly.
+ESCAPING_HTML_MARKDOWN = """# Title
+
+Here is some <span class="highlight">raw inline HTML</span> text.
+"""
+
+
 @pytest.fixture
 def rich_md(tmp_path) -> Path:
     path = tmp_path / "rich.md"
     path.write_text(RICH_MARKDOWN, encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def escaping_html_md(tmp_path) -> Path:
+    path = tmp_path / "escaping_html.md"
+    path.write_text(ESCAPING_HTML_MARKDOWN, encoding="utf-8")
     return path
 
 
@@ -94,27 +110,38 @@ class TestRoundTripApi:
         report = roundtrip_report(RICH_MARKDOWN.encode(), source_format="markdown")
         assert report.score == 100
 
-    def test_escaped_inline_html_is_priced_as_a_real_loss(self):
+    def test_escaped_inline_html_is_priced_as_a_real_loss(self, escaping_html_md):
         """Escaped raw HTML costs fidelity, and the score says so.
 
-        ``basic.md`` contains ``<u>...</u>``, and the Markdown renderer escapes raw
-        HTML by default (``html_passthrough_mode="escape"``, a security posture).
-        The round trip therefore cannot be perfect, and the score reports that
-        rather than quietly forgiving it.
+        The Markdown renderer escapes raw HTML by default
+        (``html_passthrough_mode="escape"``, a security posture), so a document
+        carrying a tag with no AST equivalent (``<span>``) cannot round trip
+        perfectly -- and the score reports that rather than quietly forgiving it.
         """
-        report = roundtrip_report(BASIC_MD)
+        report = roundtrip_report(escaping_html_md)
         assert report.score < 100
         assert {delta.kind for delta in report.deltas} == {"inline_lost", "text_lost"}
         assert any(delta.detail == "htmlinline" for delta in report.deltas)
 
-    def test_score_responds_to_converter_options(self):
+    def test_underline_html_roundtrips_losslessly(self):
+        """``<u>`` is not "raw HTML" to the scorer -- it is an Underline node.
+
+        ``basic.md`` contains ``<u>underlined text</u>``. The Markdown parser
+        reads that back into the AST, so it survives the round trip intact even
+        under the default escaping policy (#113).
+        """
+        report = roundtrip_report(BASIC_MD)
+        assert report.score == 100
+        assert report.deltas == []
+
+    def test_score_responds_to_converter_options(self, escaping_html_md):
         """The score must move when converter options move.
 
         This is what makes it usable as the ``optimize`` capstone's fitness
         function: flipping one renderer option recovers the lost points.
         """
-        escaped = roundtrip_report(BASIC_MD)
-        passed_through = roundtrip_report(BASIC_MD, html_passthrough_mode="pass-through")
+        escaped = roundtrip_report(escaping_html_md)
+        passed_through = roundtrip_report(escaping_html_md, html_passthrough_mode="pass-through")
 
         assert passed_through.score == 100
         assert passed_through.deltas == []

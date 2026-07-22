@@ -148,7 +148,7 @@ Inline nodes represent inline formatting:
        Image,         # Images
        LineBreak,     # Line breaks
        Strikethrough, # Strikethrough text
-       Underline,     # Underlined text
+       Underline,     # Underlined text, or an insertion (semantic="insert")
        Mark,          # Highlighted/marked text (==text==)
        Superscript,   # Superscript
        Subscript,     # Subscript

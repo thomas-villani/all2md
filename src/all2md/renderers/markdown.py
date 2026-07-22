@@ -1537,23 +1537,36 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         content = self._render_inline_content(node.content)
 
-        # A flavor that natively supports ^^text^^ (MarkdownPlus) emits it directly,
-        # like visit_superscript does for ^. Other flavors fall back per
-        # underline_mode (default "markdown", which roundtrips through the insert
-        # plugin; set "html" for wider display). Note "markdown" emits ^^ -- the
-        # pymdownx "insert" spelling the parser reads back as Underline -- not __,
-        # which every flavor parses as strong emphasis, silently losing the underline.
-        if self._flavor.supports_underline():
-            self._output.append(f"^^{content}^^")
+        if node.semantic == "insert":
+            # ``^^text^^`` is pymdownx's *insert* spelling, so it belongs to
+            # insert rather than underline. A flavor that supports it natively
+            # (MarkdownPlus) emits it directly, like visit_superscript does for
+            # ^; the rest fall back per insert_mode, whose "markdown" default
+            # roundtrips through the insert plugin.
+            if self._flavor.supports_underline():
+                self._output.append(f"^^{content}^^")
+                return
+
+            mode = self.options.insert_mode
+            if mode == "html":
+                self._output.append(f"<ins>{content}</ins>")
+            elif mode == "markdown":
+                self._output.append(f"^^{content}^^")
+            else:
+                self._output.append(content)
             return
 
+        # Genuine underline. Markdown has no underline syntax of its own -- ^^ is
+        # insert and __ is strong emphasis -- so the default is <u>, which the
+        # parser reads back as an Underline (see _fold_underline_html) and so
+        # roundtrips losslessly rather than escaping to &lt;u&gt;.
         mode = self.options.underline_mode
-        if mode == "html":
-            self._output.append(f"<u>{content}</u>")
-        elif mode == "markdown":
+        if mode == "markdown":
             self._output.append(f"^^{content}^^")
-        else:
+        elif mode == "ignore":
             self._output.append(content)
+        else:
+            self._output.append(f"<u>{content}</u>")
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.

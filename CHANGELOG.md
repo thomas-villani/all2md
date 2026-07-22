@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`insert_mode` Markdown renderer option** (`--markdown-insert-mode`): how to render
+  insertions — `markdown` (`^^text^^`, the default, which round-trips), `html`
+  (`<ins>`), or `ignore` (#113).
+
 ### Fixed
 
 - **INI renderer: `DEFAULT` section no longer fails to render.** `configparser`
@@ -77,9 +83,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a Markdown HTML comment, `==mark==`, an AsciiDoc `//` comment, or an RST `..`
   comment raised `ValueError: Unknown node type for serialization`. Thanks
   [@santhreal](https://github.com/santhreal) (#128).
+- **HTML parser: `<ins>` is no longer silently dropped.** It was listed as an inline
+  element but had no handler, so it fell through to the generic unwrapping and lost
+  its markup entirely — the counterpart `<del>` has always mapped to `Strikethrough`.
+  It now parses to an `Underline` node with `semantic="insert"` (#113).
+- **Markdown parser: `<u>` and `<ins>` survive a Markdown round trip.** They came back
+  as raw `HTMLInline`, which the default `html_passthrough_mode="escape"` then turned
+  into `&lt;u&gt;` on the next render. Both tags are now read back into `Underline`
+  nodes, so they round-trip losslessly. Tags carrying attributes, and unmatched or
+  stray tags, are still passed through untouched rather than guessed at. The remaining
+  inline tags (`<del>`, `<sup>`, `<sub>`, `<mark>`) still self-escape (#113).
 
 ### Changed
 
+- **`^^text^^` and underline are now distinct in the AST.** `^^` is pymdownx's
+  *insert* extension, not underline, but both parsed to the same `Underline` node, so
+  an insertion could not render as `<ins>` and a genuine underline emitted insert
+  syntax. `Underline` gained a `semantic: Literal["underline", "insert"]`
+  discriminator (default `"underline"`, omitted from serialized output when default,
+  so existing JSON is unaffected). The HTML renderer emits `<ins>` for insert and
+  `<u>` for underline (#113).
+- **`underline_mode` now defaults to `"html"` (`<u>`) instead of `"markdown"`
+  (`^^text^^`).** Markdown has no underline syntax of its own, and `^^` means insert;
+  `<u>` now round-trips losslessly thanks to the parser fix above. Set
+  `underline_mode="markdown"` to keep the pre-1.10 spelling (#113).
 - CI: bumped `actions/setup-python` 6 → 7 and `actions/setup-node` 6 → 7 (#120, #121).
 
 ## [1.9.0] - 2026-07-15
