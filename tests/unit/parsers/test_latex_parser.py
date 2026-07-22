@@ -268,6 +268,33 @@ class TestLatexParser:
         assert len(lists) >= 1
         assert lists[0].ordered is True
 
+    def test_itemize_enumerate_item_sibling_text(self) -> None:
+        """Item body after \\item is sibling nodes, not braced args."""
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        latex = r"""
+\begin{itemize}
+\item First point
+\item Second point
+\end{itemize}
+
+\begin{enumerate}
+\item \textbf{Bold} text support
+\item Second
+\end{enumerate}
+"""
+        doc = LatexParser().parse(latex)
+        lists = [child for child in doc.children if isinstance(child, List)]
+        assert len(lists) == 2
+        assert len(lists[0].items) == 2
+        assert len(lists[1].items) == 2
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert "First point" in md
+        assert "Second point" in md
+        assert "**Bold**" in md
+        assert "text support" in md
+
     def test_quote_environment(self) -> None:
         """Test parsing quote environment."""
         parser = LatexParser()
