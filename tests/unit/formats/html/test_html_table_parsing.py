@@ -125,8 +125,8 @@ class TestHtmlTableParsing:
         from all2md import convert
 
         empty_row = convert("<table><tr></tr></table>", source_format="html", target_format="markdown")
-        assert empty_row != "|  |\n||"
         assert empty_row.strip() == ""
+        assert "|" not in empty_row
         assert_markdown_valid(empty_row)
 
         empty_td = convert("<table><tr><td></td></tr></table>", source_format="html", target_format="markdown")
