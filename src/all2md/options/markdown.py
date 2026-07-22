@@ -195,16 +195,14 @@ class MarkdownRendererOptions(BaseRendererOptions):
         How to render presentational underline (``Underline`` with
         ``semantic="underline"``). Markdown has no underline syntax of its own:
         - "html": Use <u>text</u> tags (roundtrips -- the parser reads <u> back)
-        - "markdown": Use ^^text^^ (the pymdownx *insert* spelling; renders as
-          underline in Material for MkDocs, but reparses as insert, so the
-          underline/insert distinction is lost)
+        - "markdown": Use ^^text^^, the pymdownx *insert* spelling (reparses as insert)
         - "ignore": Strip underline formatting
     insert_mode : {"html", "markdown", "ignore"}, default "markdown"
         How to render insertions (``Underline`` with ``semantic="insert"``, from
         ``^^text^^`` or ``<ins>``). Flavors that natively support ``^^text^^``
         (markdown_plus) always emit it; for the rest:
         - "markdown": Use ^^text^^ (roundtrips, needs an extension to render)
-        - "html": Use <ins>text</ins> tags (wider display support; also roundtrips)
+        - "html": Use <ins>text</ins> tags (wider support; also roundtrips)
         - "ignore": Strip insert formatting
     superscript_mode : {"html", "markdown", "ignore"}, default "markdown"
         Fallback for flavors that don't natively support superscript. Flavors
