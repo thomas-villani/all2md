@@ -869,6 +869,7 @@ class HtmlToAstConverter(BaseParser):
         "a": "_process_link_to_ast",
         "img": "_process_image_to_ast",
         "u": "_process_underline_to_ast",
+        "ins": "_process_insert_to_ast",
     }
 
     def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
@@ -1611,6 +1612,28 @@ class HtmlToAstConverter(BaseParser):
         """
         content = self._process_children_to_inline(node)
         return Underline(content=content)
+
+    def _process_insert_to_ast(self, node: Any) -> Underline:
+        """Process ins element to an Underline node with insert semantics.
+
+        ``<ins>`` was previously unmapped, so it fell through to the generic
+        inline unwrapping and lost its markup entirely. It is the counterpart of
+        ``<del>`` (which maps to Strikethrough) and renders underlined in
+        browsers, so it shares the Underline node with ``semantic="insert"``.
+
+        Parameters
+        ----------
+        node : Any
+            INS element
+
+        Returns
+        -------
+        Underline
+            Underline node tagged as an insertion
+
+        """
+        content = self._process_children_to_inline(node)
+        return Underline(content=content, semantic="insert")
 
     def _process_strikethrough_to_ast(self, node: Any) -> Strikethrough:
         """Process del/s/strike element to Strikethrough node.

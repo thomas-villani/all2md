@@ -5229,7 +5229,16 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
 
 **underline_mode**
 
-   How to handle underlined text: markdown (^^text^^), html (<u>), or ignore
+   How to handle underlined text: html (<u>), markdown (^^text^^), or ignore
+
+   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :Default: ``'html'``
+   :Choices: ``html``, ``markdown``, ``ignore``
+   :Importance: advanced
+
+**insert_mode**
+
+   How to handle inserted text: markdown (^^text^^), html (<ins>), or ignore
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
    :Default: ``'markdown'``
@@ -11208,10 +11217,20 @@ modules to ensure consistent Markdown generation.
 
 **underline_mode**
 
-   How to handle underlined text: markdown (^^text^^), html (<u>), or ignore
+   How to handle underlined text: html (<u>), markdown (^^text^^), or ignore
 
    :Type: ``Literal['html', 'markdown', 'ignore']``
    :CLI flag: ``--markdown-underline-mode``
+   :Default: ``'html'``
+   :Choices: ``html``, ``markdown``, ``ignore``
+   :Importance: advanced
+
+**insert_mode**
+
+   How to handle inserted text: markdown (^^text^^), html (<ins>), or ignore
+
+   :Type: ``Literal['html', 'markdown', 'ignore']``
+   :CLI flag: ``--markdown-insert-mode``
    :Default: ``'markdown'``
    :Choices: ``html``, ``markdown``, ``ignore``
    :Importance: advanced

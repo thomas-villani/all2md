@@ -171,16 +171,19 @@ class MarkdownFlavor(ABC):
         return False
 
     def supports_underline(self) -> bool:
-        """Check if this flavor natively supports ``^^text^^`` underline syntax.
+        """Check if this flavor natively supports ``^^text^^`` syntax.
 
-        Concrete (default ``False``) rather than abstract: underline is the
-        pymdownx / Material "insert" extension, natively supported only by the
-        MarkdownPlus flavor. Other flavors fall back per ``underline_mode``.
+        ``^^`` is the pymdownx / Material *insert* extension -- it marks an
+        insertion, not presentational underline, and only MarkdownPlus supports
+        it natively. Other flavors fall back per ``insert_mode``; genuine
+        underline is governed by ``underline_mode`` and never uses ``^^`` unless
+        asked to. (The method keeps its historical name, from when the two were
+        the same node.)
 
         Returns
         -------
         bool
-            True if ``^^text^^`` underline syntax is supported
+            True if ``^^text^^`` syntax is supported
 
         """
         return False
@@ -989,7 +992,7 @@ class MarkdownPlusFlavor(MarkdownFlavor):
         return True
 
     def supports_underline(self) -> bool:
-        """MarkdownPlus supports ``^^text^^`` underline syntax.
+        """MarkdownPlus supports ``^^text^^`` insert syntax.
 
         Returns
         -------
