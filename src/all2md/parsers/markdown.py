@@ -12,6 +12,7 @@ markdown into the same AST structure used for other formats.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import sys
 from pathlib import Path
@@ -67,6 +68,8 @@ from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import sanitize_language_identifier
+
+logger = logging.getLogger(__name__)
 
 # Material for MkDocs / python-markdown admonition header:
 #   !!! type "Optional Title"      (standard)
@@ -177,6 +180,131 @@ def _plugin_admonition(md: Any) -> None:
     md.block.register("admonition", _ADMONITION_HEADER.pattern, _parse_admonition_block, before="fenced_code")
 
 
+def _process_row_lenient(text: str, aligns: list[Optional[str]]) -> dict[str, Any]:
+    """Build a table row token, reconciling the cell count with the header.
+
+    mistune's own ``_process_row`` rejects any body row whose cell count differs
+    from the header's, which makes the enclosing ``parse_table`` discard the
+    whole table and re-emit it as a literal paragraph. GFM instead pads short
+    rows with empty cells and ignores cells past the header width, so a single
+    mistyped row no longer costs the entire table.
+
+    Parameters
+    ----------
+    text : str
+        Row text with the outer pipes already stripped.
+    aligns : list of (str or None)
+        Per-column alignments from the delimiter row; its length is the table width.
+
+    Returns
+    -------
+    dict
+        A ``table_row`` token with exactly ``len(aligns)`` cells.
+
+    """
+    from mistune.plugins.table import _split_table_cells
+
+    cells = _split_table_cells(text)
+    width = len(aligns)
+    if len(cells) < width:
+        cells = cells + [""] * (width - len(cells))
+    elif len(cells) > width:
+        logger.debug(
+            "Table row has %d cells but the header declares %d; dropping the excess per GFM",
+            len(cells),
+            width,
+        )
+        cells = cells[:width]
+
+    children: list[dict[str, Any]] = [
+        {"type": "table_cell", "text": cell.strip(), "attrs": {"align": aligns[i], "head": False}}
+        for i, cell in enumerate(cells)
+    ]
+    return {"type": "table_row", "children": children}
+
+
+def _parse_table_lenient(block: Any, m: re.Match[str], state: Any) -> Optional[int]:
+    """Parse a pipe table, tolerating body rows whose cell count differs from the header."""
+    from mistune.plugins.table import (
+        _parse_invalid_pipe_table,
+        _process_thead,
+        _strip_pipe_table_row,
+    )
+
+    pos = m.end()
+    header = _strip_pipe_table_row(m.group(0))
+    if header is None:
+        return None
+
+    align_line = state.get_line(pos)
+    align = _strip_pipe_table_row(align_line)
+    if align is None:
+        return None
+
+    thead, aligns = _process_thead(header, align)
+    if not thead or aligns is None:
+        # A header/delimiter width mismatch still means this was never a table.
+        return _parse_invalid_pipe_table(state, pos + len(align_line))
+    pos += len(align_line)
+
+    rows = []
+    while pos < state.cursor_max:
+        line = state.get_line(pos)
+        text = _strip_pipe_table_row(line)
+        if text is None:
+            break
+        rows.append(_process_row_lenient(text, aligns))
+        pos += len(line)
+
+    state.append_token({"type": "table", "children": [thead, {"type": "table_body", "children": rows}]})
+    return pos
+
+
+def _parse_nptable_lenient(block: Any, m: re.Match[str], state: Any) -> Optional[int]:
+    """Parse a pipe-less table, tolerating body rows whose cell count differs from the header."""
+    from mistune.plugins.table import _process_thead, _strip_table_line
+
+    pos = m.end()
+    header = _strip_table_line(m.group(0))
+    if header is None:
+        return None
+
+    align_line = state.get_line(pos)
+    align = _strip_table_line(align_line)
+    if align is None:
+        return None
+
+    thead, aligns = _process_thead(header, align)
+    if not thead or aligns is None:
+        return None
+    pos += len(align_line)
+
+    rows = []
+    while pos < state.cursor_max:
+        line = state.get_line(pos)
+        text = _strip_table_line(line)
+        if text is None:
+            break
+        rows.append(_process_row_lenient(text, aligns))
+        pos += len(line)
+
+    state.append_token({"type": "table", "children": [thead, {"type": "table_body", "children": rows}]})
+    return pos
+
+
+def _plugin_table(md: Any) -> None:
+    """Register GFM tables, replacing mistune's stricter ragged-row handling.
+
+    Registered under mistune's own ``table``/``nptable`` rule names so that
+    ``table_in_list`` and ``table_in_quote`` — which extend those rules by name
+    into list items and blockquotes — pick up this implementation too.
+    """
+    from mistune.plugins.table import NP_TABLE_PATTERN, TABLE_PATTERN
+
+    md.block.register("table", TABLE_PATTERN, _parse_table_lenient, before="paragraph")
+    md.block.register("nptable", NP_TABLE_PATTERN, _parse_nptable_lenient, before="paragraph")
+
+
 class MarkdownToAstConverter(BaseParser):
     r"""Convert Markdown to AST representation.
 
@@ -259,15 +387,17 @@ class MarkdownToAstConverter(BaseParser):
         if self.options.parse_strikethrough:
             plugins.append("strikethrough")
         if self.options.parse_tables:
-            # The base "table" plugin only recognizes tables at the document
-            # root. table_in_list/table_in_quote extend the table block rule into
-            # list items and blockquotes so GFM tables nested there (e.g. a table
-            # inside a numbered list item) are parsed as tables rather than
-            # falling back to literal paragraph text. These ship with mistune but
-            # are not registered under string names, so import the callables.
+            # _plugin_table replaces mistune's builtin "table" plugin with a
+            # GFM-compliant one that pads/truncates ragged body rows instead of
+            # discarding the whole table. table_in_list/table_in_quote then
+            # extend that rule into list items and blockquotes so GFM tables
+            # nested there (e.g. a table inside a numbered list item) are parsed
+            # as tables rather than falling back to literal paragraph text.
+            # These ship with mistune but are not registered under string names,
+            # so import the callables.
             from mistune.plugins.table import table_in_list, table_in_quote
 
-            plugins.extend(["table", table_in_list, table_in_quote])
+            plugins.extend([_plugin_table, table_in_list, table_in_quote])
         if self.options.parse_footnotes:
             plugins.append("footnotes")
         if self.options.parse_task_lists:

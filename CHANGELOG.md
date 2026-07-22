@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Markdown tables with ragged rows no longer vanish.** mistune rejects any body
+  row whose cell count differs from the header's, and then discards the *entire*
+  table and re-emits it as a literal paragraph — so one row with a missing or extra
+  `|` silently cost the whole table on the way to DOCX, PDF, ODT and every other
+  format. The table rule is now GFM-compliant: short rows are padded with empty
+  cells and cells past the header width are dropped, matching how GitHub renders
+  the same source. Applies to tables nested in list items and blockquotes too.
+  A header/delimiter width mismatch still correctly means "not a table."
+
 - **Binary renderers: soft line breaks render as spaces, not hard breaks.** The
   DOCX, PDF, PPTX, ODT, ODP, RTF and CSV renderers rendered soft breaks (plain
   newlines inside a Markdown paragraph) as hard line breaks, so any hard-wrapped

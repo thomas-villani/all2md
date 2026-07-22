@@ -440,8 +440,9 @@ Bob & 25 & LA
 
     def test_tabular_strips_hline_from_cell_text(self) -> None:
         """\\hline / \\cline must not leak into markdown cell text."""
-        from all2md import to_markdown
         from io import StringIO
+
+        from all2md import to_markdown
 
         latex = r"\begin{tabular}{cc} a & b \\ \hline c & d \end{tabular}"
         md = to_markdown(StringIO(latex), source_format="latex")
