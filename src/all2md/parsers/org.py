@@ -562,6 +562,7 @@ class OrgParser(BaseParser):
         if manually_extracted_todo and todo_state:
             heading_text = heading_text[len(todo_state) :].lstrip()
         # Empty title + TODO: put keyword in content so markdown keeps the state
+        content: list[Node]
         if not heading_text and todo_state:
             content = [Text(content=todo_state)]
         else:
