@@ -95,6 +95,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nodes, so they round-trip losslessly. Tags carrying attributes, and unmatched or
   stray tags, are still passed through untouched rather than guessed at. The remaining
   inline tags (`<del>`, `<sup>`, `<sub>`, `<mark>`) still self-escape (#113).
+- **JSON renderer: duplicate table column names keep their values.** Header text was
+  mapped straight to dict keys, so a table with two `tag` columns kept only the last
+  cell of each row. Repeats are now suffixed (`tag`, `tag_2`). Thanks
+  [@santhreal](https://github.com/santhreal) (#137).
+- **LaTeX parser: section titles are read from the right argument.** pylatexenc gives
+  sectioning macros the argspec `*[{`, and the parser took slot 0 — the `*` marker —
+  as the title. `\section*{Introduction}` produced `# *`, and because slot 0 is empty
+  for unstarred sections too, *every* heading fell through to a regex fallback that
+  lost inline markup (`\section{Hello \textbf{World}}` gave `# Hello \textbf\{World`).
+  Thanks [@santhreal](https://github.com/santhreal) (#138).
+- **LaTeX parser: `\hline` no longer leaks into table cell text.** Rule macros inside
+  `tabular` were converted as ordinary content, so a cell rendered as `\hline c`.
+  Thanks [@santhreal](https://github.com/santhreal) (#143).
+- **LaTeX parser: `itemize`/`enumerate` items keep their text.** Only braced arguments
+  on `\item` were read, but a LaTeX item body is the *sibling* nodes up to the next
+  `\item` — so every bullet was empty and lists vanished from the output entirely.
+  Item bodies are now collected from siblings, nested lists stay nested instead of
+  being flattened away, and the source newline/indent after `\item` is trimmed without
+  disturbing spacing around inline markup. Thanks
+  [@santhreal](https://github.com/santhreal) (#142).
+- **LaTeX parser: `\chapter` maps to a heading.** Only `section` through
+  `subparagraph` were routed to the sectioning handler, so with the default
+  `parse_custom_commands=False` every chapter of a book- or report-class document was
+  dropped. Thanks [@santhreal](https://github.com/santhreal) (#144).
+- **LaTeX parser: `\paragraph{...}` titles are parsed as titles.** Default pylatexenc
+  has no macro spec for `\paragraph`, so the title stayed a sibling group and emitted
+  an empty level-4 heading followed by loose text (`#### \n\nTitle`) — which broke
+  round-trips, since the LaTeX renderer emits `\paragraph{...}` for level-4 headings.
+  Inline markup in those titles now survives too. Thanks
+  [@santhreal](https://github.com/santhreal) (#145).
+- **HTML parser: `<tr>` elements with no cells are skipped.** An empty row became a
+  zero-column header, rendering as invalid GFM (`|  |` over `||`) and corrupting any
+  table that followed it. A row with an empty `<td>` is still preserved. Thanks
+  [@santhreal](https://github.com/santhreal) (#146).
+- **Org parser: keyword-only headlines are no longer dropped.** orgparse reports
+  `* TODO` as an empty heading with `todo='TODO'`, and the parser discarded any
+  headline whose text was empty — losing the headline and reparenting its body. The
+  keyword stays in metadata rather than the title, so `* TODO` round-trips as itself
+  instead of `* TODO TODO`. Thanks [@santhreal](https://github.com/santhreal) (#147).
 
 ### Changed
 
