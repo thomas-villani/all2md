@@ -105,6 +105,7 @@ class TestLatexParser:
         assert headings[0].level == 1
         title = "".join(getattr(node, "content", "") for node in headings[0].content)
         assert title == "Title"
+        assert not any(isinstance(child, Text) and child.content == "Title" for child in doc.children)
         assert MarkdownRenderer().render_to_string(doc).strip() == "# Title"
 
     def test_starred_chapter_keeps_title(self) -> None:
