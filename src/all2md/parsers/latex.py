@@ -849,6 +849,13 @@ class LatexParser(BaseParser):
             # Parse rows into cells
             table_rows = []
             for row_text in rows_raw:
+                # Rule macros are not cell content; strip before splitting on &
+                row_text = re.sub(r"\\hline\b", "", row_text)
+                row_text = re.sub(r"\\cline\{[^}]*\}", "", row_text)
+                row_text = row_text.strip()
+                if not row_text:
+                    continue
+
                 # Split by column delimiter (&)
                 cells_raw = row_text.split("&")
                 cells = []
