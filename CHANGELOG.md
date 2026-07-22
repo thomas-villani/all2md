@@ -86,7 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HTML parser: `<ins>` is no longer silently dropped.** It was listed as an inline
   element but had no handler, so it fell through to the generic unwrapping and lost
   its markup entirely — the counterpart `<del>` has always mapped to `Strikethrough`.
-  It now parses to an `Underline` node with `semantic="insert"` (#113).
+  It now parses to an `Underline` node with `semantic="insert"`. This also recovers
+  Textile's `+inserted+`, which python-textile renders as `<ins>` and which therefore
+  used to arrive as unmarked plain text (#113).
 - **Markdown parser: `<u>` and `<ins>` survive a Markdown round trip.** They came back
   as raw `HTMLInline`, which the default `html_passthrough_mode="escape"` then turned
   into `&lt;u&gt;` on the next render. Both tags are now read back into `Underline`
