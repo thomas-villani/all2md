@@ -553,8 +553,8 @@ class OrgParser(BaseParser):
         if not node.heading and not todo_state and not priority and not tags:
             return None
 
-        # Extract heading level (number of stars)
-        level = node.level
+        # Extract heading level (number of stars). Org allows >6 stars; AST caps at 6.
+        level = min(node.level, 6)
 
         # Parse inline content from heading text
         # If we manually extracted TODO, remove it from the heading text
