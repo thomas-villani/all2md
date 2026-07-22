@@ -1173,7 +1173,8 @@ hr {
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"<u>{content}</u>")
+        tag = "ins" if node.semantic == "insert" else "u"
+        self._output.append(f"<{tag}>{content}</{tag}>")
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.

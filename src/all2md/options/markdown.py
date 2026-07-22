@@ -37,6 +37,7 @@ from all2md.constants import (
     EmphasisSymbol,
     FlavorType,
     HtmlPassthroughMode,
+    InsertMode,
     LinkStyleType,
     MathMode,
     MetadataFormatType,
@@ -190,12 +191,19 @@ class MarkdownRendererOptions(BaseRendererOptions):
         Characters to cycle through for nested bullet lists.
     list_indent_width : int, default 4
         Number of spaces to use for each level of list indentation.
-    underline_mode : {"html", "markdown", "ignore"}, default "markdown"
-        Fallback for flavors that don't natively support underline. Flavors that
-        do (markdown_plus) always emit ``^^text^^``; for the rest:
-        - "markdown": Use ^^text^^ (the pymdownx insert spelling; roundtrips, needs an extension to render)
-        - "html": Use <u>text</u> tags (wider display support, but escaped on roundtrip)
+    underline_mode : {"html", "markdown", "ignore"}, default "html"
+        How to render presentational underline (``Underline`` with
+        ``semantic="underline"``). Markdown has no underline syntax of its own:
+        - "html": Use <u>text</u> tags (roundtrips -- the parser reads <u> back)
+        - "markdown": Use ^^text^^, the pymdownx *insert* spelling (reparses as insert)
         - "ignore": Strip underline formatting
+    insert_mode : {"html", "markdown", "ignore"}, default "markdown"
+        How to render insertions (``Underline`` with ``semantic="insert"``, from
+        ``^^text^^`` or ``<ins>``). Flavors that natively support ``^^text^^``
+        (markdown_plus) always emit it; for the rest:
+        - "markdown": Use ^^text^^ (roundtrips, needs an extension to render)
+        - "html": Use <ins>text</ins> tags (wider support; also roundtrips)
+        - "ignore": Strip insert formatting
     superscript_mode : {"html", "markdown", "ignore"}, default "markdown"
         Fallback for flavors that don't natively support superscript. Flavors
         that do (markdown_plus) always emit ``^text^``; for the rest:
@@ -298,13 +306,25 @@ class MarkdownRendererOptions(BaseRendererOptions):
         },
     )
     underline_mode: UnderlineMode = field(
+        # Default to HTML (``<u>``): Markdown has no underline syntax of its own,
+        # and ``^^text^^`` means *insert* (see insert_mode), not underline. The
+        # Markdown parser reads ``<u>`` back as an Underline node, so this
+        # roundtrips losslessly despite being raw HTML. Set to "markdown" to keep
+        # the pre-1.9 ``^^`` spelling, which conflates underline with insert.
+        default="html",
+        metadata={
+            "help": "How to handle underlined text: html (<u>), markdown (^^text^^), or ignore",
+            "choices": ["html", "markdown", "ignore"],
+            "importance": "advanced",
+        },
+    )
+    insert_mode: InsertMode = field(
         # Default to Markdown (``^^text^^``, the pymdownx "insert" spelling) so
-        # underline roundtrips: the HTML ``<u>`` alternative is escaped by the
-        # default html_passthrough policy on the next Markdown roundtrip. Mirrors
-        # superscript_mode/subscript_mode. Set to "html" for wider display support.
+        # insert roundtrips; the parser reads both ``^^`` and ``<ins>`` back.
+        # Mirrors superscript_mode/subscript_mode.
         default="markdown",
         metadata={
-            "help": "How to handle underlined text: markdown (^^text^^), html (<u>), or ignore",
+            "help": "How to handle inserted text: markdown (^^text^^), html (<ins>), or ignore",
             "choices": ["html", "markdown", "ignore"],
             "importance": "advanced",
         },

@@ -1343,14 +1343,25 @@ class Mark(Node):
 
 @dataclass
 class Underline(Node):
-    """Underline node (non-standard extension).
+    r"""Underline node (non-standard extension).
 
-    Represents underlined text.
+    Represents underlined text, and -- via ``semantic`` -- the closely related
+    "insert" markup that shares the same rendering in most formats.
+
+    The two are distinct in meaning but identical in presentation nearly
+    everywhere, so they share a node: ``semantic="underline"`` is presentational
+    underline (HTML ``<u>``, Word underline, ``\\underline{}``), while
+    ``semantic="insert"`` is an edit-tracking insertion (HTML ``<ins>``, the
+    pymdownx ``^^text^^`` extension). Renderers for formats that cannot express
+    the difference may ignore ``semantic`` and underline both.
 
     Parameters
     ----------
     content : list of Node, default = empty list
         Inline nodes with underline
+    semantic : {"underline", "insert"}, default "underline"
+        Whether this is presentational underline or an insertion. Controls
+        ``<u>`` vs ``<ins>`` in HTML, and ``<u>`` vs ``^^text^^`` in Markdown.
     metadata : dict, default = empty dict
         Underline metadata
     source_location : SourceLocation or None, default = None
@@ -1359,6 +1370,7 @@ class Underline(Node):
     """
 
     content: list[Node] = field(default_factory=list)
+    semantic: Literal["underline", "insert"] = "underline"
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
 
