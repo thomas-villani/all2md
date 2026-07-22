@@ -82,6 +82,23 @@ class TestLatexParser:
         assert title == "Introduction"
         assert title != "*"
 
+    def test_paragraph_title_not_split_to_sibling(self) -> None:
+        r"""\paragraph{Title} must be one level-4 heading, not empty #### + Title."""
+        parser = LatexParser()
+        doc = parser.parse(r"\paragraph{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 4
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert not any(isinstance(child, Text) and child.content == "Title" for child in doc.children)
+        assert not any(
+            isinstance(child, Paragraph)
+            and any(isinstance(node, Text) and node.content == "Title" for node in child.content)
+            for child in doc.children
+        )
+
     def test_starred_subsection_with_short_title(self) -> None:
         """\\subsection*[short]{Long} must keep the mandatory long title."""
         parser = LatexParser()

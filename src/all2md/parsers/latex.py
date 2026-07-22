@@ -169,15 +169,27 @@ class LatexParser(BaseParser):
 
         # Try to import pylatexenc
         try:
-            from pylatexenc.latexwalker import LatexWalker
+            from pylatexenc.latexwalker import LatexWalker, get_default_latex_context_db
+            from pylatexenc.macrospec import MacroSpec
         except ImportError as e:
             raise ParsingError(
                 "LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc"
             ) from e
 
+        # Default pylatexenc context omits \paragraph (unlike \section/\subparagraph).
+        latex_context = get_default_latex_context_db()
+        latex_context.add_context_category(
+            "all2md-paragraph-titles",
+            macros=[
+                MacroSpec("paragraph", "*[{"),
+                MacroSpec("subparagraph", "*[{"),
+            ],
+            prepend=True,
+        )
+
         # Parse LaTeX using pylatexenc
         try:
-            walker = LatexWalker(content)
+            walker = LatexWalker(content, latex_context=latex_context)
             nodelist, pos, length = walker.get_latex_nodes()
         except Exception as e:
             if self.options.strict_mode:
