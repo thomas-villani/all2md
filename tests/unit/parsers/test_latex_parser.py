@@ -27,6 +27,7 @@ from all2md.ast import (
 from all2md.options.latex import LatexOptions, LatexRendererOptions
 from all2md.parsers.latex import LatexParser
 from all2md.renderers.latex import LatexRenderer
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 class TestLatexParser:
@@ -81,6 +82,23 @@ class TestLatexParser:
         assert title == "Introduction"
         assert title != "*"
 
+    def test_paragraph_title_not_split_to_sibling(self) -> None:
+        r"""\paragraph{Title} must be one level-4 heading, not empty #### + Title."""
+        parser = LatexParser()
+        doc = parser.parse(r"\paragraph{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 4
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert not any(isinstance(child, Text) and child.content == "Title" for child in doc.children)
+        assert not any(
+            isinstance(child, Paragraph)
+            and any(isinstance(node, Text) and node.content == "Title" for node in child.content)
+            for child in doc.children
+        )
+
     def test_starred_subsection_with_short_title(self) -> None:
         """\\subsection*[short]{Long} must keep the mandatory long title."""
         parser = LatexParser()
@@ -93,6 +111,32 @@ class TestLatexParser:
         assert title == "Long Title"
         assert "short" not in title
         assert "*" not in title
+
+    def test_chapter_heading(self) -> None:
+        """\\chapter{Title} must become a level-1 heading (book/report class)."""
+        parser = LatexParser()
+        doc = parser.parse(r"\chapter{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 1
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert not any(isinstance(child, Text) and child.content == "Title" for child in doc.children)
+        assert MarkdownRenderer().render_to_string(doc).strip() == "# Title"
+
+    def test_starred_chapter_keeps_title(self) -> None:
+        """\\chapter*{Title} must keep the title, not the '*' marker."""
+        parser = LatexParser()
+        doc = parser.parse(r"\chapter*{Title}")
+
+        headings = [child for child in doc.children if isinstance(child, Heading)]
+        assert len(headings) == 1
+        assert headings[0].level == 1
+        title = "".join(getattr(node, "content", "") for node in headings[0].content)
+        assert title == "Title"
+        assert title != "*"
+        assert MarkdownRenderer().render_to_string(doc).strip() == "# Title"
 
     def test_textbf_bold(self) -> None:
         """Test parsing bold text."""
@@ -223,6 +267,60 @@ class TestLatexParser:
         lists = [child for child in doc.children if isinstance(child, List)]
         assert len(lists) >= 1
         assert lists[0].ordered is True
+
+    def test_itemize_enumerate_item_sibling_text(self) -> None:
+        """Item body after \\item is sibling nodes, not braced args."""
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        latex = r"""
+\begin{itemize}
+\item First point
+\item Second point
+\end{itemize}
+
+\begin{enumerate}
+\item \textbf{Bold} text support
+\item Second
+\end{enumerate}
+"""
+        doc = LatexParser().parse(latex)
+        lists = [child for child in doc.children if isinstance(child, List)]
+        assert len(lists) == 2
+        assert len(lists[0].items) == 2
+        assert len(lists[1].items) == 2
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert "First point" in md
+        assert "Second point" in md
+        assert "**Bold**" in md
+        assert "text support" in md
+
+    def test_itemize_keeps_nested_enumerate(self) -> None:
+        r"""Nested enumerate after an \\item must remain a nested list, not flat text."""
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        latex = r"""
+\begin{itemize}
+\item Outer
+\begin{enumerate}
+\item Nested one
+\item Nested two
+\end{enumerate}
+\end{itemize}
+"""
+        doc = LatexParser().parse(latex)
+        lists = [child for child in doc.children if isinstance(child, List)]
+        assert len(lists) == 1
+        assert len(lists[0].items) == 1
+        nested = [c for c in lists[0].items[0].children if isinstance(c, List)]
+        assert len(nested) == 1
+        assert nested[0].ordered is True
+        assert len(nested[0].items) == 2
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert "Outer" in md
+        assert "Nested one" in md
+        assert "Nested two" in md
 
     def test_quote_environment(self) -> None:
         """Test parsing quote environment."""
