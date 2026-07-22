@@ -176,14 +176,11 @@ class LatexParser(BaseParser):
                 "LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc"
             ) from e
 
-        # Default pylatexenc context omits \paragraph (unlike \section/\subparagraph).
+        # Default pylatexenc context omits \paragraph (section/subparagraph are present).
         latex_context = get_default_latex_context_db()
         latex_context.add_context_category(
             "all2md-paragraph-titles",
-            macros=[
-                MacroSpec("paragraph", "*[{"),
-                MacroSpec("subparagraph", "*[{"),
-            ],
+            macros=[MacroSpec("paragraph", "*[{")],
             prepend=True,
         )
 
