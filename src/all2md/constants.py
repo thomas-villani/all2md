@@ -25,6 +25,7 @@ from typing import Literal
 # Markdown formatting types
 EmphasisSymbol = Literal["*", "_"]
 UnderlineMode = Literal["html", "markdown", "ignore"]
+InsertMode = Literal["html", "markdown", "ignore"]
 SuperscriptMode = Literal["html", "markdown", "ignore"]
 SubscriptMode = Literal["html", "markdown", "ignore"]
 MathMode = Literal["latex", "mathml", "html"]

@@ -204,6 +204,14 @@ class MarkdownToAstConverter(BaseParser):
 
     """
 
+    # Bare inline tags folded back into Underline nodes, mapped to the semantic
+    # they carry. Only these two: the other inline formatting tags (<del>, <sup>,
+    # <sub>, <mark>) have the same escaping problem but are tracked separately.
+    _FOLDABLE_INLINE_TAGS: dict[str, Literal["underline", "insert"]] = {"u": "underline", "ins": "insert"}
+    # Matches only attribute-free tags -- one with attributes carries information
+    # the Underline node cannot hold, so it stays raw HTML.
+    _FOLDABLE_TAG_RE = re.compile(r"^<\s*(/)?\s*(u|ins)\s*>$", re.IGNORECASE)
+
     def __init__(
         self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
     ):
@@ -1013,7 +1021,91 @@ class MarkdownToAstConverter(BaseParser):
                 else:
                     nodes.append(node)
 
-        return nodes
+        return self._fold_underline_html(nodes)
+
+    def _fold_underline_html(self, nodes: list[Node]) -> list[Node]:
+        """Fold ``<u>``/``<ins>`` HTMLInline pairs back into Underline nodes.
+
+        mistune hands raw inline HTML straight through, so ``a <u>x</u> b``
+        would otherwise survive as loose HTMLInline nodes around the text and be
+        escaped to ``&lt;u&gt;`` by the default ``html_passthrough_mode`` on the
+        next render -- the self-escaping failure #107 fixed for ``^^``. Reading
+        the tags back as real nodes keeps both spellings lossless and recovers
+        the underline/insert distinction that ``<u>`` vs ``<ins>`` encodes.
+
+        Unmatched tags and tags carrying attributes are left as raw HTMLInline
+        rather than guessed at, so nothing is silently dropped.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Inline nodes, possibly containing tag-like HTMLInline nodes
+
+        Returns
+        -------
+        list of Node
+            Nodes with balanced ``<u>``/``<ins>`` spans folded into Underline
+
+        """
+        result: list[Node] = []
+        # Each entry is (tag name, start index in result, the raw open-tag node).
+        open_tags: list[tuple[str, int, Node]] = []
+
+        for node in nodes:
+            parsed = self._parse_foldable_tag(node)
+            if parsed is None:
+                result.append(node)
+                continue
+
+            name, is_closing = parsed
+            if not is_closing:
+                open_tags.append((name, len(result), node))
+                continue
+
+            match = next((i for i in range(len(open_tags) - 1, -1, -1) if open_tags[i][0] == name), None)
+            if match is None:
+                # Stray close tag with no opener; keep it verbatim.
+                result.append(node)
+                continue
+
+            # Anything still open *inside* this span never closed -- restore
+            # those raw tags (deepest first, so earlier indices stay valid)
+            # instead of swallowing them into the folded content.
+            for _, start, raw in reversed(open_tags[match + 1 :]):
+                result.insert(start, raw)
+            del open_tags[match + 1 :]
+
+            _, start, _ = open_tags.pop()
+            content = result[start:]
+            del result[start:]
+            result.append(Underline(content=content, semantic=self._FOLDABLE_INLINE_TAGS[name]))
+
+        # Openers that never closed: put their raw tags back where they were.
+        for _, start, raw in reversed(open_tags):
+            result.insert(start, raw)
+
+        return result
+
+    def _parse_foldable_tag(self, node: Node) -> tuple[str, bool] | None:
+        """Identify a bare ``<u>``/``<ins>`` open or close tag node.
+
+        Parameters
+        ----------
+        node : Node
+            Candidate inline node
+
+        Returns
+        -------
+        tuple of (str, bool), or None
+            ``(tag name, is_closing)``, or None if not a foldable bare tag
+
+        """
+        if not isinstance(node, HTMLInline):
+            return None
+        match = self._FOLDABLE_TAG_RE.match(node.content.strip())
+        if match is None:
+            return None
+        return match.group(2).lower(), bool(match.group(1))
 
     def _handle_text_token(self, token: dict[str, Any]) -> Text:
         """Handle text token."""
@@ -1094,10 +1186,15 @@ class MarkdownToAstConverter(BaseParser):
         return Mark(content=content)
 
     def _handle_insert_token(self, token: dict[str, Any]) -> Underline:
-        """Handle insert token (^^underline^^), represented as Underline."""
+        """Handle insert token (``^^text^^``), an Underline with insert semantics.
+
+        ``^^`` is pymdownx's *insert* spelling, not underline, so it is tagged
+        as such: that keeps it distinct from a genuine ``<u>`` and lets the
+        renderers emit ``<ins>``/``^^`` rather than ``<u>``.
+        """
         children = token.get("children", [])
         content = self._process_inline_tokens(children)
-        return Underline(content=content)
+        return Underline(content=content, semantic="insert")
 
     def _handle_superscript_token(self, token: dict[str, Any]) -> Superscript:
         """Handle superscript token (^text^)."""

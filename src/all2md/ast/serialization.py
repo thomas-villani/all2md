@@ -171,6 +171,30 @@ def _serialize_inline_content_node(node: Node, node_type: str) -> dict[str, Any]
     return result
 
 
+def _serialize_underline(node: Node) -> dict[str, Any]:
+    """Serialize an Underline node, including its ``semantic`` discriminator.
+
+    ``semantic`` is only emitted when it differs from the default, so documents
+    with no insert markup serialize identically to before the field existed.
+
+    Parameters
+    ----------
+    node : Node
+        Underline node to serialize
+
+    Returns
+    -------
+    dict
+        Serialized node
+
+    """
+    result = _serialize_inline_content_node(node, "Underline")
+    semantic = getattr(node, "semantic", "underline")
+    if semantic != "underline":
+        result["semantic"] = semantic
+    return result
+
+
 def _serialize_text_content_node(node: Node, node_type: str) -> dict[str, Any]:
     """Serialize nodes with a 'content' attribute containing text.
 
@@ -396,7 +420,7 @@ _SERIALIZATION_DISPATCH: dict[type, Any] = {
     Emphasis: lambda n: _serialize_inline_content_node(n, "Emphasis"),
     Strong: lambda n: _serialize_inline_content_node(n, "Strong"),
     Strikethrough: lambda n: _serialize_inline_content_node(n, "Strikethrough"),
-    Underline: lambda n: _serialize_inline_content_node(n, "Underline"),
+    Underline: _serialize_underline,
     Superscript: lambda n: _serialize_inline_content_node(n, "Superscript"),
     Subscript: lambda n: _serialize_inline_content_node(n, "Subscript"),
     MathInline: lambda n: _serialize_math_node(n, "MathInline"),
@@ -684,8 +708,10 @@ def _deserialize_strikethrough(data: dict[str, Any]) -> Strikethrough:
 
 def _deserialize_underline(data: dict[str, Any]) -> Underline:
     """Deserialize Underline node."""
+    semantic = data.get("semantic", "underline")
     return Underline(
         content=_deserialize_children(data.get("content", [])),
+        semantic="insert" if semantic == "insert" else "underline",
         metadata=data.get("metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
