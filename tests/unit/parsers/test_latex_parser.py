@@ -295,6 +295,33 @@ class TestLatexParser:
         assert "**Bold**" in md
         assert "text support" in md
 
+    def test_itemize_keeps_nested_enumerate(self) -> None:
+        r"""Nested enumerate after an \\item must remain a nested list, not flat text."""
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        latex = r"""
+\begin{itemize}
+\item Outer
+\begin{enumerate}
+\item Nested one
+\item Nested two
+\end{enumerate}
+\end{itemize}
+"""
+        doc = LatexParser().parse(latex)
+        lists = [child for child in doc.children if isinstance(child, List)]
+        assert len(lists) == 1
+        assert len(lists[0].items) == 1
+        nested = [c for c in lists[0].items[0].children if isinstance(c, List)]
+        assert len(nested) == 1
+        assert nested[0].ordered is True
+        assert len(nested[0].items) == 2
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert "Outer" in md
+        assert "Nested one" in md
+        assert "Nested two" in md
+
     def test_quote_environment(self) -> None:
         """Test parsing quote environment."""
         parser = LatexParser()

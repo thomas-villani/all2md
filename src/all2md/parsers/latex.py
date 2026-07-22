@@ -713,10 +713,11 @@ class LatexParser(BaseParser):
         return self._convert_list_environment(node, ordered=True)
 
     def _convert_list_environment(self, node: Any, *, ordered: bool) -> List:
-        """Convert itemize/enumerate by collecting sibling nodes after each ``\\item``.
+        r"""Convert itemize/enumerate by collecting sibling nodes after each ``\item``.
 
-        In real LaTeX, ``\\item`` body text is sibling nodes until the next ``\\item``,
+        In real LaTeX, ``\item`` body text is sibling nodes until the next ``\item``,
         not braced macro arguments. Optional ``[label]`` args are still converted.
+        Nested lists stay as block children of the ``ListItem`` (not flattened to text).
 
         Parameters
         ----------
@@ -731,6 +732,7 @@ class LatexParser(BaseParser):
             List node with converted items
 
         """
+        inline_types = (Text, Strong, Emphasis, Code, Link, Image, MathInline, Underline, Subscript, Superscript)
         items: list[ListItem] = []
         nodelist = getattr(node, "nodelist", None) or []
         i = 0
@@ -769,9 +771,30 @@ class LatexParser(BaseParser):
                 j += 1
 
             if item_nodes:
-                all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                content: list[Node] = item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
-                items.append(ListItem(children=[Paragraph(content=content)]))
+                children: list[Node] = []
+                inline_content: list[Node] = []
+                for n in item_nodes:
+                    if isinstance(n, List):
+                        if inline_content:
+                            children.append(Paragraph(content=inline_content))
+                            inline_content = []
+                        children.append(n)
+                    elif isinstance(n, inline_types):
+                        if isinstance(n, Text):
+                            text = n.content.strip()
+                            if not text:
+                                continue
+                            n = Text(content=text)
+                        inline_content.append(n)
+                    else:
+                        if inline_content:
+                            children.append(Paragraph(content=inline_content))
+                            inline_content = []
+                        children.append(n)
+                if inline_content:
+                    children.append(Paragraph(content=inline_content))
+                if children:
+                    items.append(ListItem(children=children))
 
             i = j
 
