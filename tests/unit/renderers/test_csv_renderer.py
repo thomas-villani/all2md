@@ -16,7 +16,20 @@ Tests cover:
 import pytest
 
 from all2md import convert
-from all2md.ast import Document, Heading, HTMLInline, LineBreak, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast import (
+    Code,
+    Document,
+    Heading,
+    HTMLInline,
+    Image,
+    LineBreak,
+    MathInline,
+    Paragraph,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+)
 from all2md.exceptions import RenderingError
 from all2md.options.csv import CsvRendererOptions
 from all2md.renderers.csv import CsvRenderer
@@ -446,3 +459,41 @@ class TestCellLineBreaks:
         )
         result = CsvRenderer().render_to_string(Document(children=[table]))
         assert result == 'A,B\n"line1\nline2",x\n'
+
+
+@pytest.mark.unit
+class TestCellInlineLeaves:
+    """String-leaf inlines in table cells must survive CSV export."""
+
+    def test_markdown_inline_code_preserved(self) -> None:
+        """Backtick code in a markdown table cell is emitted as CSV text."""
+        source = "| Col |\n| --- |\n| `a,b` |\n"
+        result = convert(source, source_format="markdown", target_format="csv")
+        assert result == 'Col\n"a,b"\n'
+
+    def test_code_node_preserved(self) -> None:
+        """AST Code leaf content is emitted as CSV text."""
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="Col")])]),
+            rows=[TableRow(cells=[TableCell(content=[Code(content="a,b")])])],
+        )
+        result = CsvRenderer().render_to_string(Document(children=[table]))
+        assert result == 'Col\n"a,b"\n'
+
+    def test_image_alt_text_preserved(self) -> None:
+        """Image alt text in a table cell is emitted as CSV text."""
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="Col")])]),
+            rows=[TableRow(cells=[TableCell(content=[Image(url="x.png", alt_text="hello")])])],
+        )
+        result = CsvRenderer().render_to_string(Document(children=[table]))
+        assert result == "Col\nhello\n"
+
+    def test_math_inline_preserved(self) -> None:
+        """MathInline leaf content is emitted as CSV text."""
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="Col")])]),
+            rows=[TableRow(cells=[TableCell(content=[MathInline(content="a^2")])])],
+        )
+        result = CsvRenderer().render_to_string(Document(children=[table]))
+        assert result == "Col\na^2\n"
