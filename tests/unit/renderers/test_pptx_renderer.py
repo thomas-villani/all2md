@@ -1372,7 +1372,7 @@ class TestLineBreakRendering:
         assert len(prs.slides) == 1
 
     def test_soft_line_break(self, tmp_path):
-        """Test soft line break rendering."""
+        """Test soft line break renders as a space, not a newline."""
         from all2md.ast import LineBreak
 
         doc = Document(
@@ -1393,6 +1393,8 @@ class TestLineBreakRendering:
 
         prs = Presentation(str(output_file))
         assert len(prs.slides) == 1
+        all_text = "\n".join(shape.text_frame.text for shape in prs.slides[0].shapes if shape.has_text_frame)
+        assert "Line 1 Line 2" in all_text
 
 
 @pytest.mark.unit

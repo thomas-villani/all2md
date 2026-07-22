@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Binary renderers: soft line breaks render as spaces, not hard breaks.** The
+  DOCX, PDF, PPTX, ODT, ODP, RTF and CSV renderers rendered soft breaks (plain
+  newlines inside a Markdown paragraph) as hard line breaks, so any hard-wrapped
+  Markdown source produced output with a visible line break at every wrap point —
+  214 stray breaks in one real-world memo. Soft breaks now render as a space,
+  matching the text renderers (HTML, LaTeX, RST, …) and CommonMark semantics;
+  hard breaks are unchanged.
+
 - **INI renderer: `DEFAULT` section no longer fails to render.** `configparser`
   reserves `DEFAULT`, so `add_section("DEFAULT")` raises `ValueError` — which meant
   any document whose keys landed in the default section (orphan key/value lists with

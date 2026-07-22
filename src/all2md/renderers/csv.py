@@ -359,7 +359,8 @@ class CsvRenderer(BaseRenderer):
             if isinstance(node, Text):
                 parts.append(node.content)
             elif isinstance(node, LineBreak):
-                parts.append("\n")
+                # Soft breaks are source-wrapping artifacts; render as a space
+                parts.append(" " if node.soft else "\n")
             elif isinstance(node, HTMLInline):
                 raw = node.content.strip().lower().replace(" ", "")
                 if raw in {"<br>", "<br/>"}:
