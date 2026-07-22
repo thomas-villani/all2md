@@ -60,7 +60,7 @@ class LatexParser(BaseParser):
     Supported LaTeX Features
     ------------------------
     Sectioning Commands:
-        - \section, \subsection, \subsubsection
+        - \chapter, \section, \subsection, \subsubsection
         - \paragraph, \subparagraph
 
     Text Formatting:
@@ -344,7 +344,14 @@ class LatexParser(BaseParser):
         macro_name = node.macroname
 
         # Sectioning commands
-        if macro_name in ("section", "subsection", "subsubsection", "paragraph", "subparagraph"):
+        if macro_name in (
+            "chapter",
+            "section",
+            "subsection",
+            "subsubsection",
+            "paragraph",
+            "subparagraph",
+        ):
             return self._convert_section(node)
 
         # Text formatting
@@ -410,6 +417,7 @@ class LatexParser(BaseParser):
         """
         # Map LaTeX sections to heading levels
         level_map = {
+            "chapter": 1,
             "section": 1,
             "subsection": 2,
             "subsubsection": 3,
