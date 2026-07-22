@@ -548,8 +548,8 @@ class OrgParser(BaseParser):
         if not node.heading:
             return None
 
-        # Extract heading level (number of stars)
-        level = node.level
+        # Extract heading level (number of stars). Org allows >6 stars; AST caps at 6.
+        level = min(node.level, 6)
 
         # Extract TODO state
         todo_state, manually_extracted_todo = self._extract_todo_state(node)
