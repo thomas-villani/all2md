@@ -667,8 +667,8 @@ class OrgParser(BaseParser):
                     result.append(def_list)
                     continue
 
-            # Check for lists (lines starting with -, +, *, or numbers)
-            if re.match(r"^[\-\+\*]|\d+[\.\)]", block):
+            # Lists require a space after the marker (+gone+ is strikethrough, not a list)
+            if re.match(r"^([\-\+\*]\s+|\d+[\.\)]\s*)", block):
                 list_node = self._parse_list(block)
                 if list_node:
                     result.append(list_node)

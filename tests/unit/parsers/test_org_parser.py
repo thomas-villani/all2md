@@ -168,6 +168,20 @@ class TestInlineFormatting:
         para = paras[0]
         assert any(isinstance(node, Strikethrough) for node in para.content)
 
+    def test_line_only_strikethrough_not_empty_list(self) -> None:
+        """A line that is only +strikethrough+ must not be treated as an empty list."""
+        parser = OrgParser()
+        doc = parser.parse("+gone+\n")
+
+        assert len(doc.children) == 1
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert len(para.content) == 1
+        assert isinstance(para.content[0], Strikethrough)
+        assert isinstance(para.content[0].content[0], Text)
+        assert para.content[0].content[0].content == "gone"
+        assert not any(isinstance(node, List) for node in doc.children)
+
 
 @pytest.mark.unit
 class TestTodoHeadings:
