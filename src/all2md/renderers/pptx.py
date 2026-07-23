@@ -1369,7 +1369,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     def visit_line_break(self, node: LineBreak) -> None:
         """Render line break."""
         if self._current_paragraph:
-            self._current_paragraph.add_run().text = "\n"
+            # Soft breaks are source-wrapping artifacts; render as a space
+            self._current_paragraph.add_run().text = " " if node.soft else "\n"
 
     def visit_underline(self, node: Underline) -> None:
         """Render underline."""

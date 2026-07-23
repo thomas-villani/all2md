@@ -254,6 +254,11 @@
   
   # Lists
   
+  * First item
+  * Second item with a nested list
+    1. Nested entry one
+    2. Nested entry two
+  
   # Table
   
   | Name | Role | Score |

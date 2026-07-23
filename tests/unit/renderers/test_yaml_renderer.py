@@ -21,6 +21,7 @@ from io import StringIO
 from pathlib import Path
 
 import pytest
+import yaml
 
 from all2md.ast import (
     Document,
@@ -110,6 +111,17 @@ class TestYamlBasicRendering:
         assert "Users:" in result
         assert "name:" in result
         assert "Alice" in result
+
+    def test_render_table_with_duplicate_column_names(self) -> None:
+        """Test rendering preserves values from duplicate table columns."""
+        header = TableRow(cells=[TableCell(content=[Text(content="tag")]), TableCell(content=[Text(content="tag")])])
+        rows = [TableRow(cells=[TableCell(content=[Text(content="red")]), TableCell(content=[Text(content="blue")])])]
+        table = Table(header=header, rows=rows)
+        doc = Document(children=[table])
+
+        data = yaml.safe_load(YamlRenderer().render_to_string(doc))
+
+        assert data["table_1"] == [{"tag": "red", "tag_2": "blue"}]
 
     def test_render_empty_document(self) -> None:
         """Test rendering empty document."""
