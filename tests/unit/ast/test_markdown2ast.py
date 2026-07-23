@@ -358,6 +358,74 @@ class TestTables:
         assert len(tables) == 1
         assert len(tables[0].rows) == 1
 
+    def test_short_row_is_padded_with_empty_cells(self) -> None:
+        """A row with fewer cells than the header is padded, per GFM.
+
+        Regression: mistune rejects any body row whose cell count differs from
+        the header's, and its ``parse_table`` then discards the *entire* table
+        and re-emits it as a literal paragraph. One mistyped row silently cost a
+        whole table on the way to DOCX/PDF/etc.
+        """
+        markdown = """| # | Item | Why | Who |
+|---|---|---|---|
+| 1 | Short row | Alice |
+| 2 | Full row | Because | Bob |
+"""
+        doc = markdown_to_ast(markdown)
+
+        assert len(doc.children) == 1
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert len(table.rows) == 2
+
+        short = table.rows[0]
+        assert len(short.cells) == 4
+        # GFM pads at the end, so the trailing cell is the empty one.
+        assert short.cells[2].content[0].content == "Alice"
+        assert short.cells[3].content == []
+
+    def test_long_row_drops_excess_cells(self) -> None:
+        """A row with more cells than the header is truncated, per GFM."""
+        markdown = """| A | B |
+|---|---|
+| 1 | 2 | 3 |
+"""
+        doc = markdown_to_ast(markdown)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 2
+        assert table.rows[0].cells[1].content[0].content == "2"
+
+    def test_header_delimiter_mismatch_is_not_a_table(self) -> None:
+        """A header/delimiter width mismatch still means it was never a table."""
+        markdown = """| A | B | C |
+|---|---|
+| 1 | 2 |
+"""
+        doc = markdown_to_ast(markdown)
+
+        assert not any(isinstance(child, Table) for child in doc.children)
+
+    def test_short_row_padded_when_nested(self) -> None:
+        """Ragged-row tolerance also applies inside list items and blockquotes.
+
+        ``table_in_list``/``table_in_quote`` extend the table rule *by name*, so
+        this pins that the replacement rule is registered under mistune's own
+        ``table`` name rather than alongside it.
+        """
+        in_list = markdown_to_ast("- item\n\n  | A | B |\n  |---|---|\n  | 1 |\n")
+        item = in_list.children[0].items[0]
+        list_tables = [child for child in item.children if isinstance(child, Table)]
+        assert len(list_tables) == 1
+        assert len(list_tables[0].rows[0].cells) == 2
+
+        in_quote = markdown_to_ast("> | A | B |\n> |---|---|\n> | 1 |\n")
+        quote_tables = [child for child in in_quote.children[0].children if isinstance(child, Table)]
+        assert len(quote_tables) == 1
+        assert len(quote_tables[0].rows[0].cells) == 2
+
 
 class TestMiscellaneous:
     """Test miscellaneous elements."""

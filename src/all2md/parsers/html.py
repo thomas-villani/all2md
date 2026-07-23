@@ -1433,7 +1433,8 @@ class HtmlToAstConverter(BaseParser):
         extra_rows = []
         for tr in thead_rows[1:]:
             cells, _ = self._process_table_row_cells(tr)
-            extra_rows.append(TableRow(cells=cells))
+            if cells:
+                extra_rows.append(TableRow(cells=cells))
 
         return header, extra_rows, alignments
 
@@ -1454,10 +1455,12 @@ class HtmlToAstConverter(BaseParser):
             has_th = bool(tr.find("th"))
             if has_th and not has_header and not header:
                 cells, alignments = self._process_table_row_cells(tr, collect_alignments=True)
-                header = TableRow(cells=cells, is_header=True)
+                if cells:
+                    header = TableRow(cells=cells, is_header=True)
             else:
                 cells, _ = self._process_table_row_cells(tr)
-                rows.append(TableRow(cells=cells))
+                if cells:
+                    rows.append(TableRow(cells=cells))
 
         return header, rows, alignments
 
@@ -1469,7 +1472,8 @@ class HtmlToAstConverter(BaseParser):
         rows = []
         for tr in tfoot.find_all("tr", recursive=False):
             cells, _ = self._process_table_row_cells(tr)
-            rows.append(TableRow(cells=cells))
+            if cells:
+                rows.append(TableRow(cells=cells))
         return rows
 
     def _process_table_to_ast(self, node: Any) -> Table:

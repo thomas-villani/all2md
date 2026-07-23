@@ -24,12 +24,15 @@ from pathlib import Path
 from typing import IO, Union
 
 from all2md.ast.nodes import (
+    Code,
     Comment,
     CommentInline,
     Document,
     Heading,
     HTMLInline,
+    Image,
     LineBreak,
+    MathInline,
     Node,
     Table,
     TableRow,
@@ -358,8 +361,16 @@ class CsvRenderer(BaseRenderer):
         for node in nodes:
             if isinstance(node, Text):
                 parts.append(node.content)
+            elif isinstance(node, Code):
+                parts.append(node.content)
+            elif isinstance(node, MathInline):
+                parts.append(node.content)
+            elif isinstance(node, Image):
+                if node.alt_text:
+                    parts.append(node.alt_text)
             elif isinstance(node, LineBreak):
-                parts.append("\n")
+                # Soft breaks are source-wrapping artifacts; render as a space
+                parts.append(" " if node.soft else "\n")
             elif isinstance(node, HTMLInline):
                 raw = node.content.strip().lower().replace(" ", "")
                 if raw in {"<br>", "<br/>"}:

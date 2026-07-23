@@ -79,6 +79,19 @@ class TestBasicParsing:
         assert headings[1].level == 2
         assert headings[2].level == 3
 
+    def test_heading_levels_above_six_are_clamped(self) -> None:
+        """Org allows more than six stars; clamp to the AST max of 6."""
+        org = "******* Deep\n******** Deeper\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        headings = [node for node in doc.children if isinstance(node, Heading)]
+        assert len(headings) == 2
+        assert headings[0].level == 6
+        assert headings[0].content[0].content == "Deep"
+        assert headings[1].level == 6
+        assert headings[1].content[0].content == "Deeper"
+
     def test_simple_paragraph(self) -> None:
         """Test parsing a simple paragraph."""
         org = "This is a simple paragraph."
@@ -169,6 +182,36 @@ class TestTodoHeadings:
         heading = doc.children[0]
         assert isinstance(heading, Heading)
         assert heading.metadata.get("org_todo_state") == "TODO"
+        assert isinstance(heading.content[0], Text)
+        assert heading.content[0].content == "Write documentation"
+
+    def test_todo_only_headline(self) -> None:
+        """TODO-only headlines (no title text) must not be dropped."""
+        org = "* TODO\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.metadata.get("org_todo_state") == "TODO"
+        assert isinstance(heading.content[0], Text)
+        assert heading.content[0].content == "TODO"
+
+    def test_todo_only_headline_with_body(self) -> None:
+        """TODO-only headline with body keeps TODO state and body text."""
+        org = "* TODO\nbody\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        headings = [n for n in doc.children if isinstance(n, Heading)]
+        assert len(headings) == 1
+        assert headings[0].metadata.get("org_todo_state") == "TODO"
+        assert isinstance(headings[0].content[0], Text)
+        assert headings[0].content[0].content == "TODO"
+        paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
+        assert len(paragraphs) == 1
+        assert isinstance(paragraphs[0].content[0], Text)
+        assert paragraphs[0].content[0].content == "body"
 
     def test_done_heading(self) -> None:
         """Test parsing a DONE heading."""

@@ -120,6 +120,18 @@ class TestHtmlTableParsing:
         assert "| Value |  | Another Value |" in markdown
         assert "|  | Middle |  |" in markdown
 
+    def test_empty_tr_without_cells_omits_malformed_table(self):
+        """Rows with no td/th must not become a 0-column GFM table."""
+        from all2md import convert
+
+        empty_row = convert("<table><tr></tr></table>", source_format="html", target_format="markdown")
+        assert empty_row.strip() == ""
+        assert "|" not in empty_row
+        assert_markdown_valid(empty_row)
+
+        empty_td = convert("<table><tr><td></td></tr></table>", source_format="html", target_format="markdown")
+        assert empty_td == "|  |\n|---|"
+
     def test_table_cell_whitespace_normalization(self):
         """Test normalization of whitespace in table cells."""
         html = """

@@ -102,3 +102,86 @@ def test_fb2_can_exclude_notes(sample_fb2_path: Path) -> None:
     ]
     assert not notes_heading
     assert not any(isinstance(node, ThematicBreak) for node in document.children)
+
+
+def test_fb2_notes_body_without_title_keeps_section_headings() -> None:
+    fb2 = b"""<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <description>
+    <title-info>
+      <book-title>Notes Title Bug</book-title>
+    </title-info>
+  </description>
+  <body>
+    <section>
+      <title><p>Chapter</p></title>
+      <p>Main text.</p>
+    </section>
+  </body>
+  <body name="notes" type="notes">
+    <section id="n1">
+      <title><p>Footnote 1</p></title>
+      <p>Citation text here</p>
+    </section>
+    <section id="n2">
+      <title><p>Footnote 2</p></title>
+      <p>Second note</p>
+    </section>
+  </body>
+</FictionBook>
+"""
+    document = Fb2ToAstConverter().parse(fb2)
+    heading_texts = [extract_text(node, joiner=" ").strip() for node in document.children if isinstance(node, Heading)]
+    assert "Notes" in heading_texts
+    assert "Footnote 1" in heading_texts
+    assert "Footnote 2" in heading_texts
+    notes_index = next(
+        i
+        for i, node in enumerate(document.children)
+        if isinstance(node, Heading) and extract_text(node, joiner=" ").strip() == "Notes"
+    )
+    footnote_one = document.children[notes_index + 1]
+    assert isinstance(footnote_one, Heading)
+    assert extract_text(footnote_one, joiner=" ").strip() == "Footnote 1"
+
+
+def test_fb2_notes_body_with_empty_title_keeps_section_headings() -> None:
+    fb2 = b"""<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <description>
+    <title-info>
+      <book-title>Notes Empty Title Bug</book-title>
+    </title-info>
+  </description>
+  <body>
+    <section>
+      <title><p>Chapter</p></title>
+      <p>Main text.</p>
+    </section>
+  </body>
+  <body name="notes" type="notes">
+    <title><p></p></title>
+    <section id="n1">
+      <title><p>Footnote 1</p></title>
+      <p>Citation text here</p>
+    </section>
+    <section id="n2">
+      <title><p>Footnote 2</p></title>
+      <p>Second note</p>
+    </section>
+  </body>
+</FictionBook>
+"""
+    document = Fb2ToAstConverter().parse(fb2)
+    heading_texts = [extract_text(node, joiner=" ").strip() for node in document.children if isinstance(node, Heading)]
+    assert "Notes" in heading_texts
+    assert "Footnote 1" in heading_texts
+    assert "Footnote 2" in heading_texts
+    notes_index = next(
+        i
+        for i, node in enumerate(document.children)
+        if isinstance(node, Heading) and extract_text(node, joiner=" ").strip() == "Notes"
+    )
+    footnote_one = document.children[notes_index + 1]
+    assert isinstance(footnote_one, Heading)
+    assert extract_text(footnote_one, joiner=" ").strip() == "Footnote 1"
