@@ -561,10 +561,12 @@ class OrgParser(BaseParser):
         heading_text = node.heading
         if manually_extracted_todo and todo_state:
             heading_text = heading_text[len(todo_state) :].lstrip()
-        # Empty title + TODO: put keyword in content so markdown keeps the state
+        # Empty title + TODO/priority: put marker in content so markdown keeps it
         content: list[Node]
         if not heading_text and todo_state:
             content = [Text(content=todo_state)]
+        elif not heading_text and priority:
+            content = [Text(content=f"[#{priority}]")]
         else:
             content = self._parse_inline(heading_text)
 

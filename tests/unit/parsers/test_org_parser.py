@@ -213,6 +213,34 @@ class TestTodoHeadings:
         assert isinstance(paragraphs[0].content[0], Text)
         assert paragraphs[0].content[0].content == "body"
 
+    def test_priority_only_headline(self) -> None:
+        """Priority-only headlines (no title text) must keep [#A] in content."""
+        org = "* [#A]\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.metadata.get("org_priority") == "A"
+        assert isinstance(heading.content[0], Text)
+        assert heading.content[0].content == "[#A]"
+
+    def test_priority_only_headline_with_body(self) -> None:
+        """Priority-only headline with body keeps [#A] and body text."""
+        org = "* [#A]\nbody\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        headings = [n for n in doc.children if isinstance(n, Heading)]
+        assert len(headings) == 1
+        assert headings[0].metadata.get("org_priority") == "A"
+        assert isinstance(headings[0].content[0], Text)
+        assert headings[0].content[0].content == "[#A]"
+        paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
+        assert len(paragraphs) == 1
+        assert isinstance(paragraphs[0].content[0], Text)
+        assert paragraphs[0].content[0].content == "body"
+
     def test_done_heading(self) -> None:
         """Test parsing a DONE heading."""
         org = "* DONE Implement feature"
