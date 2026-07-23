@@ -545,27 +545,28 @@ class OrgParser(BaseParser):
             Heading AST node with metadata for TODO state, priority, and tags
 
         """
-        if not node.heading:
+        # Extract TODO / priority / tags first: orgparse sets heading='' for ``* TODO``.
+        todo_state, manually_extracted_todo = self._extract_todo_state(node)
+        priority = node.priority if hasattr(node, "priority") and node.priority else None
+        tags = list(node.tags) if self.options.parse_tags and hasattr(node, "tags") and node.tags else []
+
+        if not node.heading and not todo_state and not priority and not tags:
             return None
 
         # Extract heading level (number of stars)
         level = node.level
-
-        # Extract TODO state
-        todo_state, manually_extracted_todo = self._extract_todo_state(node)
-
-        # Extract priority
-        priority = node.priority if hasattr(node, "priority") and node.priority else None
-
-        # Extract tags (controlled by parse_tags option)
-        tags = list(node.tags) if self.options.parse_tags and hasattr(node, "tags") and node.tags else []
 
         # Parse inline content from heading text
         # If we manually extracted TODO, remove it from the heading text
         heading_text = node.heading
         if manually_extracted_todo and todo_state:
             heading_text = heading_text[len(todo_state) :].lstrip()
-        content = self._parse_inline(heading_text)
+        # Empty title + TODO: put keyword in content so markdown keeps the state
+        content: list[Node]
+        if not heading_text and todo_state:
+            content = [Text(content=todo_state)]
+        else:
+            content = self._parse_inline(heading_text)
 
         # Build metadata
         heading_metadata: dict[str, Any] = {}

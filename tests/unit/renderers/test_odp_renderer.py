@@ -1263,6 +1263,32 @@ class TestAdditionalFormattingNodes:
 
         assert output_file.exists()
 
+    def test_render_soft_line_break(self, tmp_path):
+        """Test soft line break renders as a space, not a line-break element."""
+        import zipfile
+
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Line one"),
+                        LineBreak(soft=True),
+                        Text(content="Line two"),
+                    ]
+                ),
+            ]
+        )
+        renderer = OdpRenderer()
+        output_file = tmp_path / "soft_line_break.odp"
+        renderer.render(doc, output_file)
+
+        with zipfile.ZipFile(output_file) as zf:
+            content = zf.read("content.xml").decode("utf-8")
+        assert "Line one Line two" in content
+        assert "line-break" not in content
+
     def test_render_thematic_break(self, tmp_path):
         """Test rendering thematic break in content."""
         doc = Document(
