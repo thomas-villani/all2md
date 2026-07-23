@@ -46,3 +46,41 @@ class TestMediaWikiParserTables:
         table = doc.children[0]
         assert isinstance(table, Table)
         assert table.caption == "Cap with | pipe"
+
+
+class TestMediaWikiParserLists:
+    """Tests for MediaWiki list parsing."""
+
+    def test_keep_empty_unordered_list_item(self) -> None:
+        """Bare '*' lines must keep an empty list item, not drop it."""
+        parser = MediaWikiParser()
+        doc = parser.parse("* \n* b\n")
+
+        assert len(doc.children) == 1
+        lst = doc.children[0]
+        from all2md.ast import List, ListItem, Paragraph, Text
+
+        assert isinstance(lst, List)
+        assert lst.ordered is False
+        assert len(lst.items) == 2
+        assert isinstance(lst.items[0], ListItem)
+        assert isinstance(lst.items[0].children[0], Paragraph)
+        assert lst.items[0].children[0].content == []
+        assert isinstance(lst.items[1].children[0].content[0], Text)
+        assert lst.items[1].children[0].content[0].content == "b"
+
+    def test_keep_empty_ordered_list_item(self) -> None:
+        """Bare '#' lines must keep an empty ordered list item."""
+        parser = MediaWikiParser()
+        doc = parser.parse("# \n# b\n")
+
+        from all2md.ast import List, Text
+
+        assert len(doc.children) == 1
+        lst = doc.children[0]
+        assert isinstance(lst, List)
+        assert lst.ordered is True
+        assert len(lst.items) == 2
+        assert lst.items[0].children[0].content == []
+        assert isinstance(lst.items[1].children[0].content[0], Text)
+        assert lst.items[1].children[0].content[0].content == "b"
