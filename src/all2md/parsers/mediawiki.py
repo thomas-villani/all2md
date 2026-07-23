@@ -827,7 +827,7 @@ class MediaWikiParser(BaseParser):
                 continue
 
             elif line.startswith("|+"):
-                caption_text = line[2:].strip()
+                caption_text = self._strip_cell_attributes(line[2:])
                 if caption_text:
                     caption = caption_text
                 continue

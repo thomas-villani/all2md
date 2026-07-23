@@ -79,6 +79,19 @@ class TestBasicParsing:
         assert headings[1].level == 2
         assert headings[2].level == 3
 
+    def test_heading_levels_above_six_are_clamped(self) -> None:
+        """Org allows more than six stars; clamp to the AST max of 6."""
+        org = "******* Deep\n******** Deeper\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        headings = [node for node in doc.children if isinstance(node, Heading)]
+        assert len(headings) == 2
+        assert headings[0].level == 6
+        assert headings[0].content[0].content == "Deep"
+        assert headings[1].level == 6
+        assert headings[1].content[0].content == "Deeper"
+
     def test_simple_paragraph(self) -> None:
         """Test parsing a simple paragraph."""
         org = "This is a simple paragraph."

@@ -101,8 +101,16 @@ class Fb2ToAstConverter(BaseParser):
             body_nodes = self._process_body(body, heading_level=1)
             if self._is_notes_body(body):
                 if self.options.include_notes:
-                    # Drop leading heading to avoid duplicate "Notes" headings later
-                    filtered = body_nodes[1:] if body_nodes and isinstance(body_nodes[0], Heading) else body_nodes
+                    # Drop body-level title only when it emitted a Heading.
+                    body_title = self._find_child(body, "title")
+                    emitted_body_title = bool(
+                        body_title is not None and self._title_to_heading(body_title, heading_level=1)
+                    )
+                    filtered = (
+                        body_nodes[1:]
+                        if emitted_body_title and body_nodes and isinstance(body_nodes[0], Heading)
+                        else body_nodes
+                    )
                     note_children.extend(filtered)
             else:
                 children.extend(body_nodes)
@@ -326,7 +334,7 @@ class Fb2ToAstConverter(BaseParser):
                 nodes.append(Paragraph(content=[]))
             elif local == "poem":
                 nodes.extend(self._process_poem(child))
-            elif local == "epigraph":
+            elif local in {"epigraph", "cite"}:
                 nodes.extend(self._process_epigraph(child))
             else:
                 fallback = self._build_paragraph(child)
@@ -350,7 +358,7 @@ class Fb2ToAstConverter(BaseParser):
                 continue
             if local == "section":
                 nodes.extend(self._process_section(child, min(heading_level + 1, 6)))
-            elif local in {"p", "subtitle", "text-author", "cite"}:
+            elif local in {"p", "subtitle", "text-author"}:
                 paragraph = self._build_paragraph(child)
                 if paragraph:
                     if local == "subtitle":
@@ -359,7 +367,8 @@ class Fb2ToAstConverter(BaseParser):
                         nodes.append(paragraph)
             elif local == "poem":
                 nodes.extend(self._process_poem(child))
-            elif local == "epigraph":
+            elif local in {"epigraph", "cite"}:
+                # cite shares epigraph shape: block children, not flattened inline text
                 nodes.extend(self._process_epigraph(child))
             elif local == "image":
                 image_node = self._process_image(child, inline=False)

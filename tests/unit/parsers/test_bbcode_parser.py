@@ -496,3 +496,31 @@ This is a [b]quoted[/b] text.
         # Should create at least one paragraph
         assert len(doc.children) >= 1
         assert any(isinstance(child, Paragraph) for child in doc.children)
+
+    def test_keep_empty_list_item(self) -> None:
+        """Empty [*] markers must keep list items, not drop them."""
+        parser = BBCodeParser()
+        doc = parser.parse("[list][*]a[*][*]c[/list]")
+
+        lists = [c for c in doc.children if isinstance(c, List)]
+        assert len(lists) == 1
+        lst = lists[0]
+        assert lst.ordered is False
+        assert len(lst.items) == 3
+        assert isinstance(lst.items[0].children[0].content[0], Text)
+        assert lst.items[0].children[0].content[0].content == "a"
+        assert lst.items[1].children[0].content == []
+        assert isinstance(lst.items[2].children[0].content[0], Text)
+        assert lst.items[2].children[0].content[0].content == "c"
+
+    def test_keep_empty_ordered_list_item(self) -> None:
+        """Empty [*] in ordered lists must keep the blank item."""
+        parser = BBCodeParser()
+        doc = parser.parse("[list=1][*]a[*][*]c[/list]")
+
+        lists = [c for c in doc.children if isinstance(c, List)]
+        assert len(lists) == 1
+        lst = lists[0]
+        assert lst.ordered is True
+        assert len(lst.items) == 3
+        assert lst.items[1].children[0].content == []
