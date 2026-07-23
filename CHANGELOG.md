@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **OCR'd PDF pages with links no longer crash conversion.** OCR-synthesized text
+  spans omitted the `bbox` key that every real PyMuPDF span carries. On a page
+  that was OCR'd *and* held a link annotation (common in signed documents), link
+  resolution read `span["bbox"]` and aborted the whole file with
+  `KeyError('bbox')`. OCR spans now carry the page-rect bbox, so link resolution
+  runs normally (and a page-sized span never spuriously matches a small link).
+
 - **Markdown tables with ragged rows no longer vanish.** mistune rejects any body
   row whose cell count differs from the header's, and then discards the *entire*
   table and re-emits it as a literal paragraph — so one row with a missing or extra

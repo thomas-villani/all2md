@@ -1271,7 +1271,16 @@ class PdfToAstConverter(BaseParser):
                     "bbox": page.rect,
                     "lines": [
                         {
-                            "spans": [{"text": ocr_text, "font": "OCR", "size": 11, "flags": 0, "color": 0}],
+                            "spans": [
+                                {
+                                    "text": ocr_text,
+                                    "font": "OCR",
+                                    "size": 11,
+                                    "flags": 0,
+                                    "color": 0,
+                                    "bbox": tuple(page.rect),
+                                }
+                            ],
                             "bbox": page.rect,
                             "dir": (1, 0),  # Horizontal text direction
                         }
@@ -1290,7 +1299,16 @@ class PdfToAstConverter(BaseParser):
                         "bbox": page.rect,
                         "lines": [
                             {
-                                "spans": [{"text": ocr_text, "font": "OCR", "size": 11, "flags": 0, "color": 0}],
+                                "spans": [
+                                    {
+                                        "text": ocr_text,
+                                        "font": "OCR",
+                                        "size": 11,
+                                        "flags": 0,
+                                        "color": 0,
+                                        "bbox": tuple(page.rect),
+                                    }
+                                ],
                                 "bbox": page.rect,
                                 "dir": (1, 0),  # Horizontal text direction
                             }
