@@ -1211,8 +1211,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._add_hyperlink(paragraph, node.url, link_text)
 
             elif isinstance(node, LineBreak):
-                # Both soft and hard breaks become line breaks in DOCX
-                paragraph.add_run().add_break()
+                if node.soft:
+                    # Soft breaks are source-wrapping artifacts; render as a space
+                    paragraph.add_run(" ")
+                else:
+                    paragraph.add_run().add_break()
 
             else:
                 # For other inline nodes, try to process if they have content
@@ -1506,8 +1509,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         """
         if self._current_paragraph:
-            # Both soft and hard breaks become line breaks in DOCX
-            self._current_paragraph.add_run().add_break()
+            if node.soft:
+                # Soft breaks are source-wrapping artifacts; render as a space
+                self._current_paragraph.add_run(" ")
+            else:
+                self._current_paragraph.add_run().add_break()
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.

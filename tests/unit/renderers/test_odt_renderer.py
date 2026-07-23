@@ -531,7 +531,9 @@ class TestLineBreaks:
     """Tests for line break rendering."""
 
     def test_hard_line_break(self, tmp_path):
-        """Test hard line break rendering."""
+        """Test hard line break renders as a text:line-break element."""
+        import zipfile
+
         doc = Document(
             children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=False), Text(content="Line 2")])]
         )
@@ -540,9 +542,14 @@ class TestLineBreaks:
         renderer.render(doc, output_file)
 
         assert output_file.exists()
+        with zipfile.ZipFile(output_file) as zf:
+            content = zf.read("content.xml").decode("utf-8")
+        assert "line-break" in content
 
     def test_soft_line_break(self, tmp_path):
-        """Test soft line break rendering."""
+        """Test soft line break renders as a space, not a line-break element."""
+        import zipfile
+
         doc = Document(
             children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=True), Text(content="Line 2")])]
         )
@@ -551,6 +558,10 @@ class TestLineBreaks:
         renderer.render(doc, output_file)
 
         assert output_file.exists()
+        with zipfile.ZipFile(output_file) as zf:
+            content = zf.read("content.xml").decode("utf-8")
+        assert "Line 1 Line 2" in content
+        assert "line-break" not in content
 
 
 @pytest.mark.unit
