@@ -189,7 +189,7 @@ def test_fb2_notes_body_with_empty_title_keeps_section_headings() -> None:
 
 def test_fb2_cite_becomes_blockquote_like_epigraph() -> None:
     """<cite> with body + text-author must be a BlockQuote, not concatenated text."""
-    from all2md.ast import BlockQuote, Text
+    from all2md.ast import BlockQuote
 
     fb2 = b"""<?xml version="1.0" encoding="utf-8"?>
 <FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
