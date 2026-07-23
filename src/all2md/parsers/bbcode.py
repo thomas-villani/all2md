@@ -762,16 +762,15 @@ class BBCodeParser(BaseParser):
         ordered = list_type == "1"
         items: list[ListItem] = []
 
-        # Split by [*] markers
+        # Split by [*] markers. Leading split before the first [*] is not an item.
         parts = re.split(r"\[\*\]", content)
 
-        for part in parts:
-            part = part.strip()
-            if not part:
+        for index, part in enumerate(parts):
+            if index == 0:
                 continue
-
-            # Parse item content as inline
-            item_inline = self._parse_inline(part)
+            part = part.strip()
+            # Keep empty [*] items so list length matches the BBCode markers
+            item_inline = self._parse_inline(part) if part else []
             items.append(ListItem(children=[Paragraph(content=item_inline)]))
 
         return List(ordered=ordered, items=items)
