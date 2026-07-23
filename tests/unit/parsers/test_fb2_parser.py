@@ -185,3 +185,52 @@ def test_fb2_notes_body_with_empty_title_keeps_section_headings() -> None:
     footnote_one = document.children[notes_index + 1]
     assert isinstance(footnote_one, Heading)
     assert extract_text(footnote_one, joiner=" ").strip() == "Footnote 1"
+
+
+def test_fb2_cite_becomes_blockquote_like_epigraph() -> None:
+    """<cite> with body + text-author must be a BlockQuote, not concatenated text."""
+    from all2md.ast import BlockQuote, Text
+
+    fb2 = b"""<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <body>
+    <section>
+      <cite>
+        <p>quoted</p>
+        <text-author>auth</text-author>
+      </cite>
+    </section>
+  </body>
+</FictionBook>
+"""
+    document = Fb2ToAstConverter().parse(fb2)
+    assert len(document.children) == 1
+    quote = document.children[0]
+    assert isinstance(quote, BlockQuote)
+    assert len(quote.children) == 2
+    assert isinstance(quote.children[0], Paragraph)
+    assert isinstance(quote.children[1], Paragraph)
+    assert extract_text(quote.children[0], joiner=" ").strip() == "quoted"
+    assert extract_text(quote.children[1], joiner=" ").strip() == "auth"
+
+
+def test_fb2_epigraph_still_blockquote() -> None:
+    """Epigraph sibling path remains a BlockQuote with separate paragraphs."""
+    from all2md.ast import BlockQuote
+
+    fb2 = b"""<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <body>
+    <section>
+      <epigraph>
+        <p>epi</p>
+        <text-author>auth</text-author>
+      </epigraph>
+    </section>
+  </body>
+</FictionBook>
+"""
+    document = Fb2ToAstConverter().parse(fb2)
+    assert isinstance(document.children[0], BlockQuote)
+    assert extract_text(document.children[0].children[0], joiner=" ").strip() == "epi"
+    assert extract_text(document.children[0].children[1], joiner=" ").strip() == "auth"
