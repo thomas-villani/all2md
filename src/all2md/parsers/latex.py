@@ -60,7 +60,7 @@ class LatexParser(BaseParser):
     Supported LaTeX Features
     ------------------------
     Sectioning Commands:
-        - \section, \subsection, \subsubsection
+        - \chapter, \section, \subsection, \subsubsection
         - \paragraph, \subparagraph
 
     Text Formatting:
@@ -169,15 +169,24 @@ class LatexParser(BaseParser):
 
         # Try to import pylatexenc
         try:
-            from pylatexenc.latexwalker import LatexWalker
+            from pylatexenc.latexwalker import LatexWalker, get_default_latex_context_db
+            from pylatexenc.macrospec import MacroSpec
         except ImportError as e:
             raise ParsingError(
                 "LaTeX parsing requires the 'pylatexenc' package. Install it with: pip install pylatexenc"
             ) from e
 
+        # Default pylatexenc context omits \paragraph (section/subparagraph are present).
+        latex_context = get_default_latex_context_db()
+        latex_context.add_context_category(
+            "all2md-paragraph-titles",
+            macros=[MacroSpec("paragraph", "*[{")],
+            prepend=True,
+        )
+
         # Parse LaTeX using pylatexenc
         try:
-            walker = LatexWalker(content)
+            walker = LatexWalker(content, latex_context=latex_context)
             nodelist, pos, length = walker.get_latex_nodes()
         except Exception as e:
             if self.options.strict_mode:
@@ -335,7 +344,14 @@ class LatexParser(BaseParser):
         macro_name = node.macroname
 
         # Sectioning commands
-        if macro_name in ("section", "subsection", "subsubsection", "paragraph", "subparagraph"):
+        if macro_name in (
+            "chapter",
+            "section",
+            "subsection",
+            "subsubsection",
+            "paragraph",
+            "subparagraph",
+        ):
             return self._convert_section(node)
 
         # Text formatting
@@ -401,6 +417,7 @@ class LatexParser(BaseParser):
         """
         # Map LaTeX sections to heading levels
         level_map = {
+            "chapter": 1,
             "section": 1,
             "subsection": 2,
             "subsubsection": 3,
@@ -677,33 +694,7 @@ class LatexParser(BaseParser):
             List node
 
         """
-        items = []
-        if hasattr(node, "nodelist"):
-            for child in node.nodelist:
-                if hasattr(child, "macroname") and child.macroname == "item":
-                    item_nodes = []
-                    # Get content after \item
-                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
-                        for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, "nodelist"):
-                                for item_child in arg.nodelist:
-                                    converted = self._convert_node(item_child)
-                                    if converted:
-                                        if isinstance(converted, list):
-                                            item_nodes.extend(converted)
-                                        else:
-                                            item_nodes.append(converted)
-
-                    # Wrap in paragraph if not empty
-                    if item_nodes:
-                        all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                        content: list[Node] = (
-                            item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
-                        )
-                        para = Paragraph(content=content)
-                        items.append(ListItem(children=[para]))
-
-        return List(ordered=False, items=items)
+        return self._convert_list_environment(node, ordered=False)
 
     def _convert_enumerate(self, node: Any) -> List:
         """Convert enumerate environment to ordered List.
@@ -719,33 +710,95 @@ class LatexParser(BaseParser):
             Ordered list node
 
         """
-        items = []
-        if hasattr(node, "nodelist"):
-            for child in node.nodelist:
-                if hasattr(child, "macroname") and child.macroname == "item":
-                    item_nodes = []
-                    # Get content after \item
-                    if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
-                        for arg in child.nodeargd.argnlist:
-                            if arg and hasattr(arg, "nodelist"):
-                                for item_child in arg.nodelist:
-                                    converted = self._convert_node(item_child)
-                                    if converted:
-                                        if isinstance(converted, list):
-                                            item_nodes.extend(converted)
-                                        else:
-                                            item_nodes.append(converted)
+        return self._convert_list_environment(node, ordered=True)
 
-                    # Wrap in paragraph
-                    if item_nodes:
-                        all_inline = all(isinstance(n, (Text, Strong, Emphasis, Code, Link, Image)) for n in item_nodes)
-                        content: list[Node] = (
-                            item_nodes if all_inline else [Text(content=self._extract_text(item_nodes))]
-                        )
-                        para = Paragraph(content=content)
-                        items.append(ListItem(children=[para]))
+    def _convert_list_environment(self, node: Any, *, ordered: bool) -> List:
+        r"""Convert itemize/enumerate by collecting sibling nodes after each ``\item``.
 
-        return List(ordered=True, items=items)
+        In real LaTeX, ``\item`` body text is sibling nodes until the next ``\item``,
+        not braced macro arguments. Optional ``[label]`` args are still converted.
+        Nested lists stay as block children of the ``ListItem`` (not flattened to text).
+
+        Parameters
+        ----------
+        node : LatexEnvironmentNode
+            Itemize or enumerate environment node
+        ordered : bool
+            Whether the list is ordered
+
+        Returns
+        -------
+        List
+            List node with converted items
+
+        """
+        inline_types = (Text, Strong, Emphasis, Code, Link, Image, MathInline, Underline, Subscript, Superscript)
+        items: list[ListItem] = []
+        nodelist = getattr(node, "nodelist", None) or []
+        i = 0
+        while i < len(nodelist):
+            child = nodelist[i]
+            if not (hasattr(child, "macroname") and child.macroname == "item"):
+                i += 1
+                continue
+
+            item_nodes: list[Node] = []
+
+            # Optional [label] for description-style items
+            if hasattr(child, "nodeargd") and hasattr(child.nodeargd, "argnlist"):
+                for arg in child.nodeargd.argnlist:
+                    if arg and hasattr(arg, "nodelist"):
+                        for item_child in arg.nodelist:
+                            converted = self._convert_node(item_child)
+                            if converted:
+                                if isinstance(converted, list):
+                                    item_nodes.extend(converted)
+                                else:
+                                    item_nodes.append(converted)
+
+            # Body text: siblings after \item until the next \item
+            j = i + 1
+            while j < len(nodelist):
+                sibling = nodelist[j]
+                if hasattr(sibling, "macroname") and sibling.macroname == "item":
+                    break
+                converted = self._convert_node(sibling)
+                if converted:
+                    if isinstance(converted, list):
+                        item_nodes.extend(converted)
+                    else:
+                        item_nodes.append(converted)
+                j += 1
+
+            if item_nodes:
+                children: list[Node] = []
+                inline_content: list[Node] = []
+                for n in item_nodes:
+                    if isinstance(n, List):
+                        if inline_content:
+                            children.append(Paragraph(content=inline_content))
+                            inline_content = []
+                        children.append(n)
+                    elif isinstance(n, inline_types):
+                        if isinstance(n, Text):
+                            text = n.content.strip()
+                            if not text:
+                                continue
+                            n = Text(content=text)
+                        inline_content.append(n)
+                    else:
+                        if inline_content:
+                            children.append(Paragraph(content=inline_content))
+                            inline_content = []
+                        children.append(n)
+                if inline_content:
+                    children.append(Paragraph(content=inline_content))
+                if children:
+                    items.append(ListItem(children=children))
+
+            i = j
+
+        return List(ordered=ordered, items=items)
 
     def _convert_quote(self, node: Any) -> BlockQuote:
         """Convert quote environment to BlockQuote.
@@ -849,6 +902,13 @@ class LatexParser(BaseParser):
             # Parse rows into cells
             table_rows = []
             for row_text in rows_raw:
+                # Rule macros are not cell content; strip before splitting on &
+                row_text = re.sub(r"\\hline\b", "", row_text)
+                row_text = re.sub(r"\\cline\{[^}]*\}", "", row_text)
+                row_text = row_text.strip()
+                if not row_text:
+                    continue
+
                 # Split by column delimiter (&)
                 cells_raw = row_text.split("&")
                 cells = []

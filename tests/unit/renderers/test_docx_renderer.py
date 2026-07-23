@@ -779,7 +779,7 @@ class TestLineBreaks:
     """Tests for line break rendering."""
 
     def test_hard_line_break(self, tmp_path):
-        """Test hard line break rendering."""
+        """Test hard line break renders as a <w:br/> element."""
         doc = Document(
             children=[Paragraph(content=[Text(content="Line 1"), LineBreak(soft=False), Text(content="Line 2")])]
         )
@@ -791,9 +791,10 @@ class TestLineBreaks:
         para = docx_doc.paragraphs[0]
         assert "Line 1" in para.text
         assert "Line 2" in para.text
+        assert "<w:br/>" in para._p.xml
 
-    def test_soft_line_break_adds_break(self, tmp_path):
-        """Test soft line break adds a line break (not run together)."""
+    def test_soft_line_break_renders_as_space(self, tmp_path):
+        """Test soft line break renders as a space, not a hard line break."""
         doc = Document(
             children=[
                 Paragraph(content=[Text(content="Bold text"), LineBreak(soft=True), Text(content="continues here")])
@@ -805,9 +806,8 @@ class TestLineBreaks:
 
         docx_doc = DocxDocument(str(output_file))
         para = docx_doc.paragraphs[0]
-        # Text should contain both parts
-        assert "Bold text" in para.text
-        assert "continues here" in para.text
+        assert para.text == "Bold text continues here"
+        assert "<w:br/>" not in para._p.xml
 
 
 @pytest.mark.unit

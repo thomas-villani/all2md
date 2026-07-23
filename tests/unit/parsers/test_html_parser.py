@@ -531,6 +531,23 @@ class TestTables:
         assert len(table.header.cells) == 2
         assert len(table.rows) == 2
 
+    def test_empty_tr_without_cells_skipped(self) -> None:
+        """Empty <tr></tr> must not become a 0-cell header row."""
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast("<table><tr></tr></table>")
+
+        assert isinstance(doc.children[0], Table)
+        table = doc.children[0]
+        assert table.header is None
+        assert table.rows == []
+
+        doc_td = converter.convert_to_ast("<table><tr><td></td></tr></table>")
+        assert isinstance(doc_td.children[0], Table)
+        table_td = doc_td.children[0]
+        assert table_td.header is not None
+        assert len(table_td.header.cells) == 1
+        assert table_td.rows == []
+
     def test_table_without_thead_but_with_th(self) -> None:
         """Test table with th elements but no thead."""
         html = """

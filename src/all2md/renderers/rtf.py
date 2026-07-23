@@ -147,7 +147,8 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
             elif isinstance(child, Code):
                 parts.append(child.content)
             elif isinstance(child, LineBreak):
-                parts.append("\n")
+                # Soft breaks are source-wrapping artifacts; render as a space
+                parts.append(" " if child.soft else "\n")
             elif isinstance(child, MathInline):
                 content, _ = child.get_preferred_representation("latex")
                 parts.append(content)
@@ -430,9 +431,9 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         """Render inline code as a literal text run."""
         return [self._create_text_run(node.content)]
 
-    def visit_line_break(self, node: LineBreak) -> Any:  # noqa: ARG002
-        """Render a soft or hard line break as a newline character."""
-        return [self._create_text_run("\n")]
+    def visit_line_break(self, node: LineBreak) -> Any:
+        """Render a hard line break as a newline and a soft break as a space."""
+        return [self._create_text_run(" " if node.soft else "\n")]
 
     def visit_strikethrough(self, node: Strikethrough) -> Any:
         """Render strikethrough content with the strike property."""

@@ -456,7 +456,8 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 inner = self._process_inline_content(node.content)
                 parts.append(f'<link href="{node.url}">{inner}</link>')
             elif isinstance(node, LineBreak):
-                parts.append("<br/>")
+                # Soft breaks are source-wrapping artifacts; render as a space
+                parts.append(" " if node.soft else "<br/>")
             elif isinstance(node, FootnoteReference):
                 # Get or assign a stable number for this footnote identifier
                 if node.identifier not in self._footnote_id_to_number:

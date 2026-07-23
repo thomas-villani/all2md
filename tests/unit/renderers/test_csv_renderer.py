@@ -416,6 +416,28 @@ class TestCellLineBreaks:
         result = CsvRenderer().render_to_string(Document(children=[table]))
         assert result == 'A,B\n"line1\nline2",x\n'
 
+    def test_soft_linebreak_node_renders_as_space(self) -> None:
+        """AST soft LineBreak between Text nodes is emitted as a space, not a newline."""
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="A")]), TableCell(content=[Text(content="B")])]),
+            rows=[
+                TableRow(
+                    cells=[
+                        TableCell(
+                            content=[
+                                Text(content="line1"),
+                                LineBreak(soft=True),
+                                Text(content="line2"),
+                            ]
+                        ),
+                        TableCell(content=[Text(content="x")]),
+                    ]
+                ),
+            ],
+        )
+        result = CsvRenderer().render_to_string(Document(children=[table]))
+        assert result == "A,B\nline1 line2,x\n"
+
     def test_html_inline_br_preserves_newline(self) -> None:
         """HTMLInline <br> between Text nodes is emitted as a CSV cell newline."""
         table = Table(
