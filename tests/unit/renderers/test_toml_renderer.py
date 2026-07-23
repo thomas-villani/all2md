@@ -239,6 +239,18 @@ class TestTomlTypeInference:
 
         assert "enabled = true" in result
 
+    def test_infer_one_and_zero_as_integers_not_booleans(self) -> None:
+        """Numeric 1/0 in table cells must stay integers, not bools."""
+        doc = create_table_document("People", ["age"], [["1"], ["0"]])
+        options = TomlRendererOptions(type_inference=True)
+        renderer = TomlRenderer(options)
+        result = renderer.render_to_string(doc)
+
+        assert "age = 1" in result
+        assert "age = 0" in result
+        assert "age = true" not in result
+        assert "age = false" not in result
+
     def test_infer_boolean_false(self) -> None:
         """Test boolean false inference."""
         doc = create_table_document("Config", ["disabled"], [["no"]])
