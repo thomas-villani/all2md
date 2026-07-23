@@ -706,9 +706,9 @@ class MediaWikiParser(BaseParser):
                     if "\n" in text_content:
                         text_content = text_content.split("\n")[0].strip()
 
-                    if text_content:
-                        item_content = [Text(content=text_content)]
-                        items.append(ListItem(children=[Paragraph(content=cast(list[Node], item_content))]))
+                    # Keep empty items (bare "*" / "#") so list length matches the wikitext
+                    item_content: list[Node] = [Text(content=text_content)] if text_content else []
+                    items.append(ListItem(children=[Paragraph(content=cast(list[Node], item_content))]))
 
                     i += 1
                 else:
