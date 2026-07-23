@@ -509,9 +509,11 @@ class BBCodeParser(BaseParser):
                     else:
                         # Extract content and create node
                         inner_content = content[match.end() : closing_pos]
-                        node = self._create_inline_formatted_node(tag_name, tag_value, inner_content)
-                        if node:
-                            result.append(node)
+                        formatted = self._create_inline_formatted_node(tag_name, tag_value, inner_content)
+                        if isinstance(formatted, list):
+                            result.extend(formatted)
+                        elif formatted:
+                            result.append(formatted)
                         # Move past closing tag
                         closing_tag_end = closing_pos + len(f"[/{tag_name}]")
                         pos = closing_tag_end
@@ -559,7 +561,9 @@ class BBCodeParser(BaseParser):
 
         return None
 
-    def _create_inline_formatted_node(self, tag_name: str, tag_value: Optional[str], inner_content: str) -> Node | None:
+    def _create_inline_formatted_node(
+        self, tag_name: str, tag_value: Optional[str], inner_content: str
+    ) -> Node | list[Node] | None:
         """Create a formatted inline AST node.
 
         Parameters
@@ -573,8 +577,8 @@ class BBCodeParser(BaseParser):
 
         Returns
         -------
-        Node or None
-            Created AST node
+        Node, list of Node, or None
+            Created AST node, or multiple nodes when stripping color/size/font
 
         """
         # Recursively parse inner content
@@ -624,8 +628,8 @@ class BBCodeParser(BaseParser):
                 sanitized = sanitize_html_content(tag_str, mode=self.options.html_passthrough_mode)
                 return HTMLInline(content=sanitized)
             else:
-                # Just return the inner nodes without styling
-                return inner_nodes[0] if len(inner_nodes) == 1 else Text(content=inner_content)
+                # Strip styling; keep already-parsed inlines (may be multiple siblings)
+                return inner_nodes[0] if len(inner_nodes) == 1 else inner_nodes
         else:
             # Unknown inline tag
             return self._handle_unknown_inline(tag_name, tag_value, inner_content)
