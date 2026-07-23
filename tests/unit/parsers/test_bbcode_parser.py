@@ -13,7 +13,6 @@ from all2md.ast import (
     LineBreak,
     Link,
     List,
-    ListItem,
     Paragraph,
     Strikethrough,
     Strong,
