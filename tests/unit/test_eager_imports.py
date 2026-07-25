@@ -79,22 +79,58 @@ EAGER_OPTIONS_MODULES = frozenset(
 # number drops; raising it should need a reason in the commit message.
 MAX_EAGER_ALL2MD_MODULES = 64
 
+# Third-party top-level packages a bare ``import all2md`` costs the user, over
+# and above the stdlib. Currently lean, and the cheapest way to keep it that way:
+# a single eager ``import pandas`` would cost more than every options module
+# combined and is invisible to both gates above, which only count ``all2md.*``.
+#
+# ``yaml`` and ``tomli_w`` at import time are themselves R2 leads - neither is
+# obviously needed to print a version string.
+EAGER_THIRD_PARTY_PACKAGES = frozenset({"all2md", "tomli_w", "yaml"})
+
 # Enough modules that a broken probe (empty output, import failure swallowed
 # somewhere) is obviously distinguishable from a genuinely lean import.
 _SANITY_FLOOR = 10
 
 
-@functools.lru_cache(maxsize=1)
-def _eager_all2md_modules() -> tuple[str, ...]:
-    """``all2md.*`` modules present in ``sys.modules`` after a bare import.
+# Runs in a fresh interpreter on purpose: the test process has already imported
+# half the package, so probing in-process would report the test suite's imports
+# rather than the package's own. Pseudo-modules injected by C extensions (notably
+# ``cython_runtime``) have no ``__file__`` and are filtered out - whether they
+# appear depends on which wheels the platform installed, not on our code.
+_PROBE = """
+import json, sys
+before = set(sys.modules)
+import all2md
+new = set(sys.modules) - before
 
-    Must run in a fresh interpreter: the test process has already imported half
-    the package, so measuring in-process would report the test suite's imports
-    rather than the package's own.
-    """
-    probe = "import all2md, sys, json; print(json.dumps(sorted(m for m in sys.modules if m.startswith('all2md'))))"
-    out = subprocess.check_output([sys.executable, "-c", probe], text=True)
-    return tuple(json.loads(out))
+third_party = sorted(
+    top
+    for top in {m.split(".")[0] for m in new}
+    if top not in sys.stdlib_module_names
+    and not top.startswith("_")
+    and getattr(sys.modules.get(top), "__file__", None) is not None
+)
+print(json.dumps({
+    "all2md": sorted(m for m in sys.modules if m.startswith("all2md")),
+    "third_party": third_party,
+}))
+"""
+
+
+@functools.lru_cache(maxsize=1)
+def _probe() -> dict[str, list[str]]:
+    """What a bare ``import all2md`` leaves in ``sys.modules``."""
+    out = subprocess.check_output([sys.executable, "-c", _PROBE], text=True)
+    return json.loads(out)
+
+
+def _eager_all2md_modules() -> tuple[str, ...]:
+    return tuple(_probe()["all2md"])
+
+
+def _eager_third_party_packages() -> frozenset[str]:
+    return frozenset(_probe()["third_party"])
 
 
 def _paste_ready(modules: set[str]) -> str:
@@ -136,6 +172,27 @@ def test_eager_options_imports_match_the_allowlist() -> None:
                 "",
             ]
         lines += ["Updated allowlist:", "", _paste_ready(actual)]
+        pytest.fail("\n".join(lines))
+
+
+def test_eager_third_party_packages_match_the_allowlist() -> None:
+    actual = _eager_third_party_packages()
+    added = actual - EAGER_THIRD_PARTY_PACKAGES
+    removed = EAGER_THIRD_PARTY_PACKAGES - actual
+
+    if added or removed:
+        lines = ["Third-party packages imported eagerly by `import all2md` changed.", ""]
+        if added:
+            lines += [
+                "NEW eager third-party imports. Every all2md user now pays this",
+                "package's import cost, whether or not they use the feature that",
+                "needs it - move it inside the function that uses it if you can:",
+                *(f"  + {m}" for m in sorted(added)),
+                "",
+            ]
+        if removed:
+            lines += ["No longer imported eagerly (record the win):", *(f"  - {m}" for m in sorted(removed)), ""]
+        lines += ["Updated allowlist:", "", f"EAGER_THIRD_PARTY_PACKAGES = frozenset({sorted(actual)!r})"]
         pytest.fail("\n".join(lines))
 
 
