@@ -27,6 +27,11 @@ More samples for tighter numbers, and persist the raw JSON::
 
     python -m benchmarks.startup --repeat 9 --out benchmarks/startup_results/run.json
 
+As a blocking gate, comparing against the committed baseline (this is what CI's
+``Cold Start Gate`` job runs)::
+
+    python -m benchmarks.startup --repeat 9 --baseline benchmarks/startup_baseline.json
+
 Each scenario runs one discarded warmup (to take OS file-cache cold reads out of
 the numbers) followed by ``--repeat`` timed samples. The headline is the
 **minimum** (least noisy, closest to true cost); median and mean are also shown.
@@ -174,9 +179,121 @@ def _format_table(results: list[ScenarioResult]) -> str:
     return "\n".join(lines)
 
 
+@dataclass
+class Comparison:
+    """One scenario measured against its committed baseline."""
+
+    scenario: str
+    measured_ms: float
+    baseline_ms: float | None
+    delta_pct: float | None
+    status: str
+    note: str = ""
+
+
+def load_baseline(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def compare_to_baseline(results: list[ScenarioResult], baseline: dict, tolerance_pct: float) -> list[Comparison]:
+    """Judge each scenario against the baseline.
+
+    Statuses, and why each one is what it is:
+
+    - ``ok``       - within tolerance.
+    - ``SLOW``     - a regression; the thing this gate exists for.
+    - ``FAST``     - faster than baseline by more than the tolerance. Red on
+      purpose: an unrecorded win means the gate is now judging against a number
+      nobody stands behind, so it has quietly stopped guarding. Re-record it in
+      the commit that earned it. Same reasoning as an XPASS in the roundtrip gate.
+    - ``MISSING``  - measured but absent from the baseline, so it is ungated.
+    - ``STALE``    - in the baseline but no longer measured; the file has begun
+      describing a benchmark that does not exist.
+    - ``info``     - the bare-interpreter ``baseline`` scenario, reported but not
+      gated. It measures the runner, not us; a VM slow enough to move it will
+      have moved everything else too, which is the flake mode the tolerance
+      already absorbs.
+    """
+    expected: dict[str, float] = baseline.get("scenarios", {})
+    measured = {r.name: r for r in results}
+
+    comparisons: list[Comparison] = []
+    for r in results:
+        ref = expected.get(r.name)
+        if ref is None:
+            comparisons.append(
+                Comparison(r.name, r.min_ms, None, None, "MISSING", "not in the baseline, so nothing is gating it")
+            )
+            continue
+
+        delta_pct = (r.min_ms - ref) / ref * 100.0
+        if r.name == "baseline":
+            status, note = "info", "bare interpreter; reported as a runner-speed signal, not gated"
+        elif delta_pct > tolerance_pct:
+            status, note = "SLOW", f"more than {tolerance_pct:.0f}% slower than baseline"
+        elif delta_pct < -tolerance_pct:
+            status, note = "FAST", f"more than {tolerance_pct:.0f}% faster; re-record the baseline in this commit"
+        else:
+            status, note = "ok", ""
+        comparisons.append(Comparison(r.name, r.min_ms, ref, delta_pct, status, note))
+
+    for name in expected:
+        if name not in measured:
+            comparisons.append(Comparison(name, 0.0, expected[name], None, "STALE", "in the baseline but not measured"))
+    return comparisons
+
+
+def gate_failed(comparisons: list[Comparison]) -> bool:
+    """Whether this run should fail the build.
+
+    Three red paths, so the baseline cannot rot in any direction: a genuine
+    regression (``SLOW``), a win nobody recorded (``FAST``), and the baseline
+    describing scenarios that no longer line up with the harness
+    (``MISSING``/``STALE``).
+    """
+    return any(c.status in {"SLOW", "FAST", "MISSING", "STALE"} for c in comparisons)
+
+
+def _runner_looks_slow(comparisons: list[Comparison], tolerance_pct: float) -> bool:
+    """Report whether the bare interpreter itself drifted most of the way to the tolerance.
+
+    If so, a ``SLOW`` verdict is more likely to be an unlucky VM than our code -
+    worth saying in the failure output, because "the gate is flaky" and "the gate
+    is right" look identical from a red X.
+    """
+    base = next((c for c in comparisons if c.scenario == "baseline"), None)
+    return base is not None and base.delta_pct is not None and base.delta_pct > tolerance_pct / 2
+
+
+def _format_comparison(comparisons: list[Comparison], tolerance_pct: float) -> str:
+    header = f"{'scenario':<12} {'measured(ms)':>13} {'baseline(ms)':>13} {'delta':>8}  status"
+    lines = [header, "-" * len(header)]
+    for c in comparisons:
+        base = "-" if c.baseline_ms is None else f"{c.baseline_ms:.1f}"
+        delta = "-" if c.delta_pct is None else f"{c.delta_pct:+.1f}%"
+        measured = "-" if c.status == "STALE" else f"{c.measured_ms:.1f}"
+        suffix = f"  ({c.note})" if c.note else ""
+        lines.append(f"{c.scenario:<12} {measured:>13} {base:>13} {delta:>8}  {c.status}{suffix}")
+    lines.append("")
+    lines.append(f"tolerance: +/-{tolerance_pct:.0f}%")
+    return "\n".join(lines)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="benchmarks.startup", description=__doc__)
     p.add_argument("--repeat", type=int, default=5, help="Timed samples per scenario (default: 5)")
+    p.add_argument(
+        "--baseline",
+        type=Path,
+        default=None,
+        help="Compare against a committed baseline JSON and exit non-zero on regression",
+    )
+    p.add_argument(
+        "--tolerance",
+        type=float,
+        default=None,
+        help="Percent deviation allowed either way (default: the baseline file's tolerance_pct)",
+    )
     p.add_argument(
         "--warmup",
         type=int,
@@ -205,7 +322,39 @@ def main(argv: list[str] | None = None) -> int:
         args.out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"\nWrote results to {args.out}", flush=True)
 
-    return 1 if any(rc != 0 for r in results for rc in r.returncodes) else 0
+    if any(rc != 0 for r in results for rc in r.returncodes):
+        return 1
+
+    if args.baseline is not None:
+        baseline = load_baseline(args.baseline)
+        tolerance = args.tolerance if args.tolerance is not None else baseline.get("tolerance_pct", 20.0)
+        comparisons = compare_to_baseline(results, baseline, tolerance)
+
+        print()
+        print(_format_comparison(comparisons, tolerance))
+
+        if gate_failed(comparisons):
+            print("\nSTARTUP GATE FAILED", file=sys.stderr)
+            for c in comparisons:
+                if c.status in {"SLOW", "FAST", "MISSING", "STALE"}:
+                    print(f"  {c.status}: {c.scenario} - {c.note}", file=sys.stderr)
+            if _runner_looks_slow(comparisons, tolerance):
+                print(
+                    "\n  NOTE: the bare interpreter is also well above baseline, so this runner"
+                    "\n  looks slow. Re-run before assuming the regression is in all2md - and if"
+                    "\n  this recurs, the fix is a wider tolerance or a same-runner A/B against"
+                    "\n  the merge base, not deleting the gate.",
+                    file=sys.stderr,
+                )
+            print(
+                f"\n  Baseline: {args.baseline} (recorded "
+                f"{baseline.get('provenance', {}).get('recorded', 'unknown')}). Regenerate it from the"
+                "\n  Startup Runner Variance workflow, never from a dev box.",
+                file=sys.stderr,
+            )
+            return 1
+
+    return 0
 
 
 if __name__ == "__main__":

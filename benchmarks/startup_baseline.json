@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "Cold-start baseline for the CI timing gate. NOT a dev-box measurement:",
+    "regenerate it from the Startup Runner Variance workflow, never from a laptop.",
+    "A Windows dev box reads ~230ms for a bare interpreter where CI reads ~14ms,",
+    "so local numbers are off by more than any regression this gate would catch.",
+    "",
+    "The tolerance is set against measured runner variance, not chosen by feel:",
+    "six independent ubuntu-latest VMs on unchanged code spread by at most 7.2%,",
+    "so 20% is ~2.8x headroom. If this gate ever flakes, raise the tolerance or",
+    "move to a same-runner A/B against the merge base - do not delete it.",
+    "",
+    "Deliberately coarse. The sharp instrument for the eager-import scaling bug is",
+    "tests/unit/test_eager_imports.py, which compares module sets exactly and",
+    "cannot flake. This gate covers what that one structurally cannot see: a slow",
+    "parser build, a heavy third-party import, an algorithmic regression in",
+    "registration that adds no modules at all."
+  ],
+  "provenance": {
+    "recorded": "2026-07-25",
+    "workflow_run": "https://github.com/thomas-villani/all2md/actions/runs/30166465613",
+    "commit": "b22973216c87",
+    "runner": "github-hosted ubuntu-latest, Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "python": "3.12.13",
+    "method": "median of min_ms across 6 independent runner VMs, 9 timed samples each",
+    "observed_max_deviation_pct": 7.2
+  },
+  "tolerance_pct": 20.0,
+  "scenarios": {
+    "baseline": 13.9,
+    "import": 230.35,
+    "--version": 246.1,
+    "--help": 377.1,
+    "convert": 407.65
+  }
+}

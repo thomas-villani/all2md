@@ -164,6 +164,65 @@ jobs:
           path: roundtrip-results.json
           if-no-files-found: warn
 
+  startup:
+    name: Cold Start Gate
+    runs-on: ubuntu-latest
+
+    # Blocking timing gate: cold start must stay within tolerance of the committed
+    # baseline in benchmarks/startup_baseline.json. Deliberately coarse - the
+    # tolerance is 20% against a measured 7.2% runner-variance floor (see the
+    # Startup Runner Variance workflow), so only gross regressions trip it.
+    #
+    # The sharp instrument for the eager-import scaling bug is
+    # tests/unit/test_eager_imports.py, which compares module sets exactly and
+    # cannot flake. This job covers what that one structurally cannot see: a slow
+    # parser build, a heavy dependency, an algorithmic regression in registration.
+    #
+    # Runs alone on its runner and is not parallelised for a reason - it is a
+    # wall-clock measurement, so competing jobs on the same VM would be noise.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Run cold start gate
+        run: |
+          set -o pipefail
+          python -m benchmarks.startup \
+            --repeat 9 \
+            --baseline benchmarks/startup_baseline.json \
+            --out startup-results.json \
+            | tee startup-table.txt
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Cold start"
+            echo
+            echo '```'
+            cat startup-table.txt || echo "benchmark did not produce a table"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: startup-results-${{ github.run_number }}
+          path: startup-results.json
+          if-no-files-found: warn
+
   security-semgrep:
     name: Security Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -219,7 +278,7 @@ jobs:
     # (The Release created here uses GITHUB_TOKEN, whose `release: published`
     # event would not start release.yml anyway.)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint-and-typecheck, docs, test, roundtrip, security-semgrep, security-bandit]
+    needs: [lint-and-typecheck, docs, test, roundtrip, startup, security-semgrep, security-bandit]
     runs-on: ubuntu-latest
 
     steps:
