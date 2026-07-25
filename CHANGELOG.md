@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from 64 to 37. **No API change:** `from all2md.options import PdfOptions` works exactly
   as before, and `dir()` still lists every export.
 
+  Measured on CI (median of six runner VMs, nine samples each): `import all2md`
+  **230 ms → 162 ms (−29%)** and `all2md --version` **246 ms → 178 ms (−28%)**. `--help`
+  and a small conversion are roughly unchanged, as expected — both build the full parser
+  or run the pipeline, so they load the options either way. The win lands on the
+  per-invocation path that CLI and agent workflows actually pay.
+
 - CI: the Markdown roundtrip fidelity benchmark (`benchmarks/roundtrip`) now runs as a
   **blocking gate** on every push and PR, and is required before a release. A
   `Markdown -> AST -> Markdown` regression that either oracle can see now fails the

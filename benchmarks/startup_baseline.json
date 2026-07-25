@@ -28,19 +28,41 @@
   ],
   "provenance": {
     "recorded": "2026-07-25",
-    "workflow_run": "https://github.com/thomas-villani/all2md/actions/runs/30166465613",
-    "commit": "b22973216c87",
-    "runner": "github-hosted ubuntu-latest, Linux-6.17.0-1020-azure-x86_64-with-glibc2.39",
+    "workflow_run": "https://github.com/thomas-villani/all2md/actions/runs/30180080149",
+    "commit": "53be26308b12",
+    "runner": "github-hosted ubuntu-latest",
     "python": "3.12.13",
     "method": "median of min_ms across 6 independent runner VMs, 9 timed samples each",
-    "observed_max_deviation_pct": 7.2
+    "observed_max_deviation_pct": 2.5,
+    "note": [
+      "Re-recorded for the lazy all2md.options re-export (R2b), which is why import",
+      "and --version drop ~28% while --help and convert barely move: those two build",
+      "the full parser or run the pipeline, so they load the options either way.",
+      "",
+      "observed_max_deviation_pct is over the *gated* scenarios only. The bare",
+      "interpreter spread 12.2% across the same six VMs, and startup_spread.py's",
+      "headline figure includes it - which overstates the floor for a gate that",
+      "reports the bare interpreter without gating on it."
+    ]
   },
   "tolerance_pct": 20.0,
   "scenarios": {
-    "baseline": 13.9,
-    "import": 230.35,
-    "--version": 246.1,
-    "--help": 377.1,
-    "convert": 407.65
+    "baseline": 13.55,
+    "import": 162.35,
+    "--version": 177.95,
+    "--help": 370.7,
+    "convert": 397.6
+  },
+  "previous": {
+    "commit": "b22973216c87",
+    "recorded": "2026-07-25",
+    "note": "pre-R2b, when a bare import loaded 31 options modules",
+    "scenarios": {
+      "baseline": 13.9,
+      "import": 230.35,
+      "--version": 246.1,
+      "--help": 377.1,
+      "convert": 407.65
+    }
   }
 }
