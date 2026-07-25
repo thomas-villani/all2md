@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Faster cold start: `import all2md` no longer loads every options module.** The
+  `all2md.options` package re-exports lazily (PEP 562) instead of importing all 30-odd
+  submodules at package-init time. Because `from all2md.options.base import ...` executes
+  that package init first, *any* options import used to cost the whole set — which is how
+  a bare `import all2md` ended up loading 31 options modules to reach the two classes
+  `all2md/api.py` actually needs. Now 4. Total eagerly-imported `all2md` modules drops
+  from 64 to 37. **No API change:** `from all2md.options import PdfOptions` works exactly
+  as before, and `dir()` still lists every export.
+
 - CI: the Markdown roundtrip fidelity benchmark (`benchmarks/roundtrip`) now runs as a
   **blocking gate** on every push and PR, and is required before a release. A
   `Markdown -> AST -> Markdown` regression that either oracle can see now fails the
