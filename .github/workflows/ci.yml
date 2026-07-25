@@ -109,6 +109,61 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  roundtrip:
+    name: Roundtrip Fidelity Gate
+    runs-on: ubuntu-latest
+
+    # Blocking fidelity gate: Markdown -> AST -> Markdown must survive both oracles
+    # (idempotency + mistune HTML-equivalence) over benchmarks/roundtrip's corpus.
+    # Single Python version on purpose - fidelity is a property of the renderer, not
+    # of the interpreter, so the 5-version matrix would buy nothing for 5x the time.
+    # Accepted failures live in EXPECTED_FAILURES in benchmarks/roundtrip/run.py; that
+    # list going stale fails the build too, so it can't rot into a silent excuse.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Run roundtrip fidelity benchmark
+        run: |
+          set -o pipefail
+          python -m benchmarks.roundtrip --json roundtrip-results.json | tee roundtrip-table.txt
+
+      # Only on red, so green runs stay quiet but a failure arrives with the diffs
+      # already in the log instead of needing a local reproduction.
+      - name: Show diffs for failures
+        if: failure()
+        run: python -m benchmarks.roundtrip --show-diff
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Roundtrip fidelity"
+            echo
+            echo '```'
+            cat roundtrip-table.txt || echo "benchmark did not produce a table"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: roundtrip-results-${{ github.run_number }}
+          path: roundtrip-results.json
+          if-no-files-found: warn
+
   security-semgrep:
     name: Security Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -164,7 +219,7 @@ jobs:
     # (The Release created here uses GITHUB_TOKEN, whose `release: published`
     # event would not start release.yml anyway.)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint-and-typecheck, docs, test, security-semgrep, security-bandit]
+    needs: [lint-and-typecheck, docs, test, roundtrip, security-semgrep, security-bandit]
     runs-on: ubuntu-latest
 
     steps:
