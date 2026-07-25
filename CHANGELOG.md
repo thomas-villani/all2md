@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CI: the Markdown roundtrip fidelity benchmark (`benchmarks/roundtrip`) now runs as a
+  **blocking gate** on every push and PR, and is required before a release. A
+  `Markdown -> AST -> Markdown` regression that either oracle can see now fails the
+  build instead of waiting to be noticed. Knowingly-accepted failures are declared in
+  `EXPECTED_FAILURES` (currently one: raw HTML, which the `html_passthrough_mode="escape"`
+  policy makes lossy by design); the gate also fails if such an entry starts passing or
+  goes stale, so the list can't decay into a permanent excuse.
+
 ## [1.10.0] - 2026-07-24
 
 ### Added
