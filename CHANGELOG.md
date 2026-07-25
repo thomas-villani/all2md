@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `EXPECTED_FAILURES` (currently one: raw HTML, which the `html_passthrough_mode="escape"`
   policy makes lossy by design); the gate also fails if such an entry starts passing or
   goes stale, so the list can't decay into a permanent excuse.
+- CI: cold start is now guarded on every push and PR, and is required before a release.
+  Two complementary gates, because the cost is milliseconds but the cause is an import
+  graph: `tests/unit/test_eager_imports.py` pins the exact set of modules a bare
+  `import all2md` pulls in (deterministic, cannot flake), and a `Cold Start Gate` job
+  compares wall-clock timings against `benchmarks/startup_baseline.json` with a 20%
+  tolerance set against a measured 7.2% runner-variance floor. An unrecorded *speedup*
+  also fails, so the baseline can't drift into describing code that no longer exists.
 
 ## [1.10.0] - 2026-07-24
 
