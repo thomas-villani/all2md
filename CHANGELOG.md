@@ -21,8 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   graph: `tests/unit/test_eager_imports.py` pins the exact set of modules a bare
   `import all2md` pulls in (deterministic, cannot flake), and a `Cold Start Gate` job
   compares wall-clock timings against `benchmarks/startup_baseline.json` with a 20%
-  tolerance set against a measured 7.2% runner-variance floor. An unrecorded *speedup*
-  also fails, so the baseline can't drift into describing code that no longer exists.
+  tolerance. An unrecorded *speedup* also fails, so the baseline can't drift into
+  describing code that no longer exists. The timing gate judges each scenario twice —
+  raw milliseconds and milliseconds relative to the same run's bare interpreter — and
+  goes red only when both agree, which is what separates a real regression from a
+  runner that landed on a faster or slower CPU class.
 
 ## [1.10.0] - 2026-07-24
 

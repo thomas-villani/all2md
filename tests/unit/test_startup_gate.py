@@ -157,3 +157,61 @@ def test_slow_runner_advisory_stays_quiet_for_a_real_regression() -> None:
     # the runner would send the reader down the wrong path.
     results = [_result("baseline", 14.0), _result("import", 300.0), _result("--version", 246.0)]
     assert not _runner_looks_slow(compare_to_baseline(results, BASELINE, 20.0), 20.0)
+
+
+# --- the two-metric agreement rule ----------------------------------------------
+#
+# Each of the next three tests is one row of the table in compare_to_baseline's
+# docstring. The first two are false positives the gate must absorb; the third is
+# the true positive it must not.
+
+
+def test_a_faster_cpu_class_does_not_fail_the_gate() -> None:
+    # Verbatim replay of CI run 30176917376, which failed on unchanged code:
+    # every scenario ~17-21% fast, bare interpreter included. --help crossed the
+    # 20% line and went FAST. Normalized, the whole run is within 5%.
+    shipped = {
+        "tolerance_pct": 20.0,
+        "scenarios": {"baseline": 13.9, "import": 230.35, "--version": 246.1, "--help": 377.1, "convert": 407.65},
+    }
+    observed = {"baseline": 11.5, "import": 190.5, "--version": 203.4, "--help": 299.0, "convert": 326.5}
+    comparisons = compare_to_baseline([_result(k, v) for k, v in observed.items()], shipped, 20.0)
+
+    help_row = next(c for c in comparisons if c.scenario == "--help")
+    assert help_row.delta_pct is not None and help_row.delta_pct < -20.0, "raw delta really is outside tolerance"
+    assert help_row.norm_delta_pct == pytest.approx(-4.3, abs=0.2), "normalized delta is not"
+    assert not gate_failed(comparisons), "a uniformly faster CPU class is not a result worth failing a build over"
+
+
+def test_denominator_jitter_alone_does_not_fail_the_gate() -> None:
+    # The mirror image: raw numbers steady, but a bare interpreter that came in
+    # fast inflates the normalized delta past tolerance. Gating on the normalized
+    # metric alone - which the six-VM study nearly talked us into - fails here.
+    results = [_result("baseline", 11.0), _result("import", 230.0 * 1.10), _result("--version", 246.0)]
+    comparisons = compare_to_baseline(results, BASELINE, 20.0)
+
+    row = next(c for c in comparisons if c.scenario == "import")
+    assert row.norm_delta_pct is not None and row.norm_delta_pct > 20.0, "normalized delta really is outside tolerance"
+    assert row.status == "ok"
+    assert not gate_failed(comparisons)
+
+
+def test_a_regression_moves_both_metrics_and_still_fails() -> None:
+    # The point of the whole exercise. Bare interpreter on target, all2md 30%
+    # slower: nothing cancels, both metrics agree, the gate goes red.
+    results = [_result("baseline", 14.0), _result("import", 300.0), _result("--version", 246.0)]
+    comparisons = compare_to_baseline(results, BASELINE, 20.0)
+
+    row = next(c for c in comparisons if c.scenario == "import")
+    assert row.delta_pct is not None and row.delta_pct > 20.0
+    assert row.norm_delta_pct is not None and row.norm_delta_pct > 20.0
+    assert row.status == "SLOW"
+    assert gate_failed(comparisons)
+
+
+def test_an_uncomputable_normalized_delta_cannot_veto_a_red() -> None:
+    # No bare-interpreter measurement means no second opinion. Failing open would
+    # let a harness change that drops the baseline scenario silently disarm the
+    # gate, so the raw delta rules alone.
+    assert _statuses([_result("import", 230.0 * 1.30)])["import"] == "SLOW"
+    assert _statuses([_result("import", 230.0 * 0.70)])["import"] == "FAST"

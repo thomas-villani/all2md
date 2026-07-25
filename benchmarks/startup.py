@@ -189,14 +189,56 @@ class Comparison:
     delta_pct: float | None
     status: str
     note: str = ""
+    norm_delta_pct: float | None = None
+    """Same drift, measured in units of bare-interpreter time instead of milliseconds.
+
+    ``None`` when it cannot be computed (no ``baseline`` scenario on one side, or
+    a degenerate one), in which case the raw delta gates alone.
+    """
 
 
 def load_baseline(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _normalized_delta_pct(
+    name: str,
+    measured: dict[str, ScenarioResult],
+    expected: dict[str, float],
+) -> float | None:
+    """Drift in units of bare-interpreter time, or ``None`` if not computable.
+
+    Expresses a scenario as a multiple of the same run's bare interpreter, then
+    compares that multiple to the baseline's. A VM that is uniformly faster
+    scales numerator and denominator together and cancels out.
+    """
+    now_base = measured.get("baseline")
+    ref_base = expected.get("baseline")
+    if now_base is None or ref_base is None or now_base.min_ms <= 0 or ref_base <= 0:
+        return None
+    now = (measured[name].min_ms - now_base.min_ms) / now_base.min_ms
+    ref = (expected[name] - ref_base) / ref_base
+    if ref <= 0:
+        return None
+    return (now - ref) / ref * 100.0
+
+
 def compare_to_baseline(results: list[ScenarioResult], baseline: dict, tolerance_pct: float) -> list[Comparison]:
     """Judge each scenario against the baseline.
+
+    A scenario is red only when *both* the raw millisecond delta and the
+    interpreter-normalized delta exceed the tolerance. The two disagree exactly
+    where the runner pool is lying to us, and each covers the other's blind spot:
+
+    - A **hardware-class shift** - a VM whose CPU is uniformly faster or slower -
+      moves every raw number together, bare interpreter included. Observed at
+      ~18% on unchanged code. The normalized delta divides it out.
+    - **Jitter on the ~13 ms denominator** inflates the normalized delta while the
+      raw numbers sit still. Measured at up to 12.9% across six VMs. The raw
+      delta ignores it.
+    - A **real regression** in our import graph moves the raw delta and leaves the
+      bare interpreter alone, so it moves both. That is the only signal the two
+      metrics agree on, which is why agreement is the gate.
 
     Statuses, and why each one is what it is:
 
@@ -227,15 +269,24 @@ def compare_to_baseline(results: list[ScenarioResult], baseline: dict, tolerance
             continue
 
         delta_pct = (r.min_ms - ref) / ref * 100.0
+        norm = None if r.name == "baseline" else _normalized_delta_pct(r.name, measured, expected)
+        # An uncomputable normalized delta must not veto a red verdict, so treat
+        # it as agreeing with the raw one.
+        agrees_slow = norm is None or norm > tolerance_pct
+        agrees_fast = norm is None or norm < -tolerance_pct
+
         if r.name == "baseline":
             status, note = "info", "bare interpreter; reported as a runner-speed signal, not gated"
-        elif delta_pct > tolerance_pct:
-            status, note = "SLOW", f"more than {tolerance_pct:.0f}% slower than baseline"
-        elif delta_pct < -tolerance_pct:
+        elif delta_pct > tolerance_pct and agrees_slow:
+            status, note = "SLOW", f"more than {tolerance_pct:.0f}% slower than baseline, interpreter-relative too"
+        elif delta_pct < -tolerance_pct and agrees_fast:
             status, note = "FAST", f"more than {tolerance_pct:.0f}% faster; re-record the baseline in this commit"
+        elif abs(delta_pct) > tolerance_pct and norm is not None:
+            status = "ok"
+            note = f"raw {delta_pct:+.1f}% but {norm:+.1f}% interpreter-relative; reads as runner speed, not us"
         else:
             status, note = "ok", ""
-        comparisons.append(Comparison(r.name, r.min_ms, ref, delta_pct, status, note))
+        comparisons.append(Comparison(r.name, r.min_ms, ref, delta_pct, status, note, norm_delta_pct=norm))
 
     for name in expected:
         if name not in measured:
@@ -266,14 +317,15 @@ def _runner_looks_slow(comparisons: list[Comparison], tolerance_pct: float) -> b
 
 
 def _format_comparison(comparisons: list[Comparison], tolerance_pct: float) -> str:
-    header = f"{'scenario':<12} {'measured(ms)':>13} {'baseline(ms)':>13} {'delta':>8}  status"
+    header = f"{'scenario':<12} {'measured(ms)':>13} {'baseline(ms)':>13} {'raw':>8} {'vs interp':>10}  status"
     lines = [header, "-" * len(header)]
     for c in comparisons:
         base = "-" if c.baseline_ms is None else f"{c.baseline_ms:.1f}"
         delta = "-" if c.delta_pct is None else f"{c.delta_pct:+.1f}%"
+        norm = "-" if c.norm_delta_pct is None else f"{c.norm_delta_pct:+.1f}%"
         measured = "-" if c.status == "STALE" else f"{c.measured_ms:.1f}"
         suffix = f"  ({c.note})" if c.note else ""
-        lines.append(f"{c.scenario:<12} {measured:>13} {base:>13} {delta:>8}  {c.status}{suffix}")
+        lines.append(f"{c.scenario:<12} {measured:>13} {base:>13} {delta:>8} {norm:>10}  {c.status}{suffix}")
     lines.append("")
     lines.append(f"tolerance: +/-{tolerance_pct:.0f}%")
     return "\n".join(lines)
