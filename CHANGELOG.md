@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-07-24
+
 ### Added
 
 - **`insert_mode` Markdown renderer option** (`--markdown-insert-mode`): how to render
@@ -119,10 +121,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nodes, so they round-trip losslessly. Tags carrying attributes, and unmatched or
   stray tags, are still passed through untouched rather than guessed at. The remaining
   inline tags (`<del>`, `<sup>`, `<sub>`, `<mark>`) still self-escape (#113).
-- **JSON renderer: duplicate table column names keep their values.** Header text was
-  mapped straight to dict keys, so a table with two `tag` columns kept only the last
-  cell of each row. Repeats are now suffixed (`tag`, `tag_2`). Thanks
-  [@santhreal](https://github.com/santhreal) (#137).
+- **JSON and YAML renderers: duplicate table column names keep their values.** Header
+  text was mapped straight to dict keys, so a table with two `tag` columns kept only the
+  last cell of each row. Repeats are now suffixed (`tag`, `tag_2`) in both renderers.
+  Thanks [@santhreal](https://github.com/santhreal) (#137).
 - **LaTeX parser: section titles are read from the right argument.** pylatexenc gives
   sectioning macros the argspec `*[{`, and the parser took slot 0 — the `*` marker —
   as the title. `\section*{Introduction}` produced `# *`, and because slot 0 is empty
@@ -153,11 +155,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zero-column header, rendering as invalid GFM (`|  |` over `||`) and corrupting any
   table that followed it. A row with an empty `<td>` is still preserved. Thanks
   [@santhreal](https://github.com/santhreal) (#146).
-- **Org parser: keyword-only headlines are no longer dropped.** orgparse reports
-  `* TODO` as an empty heading with `todo='TODO'`, and the parser discarded any
-  headline whose text was empty — losing the headline and reparenting its body. The
-  keyword stays in metadata rather than the title, so `* TODO` round-trips as itself
-  instead of `* TODO TODO`. Thanks [@santhreal](https://github.com/santhreal) (#147).
+- **Org parser: marker-only headlines are no longer dropped.** orgparse reports `* TODO`
+  as an empty heading with `todo='TODO'`, and the parser discarded any headline whose
+  text was empty — losing the headline and reparenting its body. The marker stays in
+  metadata rather than the title, so `* TODO` round-trips as itself instead of
+  `* TODO TODO`. A priority-only headline (`* [#A]`) is kept the same way. Thanks
+  [@santhreal](https://github.com/santhreal) (#147).
+- **Org parser: headlines with more than six stars no longer crash.** Org allows any
+  star depth, but `Heading` accepts levels 1-6, so `******* Deep` raised on parse. The
+  level is now clamped at 6, matching the HTML and CHM parsers. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **CSV renderer: inline code, inline math and image alt text survive export.** `Code`,
+  `MathInline` and `Image` leaves were skipped when flattening a cell to text, so a cell
+  holding `` `code` `` or an image came out as an empty field. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **MediaWiki parser: empty list items keep their bullet.** A bare `*` or `#` line
+  produced no item at all, so the list came back short and every following item shifted
+  up a position. Matches the DokuWiki renderer fix above. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **MediaWiki parser: attributes are stripped from `|+` table captions.** Cell
+  attributes were already handled for `|` cells, but `|+ style="..." | Caption` kept the
+  whole attribute segment in the caption text. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **BBCode parser: empty `[*]` items keep their bullet.** Same shape as the MediaWiki
+  fix — an empty item was skipped, shortening the list and shifting the items after it.
+  The segment before the first `[*]` is still correctly not an item. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **BBCode parser: `[color]`, `[size]` and `[font]` no longer flatten their contents.**
+  These tags have no Markdown equivalent, so they are stripped — but the strip discarded
+  any markup nested inside them, and `[color=red]see [b]this[/b][/color]` lost its bold.
+  The inner content is now parsed and spliced in place of the tag. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **FB2 parser: notes-body section titles are kept.** The first heading of a notes body
+  was dropped unconditionally to avoid duplicating the "Notes" heading, so a notes body
+  with no body-level `<title>` — or with an empty `<title>` placeholder — silently lost
+  its first footnote heading. The leading heading is now dropped only when a body-level
+  `<title>` actually produced one. Thanks [@santhreal](https://github.com/santhreal).
+- **FB2 parser: `<cite>` is converted as a block quote.** It was flattened into a plain
+  paragraph while its structural twin `<epigraph>` became a quote, so a citation's block
+  children collapsed into inline text. Both now take the epigraph path. Thanks
+  [@santhreal](https://github.com/santhreal).
 
 ### Changed
 
@@ -173,6 +210,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `<u>` now round-trips losslessly thanks to the parser fix above. Set
   `underline_mode="markdown"` to keep the pre-1.10 spelling (#113).
 - CI: bumped `actions/setup-python` 6 → 7 and `actions/setup-node` 6 → 7 (#120, #121).
+
+### Security
+
+- **Relocked `torch` 2.12.1 → 2.13.0** (GHSA-rrmf-rvhw-rf47 / CVE-2025-3000, memory
+  corruption in `torch.jit.script`), pulling `torchvision` 0.27.1 → 0.28.0. torch reaches
+  us only through the `ocr-easyocr` and `search` extras and all2md never calls
+  `torch.jit.script`, so practical exposure was nil — but the lock pinned a vulnerable
+  range for anyone installing those extras.
+- **Relocked `setuptools` 81.0.0 → 83.0.0** (GHSA-h35f-9h28-mq5c / CVE-2026-59890,
+  `MANIFEST.in` exclusions bypassable via a Unicode normalization collision on
+  macOS APFS/HFS+). Transitive via torch only; all2md builds with hatchling.
 
 ## [1.9.0] - 2026-07-15
 
@@ -1243,7 +1291,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.0
 [1.9.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.9.0
 [1.8.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.2
 [1.8.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.1
