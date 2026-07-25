@@ -41,43 +41,21 @@ pytestmark = pytest.mark.unit
 EAGER_OPTIONS_MODULES = frozenset(
     {
         "all2md.options",
-        "all2md.options.asciidoc",
-        "all2md.options.ast_json",
         "all2md.options.base",
-        "all2md.options.chm",
         "all2md.options.common",
-        "all2md.options.csv",
-        "all2md.options.docx",
-        "all2md.options.dokuwiki",
-        "all2md.options.eml",
-        "all2md.options.epub",
-        "all2md.options.fb2",
-        "all2md.options.html",
-        "all2md.options.ipynb",
-        "all2md.options.jinja",
-        "all2md.options.latex",
         "all2md.options.markdown",
-        "all2md.options.mediawiki",
-        "all2md.options.mhtml",
-        "all2md.options.odp",
-        "all2md.options.ods",
-        "all2md.options.odt",
-        "all2md.options.org",
-        "all2md.options.pdf",
-        "all2md.options.plaintext",
-        "all2md.options.pptx",
-        "all2md.options.rst",
-        "all2md.options.rtf",
-        "all2md.options.sourcecode",
-        "all2md.options.xlsx",
-        "all2md.options.zip",
     }
 )
 
 # Backstop for the same bug appearing outside ``options`` - e.g. options go lazy
 # but a renderer subpackage starts importing eagerly instead. Lower it when the
 # number drops; raising it should need a reason in the commit message.
-MAX_EAGER_ALL2MD_MODULES = 64
+#
+# Lowered 64 -> 40 when R2b made the options package lazy (actual: 37). Left with
+# a little slack rather than pinned to 37, because unlike the allowlists above
+# this is a *ceiling*, and pinning it exactly would turn every legitimate new
+# module into a failure of this test instead of a decision someone makes.
+MAX_EAGER_ALL2MD_MODULES = 40
 
 # Third-party top-level packages a bare ``import all2md`` costs the user, over
 # and above the stdlib. Currently lean, and the cheapest way to keep it that way:

@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 from all2md.constants import DEFAULT_ROBOTS_TXT_POLICY, DEFAULT_USER_AGENT, RobotsTxtPolicy
 from all2md.exceptions import DependencyError, NetworkSecurityError, ValidationError
-from all2md.options import CloneFrozenMixin
+from all2md.options.base import CloneFrozenMixin
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.network_security import fetch_content_securely, is_network_disabled
 
