@@ -289,6 +289,64 @@ jobs:
           path: tests/performance/results/
           if-no-files-found: warn
 
+  quality-gate-action:
+    name: Quality Gate Action
+    runs-on: ubuntu-latest
+
+    # Dogfoods the action at the repo root (`action.yml`) against our own docs.
+    #
+    # Two steps, because they cover different things and neither covers the other:
+    #
+    #   1. `uses: ./` exercises the composite YAML end to end -- inputs, version
+    #      resolution, install. It installs all2md from PyPI, so it says nothing
+    #      about *this* PR's scoring; its threshold is deliberately slack so a
+    #      published-vs-branch difference cannot make it flake. It answers "does
+    #      the action run at all", which the unit tests cannot.
+    #   2. The direct script run scores with the branch's code (editable install)
+    #      at the real thresholds. This is the ratchet.
+    #
+    # The thresholds in step 2 are measured floors, not round numbers: as of
+    # 1.10.0 the worst of the repo's root markdown is README.md at 97 fidelity
+    # (11 raw HTML blocks re-parse as paragraphs) and everything scores 100
+    # confidence. So fidelity passes here with *zero* headroom, which is the point.
+    # Re-record them deliberately if they move; do not nudge them down to make a
+    # build green. A threshold well below the real floor is the failure this whole
+    # batch kept finding -- a gate that passes because it cannot fail.
+    #
+    # `*.md` matches six tracked files here. Running the same command locally
+    # scores nine, because CLAUDE.md, AGENTS.md and todo.md are gitignored -- so a
+    # local run can show a different floor than CI without either being wrong.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Verify the action's wiring
+        uses: ./
+        with:
+          paths: |
+            README.md
+            CONTRIBUTING.md
+          roundtrip-fail-under: 90
+          all2md-version: latest
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Gate this branch against our own docs
+        run: |
+          python scripts/action_gate.py run \
+            --paths '*.md' \
+            --roundtrip-fail-under 97 \
+            --report-fail-under 100
+
   security-semgrep:
     name: Security Scan (Semgrep)
     runs-on: ubuntu-latest

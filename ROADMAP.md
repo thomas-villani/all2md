@@ -279,7 +279,8 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 
 > **Install experience — decided.** We shipped one-click **`uv`-based install scripts**
 > (🚢 v1.8.0) rather than a frozen PyInstaller binary. A browser/web UI is still planned.
-> The channels below (Docker, Action, hosted API) are unstarted.
+> The **Action shipped** (see below). Docker and the hosted API are unstarted; Docker was
+> considered and parked in the ratchet batch, and the Action no longer depends on it.
 
 - 🌱 **Docker image** — *scheduled in the ratchet batch.* `docker run all2md` as a one-line
   microservice / CI step. Also the building block for the GitHub Action and hosted API below —
@@ -288,15 +289,20 @@ See the **Async Architecture Decision** below for the strategy. The shape:
   numbers comparable across runs and machines (`benchmarks/reference/README.md` already
   concedes ±20-30% drift on one dev box). It also narrows a real pain class —
   "tesseract works standalone but not through all2md" is an environment bug.
-- 🌱 **GitHub Action** — *scheduled in the ratchet batch, and **re-scoped**.* The original
-  pitch — "convert docs in this repo to markdown on commit" — solves nobody's actual problem.
-  v1.9.0 shipped `report --fail-under` and `roundtrip --fail-under`, so the differentiated
-  product is a **conversion-quality gate**: *fail the build when document fidelity degrades.*
-  Nobody else ships that, because nobody else has the scores. It's the Theme 2 ratchet pointed
-  outward — we build it for ourselves first, then ship it. *Shape:* a **reusable action repo**
-  (e.g. `all2md-action`) with an `action.yml` at its root, best as a **Docker action** given
-  our heavy native deps, plus a documented example workflow users drop into
-  `.github/workflows/` (`uses: thomas-villani/all2md-action@v1`).
+- 🚢 **GitHub Action** — *shipped in the ratchet batch, **re-scoped**.* The original pitch —
+  "convert docs in this repo to markdown on commit" — solves nobody's actual problem.
+  v1.9.0 shipped `report --fail-under` and `roundtrip --fail-under`, so what shipped is a
+  **conversion-quality gate**: *fail the build when document fidelity degrades.* Nobody else
+  ships that, because nobody else has the scores. It's the Theme 2 ratchet pointed outward —
+  built for ourselves first, then shipped.
+
+  Two deviations from the shape sketched here, both deliberate. It is a **composite**
+  action, not a Docker one, because the Docker image it was to be built on was parked and
+  `pip install all2md[all]` covers the deps that argued for a container. And it ships from
+  **this repository's root** rather than a separate `all2md-action` repo, so `@v1.10.1`
+  installs all2md 1.10.1 — the gate's verdict *is* the library's score, so a drifting action
+  version would silently redefine every consumer's threshold. Marketplace listing is still
+  open. See `docs/source/github_action.rst`.
 - 🚀 **Hosted conversion API** — a freemium endpoint (could fund the project); the Docker
   image is the building block. Also the backend for the browser extension and Node SDK.
 - 🚀 **Node / JS SDK** — *not a port.* The JS conversion ecosystem is fragmented and weaker
