@@ -40,9 +40,10 @@
       "the full parser or run the pipeline, so they load the options either way.",
       "",
       "observed_max_deviation_pct is over the *gated* scenarios only. The bare",
-      "interpreter spread 12.2% across the same six VMs, and startup_spread.py's",
-      "headline figure includes it - which overstates the floor for a gate that",
-      "reports the bare interpreter without gating on it."
+      "interpreter spread 12.2% across the same six VMs. startup_spread.py used to",
+      "fold that into its headline floor, reporting 12.2% for min_ms when every",
+      "gated scenario sat at 1.9-2.5%; it now excludes ungated scenarios and says",
+      "so, so a fresh run of the study will not reproduce that 12.2% figure."
     ]
   },
   "tolerance_pct": 20.0,
