@@ -434,7 +434,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Configure pytest for benchmark tests.
+    """Hide benchmark tests unless ``--benchmark`` was passed.
+
+    Narrows any existing ``-m`` expression rather than replacing it. Assigning to
+    ``markexpr`` outright silently discarded the caller's selection: ``pytest -m unit``
+    used to collect the whole suite (7997 tests instead of 3857), because this hook
+    runs after argument parsing and overwrote ``unit`` with ``not benchmark``.
 
     Parameters
     ----------
@@ -442,5 +447,7 @@ def pytest_configure(config: pytest.Config) -> None:
         Pytest configuration object
 
     """
-    if not config.getoption("--benchmark"):
-        config.option.markexpr = "not benchmark"
+    if config.getoption("--benchmark", default=False):
+        return
+    existing = config.option.markexpr
+    config.option.markexpr = f"({existing}) and not benchmark" if existing else "not benchmark"
