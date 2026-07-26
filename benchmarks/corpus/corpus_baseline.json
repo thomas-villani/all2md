@@ -1,0 +1,28 @@
+{
+  "_comment": [
+    "Corpus fidelity baseline. Covers only the sources marked reproducible=true",
+    "in corpus.toml - arxiv and poi resolve against upstream state that moves, so",
+    "their documents differ run to run and cannot be compared against anything.",
+    "",
+    "expected_failures is an allowlist, not a record: an entry that starts passing",
+    "is red, and so is an entry for a document no longer in the corpus. Replace",
+    "each TODO with a real reason or fix the bug and delete the line.",
+    "",
+    "It is empty because the recording run converted all 100 gated documents",
+    "without raising. Keep it that way: the correct response to a new entry is a",
+    "fix, and an allowlist is the fallback for when that is not possible yet."
+  ],
+  "provenance": {
+    "recorded": "2026-07-26T02:03:08Z",
+    "workflow_run": "https://github.com/thomas-villani/all2md/actions/runs/30183702769",
+    "all2md_version": "1.10.0",
+    "git_commit": "50b8fc80b5db",
+    "python": "3.12.13",
+    "platform": "Linux-6.17.0-1020-azure-x86_64-with-glibc2.39"
+  },
+  "doc_counts": {
+    "enron": 50,
+    "govdocs1": 50
+  },
+  "expected_failures": {}
+}
