@@ -200,6 +200,19 @@ documents, therefore fewer failures, therefore a green gate — so the most like
 infrastructure fault in the whole pipeline would read as success. The gate also
 refuses to report a pass when *no* gated sources are present, for the same reason.
 
+`MISSING_DOCS` earned its keep on the gate's first real run: a DNS failure fetching
+the Enron tarball left the run with 50 documents instead of 100, and nothing else in
+the pipeline objected. Two things changed as a result, so the same fault now stops
+earlier and louder:
+
+- **A failed fetch is not cached.** `_read_index` returns `[]`, not `None`, for an
+  empty `_index.json`, so writing one after a failed download made that source
+  permanently empty on any machine that keeps the cache. Fetchers now leave no index
+  when they failed to find out, and only cache emptiness they actually established
+  (a shard that downloaded fine and holds none of the requested formats).
+- **`download` exits non-zero** if a requested source cached nothing, rather than
+  printing `cached 0 item(s)` and returning 0.
+
 Bootstrap or re-record a baseline from a run:
 
 ```bash
