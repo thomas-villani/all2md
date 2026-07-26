@@ -16,6 +16,12 @@ sample noise within one machine) and it reports, per scenario:
   smallest tolerance that would not have flaked on this data**. A real threshold
   needs headroom on top of that, not equality with it.
 
+The per-metric floors at the bottom cover only the scenarios a gate would actually
+judge (see ``UNGATED_SCENARIOS``). A scenario that is measured but never gated
+cannot flake a gate, so letting it set the floor overstates what the data supports -
+which is what happened here before this was fixed. The report names any scenario it
+excluded, and what the floor would have been with it included.
+
 Three candidate metrics are tracked, because they trade off differently:
 
 - ``min_ms`` - raw wall clock. Simple, but scales with runner speed, so a slower
@@ -51,6 +57,14 @@ from pathlib import Path
 
 # Candidate gate metrics, in the order they are reported.
 METRICS = ("min_ms", "over_baseline_ms", "ratio_over_baseline")
+
+# Scenarios the gate measures but never gates on, so their spread must not set the
+# tolerance floor. ``baseline`` is the bare interpreter: it is reported as a
+# runner-speed signal, and it is *by far* the noisiest scenario here, being a ~14 ms
+# measurement of process spawn rather than of our code. Including it once produced a
+# headline floor of 12.2% when every gated scenario sat at 1.9-2.5% - a ~5x
+# overstatement, in the direction that argues for a uselessly wide gate.
+UNGATED_SCENARIOS = frozenset({"baseline"})
 
 
 @dataclass
@@ -193,14 +207,23 @@ def within_run_noise(runs: list[tuple[str, dict]]) -> dict[str, float]:
     return noise
 
 
-def min_safe_tolerance(spreads: list[Spread]) -> dict[str, float]:
-    """Per metric, the worst ``max_dev_pct`` across scenarios.
+def min_safe_tolerance(spreads: list[Spread], ungated: frozenset[str] = UNGATED_SCENARIOS) -> dict[str, float]:
+    """Per metric, the worst ``max_dev_pct`` across the scenarios a gate would judge.
 
     This is the floor for any tolerance built on that metric: set the gate below
     this and unchanged code would already have gone red somewhere in this data.
+
+    Scenarios in ``ungated`` are excluded, because a scenario nobody gates on
+    cannot flake a gate - and letting the noisiest measurement in the study set
+    the floor for measurements it has no authority over is how a study argues for
+    a tolerance five times wider than its own data supports. Pass an empty set to
+    see the unfiltered figure; ``format_report`` names what was excluded either
+    way, so the filtering is never silent.
     """
     worst: dict[str, float] = {}
     for s in spreads:
+        if s.scenario in ungated:
+            continue
         worst[s.metric] = max(worst.get(s.metric, 0.0), s.max_dev_pct)
     return worst
 
@@ -230,6 +253,24 @@ def format_report(runs: list[tuple[str, dict]], spreads: list[Spread]) -> str:
     lines += ["", "Smallest tolerance that would NOT have flaked on this data:"]
     for metric, pct in sorted(min_safe_tolerance(spreads).items(), key=lambda kv: kv[1]):
         lines.append(f"  {metric:<20} > {pct:.1f}%")
+
+    # Never let the exclusion be silent: a reader who does not know it happened
+    # would read these floors as covering every row in the table above.
+    excluded = sorted({s.scenario for s in spreads} & UNGATED_SCENARIOS)
+    if excluded:
+        gated = min_safe_tolerance(spreads)
+        unfiltered = min_safe_tolerance(spreads, ungated=frozenset())
+        # Per metric, not a single worst-of-all number: the excluded scenario
+        # typically moves one metric and leaves the others alone, and collapsing
+        # that into one figure misattributes the other metrics' own noise to it.
+        raised = [(m, gated.get(m, 0.0), v) for m, v in unfiltered.items() if v > gated.get(m, 0.0)]
+        lines += ["", f"Excluded from the floors above (measured, never gated): {', '.join(excluded)}."]
+        if raised:
+            lines.append("Including them would raise:")
+            lines += [f"  {m:<20} {before:.1f}% -> {after:.1f}%" for m, before, after in sorted(raised)]
+        else:
+            lines.append("Including them would not change any floor above.")
+
     lines += [
         "",
         "Pick the metric with the smallest floor, then add headroom - these runs are a",
@@ -263,6 +304,11 @@ def main(argv: list[str] | None = None) -> int:
             "spreads": [asdict(s) for s in spreads],
             "within_run_noise_pct": within_run_noise(runs),
             "min_safe_tolerance_pct": min_safe_tolerance(spreads),
+            # Carried explicitly so a consumer reading only this file sees the same
+            # caveat the printed report shows, rather than reading the floor above
+            # as covering every scenario in "spreads".
+            "ungated_scenarios": sorted(UNGATED_SCENARIOS),
+            "min_safe_tolerance_pct_including_ungated": min_safe_tolerance(spreads, ungated=frozenset()),
         }
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(payload, indent=2), encoding="utf-8")

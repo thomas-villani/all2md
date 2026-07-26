@@ -143,6 +143,47 @@ def test_min_safe_tolerance_takes_the_worst_scenario() -> None:
     assert worst["min_ms"] > per_scenario[("import", "min_ms")]
 
 
+def test_a_noisy_ungated_scenario_does_not_set_the_floor() -> None:
+    # Replays variance run 30180080149, which reported "min_ms > 12.2%" while every
+    # gated scenario sat at 1.9-2.5%. The bare interpreter is a ~14ms measurement of
+    # process spawn, so it is the noisiest row in the study and the one nothing
+    # gates on. Letting it set the floor argued for a ~5x wider gate than the data
+    # supports - and, worse, ranked min_ms *last* when it was in fact the steadiest.
+    a = _payload(13.2, {"import": 162.0})
+    b = _payload(15.2, {"import": 163.0})
+    spreads = startup_spread.compute_spreads([("a", a), ("b", b)])
+
+    per_scenario = {(s.scenario, s.metric): s.max_dev_pct for s in spreads}
+    assert per_scenario[("baseline", "min_ms")] > 6.0, "the ungated scenario really is the noisy one"
+
+    floor = startup_spread.min_safe_tolerance(spreads)
+    assert floor["min_ms"] == pytest.approx(per_scenario[("import", "min_ms")])
+    assert floor["min_ms"] < per_scenario[("baseline", "min_ms")]
+
+
+def test_the_unfiltered_floor_is_still_available_and_still_worse() -> None:
+    # The exclusion is a reporting decision, not a claim the noise is not there.
+    a = _payload(13.2, {"import": 162.0})
+    b = _payload(15.2, {"import": 163.0})
+    spreads = startup_spread.compute_spreads([("a", a), ("b", b)])
+
+    gated = startup_spread.min_safe_tolerance(spreads)
+    everything = startup_spread.min_safe_tolerance(spreads, ungated=frozenset())
+    assert everything["min_ms"] > gated["min_ms"]
+
+
+def test_the_report_names_what_it_excluded() -> None:
+    # A floor that quietly covers fewer rows than the table above it reads as
+    # covering all of them. Whatever the number, the exclusion must be on the page.
+    a = _payload(13.2, {"import": 162.0})
+    b = _payload(15.2, {"import": 163.0})
+    runs = [("a", a), ("b", b)]
+    report = startup_spread.format_report(runs, startup_spread.compute_spreads(runs))
+
+    assert "Excluded from the floors above" in report
+    assert "baseline" in report.split("Excluded from the floors above")[1]
+
+
 def test_scenarios_are_reported_in_pipeline_order() -> None:
     run = _payload(100.0, {"import": 500.0, "--version": 520.0, "--help": 800.0})
     order: list[str] = []
