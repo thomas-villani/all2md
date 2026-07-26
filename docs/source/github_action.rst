@@ -129,6 +129,15 @@ Treat the number as a ratchet. When a document legitimately gets harder to
 convert, re-record the floor deliberately — don't nudge the threshold down to
 clear a red build.
 
+.. note::
+
+   **Measure in the environment you gate in.** Scores are deterministic for a
+   given interpreter and dependency set, but not necessarily across them — this
+   repository's own ``CHANGELOG.md`` scores 99 on a developer machine and 100 on
+   CI from identical bytes, because Markdown parsing depends on the installed
+   parser version. Calibrate from a CI run rather than a local one, and leave a
+   point of slack if you gate documents that sit right on a boundary.
+
 What this catches, and what it doesn't
 --------------------------------------
 
