@@ -1,0 +1,100 @@
+name: "all2md conversion-quality gate"
+description: >-
+  Fail the build when your documents stop converting cleanly. Scores every matched
+  document for round-trip fidelity and conversion confidence, and gates on the worst.
+author: "Tom Villani"
+
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  paths:
+    description: >-
+      Glob(s) selecting the documents to score, separated by newlines or commas
+      (for example "docs/**/*.md"). Matching is done in Python, not the shell, so
+      the result does not depend on the runner. Matching nothing fails the build.
+    required: true
+  roundtrip-fail-under:
+    description: >-
+      Fail if any document's round-trip fidelity falls below this score (0-100).
+      Set this, report-fail-under, or both -- with neither, the gate can never fail.
+    required: false
+    default: ""
+  report-fail-under:
+    description: >-
+      Fail if any document's conversion confidence falls below this score (0-100).
+    required: false
+    default: ""
+  via:
+    description: "Intermediate format for the round-trip check."
+    required: false
+    default: "markdown"
+  all2md-version:
+    description: >-
+      Version to install. Empty (the default) matches the tag this action was
+      referenced by, so @v1.10.1 gates with all2md 1.10.1 -- the scores are the
+      library's, so pinning them together keeps your thresholds meaningful.
+      Use "latest" to always take the newest release, or give an exact version.
+    required: false
+    default: ""
+  extras:
+    description: "Extras to install. The default covers every bundled format."
+    required: false
+    default: "all"
+  python-version:
+    description: "Python version used to run the gate."
+    required: false
+    default: "3.12"
+  working-directory:
+    description: "Directory the globs are resolved against."
+    required: false
+    default: "."
+
+outputs:
+  worst-fidelity:
+    description: "Lowest round-trip fidelity score seen, or empty if not gated."
+    value: ${{ steps.gate.outputs.worst-fidelity }}
+  worst-confidence:
+    description: "Lowest conversion confidence score seen, or empty if not gated."
+    value: ${{ steps.gate.outputs.worst-confidence }}
+  files-checked:
+    description: "Number of documents scored."
+    value: ${{ steps.gate.outputs.files-checked }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install all2md
+      shell: bash
+      run: |
+        set -euo pipefail
+        spec="$(python "$GITHUB_ACTION_PATH/scripts/action_gate.py" resolve-version \
+          --explicit '${{ inputs.all2md-version }}' \
+          --action-ref '${{ github.action_ref }}' \
+          --extras '${{ inputs.extras }}')"
+        echo "Installing $spec"
+        python -m pip install --quiet --upgrade pip
+        python -m pip install --quiet "$spec"
+
+    - name: Score documents
+      id: gate
+      shell: bash
+      run: |
+        set -euo pipefail
+        args=()
+        if [ -n '${{ inputs.roundtrip-fail-under }}' ]; then
+          args+=(--roundtrip-fail-under '${{ inputs.roundtrip-fail-under }}')
+        fi
+        if [ -n '${{ inputs.report-fail-under }}' ]; then
+          args+=(--report-fail-under '${{ inputs.report-fail-under }}')
+        fi
+        python "$GITHUB_ACTION_PATH/scripts/action_gate.py" run \
+          --paths '${{ inputs.paths }}' \
+          --via '${{ inputs.via }}' \
+          --working-directory '${{ inputs.working-directory }}' \
+          "${args[@]+"${args[@]}"}"

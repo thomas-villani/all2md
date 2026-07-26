@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **GitHub Action: a conversion-quality gate.** `action.yml` at the repository root
+  ships all2md as a reusable action that scores every matched document and fails the
+  build when fidelity degrades — the same ratchet this project runs on itself, pointed
+  outward. It wraps `roundtrip --fail-under` and `report --fail-under`, and gates on the
+  worst score across the matched set.
+
+  ```yaml
+  - uses: thomas-villani/all2md@v1.10.1
+    with:
+      paths: docs/**/*.md
+      roundtrip-fail-under: 97
+  ```
+
+  It refuses to pass quietly, which is the whole point: a `paths` glob that matches
+  nothing, a run with no threshold set, and a document that cannot be converted at all
+  are each a failure rather than a silent green. Config errors exit `2`, quality
+  failures exit `1`. It also warns when a threshold sits ten or more points below your
+  documents' real scores — documents that convert well score 99-100, so a
+  threshold that *sounds* strict has enough dead headroom to never fire.
+
+  The action lives in this repository rather than a separate one so `@v1.10.1` installs
+  all2md 1.10.1: the gate's verdict is the library's score, so the two versions must not
+  drift. See `docs/source/github_action.rst`.
+
 ### Changed
 
 - **Faster cold start: `import all2md` no longer loads every options module.** The
