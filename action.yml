@@ -65,7 +65,10 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-python@v5
+    # v7 to match the rest of the repo. v5 targets Node 20, which the runners now
+    # force onto Node 24 with a deprecation annotation -- and every consumer of this
+    # action would see that annotation on their own builds.
+    - uses: actions/setup-python@v7
       with:
         python-version: ${{ inputs.python-version }}
 

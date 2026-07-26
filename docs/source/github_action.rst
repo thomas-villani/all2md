@@ -33,7 +33,7 @@ Quick Start
      quality:
        runs-on: ubuntu-latest
        steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v5
          - uses: thomas-villani/all2md@v1.10.1
            with:
              paths: |
