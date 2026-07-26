@@ -209,3 +209,14 @@ Bootstrap or re-record a baseline from a run:
 
 Then replace each `TODO` reason with a real justification — a machine can record that
 something failed, but only a person can say whether it's acceptable.
+
+The committed baseline was recorded on 2026-07-26 from
+[run 30183702769](https://github.com/thomas-villani/all2md/actions/runs/30183702769)
+against 1.10.0, and its allowlist is **empty**: all 100 gated documents converted
+without raising. So any entry appearing in it later is a regression with a name, and
+the right response is a fix rather than a line in the list.
+
+Note what the gated half actually covers: 50 PDFs and 50 emails. `corpus.toml` asks
+govdocs1 for `pdf` and `docx`, but govdocs1 is a 2009 harvest of `.gov` sites and
+carries legacy `.doc`, so the `docx` request matches almost nothing. The gate is real,
+it is just narrower than the manifest reads.
