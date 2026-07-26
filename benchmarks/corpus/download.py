@@ -79,6 +79,24 @@ def _read_index(source_dir: Path) -> list[CorpusItem] | None:
     return [CorpusItem(**row) for row in rows]
 
 
+def _give_up(source_dir: Path, reason: str) -> list[CorpusItem]:
+    """Abandon a source *without* caching the emptiness.
+
+    Writing an empty ``_index.json`` here would be read back as a legitimate cache
+    hit -- :func:`_read_index` returns ``[]``, not ``None`` -- so one transient
+    network failure would zero the source out permanently on any machine that keeps
+    the cache between runs. That is not hypothetical: a DNS blip fetching the Enron
+    tarball produced ``[enron] cached 0 item(s)``, and every later run would have
+    read that back and re-reported zero without retrying.
+
+    Leaving no index costs a retry next run, which is the cheaper mistake. Use this
+    whenever emptiness means "we failed to find out" rather than "we looked, and the
+    answer is none".
+    """
+    print(f"  {source_dir.name}: {reason} - not caching, will retry next run", flush=True)
+    return []
+
+
 def _write_index(source_dir: Path, items: list[CorpusItem]) -> None:
     source_dir.mkdir(parents=True, exist_ok=True)
     (source_dir / "_index.json").write_text(
@@ -185,9 +203,9 @@ def fetch_arxiv(cfg: dict, source_dir: Path) -> list[CorpusItem]:
         pool.append(eid)
 
     if not pool:
-        print("  arxiv: empty pool, nothing to fetch", flush=True)
-        _write_index(source_dir, [])
-        return []
+        # A live query returning nothing is far more likely to be a bad day at the
+        # API than a genuinely empty arxiv.
+        return _give_up(source_dir, "empty pool, nothing to fetch")
 
     sampled = _seeded_sample(pool, sample_size, seed)
     items: list[CorpusItem] = []
@@ -306,8 +324,7 @@ def fetch_govdocs1(cfg: dict, source_dir: Path) -> list[CorpusItem]:
         print(f"  govdocs1: downloading shard {shard_name} (~250 MB)...", flush=True)
         size = _try_download(url, shard_path, label=shard_name, timeout=600)
         if size is None:
-            _write_index(source_dir, [])
-            return []
+            return _give_up(source_dir, f"could not download shard {shard_name}")
 
     print(f"  govdocs1: scanning {shard_name} for formats {formats}...", flush=True)
     with zipfile.ZipFile(shard_path) as zf:
@@ -317,6 +334,9 @@ def fetch_govdocs1(cfg: dict, source_dir: Path) -> list[CorpusItem]:
             if not info.is_dir() and Path(info.filename).suffix.lower().lstrip(".") in formats
         ]
         if not candidates:
+            # The one empty result worth caching: the shard downloaded fine and
+            # genuinely holds none of the requested formats. Deterministic, so
+            # re-deriving it every run buys nothing.
             print(f"  govdocs1: no matching files in shard {shard_name}", flush=True)
             _write_index(source_dir, [])
             return []
@@ -405,9 +425,8 @@ def fetch_poi(cfg: dict, source_dir: Path) -> list[CorpusItem]:
             pool.append((ep, ext))
 
     if not pool:
-        print("  poi: empty pool, nothing to fetch", flush=True)
-        _write_index(source_dir, [])
-        return []
+        # Same reasoning as arxiv: the pool comes off a live tree listing.
+        return _give_up(source_dir, "empty pool, nothing to fetch")
 
     sampled = _seeded_sample(pool, sample_size, seed)
     items: list[CorpusItem] = []
@@ -450,8 +469,7 @@ def fetch_enron(cfg: dict, source_dir: Path) -> list[CorpusItem]:
         print("  enron: downloading tarball (~423 MB)...", flush=True)
         size = _try_download(ENRON_URL, tarball, label=ENRON_TARBALL, timeout=900)
         if size is None:
-            _write_index(source_dir, [])
-            return []
+            return _give_up(source_dir, "could not download the tarball")
 
     names_cache = source_dir / ENRON_NAMES_CACHE
     if names_cache.exists():
@@ -467,8 +485,9 @@ def fetch_enron(cfg: dict, source_dir: Path) -> list[CorpusItem]:
         print(f"  enron: indexed {len(names)} files", flush=True)
 
     if not names:
-        _write_index(source_dir, [])
-        return []
+        # A 423 MB tarball holding no files means we read it wrong, not that the
+        # Enron release is empty.
+        return _give_up(source_dir, "tarball indexed to zero members")
 
     sampled = _seeded_sample(names, sample_size, seed)
     items: list[CorpusItem] = []

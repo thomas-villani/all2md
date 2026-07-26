@@ -216,6 +216,19 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
 
+    # A source we asked for and did not get is a failure, and saying so here beats
+    # discovering it an hour later: the run that prompted this printed
+    # "[enron] cached 0 item(s)", exited 0, then benchmarked half a corpus. Only the
+    # gate's MISSING_DOCS check stopped that reading as a pass.
+    if args.mode in ("download", "all"):
+        empty = sorted(name for name, lst in items.items() if not lst)
+        if empty:
+            print(
+                f"No documents cached for: {', '.join(empty)}. " "Check the download log above for the cause.",
+                file=sys.stderr,
+            )
+            return 1
+
     if args.mode == "download":
         if args.purge_after:
             print("--purge-after ignored: download mode populates the cache.", flush=True)
