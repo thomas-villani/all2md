@@ -44,6 +44,9 @@ class BenchmarkResult:
         Standard deviation of timings
     throughput_mbps : float
         Throughput in MB/second (based on mean)
+    output_chars : int or None
+        Length of the converted output, or None when the conversion function
+        returned something other than a string
     metadata : dict
         Additional metadata about the benchmark
 
@@ -60,6 +63,7 @@ class BenchmarkResult:
     max_time: float
     std_dev: float
     throughput_mbps: float
+    output_chars: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -84,6 +88,7 @@ class BenchmarkResult:
             "max_time": self.max_time,
             "std_dev": self.std_dev,
             "throughput_mbps": self.throughput_mbps,
+            "output_chars": self.output_chars,
             "mean_formatted": format_duration(self.mean_time),
             "metadata": self.metadata,
         }
@@ -156,11 +161,17 @@ class BenchmarkRunner:
             conversion_func(file_path, **conversion_kwargs)
 
         # Timed iterations
+        output: Any = None
         for _ in range(iterations):
             start = time.perf_counter()
-            conversion_func(file_path, **conversion_kwargs)
+            output = conversion_func(file_path, **conversion_kwargs)
             elapsed = time.perf_counter() - start
             timings.append(elapsed)
+
+        # Keep the size of what came back, so a benchmark can check it converted
+        # something rather than only that it converted *quickly*. Custom conversion
+        # functions that return nothing leave this None, and assert nothing.
+        output_chars = len(output) if isinstance(output, str) else None
 
         # Calculate statistics
         mean_time = statistics.mean(timings)
@@ -187,6 +198,7 @@ class BenchmarkRunner:
             max_time=max_time,
             std_dev=std_dev,
             throughput_mbps=throughput_mbps,
+            output_chars=output_chars,
             metadata=metadata,
         )
 
@@ -280,6 +292,7 @@ class BenchmarkRunner:
             "max_time",
             "std_dev",
             "throughput_mbps",
+            "output_chars",
             "git_commit",
             "timestamp",
         ]
