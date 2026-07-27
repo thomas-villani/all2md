@@ -6,13 +6,22 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
-**Status (2026-07-16).** The headline Theme 1 item — `all2md chunk` — is shipped, along with
+**Status (2026-07-27).** The headline Theme 1 item — `all2md chunk` — is shipped, along with
 mermaid/syntax highlighting in `view`/`serve` and one-click `uv` install scripts. The
 **Fidelity & Trust** batch landed in **v1.9.0**: the conversion cache, the confidence report
 (`all2md report`), DOCX character-style round-tripping, round-trip fidelity scoring
 (`all2md roundtrip`), and its capstone the conversion optimizer (`all2md optimize`). Shipped
-items are marked 🚢 inline below. The **next batch** is *Quality & Speed Ratchets* — see
-*Suggested sequencing*.
+items are marked 🚢 inline below.
+
+The **Quality & Speed Ratchets** batch landed in **v1.10.1**. Bet 1 below is now done: all
+three harnesses are wired to CI as blocking gates against committed baselines, cold start
+dropped ~28%, and the gate is pointed outward as a reusable GitHub Action. The lesson worth
+carrying forward is that **every one of those instruments already contained a vacuous pass**
+— a green produced by not measuring rather than by measuring well — and that finding them
+required demonstrating each gate red against deliberately-broken code before trusting it.
+Wiring the gates up is also what surfaced a silent data-loss bug in the Markdown parser.
+
+The **next batch is not yet chosen.** Bets 2 and 3 are now evaluable, which was the point.
 
 ---
 
@@ -26,10 +35,9 @@ scale to handle real corpora.
 
 Three bets stand out as highest-leverage:
 
-1. **A quality & speed ratchet** — we have three good benchmark harnesses (`corpus`,
-   `roundtrip`, `startup`) and automation on none of them. Making a regression *fail* is
-   cheaper than building anything new, and it is the precondition for honestly evaluating
-   bets 2 and 3 — every large item left in Theme 2 is currently unevaluable. See **Theme 2**.
+1. 🚢 **A quality & speed ratchet** — *shipped (v1.10.1).* All three benchmark harnesses
+   (`corpus`, `roundtrip`, `startup`) now gate CI against committed baselines, which was
+   the precondition for honestly evaluating bets 2 and 3. See **Theme 2**.
 2. **Positional fidelity** — OCR geometry → node-level provenance → layout-aware PDF. The
    single thread that makes RAG citations real; see **Theme 8**.
 3. **Async + scale** — unblocks the server/MCP story we've already started.
@@ -140,22 +148,32 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
 - 🚀 **Math everywhere** — emit LaTeX from DOCX (OMML→LaTeX), PDF equation regions,
   HTML MathML, and (optionally) images of equations via OCR. Huge for academic/technical
   users and a natural pairing with the existing arxiv packager.
-- 🌱 **The ratchet: automate the harnesses we already built.** *This is the next batch.* We do
-  not need to *build* a benchmark; we have three good ones and **automation on none of them**:
-  - `benchmarks/corpus/` — throughput over ~160 real arxiv/govdocs1/POI/Enron docs
-    (🚢 v1.1.1). One **manual-dispatch** CI workflow. Results are gitignored, so cross-run
-    comparison is local-only and by hand.
-  - `benchmarks/roundtrip/` — MD→AST→MD fidelity, two independent oracles (🚢 v1.9.0).
-    **No CI job at all.** Exits non-zero on oracle failure, so it is gate-ready today.
-  - `benchmarks/startup.py` — cold start, fresh interpreter per sample. **No CI job**,
-    despite its own docstring calling it "the guard for the startup wins... so they can't
-    silently regress." The wins landed; the guard never ran.
+- 🚢 **The ratchet: automate the harnesses we already built.** *Shipped (v1.10.1).* The
+  diagnosis was that we did not need to *build* a benchmark — we had three good ones and
+  automation on none of them. All three now gate:
+  - `benchmarks/roundtrip/` — MD→AST→MD fidelity, two independent oracles (🚢 v1.9.0). Now
+    a **blocking gate** on every push and PR, with an `EXPECTED_FAILURES` allowlist where an
+    entry that starts passing, or goes stale, is *also* red.
+  - `benchmarks/startup.py` — cold start. Now **two** gates, because the cost is milliseconds
+    but the cause is an import graph: an exact module-set assertion that cannot flake, and a
+    wall-clock job that requires raw and interpreter-normalized deltas to agree before going
+    red (a CPU-class shift in the runner pool moves only one).
+  - `benchmarks/corpus/` — now a **weekly** `Corpus Fidelity Gate` over the reproducible half
+    only, comparing the failure set by name. The other half resolves against upstream state
+    that moves, so gating it would report document-mix churn as a regression.
 
-  So: **we have measurement and no ratchet.** Nothing fails when quality or speed degrades.
-  `tests/performance` has ~24 timing assertions, but all are loose absolute ceilings
-  (`< 10.0`, `< 5.0`) that catch a hang, not a 2× regression — and they are skipped unless
-  `--benchmark` is passed, so they never run in CI anyway. Making regressions fail is cheaper
-  than any new feature here, and it is what makes the rest of this theme evaluable.
+  `tests/performance` is kept but disarmed: its ceilings had 106×–1170× headroom on CI and
+  its other assertions were true by construction, so it could never have failed — and never
+  ran, because a bare `pytest tests/` deselects `benchmark`. It is now a `Format Benchmarks`
+  job that gates on conversion rather than time, covering the dozen formats the corpus gate
+  cannot reach.
+
+  **What this actually taught us**, and the reason to distrust the next green: every one of
+  these instruments already contained a *vacuous pass* — including, it turned out, the lint
+  gate, where `fix = true` meant CI repaired violations in the runner and exited 0. The
+  transferable rule is to pair a sharp instrument with a noisy one, because each is blind
+  where the other sees, and to demonstrate every gate red against deliberately-broken code
+  before trusting it.
 - 🚀 **External ground truth** — *the headline metric, once the ratchet exists.*
   `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own parsers, not
   that we read the document correctly. A garbled table round-trips perfectly. So the open
@@ -479,38 +497,39 @@ conversion-cache correctness 🚢, conversion optimizer 🚢 (the batch capstone
 round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢 that the new
 `benchmarks/roundtrip` harness surfaced.
 
-Ordered by leverage-per-effort:
+**Shipped in the Quality & Speed Ratchets batch** (**v1.10.1**, 2026-07-27). Deliberately
+*invisible* — no API change, no new library feature — so it cut as a patch release:
 
-**Next batch — Quality & Speed Ratchets.** Deliberately *invisible*: no API change, no new
-library feature, so it cuts as a **patch release**. The theme is turning quality and speed
-into ratchets instead of vibes.
+1. 🚢 **The three harnesses now gate CI against committed baselines** — `corpus`,
+   `roundtrip`, `startup` (Theme 2). Regressions fail.
+2. 🚢 **Startup performance** — the scaling bug was real: `all2md.options` re-exports lazily
+   now, options modules 31 → 4, `import all2md` 230 → 162 ms and `--version` 246 → 178 ms on
+   CI. `performance.rst` is reconciled — the hand-authored tables are gone rather than
+   restated, and the startup work finally has a docs page.
+3. ⏸️ **Docker image — parked**, and worth recording why so it isn't revived by accident. Its
+   stated justification was to be the reproducible environment the ratchet compares in. That
+   turned out to be wrong: the corpus benchmark's reproducibility problem was its *manifest*
+   (arxiv queries live, POI tracks `trunk`), not the environment, so no amount of VM pinning
+   would have helped. It also cuts against the one-click `uv` install direction. **Do not
+   restart this without a fresh, container-specific justification.**
+4. 🚢 **GitHub Action, re-scoped** — shipped as a conversion-quality gate. Two deviations,
+   both forced by (3) being parked and both improvements: **composite, not Docker**
+   (`pip install all2md[all]` covers the deps that argued for a container), and **`action.yml`
+   at this repo's root, not a separate repo** — the gate's verdict *is* the library's score,
+   so an action that could version-drift from the library would silently redefine every
+   consumer's threshold. A Marketplace listing is a separate, public call and is **not** done.
 
-1. **Wire the three harnesses to committed baselines in CI** — `corpus`, `roundtrip`,
-   `startup` all exist and all are unautomated (Theme 2). Make regressions *fail*. This also
-   converts our recurring unpinned-dependency drift from a mystery red CI into a number that
-   moved.
-2. **Startup performance** — the ratchet's first customer, and a *scaling* bug rather than a
-   micro-opt: `all2md --version` eagerly imports **31 options modules**, so cold start is
-   O(number of formats) and gets worse every time Theme 4 succeeds. Then reconcile
-   `performance.rst`, whose two headline tables are hand-authored estimates from before the
-   harness existed — source them from a real run or delete them.
-3. **Docker image** — the reproducible, version-pinned environment the ratchet needs to be
-   comparable across machines *and* the shared building block for the Action and a future
-   hosted API (Theme 5). Bakes PyMuPDF/tesseract in once.
-4. **GitHub Action, re-scoped** — a **conversion-quality gate** built on the
-   `report --fail-under` / `roundtrip --fail-under` flags shipped in v1.9.0: fail the build
-   when document fidelity degrades. It is the same ratchet as (1), pointed outward, and it
-   falls out of (1)+(3) nearly free.
+**Remaining, ordered by leverage-per-effort.** With (1) shipped, (5) is now the cheap next
+step it was always predicted to be:
 
-**Then, in rough order:**
-
-5. **External ground truth** (Theme 2) — OmniDocBench as the headline score. Cheap *after*
-   the ratchet, because by then it is just another oracle in a working socket. Heed the
+5. **External ground truth** (Theme 2) — OmniDocBench as the headline score. Cheap *now that*
+   the ratchet exists, because it is just another oracle in a working socket. Heed the
    caveat the optimizer taught us: pick the metric by measuring that it *varies* across the
    corpus, not by assuming it does. Be prepared for it to say something we don't want to hear
    — finding that out before sinking a batch into Theme 8 is the entire point.
-6. **Theme 8 — positional fidelity** (OCR geometry → provenance → layout). The big bet, and
-   the one that is currently unevaluable, which is exactly why it sits behind (1) and (5).
+6. **Theme 8 — positional fidelity** (OCR geometry → provenance → layout). The big bet. It
+   was unevaluable, which is why it sat behind (1); (1) is now done, so (5) is the only thing
+   still standing between here and a defensible go/no-go on it.
 7. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
    Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
    a prerequisite for clean multi-worker training-corpus loading (Theme 1).

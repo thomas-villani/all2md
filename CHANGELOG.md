@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-07-27
+
+A maintenance release. Almost all of it is infrastructure — the harnesses this
+project already had are now wired to CI as blocking gates — but wiring them up
+surfaced one real conversion bug, which is the reason to take the release.
+
 ### Added
 
 - **GitHub Action: a conversion-quality gate.** `action.yml` at the repository root
@@ -32,6 +38,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The action lives in this repository rather than a separate one so `@v1.10.1` installs
   all2md 1.10.1: the gate's verdict is the library's score, so the two versions must not
   drift. See `docs/source/github_action.rst`.
+
+### Fixed
+
+- **Prose containing a `|` is no longer swallowed into a table.** mistune's
+  `_process_thead` never checks that the second line of a candidate table is a
+  delimiter row — it matches each cell against the three alignment patterns and
+  falls back to "no alignment" for anything else — so *any* line with the same
+  number of pipe-separated cells as the line above it was accepted as the
+  delimiter and then consumed. Two ordinary sentences that each happened to
+  contain a pipe became a two-column table, and **the second line was deleted
+  outright**. So did two fully-piped rows written without a delimiter, and two
+  lines whose pipes sat inside code spans (whose backticks were mangled on the
+  way through). A delimiter row is now required, per GFM, which is where the loss
+  stops. Found by the new quality-gate action, which scored a table-free
+  `CHANGELOG.md` as containing a table — the metric was right and the code was
+  wrong (#177).
+- CI: **the lint gate could not fail.** `fix = true` in `[tool.ruff]` applies to plain
+  `ruff check`, not just `ruff check --fix`, so CI rewrote every auto-fixable violation
+  inside the runner and exited 0 — green build, repair discarded with the runner,
+  violation still on `main`. Only rules with no auto-fix could ever turn it red. The
+  setting is gone and CI passes `--no-fix`; a test pins both (#149).
+- Benchmarks: a failed corpus download is no longer cached as an empty result. An empty
+  `_index.json` reads back as a valid cache hit, so one transient network failure zeroed
+  a source out permanently on any machine that keeps the cache. Found when a DNS blip
+  reduced the corpus to 50 documents and the run still exited 0.
+- Benchmarks: the two large corpus archives (Enron, ~423 MB; govdocs1, ~250 MB) now get
+  a **bounded** retry with backoff. Exhausting it still fails loudly — the retry buys
+  tolerance for flakiness, never silence about failure — and a 404 is not retried at all
+  (#182).
+- Benchmarks: a corpus source that yields **none** of a format its `corpus.toml` entry
+  requests now says so, instead of quietly covering a narrower format mix than the
+  manifest advertises (#181).
+- Tests: `pytest -m unit` works again. `tests/performance/conftest.py` overwrote
+  `markexpr` in `pytest_configure`, silently discarding any `-m` — the documented fast
+  path collected 7997 tests instead of 3857. CI never noticed because it passes no `-m`.
+- Tests: `TestSplitCLIE2E` no longer races under parallel workers. It used a fixed
+  directory under the project root, so concurrent xdist workers collided in it and a
+  crashed run left the directory behind. Thanks [@rkfshakti](https://github.com/rkfshakti)
+  (#185, #187).
 
 ### Changed
 
@@ -67,6 +112,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   raw milliseconds and milliseconds relative to the same run's bare interpreter — and
   goes red only when both agree, which is what separates a real regression from a
   runner that landed on a faster or slower CPU class.
+- CI: a weekly `Corpus Fidelity Gate` (also on dispatch) converts the corpus benchmark's
+  reproducible half and compares the **failure set** — which documents fail, by name —
+  against `benchmarks/corpus/corpus_baseline.json`. Only the two sources whose sample is
+  fixed across cold runs are gated; arxiv and POI resolve against upstream state that
+  moves, so a baseline would report document-mix churn as a regression. The recorded
+  baseline converts 100/100 gated documents, so its accepted-failure list is empty. A
+  short corpus is also a failure, which is what caught the download bug above.
+- CI: a `Format Benchmarks` job converts the small per-format fixtures across the dozen
+  formats the corpus gate cannot reach (it covers PDF and email only). It gates on
+  **conversion, not on time**: these fixtures run in 5–885 ms, and gating a 5 ms
+  measurement needs a variance study on these runners first. Timings are recorded to an
+  artifact, which is what such a study would be built from.
+- `tests/performance` is kept but disarmed. Its seven absolute ceilings had 106×–1170×
+  headroom on CI and its other seventeen assertions were `mean_time > 0`, true by
+  construction — so nothing there could ever have failed, and nothing had ever run it,
+  because a bare `pytest tests/` deselects `benchmark`. What is checked now is that every
+  format still converts to something non-empty: deterministic, and unable to flake.
+- Docs: `performance.rst` no longer reports throughput figures that came from no harness.
+  The old table gave pages/sec, a unit the benchmarks have never produced, beside one row
+  in MB/sec — measured and invented numbers side by side, which launders the invented
+  ones. They are replaced by figures that name their source, and by the advice to measure
+  your own corpus. It also documented PubMed Central as a live corpus source with runnable
+  commands, though `[sources.pmc]` is commented out, and described the Apache POI sample
+  as stable when `ref = trunk` is a moving branch. Adds the startup-cost section the page
+  never had (#180).
+- CI: bumped `actions/setup-python` 6 → 7 and `actions/download-artifact` 7 → 8 (#188,
+  #189). Created the `dependencies`, `github-actions` and `python` labels that
+  `dependabot.yml` had always referenced but that never existed on the repository, so
+  Dependabot could not apply them.
 
 ## [1.10.0] - 2026-07-24
 
@@ -77,19 +151,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`<ins>`), or `ignore` (#113).
 
 ### Fixed
-
-- **Prose containing a `|` is no longer swallowed into a table.** mistune's
-  `_process_thead` never checks that the second line of a candidate table is a
-  delimiter row — it matches each cell against the three alignment patterns and
-  falls back to "no alignment" for anything else — so *any* line with the same
-  number of pipe-separated cells as the line above it was accepted as the
-  delimiter and then consumed. Two ordinary sentences that each happened to
-  contain a pipe became a two-column table, and **the second line was deleted
-  outright**. So did two fully-piped rows written without a delimiter, and two
-  lines whose pipes sat inside code spans (whose backticks were mangled on the
-  way through). A delimiter row is now required, per GFM, which is where the
-  loss stops. Found by the new quality-gate action, which scored a table-free
-  `CHANGELOG.md` as containing a table.
 
 - **OCR'd PDF pages with links no longer crash conversion.** OCR-synthesized text
   spans omitted the `bbox` key that every real PyMuPDF span carries. On a page
@@ -1365,7 +1426,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.1
 [1.10.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.0
 [1.9.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.9.0
 [1.8.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.2
