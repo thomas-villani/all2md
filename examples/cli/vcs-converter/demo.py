@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 from docx import Document as DocxDocument
-from docx.shared import Inches, Pt
+from docx.shared import Pt
 
 try:
     from vcs_converter import VCSConverter
@@ -28,14 +28,15 @@ def create_sample_docx(output_path: Path) -> None:
     ----------
     output_path : Path
         Where to save the document
+
     """
     doc = DocxDocument()
 
     # Add title
-    title = doc.add_heading("Sample Document for VCS Testing", 0)
+    doc.add_heading("Sample Document for VCS Testing", 0)
 
     # Add introduction
-    intro = doc.add_paragraph(
+    doc.add_paragraph(
         "This is a sample document created to demonstrate the VCS document "
         "converter. It contains various formatting elements to test the "
         "conversion process."
@@ -93,21 +94,22 @@ def demo_basic_conversion() -> None:
     print("=" * 70)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+        # resolve() so short-path forms (Windows 8.3, symlinked /tmp) match
+        # the converter's resolved root.
+        tmpdir = Path(tmpdir).resolve()
 
         # Create sample document
         docx_path = tmpdir / "sample.docx"
         create_sample_docx(docx_path)
 
         # Initialize converter
-        converter = VCSConverter()
-        converter.markdown_dir = tmpdir / ".vcs-docs"
+        converter = VCSConverter(root=tmpdir)
 
         # Convert to markdown
         print("\nConverting to markdown...")
         md_path, metadata_path = converter.convert_to_markdown(docx_path)
 
-        print(f"\nGenerated files:")
+        print("\nGenerated files:")
         print(f"  - Markdown: {md_path}")
         print(f"  - Metadata: {metadata_path}")
 
@@ -137,7 +139,9 @@ def demo_batch_processing() -> None:
     print("=" * 70)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+        # resolve() so short-path forms (Windows 8.3, symlinked /tmp) match
+        # the converter's resolved root.
+        tmpdir = Path(tmpdir).resolve()
 
         # Create multiple sample documents
         docs_dir = tmpdir / "docs"
@@ -150,16 +154,15 @@ def demo_batch_processing() -> None:
             create_sample_docx(doc_path)
 
         # Initialize converter
-        converter = VCSConverter()
-        converter.markdown_dir = tmpdir / ".vcs-docs"
+        converter = VCSConverter(root=tmpdir)
 
         # Batch convert
         print("\nScanning for documents...")
-        found_docs = converter.scan_repository(tmpdir)
+        found_docs = converter.scan_repository()
         print(f"Found {len(found_docs)} document(s)")
 
         print("\nBatch converting...")
-        converter.batch_convert(tmpdir)
+        converter.batch_convert()
 
         print("\nGenerated markdown files:")
         for md_file in converter.markdown_dir.rglob("*.vcs.md"):
@@ -173,15 +176,16 @@ def demo_bidirectional_conversion() -> None:
     print("=" * 70)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+        # resolve() so short-path forms (Windows 8.3, symlinked /tmp) match
+        # the converter's resolved root.
+        tmpdir = Path(tmpdir).resolve()
 
         # Create original document
         original_docx = tmpdir / "original.docx"
         create_sample_docx(original_docx)
 
         # Initialize converter
-        converter = VCSConverter()
-        converter.markdown_dir = tmpdir / ".vcs-docs"
+        converter = VCSConverter(root=tmpdir)
 
         # Convert to markdown
         print("\nStep 1: Converting original DOCX to markdown...")
@@ -216,7 +220,9 @@ def demo_workflow_simulation() -> None:
     print("=" * 70)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
+        # resolve() so short-path forms (Windows 8.3, symlinked /tmp) match
+        # the converter's resolved root.
+        tmpdir = Path(tmpdir).resolve()
 
         # Setup repository structure
         repo_dir = tmpdir / "my-project"
@@ -230,8 +236,7 @@ def demo_workflow_simulation() -> None:
         create_sample_docx(doc_v1)
 
         # Initialize converter
-        converter = VCSConverter()
-        converter.markdown_dir = repo_dir / ".vcs-docs"
+        converter = VCSConverter(root=repo_dir)
 
         # Convert version 1
         print("Converting v1 to markdown...")
