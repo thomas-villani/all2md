@@ -132,11 +132,11 @@ clear a red build.
 .. note::
 
    **Measure in the environment you gate in.** Scores are deterministic for a
-   given interpreter and dependency set, but not necessarily across them — this
-   repository's own ``CHANGELOG.md`` scores 99 on a developer machine and 100 on
-   CI from identical bytes, because Markdown parsing depends on the installed
-   parser version. Calibrate from a CI run rather than a local one, and leave a
-   point of slack if you gate documents that sit right on a boundary.
+   given interpreter and dependency set, but not guaranteed across them: parsing
+   depends on the installed parser version, so a document can score differently
+   on a developer machine than on CI from identical bytes. Calibrate from a CI
+   run rather than a local one, and leave a point of slack if you gate documents
+   that sit right on a boundary.
 
 What this catches, and what it doesn't
 --------------------------------------
