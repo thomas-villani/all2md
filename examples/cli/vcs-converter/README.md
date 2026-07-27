@@ -1,457 +1,254 @@
-# Version Control System Document Converter
+# VCS Document Converter
 
-Make binary documents (DOCX, PPTX, PDF) git-friendly by automatically converting them to markdown for version control.
+Make binary documents git-friendly by committing a markdown sidecar next to each
+one, so `git diff` shows prose instead of:
 
-## Overview
-
-Binary document formats like DOCX, PPTX, and PDF are difficult to version control effectively:
-- Git can't show meaningful diffs
-- Merge conflicts are impossible to resolve
-- File history is opaque
-- Collaboration is challenging
-
-This tool solves these problems by maintaining parallel markdown versions of your binary documents that are:
-- **Diff-friendly**: See exactly what changed between versions
-- **Merge-friendly**: Resolve conflicts in plain text
-- **Human-readable**: Review changes without opening applications
-- **Bidirectional**: Convert back to binary when needed
-
-## Features
-
-- Convert binary formats (DOCX, PPTX, PDF) to markdown for git tracking
-- Pre-commit hook integration for automatic conversion
-- Track document changes in text format
-- Bidirectional sync (markdown <-> binary)
-- Preserve formatting metadata
-- Diff-friendly markdown output
-- Batch processing for entire repositories
-- Configurable behavior via JSON config file
-
-## Use Cases
-
-1. **Document Version Control**: Track changes to documentation over time
-2. **Collaborative Editing**: Multiple people editing documents with proper merge conflict resolution
-3. **Change Tracking**: See exactly what changed in a document without opening it
-4. **Compliance/Auditing**: Maintain detailed change history for regulatory requirements
-5. **Code Review**: Review document changes as part of pull request workflow
-
-## Installation
-
-### Prerequisites
-
-```bash
-pip install all2md
+```
+Binary files a/docs/spec.docx and b/docs/spec.docx differ
 ```
 
-### Setup in Your Repository
+A pre-commit hook keeps the sidecars in sync. Reviewers read the markdown; the
+binary stays the source of truth.
 
-1. Copy the example to your repository:
+## Pick the right approach first
+
+"Make binary documents git-friendly" has three solutions and **none of them
+dominates**. This example implements the first. Read the table before adopting
+it, because the honest answer for many repositories is one of the others.
+
+|                            | **This example**<br>(committed sidecar) | git `textconv` | CI diff comment |
+| -------------------------- | --- | --- | --- |
+| How                        | hook writes a parallel `.md`, both committed | `.gitattributes` + local git config | a CI job renders the diff |
+| `git blame` on prose       | ✅ | ❌ ignores `textconv` entirely | ❌ |
+| Diff visible on GitHub     | ✅ | ❌ local only | ✅ |
+| Merge conflicts resolvable | ✅ in text | ❌ | ❌ |
+| Repository stays clean     | ❌ duplicated content, noisier commits | ✅ | ✅ |
+| Setup per clone            | install the hook | `git config` per clone | none |
+
+**Choose the sidecar (this example)** when you need `git blame` on the prose or
+need to resolve merge conflicts in text. Those are the two things nothing else
+can give you, and you pay for them with duplicated content.
+
+**Choose `textconv`** when you only want readable local diffs and want the repo
+to stay clean. It needs no code at all:
+
 ```bash
-cp -r examples/cli/vcs-converter /path/to/your/repo/.vcs-converter
-cd /path/to/your/repo
+# .gitattributes (committed)
+echo '*.docx diff=all2md' >> .gitattributes
+
+# per clone, in local git config
+git config diff.all2md.textconv all2md
+git config diff.all2md.cachetextconv true
 ```
 
-2. Install the pre-commit hook (optional but recommended):
+## Requirements
+
 ```bash
-python .vcs-converter/install_hook.py
+pip install "all2md[all]"     # or narrow it: all2md[docx,pptx,pdf]
 ```
 
-3. Add to your `.gitignore` (choose your strategy):
-```bash
-# Option A: Track both binary and markdown (recommended for most cases)
-cat .vcs-converter/.gitignore.template >> .gitignore
+Python 3.10+, and `python-docx` if you want to run `demo.py`.
 
-# Option B: Track only markdown (exclude binaries)
-# Edit .gitignore to exclude *.docx, *.pptx, *.pdf
-```
+Supported inputs are **`.docx`, `.pptx`, and `.pdf`** — the formats all2md can
+parse. Legacy OLE formats (`.doc`, `.ppt`) are not supported and are
+deliberately not scanned; run `all2md list-formats` to see the current set.
 
-## Usage
-
-### Automatic Conversion (Pre-commit Hook)
-
-Once the hook is installed, documents are automatically converted when you commit:
+## Quick start
 
 ```bash
-# Edit your document
-vim report.docx
+# 1. Copy the converter into your repository
+mkdir -p .vcs-converter
+cp vcs_converter.py .vcs-converter/
 
-# Commit as usual - conversion happens automatically
-git add report.docx
-git commit -m "Update quarterly report"
+# 2. Install the pre-commit hook
+cp pre-commit-hook.sh .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
 
-# Both report.docx and .vcs-docs/report.vcs.md are committed
-```
-
-### Manual Conversion
-
-#### Convert a Single Document
-
-```bash
-python .vcs-converter/vcs_converter.py to-md document.docx
-```
-
-This creates:
-- `.vcs-docs/document.vcs.md` - The markdown version
-- `.vcs-docs/document.vcs.json` - Metadata for reconstruction
-
-#### Batch Convert All Documents
-
-```bash
-# Convert all binary documents in repository
+# 3. Convert what you already have
 python .vcs-converter/vcs_converter.py batch
 
-# Force reconversion even if markdown exists
-python .vcs-converter/vcs_converter.py batch --force
+# 4. Commit the sidecars
+git add .vcs-docs/
+git commit -m "Add markdown sidecars for binary documents"
 ```
 
-#### Convert Markdown Back to Binary
+From here it is automatic — edit `docs/spec.docx`, `git add` it, and the hook
+writes and stages `.vcs-docs/docs/spec.vcs.md` as part of your commit.
+
+`demo.py` runs the whole thing end to end in a temporary directory if you want
+to see it work before installing anything.
+
+## Commands
+
+All commands accept `--root` (repository root that paths resolve against;
+defaults to the working directory) and `--config`.
+
+| Command | What it does |
+| --- | --- |
+| `batch [--force]` | Convert every supported document under the root. Skips documents whose content hash is unchanged; `--force` reconverts everything. |
+| `to-md FILE [--staged]` | Convert one document. `--staged` reads from the git index rather than the working tree. Prints the generated paths on stdout. |
+| `to-binary FILE [--output PATH] [--in-place]` | Render a sidecar back to its original format. |
+| `scan` | List the documents that would be converted. |
+| `clean` | Delete the generated markdown directory. |
+
+### `to-binary` does not overwrite your document
+
+By default it writes **alongside** the original:
 
 ```bash
-python .vcs-converter/vcs_converter.py to-binary .vcs-docs/document.vcs.md
+python vcs_converter.py to-binary .vcs-docs/docs/spec.vcs.md
+# -> docs/spec.rebuilt.docx     (docs/spec.docx untouched)
 ```
 
-This recreates the original binary format using the stored metadata.
+This matters. Rendering markdown back to DOCX/PPTX/PDF cannot restore what
+markdown never carried — styles, images, layout, tracked changes, embedded
+objects. Overwriting the source destroys all of it, irreversibly. Use
+`--output` to choose a path, or `--in-place` to accept that loss explicitly.
 
-#### Scan for Binary Documents
-
-```bash
-python .vcs-converter/vcs_converter.py scan
-```
-
-#### Clean Generated Files
-
-```bash
-python .vcs-converter/vcs_converter.py clean
-```
+The realistic workflow is: **read** the markdown, **edit** the binary. Treat
+markdown→binary as a recovery tool, not a round trip.
 
 ## Configuration
 
-Create a `vcs-converter.config.json` file in your repository root:
+Create `vcs-converter.config.json` and pass it with `--config`:
 
 ```json
 {
   "markdown_dir": ".vcs-docs",
   "track_metadata": true,
   "store_ast": false,
-  "exclude_patterns": [
-    "*.tmp.docx",
-    "~$*.docx",
-    "**/build/**",
-    "**/dist/**"
-  ]
+  "exclude_patterns": ["*.tmp.docx", "~$*.docx", "**/build/**", "**/dist/**"]
 }
 ```
 
-### Configuration Options
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `markdown_dir` | `.vcs-docs` | Where sidecars are written, relative to the root. |
+| `track_metadata` | `true` | Write the `.vcs.json` sidecar. Required for `to-binary` and for content-hash change detection. |
+| `store_ast` | `false` | Embed the full serialised AST in the metadata. **Leave this off** unless you need it — it puts a large, churn-heavy blob in a file whose purpose is readable diffs. |
+| `exclude_patterns` | `[]` | Globs matched against both the file name and the full path, so `~$*.docx` and `**/build/**` both work. |
 
-- `markdown_dir`: Directory for generated markdown (default: `.vcs-docs`)
-- `track_metadata`: Store metadata for reconstruction (default: `true`)
-- `store_ast`: Store full AST for perfect reconstruction (default: `false`)
-- `exclude_patterns`: Glob patterns (matched against file name and full path) for files to skip during `batch`/`scan`
+## What gets committed
 
-## Workflows
+```
+docs/
+  spec.docx                    # source of truth
+.vcs-docs/
+  docs/
+    spec.vcs.md                # readable, diffable, blameable
+    spec.vcs.json              # source path, format, SHA-256, doc metadata
+```
 
-### Workflow 1: Track Both Binary and Markdown
+The `.vcs.json` sidecar stores a SHA-256 of the source bytes. `batch` compares
+it to decide what needs reconverting — **not** modification times, because git
+does not preserve mtimes and a fresh clone would otherwise skip documents that
+genuinely changed.
 
-Best for: Most use cases, especially when non-technical collaborators need the binary files.
+### Tracking only the markdown
+
+If the binaries are large or regenerable, gitignore them and commit only the
+sidecars:
+
+```gitignore
+*.docx
+*.pptx
+!.vcs-docs/**
+```
+
+Be clear-eyed about the trade: you can no longer recover the original document,
+only a `--in-place`-style regeneration of it. Do this for drafts, not contracts.
+
+## The pre-commit hook
+
+The hook converts the **staged** content, not what happens to be on disk:
 
 ```bash
-# 1. Edit document normally
-# 2. Commit triggers automatic conversion
-git add report.docx
-git commit -m "Update report"
-
-# 3. Both files are committed and tracked
-# 4. Reviewers can diff the markdown to see changes
+python vcs_converter.py to-md "$file" --staged
 ```
 
-**Pros:**
-- Works for all collaborators
-- No risk of losing binary formatting
-- Easy to share final documents
+That distinction is the whole reason it works. With `git add -p`, or an
+unstaged edit made while the commit was in flight, the working tree and the
+index differ — and converting the working tree would commit a sidecar
+describing content that was never committed.
 
-**Cons:**
-- Larger repository size
-- Some redundancy
+It stages exactly the files each conversion produced (the converter prints them
+on stdout) rather than blanket-adding `.vcs-docs/`, so stale output from an
+earlier run never rides along in an unrelated commit.
 
-### Workflow 2: Track Only Markdown
-
-Best for: Technical teams, markdown-native workflows, minimizing repository size.
+Configure it with environment variables:
 
 ```bash
-# 1. Add binary extensions to .gitignore
-echo "*.docx" >> .gitignore
-echo "*.pptx" >> .gitignore
-echo "*.pdf" >> .gitignore
-
-# 2. Commit only markdown versions
-git add .vcs-docs/
-git commit -m "Update documentation"
-
-# 3. Recreate binary when needed
-python .vcs-converter/vcs_converter.py to-binary .vcs-docs/report.vcs.md
+PYTHON=/path/to/python          # defaults to python3, then python
+CONVERTER_SCRIPT=path/to/vcs_converter.py
 ```
 
-**Pros:**
-- Smaller repository
-- Full git diff/merge capabilities
-- Faster clone times
-
-**Cons:**
-- Need to regenerate binaries
-- Requires all collaborators to use the tool
-
-### Workflow 3: Hybrid Approach
-
-Track markdown for documents under active development, commit binaries only for releases.
-
-```bash
-# During development
-git add .vcs-docs/
-git commit -m "WIP: Update report"
-
-# At release
-python .vcs-converter/vcs_converter.py to-binary .vcs-docs/report.vcs.md
-git add report.docx
-git tag v1.0
-```
-
-## How It Works
-
-### Conversion Process
-
-1. **Binary to Markdown**:
-   - Uses `all2md` library to parse binary format
-   - Extracts document structure and content
-   - Preserves formatting metadata in separate JSON file
-   - Generates diff-friendly markdown output
-
-2. **Markdown to Binary**:
-   - Reads markdown and metadata
-   - Reconstructs document structure
-   - Uses `all2md` renderers to create binary format
-   - Preserves original formatting where possible
-
-### Metadata Storage
-
-The `.vcs.json` files store:
-- Source file format
-- Document metadata (title, author, etc.)
-- Formatting information
-- Optional: Full AST for perfect reconstruction
-
-### Directory Structure
-
-```
-your-repo/
-├── docs/
-│   └── report.docx                 # Original binary
-├── .vcs-docs/                      # Generated markdown
-│   └── docs/
-│       ├── report.vcs.md          # Markdown version
-│       └── report.vcs.json        # Metadata
-└── .git/
-    └── hooks/
-        └── pre-commit              # Auto-conversion hook
-```
-
-## Advanced Usage
-
-### Custom Configuration Per Project
-
-Create `.vcs-converter/config.json` in your repo:
-
-```bash
-python .vcs-converter/vcs_converter.py batch --config .vcs-converter/config.json
-```
-
-### Selective Conversion
-
-Convert only specific file types:
-
-```bash
-# Convert only DOCX files
-find . -name "*.docx" -exec python .vcs-converter/vcs_converter.py to-md {} \;
-```
-
-### Integration with CI/CD
-
-```yaml
-# .github/workflows/docs-check.yml
-name: Document Check
-on: [pull_request]
-
-jobs:
-  check-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
-        run: pip install all2md
-      - name: Convert documents
-        run: python .vcs-converter/vcs_converter.py batch
-      - name: Check for changes
-        run: |
-          if [[ `git status --porcelain` ]]; then
-            echo "Error: Markdown versions are out of sync"
-            git diff
-            exit 1
-          fi
-```
-
-### Pre-commit Framework Integration
-
-For teams using the `pre-commit` framework:
+### Using the pre-commit framework instead
 
 ```yaml
 # .pre-commit-config.yaml
 repos:
   - repo: local
     hooks:
-      - id: vcs-converter
-        name: Convert binary documents
-        entry: python .vcs-converter/vcs_converter.py batch
+      - id: vcs-convert
+        name: Convert binary documents to markdown
+        entry: python .vcs-converter/vcs_converter.py to-md
         language: system
-        pass_filenames: false
+        files: \.(docx|pptx|pdf)$
 ```
+
+Note that this form passes working-tree paths, so it does not get the
+staged-content guarantee above. The bundled hook is the safer option.
+
+## Checking sidecars in CI
+
+Fail the build when a sidecar is stale — someone committed a document without
+the hook installed:
+
+```yaml
+- run: |
+    python .vcs-converter/vcs_converter.py batch
+    git diff --exit-code .vcs-docs/ || {
+      echo "::error::Sidecars are out of date. Run 'vcs_converter.py batch' and commit."
+      exit 1
+    }
+```
+
+For scoring conversion *quality* rather than freshness, see
+`examples/workflows/` and the [conversion-quality
+gate](https://all2md.readthedocs.io/en/latest/github_action.html).
 
 ## Troubleshooting
 
-### Hook Not Running
+**Hook doesn't run.** Check `ls -l .git/hooks/pre-commit` and that it is
+executable. Run it directly with `bash .git/hooks/pre-commit` to see the error.
 
-```bash
-# Verify hook is installed
-ls -l .git/hooks/pre-commit
+**"No python interpreter found."** The hook looks for `python3`, then `python`.
+Set `PYTHON` explicitly if yours is elsewhere — a virtualenv interpreter is
+usually what you want, since it is the one with `all2md` installed.
 
-# Check permissions
-chmod +x .git/hooks/pre-commit
+**"... is outside the repository root."** Paths resolve against `--root`, which
+defaults to the working directory. Pass `--root /path/to/repo` when running from
+somewhere else.
 
-# Test hook manually
-.git/hooks/pre-commit
-```
-
-### Conversion Failures
-
-```bash
-# Enable debug logging
-PYTHONPATH=. python -v .vcs-converter/vcs_converter.py to-md document.docx
-
-# Check document format
-file document.docx
-```
-
-### Merge Conflicts in Markdown
-
-Markdown conflicts can be resolved like code:
-
-```bash
-# 1. Git will mark conflicts in .vcs-docs/*.vcs.md
-# 2. Edit the markdown to resolve
-# 3. Regenerate binary if needed
-python .vcs-converter/vcs_converter.py to-binary .vcs-docs/document.vcs.md
-
-# 4. Mark as resolved
-git add .vcs-docs/document.vcs.md document.docx
-git commit
-```
-
-### Large Binary Files
-
-For large documents, consider:
-
-```json
-{
-  "store_ast": false
-}
-```
+**Merge conflict in a `.vcs.md` file.** Resolve it in the markdown as you would
+any text conflict, then resolve the binary separately — the sidecar and the
+document are conflicting independently, and fixing one does not fix the other.
 
 ## Limitations
 
-- **Format Fidelity**: Complex formatting may not round-trip perfectly
-- **Macros/Scripts**: Document macros and scripts are not preserved
-- **Embedded Objects**: Some embedded objects may not convert
-- **Version-Specific Features**: Features specific to newer format versions may be lost
+- Complex layout, precise styling, and embedded objects do not survive
+  conversion to markdown. The sidecar is for *review*, not fidelity.
+- `git blame` works on the sidecar, not the binary.
+- Scanned PDFs convert only as well as the OCR does; check
+  `all2md report file.pdf` before trusting a sidecar.
+- Every commit that touches a document also touches its sidecar, which roughly
+  doubles the file count in those commits.
 
-## Best Practices
+## See also
 
-1. **Commit Often**: Smaller changes = easier diffs
-2. **Meaningful Messages**: Describe document changes in commit messages
-3. **Review Markdown**: Use markdown diffs during code review
-4. **Test Round-trips**: Verify binary reconstruction before important releases
-5. **Keep Binaries**: For production documents, commit both versions
-6. **Exclude Temps**: Always exclude Office temp files (`.~lock`, `~$`, etc.)
+- `examples/workflows/` — CI workflows for conversion quality
+- `examples/cli/diff-in-ci.sh` — semantic cross-format diffing
+- [all2md documentation](https://all2md.readthedocs.io/)
 
-## Examples
-
-### Example 1: Technical Documentation
-
-```bash
-# Setup
-python .vcs-converter/install_hook.py
-
-# Edit your docs
-vim user-guide.docx
-
-# Commit
-git add user-guide.docx
-git commit -m "Add troubleshooting section to user guide"
-
-# Reviewer sees readable diff
-git diff HEAD~1 .vcs-docs/user-guide.vcs.md
-```
-
-### Example 2: Contract Review
-
-```bash
-# Convert existing contracts
-python .vcs-converter/vcs_converter.py batch
-
-# Commit baseline
-git add .vcs-docs/
-git commit -m "Add baseline contract versions"
-
-# After edits
-git diff .vcs-docs/contract.vcs.md  # Shows exact changes in plain text
-```
-
-### Example 3: Presentation Collaboration
-
-```bash
-# Team member 1
-vim presentation.pptx
-git commit -am "Add Q4 results slides"
-
-# Team member 2 (pulls changes)
-git pull
-# Reviews changes in .vcs-docs/presentation.vcs.md
-# Opens presentation.pptx with changes incorporated
-```
-
-## Technical Details
-
-This example showcases several `all2md` features:
-
-1. **Batch Processing**: Processing multiple files efficiently
-2. **Git Integration**: Seamless integration with git workflow
-3. **Bidirectional Conversion**: Both parsing and rendering capabilities
-4. **AST Manipulation**: Using the AST for metadata extraction
-5. **Multiple Format Support**: Handling DOCX, PPTX, and PDF
-
-## Contributing
-
-Improvements welcome:
-- Additional format support
-- Better metadata handling
-- Performance optimizations
-- Git LFS integration
-- Better conflict resolution strategies
-
-## License
-
-This example is part of the all2md project and follows the same license.
-
-## See Also
-
-- [all2md documentation](https://github.com/thomas-villani/all2md)
-- [Git hooks documentation](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)
-- [Pre-commit framework](https://pre-commit.com/)
+Licensed under the MIT license, same as all2md — see the repository root
+`LICENSE`.
