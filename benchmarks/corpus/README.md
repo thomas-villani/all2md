@@ -168,6 +168,25 @@ can click straight to source/output pairs.
 - Wall-clock timings depend on hardware and load — don't compare across
   machines, only across runs on the same machine.
 
+## Network failures, and what the run does about them
+
+The two large archives — the Enron tarball (423 MB) and the govdocs1 shard
+(~250 MB) — get **two retries with exponential backoff** before the source gives
+up. A DNS blip on either once failed a whole weekly run, and a gate that goes
+red on infrastructure gets ignored, at which point it has stopped being a gate.
+
+The bound is as deliberate as the retry. When the budget is spent the fetch
+still fails loudly and still caches nothing, so a broken network is reported as
+a broken network rather than smoothed into a thin corpus. Retries only cover
+transient failures — a 404 or a 403 is not retried, because retrying a wrong URL
+is only a slower way to fail. Per-document fetches get no retry at all: they are
+individually cheap to lose, and retrying each would multiply the run time of a
+source that is already hundreds of requests long.
+
+Separately, a source that yields **none** of a format its `corpus.toml` entry
+asks for now says so. That claim is the corpus's coverage claim, and a format
+that silently matched nothing misstates which gate covers what.
+
 ## Adding a source
 
 Add a `[sources.<name>]` block to `corpus.toml`, then implement a fetcher in
