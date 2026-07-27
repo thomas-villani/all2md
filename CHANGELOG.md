@@ -78,6 +78,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Prose containing a `|` is no longer swallowed into a table.** mistune's
+  `_process_thead` never checks that the second line of a candidate table is a
+  delimiter row — it matches each cell against the three alignment patterns and
+  falls back to "no alignment" for anything else — so *any* line with the same
+  number of pipe-separated cells as the line above it was accepted as the
+  delimiter and then consumed. Two ordinary sentences that each happened to
+  contain a pipe became a two-column table, and **the second line was deleted
+  outright**. So did two fully-piped rows written without a delimiter, and two
+  lines whose pipes sat inside code spans (whose backticks were mangled on the
+  way through). A delimiter row is now required, per GFM, which is where the
+  loss stops. Found by the new quality-gate action, which scored a table-free
+  `CHANGELOG.md` as containing a table.
+
 - **OCR'd PDF pages with links no longer crash conversion.** OCR-synthesized text
   spans omitted the `bbox` key that every real PyMuPDF span carries. On a page
   that was OCR'd *and* held a link annotation (common in signed documents), link
