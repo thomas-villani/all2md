@@ -180,6 +180,39 @@ def _plugin_admonition(md: Any) -> None:
     md.block.register("admonition", _ADMONITION_HEADER.pattern, _parse_admonition_block, before="fenced_code")
 
 
+# A GFM delimiter cell: optional leading colon, one or more dashes, optional
+# trailing colon. Whitespace around it is insignificant.
+_DELIMITER_CELL = re.compile(r"^\s*:?-+:?\s*$")
+
+
+def _is_delimiter_row(text: str) -> bool:
+    """Return whether *text* is a table delimiter row (``---|:---:|---:``).
+
+    mistune does not check this. Its ``_process_thead`` splits the second line
+    into cells, matches each against the three alignment patterns, and falls back
+    to ``align=None`` for anything that matches none of them -- so *any* line with
+    the same number of pipe-separated cells as the header is accepted as the
+    delimiter and then consumed. Two ordinary prose lines that happen to contain a
+    pipe become a table, and the second line is deleted outright::
+
+        we support a|b syntax        | we support a | b syntax |
+        and also c|d syntax     ->   |---|---|
+
+    GFM requires the delimiter row, so checking for it here restores both halves
+    of the correct behaviour: real tables still parse, and prose stays prose.
+
+    Parameters
+    ----------
+    text : str
+        The candidate delimiter line, with the outer pipes already stripped.
+
+    """
+    from mistune.plugins.table import _split_table_cells
+
+    cells = _split_table_cells(text)
+    return bool(cells) and all(_DELIMITER_CELL.match(cell) for cell in cells)
+
+
 def _process_row_lenient(text: str, aligns: list[Optional[str]]) -> dict[str, Any]:
     """Build a table row token, reconciling the cell count with the header.
 
@@ -240,6 +273,10 @@ def _parse_table_lenient(block: Any, m: re.Match[str], state: Any) -> Optional[i
     align = _strip_pipe_table_row(align_line)
     if align is None:
         return None
+    if not _is_delimiter_row(align):
+        # Not a table at all -- let the paragraph rule take the whole run of
+        # lines, rather than eating this one as a delimiter row.
+        return None
 
     thead, aligns = _process_thead(header, align)
     if not thead or aligns is None:
@@ -272,6 +309,8 @@ def _parse_nptable_lenient(block: Any, m: re.Match[str], state: Any) -> Optional
     align_line = state.get_line(pos)
     align = _strip_table_line(align_line)
     if align is None:
+        return None
+    if not _is_delimiter_row(align):
         return None
 
     thead, aligns = _process_thead(header, align)
