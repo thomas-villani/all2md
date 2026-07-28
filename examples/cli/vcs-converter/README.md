@@ -158,6 +158,9 @@ sidecars:
 Be clear-eyed about the trade: you can no longer recover the original document,
 only a `--in-place`-style regeneration of it. Do this for drafts, not contracts.
 
+`.gitignore.template` in this directory has both options ready to copy, along
+with rules for Office lock files (`~$*.docx`).
+
 ## The pre-commit hook
 
 The hook converts the **staged** content, not what happens to be on disk:

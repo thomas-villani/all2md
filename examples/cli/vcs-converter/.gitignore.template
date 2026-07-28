@@ -4,12 +4,12 @@
 # converted documents while excluding binary originals (optional).
 
 # Option 1: Track markdown only (exclude binary originals)
-# Uncomment these lines to only commit the markdown versions
+# Uncomment these lines to only commit the markdown versions.
+# You lose the ability to recover the original document -- only a
+# regeneration of it -- so do this for drafts, not contracts.
 #*.docx
 #*.pptx
 #*.pdf
-#*.doc
-#*.ppt
 
 # Option 2: Track both (default)
 # Keep both binary and markdown versions in git
