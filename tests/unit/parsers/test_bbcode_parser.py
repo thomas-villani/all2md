@@ -496,3 +496,61 @@ This is a [b]quoted[/b] text.
         # Should create at least one paragraph
         assert len(doc.children) >= 1
         assert any(isinstance(child, Paragraph) for child in doc.children)
+
+    def test_keep_empty_list_item(self) -> None:
+        """Empty [*] markers must keep list items, not drop them."""
+        parser = BBCodeParser()
+        doc = parser.parse("[list][*]a[*][*]c[/list]")
+
+        lists = [c for c in doc.children if isinstance(c, List)]
+        assert len(lists) == 1
+        lst = lists[0]
+        assert lst.ordered is False
+        assert len(lst.items) == 3
+        assert isinstance(lst.items[0].children[0].content[0], Text)
+        assert lst.items[0].children[0].content[0].content == "a"
+        assert lst.items[1].children[0].content == []
+        assert isinstance(lst.items[2].children[0].content[0], Text)
+        assert lst.items[2].children[0].content[0].content == "c"
+
+    def test_keep_empty_ordered_list_item(self) -> None:
+        """Empty [*] in ordered lists must keep the blank item."""
+        parser = BBCodeParser()
+        doc = parser.parse("[list=1][*]a[*][*]c[/list]")
+
+        lists = [c for c in doc.children if isinstance(c, List)]
+        assert len(lists) == 1
+        lst = lists[0]
+        assert lst.ordered is True
+        assert len(lst.items) == 3
+        assert lst.items[1].children[0].content == []
+
+    def test_strip_color_keeps_multiple_inner_inlines(self) -> None:
+        """parse_color_size=False must keep nested formatting beside plain text."""
+        parser = BBCodeParser(BBCodeParserOptions(parse_color_size=False))
+        doc = parser.parse("[color=red][b]bold[/b] and more[/color]")
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], Paragraph)
+        content = doc.children[0].content
+        assert len(content) == 2
+        assert isinstance(content[0], Strong)
+        assert isinstance(content[0].content[0], Text)
+        assert content[0].content[0].content == "bold"
+        assert isinstance(content[1], Text)
+        assert content[1].content == " and more"
+
+    def test_strip_size_keeps_multiple_inner_inlines(self) -> None:
+        """parse_color_size=False must keep nested italics beside plain text."""
+        parser = BBCodeParser(BBCodeParserOptions(parse_color_size=False))
+        doc = parser.parse("[size=12][i]x[/i] y[/size]")
+
+        assert len(doc.children) == 1
+        assert isinstance(doc.children[0], Paragraph)
+        content = doc.children[0].content
+        assert len(content) == 2
+        assert isinstance(content[0], Emphasis)
+        assert isinstance(content[0].content[0], Text)
+        assert content[0].content[0].content == "x"
+        assert isinstance(content[1], Text)
+        assert content[1].content == " y"

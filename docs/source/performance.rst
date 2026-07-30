@@ -63,40 +63,41 @@ Different document formats have varying performance characteristics:
 Typical Throughput
 ~~~~~~~~~~~~~~~~~~
 
-Expected processing speeds on modern hardware (4-core CPU, 16GB RAM):
+This section used to carry a table of figures like *"PDF (text-based): 2-10
+pages/sec"*. Those numbers came from no harness. The benchmarks report MB/s and
+per-format mean times and have never reported pages/sec, so the rows could not
+have been measured — and presenting them beside a real ``MB/sec`` row laundered
+the invented ones. They have been removed rather than restated.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 30 30 40
+What can be said with a source:
 
-   * - Document Type
-     - Typical Throughput
-     - Example
-   * - Plain text files
-     - 10-50 MB/sec
-     - 50-page document: <1 second
-   * - DOCX documents
-     - 5-20 pages/sec
-     - 100-page document: 5-20 seconds
-   * - PPTX presentations
-     - 10-50 slides/sec
-     - 50-slide deck: 1-5 seconds
-   * - PDF (text-based)
-     - 2-10 pages/sec
-     - 100-page PDF: 10-50 seconds
-   * - PDF (image-heavy)
-     - 0.5-2 pages/sec
-     - 100-page PDF: 50-200 seconds
-   * - HTML web pages
-     - 50-200 pages/sec
-     - Complex page: <1 second
-   * - EPUB books
-     - 5-20 chapters/sec
-     - 300-page book: 5-30 seconds
+* Across the small per-format fixtures, conversion takes **5-885 ms** depending
+  on format. Recorded by the ``Format Benchmarks`` CI job, which uploads
+  per-format timings as an artifact on every push.
+* Cold start on a GitHub-hosted ``ubuntu-latest`` runner, Python 3.12.13:
+  ``import all2md`` **162 ms**, ``all2md --version`` **178 ms**, ``all2md
+  --help`` **371 ms**, a small conversion **398 ms**, against a bare interpreter
+  at **14 ms**. Recorded in ``benchmarks/startup_baseline.json``, which carries
+  its own provenance block.
 
-.. note::
+Neither is a throughput figure for *your* documents, and no honest table would
+be. Conversion cost is dominated by document complexity — image count, table
+structure, whether a PDF needs OCR — far more than by format alone. To get a
+number you can act on, measure your own corpus:
 
-   Actual performance varies significantly based on document complexity, image count, table structures, and hardware capabilities.
+.. code-block:: bash
+
+   python -m benchmarks.corpus.run --max-docs 20
+
+The report it writes gives per-source and per-format p50/p95 wall time and MB/s
+over documents you chose. That is the number worth quoting.
+
+.. warning::
+
+   Do not calibrate against timings taken on a developer machine. A Windows dev
+   box reads ~230 ms for a bare interpreter start where CI reads ~14 ms — off by
+   more than any regression a gate would be looking for. Measure in the
+   environment you care about.
 
 Optimization Strategies
 -----------------------
@@ -623,6 +624,74 @@ Set environment variables for global performance tuning:
    # Set attachment mode globally
    export ALL2MD_ATTACHMENT_MODE=skip
 
+Startup Cost
+------------
+
+For a long-running service, import time is a rounding error. For a CLI invoked
+once per file — from a shell loop, a pre-commit hook, or ``xargs -P`` — it is
+paid on every document, and can exceed the conversion itself on small inputs.
+
+Measured on a GitHub-hosted ``ubuntu-latest`` runner (Python 3.12.13, median of
+the per-run minimum across six independent VMs):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 20 20 20
+
+   * - Scenario
+     - 1.10.0
+     - Before
+     - Change
+   * - Bare interpreter (floor)
+     - 14 ms
+     - 14 ms
+     - —
+   * - ``import all2md``
+     - 162 ms
+     - 230 ms
+     - −30%
+   * - ``all2md --version``
+     - 178 ms
+     - 246 ms
+     - −28%
+   * - ``all2md --help``
+     - 371 ms
+     - 377 ms
+     - −2%
+   * - Small conversion
+     - 398 ms
+     - 408 ms
+     - −2%
+
+The saving came from making ``all2md.options`` re-export lazily (PEP 562).
+Previously *any* options import pulled in all 30-odd submodules at package-init
+time, so a bare ``import all2md`` loaded 31 options modules to reach the two
+classes it actually needs. It now loads 4, and eagerly-imported ``all2md``
+modules dropped from 64 to 37. There is no API change: ``from all2md.options
+import PdfOptions`` works exactly as before.
+
+Two CI gates guard this, deliberately paired:
+
+* ``tests/unit/test_eager_imports.py`` compares module sets exactly. It is the
+  sharp instrument — it cannot flake, and it is what actually catches an
+  accidental eager import.
+* The ``Cold Start Gate`` compares wall-clock timings against
+  ``benchmarks/startup_baseline.json``. It is coarse on purpose, and covers what
+  the module-set check structurally cannot see: a single import that is cheap to
+  *list* and expensive to *run*.
+
+If startup dominates your workload, the fix is usually not tuning but batching —
+convert many files per process rather than one, using the batch API or
+``all2md`` in directory mode, so the cost is paid once.
+
+.. warning::
+
+   Do not benchmark this on a developer machine. A Windows dev box measures
+   ~230 ms for a *bare interpreter* against CI's ~14 ms, so local startup
+   numbers are off by far more than any regression worth catching. The baseline
+   file is regenerated from the ``Startup Runner Variance`` workflow, never from
+   a laptop.
+
 Hardware Recommendations
 ------------------------
 
@@ -836,9 +905,18 @@ Corpus Benchmark Harness
 For stress testing across a wider variety of real-world documents than ad-hoc
 benchmarks can cover, all2md ships a corpus benchmark harness in
 ``benchmarks/corpus/``. It pulls a deterministic sample from public corpora
-(arxiv, PubMed Central, Digital Corpora govdocs1, Apache POI test data, the
-Enron email release), times conversion of each doc, and produces a stratified
-markdown report.
+(arxiv, Digital Corpora govdocs1, Apache POI test data, the Enron email
+release), times conversion of each doc, and produces a stratified markdown
+report.
+
+.. note::
+
+   **PubMed Central is not among them.** ``[sources.pmc]`` is commented out in
+   ``corpus.toml``: NCBI's OA web service serves an HTML interstitial rather
+   than a PDF from the per-id endpoint, returns tgz packages from the list
+   endpoint, and rate-limits both intermittently. ``fetch_pmc`` is kept in
+   ``download.py`` for whenever that improves. Until it is uncommented,
+   ``--sources pmc`` selects nothing.
 
 The harness is intentionally separate from the unit-style ``tests/performance``
 benchmarks - it focuses on real-world coverage rather than fixture-level
@@ -855,8 +933,8 @@ From the repository root, with ``all2md`` installed in your environment:
    # Full pipeline: download, benchmark, generate report
    python -m benchmarks.corpus.run
 
-   # Subset: only PDFs from arxiv and PubMed Central, max 20 docs
-   python -m benchmarks.corpus.run --sources arxiv,pmc --formats pdf --max-docs 20
+   # Subset: only PDFs from arxiv, max 20 docs
+   python -m benchmarks.corpus.run --sources arxiv --formats pdf --max-docs 20
 
    # Skip docs above a size cutoff (useful for quick smoke runs)
    python -m benchmarks.corpus.run --max-size-mb 5
@@ -901,7 +979,7 @@ flip through them:
    python -m benchmarks.corpus.inspect --criteria largest --n 15 --formats pdf
 
    # Random sample from a specific source
-   python -m benchmarks.corpus.inspect --criteria random --sources pmc --n 5 --seed 1
+   python -m benchmarks.corpus.inspect --criteria random --sources govdocs1 --n 5 --seed 1
 
    # Wipe previous output before writing
    python -m benchmarks.corpus.inspect --clean
@@ -913,11 +991,17 @@ files, plus a top-level ``_summary.md`` index that links to each pair.
 Reproducibility Caveats
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-* The arxiv and PubMed Central pools come from live APIs and shift over time.
-  The seed controls sampling within the pool, but the pool itself drifts -
-  two runs on different days will pick a comparable mix, not the same papers.
-* govdocs1, Enron, and Apache POI samples are stable: same shard, same git
-  ref, same tarball content.
+* The arxiv pool comes from a live API and shifts over time. The seed controls
+  sampling within the pool, but the pool itself drifts - two runs on different
+  days will pick a comparable mix, not the same papers.
+* **Apache POI is not stable either**, despite what this page used to claim.
+  ``ref = trunk`` is a moving branch, not a pinned commit, so the file list
+  changes as POI edits its test data. Only govdocs1 (fixed shard of a frozen
+  archive) and Enron (frozen tarball) hand back the same documents on every
+  cold run, which is why only those two are gated.
+* A warm ``.cache/`` hides both: the fetchers short-circuit on a cached
+  ``_index.json`` and never re-resolve, so your machine looks perfectly
+  reproducible while CI is not.
 * Wall-clock timings depend on hardware and load - compare across runs on the
   same machine, not across machines.
 

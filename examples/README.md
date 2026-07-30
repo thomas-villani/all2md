@@ -20,6 +20,7 @@ examples/
   web/        Web app serving Markdown (Flask)
   templates/  Custom output via Jinja2 templates
   plugins/    Writing your own parser/renderer/transform plugins
+  workflows/  GitHub Actions: conversion-quality gates for CI
 ```
 
 ## Start here
@@ -94,6 +95,21 @@ Real Claude calls need `pip install anthropic` and an `ANTHROPIC_API_KEY`.
 - `simpledoc-plugin/` -- a complete bidirectional format plugin (parser +
   renderer + options + tests). The template for adding a new format.
 - `watermark-plugin/` -- a transform plugin that watermarks document images.
+
+### `workflows/` -- conversion quality in CI
+
+Drop-in GitHub Actions workflows for the conversion-quality gate. See
+`workflows/README.md` for how the three fit together.
+
+- `calibrate-thresholds.yml` -- **start here.** Measures your real floor and
+  reports it without gating, so you don't guess a round number. A threshold that
+  *sounds* strict (80, say) usually has twenty points of dead headroom and can
+  never fire.
+- `docs-portability.yml` -- PR gate, pinned to an exact version so the only
+  variable is your documents.
+- `dependency-canary.yml` -- scheduled run against fixed fixtures on `latest`,
+  to catch upstream conversion regressions before you adopt them. Deliberately
+  never runs on your PRs.
 
 ---
 

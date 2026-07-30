@@ -23,6 +23,12 @@ for feeding documents to LLMs. Every concept ships as a **bash** (`.sh`) and a
 | `llm-minify-pipe` | `all2md llm-minify` to shrink a document to token-lean text before an LLM call |
 | `rag-ingest` | Build a grounded, citation-numbered LLM prompt from retrieved chunks (shell-only sibling of `../llm/search_to_llm_rag.py`) |
 
+## Git automation
+
+| Directory | What it shows |
+| --------- | ------------- |
+| `vcs-converter/` | Make DOCX/PPTX/PDF git-friendly by committing a markdown sidecar next to each one, kept in sync by a pre-commit hook. Turns "Binary files differ" into a reviewable prose diff, and is the only approach that gives you `git blame` and text-resolvable merge conflicts. See its README for when `textconv` is the better choice instead. |
+
 ## Quick start
 
 ```bash
