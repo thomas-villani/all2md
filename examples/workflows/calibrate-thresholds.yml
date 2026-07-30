@@ -1,0 +1,116 @@
+# Calibrate your gate thresholds -- run this BEFORE you add a gating workflow.
+#
+# Scores your documents and reports the floor without failing on anything. Read
+# the numbers off the job summary and paste them into docs-portability.yml or
+# dependency-canary.yml.
+#
+# Why this exists: the docs correctly tell you to measure your real floor rather
+# than guess a round number, but you cannot measure it from a gating workflow --
+# that needs the threshold you are trying to discover. This is the missing first
+# step. It uses the CLI directly rather than the Action, because the Action
+# refuses to run without a threshold (by design: a gate with nothing to compare
+# against is theatre).
+#
+# Run it from the Actions tab -> "Calibrate conversion thresholds" -> Run workflow.
+
+name: Calibrate conversion thresholds
+
+on:
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: "Glob(s) to score, space-separated (e.g. 'docs/**/*.md README.md')"
+        required: true
+        default: "docs/**/*.md"
+
+permissions:
+  contents: read
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install all2md
+        run: pip install --quiet "all2md[all]"
+
+      - name: Score documents
+        env:
+          # Passed through the environment rather than interpolated into the
+          # script body. A ${{ }} expression inside `run:` is substituted as raw
+          # text before bash sees it, so a crafted input could inject shell.
+          PATHS: ${{ inputs.paths }}
+        run: |
+          set -uo pipefail
+
+          # globstar makes '**' recursive; nullglob makes a non-matching pattern
+          # expand to nothing instead of to itself as a literal filename.
+          shopt -s globstar nullglob
+          # shellcheck disable=SC2086
+          files=( $PATHS )
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No files matched: $PATHS"
+            exit 1
+          fi
+          echo "Scoring ${#files[@]} document(s)"
+
+          # No --fail-under anywhere: this run reports, it does not gate.
+          all2md roundtrip "${files[@]}" --json > roundtrip.json || true
+          all2md report    "${files[@]}" --json > report.json    || true
+
+      - name: Report the floor
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+
+          def load(name):
+              raw = pathlib.Path(name).read_text(encoding="utf-8").strip()
+              if not raw:
+                  return []
+              data = json.loads(raw)
+              # One input yields an object; several yield an array.
+              return data if isinstance(data, list) else [data]
+
+          def table(rows, label):
+              print(f"### {label}\n")
+              if not rows:
+                  print("_No results._\n")
+                  return None
+              scored = [r for r in rows if isinstance(r.get("score"), int)]
+              print("| Document | Score | Band |")
+              print("| --- | --- | --- |")
+              for r in sorted(rows, key=lambda r: r.get("score") if isinstance(r.get("score"), int) else -1):
+                  score = r.get("score", "—")
+                  print(f"| `{r.get('input', '?')}` | {score} | {r.get('band', '—')} |")
+              print()
+              if not scored:
+                  return None
+              floor = min(r["score"] for r in scored)
+              worst = [r["input"] for r in scored if r["score"] == floor]
+              print(f"**Floor: {floor}** — set by `{worst[0]}`"
+                    + (f" and {len(worst) - 1} other(s)" if len(worst) > 1 else "") + "\n")
+              return floor
+
+          print("## Calibration\n")
+          rt = table(load("roundtrip.json"), "Round-trip fidelity")
+          rp = table(load("report.json"), "Conversion confidence")
+
+          print("### Thresholds to copy\n")
+          print("```yaml")
+          if rt is not None:
+              print(f"roundtrip-fail-under: {rt}")
+          if rp is not None:
+              print(f"report-fail-under: {rp}")
+          print("```\n")
+          print("Set the threshold **at** the floor, not below it. A threshold with ten or")
+          print("more points of headroom can never fire before the conversion is already broken.\n")
+          print("If a document scores far below the rest, fix or exclude that document rather")
+          print("than lowering the threshold for everything — one bad file should not set the")
+          print("floor for the whole corpus.")
+          PY

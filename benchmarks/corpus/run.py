@@ -64,6 +64,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE, help="Where to cache downloaded docs")
     p.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS, help="Where to write JSON + report")
     p.add_argument("--sources", help="Comma-separated source names (default: all)")
+    p.add_argument(
+        "--only-reproducible",
+        action="store_true",
+        help=(
+            "Restrict to sources marked reproducible=true in the manifest - the ones whose "
+            "sample is identical on every cold run, and therefore the only ones a baseline "
+            "can be compared against. This is what the CI gate runs."
+        ),
+    )
     p.add_argument("--formats", help="Comma-separated formats to include (default: all)")
     p.add_argument("--max-docs", type=int, default=None, help="Cap total docs benchmarked")
     p.add_argument("--max-size-mb", type=float, default=None, help="Skip docs larger than this")
@@ -94,12 +103,35 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _selected_sources(args: argparse.Namespace, manifest: dict) -> list[str] | None:
+    """Resolve ``--sources`` and ``--only-reproducible`` into one source filter.
+
+    The two intersect rather than override, so ``--only-reproducible --sources
+    enron,arxiv`` yields just ``enron`` instead of quietly benchmarking a source
+    the gate cannot judge.
+    """
+    explicit = _split_csv(args.sources)
+    if not getattr(args, "only_reproducible", False):
+        return explicit
+
+    from .gate import reproducible_sources
+
+    gateable = reproducible_sources(manifest)
+    if explicit is None:
+        return sorted(gateable)
+
+    dropped = [s for s in explicit if s not in gateable]
+    if dropped:
+        print(f"  --only-reproducible: skipping {', '.join(dropped)} (sample is not fixed)", flush=True)
+    return sorted(set(explicit) & gateable)
+
+
 def _do_download(args: argparse.Namespace) -> dict:
     manifest = load_manifest(args.manifest)
     return fetch_all(
         manifest,
         cache_root=args.cache_dir,
-        source_filter=_split_csv(args.sources),
+        source_filter=_selected_sources(args, manifest),
         format_filter=_split_csv(args.formats),
     )
 
@@ -174,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
         items = load_cached(
             manifest,
             cache_root=args.cache_dir,
-            source_filter=_split_csv(args.sources),
+            source_filter=_selected_sources(args, manifest),
             format_filter=_split_csv(args.formats),
         )
         empty = [name for name, lst in items.items() if not lst]
@@ -183,6 +215,19 @@ def main(argv: list[str] | None = None) -> int:
                 f"No cache for: {', '.join(empty)}. Run `download` first.",
                 file=sys.stderr,
             )
+
+    # A source we asked for and did not get is a failure, and saying so here beats
+    # discovering it an hour later: the run that prompted this printed
+    # "[enron] cached 0 item(s)", exited 0, then benchmarked half a corpus. Only the
+    # gate's MISSING_DOCS check stopped that reading as a pass.
+    if args.mode in ("download", "all"):
+        empty = sorted(name for name, lst in items.items() if not lst)
+        if empty:
+            print(
+                f"No documents cached for: {', '.join(empty)}. " "Check the download log above for the cause.",
+                file=sys.stderr,
+            )
+            return 1
 
     if args.mode == "download":
         if args.purge_after:

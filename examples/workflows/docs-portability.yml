@@ -1,0 +1,59 @@
+# PR gate -- fail the build when a document stops converting cleanly.
+#
+# Answers "did *our documents* regress?", so everything else is held still: the
+# action tag is pinned exactly, which pins the all2md version with it, which
+# makes the score deterministic. A red build here means someone changed a
+# document, and that is what makes it worth blocking a merge on.
+#
+# For "did *upstream* regress?", see dependency-canary.yml -- that one floats to
+# latest on purpose and never blocks a PR.
+#
+# Get your thresholds from calibrate-thresholds.yml first. The numbers below are
+# placeholders and will be wrong for your corpus.
+
+name: Document quality
+
+on:
+  pull_request:
+    paths:
+      # Only run when documents actually change. Without this, the job installs
+      # all2md on every PR to spend two minutes confirming nothing moved.
+      - "docs/**"
+      - "README.md"
+      - ".github/workflows/docs-portability.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Pinned exactly. @v1.10.1 installs all2md 1.10.1, because the gate's
+      # verdict *is* the library's score -- if the version could drift, your
+      # threshold would quietly change meaning underneath you.
+      - uses: thomas-villani/all2md@v1.10.1
+        id: gate
+        with:
+          paths: |
+            docs/**/*.md
+            README.md
+
+          # Round-trip fidelity: what survives parse -> render -> parse.
+          # On Markdown sources this is really a *portability* check -- it tells
+          # you which constructs survive being processed by tooling, which
+          # matters if you publish to more than one destination. It is not a
+          # statement about whether the writing is good.
+          roundtrip-fail-under: 97
+
+          # Narrow the extras to what your documents actually need. The default
+          # ('all') installs every format and is the bulk of this job's runtime.
+          extras: markdown
+
+      - name: Show the worst score
+        if: always()
+        run: |
+          echo "Checked ${{ steps.gate.outputs.files-checked }} document(s)"
+          echo "Worst fidelity: ${{ steps.gate.outputs.worst-fidelity }}"
