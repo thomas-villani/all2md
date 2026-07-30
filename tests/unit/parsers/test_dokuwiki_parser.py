@@ -241,6 +241,19 @@ class TestDokuWikiParserInlineFormatting:
         assert isinstance(sup_doc.children[0].content[0], Superscript)
         assert sup_doc.children[0].content[0].content[0].content == "y"
 
+    def test_whole_line_self_closing_tag_parses(self) -> None:
+        """A whole-line self-closing tag must still parse.
+
+        HTML_TAG_PATTERN's self-closing alternative has no capture group, so
+        group(1) is None for <br/>. The del/sub/sup inline-markup check has to
+        tolerate that rather than calling .lower() on None.
+        """
+        parser = DokuWikiParser()
+
+        for line in ("<br/>", "<br />", '<img src="a.png"/>', "<hr/>"):
+            doc = parser.parse(f"{line}\n")
+            assert doc.children, f"{line} produced no nodes"
+
     def test_parse_nested_formatting(self) -> None:
         """Test parsing nested inline formatting."""
         parser = DokuWikiParser()
