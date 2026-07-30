@@ -321,6 +321,67 @@ Available test markers (see `pytest.ini`):
 - Follow existing test patterns in the codebase
 - Use NumPy-style docstrings for test documentation
 
+### Property-Based Tests
+
+Tests marked `fuzzing` use [Hypothesis](https://hypothesis.readthedocs.io/) to
+generate inputs instead of hard-coding them. Run them like any other marker:
+
+```bash
+python -m pytest -m fuzzing
+```
+
+How many examples each test generates depends on the profile, which you select
+with the `HYPOTHESIS_PROFILE` environment variable (see `tests/conftest.py`):
+
+- `dev` (the default) runs 20 examples per test, fast enough to leave on while
+  you work.
+- `ci` runs 100 examples and prints each one.
+- `debug` runs 10 examples with verbose output, for when a failure is hard to
+  read.
+
+```bash
+HYPOTHESIS_PROFILE=ci python -m pytest -m fuzzing
+```
+
+To generate whole documents, compose the strategies in
+`tests/document_strategies.py` rather than building ASTs by hand:
+
+```python
+from hypothesis import given
+
+from document_strategies import documents
+
+
+@given(documents())
+def test_markdown_round_trips(doc):
+    assert roundtrip_report(doc, via="markdown").score == 100
+```
+
+`tests/unit/test_roundtrip_fuzzing.py` uses those strategies to push generated
+documents through every renderer and parser pair. It carries two allowlists,
+`KNOWN_CRASHES` and `KNOWN_INVARIANT_GAPS`, that record the asymmetries present
+today so the suite can tell an existing defect from one your change introduced.
+
+Its crash gates run with a fixed seed so they fail only when a change breaks
+something, never because a run happened to draw a shape that was already
+broken. That makes them a regression guard rather than a search. To search,
+ask for a random seed on purpose:
+
+```bash
+HYPOTHESIS_PROFILE=ci python -m pytest -m fuzzing --hypothesis-seed=random
+```
+
+If that finds a crash the allowlist does not name, you have found a real bug.
+Shrink it to a minimal document, add it to `KNOWN_CRASHES` with a reproduction,
+and open an issue.
+
+Both allowlists are ratchets, and they may only shrink. If a change of yours
+turns one of those tests red, the fix is the renderer or the parser, not the
+allowlist. Adding an entry means you are recording a new defect, so say what
+breaks and link the issue. Entries are marked `xfail(strict=True)`, so fixing an
+asymmetry turns its test into an `XPASS` and fails the run until you delete the
+entry. That is deliberate: it is how the list stays honest.
+
 ## Documentation
 
 ### Building Documentation

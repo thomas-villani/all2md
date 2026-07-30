@@ -151,6 +151,26 @@ class TestJsonRendererTypeInference:
         assert table_data[0]["active"] is True
         assert table_data[1]["active"] is False
 
+    def test_infer_one_and_zero_as_integers_not_booleans(self):
+        """Numeric 1/0 in table cells must stay integers (e.g. age), not bools."""
+        header = TableRow(cells=[TableCell(content=[Text(content="age")])])
+        rows = [
+            TableRow(cells=[TableCell(content=[Text(content="1")])]),
+            TableRow(cells=[TableCell(content=[Text(content="0")])]),
+        ]
+        table = Table(header=header, rows=rows)
+        doc = Document(children=[table])
+
+        renderer = JsonRenderer(JsonRendererOptions(type_inference=True))
+        data = json.loads(renderer.render_to_string(doc))
+        table_data = list(data.values())[0]
+        assert table_data[0]["age"] == 1
+        assert table_data[1]["age"] == 0
+        assert isinstance(table_data[0]["age"], int)
+        assert isinstance(table_data[1]["age"], int)
+        assert table_data[0]["age"] is not True
+        assert table_data[1]["age"] is not False
+
     def test_infer_null(self):
         """Test null type inference."""
         header = TableRow(cells=[TableCell(content=[Text(content="value")])])
