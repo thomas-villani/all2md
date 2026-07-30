@@ -456,6 +456,57 @@ class TestApplyOCRDehyphenation:
         assert self._run(merge=False) == "be-\nwusst sein"
 
 
+class TestOCRSpanBbox:
+    """OCR-synthesized spans must carry a bbox (regression for KeyError('bbox')).
+
+    Real PyMuPDF spans always expose a ``bbox``; downstream code such as
+    ``_resolve_link_for_span`` reads ``span["bbox"]`` directly. When a page
+    that also has link annotations was OCR'd, the bbox-less OCR span raised
+    ``KeyError('bbox')`` and aborted the whole conversion.
+    """
+
+    def _ocr_blocks(self, *, preserve: bool, extracted: str) -> list[dict]:
+        import fitz
+
+        options = PdfOptions(
+            ocr=OCROptions(enabled=True, mode="force", preserve_existing_text=preserve),
+        )
+        converter = PdfToAstConverter(options=options)
+
+        mock_page = Mock()
+        mock_page.rect = fitz.Rect(0, 0, 612, 792)
+
+        with patch.object(PdfToAstConverter, "_ocr_page_to_text", return_value="scanned text"):
+            blocks, applied = converter._apply_ocr_if_needed(mock_page, [], extracted_text=extracted)
+
+        assert applied is True
+        return blocks
+
+    def test_replace_path_span_has_bbox(self) -> None:
+        blocks = self._ocr_blocks(preserve=False, extracted="")
+        span = blocks[0]["lines"][0]["spans"][0]
+        assert span["bbox"] == (0.0, 0.0, 612.0, 792.0)
+
+    def test_preserve_path_span_has_bbox(self) -> None:
+        # preserve_existing_text appends the OCR block after existing ones.
+        blocks = self._ocr_blocks(preserve=True, extracted="existing page text")
+        span = blocks[-1]["lines"][0]["spans"][0]
+        assert span["bbox"] == (0.0, 0.0, 612.0, 792.0)
+
+    def test_resolve_link_for_span_handles_ocr_span(self) -> None:
+        """The OCR span no longer crashes link resolution (issue: KeyError('bbox'))."""
+        import fitz
+
+        converter = PdfToAstConverter(options=PdfOptions(ocr=OCROptions(enabled=True, mode="force")))
+        span = self._ocr_blocks(preserve=False, extracted="")[0]["lines"][0]["spans"][0]
+
+        # A small hyperlink hotspot on the page (as returned by page.get_links()).
+        links = [{"from": fitz.Rect(100, 100, 200, 120), "uri": "https://example.com/"}]
+
+        # Must not raise, and a page-sized span must not spuriously match a tiny link.
+        assert converter._resolve_link_for_span(links, span, average_line_height=12.0) is None
+
+
 class TestPdfOptionsWithOCR:
     """Test PdfOptions integration with OCR."""
 

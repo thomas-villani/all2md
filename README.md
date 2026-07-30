@@ -450,6 +450,21 @@ See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) an
 
 </details>
 
+## CI quality gate
+
+Most document tooling in CI answers *"did it run?"*. all2md ships a GitHub Action that answers *"is the output still as good as it was?"* — it scores every matched document and fails the build when fidelity degrades:
+
+```yaml
+- uses: thomas-villani/all2md@v1.10.1
+  with:
+    paths: docs/**/*.md
+    roundtrip-fail-under: 97
+```
+
+Measure your real floor before picking a threshold — `all2md roundtrip docs/*.md --fail-under 1` prints it. Documents that convert well score 99–100, so a threshold that *sounds* strict (80, say) can have twenty points of dead headroom and never fire. The action warns you when that happens.
+
+It also refuses to pass quietly: no matching files, no threshold set, or a document that cannot be converted at all are all failures rather than silent greens. The same gate works without the Action, in any CI system — see the [full documentation](https://all2md.readthedocs.io/en/latest/github_action.html).
+
 ## Advanced features
 
 Built on an **AST-based pipeline** (parse → transform → render), all2md offers capabilities that direct format-to-format converters can't:

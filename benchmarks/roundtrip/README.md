@@ -15,6 +15,38 @@ python -m benchmarks.roundtrip --json out.json
 Exit code is non-zero if any oracle failed (policy skips don't count), so it can
 double as an ad-hoc check.
 
+## It is a blocking CI gate
+
+The `Roundtrip Fidelity Gate` job in `.github/workflows/ci.yml` runs this on every
+push and PR, and `release` lists it in `needs:` — so a fidelity regression fails
+the build and blocks a release rather than waiting for someone to notice. On red,
+CI re-runs with `--show-diff` so the diffs are already in the log.
+
+### Expected failures
+
+`main` is green with one known failure, so the gate needs a way to say "this one
+is accepted" without going blind. `EXPECTED_FAILURES` in `run.py` maps
+`(document, oracle) -> reason`:
+
+| Status | Meaning |
+|---|---|
+| `pass` / `FAIL` | not allowlisted; `FAIL` is red |
+| `XFAIL` | allowlisted and still failing — green, as documented |
+| `XPASS` | allowlisted but now **passing** — **red** |
+| `SKIP` | a policy skip; never judged, never counted |
+
+`XPASS` is red on purpose, and so is a **stale** entry (one no document/oracle
+evaluates any more, e.g. after a rename or a newly-added policy skip). Both mean
+the table has started lying about the codebase, so it must be updated in the same
+commit that changes the behavior. Without that, an allowlist decays into a
+permanent excuse list and the ratchet quietly stops being one.
+
+Currently allowlisted: **`raw-html:idempotency`** — the escape policy
+(`html_passthrough_mode="escape"`) turns `<div>` into `&lt;div&gt;` on the second
+pass. That is a deliberate security posture, not a roundtrip bug; it is the same
+root cause as the `html_equivalence` policy skip below. Never add an entry to
+silence a genuine regression.
+
 ## Two oracles
 
 Each document is judged by two independent oracles (`oracles.py`); a loss has to
@@ -56,3 +88,14 @@ fail: each is exercised on a faithful case and a deliberately broken one, and th
 HTML normalizer is checked to ignore incidental whitespace while still detecting
 a collapsed paragraph (the #85 loss shape). An oracle that cannot fail is
 worthless.
+
+The same file pins the **gate's** three red paths (`gate_failed`): a real oracle
+failure, an `XPASS`, and a stale allowlist entry. A gate that cannot go red is
+worse than no gate, because it launders "we didn't measure" into "we measured and
+it's fine."
+
+Worth knowing when you extend this: dropping a construct *entirely* is trivially
+idempotent — both passes lack it — so `idempotency` stays green and only
+`html_equivalence` catches it. Verified by deleting thematic-break rendering,
+which failed 2 documents on the HTML oracle and 0 on idempotency. Neither oracle
+subsumes the other; keep both.

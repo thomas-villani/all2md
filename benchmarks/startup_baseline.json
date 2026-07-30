@@ -1,0 +1,69 @@
+{
+  "_comment": [
+    "Cold-start baseline for the CI timing gate. NOT a dev-box measurement:",
+    "regenerate it from the Startup Runner Variance workflow, never from a laptop.",
+    "A Windows dev box reads ~230ms for a bare interpreter where CI reads ~14ms,",
+    "so local numbers are off by more than any regression this gate would catch.",
+    "",
+    "The tolerance is set against measured runner variance, not chosen by feel:",
+    "six independent ubuntu-latest VMs on unchanged code spread by at most 7.2%,",
+    "so 20% is ~2.8x headroom against that noise source. It is not headroom",
+    "against all of them - see below.",
+    "",
+    "A later run on unchanged code came in 17-21% fast on every scenario, bare",
+    "interpreter included: a different CPU class in the ubuntu-latest pool, not",
+    "noise. Widening the tolerance past ~21% would have left the gate unable to",
+    "see a real regression, so the gate instead requires the raw delta and the",
+    "interpreter-normalized delta to agree before going red. A hardware-class",
+    "shift moves only the first; jitter on the ~13ms denominator moves only the",
+    "second; a regression in our own import graph moves both. Do not re-record",
+    "this file to chase a fast run - that is the flake the agreement rule exists",
+    "to absorb.",
+    "",
+    "Deliberately coarse. The sharp instrument for the eager-import scaling bug is",
+    "tests/unit/test_eager_imports.py, which compares module sets exactly and",
+    "cannot flake. This gate covers what that one structurally cannot see: a slow",
+    "parser build, a heavy third-party import, an algorithmic regression in",
+    "registration that adds no modules at all."
+  ],
+  "provenance": {
+    "recorded": "2026-07-25",
+    "workflow_run": "https://github.com/thomas-villani/all2md/actions/runs/30180080149",
+    "commit": "53be26308b12",
+    "runner": "github-hosted ubuntu-latest",
+    "python": "3.12.13",
+    "method": "median of min_ms across 6 independent runner VMs, 9 timed samples each",
+    "observed_max_deviation_pct": 2.5,
+    "note": [
+      "Re-recorded for the lazy all2md.options re-export (R2b), which is why import",
+      "and --version drop ~28% while --help and convert barely move: those two build",
+      "the full parser or run the pipeline, so they load the options either way.",
+      "",
+      "observed_max_deviation_pct is over the *gated* scenarios only. The bare",
+      "interpreter spread 12.2% across the same six VMs. startup_spread.py used to",
+      "fold that into its headline floor, reporting 12.2% for min_ms when every",
+      "gated scenario sat at 1.9-2.5%; it now excludes ungated scenarios and says",
+      "so, so a fresh run of the study will not reproduce that 12.2% figure."
+    ]
+  },
+  "tolerance_pct": 20.0,
+  "scenarios": {
+    "baseline": 13.55,
+    "import": 162.35,
+    "--version": 177.95,
+    "--help": 370.7,
+    "convert": 397.6
+  },
+  "previous": {
+    "commit": "b22973216c87",
+    "recorded": "2026-07-25",
+    "note": "pre-R2b, when a bare import loaded 31 options modules",
+    "scenarios": {
+      "baseline": 13.9,
+      "import": 230.35,
+      "--version": 246.1,
+      "--help": 377.1,
+      "convert": 407.65
+    }
+  }
+}

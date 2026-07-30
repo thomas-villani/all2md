@@ -1,6 +1,6 @@
 [project]
 name = "all2md"
-version = "1.9.0"
+version = "1.10.1"
 description = "Rapid, lightweight conversion of various document formats to markdown for LLMs"
 readme = "README.md"
 authors = [
@@ -338,8 +338,13 @@ exclude = [
     "examples"
 ]
 
-# Enable fixing issues automatically when possible
-fix = true
+# Deliberately NOT `fix = true`. That setting applies to plain `ruff check`, not
+# just `ruff check --fix`, so `ruff check` stopped meaning "check": it rewrote
+# every auto-fixable violation and exited 0. In CI that made the lint gate unable
+# to fail -- the fix was applied inside the runner, thrown away with it, and the
+# violation stayed on main. Only rules with no auto-fix could ever go red.
+# Fixing is still one flag away: `ruff check --fix`, which the pre-commit hook
+# passes explicitly.
 
 [tool.ruff.lint]
 select = [
@@ -465,7 +470,7 @@ skips = [
 ]
 
 [tool.bumpversion]
-current_version = "1.9.0"
+current_version = "1.10.1"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 commit = true

@@ -9,14 +9,19 @@ relying on a current all2md bug, so the tests stay valid as all2md is fixed.
 The HTML semantic normalizer is additionally checked to (a) ignore incidental
 whitespace and (b) still distinguish the exact loss shape - a collapsed
 paragraph - that motivated this benchmark (#85).
+
+The last section guards the *CI gate* built on those oracles: that it goes red on
+a real failure, on an expected failure that has started passing, and on an
+expected-failure entry that nothing evaluates any more.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from benchmarks.roundtrip import corpus, oracles
+from benchmarks.roundtrip import corpus, oracles, run
 from benchmarks.roundtrip.oracles import (
+    CheckResult,
     html_equivalence_check,
     idempotency_check,
 )
@@ -155,3 +160,84 @@ def test_evaluate_case_skips_html_oracle_for_admonitions() -> None:
     assert results["html_equivalence"].skipped
     # Idempotency still runs and should pass for a well-formed admonition.
     assert results["idempotency"].passed
+
+
+# --- the CI gate itself can go red --------------------------------------------
+#
+# The gate is only worth having if it fails when it should, so its three red
+# paths are pinned here rather than demonstrated once by hand: a genuine oracle
+# failure, an expected failure that started passing (XPASS), and an
+# expected-failure entry nothing evaluates any more (stale).
+
+
+def _result(oracle: str, *, passed: bool, skipped: bool = False) -> CheckResult:
+    return CheckResult(oracle, passed=passed, skipped=skipped, detail="synthetic")
+
+
+def test_status_distinguishes_expected_from_unexpected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(run.EXPECTED_FAILURES, ("doc", "idempotency"), "accepted for test")
+
+    # Same failing result is XFAIL when allowlisted, FAIL when not.
+    assert run._status("doc", _result("idempotency", passed=False)) == "XFAIL"
+    assert run._status("other", _result("idempotency", passed=False)) == "FAIL"
+    # Same passing result is XPASS when allowlisted, pass when not.
+    assert run._status("doc", _result("idempotency", passed=True)) == "XPASS"
+    assert run._status("other", _result("idempotency", passed=True)) == "pass"
+    # A policy skip outranks the allowlist - it was never judged either way.
+    assert run._status("doc", _result("idempotency", passed=True, skipped=True)) == "SKIP"
+
+
+def test_gate_is_green_on_expected_failures_only() -> None:
+    counts = {"passed": 37, "failed": 0, "xfailed": 1, "xpassed": 0, "skipped": 2}
+    assert run.gate_failed(counts, []) is False
+
+
+@pytest.mark.parametrize(
+    ("counts_delta", "stale", "why"),
+    [
+        ({"failed": 1}, [], "a genuine oracle failure"),
+        ({"xpassed": 1}, [], "an expected failure that started passing"),
+        ({}, [("gone", "idempotency")], "a stale expected-failure entry"),
+    ],
+)
+def test_gate_goes_red(counts_delta: dict[str, int], stale: list[tuple[str, str]], why: str) -> None:
+    counts = {"passed": 37, "failed": 0, "xfailed": 1, "xpassed": 0, "skipped": 2, **counts_delta}
+    assert run.gate_failed(counts, stale) is True, f"gate should fail on {why}"
+
+
+def test_stale_detection_flags_unevaluated_entries(monkeypatch: pytest.MonkeyPatch) -> None:
+    case = corpus.Case(name="present", markdown="hi\n")
+    rows = [(case, [_result("idempotency", passed=False)])]
+
+    # An entry for a document that no longer exists is stale...
+    monkeypatch.setitem(run.EXPECTED_FAILURES, ("renamed-away", "idempotency"), "x")
+    assert ("renamed-away", "idempotency") in run._stale_expected_failures(rows)
+    # ...while the entry that did get evaluated is not.
+    monkeypatch.setitem(run.EXPECTED_FAILURES, ("present", "idempotency"), "x")
+    assert ("present", "idempotency") not in run._stale_expected_failures(rows)
+
+
+def test_stale_detection_flags_entry_hidden_by_a_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The subtle rot case: the oracle now policy-skips the case, so the allowlist
+    # entry can never fail again and silently guards nothing.
+    case = corpus.Case(name="doc", markdown="<div>raw</div>\n", has_raw_html=True)
+    rows = [(case, [_result("html_equivalence", passed=True, skipped=True)])]
+    monkeypatch.setitem(run.EXPECTED_FAILURES, ("doc", "html_equivalence"), "x")
+    assert ("doc", "html_equivalence") in run._stale_expected_failures(rows)
+
+
+def test_every_expected_failure_records_a_reason() -> None:
+    # The allowlist is a decision log; an entry without a justification is how it
+    # decays into "this has always been broken".
+    for key, reason in run.EXPECTED_FAILURES.items():
+        assert reason.strip(), f"{key} has no recorded reason"
+
+
+def test_summary_counts_match_the_reported_statuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(run.EXPECTED_FAILURES, ("doc", "idempotency"), "accepted for test")
+    rows = [
+        (corpus.Case(name="doc", markdown="a\n"), [_result("idempotency", passed=False)]),
+        (corpus.Case(name="ok", markdown="b\n"), [_result("idempotency", passed=True)]),
+        (corpus.Case(name="bad", markdown="c\n"), [_result("idempotency", passed=False)]),
+    ]
+    assert run._summary(rows) == {"passed": 1, "failed": 1, "xfailed": 1, "xpassed": 0, "skipped": 0}
