@@ -119,7 +119,12 @@ LINE_BREAK_PATTERN = re.compile(r"\\\\")
 FOOTNOTE_PATTERN = re.compile(r"\(\(([^\)]+)\)\)")
 
 # HTML tags (for html_passthrough_mode handling)
+# Note: the self-closing alternative has no capture group, so group(1) is None for e.g. <br/>
 HTML_TAG_PATTERN = re.compile(r"<([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>.*?</\1>|<[a-zA-Z][a-zA-Z0-9]*\b[^>]*/>", re.DOTALL)
+
+# Tags DokuWiki spells as HTML but treats as inline markup, so a whole-line
+# occurrence must fall through to _process_inline rather than be taken as a block.
+INLINE_MARKUP_TAGS = ("del", "sub", "sup")
 
 
 class DokuWikiParser(BaseParser):
@@ -495,6 +500,9 @@ class DokuWikiParser(BaseParser):
         """
         plugin_match = PLUGIN_PATTERN.match(line.strip())
         if plugin_match and plugin_match.group(0) == line.strip():
+            # del/sub/sup are inline markup, not plugins — leave for _process_inline
+            if (plugin_match.group(1) or "").lower() in INLINE_MARKUP_TAGS:
+                return False, 0
             self._flush_inline_buffer(inline_buffer, result)
             if self.options.parse_plugins:
                 # Convert plugin syntax to HTMLBlock node
@@ -523,6 +531,10 @@ class DokuWikiParser(BaseParser):
         """
         html_match = HTML_TAG_PATTERN.match(line.strip())
         if html_match and html_match.group(0) == line.strip():
+            # del/sub/sup are inline markup — leave for _process_inline.
+            # group(1) is None for a self-closing tag (<br/>), which is never inline markup.
+            if (html_match.group(1) or "").lower() in INLINE_MARKUP_TAGS:
+                return False, 0
             self._flush_inline_buffer(inline_buffer, result)
             html_content = html_match.group(0)
             mode = self.options.html_passthrough_mode

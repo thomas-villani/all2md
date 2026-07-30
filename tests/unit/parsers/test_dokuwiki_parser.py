@@ -215,6 +215,45 @@ class TestDokuWikiParserInlineFormatting:
         sup_node = next((node for node in para.content if isinstance(node, Superscript)), None)
         assert sup_node is not None
 
+    def test_whole_line_del_is_strikethrough_not_stripped(self) -> None:
+        """Whole-line <del> must parse as strikethrough, not be dropped as a plugin."""
+        parser = DokuWikiParser()
+        doc = parser.parse("<del>gone</del>\n")
+
+        assert len(doc.children) == 1
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert len(para.content) == 1
+        assert isinstance(para.content[0], Strikethrough)
+        assert isinstance(para.content[0].content[0], Text)
+        assert para.content[0].content[0].content == "gone"
+
+    def test_whole_line_sub_and_sup_are_inline_not_stripped(self) -> None:
+        """Whole-line <sub>/<sup> must parse as inline nodes, not be dropped."""
+        parser = DokuWikiParser()
+        sub_doc = parser.parse("<sub>x</sub>\n")
+        assert isinstance(sub_doc.children[0], Paragraph)
+        assert isinstance(sub_doc.children[0].content[0], Subscript)
+        assert sub_doc.children[0].content[0].content[0].content == "x"
+
+        sup_doc = parser.parse("<sup>y</sup>\n")
+        assert isinstance(sup_doc.children[0], Paragraph)
+        assert isinstance(sup_doc.children[0].content[0], Superscript)
+        assert sup_doc.children[0].content[0].content[0].content == "y"
+
+    def test_whole_line_self_closing_tag_parses(self) -> None:
+        """A whole-line self-closing tag must still parse.
+
+        HTML_TAG_PATTERN's self-closing alternative has no capture group, so
+        group(1) is None for <br/>. The del/sub/sup inline-markup check has to
+        tolerate that rather than calling .lower() on None.
+        """
+        parser = DokuWikiParser()
+
+        for line in ("<br/>", "<br />", '<img src="a.png"/>', "<hr/>"):
+            doc = parser.parse(f"{line}\n")
+            assert doc.children, f"{line} produced no nodes"
+
     def test_parse_nested_formatting(self) -> None:
         """Test parsing nested inline formatting."""
         parser = DokuWikiParser()
