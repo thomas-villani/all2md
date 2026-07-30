@@ -75,6 +75,7 @@ class TokenType(Enum):
     LITERAL_BLOCK_DELIMITER = auto()
     SIDEBAR_BLOCK_DELIMITER = auto()
     EXAMPLE_BLOCK_DELIMITER = auto()
+    COMMENT_BLOCK_DELIMITER = auto()
     TABLE_DELIMITER = auto()
     THEMATIC_BREAK = auto()
 
@@ -202,16 +203,8 @@ class AsciiDocLexer:
         if not stripped:
             return Token(TokenType.BLANK_LINE, "", line_num, indent)
 
-        # Comment
-        if stripped.startswith("//"):
-            return Token(TokenType.COMMENT, stripped[2:].strip(), line_num, indent)
-
-        # Table delimiter special case: |===
-        if stripped.startswith("|") and len(stripped) >= 4:
-            if all(c == "=" for c in stripped[1:]):
-                return Token(TokenType.TABLE_DELIMITER, stripped, line_num, indent)
-
         # Block delimiters (must be at least 4 characters and all same char)
+        # Checked before // so //// is a block-comment delimiter, not a line comment
         if len(stripped) >= 4 and all(c == stripped[0] for c in stripped):
             delimiter_char = stripped[0]
             delimiter_map = {
@@ -220,10 +213,20 @@ class AsciiDocLexer:
                 ".": TokenType.LITERAL_BLOCK_DELIMITER,
                 "*": TokenType.SIDEBAR_BLOCK_DELIMITER,
                 "=": TokenType.EXAMPLE_BLOCK_DELIMITER,
+                "/": TokenType.COMMENT_BLOCK_DELIMITER,
             }
 
             if delimiter_char in delimiter_map:
                 return Token(delimiter_map[delimiter_char], stripped, line_num, indent)
+
+        # Comment (// line comments; //// already handled above)
+        if stripped.startswith("//"):
+            return Token(TokenType.COMMENT, stripped[2:].strip(), line_num, indent)
+
+        # Table delimiter special case: |===
+        if stripped.startswith("|") and len(stripped) >= 4:
+            if all(c == "=" for c in stripped[1:]):
+                return Token(TokenType.TABLE_DELIMITER, stripped, line_num, indent)
 
         # Thematic break (3+ identical chars of ', -, *, _)
         # Note: 4+ of -, _, * are caught earlier as block delimiters
@@ -791,9 +794,13 @@ class AsciiDocParser(BaseParser):
             self._advance()
             return None
 
-        # Comment (block-level)
+        # Comment (block-level //)
         if token.type == TokenType.COMMENT:
             return self._parse_comment()
+
+        # Block comment (//// ... ////)
+        if token.type == TokenType.COMMENT_BLOCK_DELIMITER:
+            return self._parse_comment_block()
 
         # Heading
         if token.type == TokenType.HEADING:
@@ -877,17 +884,43 @@ class AsciiDocParser(BaseParser):
         else:
             return Heading(level=level, content=content)
 
-    def _parse_comment(self) -> Comment:
-        """Parse a comment block.
+    def _parse_comment(self) -> Comment | None:
+        """Parse a single-line // comment.
 
         Returns
         -------
-        Comment
-            Comment node with comment_type='asciidoc'
+        Comment or None
+            Comment node with comment_type='asciidoc', or None if strip_comments
 
         """
         token = self._advance()
+        if self.options.strip_comments:
+            return None
         content = token.content
+        metadata = {"comment_type": "asciidoc"}
+        return Comment(content=content, metadata=metadata)
+
+    def _parse_comment_block(self) -> Comment | None:
+        """Parse a //// block comment.
+
+        Returns
+        -------
+        Comment or None
+            Comment node with the block body, or None if strip_comments
+
+        """
+        self._advance()  # opening ////
+        lines, _closed = parse_delimited_block(
+            current_token_fn=self._current_token,
+            advance_fn=self._advance,
+            opening_delimiter_type=TokenType.COMMENT_BLOCK_DELIMITER,
+            closing_delimiter_type=TokenType.COMMENT_BLOCK_DELIMITER,
+            eof_type=TokenType.EOF,
+            collect_mode="lines",
+        )
+        if self.options.strip_comments:
+            return None
+        content = "\n".join(lines)
         metadata = {"comment_type": "asciidoc"}
         return Comment(content=content, metadata=metadata)
 
