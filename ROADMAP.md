@@ -6,7 +6,7 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
-**Status (2026-07-27).** The headline Theme 1 item — `all2md chunk` — is shipped, along with
+**Status (2026-07-30).** The headline Theme 1 item — `all2md chunk` — is shipped, along with
 mermaid/syntax highlighting in `view`/`serve` and one-click `uv` install scripts. The
 **Fidelity & Trust** batch landed in **v1.9.0**: the conversion cache, the confidence report
 (`all2md report`), DOCX character-style round-tripping, round-trip fidelity scoring
@@ -21,7 +21,17 @@ carrying forward is that **every one of those instruments already contained a va
 required demonstrating each gate red against deliberately-broken code before trusting it.
 Wiring the gates up is also what surfaced a silent data-loss bug in the Markdown parser.
 
-The **next batch is not yet chosen.** Bets 2 and 3 are now evaluable, which was the point.
+A **fourth instrument** arrived after the batch closed, and from outside: the generative
+round-trip fuzzer contributed in [#204](https://github.com/thomas-villani/all2md/pull/204).
+It is the *noisy* counterpart to `benchmarks/roundtrip`'s sharp, curated oracle — generative
+and broad where that one is hand-written and deep. That is the pairing the ratchet batch
+concluded with, arrived at independently by a contributor, which is decent evidence the
+pattern is real rather than a story we told ourselves. It came with a defect backlog
+attached: six crash classes (#206–#211), a hole in the exception contract (#212), and eleven
+measured round-trip invariant gaps.
+
+The **next batch is (5) External ground truth**, with that backlog as its user-visible half.
+Bets 2 and 3 are now evaluable, which was the point. See **Suggested sequencing**.
 
 ---
 
@@ -174,6 +184,29 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   transferable rule is to pair a sharp instrument with a noisy one, because each is blind
   where the other sees, and to demonstrate every gate red against deliberately-broken code
   before trusting it.
+- 🚢 **The fourth instrument: generative round-trip fuzzing** — *contributed in
+  [#204](https://github.com/thomas-villani/all2md/pull/204).*
+  `tests/unit/test_roundtrip_fuzzing.py` builds `Document` ASTs with Hypothesis and pushes
+  them through `roundtrip_report` across all 24 round-trippable formats, behind four gates:
+  every format must be classified into a group (so a 25th cannot silently skip the fuzzer),
+  `ast` must score exactly 100 as the control, no format may raise outside `KNOWN_CRASHES`,
+  and shapes drawn from previously-fixed defects must survive. Both allowlists are
+  `xfail(strict=True)`, so they can only shrink — fixing an entry XPASSes and fails CI until
+  the entry is deleted. It is the **noisy** instrument to `benchmarks/roundtrip`'s sharp one.
+
+  **Its measured blind spot**, because the ratchet batch's lesson demands we look for one.
+  Injecting deliberate renderer breaks and checking the gate goes red: a break on a shape
+  present in ~20% of generated documents is caught; one at ~7% (a level-6 heading) passes
+  silently. The cause is `@given(documents(), st.sampled_from(TEXT_FORMATS))` at
+  `max_examples=25` — 25 examples spread over 11 formats is ~2 documents each. Parametrizing
+  over the format instead gives each its own 25 examples, drops the detection floor below 7%,
+  and names the offending format in the test id, for ~12s more wall clock. *Until that lands,
+  do not read a green here as "no crash exists" — read it as "nothing common is broken".*
+
+  What it produced on first contact: six crash classes (#206–#211), an exception-contract
+  hole (#212), and the first **enumerated** — rather than suspected — list of round-trip gaps
+  in the org and asciidoc renderers (table captions, ordered-list `start`, the `#+BEGIN_SRC`
+  language, and an asciidoc trailing pipe its own parser reads as a phantom column).
 - 🚀 **External ground truth** — *the headline metric, once the ratchet exists.*
   `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own parsers, not
   that we read the document correctly. A garbled table round-trips perfectly. So the open
@@ -520,7 +553,7 @@ round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢
    consumer's threshold. A Marketplace listing is a separate, public call and is **not** done.
 
 **Remaining, ordered by leverage-per-effort.** With (1) shipped, (5) is now the cheap next
-step it was always predicted to be:
+step it was always predicted to be — and is the **chosen next batch**:
 
 5. **External ground truth** (Theme 2) — OmniDocBench as the headline score. Cheap *now that*
    the ratchet exists, because it is just another oracle in a working socket. Heed the
@@ -536,6 +569,24 @@ step it was always predicted to be:
 8. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
    ground-truth corpus.
 
+**The next batch: (5), plus the fuzzer's backlog as its visible half.** External ground truth
+is the headline and the go/no-go on Theme 8 — it is what turns (6) into a decision rather than
+a guess, and the whole reason (1) was sequenced first. Alongside it, the defects the #204
+fuzzer surfaced (#206–#212) are the batch's user-visible half: real fidelity fixes that arrive
+with shrunk reproductions already attached, which beats the RAG-framework loader adapters as
+filler because they deepen the moat instead of shipping commodity glue.
+
+Two of them are worth doing regardless of how the batch goes, because they are reachable from
+ordinary input rather than from a generated AST:
+
+- **#211 — odt/odp nested link.** Browsers accept nested `<a>` and our HTML parser preserves
+  the nesting, so `all2md page.html -t odt` fails on real pages today.
+- **#212 — `from_ast` can raise bare `ValueError`/`KeyError`.** A documented contract that two
+  renderers do not honour, so `except All2MdError` does not catch what the docs say it will.
+
+The batch also has a natural close: the #204 sensitivity fix above, so the instrument that
+generated the backlog is trustworthy before we lean on it further.
+
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
-RAG-framework loader adapters (Theme 1) are the cheapest filler on the board (~a day each)
-if a batch needs something user-visible to announce.
+RAG-framework loader adapters (Theme 1) remain the cheapest filler on the board (~a day each)
+if a later batch needs something user-visible to announce.
