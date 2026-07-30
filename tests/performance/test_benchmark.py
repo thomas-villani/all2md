@@ -1,7 +1,23 @@
-"""Performance benchmark tests for all2md document conversions.
+"""Performance benchmarks for all2md document conversions.
 
 Run with: pytest tests/performance --benchmark
 Save results: pytest tests/performance --benchmark --benchmark-save
+
+**These do not gate on time.** They used to, and the ceilings were worthless: the
+first run of this suite measured 11x to 231x headroom against them (``basic.xlsx`` at
+13 ms under a 3 s limit), so a conversion had to get two orders of magnitude slower
+before one fired. The rest asserted ``mean_time > 0`` against the mean of
+``perf_counter`` deltas, which is true by construction. Nothing had ever run them in
+CI to notice, because a bare ``pytest tests/`` deselects everything marked
+``benchmark``.
+
+What is checked here is deterministic and cannot flake: every format still converts,
+and converts to something rather than to an empty string. The timings are *recorded*
+-- printed, and written to ``results/`` under ``--benchmark-save`` -- and left
+ungated, the same stance ``benchmarks/corpus`` takes on throughput. Gating a 5 ms
+measurement needs a variance study on the runners it would run on first; measured CI
+runner variance is already ~7%, and the denominator jitter on a small measurement is
+worse. See ``benchmarks/startup.py`` for what that costs to get right.
 """
 
 from pathlib import Path
@@ -26,8 +42,7 @@ class TestPdfBenchmarks:
 
         result = benchmark_runner.run(format_name="pdf", file_path=pdf_file, iterations=5)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 10.0
+        assert result.output_chars, "converted to an empty document"
 
     @pytest.mark.pdf
     @pytest.mark.slow
@@ -39,7 +54,7 @@ class TestPdfBenchmarks:
 
         result = benchmark_runner.run(format_name="pdf", file_path=pdf_file, iterations=3)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
         print(f"\nComplex PDF: {result.throughput_mbps:.2f} MB/s")
 
 
@@ -56,8 +71,7 @@ class TestDocxBenchmarks:
 
         result = benchmark_runner.run(format_name="docx", file_path=docx_file, iterations=5)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 5.0
+        assert result.output_chars, "converted to an empty document"
 
     @pytest.mark.docx
     @pytest.mark.slow
@@ -69,7 +83,7 @@ class TestDocxBenchmarks:
 
         result = benchmark_runner.run(format_name="docx", file_path=docx_file, iterations=3)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
         print(f"\nComplex DOCX: {result.throughput_mbps:.2f} MB/s")
 
     @pytest.mark.docx
@@ -81,7 +95,7 @@ class TestDocxBenchmarks:
 
         result = benchmark_runner.run(format_name="docx", file_path=docx_file, iterations=3)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
 
 @pytest.mark.benchmark
@@ -97,8 +111,7 @@ class TestHtmlBenchmarks:
 
         result = benchmark_runner.run(format_name="html", file_path=html_file, iterations=10)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 2.0
+        assert result.output_chars, "converted to an empty document"
 
     @pytest.mark.html
     def test_benchmark_html_readability(self, benchmark_runner):
@@ -109,7 +122,7 @@ class TestHtmlBenchmarks:
 
         result = benchmark_runner.run(format_name="html", file_path=html_file, iterations=5)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
 
 @pytest.mark.benchmark
@@ -125,8 +138,7 @@ class TestPptxBenchmarks:
 
         result = benchmark_runner.run(format_name="pptx", file_path=pptx_file, iterations=5)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 5.0
+        assert result.output_chars, "converted to an empty document"
 
 
 @pytest.mark.benchmark
@@ -142,8 +154,7 @@ class TestXlsxBenchmarks:
 
         result = benchmark_runner.run(format_name="xlsx", file_path=xlsx_file, iterations=5)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 3.0
+        assert result.output_chars, "converted to an empty document"
 
 
 @pytest.mark.benchmark
@@ -159,8 +170,7 @@ class TestOdfBenchmarks:
 
         result = benchmark_runner.run(format_name="odt", file_path=odt_file, iterations=5)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 5.0
+        assert result.output_chars, "converted to an empty document"
 
     @pytest.mark.odf
     def test_benchmark_odt_complex(self, benchmark_runner):
@@ -171,7 +181,7 @@ class TestOdfBenchmarks:
 
         result = benchmark_runner.run(format_name="odt", file_path=odt_file, iterations=3)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
 
 @pytest.mark.benchmark
@@ -187,7 +197,7 @@ class TestGeneratedFixtureBenchmarks:
 
         result = benchmark_runner.run(format_name="epub", file_path=epub_file, iterations=3)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
     @pytest.mark.ipynb
     def test_benchmark_ipynb_simple(self, benchmark_runner):
@@ -198,7 +208,7 @@ class TestGeneratedFixtureBenchmarks:
 
         result = benchmark_runner.run(format_name="ipynb", file_path=ipynb_file, iterations=5)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
     @pytest.mark.mhtml
     def test_benchmark_mhtml_simple(self, benchmark_runner):
@@ -209,7 +219,7 @@ class TestGeneratedFixtureBenchmarks:
 
         result = benchmark_runner.run(format_name="mhtml", file_path=mhtml_file, iterations=5)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
     def test_benchmark_csv_basic(self, benchmark_runner):
         """Benchmark CSV conversion."""
@@ -219,8 +229,7 @@ class TestGeneratedFixtureBenchmarks:
 
         result = benchmark_runner.run(format_name="csv", file_path=csv_file, iterations=10)
 
-        assert result.mean_time > 0
-        assert result.mean_time < 1.0
+        assert result.output_chars, "converted to an empty document"
 
     def test_benchmark_rtf_basic(self, benchmark_runner):
         """Benchmark RTF conversion."""
@@ -230,7 +239,7 @@ class TestGeneratedFixtureBenchmarks:
 
         result = benchmark_runner.run(format_name="rtf", file_path=rtf_file, iterations=5)
 
-        assert result.mean_time > 0
+        assert result.output_chars, "converted to an empty document"
 
 
 @pytest.mark.benchmark
@@ -247,18 +256,18 @@ class TestRoundtripBenchmarks:
 
         docx_output = tmp_path / "output.docx"
 
-        def roundtrip_conversion():
-            from_markdown(md_file, target_format="docx", output=docx_output)
-            to_markdown(docx_output)
+        def roundtrip_conversion(path):
+            from_markdown(path, target_format="docx", output=docx_output)
+            return to_markdown(docx_output)
 
         result = benchmark_runner.run(
             format_name="md->docx->md",
             file_path=md_file,
             iterations=3,
-            conversion_func=lambda x: roundtrip_conversion(),
+            conversion_func=roundtrip_conversion,
         )
 
-        assert result.mean_time > 0
+        assert result.output_chars, "round-tripped to an empty document"
 
 
 @pytest.mark.benchmark
@@ -279,18 +288,16 @@ class TestBatchBenchmarks:
         if not existing_files:
             pytest.skip("No test files found for batch benchmark")
 
-        def batch_conversion():
-            for file_path in existing_files:
-                to_markdown(file_path)
-
         import time
 
         timings = []
+        converted = 0
         for _ in range(3):
             start = time.perf_counter()
-            batch_conversion()
+            for file_path in existing_files:
+                converted += bool(to_markdown(file_path))
             timings.append(time.perf_counter() - start)
 
         mean_time = sum(timings) / len(timings)
         print(f"\nBatch conversion of {len(existing_files)} files: {mean_time:.3f}s")
-        assert mean_time > 0
+        assert converted == len(existing_files) * 3, "a file in the batch converted to nothing"

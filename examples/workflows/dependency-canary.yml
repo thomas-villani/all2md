@@ -1,0 +1,88 @@
+# Dependency canary -- catch upstream conversion regressions before you adopt them.
+#
+# This is where the gate earns its keep, because the failure it catches is
+# otherwise completely invisible. A parser dependency ships a new version,
+# extraction quietly degrades on two-column PDFs or nested tables, and nothing
+# anywhere turns red. Your RAG index gets worse and someone notices in six weeks.
+#
+# Two deliberate inversions of the PR gate (docs-portability.yml):
+#
+#   1. all2md-version: latest -- floats on purpose. The whole point is to detect
+#      upstream drift, so upstream must be the moving part.
+#   2. It never runs on your pull requests, so it can never block a merge on a
+#      regression that isn't yours. A red canary says "don't adopt yet", not
+#      "your change is bad".
+#
+# Point it at a small, stable set of *representative* documents -- the awkward
+# ones: a scanned page, a nested table, a two-column layout, a form. Fixtures
+# that never change are the ideal canary, because then the only thing that can
+# move the score is the library.
+
+name: Conversion canary
+
+on:
+  schedule:
+    # Mondays 06:00 UTC. Cron on GitHub is best-effort and can be delayed under
+    # load; this is a canary, not a deadline.
+    - cron: "0 6 * * 1"
+  pull_request:
+    paths:
+      # Also run on dependency bumps, so a Dependabot/Renovate PR that moves a
+      # parser gets scored before it merges.
+      - "requirements*.txt"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "poetry.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: thomas-villani/all2md@v1.10.1
+        id: gate
+        with:
+          # Representative fixtures, not your whole corpus. This should be fast
+          # and the file set should be stable.
+          paths: |
+            tests/fixtures/canary/**/*.pdf
+            tests/fixtures/canary/**/*.docx
+
+          # Floats deliberately -- see the header.
+          all2md-version: latest
+
+          # Confidence in the parse itself: scanned pages, OCR fallbacks,
+          # structural guesses. This is the check that catches "this document
+          # was never really read", which round-tripping cannot see because a
+          # construct dropped consistently on both sides still scores high.
+          report-fail-under: 88
+
+          # Round-trip too: the two fail in different directions and neither
+          # substitutes for the other.
+          roundtrip-fail-under: 95
+
+      - name: Explain a red canary
+        if: failure()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+
+          ---
+
+          ### A failure here is probably not your change
+
+          This job installs the **latest** all2md against a fixed set of fixtures,
+          so the documents did not move -- the library or one of its parsers did.
+
+          What to do:
+          1. Check the per-document table above for which fixture dropped.
+          2. Pin the previous version in your own pipeline until it is resolved.
+          3. Report it upstream with the fixture, if it looks like a regression.
+
+          Do **not** lower the threshold to clear this. The number is a ratchet;
+          lowering it turns a working instrument into a decoration.
+          EOF

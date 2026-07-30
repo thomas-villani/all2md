@@ -495,6 +495,9 @@ class DokuWikiParser(BaseParser):
         """
         plugin_match = PLUGIN_PATTERN.match(line.strip())
         if plugin_match and plugin_match.group(0) == line.strip():
+            # del/sub/sup are inline markup, not plugins — leave for _process_inline
+            if plugin_match.group(1).lower() in ("del", "sub", "sup"):
+                return False, 0
             self._flush_inline_buffer(inline_buffer, result)
             if self.options.parse_plugins:
                 # Convert plugin syntax to HTMLBlock node
@@ -523,6 +526,9 @@ class DokuWikiParser(BaseParser):
         """
         html_match = HTML_TAG_PATTERN.match(line.strip())
         if html_match and html_match.group(0) == line.strip():
+            # del/sub/sup are inline markup — leave for _process_inline
+            if html_match.group(1).lower() in ("del", "sub", "sup"):
+                return False, 0
             self._flush_inline_buffer(inline_buffer, result)
             html_content = html_match.group(0)
             mode = self.options.html_passthrough_mode

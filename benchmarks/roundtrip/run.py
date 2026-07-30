@@ -1,16 +1,16 @@
 """CLI for the Markdown roundtrip fidelity benchmark.
 
 Runs both oracles (idempotency + HTML-equivalence) over the synthetic corpus and
-prints a per-document table. This is a diagnostic / triage tool - it surfaces
-which constructs currently fail to roundtrip, which is the point of Phase 0/1.
-A blocking CI gate (Phase 3) will consume the same oracles + corpus later.
+prints a per-document table. It is both a diagnostic / triage tool and the
+**blocking CI gate** (see ``.github/workflows/ci.yml``): a fidelity regression is
+a red build rather than something a human might notice.
 
     python -m benchmarks.roundtrip                 # table to stdout
     python -m benchmarks.roundtrip --show-diff      # + unified diffs for failures
     python -m benchmarks.roundtrip --json out.json  # machine-readable results
 
-Exit code is non-zero iff any oracle failed (skips don't count), so the tool can
-double as an ad-hoc check while we burn issues down.
+Exit code is non-zero if any oracle failed, if an ``EXPECTED_FAILURES`` entry
+unexpectedly passed, or if such an entry is stale. Policy skips never count.
 """
 
 from __future__ import annotations
@@ -23,6 +23,22 @@ from pathlib import Path
 
 from .corpus import Case, load_synthetic_corpus
 from .oracles import CheckResult, html_equivalence_check, idempotency_check
+
+# Oracle failures we knowingly accept, keyed by (document, oracle) -> why.
+#
+# This is a ratchet, not an excuse list. `main` is green with these failing, but
+# the run also goes red if an entry here starts *passing* (XPASS) or stops being
+# evaluated at all (stale) - either means this table has begun lying about the
+# codebase, so it must be updated in the same commit that changes the behavior.
+# An expected failure is for behavior we have *decided* to accept; never add an
+# entry to silence a genuine regression.
+EXPECTED_FAILURES: dict[tuple[str, str], str] = {
+    ("raw-html", "idempotency"): (
+        "all2md escapes raw HTML by policy (html_passthrough_mode='escape'), so pass 2 sees "
+        "&lt;div&gt; where pass 1 saw <div>. Deliberate - the escape policy is a security "
+        "posture, not a roundtrip bug. Same root cause as the html_equivalence policy skip."
+    ),
+}
 
 
 def evaluate_case(case: Case) -> list[CheckResult]:
@@ -57,10 +73,19 @@ def evaluate_case(case: Case) -> list[CheckResult]:
     return results
 
 
-def _status(result: CheckResult) -> str:
+def _status(case_name: str, result: CheckResult) -> str:
+    """One of SKIP / pass / FAIL / XFAIL / XPASS.
+
+    XFAIL is an ``EXPECTED_FAILURES`` entry failing as documented; XPASS is one
+    that has started passing, which is a gate failure because the table is now
+    stale (see ``EXPECTED_FAILURES``).
+    """
     if result.skipped:
         return "SKIP"
-    return "pass" if result.passed else "FAIL"
+    expected = (case_name, result.oracle) in EXPECTED_FAILURES
+    if result.passed:
+        return "XPASS" if expected else "pass"
+    return "XFAIL" if expected else "FAIL"
 
 
 def _format_table(rows: list[tuple[Case, list[CheckResult]]]) -> str:
@@ -70,23 +95,42 @@ def _format_table(rows: list[tuple[Case, list[CheckResult]]]) -> str:
     lines = [header, "-" * len(header)]
     for case, results in rows:
         by_oracle = {r.oracle: r for r in results}
-        idem = _status(by_oracle["idempotency"])
-        html = _status(by_oracle["html_equivalence"])
+        idem = _status(case.name, by_oracle["idempotency"])
+        html = _status(case.name, by_oracle["html_equivalence"])
         lines.append(f"{case.name:<{name_w}}  {idem:>12}  {html:>12}")
     return "\n".join(lines)
 
 
-def _summary(rows: list[tuple[Case, list[CheckResult]]]) -> tuple[int, int, int]:
-    passed = failed = skipped = 0
-    for _, results in rows:
+def _summary(rows: list[tuple[Case, list[CheckResult]]]) -> dict[str, int]:
+    """Count outcomes by the same five statuses ``_status`` reports."""
+    counts = {"passed": 0, "failed": 0, "xfailed": 0, "xpassed": 0, "skipped": 0}
+    key = {"SKIP": "skipped", "pass": "passed", "FAIL": "failed", "XFAIL": "xfailed", "XPASS": "xpassed"}
+    for case, results in rows:
         for r in results:
-            if r.skipped:
-                skipped += 1
-            elif r.passed:
-                passed += 1
-            else:
-                failed += 1
-    return passed, failed, skipped
+            counts[key[_status(case.name, r)]] += 1
+    return counts
+
+
+def _stale_expected_failures(rows: list[tuple[Case, list[CheckResult]]]) -> list[tuple[str, str]]:
+    """``EXPECTED_FAILURES`` keys that no oracle actually evaluated.
+
+    Catches the third way the table can rot: a document renamed or deleted, or an
+    oracle that now policy-skips the case, leaves an entry that can never fail and
+    so silently stops guarding anything.
+    """
+    evaluated = {(case.name, r.oracle) for case, results in rows for r in results if not r.skipped}
+    return sorted(k for k in EXPECTED_FAILURES if k not in evaluated)
+
+
+def gate_failed(counts: dict[str, int], stale: list[tuple[str, str]]) -> bool:
+    """Whether this run should fail the build.
+
+    Three ways to go red: a genuine oracle failure, an expected failure that has
+    started passing, or a stale expected-failure entry. The last two are gate
+    *hygiene* rather than fidelity problems, but they are equally fatal - an
+    allowlist nobody has to maintain is how a ratchet stops being one.
+    """
+    return bool(counts["failed"] or counts["xpassed"] or stale)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -113,18 +157,43 @@ def main(argv: list[str] | None = None) -> int:
     rows = [(case, evaluate_case(case)) for case in cases]
 
     print(_format_table(rows))
-    passed, failed, skipped = _summary(rows)
+    counts = _summary(rows)
+    stale = _stale_expected_failures(rows)
     print()
-    print(f"{passed} passed, {failed} failed, {skipped} skipped  ({len(cases)} documents x 2 oracles)")
+    # Only surface the categories that actually occurred, so a clean run reads as
+    # "40 passed" rather than a row of zeros.
+    parts = [f"{counts['passed']} passed"] + [f"{n} {label}" for label, n in counts.items() if label != "passed" and n]
+    print(f"{', '.join(parts)}  ({len(cases)} documents x 2 oracles)")
 
     if args.show_diff:
         for case, results in rows:
             for r in results:
                 if not r.passed and not r.skipped:
-                    print(f"\n=== {case.name} :: {r.oracle} ===")
+                    print(f"\n=== {case.name} :: {r.oracle} [{_status(case.name, r)}] ===")
                     print(r.detail)
                     if r.diff:
                         print(r.diff)
+
+    # An expected failure that passed, or that nothing evaluated, means the table
+    # above is out of date. Report it as loudly as a real failure - a rotting
+    # allowlist is how a ratchet quietly stops being one.
+    for case, results in rows:
+        for r in results:
+            if _status(case.name, r) == "XPASS":
+                print(
+                    f"\nERROR: {case.name}:{r.oracle} passed but is listed as an expected failure.\n"
+                    f"  Recorded reason: {EXPECTED_FAILURES[case.name, r.oracle]}\n"
+                    f"  If this was fixed on purpose, delete the entry from EXPECTED_FAILURES\n"
+                    f"  in benchmarks/roundtrip/run.py so the gate protects the fix.",
+                    file=sys.stderr,
+                )
+    for name, oracle in stale:
+        print(
+            f"\nERROR: expected failure {name}:{oracle} was never evaluated - the document is "
+            f"missing/renamed, or that oracle now skips it.\n"
+            f"  Update or remove the EXPECTED_FAILURES entry in benchmarks/roundtrip/run.py.",
+            file=sys.stderr,
+        )
 
     if args.json is not None:
         payload = {
@@ -133,17 +202,24 @@ def main(argv: list[str] | None = None) -> int:
                     "name": case.name,
                     "source": case.source,
                     "has_raw_html": case.has_raw_html,
-                    "results": [asdict(r) for r in results],
+                    "results": [
+                        {
+                            **asdict(r),
+                            "status": _status(case.name, r),
+                            "expected_failure_reason": EXPECTED_FAILURES.get((case.name, r.oracle)),
+                        }
+                        for r in results
+                    ],
                 }
                 for case, results in rows
             ],
-            "summary": {"passed": passed, "failed": failed, "skipped": skipped},
+            "summary": {**counts, "stale_expected_failures": [list(k) for k in stale]},
         }
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"\nWrote results to {args.json}", flush=True)
 
-    return 1 if failed else 0
+    return 1 if gate_failed(counts, stale) else 0
 
 
 if __name__ == "__main__":

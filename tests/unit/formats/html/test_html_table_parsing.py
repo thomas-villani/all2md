@@ -322,3 +322,12 @@ class TestHtmlTableEdgeCases:
         assert "Line 1" in markdown
         assert "Line 2" in markdown
         assert "Line 3" in markdown
+
+    def test_nested_table_does_not_duplicate_inner_cells(self):
+        """Inner td/th must not be duplicated into the outer row."""
+        html = "<table><tr><td><table><tr><td>inner</td></tr></table></td></tr></table>"
+        markdown = html_to_markdown(html, source_format="html")
+        assert_markdown_valid(markdown)
+        assert markdown.count("inner") == 1
+        assert "| inner |" in markdown
+        assert "| inner | inner |" not in markdown

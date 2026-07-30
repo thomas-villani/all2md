@@ -2,6 +2,18 @@
 
 This directory contains performance benchmarking tests for the all2md document conversion library. These tests measure conversion speed, throughput, and resource usage across different document formats.
 
+## What these gate on
+
+**Conversion, not time.** Each benchmark asserts that its format still converts and produces a non-empty document. That is deterministic and cannot flake.
+
+Timings are *recorded* — printed, and written to `results/` under `--benchmark-save` — and deliberately left ungated. They used to be gated, and it was theatre: the first time anyone actually ran this suite, the absolute ceilings had **11x–231x headroom** (`basic.xlsx` at 13 ms against a 3 s limit), so a conversion had to get two orders of magnitude slower before one fired. The remaining assertions compared `mean_time > 0` against the mean of `perf_counter` deltas, which is true by construction.
+
+Nothing had ever run them to notice, because a bare `pytest tests/` deselects everything marked `benchmark`.
+
+Gating these numbers for real needs a variance study on the runners first: these fixtures convert in 5–885 ms, measured CI runner variance is already ~7%, and denominator jitter on a small measurement is worse. `benchmarks/startup.py` shows what that costs to get right — it needs two metrics that agree before it will go red. The CI artifact is what such a study would be built from.
+
+For regression detection over *real* documents rather than small fixtures, see `benchmarks/corpus/`, which gates the failure set against a committed baseline.
+
 ## Quick Start
 
 ### Running Benchmarks
@@ -217,19 +229,14 @@ def test_custom_conversion_func(benchmark_runner):
 
 ### CI/CD Integration
 
-Example GitHub Actions workflow:
+The `Format Benchmarks` job in `.github/workflows/ci.yml` runs this suite on every
+push and pull request and uploads `results/` as a `format-benchmarks-<run>` artifact.
+The job fails only if a format stops converting or converts to nothing — never on a
+timing number.
 
-```yaml
-- name: Run Performance Benchmarks
-  run: |
-    pytest tests/performance --benchmark --benchmark-save
-
-- name: Upload Benchmark Results
-  uses: actions/upload-artifact@v3
-  with:
-    name: benchmark-results
-    path: tests/performance/results/
-```
+`results/` is gitignored. Download the artifact to compare runs; a committed snapshot
+only tells you about one machine on one day, which is why the two that used to live
+here were removed.
 
 ## Analyzing Results
 
@@ -256,10 +263,15 @@ Results include:
 
 ### Regression Detection
 
-Consider a performance regression if:
-- Mean time increases > 20%
-- Throughput decreases > 20%
-- Standard deviation increases significantly
+A single run tells you very little here. Treat a difference as real only if it
+survives the noise floor, which on these fixtures is large: measured CI runner
+variance is ~7% before you account for the denominator jitter that dominates a
+5–15 ms measurement, and a different CPU class shifts *every* number by ~18% at once.
+
+So a 20%-style rule of thumb is not a threshold, it is a prompt to look — and to
+look at whether the whole table moved together, which means the machine changed
+rather than the code. `benchmarks/startup.py` handles exactly that by requiring a raw
+and an interpreter-relative delta to agree before it reports a regression.
 
 ## Troubleshooting
 
