@@ -475,10 +475,10 @@ class DataExtractor:
 
         stripped = value.strip().lower()
 
-        # Boolean
-        if stripped in ("true", "yes", "on", "1"):
+        # Boolean (exclude 1/0 — those are integers in table cells like age)
+        if stripped in ("true", "yes", "on"):
             return True
-        if stripped in ("false", "no", "off", "0"):
+        if stripped in ("false", "no", "off"):
             return False
 
         # None/null
