@@ -144,26 +144,18 @@ class TestCLISplitting:
 class TestSplitCLIE2E:
     """End-to-end tests for CLI --split-by functionality using subprocess."""
 
-    def setup_method(self):
-        """Set up test environment.
+    @pytest.fixture(autouse=True)
+    def _tmp_dir(self, tmp_path_factory):
+        """Create a unique temp directory per test to avoid parallel-worker races.
 
-        Creates a temporary directory for test files and locates the CLI module.
+        Previously this class used a fixed ``tmp_split_e2e`` directory under the
+        project root, which caused concurrent xdist workers to collide and left
+        the directory behind in the working tree on crashes. Using
+        ``tmp_path_factory`` gives each test its own isolated directory.
         """
-        # Get the project root (3 levels up from this test file: tests/integration/test_cli_split.py)
-        project_root = Path(__file__).parent.parent.parent
-        self.temp_dir = project_root / "tmp_split_e2e"
-        self.temp_dir.mkdir(exist_ok=True)
-        self.cli_path = project_root / "src" / "all2md" / "cli" / "__init__.py"
-
-    def teardown_method(self):
-        """Clean up test environment.
-
-        Removes temporary files and directories created during tests.
-        """
-        if self.temp_dir.exists():
-            import shutil
-
-            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        self.temp_dir = tmp_path_factory.mktemp("split_e2e")
+        self.cli_path = Path(__file__).parent.parent.parent / "src" / "all2md" / "cli" / "__init__.py"
+        yield
 
     def _run_cli(self, args: list[str]) -> subprocess.CompletedProcess:
         """Run the CLI as a subprocess.

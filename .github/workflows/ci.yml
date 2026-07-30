@@ -40,8 +40,11 @@ jobs:
           black --check src/ tests/
 
       - name: Run Ruff linter
+        # --no-fix is belt-and-braces: pyproject no longer sets `fix = true`, and
+        # this makes the gate report violations regardless of what the config says.
+        # A linter that repairs its findings in the runner and exits 0 is not a gate.
         run: |
-          ruff check src/ tests/
+          ruff check --no-fix src/ tests/
 
       - name: Run MyPy type checker
         run: |
@@ -109,6 +112,244 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  roundtrip:
+    name: Roundtrip Fidelity Gate
+    runs-on: ubuntu-latest
+
+    # Blocking fidelity gate: Markdown -> AST -> Markdown must survive both oracles
+    # (idempotency + mistune HTML-equivalence) over benchmarks/roundtrip's corpus.
+    # Single Python version on purpose - fidelity is a property of the renderer, not
+    # of the interpreter, so the 5-version matrix would buy nothing for 5x the time.
+    # Accepted failures live in EXPECTED_FAILURES in benchmarks/roundtrip/run.py; that
+    # list going stale fails the build too, so it can't rot into a silent excuse.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Run roundtrip fidelity benchmark
+        run: |
+          set -o pipefail
+          python -m benchmarks.roundtrip --json roundtrip-results.json | tee roundtrip-table.txt
+
+      # Only on red, so green runs stay quiet but a failure arrives with the diffs
+      # already in the log instead of needing a local reproduction.
+      - name: Show diffs for failures
+        if: failure()
+        run: python -m benchmarks.roundtrip --show-diff
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Roundtrip fidelity"
+            echo
+            echo '```'
+            cat roundtrip-table.txt || echo "benchmark did not produce a table"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: roundtrip-results-${{ github.run_number }}
+          path: roundtrip-results.json
+          if-no-files-found: warn
+
+  startup:
+    name: Cold Start Gate
+    runs-on: ubuntu-latest
+
+    # Blocking timing gate: cold start must stay within tolerance of the committed
+    # baseline in benchmarks/startup_baseline.json. Deliberately coarse - the
+    # tolerance is 20% against a measured 7.2% runner-variance floor (see the
+    # Startup Runner Variance workflow), so only gross regressions trip it.
+    #
+    # The sharp instrument for the eager-import scaling bug is
+    # tests/unit/test_eager_imports.py, which compares module sets exactly and
+    # cannot flake. This job covers what that one structurally cannot see: a slow
+    # parser build, a heavy dependency, an algorithmic regression in registration.
+    #
+    # Runs alone on its runner and is not parallelised for a reason - it is a
+    # wall-clock measurement, so competing jobs on the same VM would be noise.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Run cold start gate
+        run: |
+          set -o pipefail
+          python -m benchmarks.startup \
+            --repeat 9 \
+            --baseline benchmarks/startup_baseline.json \
+            --out startup-results.json \
+            | tee startup-table.txt
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Cold start"
+            echo
+            echo '```'
+            cat startup-table.txt || echo "benchmark did not produce a table"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: startup-results-${{ github.run_number }}
+          path: startup-results.json
+          if-no-files-found: warn
+
+  format-benchmarks:
+    name: Format Benchmarks
+    runs-on: ubuntu-latest
+
+    # Per-format conversion timings over the small fixtures, across the dozen formats
+    # the corpus gate does not reach (it covers pdf + eml only). Runs in well under a
+    # minute.
+    #
+    # It gates on conversion, NOT on time. The absolute ceilings this suite used to
+    # carry had 11x-231x headroom the first time anyone ran them, and the rest
+    # asserted `mean_time > 0`, which is true by construction - so nothing here ever
+    # could have failed. What's checked now is that every format still converts, and
+    # converts to something rather than to an empty string: deterministic, and
+    # unable to flake.
+    #
+    # The timings are recorded to the artifact and left ungated on purpose, the same
+    # stance benchmarks/corpus takes on throughput. These fixtures convert in 5-885
+    # ms; gating a 5 ms measurement needs a variance study on these runners first,
+    # and measured runner variance is already ~7% before denominator jitter. The
+    # artifact is what such a study would be built from.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      # --benchmark is required; without it the suite deselects itself entirely.
+      - name: Run format benchmarks
+        run: |
+          set -o pipefail
+          pytest tests/performance --benchmark --benchmark-save -q -s \
+            | tee format-benchmarks.txt
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Format benchmarks"
+            echo
+            echo "Recorded, not gated - see the job comment for why."
+            echo
+            echo '```'
+            # -A rather than a sed range: the table opens with its own ==== rule, so
+            # a range ending on ==== closes one line after it starts.
+            grep -A 30 'BENCHMARK RESULTS SUMMARY' format-benchmarks.txt \
+              || echo "benchmark did not produce a table"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: format-benchmarks-${{ github.run_number }}
+          path: tests/performance/results/
+          if-no-files-found: warn
+
+  quality-gate-action:
+    name: Quality Gate Action
+    runs-on: ubuntu-latest
+
+    # Dogfoods the action at the repo root (`action.yml`) against our own docs.
+    #
+    # Two steps, because they cover different things and neither covers the other:
+    #
+    #   1. `uses: ./` exercises the composite YAML end to end -- inputs, version
+    #      resolution, install. It installs all2md from PyPI, so it says nothing
+    #      about *this* PR's scoring; its threshold is deliberately slack so a
+    #      published-vs-branch difference cannot make it flake. It answers "does
+    #      the action run at all", which the unit tests cannot.
+    #   2. The direct script run scores with the branch's code (editable install)
+    #      at the real thresholds. This is the ratchet.
+    #
+    # The thresholds in step 2 are measured floors, not round numbers: as of
+    # 1.10.0 the worst of the repo's root markdown is README.md at 97 fidelity
+    # (11 raw HTML blocks re-parse as paragraphs) and everything scores 100
+    # confidence. So fidelity passes here with *zero* headroom, which is the point.
+    # Re-record them deliberately if they move; do not nudge them down to make a
+    # build green. A threshold well below the real floor is the failure this whole
+    # batch kept finding -- a gate that passes because it cannot fail.
+    #
+    # `*.md` matches six tracked files here. Running the same command locally
+    # scores nine, because CLAUDE.md, AGENTS.md and todo.md are gitignored -- so a
+    # local run can show a different floor than CI without either being wrong.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Verify the action's wiring
+        uses: ./
+        with:
+          paths: |
+            README.md
+            CONTRIBUTING.md
+          roundtrip-fail-under: 90
+          all2md-version: latest
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Gate this branch against our own docs
+        run: |
+          python scripts/action_gate.py run \
+            --paths '*.md' \
+            --roundtrip-fail-under 97 \
+            --report-fail-under 100
+
   security-semgrep:
     name: Security Scan (Semgrep)
     runs-on: ubuntu-latest
@@ -164,7 +405,7 @@ jobs:
     # (The Release created here uses GITHUB_TOKEN, whose `release: published`
     # event would not start release.yml anyway.)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint-and-typecheck, docs, test, security-semgrep, security-bandit]
+    needs: [lint-and-typecheck, docs, test, roundtrip, startup, security-semgrep, security-bandit]
     runs-on: ubuntu-latest
 
     steps:

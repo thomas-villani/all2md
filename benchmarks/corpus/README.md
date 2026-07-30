@@ -18,12 +18,41 @@ break the parser, and producing comparable timing numbers across machines.
 
 All sources are HTTP-only — no AWS credentials required.
 
-| Source     | Format(s)   | Sample | Notes                                                        |
-| ---------- | ----------- | ------ | ------------------------------------------------------------ |
-| `arxiv`    | pdf         | 30     | Recent cs.CL papers; text + math heavy.                      |
-| `govdocs1` | pdf, docx   | 50     | Real-world docs harvested from .gov sites.                   |
-| `poi`      | docx, pptx  | 30     | Apache POI's curated test corpus — known-tricky office docs. |
-| `enron`    | eml         | 50     | Public Enron email release.                                  |
+| Source     | Format(s)   | Sample | Reproducible | Notes                                                        |
+| ---------- | ----------- | ------ | ------------ | ------------------------------------------------------------ |
+| `arxiv`    | pdf         | 30     | **no**       | Recent cs.CL papers; text + math heavy.                      |
+| `govdocs1` | pdf, docx   | 50     | yes          | Real-world docs harvested from .gov sites.                   |
+| `poi`      | docx, pptx  | 30     | **no**       | Apache POI's curated test corpus — known-tricky office docs. |
+| `enron`    | eml         | 50     | yes          | Public Enron email release.                                  |
+
+### Reproducibility, and why only half the corpus is gated
+
+Sampling is seeded (`random.Random(seed).sample`), which is deterministic **given a
+fixed pool**. Two of these pools are not fixed:
+
+- **`arxiv`** queries the live API sorted by `submittedDate` descending, so the pool
+  is "the 200 most recent cs.CL papers" and changes every day.
+- **`poi`** reads `apache/poi` at `ref = trunk`, which moves whenever POI edits its
+  test data.
+
+This is invisible locally: the fetchers short-circuit on a cached `_index.json`, so
+once your machine has run the benchmark its document set never changes again. CI gets
+a cold cache every run and re-resolves against upstream.
+
+So `reproducible = true` in `corpus.toml` marks the sources whose sample is fixed, and
+**only those are gated** — comparing a baseline against a corpus that changed
+composition reports document-mix noise as a regression. The other two still run and
+still appear in the report; they're an exploratory signal, not a ratchet.
+
+Making all four gateable would need a committed lockfile of resolved ids + content
+hashes, with `poi` pinned to a SHA. Note arxiv revises PDFs (`v1` → `v2`) under the
+same id, so ids alone would not be enough.
+
+Run just the gated half with `--only-reproducible` (this is what CI does):
+
+```bash
+.venv/Scripts/python.exe -m benchmarks.corpus.run --only-reproducible
+```
 
 **PMC** (PubMed Central biomedical articles) is currently disabled in the
 default manifest. NCBI's OA web service is not reliable for programmatic PDF
@@ -70,6 +99,7 @@ From the repo root, with the `.venv` active and `all2md` installed:
 | -------------------- | ------------------------------------------------------------------- |
 | `mode`               | `download`, `benchmark`, `report`, `all` (default), or `purge`.     |
 | `--sources`          | Comma-separated source names. Subset of `corpus.toml`.              |
+| `--only-reproducible`| Restrict to sources whose sample is fixed across cold runs (gated). |
 | `--formats`          | Comma-separated formats (e.g. `pdf,docx`).                          |
 | `--max-docs`         | Cap total docs benchmarked.                                         |
 | `--max-size-mb`      | Skip docs larger than this size.                                    |
@@ -129,10 +159,33 @@ can click straight to source/output pairs.
 - The arxiv and PMC pools come from live APIs and shift over time. The seed
   controls sampling within the pool, but the pool itself drifts. Two runs on
   different days won't pick the same papers — they'll pick a comparable mix.
-- govdocs1 / Enron / POI samples are stable: same shard, same git ref, same
-  tarball content.
+- **POI is not stable either**, despite what this section used to claim: `ref = trunk`
+  is a moving branch, not a pinned commit, so the file list changes as POI edits its
+  test data. Only govdocs1 (fixed shard of a frozen archive) and Enron (frozen
+  tarball) hand back the same documents on every cold run.
+- A warm `.cache/` hides all of the above — the fetchers reuse `_index.json` and never
+  re-resolve. Your machine will look perfectly reproducible while CI is not.
 - Wall-clock timings depend on hardware and load — don't compare across
   machines, only across runs on the same machine.
+
+## Network failures, and what the run does about them
+
+The two large archives — the Enron tarball (423 MB) and the govdocs1 shard
+(~250 MB) — get **two retries with exponential backoff** before the source gives
+up. A DNS blip on either once failed a whole weekly run, and a gate that goes
+red on infrastructure gets ignored, at which point it has stopped being a gate.
+
+The bound is as deliberate as the retry. When the budget is spent the fetch
+still fails loudly and still caches nothing, so a broken network is reported as
+a broken network rather than smoothed into a thin corpus. Retries only cover
+transient failures — a 404 or a 403 is not retried, because retrying a wrong URL
+is only a slower way to fail. Per-document fetches get no retry at all: they are
+individually cheap to lose, and retrying each would multiply the run time of a
+source that is already hundreds of requests long.
+
+Separately, a source that yields **none** of a format its `corpus.toml` entry
+asks for now says so. That claim is the corpus's coverage claim, and a format
+that silently matched nothing misstates which gate covers what.
 
 ## Adding a source
 
@@ -140,3 +193,62 @@ Add a `[sources.<name>]` block to `corpus.toml`, then implement a fetcher in
 `download.py` and wire it up in the `FETCHERS` dict. Each fetcher takes a
 config dict + cache dir and returns a list of `CorpusItem`. Caching via
 `_read_index` / `_write_index` keeps the pipeline idempotent.
+
+## The gate
+
+`benchmarks/corpus/gate.py` turns a results JSON into a pass/fail verdict, run
+weekly by the `Corpus Fidelity Gate` workflow (and on dispatch).
+
+It gates **which documents fail to convert** — a set of names, compared exactly, with
+no tolerance and no runner variance to argue about. It deliberately does **not** gate
+throughput: that needs a variance study on the runners it would run on before any
+threshold is defensible, and a flaky gate gets disabled, which leaves the appearance
+of coverage rather than coverage.
+
+Four ways to go red, so the baseline can't rot in any direction:
+
+| status | meaning |
+| --- | --- |
+| `NEW_FAILURE` | a document failed that the baseline doesn't accept |
+| `FIXED` | an accepted failure now converts — record the win |
+| `STALE` | the baseline accepts a document no longer in the corpus |
+| `MISSING_DOCS` | a gated source returned fewer docs than recorded |
+
+That last one is not about failures at all. A half-succeeded download produces fewer
+documents, therefore fewer failures, therefore a green gate — so the most likely
+infrastructure fault in the whole pipeline would read as success. The gate also
+refuses to report a pass when *no* gated sources are present, for the same reason.
+
+`MISSING_DOCS` earned its keep on the gate's first real run: a DNS failure fetching
+the Enron tarball left the run with 50 documents instead of 100, and nothing else in
+the pipeline objected. Two things changed as a result, so the same fault now stops
+earlier and louder:
+
+- **A failed fetch is not cached.** `_read_index` returns `[]`, not `None`, for an
+  empty `_index.json`, so writing one after a failed download made that source
+  permanently empty on any machine that keeps the cache. Fetchers now leave no index
+  when they failed to find out, and only cache emptiness they actually established
+  (a shard that downloaded fine and holds none of the requested formats).
+- **`download` exits non-zero** if a requested source cached nothing, rather than
+  printing `cached 0 item(s)` and returning 0.
+
+Bootstrap or re-record a baseline from a run:
+
+```bash
+.venv/Scripts/python.exe -m benchmarks.corpus.gate <results.json> --emit-baseline \
+  > benchmarks/corpus/corpus_baseline.json
+```
+
+Then replace each `TODO` reason with a real justification — a machine can record that
+something failed, but only a person can say whether it's acceptable.
+
+The committed baseline was recorded on 2026-07-26 from
+[run 30183702769](https://github.com/thomas-villani/all2md/actions/runs/30183702769)
+against 1.10.0, and its allowlist is **empty**: all 100 gated documents converted
+without raising. So any entry appearing in it later is a regression with a name, and
+the right response is a fix rather than a line in the list.
+
+Note what the gated half actually covers: 50 PDFs and 50 emails. `corpus.toml` asks
+govdocs1 for `pdf` and `docx`, but govdocs1 is a 2009 harvest of `.gov` sites and
+carries legacy `.doc`, so the `docx` request matches almost nothing. The gate is real,
+it is just narrower than the manifest reads.

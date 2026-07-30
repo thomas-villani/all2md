@@ -7,6 +7,143 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-07-27
+
+A maintenance release. Almost all of it is infrastructure — the harnesses this
+project already had are now wired to CI as blocking gates — but wiring them up
+surfaced one real conversion bug, which is the reason to take the release.
+
+### Added
+
+- **GitHub Action: a conversion-quality gate.** `action.yml` at the repository root
+  ships all2md as a reusable action that scores every matched document and fails the
+  build when fidelity degrades — the same ratchet this project runs on itself, pointed
+  outward. It wraps `roundtrip --fail-under` and `report --fail-under`, and gates on the
+  worst score across the matched set.
+
+  ```yaml
+  - uses: thomas-villani/all2md@v1.10.1
+    with:
+      paths: docs/**/*.md
+      roundtrip-fail-under: 97
+  ```
+
+  It refuses to pass quietly, which is the whole point: a `paths` glob that matches
+  nothing, a run with no threshold set, and a document that cannot be converted at all
+  are each a failure rather than a silent green. Config errors exit `2`, quality
+  failures exit `1`. It also warns when a threshold sits ten or more points below your
+  documents' real scores — documents that convert well score 99-100, so a
+  threshold that *sounds* strict has enough dead headroom to never fire.
+
+  The action lives in this repository rather than a separate one so `@v1.10.1` installs
+  all2md 1.10.1: the gate's verdict is the library's score, so the two versions must not
+  drift. See `docs/source/github_action.rst`.
+
+### Fixed
+
+- **Prose containing a `|` is no longer swallowed into a table.** mistune's
+  `_process_thead` never checks that the second line of a candidate table is a
+  delimiter row — it matches each cell against the three alignment patterns and
+  falls back to "no alignment" for anything else — so *any* line with the same
+  number of pipe-separated cells as the line above it was accepted as the
+  delimiter and then consumed. Two ordinary sentences that each happened to
+  contain a pipe became a two-column table, and **the second line was deleted
+  outright**. So did two fully-piped rows written without a delimiter, and two
+  lines whose pipes sat inside code spans (whose backticks were mangled on the
+  way through). A delimiter row is now required, per GFM, which is where the loss
+  stops. Found by the new quality-gate action, which scored a table-free
+  `CHANGELOG.md` as containing a table — the metric was right and the code was
+  wrong (#177).
+- CI: **the lint gate could not fail.** `fix = true` in `[tool.ruff]` applies to plain
+  `ruff check`, not just `ruff check --fix`, so CI rewrote every auto-fixable violation
+  inside the runner and exited 0 — green build, repair discarded with the runner,
+  violation still on `main`. Only rules with no auto-fix could ever turn it red. The
+  setting is gone and CI passes `--no-fix`; a test pins both (#149).
+- Benchmarks: a failed corpus download is no longer cached as an empty result. An empty
+  `_index.json` reads back as a valid cache hit, so one transient network failure zeroed
+  a source out permanently on any machine that keeps the cache. Found when a DNS blip
+  reduced the corpus to 50 documents and the run still exited 0.
+- Benchmarks: the two large corpus archives (Enron, ~423 MB; govdocs1, ~250 MB) now get
+  a **bounded** retry with backoff. Exhausting it still fails loudly — the retry buys
+  tolerance for flakiness, never silence about failure — and a 404 is not retried at all
+  (#182).
+- Benchmarks: a corpus source that yields **none** of a format its `corpus.toml` entry
+  requests now says so, instead of quietly covering a narrower format mix than the
+  manifest advertises (#181).
+- Tests: `pytest -m unit` works again. `tests/performance/conftest.py` overwrote
+  `markexpr` in `pytest_configure`, silently discarding any `-m` — the documented fast
+  path collected 7997 tests instead of 3857. CI never noticed because it passes no `-m`.
+- Tests: `TestSplitCLIE2E` no longer races under parallel workers. It used a fixed
+  directory under the project root, so concurrent xdist workers collided in it and a
+  crashed run left the directory behind. Thanks [@rkfshakti](https://github.com/rkfshakti)
+  (#185, #187).
+
+### Changed
+
+- **Faster cold start: `import all2md` no longer loads every options module.** The
+  `all2md.options` package re-exports lazily (PEP 562) instead of importing all 30-odd
+  submodules at package-init time. Because `from all2md.options.base import ...` executes
+  that package init first, *any* options import used to cost the whole set — which is how
+  a bare `import all2md` ended up loading 31 options modules to reach the two classes
+  `all2md/api.py` actually needs. Now 4. Total eagerly-imported `all2md` modules drops
+  from 64 to 37. **No API change:** `from all2md.options import PdfOptions` works exactly
+  as before, and `dir()` still lists every export.
+
+  Measured on CI (median of six runner VMs, nine samples each): `import all2md`
+  **230 ms → 162 ms (−29%)** and `all2md --version` **246 ms → 178 ms (−28%)**. `--help`
+  and a small conversion are roughly unchanged, as expected — both build the full parser
+  or run the pipeline, so they load the options either way. The win lands on the
+  per-invocation path that CLI and agent workflows actually pay.
+
+- CI: the Markdown roundtrip fidelity benchmark (`benchmarks/roundtrip`) now runs as a
+  **blocking gate** on every push and PR, and is required before a release. A
+  `Markdown -> AST -> Markdown` regression that either oracle can see now fails the
+  build instead of waiting to be noticed. Knowingly-accepted failures are declared in
+  `EXPECTED_FAILURES` (currently one: raw HTML, which the `html_passthrough_mode="escape"`
+  policy makes lossy by design); the gate also fails if such an entry starts passing or
+  goes stale, so the list can't decay into a permanent excuse.
+- CI: cold start is now guarded on every push and PR, and is required before a release.
+  Two complementary gates, because the cost is milliseconds but the cause is an import
+  graph: `tests/unit/test_eager_imports.py` pins the exact set of modules a bare
+  `import all2md` pulls in (deterministic, cannot flake), and a `Cold Start Gate` job
+  compares wall-clock timings against `benchmarks/startup_baseline.json` with a 20%
+  tolerance. An unrecorded *speedup* also fails, so the baseline can't drift into
+  describing code that no longer exists. The timing gate judges each scenario twice —
+  raw milliseconds and milliseconds relative to the same run's bare interpreter — and
+  goes red only when both agree, which is what separates a real regression from a
+  runner that landed on a faster or slower CPU class.
+- CI: a weekly `Corpus Fidelity Gate` (also on dispatch) converts the corpus benchmark's
+  reproducible half and compares the **failure set** — which documents fail, by name —
+  against `benchmarks/corpus/corpus_baseline.json`. Only the two sources whose sample is
+  fixed across cold runs are gated; arxiv and POI resolve against upstream state that
+  moves, so a baseline would report document-mix churn as a regression. The recorded
+  baseline converts 100/100 gated documents, so its accepted-failure list is empty. A
+  short corpus is also a failure, which is what caught the download bug above.
+- CI: a `Format Benchmarks` job converts the small per-format fixtures across the dozen
+  formats the corpus gate cannot reach (it covers PDF and email only). It gates on
+  **conversion, not on time**: these fixtures run in 5–885 ms, and gating a 5 ms
+  measurement needs a variance study on these runners first. Timings are recorded to an
+  artifact, which is what such a study would be built from.
+- `tests/performance` is kept but disarmed. Its seven absolute ceilings had 106×–1170×
+  headroom on CI and its other seventeen assertions were `mean_time > 0`, true by
+  construction — so nothing there could ever have failed, and nothing had ever run it,
+  because a bare `pytest tests/` deselects `benchmark`. What is checked now is that every
+  format still converts to something non-empty: deterministic, and unable to flake.
+- Docs: `performance.rst` no longer reports throughput figures that came from no harness.
+  The old table gave pages/sec, a unit the benchmarks have never produced, beside one row
+  in MB/sec — measured and invented numbers side by side, which launders the invented
+  ones. They are replaced by figures that name their source, and by the advice to measure
+  your own corpus. It also documented PubMed Central as a live corpus source with runnable
+  commands, though `[sources.pmc]` is commented out, and described the Apache POI sample
+  as stable when `ref = trunk` is a moving branch. Adds the startup-cost section the page
+  never had (#180).
+- CI: bumped `actions/setup-python` 6 → 7 and `actions/download-artifact` 7 → 8 (#188,
+  #189). Created the `dependencies`, `github-actions` and `python` labels that
+  `dependabot.yml` had always referenced but that never existed on the repository, so
+  Dependabot could not apply them.
+
+## [1.10.0] - 2026-07-24
+
 ### Added
 
 - **`insert_mode` Markdown renderer option** (`--markdown-insert-mode`): how to render
@@ -14,6 +151,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`<ins>`), or `ignore` (#113).
 
 ### Fixed
+
+- **OCR'd PDF pages with links no longer crash conversion.** OCR-synthesized text
+  spans omitted the `bbox` key that every real PyMuPDF span carries. On a page
+  that was OCR'd *and* held a link annotation (common in signed documents), link
+  resolution read `span["bbox"]` and aborted the whole file with
+  `KeyError('bbox')`. OCR spans now carry the page-rect bbox, so link resolution
+  runs normally (and a page-sized span never spuriously matches a small link).
 
 - **Markdown tables with ragged rows no longer vanish.** mistune rejects any body
   row whose cell count differs from the header's, and then discards the *entire*
@@ -112,10 +256,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nodes, so they round-trip losslessly. Tags carrying attributes, and unmatched or
   stray tags, are still passed through untouched rather than guessed at. The remaining
   inline tags (`<del>`, `<sup>`, `<sub>`, `<mark>`) still self-escape (#113).
-- **JSON renderer: duplicate table column names keep their values.** Header text was
-  mapped straight to dict keys, so a table with two `tag` columns kept only the last
-  cell of each row. Repeats are now suffixed (`tag`, `tag_2`). Thanks
-  [@santhreal](https://github.com/santhreal) (#137).
+- **JSON and YAML renderers: duplicate table column names keep their values.** Header
+  text was mapped straight to dict keys, so a table with two `tag` columns kept only the
+  last cell of each row. Repeats are now suffixed (`tag`, `tag_2`) in both renderers.
+  Thanks [@santhreal](https://github.com/santhreal) (#137).
 - **LaTeX parser: section titles are read from the right argument.** pylatexenc gives
   sectioning macros the argspec `*[{`, and the parser took slot 0 — the `*` marker —
   as the title. `\section*{Introduction}` produced `# *`, and because slot 0 is empty
@@ -146,11 +290,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   zero-column header, rendering as invalid GFM (`|  |` over `||`) and corrupting any
   table that followed it. A row with an empty `<td>` is still preserved. Thanks
   [@santhreal](https://github.com/santhreal) (#146).
-- **Org parser: keyword-only headlines are no longer dropped.** orgparse reports
-  `* TODO` as an empty heading with `todo='TODO'`, and the parser discarded any
-  headline whose text was empty — losing the headline and reparenting its body. The
-  keyword stays in metadata rather than the title, so `* TODO` round-trips as itself
-  instead of `* TODO TODO`. Thanks [@santhreal](https://github.com/santhreal) (#147).
+- **Org parser: marker-only headlines are no longer dropped.** orgparse reports `* TODO`
+  as an empty heading with `todo='TODO'`, and the parser discarded any headline whose
+  text was empty — losing the headline and reparenting its body. The marker stays in
+  metadata rather than the title, so `* TODO` round-trips as itself instead of
+  `* TODO TODO`. A priority-only headline (`* [#A]`) is kept the same way. Thanks
+  [@santhreal](https://github.com/santhreal) (#147).
+- **Org parser: headlines with more than six stars no longer crash.** Org allows any
+  star depth, but `Heading` accepts levels 1-6, so `******* Deep` raised on parse. The
+  level is now clamped at 6, matching the HTML and CHM parsers. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **CSV renderer: inline code, inline math and image alt text survive export.** `Code`,
+  `MathInline` and `Image` leaves were skipped when flattening a cell to text, so a cell
+  holding `` `code` `` or an image came out as an empty field. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **MediaWiki parser: empty list items keep their bullet.** A bare `*` or `#` line
+  produced no item at all, so the list came back short and every following item shifted
+  up a position. Matches the DokuWiki renderer fix above. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **MediaWiki parser: attributes are stripped from `|+` table captions.** Cell
+  attributes were already handled for `|` cells, but `|+ style="..." | Caption` kept the
+  whole attribute segment in the caption text. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **BBCode parser: empty `[*]` items keep their bullet.** Same shape as the MediaWiki
+  fix — an empty item was skipped, shortening the list and shifting the items after it.
+  The segment before the first `[*]` is still correctly not an item. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **BBCode parser: `[color]`, `[size]` and `[font]` no longer flatten their contents.**
+  These tags have no Markdown equivalent, so they are stripped — but the strip discarded
+  any markup nested inside them, and `[color=red]see [b]this[/b][/color]` lost its bold.
+  The inner content is now parsed and spliced in place of the tag. Thanks
+  [@santhreal](https://github.com/santhreal).
+- **FB2 parser: notes-body section titles are kept.** The first heading of a notes body
+  was dropped unconditionally to avoid duplicating the "Notes" heading, so a notes body
+  with no body-level `<title>` — or with an empty `<title>` placeholder — silently lost
+  its first footnote heading. The leading heading is now dropped only when a body-level
+  `<title>` actually produced one. Thanks [@santhreal](https://github.com/santhreal).
+- **FB2 parser: `<cite>` is converted as a block quote.** It was flattened into a plain
+  paragraph while its structural twin `<epigraph>` became a quote, so a citation's block
+  children collapsed into inline text. Both now take the epigraph path. Thanks
+  [@santhreal](https://github.com/santhreal).
 
 ### Changed
 
@@ -166,6 +345,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `<u>` now round-trips losslessly thanks to the parser fix above. Set
   `underline_mode="markdown"` to keep the pre-1.10 spelling (#113).
 - CI: bumped `actions/setup-python` 6 → 7 and `actions/setup-node` 6 → 7 (#120, #121).
+
+### Security
+
+- **Relocked `torch` 2.12.1 → 2.13.0** (GHSA-rrmf-rvhw-rf47 / CVE-2025-3000, memory
+  corruption in `torch.jit.script`), pulling `torchvision` 0.27.1 → 0.28.0. torch reaches
+  us only through the `ocr-easyocr` and `search` extras and all2md never calls
+  `torch.jit.script`, so practical exposure was nil — but the lock pinned a vulnerable
+  range for anyone installing those extras.
+- **Relocked `setuptools` 81.0.0 → 83.0.0** (GHSA-h35f-9h28-mq5c / CVE-2026-59890,
+  `MANIFEST.in` exclusions bypassable via a Unicode normalization collision on
+  macOS APFS/HFS+). Transitive via torch only; all2md builds with hatchling.
 
 ## [1.9.0] - 2026-07-15
 
@@ -1236,7 +1426,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.1
+[1.10.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.0
 [1.9.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.9.0
 [1.8.2]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.2
 [1.8.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.8.1

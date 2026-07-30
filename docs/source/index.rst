@@ -153,6 +153,7 @@ Guides & References
    agent_skills
    plugins
    integrations
+   github_action
    configuration
    environment_variables
    troubleshooting

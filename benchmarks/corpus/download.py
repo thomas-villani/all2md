@@ -13,7 +13,6 @@ import fnmatch
 import json
 import random
 import re
-import socket
 import sys
 import tarfile
 import time
@@ -29,6 +28,17 @@ from typing import Any, Callable, Iterable
 USER_AGENT = "all2md-corpus-benchmark/1.0 (mailto:thomas.villani@njii.com)"
 DEFAULT_TIMEOUT = 60
 POLITE_DELAY_SECONDS = 0.4
+
+# Retry budget for the two large archives (the ~423 MB Enron tarball and the
+# ~250 MB govdocs1 shard). Small per-document fetches do not get one: they are
+# individually cheap to lose and a per-file retry would multiply the run time of
+# a source that is already hundreds of requests long.
+LARGE_DOWNLOAD_RETRIES = 2
+RETRY_BACKOFF_SECONDS = 5
+
+# HTTP statuses worth a second attempt. A 404 or a 403 means the URL is wrong or
+# we are not allowed in; retrying that is just a slower way to fail.
+_RETRYABLE_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 
 @dataclass
@@ -79,6 +89,24 @@ def _read_index(source_dir: Path) -> list[CorpusItem] | None:
     return [CorpusItem(**row) for row in rows]
 
 
+def _give_up(source_dir: Path, reason: str) -> list[CorpusItem]:
+    """Abandon a source *without* caching the emptiness.
+
+    Writing an empty ``_index.json`` here would be read back as a legitimate cache
+    hit -- :func:`_read_index` returns ``[]``, not ``None`` -- so one transient
+    network failure would zero the source out permanently on any machine that keeps
+    the cache between runs. That is not hypothetical: a DNS blip fetching the Enron
+    tarball produced ``[enron] cached 0 item(s)``, and every later run would have
+    read that back and re-reported zero without retrying.
+
+    Leaving no index costs a retry next run, which is the cheaper mistake. Use this
+    whenever emptiness means "we failed to find out" rather than "we looked, and the
+    answer is none".
+    """
+    print(f"  {source_dir.name}: {reason} - not caching, will retry next run", flush=True)
+    return []
+
+
 def _write_index(source_dir: Path, items: list[CorpusItem]) -> None:
     source_dir.mkdir(parents=True, exist_ok=True)
     (source_dir / "_index.json").write_text(
@@ -113,23 +141,51 @@ def _try_download(
     label: str,
     timeout: int = DEFAULT_TIMEOUT,
     validator: "Callable[[Path], bool] | None" = None,
+    retries: int = 0,
 ) -> int | None:
-    try:
-        size = _download(url, dest, timeout=timeout)
-    except urllib.error.HTTPError as e:
-        print(f"    skip {label}: HTTP {e.code}", flush=True)
-        return None
-    except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
-        print(f"    skip {label}: {e}", flush=True)
-        return None
-    except OSError as e:
-        print(f"    skip {label}: {e}", flush=True)
-        return None
-    if validator is not None and not validator(dest):
-        dest.unlink(missing_ok=True)
-        print(f"    skip {label}: failed content validation", flush=True)
-        return None
-    return size
+    """Download *url* to *dest*, returning its size or ``None`` on failure.
+
+    With ``retries`` above zero, transient network failures are retried with
+    exponential backoff. The bound is deliberate on both sides: a weekly gate
+    that goes red on a DNS blip gets ignored, and a gate that retries forever
+    stops being able to report that the network is broken. Once the budget is
+    spent this still returns ``None``, and the caller still fails loudly -- the
+    retry buys tolerance for flakiness, never silence about failure.
+
+    ``_download`` writes to a ``.part`` file and only ``replace()``s it on
+    success, so a retry can never resume onto a truncated archive.
+    """
+    attempts = max(1, retries + 1)
+    for attempt in range(1, attempts + 1):
+        last = attempt == attempts
+        try:
+            size = _download(url, dest, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            if last or e.code not in _RETRYABLE_STATUS:
+                print(f"    skip {label}: HTTP {e.code}", flush=True)
+                return None
+            reason = f"HTTP {e.code}"
+        except OSError as e:
+            # URLError, socket.timeout and TimeoutError are all OSError subclasses.
+            if last:
+                print(f"    skip {label}: {e}", flush=True)
+                return None
+            reason = str(e)
+        else:
+            if validator is not None and not validator(dest):
+                dest.unlink(missing_ok=True)
+                print(f"    skip {label}: failed content validation", flush=True)
+                return None
+            return size
+
+        delay = RETRY_BACKOFF_SECONDS * 2 ** (attempt - 1)
+        print(
+            f"    {label}: attempt {attempt}/{attempts} failed ({reason}); retrying in {delay}s",
+            flush=True,
+        )
+        time.sleep(delay)
+
+    return None  # pragma: no cover - the loop always returns on its last attempt
 
 
 def _invalidate_cache_if_invalid(source_dir: Path, items: list[CorpusItem], validator: Callable[[Path], bool]) -> bool:
@@ -185,9 +241,9 @@ def fetch_arxiv(cfg: dict, source_dir: Path) -> list[CorpusItem]:
         pool.append(eid)
 
     if not pool:
-        print("  arxiv: empty pool, nothing to fetch", flush=True)
-        _write_index(source_dir, [])
-        return []
+        # A live query returning nothing is far more likely to be a bad day at the
+        # API than a genuinely empty arxiv.
+        return _give_up(source_dir, "empty pool, nothing to fetch")
 
     sampled = _seeded_sample(pool, sample_size, seed)
     items: list[CorpusItem] = []
@@ -304,10 +360,9 @@ def fetch_govdocs1(cfg: dict, source_dir: Path) -> list[CorpusItem]:
     if not shard_path.exists():
         url = f"{GOVDOCS1_BASE}/{shard_name}"
         print(f"  govdocs1: downloading shard {shard_name} (~250 MB)...", flush=True)
-        size = _try_download(url, shard_path, label=shard_name, timeout=600)
+        size = _try_download(url, shard_path, label=shard_name, timeout=600, retries=LARGE_DOWNLOAD_RETRIES)
         if size is None:
-            _write_index(source_dir, [])
-            return []
+            return _give_up(source_dir, f"could not download shard {shard_name}")
 
     print(f"  govdocs1: scanning {shard_name} for formats {formats}...", flush=True)
     with zipfile.ZipFile(shard_path) as zf:
@@ -317,6 +372,9 @@ def fetch_govdocs1(cfg: dict, source_dir: Path) -> list[CorpusItem]:
             if not info.is_dir() and Path(info.filename).suffix.lower().lstrip(".") in formats
         ]
         if not candidates:
+            # The one empty result worth caching: the shard downloaded fine and
+            # genuinely holds none of the requested formats. Deterministic, so
+            # re-deriving it every run buys nothing.
             print(f"  govdocs1: no matching files in shard {shard_name}", flush=True)
             _write_index(source_dir, [])
             return []
@@ -405,9 +463,8 @@ def fetch_poi(cfg: dict, source_dir: Path) -> list[CorpusItem]:
             pool.append((ep, ext))
 
     if not pool:
-        print("  poi: empty pool, nothing to fetch", flush=True)
-        _write_index(source_dir, [])
-        return []
+        # Same reasoning as arxiv: the pool comes off a live tree listing.
+        return _give_up(source_dir, "empty pool, nothing to fetch")
 
     sampled = _seeded_sample(pool, sample_size, seed)
     items: list[CorpusItem] = []
@@ -448,10 +505,9 @@ def fetch_enron(cfg: dict, source_dir: Path) -> list[CorpusItem]:
     tarball = source_dir / ENRON_TARBALL
     if not tarball.exists():
         print("  enron: downloading tarball (~423 MB)...", flush=True)
-        size = _try_download(ENRON_URL, tarball, label=ENRON_TARBALL, timeout=900)
+        size = _try_download(ENRON_URL, tarball, label=ENRON_TARBALL, timeout=900, retries=LARGE_DOWNLOAD_RETRIES)
         if size is None:
-            _write_index(source_dir, [])
-            return []
+            return _give_up(source_dir, "could not download the tarball")
 
     names_cache = source_dir / ENRON_NAMES_CACHE
     if names_cache.exists():
@@ -467,8 +523,9 @@ def fetch_enron(cfg: dict, source_dir: Path) -> list[CorpusItem]:
         print(f"  enron: indexed {len(names)} files", flush=True)
 
     if not names:
-        _write_index(source_dir, [])
-        return []
+        # A 423 MB tarball holding no files means we read it wrong, not that the
+        # Enron release is empty.
+        return _give_up(source_dir, "tarball indexed to zero members")
 
     sampled = _seeded_sample(names, sample_size, seed)
     items: list[CorpusItem] = []
@@ -537,6 +594,45 @@ FETCHERS: dict[str, Callable[[dict, Path], list[CorpusItem]]] = {
 }
 
 
+def _report_unfulfilled_formats(name: str, cfg: dict, items: list[CorpusItem]) -> list[str]:
+    """Announce requested formats the source did not actually yield.
+
+    The corpus gate's whole value is its coverage claim, and until now a format
+    that matched nothing was simply absent: ``corpus.toml`` asks govdocs1 for
+    ``["pdf", "docx"]``, the shard hands back zero docx, and the run reports
+    success -- so the benchmark quietly covers a narrower format mix than its own
+    manifest advertises. That misstates which gate covers what, which matters
+    because ``Format Benchmarks`` exists specifically to reach the formats the
+    corpus cannot.
+
+    This warns rather than fails, on the distinction drawn when a failed fetch
+    stopped being cached as an empty result: "we looked, and there are none" is a
+    real finding to report, while "we never found out" must be loud. A source
+    that returned nothing at all has already said so via :func:`_give_up`, so
+    there is nothing to add here.
+
+    Returns
+    -------
+    list of str
+        The requested formats with no matching document, sorted; empty when the
+        manifest's claim held.
+
+    """
+    requested = {f.lower() for f in cfg.get("formats", [])}
+    if not requested or not items:
+        return []
+    missing = sorted(requested - {i.format.lower() for i in items})
+    if missing:
+        print(
+            f"[{name}] WARNING: corpus.toml requests {sorted(requested)} but this run "
+            f"produced no {', '.join(missing)} - the corpus covers less than the "
+            f"manifest claims. Fix the manifest or the fetcher; do not leave the "
+            f"claim standing.",
+            flush=True,
+        )
+    return missing
+
+
 def load_manifest(toml_path: Path) -> dict:
     if sys.version_info >= (3, 11):
         import tomllib
@@ -591,6 +687,7 @@ def fetch_all(
         print(f"[{name}] {cfg.get('description', '')}", flush=True)
         source_dir = cache_root / name
         items = fetcher(cfg, source_dir)
+        _report_unfulfilled_formats(name, cfg, items)
         if fmt_filter:
             items = [i for i in items if i.format.lower() in fmt_filter]
         selected[name] = items

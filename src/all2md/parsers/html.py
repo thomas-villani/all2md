@@ -1408,7 +1408,8 @@ class HtmlToAstConverter(BaseParser):
         """Process cells in a table row. Returns (cells, alignments)."""
         cells = []
         alignments = []
-        for cell in tr.find_all(["th", "td"]):
+        # Direct children only: recursive find_all duplicates nested td/th into the outer row
+        for cell in tr.find_all(["th", "td"], recursive=False):
             content = self._process_table_cell_content(cell)
             cells.append(TableCell(content=content))
             if collect_alignments:

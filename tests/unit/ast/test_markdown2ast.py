@@ -426,6 +426,58 @@ class TestTables:
         assert len(quote_tables) == 1
         assert len(quote_tables[0].rows[0].cells) == 2
 
+    def test_prose_lines_containing_pipes_are_not_a_table(self) -> None:
+        """Two prose lines that merely contain a pipe stay prose.
+
+        Regression: mistune's ``_process_thead`` never checks that the second line
+        is a delimiter row -- it falls back to ``align=None`` for any cell it does
+        not recognise -- so it accepted any equally-wide line as the delimiter and
+        consumed it. The second line was then **deleted outright**, silently, on
+        the default Markdown path.
+        """
+        markdown = "we support a|b syntax\nand also c|d syntax\n"
+        doc = markdown_to_ast(markdown)
+
+        assert not any(isinstance(child, Table) for child in doc.children)
+        # Both lines survive; the bug dropped the second one entirely.
+        text = "".join(node.content for node in doc.children[0].content if isinstance(node, Text))
+        assert "we support a|b syntax" in text
+        assert "and also c|d syntax" in text
+
+    def test_pipe_rows_without_a_delimiter_are_not_a_table(self) -> None:
+        """Fully-piped rows still need a delimiter row to become a table.
+
+        This is the shape most likely to hide the data loss: it *looks* like a
+        table the author forgot the delimiter on, so losing the second row reads
+        as intentional rather than as a bug.
+        """
+        doc = markdown_to_ast("| alpha | beta |\n| gamma | delta |\n")
+
+        assert not any(isinstance(child, Table) for child in doc.children)
+        text = "".join(node.content for node in doc.children[0].content if isinstance(node, Text))
+        assert "gamma" in text
+
+    def test_code_span_pipes_do_not_start_a_table(self) -> None:
+        """Pipes inside code spans are prose, and their backticks stay intact."""
+        doc = markdown_to_ast("use `a|b` here\nand `c|d` there\n")
+
+        assert not any(isinstance(child, Table) for child in doc.children)
+        codes = [node for node in doc.children[0].content if isinstance(node, Code)]
+        assert [node.content for node in codes] == ["a|b", "c|d"]
+
+    def test_delimiter_row_variants_still_parse(self) -> None:
+        """The delimiter check must not reject the forms GFM actually allows."""
+        for delimiter in ("|---|---|", "| --- | --- |", "|:--|--:|", "|:-:|:-:|", "|-|-|"):
+            doc = markdown_to_ast(f"| A | B |\n{delimiter}\n| 1 | 2 |\n")
+            tables = [child for child in doc.children if isinstance(child, Table)]
+            assert len(tables) == 1, f"{delimiter!r} should still parse as a table"
+
+    def test_delimiter_like_line_without_dashes_is_not_a_delimiter(self) -> None:
+        """A colon-only or empty second row is not a delimiter row."""
+        for second in ("| : | : |", "|  |  |"):
+            doc = markdown_to_ast(f"| A | B |\n{second}\n")
+            assert not any(isinstance(child, Table) for child in doc.children), f"{second!r} is not a delimiter"
+
 
 class TestMiscellaneous:
     """Test miscellaneous elements."""

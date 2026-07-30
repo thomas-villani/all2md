@@ -168,6 +168,20 @@ class TestInlineFormatting:
         para = paras[0]
         assert any(isinstance(node, Strikethrough) for node in para.content)
 
+    def test_line_only_strikethrough_not_empty_list(self) -> None:
+        """A line that is only +strikethrough+ must not be treated as an empty list."""
+        parser = OrgParser()
+        doc = parser.parse("+gone+\n")
+
+        assert len(doc.children) == 1
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert len(para.content) == 1
+        assert isinstance(para.content[0], Strikethrough)
+        assert isinstance(para.content[0].content[0], Text)
+        assert para.content[0].content[0].content == "gone"
+        assert not any(isinstance(node, List) for node in doc.children)
+
 
 @pytest.mark.unit
 class TestTodoHeadings:
@@ -208,6 +222,34 @@ class TestTodoHeadings:
         assert headings[0].metadata.get("org_todo_state") == "TODO"
         assert isinstance(headings[0].content[0], Text)
         assert headings[0].content[0].content == "TODO"
+        paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
+        assert len(paragraphs) == 1
+        assert isinstance(paragraphs[0].content[0], Text)
+        assert paragraphs[0].content[0].content == "body"
+
+    def test_priority_only_headline(self) -> None:
+        """Priority-only headlines (no title text) must keep [#A] in content."""
+        org = "* [#A]\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.metadata.get("org_priority") == "A"
+        assert isinstance(heading.content[0], Text)
+        assert heading.content[0].content == "[#A]"
+
+    def test_priority_only_headline_with_body(self) -> None:
+        """Priority-only headline with body keeps [#A] and body text."""
+        org = "* [#A]\nbody\n"
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        headings = [n for n in doc.children if isinstance(n, Heading)]
+        assert len(headings) == 1
+        assert headings[0].metadata.get("org_priority") == "A"
+        assert isinstance(headings[0].content[0], Text)
+        assert headings[0].content[0].content == "[#A]"
         paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
         assert len(paragraphs) == 1
         assert isinstance(paragraphs[0].content[0], Text)

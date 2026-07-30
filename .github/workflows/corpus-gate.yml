@@ -1,0 +1,95 @@
+name: Corpus Fidelity Gate
+
+# Converts ~100 real-world documents and fails if any of them starts or stops
+# failing without that being recorded. See benchmarks/corpus/gate.py for what is
+# gated and what deliberately is not.
+#
+# NOT part of the per-PR CI run, and not in release's needs:. The corpus is a
+# ~700 MB download from third-party hosts, so putting it on every PR would make
+# the whole pipeline hostage to Digital Corpora's and CMU's uptime. Scheduled
+# plus dispatch keeps the signal without that coupling.
+#
+# Only the sources marked reproducible=true in corpus.toml are downloaded here
+# (--only-reproducible): arxiv resolves against a live "most recent" query and
+# poi against a moving branch ref, so their samples differ run to run and cannot
+# be compared to a baseline. They stay available for manual exploratory runs.
+
+on:
+  schedule:
+    # 05:00 UTC Mondays. Weekly rather than nightly: the gated corpus is fixed, so
+    # the only thing that changes between runs is our code, and a week of commits
+    # is still a small enough range to bisect.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      record_baseline:
+        description: "Upload a baseline candidate instead of gating (use for the first run)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: corpus-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    name: Corpus Fidelity Gate
+    runs-on: ubuntu-latest
+    # The download dominates; conversion of 100 docs is minutes. Generous because
+    # a timeout here costs a rerun of the whole download.
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Download the gated corpus
+        run: python -m benchmarks.corpus.run download --only-reproducible
+
+      - name: Benchmark
+        run: python -m benchmarks.corpus.run benchmark --only-reproducible
+
+      - name: Render report
+        if: always()
+        run: python -m benchmarks.corpus.run report
+
+      # Runs even when the gate fails: the results JSON is the only way to see
+      # *what* failed, and it is most wanted precisely on a red run.
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: corpus-results-${{ github.run_number }}
+          path: benchmarks/corpus/results/
+          if-no-files-found: warn
+
+      - name: Summarize
+        if: always()
+        run: |
+          {
+            echo "## Corpus"
+            echo
+            echo '```'
+            tail -n 60 benchmarks/corpus/results/*.md 2>/dev/null || echo "no report produced"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gate
+        if: ${{ !inputs.record_baseline }}
+        run: |
+          latest=$(ls -t benchmarks/corpus/results/*.json | head -1)
+          python -m benchmarks.corpus.gate "$latest"
