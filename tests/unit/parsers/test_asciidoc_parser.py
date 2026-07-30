@@ -7,6 +7,7 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
     Document,
     Emphasis,
     FootnoteDefinition,
@@ -135,6 +136,25 @@ def hello():
         code_block = doc.children[0]
         assert "def hello():" in code_block.content
         assert 'print("world")' in code_block.content
+
+    def test_block_comment_does_not_leak_body_as_paragraph(self) -> None:
+        """//// block comments must not leak body lines as document paragraphs."""
+        asciidoc = "////\nsecret\n////\nvisible\n"
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        comments = [c for c in doc.children if isinstance(c, Comment)]
+        paragraphs = [c for c in doc.children if isinstance(c, Paragraph)]
+        assert len(comments) == 1
+        assert comments[0].content == "secret"
+        assert len(paragraphs) == 1
+        assert isinstance(paragraphs[0].content[0], Text)
+        assert paragraphs[0].content[0].content == "visible"
+        # Must not treat //// as a // line comment that leaves secret as body text
+        assert not any(
+            isinstance(c, Paragraph) and any(isinstance(n, Text) and n.content == "secret" for n in c.content)
+            for c in doc.children
+        )
 
     def test_unordered_list(self) -> None:
         """Test parsing unordered list."""
