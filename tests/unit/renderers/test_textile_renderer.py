@@ -355,6 +355,13 @@ class TestTextileLists:
 @pytest.mark.unit
 class TestTextileTables:
     """Tests for Textile table rendering."""
+    def test_render_empty_table(self) -> None:
+        """Test rendering an empty table without header or rows."""
+        doc = Document(children=[Table(header=None, rows=[])])
+        renderer = TextileRenderer()
+        result = renderer.render_to_string(doc)
+        assert result == "\n"
+
 
     def test_render_simple_table(self) -> None:
         """Test rendering a simple table."""
