@@ -55,6 +55,7 @@ from typing import Any, Optional, Union
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
 from all2md.converter_registry import registry
+from all2md.exceptions import All2MdError, RenderingError
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.renderers import MarkdownRenderer
@@ -589,8 +590,29 @@ class Pipeline:
             # Don't let callback errors break the pipeline
             logger.warning(f"Progress callback failed: {e}", exc_info=True)
 
+    def _rendering_error(self, exc: Exception) -> RenderingError:
+        """Wrap a renderer's internal exception in the documented error type."""
+        name = self.renderer.__class__.__name__
+        return RenderingError(
+            f"{name} failed to render the document: {exc!r}",
+            rendering_stage="rendering",
+            original_error=exc,
+        )
+
     def _render(self, document: Document) -> Union[str, bytes]:
         """Render document using configured renderer.
+
+        Renderers reach third-party libraries (python-pptx, pyth, ...) that raise
+        their own exception types, and only some renderers translate those. This
+        is the single point every pipeline render passes through, so the
+        translation happens here: whatever a renderer raises, callers of the
+        public API see an ``All2MdError`` subclass, as ``from_ast`` documents.
+        Renderers that already raise ``All2MdError`` pass through untouched, so a
+        renderer keeping its own specific message loses nothing.
+
+        ``NotImplementedError`` and ``AttributeError`` keep their existing meaning
+        of "this renderer does not offer this output mode" and select the other
+        one rather than being wrapped.
 
         Parameters
         ----------
@@ -608,6 +630,8 @@ class Pipeline:
             If no renderer is configured (pipeline was created with renderer=False)
         NotImplementedError
             If renderer doesn't implement render_to_string or render_to_bytes
+        RenderingError
+            If the renderer raises anything else
 
         """
         if self.renderer is None:
@@ -624,12 +648,20 @@ class Pipeline:
             return self.renderer.render_to_string(document)
         except (NotImplementedError, AttributeError):
             pass
+        except All2MdError:
+            raise
+        except Exception as e:
+            raise self._rendering_error(e) from e
 
         # Fall back to render_to_bytes (for binary renderers)
         try:
             return self.renderer.render_to_bytes(document)
         except (NotImplementedError, AttributeError):
             pass
+        except All2MdError:
+            raise
+        except Exception as e:
+            raise self._rendering_error(e) from e
 
         # Neither method is implemented
         raise NotImplementedError(
