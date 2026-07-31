@@ -31,6 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AsciiDoc: nested lists survive a round trip.** The renderer emitted a `+` list
+  continuation before a nested list, which detaches it into a block of its own and
+  leaves the `**` marker with no `*` parent at the level below it — output the AsciiDoc
+  parser rejected with `Cannot nest to level 2 without a parent item at level 1`. Every
+  document with a nested list was affected, not only the task-list shape the fuzzer
+  first reported. Nesting is now carried by the marker alone; `+` is still emitted for
+  code blocks, tables, block quotes and additional paragraphs, which do need it.
+  Closing the round trip also required the parser to learn list continuations at all:
+  it treated a lone `+` as the end of the list, so the item after an attached block
+  started a fresh list with no parent to nest under, and valid hand-written AsciiDoc
+  such as `* a\n** b\n+\nc\n** d` was rejected. Continuation blocks now attach to the
+  open item and the list stays open (#206).
 - **Rendering failures now always raise `All2MdError`, whatever the underlying library
   raised.** `from_ast` documents that failures surface as `All2MdError` subclasses, but
   renderers delegate to third-party libraries that raise their own types, and only some

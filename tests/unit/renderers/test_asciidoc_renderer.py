@@ -129,7 +129,12 @@ class TestListItemContinuation:
         assert "____" in result
 
     def test_list_item_with_nested_list(self):
-        """Test list item with nested list has continuation marker."""
+        """Test nested list attaches by marker depth, with no continuation marker.
+
+        A "+" before a nested list detaches it into a block of its own, leaving
+        the "**" marker with no "*" parent at the level below it - output the
+        AsciiDoc parser rejects outright.
+        """
         doc = Document(
             children=[
                 List(
@@ -151,11 +156,19 @@ class TestListItemContinuation:
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
-        # Should have continuation marker before nested list
-        assert "+\n" in result
-        # Should have both list levels
+        # Nesting is carried by the marker alone
+        assert "+" not in result
         assert "* Outer item" in result
         assert "** Inner item" in result
+
+        # ...and the result survives our own parser, which is what the
+        # continuation marker used to break.
+        reparsed = AsciiDocParser().parse(result)
+        outer = reparsed.children[0]
+        assert isinstance(outer, List)
+        inner = outer.items[0].children[1]
+        assert isinstance(inner, List)
+        assert inner.items[0].children[0].content[0].content == "Inner item"
 
     def test_list_item_with_table(self):
         """Test list item with table has continuation marker."""

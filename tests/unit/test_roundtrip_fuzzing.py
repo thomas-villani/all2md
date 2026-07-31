@@ -133,10 +133,6 @@ LOSSLESS_FORMATS = ("ast",)
 #: distinguish "already known" from "newly introduced". Minimal reproductions for
 #: every entry are pinned in :class:`TestKnownCrashRepros` below.
 KNOWN_CRASHES: dict[tuple[str, str], str] = {
-    # The AsciiDoc renderer numbers nested list markers by absolute depth, so an
-    # ordered list inside an unordered item is written `..` with no `.` parent.
-    # AsciiDoc counts depth per list type, so its own parser rejects the output.
-    ("asciidoc", "Cannot nest to level"): "asciidoc renderer emits an orphaned level-2 list marker",
     # Spanning cells that overflow the declared grid width reach python-docx as
     # a merge whose target cell was never created.
     ("docx", "no `tc` element"): "docx renderer merges spanning cells past the grid width",
@@ -368,12 +364,6 @@ class TestKnownCrashRepros:
     @pytest.mark.parametrize(
         ("doc", "fmt"),
         [
-            pytest.param(
-                NESTED_TASK_ITEM,
-                "asciidoc",
-                id="asciidoc-orphaned-nested-list-marker",
-                marks=pytest.mark.xfail(strict=True, reason="renderer writes '..' with no '.' parent"),
-            ),
             pytest.param(
                 SPANNING_GRID_OVERFLOW,
                 "docx",
