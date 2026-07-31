@@ -103,6 +103,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the grid widens rather than dropping a cell. Losing a merge is recoverable, losing
   content is not. DOCX, PPTX, LaTeX, ODT, ODP, Org, RST and PDF all take the shared pass
   (#207, #208).
+- **RTF: nested lists no longer crash the round trip, and stop losing their deepest
+  items.** The RTF renderer builds a pyth document, and pyth writes one `\ilvl` level
+  prefix per *paragraph* inside a list entry — so an entry whose content was a nested
+  list got the outer level's prefix and the inner level's prefix on the same output
+  paragraph. Reading that back, pyth charges both controls to the preceding paragraph
+  and sees a level decrease it never saw a matching increase for, at which point it pops
+  the document off its own stack (`IndexError`, #209). Carrying a task status took a
+  different path: `List` subclasses `Paragraph` in pyth, so the marker run was inserted
+  into the sub-list's content, where only entries belong, and the writer then dispatched
+  on the bare string it found there (`KeyError`, #210). Nested lists are now flattened
+  before being handed to pyth. That gives up nesting *depth*, which the RTF parser never
+  reconstructed anyway — a plain two-item list already read back as two paragraphs — and
+  in exchange it fixes a data-loss bug neither issue had noticed: a list three levels
+  deep silently dropped its deepest item, because pyth pushed a list for the level
+  increase and never re-attached it (#209, #210).
 
 ## [1.10.1] - 2026-07-27
 

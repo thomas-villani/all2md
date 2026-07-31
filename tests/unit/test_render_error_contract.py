@@ -19,8 +19,9 @@ from __future__ import annotations
 import pytest
 
 from all2md import from_ast, roundtrippable_formats
-from all2md.ast.nodes import Document, List, ListItem, Paragraph, Text
+from all2md.ast.nodes import Document, Paragraph, Text
 from all2md.exceptions import All2MdError, DependencyError
+from all2md.renderers.rtf import RtfRenderer
 
 pytestmark = [pytest.mark.unit, pytest.mark.matrix_single]
 
@@ -104,31 +105,17 @@ def test_renderer_specific_errors_are_not_reflattened() -> None:
     assert "Failed to render DOCX" in str(excinfo.value)
 
 
-def test_rtf_nested_task_item_failure_is_wrapped() -> None:
-    """#210's document reaches the caller as an ``All2MdError``.
+def test_rtf_render_to_string_wraps_its_body() -> None:
+    """RTF reports a failure on the path a text format actually takes.
 
     RTF is the case the split entry points hid: ``render`` wrapped its body but
-    ``render_to_string`` — the path a text format actually takes — did not.
+    ``render_to_string`` — the path the pipeline uses for a text format — did
+    not, so a failure escaped unwrapped.
+
+    Driven by the probe rather than #210's task-list document, which stopped
+    raising once that was fixed. This is the attrition the module docstring
+    warns about; the contract outlives any particular document that broke it.
     """
-    doc = Document(
-        children=[
-            List(
-                ordered=False,
-                tight=False,
-                items=[
-                    ListItem(
-                        task_status="checked",
-                        children=[
-                            List(
-                                ordered=False,
-                                tight=False,
-                                items=[ListItem(children=[], task_status="checked")],
-                            )
-                        ],
-                    )
-                ],
-            )
-        ]
-    )
+    renderer = RtfRenderer()
     with pytest.raises(All2MdError):
-        from_ast(doc, "rtf")
+        renderer.render_to_string(_probe_document())
