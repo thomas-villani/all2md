@@ -295,6 +295,7 @@ class TestMarkdownFootnotes:
         paragraphs = [c for c in defs[0].content if isinstance(c, Paragraph)]
         assert len(paragraphs) == 2
 
+
 class TestMarkdownNullAttrsHandling:
     """Regression tests for tokens containing null or non-dict attrs attribute.
 
