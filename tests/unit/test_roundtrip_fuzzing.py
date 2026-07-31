@@ -133,11 +133,6 @@ LOSSLESS_FORMATS = ("ast",)
 #: distinguish "already known" from "newly introduced". Minimal reproductions for
 #: every entry are pinned in :class:`TestKnownCrashRepros` below.
 KNOWN_CRASHES: dict[tuple[str, str], str] = {
-    # Spanning cells that overflow the declared grid width reach python-docx as
-    # a merge whose target cell was never created.
-    ("docx", "no `tc` element"): "docx renderer merges spanning cells past the grid width",
-    # Same root shape, different downstream library.
-    ("pptx", "merged cells"): "pptx renderer re-merges cells that are already merged",
     # An empty list item nested inside another list leaves the RTF renderer
     # emitting a group the RTF parser walks off the end of.
     ("rtf", "IndexError"): "rtf round trip of a nested empty list item indexes out of range",
@@ -298,20 +293,6 @@ def _cell(text: str = "", **kwargs: object) -> TableCell:
     return TableCell(content=[Text(content=text)] if text else [], **kwargs)  # type: ignore[arg-type]
 
 
-#: A table whose spanning cells overflow the declared grid width.
-SPANNING_GRID_OVERFLOW = Document(
-    children=[
-        Table(
-            header=TableRow(is_header=True, cells=[_cell("0"), _cell("0")]),
-            rows=[
-                TableRow(cells=[_cell(colspan=2, rowspan=2), _cell()]),
-                TableRow(cells=[_cell(colspan=1, rowspan=2), _cell()]),
-                TableRow(cells=[_cell(), _cell(colspan=2)]),
-            ],
-        )
-    ]
-)
-
 #: An empty list item nested one level down, alongside an empty sibling.
 NESTED_EMPTY_ITEM = Document(
     children=[
@@ -364,18 +345,6 @@ class TestKnownCrashRepros:
     @pytest.mark.parametrize(
         ("doc", "fmt"),
         [
-            pytest.param(
-                SPANNING_GRID_OVERFLOW,
-                "docx",
-                id="docx-span-past-grid-width",
-                marks=pytest.mark.xfail(strict=True, reason="merge target cell was never created"),
-            ),
-            pytest.param(
-                SPANNING_GRID_OVERFLOW,
-                "pptx",
-                id="pptx-remerge-merged-cells",
-                marks=pytest.mark.xfail(strict=True, reason="re-merges an already merged range"),
-            ),
             pytest.param(
                 NESTED_EMPTY_ITEM,
                 "rtf",
