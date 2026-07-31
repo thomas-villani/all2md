@@ -53,7 +53,6 @@ import io
 import pytest
 from document_strategies import documents, documents_of, lists, tables
 from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
 
 from all2md import from_ast, roundtrip_report, roundtrippable_formats, to_ast
 from all2md.ast.nodes import (
@@ -69,6 +68,15 @@ from all2md.ast.nodes import (
     TableRow,
     Text,
 )
+
+#: Every gate in this file exercises parser and renderer logic, which does not
+#: vary across interpreter versions, so CI runs the file on a single Python leg
+#: and deselects it on the rest with ``-m "not matrix_single"``. The marker is
+#: dedicated rather than reusing ``fuzzing``: four other suites carry that one
+#: (filename, URL, HTML-sanitizer and PDF edge-case fuzzing), they are all
+#: sub-second and security-relevant, and dropping them from four legs would save
+#: nothing while thinning the security coverage.
+pytestmark = pytest.mark.matrix_single
 
 # --------------------------------------------------------------------------- #
 # Format groups
@@ -217,16 +225,28 @@ class TestNoUnrecognisedCrash:
         HYPOTHESIS_PROFILE=ci python -m pytest -m fuzzing --hypothesis-seed=random
 
     Anything that finds belongs in :data:`KNOWN_CRASHES` with a reproduction.
+
+    The format comes from ``parametrize`` rather than from ``sampled_from``
+    inside the strategy, so ``max_examples`` is a budget *per format* instead of
+    a budget shared across all of them. Drawing the format made the gate much
+    less sensitive than it looks: 25 examples spread over 11 text formats is
+    about two documents per format, so a shape has to be common to be seen at
+    all. Measured, by breaking the mediawiki renderer for level-6 headings only
+    — a shape present in **12.8%** of generated documents (51/400): the
+    drawn-format gate passed green with the break live, this one fails on it.
+    Parametrizing also puts the format in the test id, so a failure names the
+    format without reading the Hypothesis output.
     """
 
+    @pytest.mark.parametrize("fmt", TEXT_FORMATS)
     @settings(
         deadline=None,
         max_examples=25,
         derandomize=True,
         suppress_health_check=[HealthCheck.too_slow],
     )
-    @given(documents(), st.sampled_from(TEXT_FORMATS))
-    def test_text_formats_raise_nothing_new(self, doc: Document, fmt: str) -> None:
+    @given(documents())
+    def test_text_formats_raise_nothing_new(self, fmt: str, doc: Document) -> None:
         """Property: a text-format round trip either works or fails a known way.
 
         Locks the current crash surface in place. A renderer change that makes
@@ -241,18 +261,22 @@ class TestNoUnrecognisedCrash:
                 pytest.fail(f"new crash class for {fmt!r}: {type(exc).__name__}: {exc}")
 
     @pytest.mark.slow
+    @pytest.mark.parametrize("fmt", BINARY_FORMATS)
     @settings(
         deadline=None,
         max_examples=10,
         derandomize=True,
         suppress_health_check=[HealthCheck.too_slow],
     )
-    @given(documents(max_blocks=3), st.sampled_from(BINARY_FORMATS))
-    def test_binary_formats_raise_nothing_new(self, doc: Document, fmt: str) -> None:
+    @given(documents(max_blocks=3))
+    def test_binary_formats_raise_nothing_new(self, fmt: str, doc: Document) -> None:
         """Property: the same guarantee for container and binary formats.
 
         Split out and marked ``slow`` because each example writes a real archive
         or PDF. Same gate, fewer examples, so a full run stays usable locally.
+
+        The shared-budget problem was worse here than for text: 10 examples over
+        8 formats meant most formats saw one document, and some saw none at all.
         """
         try:
             roundtrip_report(doc, via=fmt)
