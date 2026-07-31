@@ -823,6 +823,8 @@ class MarkdownToAstConverter(BaseParser):
         """
         code_content = token.get("raw", "")
         attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
         info_string = attrs.get("info", None)
 
         # Initialize metadata for code block
@@ -961,6 +963,8 @@ class MarkdownToAstConverter(BaseParser):
         # Check for task list checkbox
         task_status: Literal["checked", "unchecked"] | None = None
         attrs = token.get("attrs", {})
+        if not isinstance(attrs, dict):
+            attrs = {}
         if "checked" in attrs:
             task_status = "checked" if attrs["checked"] else "unchecked"
 
@@ -1001,7 +1005,10 @@ class MarkdownToAstConverter(BaseParser):
                             content = self._process_inline_tokens(cell_children)
 
                             # Get alignment if specified
-                            align = cell_token.get("attrs", {}).get("align", None)
+                            cell_attrs = cell_token.get("attrs", {})
+                            if not isinstance(cell_attrs, dict):
+                                cell_attrs = {}
+                            align = cell_attrs.get("align", None)
                             alignments_list.append(align)
 
                             cells.append(TableCell(content=content, alignment=align))
@@ -1041,6 +1048,8 @@ class MarkdownToAstConverter(BaseParser):
 
             # Get alignment if specified
             attrs = cell_token.get("attrs", {})
+            if not isinstance(attrs, dict):
+                attrs = {}
             alignment = attrs.get("align", None)
 
             cells.append(TableCell(content=content, alignment=alignment))
