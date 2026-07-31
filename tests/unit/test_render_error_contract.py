@@ -19,7 +19,7 @@ from __future__ import annotations
 import pytest
 
 from all2md import from_ast, roundtrippable_formats
-from all2md.ast.nodes import Document, List, ListItem, Paragraph, Table, TableCell, TableRow, Text
+from all2md.ast.nodes import Document, List, ListItem, Paragraph, Text
 from all2md.exceptions import All2MdError, DependencyError
 
 pytestmark = [pytest.mark.unit, pytest.mark.matrix_single]
@@ -94,44 +94,14 @@ def test_renderer_specific_errors_are_not_reflattened() -> None:
     The pipeline wraps what reaches it, so it must not replace the message of a
     renderer that already raised an ``All2MdError``. DOCX is the reference
     implementation: it wraps its own body and names the format.
+
+    Driven by the probe rather than a document that breaks DOCX specifically.
+    This test used the spanning-cell table from #207 until that was fixed, which
+    is the attrition the module docstring warns about.
     """
-    doc = Document(
-        children=[
-            Table(
-                header=TableRow(is_header=True, cells=[TableCell(content=[Text(content="0")])] * 2),
-                rows=[
-                    TableRow(cells=[TableCell(content=[], colspan=2, rowspan=2), TableCell(content=[])]),
-                    TableRow(cells=[TableCell(content=[], colspan=1, rowspan=2), TableCell(content=[])]),
-                    TableRow(cells=[TableCell(content=[]), TableCell(content=[], colspan=2)]),
-                ],
-            )
-        ]
-    )
     with pytest.raises(All2MdError) as excinfo:
-        from_ast(doc, "docx")
+        from_ast(_probe_document(), "docx")
     assert "Failed to render DOCX" in str(excinfo.value)
-
-
-def test_pptx_merged_cell_failure_is_wrapped() -> None:
-    """#208's document reaches the caller as an ``All2MdError``.
-
-    The merge itself is still wrong — that is #208, and this test does not assert
-    it succeeds. What it pins is that the failure is reportable.
-    """
-    doc = Document(
-        children=[
-            Table(
-                header=TableRow(is_header=True, cells=[TableCell(content=[Text(content="0")])] * 2),
-                rows=[
-                    TableRow(cells=[TableCell(content=[], colspan=2, rowspan=2), TableCell(content=[])]),
-                    TableRow(cells=[TableCell(content=[], colspan=1, rowspan=2), TableCell(content=[])]),
-                    TableRow(cells=[TableCell(content=[]), TableCell(content=[], colspan=2)]),
-                ],
-            )
-        ]
-    )
-    with pytest.raises(All2MdError):
-        from_ast(doc, "pptx")
 
 
 def test_rtf_nested_task_item_failure_is_wrapped() -> None:

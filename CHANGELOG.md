@@ -90,6 +90,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   link into siblings, which is what a browser does, keeps the surrounding inline flow
   intact and stays correct at any depth, including a link buried under a `Strong` that
   could not be split out without discarding the emphasis (#211).
+- **Table cells whose spans overflow or collide no longer crash the render or vanish
+  from it.** A `colspan`/`rowspan` wider than the row it sits in is ordinary in
+  real-world HTML, but every renderer sized the grid by summing each row's colspans,
+  which ignores the columns an earlier `rowspan` already consumes. Cells displaced past
+  that width were dropped, and a span reaching into ground another cell held produced an
+  impossible merge: DOCX raised ``no `tc` element at grid_offset``, PPTX
+  `range contains one or more merged cells`. The fuzzer reported the two crashes, but
+  probing the whole matrix found the same geometry in eight renderers — the other six
+  silently lost a cell instead, which is worse for being quiet. Grid layout now happens
+  once, in `BaseRenderer`, under two rules: a span truncates rather than overlapping,
+  and the grid widens rather than dropping a cell. Losing a merge is recoverable, losing
+  content is not. DOCX, PPTX, LaTeX, ODT, ODP, Org, RST and PDF all take the shared pass
+  (#207, #208).
 
 ## [1.10.1] - 2026-07-27
 

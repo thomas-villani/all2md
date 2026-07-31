@@ -12,16 +12,80 @@ into various output formats.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
 from typing import IO, Any, Dict, Mapping, Union
 
 from all2md.ast import Document
-from all2md.ast.nodes import Node, TableRow
+from all2md.ast.nodes import Node, TableCell, TableRow
 from all2md.exceptions import InvalidOptionsError
 from all2md.options.base import BaseRendererOptions
 from all2md.utils.io_utils import write_content
 from all2md.utils.metadata import DocumentMetadata, MetadataRenderPolicy, prepare_metadata_for_render
+
+
+@dataclass(frozen=True)
+class CellPlacement:
+    """Where a single table cell ended up once the grid was resolved.
+
+    ``rowspan`` and ``colspan`` are the *effective* spans - what the cell was
+    granted after overlaps were resolved - which may be narrower than what it
+    asked for. Renderers should emit these rather than the cell's own
+    attributes.
+
+    """
+
+    cell: TableCell
+    row: int
+    col: int
+    rowspan: int
+    colspan: int
+
+
+@dataclass(frozen=True)
+class TableGrid:
+    """A table's cells resolved onto a rectangular grid.
+
+    Every cell in the source table appears exactly once in :attr:`placements`;
+    the layout widens the grid rather than dropping a cell that does not fit.
+
+    """
+
+    num_rows: int
+    num_cols: int
+    placements: list[CellPlacement] = field(default_factory=list)
+
+    def occupancy(self) -> list[list[bool]]:
+        """Build a dense grid marking every position covered by some cell.
+
+        Positions left False are holes - grid slots no cell reaches, which a
+        ragged table can produce and which renderers generally have to fill
+        with an empty cell.
+
+        Returns
+        -------
+        list of list of bool
+            ``num_rows`` x ``num_cols`` matrix, indexed ``[row][col]``
+
+        """
+        grid = [[False] * self.num_cols for _ in range(self.num_rows)]
+        for placement in self.placements:
+            for r in range(placement.row, placement.row + placement.rowspan):
+                for c in range(placement.col, placement.col + placement.colspan):
+                    grid[r][c] = True
+        return grid
+
+    def anchors(self) -> dict[tuple[int, int], CellPlacement]:
+        """Map each cell's top-left grid position to its placement.
+
+        Returns
+        -------
+        dict
+            ``(row, col)`` -> placement, for anchor positions only
+
+        """
+        return {(p.row, p.col): p for p in self.placements}
 
 
 class BaseRenderer(ABC):
@@ -186,11 +250,89 @@ class BaseRenderer(ABC):
             Maximum column count accounting for colspan
 
         """
-        max_cols = 0
-        for row in rows:
-            col_count = sum(cell.colspan for cell in row.cells)
-            max_cols = max(max_cols, col_count)
-        return max_cols
+        return BaseRenderer._layout_table_grid(rows).num_cols
+
+    @staticmethod
+    def _layout_table_grid(rows: list[TableRow]) -> TableGrid:
+        """Assign every cell a position on a rectangular grid.
+
+        A cell's declared ``colspan``/``rowspan`` is a request, not a fact: real
+        documents - HTML especially - routinely declare a span wider than the row
+        it sits in, or one that reaches into ground an earlier ``rowspan`` has
+        already claimed. Laying the grid out once, here, keeps every renderer
+        from having to rediscover that the hard way.
+
+        Two rules resolve the conflicts:
+
+        - A span is **truncated**, never allowed to overlap. A cell stops at the
+          first grid position an earlier cell already occupies.
+        - The grid is **widened** to fit, never trimmed to a guess. A row's cells
+          are placed after the columns that earlier ``rowspan`` cells consume, so
+          the table grows a column rather than dropping the cell that no longer
+          fits.
+
+        Truncating a span loses a merge; dropping a cell loses content. This
+        trades the first away to avoid the second.
+
+        Parameters
+        ----------
+        rows : list[TableRow]
+            All table rows, header included, in visual order
+
+        Returns
+        -------
+        TableGrid
+            Grid dimensions plus one placement per cell, in row-major order
+
+        """
+        placements: list[CellPlacement] = []
+        # Grid positions claimed by a cell already placed. Sparse, because the
+        # width is not known until every row has been laid out.
+        taken: set[tuple[int, int]] = set()
+        num_rows = len(rows)
+        num_cols = 0
+
+        for row_idx, row in enumerate(rows):
+            col_idx = 0
+            for ast_cell in row.cells:
+                # Step over ground an earlier rowspan already claimed.
+                while (row_idx, col_idx) in taken:
+                    col_idx += 1
+
+                # Truncate the horizontal span at the first claimed column.
+                colspan = max(1, ast_cell.colspan)
+                for offset in range(1, colspan):
+                    if (row_idx, col_idx + offset) in taken:
+                        colspan = offset
+                        break
+
+                # Then the vertical one, at the first row where any column of
+                # the (now settled) horizontal span is claimed. Unlike columns,
+                # rows cannot be added, so the span also stops at the last row.
+                rowspan = max(1, min(ast_cell.rowspan, num_rows - row_idx))
+                for offset in range(1, rowspan):
+                    if any((row_idx + offset, col_idx + c) in taken for c in range(colspan)):
+                        rowspan = offset
+                        break
+
+                for r in range(row_idx, row_idx + rowspan):
+                    for c in range(col_idx, col_idx + colspan):
+                        taken.add((r, c))
+
+                placements.append(
+                    CellPlacement(
+                        cell=ast_cell,
+                        row=row_idx,
+                        col=col_idx,
+                        rowspan=rowspan,
+                        colspan=colspan,
+                    )
+                )
+
+                col_idx += colspan
+                num_cols = max(num_cols, col_idx)
+
+        return TableGrid(num_rows=num_rows, num_cols=num_cols, placements=placements)
 
     @staticmethod
     def _validate_options_type(options: BaseRendererOptions | None, expected_type: type, renderer_name: str) -> None:
