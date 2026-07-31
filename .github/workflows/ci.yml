@@ -99,8 +99,18 @@ jobs:
           pip install -e ".[all,dev]"
 
       - name: Run tests with coverage
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
         run: |
-          pytest tests/ -v --cov=all2md --cov-report=xml --cov-report=term
+          # Tests marked matrix_single exercise parser/renderer logic, which does not
+          # vary by interpreter, so four of the five legs would redo identical work.
+          # They run on 3.12 — the same leg that uploads coverage, so the reported
+          # figure still includes them.
+          ARGS=(tests/ -v --cov=all2md --cov-report=xml --cov-report=term)
+          if [ "$PYTHON_VERSION" != "3.12" ]; then
+            ARGS+=(-m "not matrix_single")
+          fi
+          pytest "${ARGS[@]}"
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
