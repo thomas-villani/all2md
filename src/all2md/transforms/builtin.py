@@ -1266,6 +1266,7 @@ class GenerateTocTransform(NodeTransformer):
         self._headings = []
         self._id_counts = {}
         self._heading_id_map = {}
+        self._current_heading_idx = 0
 
         # First pass: collect headings and track which need IDs injected
         self._collect_headings(node)
