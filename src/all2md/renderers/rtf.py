@@ -193,6 +193,17 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
     @requires_dependencies("rtf_render", DEPS_RTF_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render a document to an RTF stream or file."""
+        self.write_text_output(self.render_to_string(doc), output)
+
+    @requires_dependencies("rtf_render", DEPS_RTF_RENDER)
+    def render_to_string(self, doc: Document) -> str:
+        """Render a document to an in-memory RTF string.
+
+        Both entry points share this body so both get the error translation.
+        They used to duplicate the conversion with only ``render`` wrapping it,
+        which left ``render_to_string`` — the path the pipeline takes for a text
+        format — leaking pyth's own exceptions.
+        """
         self._ensure_dependencies()
         self._assert_dependencies_loaded()
         try:
@@ -201,25 +212,13 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
             text = buffer.getvalue() if hasattr(buffer, "getvalue") else buffer
             if isinstance(text, bytes):
                 text = text.decode("utf-8")
-            self.write_text_output(text, output)
-        except Exception as exc:  # pragma: no cover - safety net
+            return cast(str, text)
+        except Exception as exc:
             raise RenderingError(
                 f"Failed to render RTF: {exc!r}",
                 rendering_stage="rendering",
                 original_error=exc,
             ) from exc
-
-    @requires_dependencies("rtf_render", DEPS_RTF_RENDER)
-    def render_to_string(self, doc: Document) -> str:
-        """Render a document to an in-memory RTF string."""
-        self._ensure_dependencies()
-        self._assert_dependencies_loaded()
-        pyth_doc = doc.accept(self)
-        buffer = cast(Any, self._writer_cls).write(pyth_doc, fontFamily=self.options.font_family)
-        text = buffer.getvalue() if hasattr(buffer, "getvalue") else buffer
-        if isinstance(text, bytes):
-            text = text.decode("utf-8")
-        return text
 
     def visit_document(self, node: Document) -> Any:
         """Convert the root document node to a pyth document."""
