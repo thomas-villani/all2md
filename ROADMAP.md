@@ -207,15 +207,19 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   hole (#212), and the first **enumerated** — rather than suspected — list of round-trip gaps
   in the org and asciidoc renderers (table captions, ordered-list `start`, the `#+BEGIN_SRC`
   language, and an asciidoc trailing pipe its own parser reads as a phantom column).
-- 🚀 **External ground truth** — *the headline metric, once the ratchet exists.*
-  `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own parsers, not
-  that we read the document correctly. A garbled table round-trips perfectly. So the open
-  work is (a) running fidelity corpus-wide via the ratchet, and (b) scoring against a real
-  external ground truth — which, once the ratchet is in place, is just another oracle plugged
-  into a socket that already works. Corpora, split by job:
+- 🚀 **External ground truth** (lane landed in `benchmarks/omnidocbench`; the first baseline is
+  still to be recorded, so the gate reads `ABSENT_BASELINE` until then) is the headline
+  metric. `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own
+  parsers, not that we read the document correctly. A garbled table can round-trip perfectly.
+  The scheduled OmniDocBench lane now downloads an immutable 981-page corpus, calls
+  `all2md.to_ast` once per page, and compares supported AST facts directly with annotation
+  fields for text, formulae, tables, and reading order. Its committed ratchet fails on corpus
+  drift, parser-policy drift, denominator drift, vacuous metrics, regressions, and unreviewed
+  improvements.
+  Corpora remain split by job:
   - **Structure ground-truth (headline metric):** [**OmniDocBench**](https://github.com/opendatalab/OmniDocBench)
-    (CVPR 2025) — 981 pages, 9 doc types, with table (Markdown/HTML/LaTeX), formula, and
-    reading-order metrics that map directly onto our output. Anchor the public score here.
+    (CVPR 2025), 981 pages and 9 document types with table, formula, text, and reading-order
+    metrics. The scheduled external fidelity lane anchors the public score here.
     Supplement with [**DocLayNet**](https://github.com/DS4SD/DocLayNet) (80k diverse
     annotated pages, good for reading order) and **M6Doc** (scanned + CJK coverage).
     *Avoid relying on PubLayNet/DocBank alone — academic-only, low layout variability.*
@@ -552,27 +556,24 @@ round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢
    so an action that could version-drift from the library would silently redefine every
    consumer's threshold. A Marketplace listing is a separate, public call and is **not** done.
 
-**Remaining, ordered by leverage-per-effort.** With (1) shipped, (5) is now the cheap next
-step it was always predicted to be — and is the **chosen next batch**:
+**Remaining, ordered by leverage-per-effort.** The external-ground-truth lane selected for
+the next batch is now implemented:
 
-5. **External ground truth** (Theme 2) — OmniDocBench as the headline score. Cheap *now that*
-   the ratchet exists, because it is just another oracle in a working socket. Heed the
-   caveat the optimizer taught us: pick the metric by measuring that it *varies* across the
-   corpus, not by assuming it does. Be prepared for it to say something we don't want to hear
-   — finding that out before sinking a batch into Theme 8 is the entire point.
-6. **Theme 8 — positional fidelity** (OCR geometry → provenance → layout). The big bet. It
-   was unevaluable, which is why it sat behind (1); (1) is now done, so (5) is the only thing
-   still standing between here and a defensible go/no-go on it.
+5. **External ground truth** (Theme 2) uses OmniDocBench as the headline score. The normalized
+   result records each aggregate, denominator, and sample variance. The gate rejects zero
+   variance, so the metric cannot pass merely because an evaluator path stayed constant.
+6. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). The external
+   baseline makes this bet measurable. Use score and denominator changes from the pinned lane
+   to decide whether positional provenance improves real pages before expanding the design.
 7. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
    Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
    a prerequisite for clean multi-worker training-corpus loading (Theme 1).
 8. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
    ground-truth corpus.
 
-**The next batch: (5), plus the fuzzer's backlog as its visible half.** External ground truth
-is the headline and the go/no-go on Theme 8 — it is what turns (6) into a decision rather than
-a guess, and the whole reason (1) was sequenced first. Alongside it, the defects the #204
-fuzzer surfaced (#206–#212) are the batch's user-visible half: real fidelity fixes that arrive
+**This batch delivers (5), plus the fuzzer's backlog as its visible half.** External ground
+truth is the headline and the measuring instrument for Theme 8. Alongside it, the defects the
+#204 fuzzer surfaced (#206–#212) are the batch's user-visible half: real fidelity fixes
 with shrunk reproductions already attached, which beats the RAG-framework loader adapters as
 filler because they deepen the moat instead of shipping commodity glue.
 

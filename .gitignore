@@ -102,6 +102,9 @@ benchmarks/corpus/results/
 benchmarks/corpus/inspect/
 benchmarks/corpus/.test/
 
+# External-ground-truth benchmark
+benchmarks/omnidocbench/.cache/
+
 .claude/
 broken/
 design/
