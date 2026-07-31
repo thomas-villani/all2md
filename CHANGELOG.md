@@ -57,6 +57,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   buffer and raised `IndexError` whenever such a table was the first thing rendered.
   The buffer is checked before indexing. Thanks
   [@santhreal](https://github.com/santhreal) (#205).
+- **ODT/ODP renderers: a nested link no longer fails the whole conversion.** ODF forbids
+  `<text:a>` inside `<text:a>` and odfpy enforces it, so a `Link` inside a `Link` raised
+  `IllegalChild` and aborted the render. This was reachable from ordinary input rather
+  than only from a hand-built AST: browsers accept nested `<a>` and the HTML parser
+  preserves the nesting, so `all2md page.html --out page.odt` failed outright on any page
+  containing one. The inner link is now unwrapped — its text is kept inside the enclosing
+  hyperlink and only its own target is dropped. Unwrapping rather than splitting the outer
+  link into siblings, which is what a browser does, keeps the surrounding inline flow
+  intact and stays correct at any depth, including a link buried under a `Strong` that
+  could not be split out without discarding the emphasis (#211).
 
 ## [1.10.1] - 2026-07-27
 
