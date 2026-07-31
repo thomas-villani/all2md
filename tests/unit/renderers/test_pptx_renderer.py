@@ -1774,3 +1774,18 @@ class TestFlowLayoutBackwardCompat:
         table_shapes = [s for s in slide.shapes if s.has_table]
         assert len(table_shapes) == 1
         assert abs(_shape_top_inches(table_shapes[0]) - 2.0) < 0.01
+
+
+@pytest.mark.unit
+@pytest.mark.pptx
+def test_standalone_list_item_rendering():
+    """Verify standalone ListItem without parent List defaults level to 0 without stack underflow ValueError."""
+    renderer = PptxRenderer()
+    doc = Document(children=[ListItem(children=[Paragraph(content=[Text("Orphaned list item")])])])
+    out = BytesIO()
+    renderer.render(doc, out)
+    prs = Presentation(out)
+    assert len(prs.slides) == 1
+    text_shapes = [s for s in prs.slides[0].shapes if s.has_text_frame]
+    all_text = "\n".join(s.text_frame.text for s in text_shapes)
+    assert "Orphaned list item" in all_text
