@@ -730,6 +730,7 @@ sections:
         headings = [child for child in doc.children if isinstance(child, Heading)]
         assert len(headings) > 0
 
+
 class TestYamlParserNonStringKeys:
     """Test YAML parser handling of non-string dictionary keys."""
 
