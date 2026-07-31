@@ -1103,3 +1103,21 @@ class TestFindHeading:
 
         assert result is not None
         assert result[0] == 0
+
+
+@pytest.mark.unit
+class TestParseSectionRanges:
+    """Tests for parse_section_ranges function."""
+
+    def test_parse_section_ranges_invalid_integer(self):
+        """Test parse_section_ranges with non-digit parts raises ValueError instead of unhandled ValueError."""
+        from all2md.ast.sections import parse_section_ranges
+
+        with pytest.raises(ValueError, match="Invalid section specification"):
+            parse_section_ranges("invalid", 5)
+
+        with pytest.raises(ValueError, match="Invalid section specification"):
+            parse_section_ranges("1-abc", 5)
+
+        with pytest.raises(ValueError, match="Invalid section specification"):
+            parse_section_ranges("abc-5", 5)
