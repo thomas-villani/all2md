@@ -70,7 +70,7 @@ from all2md.constants import (
     DEFAULT_PPTX_MIN_TEXT_HEIGHT,
     DEPS_PPTX_RENDER,
 )
-from all2md.exceptions import RenderingError
+from all2md.exceptions import All2MdError, RenderingError
 from all2md.options.pptx import PptxRendererOptions
 from all2md.renderers._split_utils import (
     auto_split_ast,
@@ -159,30 +159,33 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._Inches = Inches
         self._Pt = Pt
 
-        # Create presentation
-        if self.options.template_path:
-            prs = Presentation(self.options.template_path)
-        else:
-            prs = Presentation()
-            # Set widescreen dimensions (default 16:9)
-            prs.slide_width = Inches(self.options.slide_width)  # type: ignore[misc,assignment]
-            prs.slide_height = Inches(self.options.slide_height)  # type: ignore[misc,assignment]
-
-        # Set creator metadata if configured
-        if self.options.creator:
-            prs.core_properties.last_modified_by = self.options.creator
-            # Set default author to creator if not overridden by document metadata
-            prs.core_properties.author = self.options.creator
-
-        # Split document into slides
-        slides_data = self._split_into_slides(doc)
-
-        # Create slides
-        for idx, (heading, content_nodes) in enumerate(slides_data, start=1):
-            self._create_slide(prs, heading, content_nodes, is_first=(idx == 1))
-
-        # Save presentation
+        # Only the save step used to be guarded, so python-pptx exceptions raised
+        # while building slides (merging table cells, in particular) escaped as
+        # bare ValueError. Guard the whole body, as the DOCX renderer does.
         try:
+            # Create presentation
+            if self.options.template_path:
+                prs = Presentation(self.options.template_path)
+            else:
+                prs = Presentation()
+                # Set widescreen dimensions (default 16:9)
+                prs.slide_width = Inches(self.options.slide_width)  # type: ignore[misc,assignment]
+                prs.slide_height = Inches(self.options.slide_height)  # type: ignore[misc,assignment]
+
+            # Set creator metadata if configured
+            if self.options.creator:
+                prs.core_properties.last_modified_by = self.options.creator
+                # Set default author to creator if not overridden by document metadata
+                prs.core_properties.author = self.options.creator
+
+            # Split document into slides
+            slides_data = self._split_into_slides(doc)
+
+            # Create slides
+            for idx, (heading, content_nodes) in enumerate(slides_data, start=1):
+                self._create_slide(prs, heading, content_nodes, is_first=(idx == 1))
+
+            # Save presentation
             if isinstance(output, (str, Path)):
                 prs.save(str(output))
             else:
@@ -191,10 +194,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 prs.save(buffer)
                 buffer.seek(0)
                 output.write(buffer.read())
+        except All2MdError:
+            # Renderer-raised errors already carry a specific message; keep it.
+            raise
         except Exception as e:
-            raise RenderingError(
-                f"Failed to write PPTX file: {e!r}", rendering_stage="rendering", original_error=e
-            ) from e
+            raise RenderingError(f"Failed to render PPTX: {e!r}", rendering_stage="rendering", original_error=e) from e
         finally:
             # Clean up temporary files
             for temp_file in self._temp_files:
@@ -1259,9 +1263,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
 
         # Calculate nesting level (depth in the stack)
-        nesting_level = len(self._list_ordered_stack) - 1
-        # Limit to reasonable depth for PowerPoint (0-8)
-        nesting_level = min(nesting_level, 8)
+        nesting_level = max(0, min(len(self._list_ordered_stack) - 1, 8))
 
         if is_ordered:
             # For ordered lists, manually add number prefix since python-pptx

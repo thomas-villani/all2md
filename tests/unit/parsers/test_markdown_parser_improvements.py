@@ -294,3 +294,50 @@ class TestMarkdownFootnotes:
         assert len(defs) == 1
         paragraphs = [c for c in defs[0].content if isinstance(c, Paragraph)]
         assert len(paragraphs) == 2
+
+
+class TestMarkdownNullAttrsHandling:
+    """Regression tests for tokens containing null or non-dict attrs attribute.
+
+    Mistune parser tokens or custom extension plugins may produce token dictionaries
+    where the ``attrs`` key is explicitly set to ``None`` or a non-dict value (such as
+    a string or list). The AST converter must safely handle non-dict ``attrs`` attributes
+    without raising ``AttributeError`` or ``TypeError``.
+    """
+
+    def test_null_or_nondict_attrs_handling(self) -> None:
+        """Verify that tokens with null or non-dict attrs do not raise exceptions during conversion.
+
+        When mistune tokens contain attrs=None or non-dict attrs (e.g., a string or list),
+        dictionary lookups like attrs.get() or 'key' in attrs raise AttributeError or TypeError.
+        The converter normalizes non-dict attrs to an empty dict.
+        """
+        converter = MarkdownToAstConverter()
+
+        # Token with attrs=None and attrs="invalid" for code block
+        for bad_attrs in (None, "invalid", [1, 2]):
+            code_token = {"type": "block_code", "raw": "print('hello')", "attrs": bad_attrs}
+            code_block = converter._process_code_block(code_token)
+            assert code_block.content == "print('hello')"
+
+        # Token with attrs=None and attrs="invalid" for list item
+        for bad_attrs in (None, "invalid", [1, 2]):
+            item_token = {"type": "list_item", "children": [], "attrs": bad_attrs}
+            list_item = converter._process_list_item(item_token)
+            assert list_item.task_status is None
+
+        # Token with attrs=None and attrs="invalid" for table_head cell in _process_table
+        for bad_attrs in (None, "invalid", [1, 2]):
+            head_cell = {"type": "table_cell", "children": [], "attrs": bad_attrs}
+            head_row = {"type": "table_head", "children": [head_cell]}
+            table = converter._process_table({"children": [head_row]})
+            assert table.header is not None
+            assert len(table.header.cells) == 1
+            assert table.header.cells[0].alignment is None
+
+        # Token with attrs=None and attrs="invalid" for table row cells in _process_table_row_cells
+        for bad_attrs in (None, "invalid", [1, 2]):
+            cell_token = {"type": "table_cell", "children": [], "attrs": bad_attrs}
+            cells = converter._process_table_row_cells({"children": [cell_token]})
+            assert len(cells) == 1
+            assert cells[0].alignment is None

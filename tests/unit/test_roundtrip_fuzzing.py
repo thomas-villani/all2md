@@ -59,7 +59,6 @@ from all2md.ast.nodes import (
     CodeBlock,
     Document,
     Heading,
-    Link,
     List,
     ListItem,
     Paragraph,
@@ -76,6 +75,16 @@ from all2md.ast.nodes import (
 #: (filename, URL, HTML-sanitizer and PDF edge-case fuzzing), they are all
 #: sub-second and security-relevant, and dropping them from four legs would save
 #: nothing while thinning the security coverage.
+#:
+#: The gates that draw their corpus with Hypothesis carry a second marker,
+#: ``generative``, and per-PR CI deselects it: those run on a schedule instead
+#: (see .github/workflows/fuzz-corpus.yml). They are ``derandomize=True``, so a
+#: PR run recomputes a fixed answer over a fixed corpus and can only change when
+#: our code does -- the discovery value is in a seeded sweep, not in the 300th
+#: identical replay. What stays per-PR is everything deterministic and cheap:
+#: the classification check, the structural invariants, and the known-crash
+#: repros, whose strict xfails are what fail the moment someone fixes a bug and
+#: leaves the allowlist entry behind.
 pytestmark = pytest.mark.matrix_single
 
 # --------------------------------------------------------------------------- #
@@ -136,15 +145,11 @@ KNOWN_CRASHES: dict[tuple[str, str], str] = {
     # An empty list item nested inside another list leaves the RTF renderer
     # emitting a group the RTF parser walks off the end of.
     ("rtf", "IndexError"): "rtf round trip of a nested empty list item indexes out of range",
-    # Same shape carrying a task status takes a different path and raises a bare
-    # KeyError, which also means the error escapes without being wrapped in
-    # ParsingError or RenderingError the way the API contract implies.
-    ("rtf", "KeyError"): "rtf round trip of a nested task list item raises an unwrapped KeyError",
-    # Nested links reach odfpy as <text:a> inside <text:a>, which ODF forbids.
-    # Not a generator artifact: browsers accept nested <a>, the HTML parser
-    # keeps the nesting, so `all2md page.html -t odt` fails on real pages.
-    ("odt", "IllegalChild"): "odt renderer emits nested text:a for a nested Link",
-    ("odp", "IllegalChild"): "odp renderer emits nested text:a for a nested Link",
+    # Same shape carrying a task status takes a different path and raises a
+    # KeyError from pyth. It is now wrapped in RenderingError (#212), so the
+    # needle matches the original error inside the wrapper's message; the crash
+    # itself is still live.
+    ("rtf", "KeyError"): "rtf round trip of a nested task list item raises a KeyError",
 }
 
 
@@ -184,6 +189,7 @@ class TestMatrixCoverage:
 
 @pytest.mark.unit
 @pytest.mark.fuzzing
+@pytest.mark.generative
 class TestLosslessFormatsAreLossless:
     """The formats that claim exactness are the harness's control."""
 
@@ -209,6 +215,7 @@ class TestLosslessFormatsAreLossless:
 
 @pytest.mark.unit
 @pytest.mark.fuzzing
+@pytest.mark.generative
 class TestNoUnrecognisedCrash:
     """No format may fail in a way that is not already documented.
 
@@ -309,27 +316,6 @@ SPANNING_GRID_OVERFLOW = Document(
     ]
 )
 
-#: A link inside a link, as produced by parsing ``<a>x<a>y</a></a>``.
-#:
-#: Built here rather than parsed so the reproduction stays deterministic, but
-#: the shape is not synthetic: feeding that HTML to the HTML parser yields
-#: exactly this AST, which is why the ODF failure hits real documents.
-NESTED_LINK = Document(
-    children=[
-        Paragraph(
-            content=[
-                Link(
-                    url="https://a.example.com/",
-                    content=[
-                        Text(content="x"),
-                        Link(url="https://b.example.com/", content=[Text(content="y")]),
-                    ],
-                )
-            ]
-        )
-    ]
-)
-
 #: An empty list item nested one level down, alongside an empty sibling.
 NESTED_EMPTY_ITEM = Document(
     children=[
@@ -410,19 +396,7 @@ class TestKnownCrashRepros:
                 NESTED_TASK_ITEM,
                 "rtf",
                 id="rtf-nested-task-list-item",
-                marks=pytest.mark.xfail(strict=True, reason="raises an unwrapped KeyError"),
-            ),
-            pytest.param(
-                NESTED_LINK,
-                "odt",
-                id="odt-nested-link",
-                marks=pytest.mark.xfail(strict=True, reason="text:a nested inside text:a"),
-            ),
-            pytest.param(
-                NESTED_LINK,
-                "odp",
-                id="odp-nested-link",
-                marks=pytest.mark.xfail(strict=True, reason="text:a nested inside text:a"),
+                marks=pytest.mark.xfail(strict=True, reason="pyth raises KeyError on the task status"),
             ),
         ],
     )
@@ -625,6 +599,7 @@ class TestStructuralInvariants:
 
 @pytest.mark.unit
 @pytest.mark.fuzzing
+@pytest.mark.generative
 class TestGeneratedTablesAndLists:
     """Aim the generator at the two node classes that break most often."""
 
