@@ -557,6 +557,7 @@ class TestMediaWikiRenderer:
         output = renderer.render_to_string(doc)
 
         assert "<!-- [Comment by Jane Smith: needs review] -->" in output
+
     def test_render_table_cell_attributes_use_pipe_separator(self) -> None:
         """Test that table cell attributes (colspan/rowspan) use pipe separator in MediaWiki markup.
 
