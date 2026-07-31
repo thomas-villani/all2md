@@ -106,8 +106,19 @@ jobs:
           # vary by interpreter, so four of the five legs would redo identical work.
           # They run on 3.12 — the same leg that uploads coverage, so the reported
           # figure still includes them.
-          ARGS=(tests/ -v --cov=all2md --cov-report=xml --cov-report=term)
-          if [ "$PYTHON_VERSION" != "3.12" ]; then
+          #
+          # The 3.12 leg additionally drops `generative`: the Hypothesis-drawn
+          # roundtrip gates are derandomized, so a per-PR run replays a fixed
+          # corpus for an answer that only moves when our code does. They run on
+          # a schedule instead (fuzz-corpus.yml). This is what took the leg from
+          # ~6 min to over 3 hours and made it the critical path for every PR.
+          #
+          # --durations is cheap and prints the 25 slowest tests, so the next
+          # time a leg blows up the log says which test rather than which file.
+          ARGS=(tests/ -v --durations=25 --cov=all2md --cov-report=xml --cov-report=term)
+          if [ "$PYTHON_VERSION" = "3.12" ]; then
+            ARGS+=(-m "not generative")
+          else
             ARGS+=(-m "not matrix_single")
           fi
           pytest "${ARGS[@]}"

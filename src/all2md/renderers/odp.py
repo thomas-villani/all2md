@@ -123,6 +123,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         self._temp_files: list[str] = []  # Track temp files for cleanup
         self._network_rate_limiter: RateLimiter | None = None
         self._presentation: Any | None = None  # Current presentation object for image embedding
+        self._in_link: bool = False  # ODF forbids <text:a> inside <text:a>
 
     @requires_dependencies("odp_render", DEPS_ODF_RENDER)
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
@@ -964,20 +965,34 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         pass
 
     def visit_link(self, node: Link) -> None:
-        """Render link."""
+        """Render link.
+
+        A nested link is unwrapped rather than emitted, because ODF forbids
+        ``<text:a>`` inside ``<text:a>``. See :meth:`OdtRenderer.visit_link` for
+        why unwrapping is preferred over splitting the outer link.
+        """
         from odf.text import A
 
         if not self._current_paragraph:
             return
 
+        if self._in_link:
+            for child in node.content:
+                child.accept(self)
+            return
+
         link = A(href=node.url)
         saved_para = self._current_paragraph
         self._current_paragraph = link
+        self._in_link = True
 
-        for child in node.content:
-            child.accept(self)
+        try:
+            for child in node.content:
+                child.accept(self)
+        finally:
+            self._in_link = False
+            self._current_paragraph = saved_para
 
-        self._current_paragraph = saved_para
         saved_para.addElement(link)
 
     def visit_image(self, node: Image) -> None:

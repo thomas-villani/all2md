@@ -288,8 +288,8 @@ class YamlParser(BaseParser):
             nodes.append(Paragraph(content=[Text(content="{}")]))
             return nodes
 
-        # Get keys (optionally sorted)
-        keys = sorted(obj.keys()) if self.options.sort_keys else list(obj.keys())
+        # Get keys (optionally sorted, converting keys to str for sorting)
+        keys = sorted(obj.keys(), key=str) if self.options.sort_keys else list(obj.keys())
 
         # Check if we should flatten single-key objects
         if self.options.flatten_single_keys and len(keys) == 1:
@@ -299,7 +299,7 @@ class YamlParser(BaseParser):
             if isinstance(value, (dict, list)):
                 # Add heading for the single key and convert its value
                 heading_level = min(depth + 1, self.options.max_heading_depth)
-                nodes.append(Heading(level=heading_level, content=[Text(content=key)]))
+                nodes.append(Heading(level=heading_level, content=[Text(content=str(key))]))
                 nodes.extend(self._convert_value(value, depth + 1, key))
                 return nodes
 
@@ -319,7 +319,7 @@ class YamlParser(BaseParser):
                 # Create list item with bold key
                 paragraph = Paragraph(
                     content=[
-                        Strong(content=[Text(content=key)]),
+                        Strong(content=[Text(content=str(key))]),
                         Text(content=": "),
                     ]
                 )
@@ -343,14 +343,14 @@ class YamlParser(BaseParser):
             # Use heading if depth allows, otherwise use definition list style
             if depth < self.options.max_heading_depth:
                 heading_level = min(depth + 1, 6)
-                nodes.append(Heading(level=heading_level, content=[Text(content=key)]))
+                nodes.append(Heading(level=heading_level, content=[Text(content=str(key))]))
                 nodes.extend(self._convert_value(value, depth + 1, key))
             else:
                 # Too deep for headings - use bold key style in a list
                 value_nodes = self._convert_value(value, depth + 1, key)
                 paragraph = Paragraph(
                     content=[
-                        Strong(content=[Text(content=key)]),
+                        Strong(content=[Text(content=str(key))]),
                         Text(content=": "),
                     ]
                 )
@@ -461,7 +461,7 @@ class YamlParser(BaseParser):
         # Get column names from first item
         columns = list(arr[0].keys())
         if self.options.sort_keys:
-            columns = sorted(columns)
+            columns = sorted(columns, key=str)
 
         # Create header row
         header_cells = [TableCell(content=[Text(content=str(col))]) for col in columns]

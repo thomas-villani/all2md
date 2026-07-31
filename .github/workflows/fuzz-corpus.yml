@@ -1,0 +1,65 @@
+name: Generative Roundtrip Gates
+
+# The Hypothesis-drawn roundtrip gates from tests/unit/test_roundtrip_fuzzing.py,
+# split off the per-PR run. See that file's header for which gates stay per-PR.
+#
+# Why they are not per-PR: every gate here is `derandomize=True`, so it draws the
+# same corpus every run. A PR replays a fixed set of documents to recompute an
+# answer that can only change when our code changes -- and the deterministic
+# half of the file (invariants, known-crash repros) already catches that in ~2s.
+# The discovery value is in a seeded sweep, which is a deliberate activity:
+#
+#     HYPOTHESIS_PROFILE=ci pytest -m fuzzing --hypothesis-seed=random
+#
+# What forced the split: on the 3.12 leg these took over 3 hours, against ~60s
+# for the same file locally. That ~160x gap is not explained by the example
+# count, by coverage instrumentation, or by the Hypothesis profile (CI does not
+# set HYPOTHESIS_PROFILE, so it runs `dev` exactly as a dev box does), and it
+# was making every PR wait hours. --durations below is here to name the tests
+# responsible; until that lands, treat the runtime here as unexplained rather
+# than as the cost of the gates.
+
+on:
+  schedule:
+    # 04:00 UTC daily. Nightly rather than weekly (unlike corpus-gate): this
+    # corpus is generated locally and costs no third-party downloads, and a
+    # one-day commit range is the cheapest thing to bisect when a crash class
+    # appears.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fuzz-corpus-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  generative:
+    name: Generative Roundtrip Gates
+    runs-on: ubuntu-latest
+    # Deliberately above the ~3h these currently take, so a scheduled run still
+    # produces the --durations table instead of being killed just short of it.
+    # Tighten this once the runtime is understood.
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      # --durations=0 prints every test rather than a top-N: the open question is
+      # the shape of the distribution (355 examples at ~25s each, or three tests
+      # hanging for 45 minutes), and a top-N cannot tell those apart.
+      - name: Run the generative gates
+        run: pytest tests/unit/test_roundtrip_fuzzing.py -m generative -v --durations=0

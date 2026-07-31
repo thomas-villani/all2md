@@ -883,6 +883,47 @@ class TestLinkRendering:
 
         assert output_file.exists()
 
+    def test_nested_link_is_unwrapped(self, tmp_path):
+        """A link inside a link renders as one hyperlink, not two nested ones.
+
+        ODF forbids ``<text:a>`` inside ``<text:a>``, so this used to raise
+        ``IllegalChild`` and fail the whole render. Issue #211.
+        """
+        from odf.opendocument import load as odf_load
+        from odf.text import A
+
+        from all2md.ast import Link
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Link(
+                            url="https://outer.example/",
+                            content=[
+                                Text(content="x"),
+                                Link(url="https://inner.example/", content=[Text(content="y")]),
+                            ],
+                        ),
+                        Text(content=" tail "),
+                        Link(url="https://after.example/", content=[Text(content="after")]),
+                    ]
+                ),
+            ]
+        )
+        renderer = OdpRenderer()
+        output_file = tmp_path / "nested_link.odp"
+        renderer.render(doc, output_file)
+
+        links = odf_load(str(output_file)).getElementsByType(A)
+        # The inner link is unwrapped, and the later sibling still gets its own
+        # href -- that second assertion is what pins the flag being cleared.
+        assert [link.getAttribute("href") for link in links] == [
+            "https://outer.example/",
+            "https://after.example/",
+        ]
+        assert str(links[0]) == "xy"
+
 
 @pytest.mark.unit
 class TestCommentRendering:
