@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tests: generative round-trip fuzzing across the format matrix.** `tests/document_strategies.py`
+  builds arbitrary `Document` trees with Hypothesis and feeds them to `roundtrip_report`
+  for all 24 round-trippable formats, behind four gates: every format must be classified
+  (so a newly registered one cannot silently skip the fuzzer), `ast` must score exactly
+  100 as the control, no format may raise outside a known-crashes allowlist, and shapes
+  drawn from previously fixed defects must survive the trip. Both allowlists are
+  `xfail(strict=True)`, so they can only shrink — fixing an entry turns it into an
+  XPASS and fails the build until it is removed. It found six crash classes and a set
+  of invariant gaps on existing formats, now filed as issues. Thanks
+  [@santhreal](https://github.com/santhreal) (#204).
+
+### Changed
+
+- **Type inference no longer reads `1` and `0` as booleans.** With `type_inference=True`,
+  the JSON, YAML and TOML renderers treated the table cells `1` and `0` as `true`/`false`,
+  so an `age` column of `1` serialized as a boolean. They are now integers; `true`/`yes`/`on`
+  and `false`/`no`/`off` still infer as booleans, matching YAML 1.1. Output changes for
+  anyone who relied on `1`/`0` inferring as booleans. Thanks
+  [@santhreal](https://github.com/santhreal) (#202).
+
+### Fixed
+
+- **HTML parser: nested tables no longer duplicate their cells into the outer row.**
+  Cells were collected with a recursive `find_all`, so a table inside a `<td>` had its
+  own `td`/`th` pulled into the enclosing row as well — a one-cell inner table turned
+  `| inner |` into `| inner | inner |`. Only direct children are collected now, matching
+  how the row walk already worked. Thanks [@santhreal](https://github.com/santhreal) (#199).
+- **DokuWiki parser: a whole-line `<del>`, `<sub>` or `<sup>` keeps its formatting.**
+  Those tags were taken as a plugin or HTML block when they were the entire line, so with
+  plugin parsing off the content was dropped outright. They now fall through to inline
+  parsing and produce strikethrough/subscript/superscript. Thanks
+  [@santhreal](https://github.com/santhreal) (#200).
+- **Org parser: a line that is only `+strikethrough+` is no longer an empty list.**
+  The list check matched `-`, `+` or `*` at the start of a line without requiring the
+  space that follows a real bullet, so `+gone+` on its own line parsed as an empty list
+  and lost the text. A space is now required after the marker. Thanks
+  [@santhreal](https://github.com/santhreal) (#201).
+- **AsciiDoc parser: `////` opens a block comment instead of commenting out one line.**
+  The lexer checked `//` before block delimiters, so `////` was read as a line comment
+  and the block's body was parsed as ordinary content — text meant to be hidden appeared
+  in the output as paragraphs, and the closing `////` was consumed as another comment.
+  `////` is now a delimiter pair whose body becomes a single `Comment` node, dropped
+  entirely under `strip_comments`. Thanks [@santhreal](https://github.com/santhreal) (#203).
+- **Textile renderer: an empty table no longer crashes the render.** A `Table` with no
+  header and no rows appends nothing, so the trailing-newline cleanup indexed an empty
+  buffer and raised `IndexError` whenever such a table was the first thing rendered.
+  The buffer is checked before indexing. Thanks
+  [@santhreal](https://github.com/santhreal) (#205).
+
 ## [1.10.1] - 2026-07-27
 
 A maintenance release. Almost all of it is infrastructure — the harnesses this
