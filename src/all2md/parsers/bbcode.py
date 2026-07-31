@@ -363,11 +363,10 @@ class BBCodeParser(BaseParser):
             Parsed node and new position
 
         """
-        # Find closing tag
-        closing_pattern = re.compile(rf"\[/{tag_name}\]", re.IGNORECASE)
-        closing_match = closing_pattern.search(bbcode, match.end())
+        # Find closing tag, accounting for nesting
+        closing_pos = self._find_closing_tag_position(bbcode, match.end(), tag_name)
 
-        if not closing_match:
+        if closing_pos is None:
             if self.options.strict_mode:
                 raise ParsingError(f"Unclosed [{tag_name}] tag at position {match.start()}")
             else:
@@ -375,26 +374,28 @@ class BBCodeParser(BaseParser):
                 return None, match.end()
 
         # Extract content between tags
-        content = bbcode[match.end() : closing_match.start()]
+        content = bbcode[match.end() : closing_pos]
+        closing_match = self.TAG_PATTERN.match(bbcode, closing_pos)
+        closing_end = closing_match.end() if closing_match else closing_pos + len(f"[/{tag_name}]")
 
         # Parse based on tag type
         if tag_name == "quote":
-            return self._create_quote(content, tag_value), closing_match.end()
+            return self._create_quote(content, tag_value), closing_end
         elif tag_name == "code":
-            return self._create_code_block(content, tag_value), closing_match.end()
+            return self._create_code_block(content, tag_value), closing_end
         elif tag_name == "list":
-            return self._create_list(content, tag_value), closing_match.end()
+            return self._create_list(content, tag_value), closing_end
         elif tag_name == "table":
-            return self._create_table(content), closing_match.end()
+            return self._create_table(content), closing_end
         elif tag_name in ("center", "left", "right"):
-            return self._create_aligned_paragraph(content, tag_name), closing_match.end()
+            return self._create_aligned_paragraph(content, tag_name), closing_end
         elif tag_name == "spoiler":
-            return self._create_spoiler(content), closing_match.end()
+            return self._create_spoiler(content), closing_end
         elif tag_name in ("youtube", "video"):
-            return self._create_media_block(content, tag_name), closing_match.end()
+            return self._create_media_block(content, tag_name), closing_end
         else:
             # Unknown block tag - handle based on option
-            return self._handle_unknown_block(content, tag_name, tag_value), closing_match.end()
+            return self._handle_unknown_block(content, tag_name, tag_value), closing_end
 
     def _parse_heading(self, bbcode: str, match: re.Match[str], tag_name: str) -> tuple[Node | None, int]:
         """Parse a heading tag.
@@ -417,21 +418,23 @@ class BBCodeParser(BaseParser):
         # Extract level from tag name
         level = int(tag_name[1])
 
-        # Find closing tag
-        closing_pattern = re.compile(rf"\[/{tag_name}\]", re.IGNORECASE)
-        closing_match = closing_pattern.search(bbcode, match.end())
+        # Find closing tag, accounting for nesting
+        closing_pos = self._find_closing_tag_position(bbcode, match.end(), tag_name)
 
-        if not closing_match:
+        if closing_pos is None:
             if self.options.strict_mode:
                 raise ParsingError(f"Unclosed [{tag_name}] tag at position {match.start()}")
             else:
                 return None, match.end()
 
         # Extract and parse content
-        content = bbcode[match.end() : closing_match.start()]
+        content = bbcode[match.end() : closing_pos]
+        closing_match = self.TAG_PATTERN.match(bbcode, closing_pos)
+        closing_end = closing_match.end() if closing_match else closing_pos + len(f"[/{tag_name}]")
+
         inline_nodes = self._parse_inline(content)
 
-        return Heading(level=level, content=inline_nodes), closing_match.end()
+        return Heading(level=level, content=inline_nodes), closing_end
 
     def _parse_inline(self, content: str) -> list[Node]:
         """Parse inline BBCode content into AST nodes.
@@ -538,6 +541,7 @@ class BBCodeParser(BaseParser):
             Position of closing tag start, or None if not found
 
         """
+        tag_name = tag_name.lower()
         depth = 1
         pos = start_pos
 
