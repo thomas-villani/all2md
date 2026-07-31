@@ -1775,6 +1775,7 @@ class TestFlowLayoutBackwardCompat:
         assert len(table_shapes) == 1
         assert abs(_shape_top_inches(table_shapes[0]) - 2.0) < 0.01
 
+
 @pytest.mark.unit
 @pytest.mark.pptx
 def test_standalone_list_item_rendering():
