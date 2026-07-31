@@ -1151,7 +1151,6 @@ class TestGenerateTocTransform:
         # Original heading should come after TOC
         assert result.children[1].content[0].content == "Section"
 
-
     def test_generate_toc_transform_reuse_resets_heading_idx(self):
         """Test that reusing GenerateTocTransform with set_ids_if_missing resets heading index for subsequent documents."""
         doc1 = Document(
@@ -1184,6 +1183,8 @@ class TestGenerateTocTransform:
 
         assert doc2_headings[0].metadata.get("id") == "heading-a"
         assert doc2_headings[1].metadata.get("id") == "heading-b"
+
+
 # TitlePromotionTransform tests
 
 
