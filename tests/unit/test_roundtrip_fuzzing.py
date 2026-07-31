@@ -75,6 +75,16 @@ from all2md.ast.nodes import (
 #: (filename, URL, HTML-sanitizer and PDF edge-case fuzzing), they are all
 #: sub-second and security-relevant, and dropping them from four legs would save
 #: nothing while thinning the security coverage.
+#:
+#: The gates that draw their corpus with Hypothesis carry a second marker,
+#: ``generative``, and per-PR CI deselects it: those run on a schedule instead
+#: (see .github/workflows/fuzz-corpus.yml). They are ``derandomize=True``, so a
+#: PR run recomputes a fixed answer over a fixed corpus and can only change when
+#: our code does -- the discovery value is in a seeded sweep, not in the 300th
+#: identical replay. What stays per-PR is everything deterministic and cheap:
+#: the classification check, the structural invariants, and the known-crash
+#: repros, whose strict xfails are what fail the moment someone fixes a bug and
+#: leaves the allowlist entry behind.
 pytestmark = pytest.mark.matrix_single
 
 # --------------------------------------------------------------------------- #
@@ -179,6 +189,7 @@ class TestMatrixCoverage:
 
 @pytest.mark.unit
 @pytest.mark.fuzzing
+@pytest.mark.generative
 class TestLosslessFormatsAreLossless:
     """The formats that claim exactness are the harness's control."""
 
@@ -204,6 +215,7 @@ class TestLosslessFormatsAreLossless:
 
 @pytest.mark.unit
 @pytest.mark.fuzzing
+@pytest.mark.generative
 class TestNoUnrecognisedCrash:
     """No format may fail in a way that is not already documented.
 
@@ -587,6 +599,7 @@ class TestStructuralInvariants:
 
 @pytest.mark.unit
 @pytest.mark.fuzzing
+@pytest.mark.generative
 class TestGeneratedTablesAndLists:
     """Aim the generator at the two node classes that break most often."""
 
