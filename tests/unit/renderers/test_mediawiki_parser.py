@@ -557,3 +557,35 @@ class TestMediaWikiRenderer:
         output = renderer.render_to_string(doc)
 
         assert "<!-- [Comment by Jane Smith: needs review] -->" in output
+    def test_render_table_cell_attributes_use_pipe_separator(self) -> None:
+        """Test that table cell attributes (colspan/rowspan) use pipe separator in MediaWiki markup.
+
+        MediaWiki table syntax requires cell attributes to be separated from cell text content
+        by a pipe ('|'). Without the pipe separator, attributes like colspan or rowspan are
+        treated as literal cell text by MediaWiki rendering and parsing engines.
+        """
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="Header Spanning")], colspan=2),
+                            TableCell(content=[Text(content="Header 2")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="Cell Spanning")], colspan=2, rowspan=2),
+                                TableCell(content=[Text(content="Cell 2")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        renderer = MediaWikiRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert '! colspan="2" | Header Spanning' in output
+        assert '| colspan="2" rowspan="2" | Cell Spanning' in output
