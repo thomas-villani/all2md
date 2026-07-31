@@ -115,6 +115,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         self._network_rate_limiter: RateLimiter | None = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
+        self._in_link: bool = False  # ODF forbids <text:a> inside <text:a>
         self._in_table_header: bool = False  # Track if rendering table header cell
 
     @requires_dependencies("odt_render", DEPS_ODF_RENDER)
@@ -805,6 +806,20 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
     def visit_link(self, node: Link) -> None:
         """Render a Link node.
 
+        A link nested inside another link is unwrapped: its text is rendered
+        into the enclosing hyperlink and its own target is dropped. ODF forbids
+        ``<text:a>`` inside ``<text:a>``, and odfpy enforces it, so emitting the
+        nested element raised ``IllegalChild`` and failed the whole render.
+
+        Nested links are invalid HTML too, but browsers accept them and the HTML
+        parser preserves the nesting, so this is reachable from an ordinary page
+        rather than only from a hand-built AST.
+
+        Unwrapping rather than splitting the outer link into siblings — what a
+        browser does — keeps the surrounding inline flow untouched and stays
+        correct at any depth, including a link buried under a ``Strong`` that
+        could not be split out without discarding the emphasis.
+
         Parameters
         ----------
         node : Link
@@ -816,15 +831,24 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         if not self._current_paragraph:
             return
 
+        if self._in_link:
+            for child in node.content:
+                child.accept(self)
+            return
+
         # Create hyperlink
         link = A(href=node.url)
         saved_para = self._current_paragraph
         self._current_paragraph = link
+        self._in_link = True
 
-        for child in node.content:
-            child.accept(self)
+        try:
+            for child in node.content:
+                child.accept(self)
+        finally:
+            self._in_link = False
+            self._current_paragraph = saved_para
 
-        self._current_paragraph = saved_para
         self._current_paragraph.addElement(link)
 
     def visit_image(self, node: Image) -> None:

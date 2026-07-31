@@ -729,3 +729,53 @@ sections:
         # Should have headings for top-level keys
         headings = [child for child in doc.children if isinstance(child, Heading)]
         assert len(headings) > 0
+
+
+class TestYamlParserNonStringKeys:
+    """Test YAML parser handling of non-string dictionary keys."""
+
+    def test_non_string_keys_render_without_crash(self):
+        """YAML maps can contain non-string keys (integers, dates, booleans, floats).
+
+        Verify sorting and AST Text node creation handle non-string keys without TypeError crash.
+        """
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        yaml_content = """
+2025-01-01: new_year
+100: century
+true: active
+3.14: pi
+"""
+        options = YamlParserOptions(literal_block=False, sort_keys=True)
+        parser = YamlParser(options)
+        doc = parser.parse(yaml_content)
+
+        renderer = MarkdownRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "**2025-01-01**: new_year" in output
+        assert "**100**: century" in output
+        assert "**True**: active" in output
+        assert "**3.14**: pi" in output
+
+    def test_non_string_table_keys(self):
+        """Verify YAML arrays of dicts with non-string keys render as tables without sorting errors."""
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        yaml_content = """
+- 100: val1
+  200: val2
+- 100: val3
+  200: val4
+"""
+        options = YamlParserOptions(array_as_table_threshold=2, sort_keys=True)
+        parser = YamlParser(options)
+        doc = parser.parse(yaml_content)
+
+        renderer = MarkdownRenderer()
+        output = renderer.render_to_string(doc)
+
+        assert "100" in output
+        assert "200" in output
+        assert "val1" in output

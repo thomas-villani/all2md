@@ -265,6 +265,119 @@ class TestLinkRendering:
 
         assert output_file.exists()
 
+    def test_nested_link_is_unwrapped(self, tmp_path):
+        """A link inside a link renders as one hyperlink, not two nested ones.
+
+        ODF forbids ``<text:a>`` inside ``<text:a>`` and odfpy enforces it, so
+        this used to raise ``IllegalChild`` and fail the whole render. Reachable
+        from ordinary input: browsers accept nested ``<a>`` and the HTML parser
+        keeps the nesting. Issue #211.
+        """
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Link(
+                            url="https://outer.example/",
+                            content=[
+                                Text(content="x"),
+                                Link(url="https://inner.example/", content=[Text(content="y")]),
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = OdtRenderer()
+        output_file = tmp_path / "nested_link.odt"
+        renderer.render(doc, output_file)
+
+        from odf.text import A
+
+        links = odf_load(str(output_file)).getElementsByType(A)
+        assert len(links) == 1, "the inner link must be unwrapped, not emitted"
+        assert links[0].getAttribute("href") == "https://outer.example/"
+        # Both pieces of text survive; only the inner target is dropped.
+        assert str(links[0]) == "xy"
+
+    def test_nested_link_does_not_leak_into_later_siblings(self, tmp_path):
+        """A link following a nested one still gets its own href.
+
+        The unwrapping is driven by a flag on the renderer, so this pins that the
+        flag is cleared: without that, every later link in the document would be
+        swallowed into the preceding one.
+        """
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Link(
+                            url="https://outer.example/",
+                            content=[
+                                Text(content="x"),
+                                Link(url="https://inner.example/", content=[Text(content="y")]),
+                            ],
+                        ),
+                        Text(content=" tail "),
+                        Link(url="https://after.example/", content=[Text(content="after")]),
+                    ]
+                )
+            ]
+        )
+        renderer = OdtRenderer()
+        output_file = tmp_path / "nested_then_sibling.odt"
+        renderer.render(doc, output_file)
+
+        from odf.text import A
+
+        links = odf_load(str(output_file)).getElementsByType(A)
+        assert [link.getAttribute("href") for link in links] == [
+            "https://outer.example/",
+            "https://after.example/",
+        ]
+
+    def test_deeply_nested_links_are_unwrapped(self, tmp_path):
+        """Unwrapping holds at any depth, including through an inline wrapper.
+
+        A link buried under a ``Strong`` is why the renderer unwraps rather than
+        splitting the outer link into siblings the way a browser does: there is
+        no way to split it out without discarding the emphasis.
+        """
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Link(
+                            url="https://outer.example/",
+                            content=[
+                                Text(content="a"),
+                                Strong(
+                                    content=[
+                                        Link(
+                                            url="https://mid.example/",
+                                            content=[
+                                                Link(url="https://deep.example/", content=[Text(content="b")]),
+                                            ],
+                                        )
+                                    ]
+                                ),
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        renderer = OdtRenderer()
+        output_file = tmp_path / "deep_nested_link.odt"
+        renderer.render(doc, output_file)
+
+        from odf.text import A
+
+        links = odf_load(str(output_file)).getElementsByType(A)
+        assert len(links) == 1
+        assert links[0].getAttribute("href") == "https://outer.example/"
+        assert str(links[0]) == "ab"
+
 
 @pytest.mark.unit
 class TestListRendering:
