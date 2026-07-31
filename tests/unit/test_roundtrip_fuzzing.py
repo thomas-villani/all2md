@@ -59,7 +59,6 @@ from all2md.ast.nodes import (
     CodeBlock,
     Document,
     Heading,
-    Link,
     List,
     ListItem,
     Paragraph,
@@ -136,15 +135,11 @@ KNOWN_CRASHES: dict[tuple[str, str], str] = {
     # An empty list item nested inside another list leaves the RTF renderer
     # emitting a group the RTF parser walks off the end of.
     ("rtf", "IndexError"): "rtf round trip of a nested empty list item indexes out of range",
-    # Same shape carrying a task status takes a different path and raises a bare
-    # KeyError, which also means the error escapes without being wrapped in
-    # ParsingError or RenderingError the way the API contract implies.
-    ("rtf", "KeyError"): "rtf round trip of a nested task list item raises an unwrapped KeyError",
-    # Nested links reach odfpy as <text:a> inside <text:a>, which ODF forbids.
-    # Not a generator artifact: browsers accept nested <a>, the HTML parser
-    # keeps the nesting, so `all2md page.html -t odt` fails on real pages.
-    ("odt", "IllegalChild"): "odt renderer emits nested text:a for a nested Link",
-    ("odp", "IllegalChild"): "odp renderer emits nested text:a for a nested Link",
+    # Same shape carrying a task status takes a different path and raises a
+    # KeyError from pyth. It is now wrapped in RenderingError (#212), so the
+    # needle matches the original error inside the wrapper's message; the crash
+    # itself is still live.
+    ("rtf", "KeyError"): "rtf round trip of a nested task list item raises a KeyError",
 }
 
 
@@ -309,27 +304,6 @@ SPANNING_GRID_OVERFLOW = Document(
     ]
 )
 
-#: A link inside a link, as produced by parsing ``<a>x<a>y</a></a>``.
-#:
-#: Built here rather than parsed so the reproduction stays deterministic, but
-#: the shape is not synthetic: feeding that HTML to the HTML parser yields
-#: exactly this AST, which is why the ODF failure hits real documents.
-NESTED_LINK = Document(
-    children=[
-        Paragraph(
-            content=[
-                Link(
-                    url="https://a.example.com/",
-                    content=[
-                        Text(content="x"),
-                        Link(url="https://b.example.com/", content=[Text(content="y")]),
-                    ],
-                )
-            ]
-        )
-    ]
-)
-
 #: An empty list item nested one level down, alongside an empty sibling.
 NESTED_EMPTY_ITEM = Document(
     children=[
@@ -410,19 +384,7 @@ class TestKnownCrashRepros:
                 NESTED_TASK_ITEM,
                 "rtf",
                 id="rtf-nested-task-list-item",
-                marks=pytest.mark.xfail(strict=True, reason="raises an unwrapped KeyError"),
-            ),
-            pytest.param(
-                NESTED_LINK,
-                "odt",
-                id="odt-nested-link",
-                marks=pytest.mark.xfail(strict=True, reason="text:a nested inside text:a"),
-            ),
-            pytest.param(
-                NESTED_LINK,
-                "odp",
-                id="odp-nested-link",
-                marks=pytest.mark.xfail(strict=True, reason="text:a nested inside text:a"),
+                marks=pytest.mark.xfail(strict=True, reason="pyth raises KeyError on the task status"),
             ),
         ],
     )
