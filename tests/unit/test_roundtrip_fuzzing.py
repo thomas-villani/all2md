@@ -139,6 +139,16 @@ KNOWN_CRASHES: dict[tuple[str, str], str] = {
     # KeyError, which also means the error escapes without being wrapped in
     # ParsingError or RenderingError the way the API contract implies.
     ("rtf", "KeyError"): "rtf round trip of a nested task list item raises an unwrapped KeyError",
+    # Same shape carrying a task status takes a different path and raises a
+    # KeyError from pyth. It is now wrapped in RenderingError (#212), so the
+    # needle matches the original error inside the wrapper's message; the crash
+    # itself is still live.
+    ("rtf", "KeyError"): "rtf round trip of a nested task list item raises a KeyError",
+    # Nested links reach odfpy as <text:a> inside <text:a>, which ODF forbids.
+    # Not a generator artifact: browsers accept nested <a>, the HTML parser
+    # keeps the nesting, so `all2md page.html -t odt` fails on real pages.
+    ("odt", "IllegalChild"): "odt renderer emits nested text:a for a nested Link",
+    ("odp", "IllegalChild"): "odp renderer emits nested text:a for a nested Link",
 }
 
 
@@ -383,7 +393,7 @@ class TestKnownCrashRepros:
                 NESTED_TASK_ITEM,
                 "rtf",
                 id="rtf-nested-task-list-item",
-                marks=pytest.mark.xfail(strict=True, reason="raises an unwrapped KeyError"),
+                marks=pytest.mark.xfail(strict=True, reason="pyth raises KeyError on the task status"),
             ),
         ],
     )
