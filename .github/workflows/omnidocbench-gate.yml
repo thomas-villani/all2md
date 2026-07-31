@@ -1,0 +1,83 @@
+name: OmniDocBench PDF Fidelity Gate
+
+# Runs independent 981-page PDF fidelity scoring against pinned external ground
+# truth. This is intentionally separate from per-PR and release workflows.
+#
+# Unlike the other workflows, this one installs through `uv sync --frozen` rather than pip, and
+# pins the runner image instead of using `ubuntu-latest`. The ratchet baseline records parser
+# runtime identity, including the PyMuPDF, pymupdf-layout, pytesseract, Pillow, and Tesseract
+# versions and the digest of each language-data file. A resolver that is free to move those
+# versions, or a runner image that changes the system Tesseract, reports identity drift instead
+# of a fidelity result, so the lockfile and the image are part of the measurement.
+
+on:
+  schedule:
+    # 06:00 UTC on the first day of each month. OCR makes a full run expensive,
+    # while the immutable corpus keeps the signal stable between runs.
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      record_baseline:
+        description: "Upload a reviewable baseline candidate instead of gating (use for the first run)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: omnidocbench-gate-${{ github.ref }}-${{ github.event_name }}-${{ inputs.record_baseline || false }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fidelity:
+    name: OmniDocBench PDF Fidelity Gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Check out all2md
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install OCR language data
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim
+
+      - name: Install all2md from the lockfile
+        run: uv sync --frozen --extra pdf_layout --extra ocr
+
+      - name: Run fidelity gate
+        if: ${{ !inputs.record_baseline }}
+        run: |
+          uv run --frozen --extra pdf_layout --extra ocr python -m benchmarks.omnidocbench \
+            --output benchmarks/omnidocbench/.cache/results/current.json
+
+      - name: Produce baseline candidate
+        if: ${{ inputs.record_baseline }}
+        run: |
+          uv run --frozen --extra pdf_layout --extra ocr python -m benchmarks.omnidocbench \
+            --output benchmarks/omnidocbench/.cache/results/current.json \
+            --write-baseline benchmarks/omnidocbench/.cache/results/baseline-candidate.json \
+            --default-tolerance 0.005
+
+      - name: Upload derived scores
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: omnidocbench-scores-${{ github.run_number }}
+          # The results live under the gitignored `.cache/` directory, and this action skips
+          # anything inside a dot-directory unless hidden files are opted in. Without this the
+          # upload silently produces an empty artifact and the baseline bootstrap has nothing to
+          # review. Only derived score JSON is matched; corpus PDFs sit in the revision directory.
+          include-hidden-files: true
+          path: benchmarks/omnidocbench/.cache/results/*.json
+          if-no-files-found: error
+          retention-days: 14
