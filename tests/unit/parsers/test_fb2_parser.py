@@ -234,3 +234,23 @@ def test_fb2_epigraph_still_blockquote() -> None:
     assert isinstance(document.children[0], BlockQuote)
     assert extract_text(document.children[0].children[0], joiner=" ").strip() == "epi"
     assert extract_text(document.children[0].children[1], joiner=" ").strip() == "auth"
+
+
+def test_fb2_parse_raw_xml_string_input() -> None:
+    """Parsing raw FB2 XML string content should return valid AST Document without FileNotFoundError."""
+    fb2_str = """<?xml version="1.0" encoding="utf-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+  <body>
+    <section>
+      <title><p>Raw String Chapter</p></title>
+      <p>Raw string content paragraph.</p>
+    </section>
+  </body>
+</FictionBook>"""
+    parser = Fb2ToAstConverter()
+    document = parser.parse(fb2_str)
+    assert len(document.children) == 2
+    assert isinstance(document.children[0], Heading)
+    assert extract_text(document.children[0], joiner=" ").strip() == "Raw String Chapter"
+    assert isinstance(document.children[1], Paragraph)
+    assert extract_text(document.children[1], joiner=" ").strip() == "Raw string content paragraph."

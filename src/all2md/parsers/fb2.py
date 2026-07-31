@@ -199,15 +199,26 @@ class Fb2ToAstConverter(BaseParser):
     # Parsing helpers
     # ------------------------------------------------------------------
     def _load_fb2_bytes(self, input_data: Union[str, Path, IO[bytes], bytes]) -> bytes:
-        if isinstance(input_data, (str, Path)):
-            path = Path(input_data)
-            if path.suffix.lower() == ".fb2":
-                return path.read_bytes()
-            if path.name.lower().endswith(".fb2.zip") or path.suffix.lower() == ".zip":
-                with self._validated_zip_input(path, suffix=".zip") as validated:
+        if isinstance(input_data, Path):
+            if input_data.name.lower().endswith(".fb2.zip") or input_data.suffix.lower() == ".zip":
+                with self._validated_zip_input(input_data, suffix=".zip") as validated:
                     return self._extract_fb2_from_zip(validated)
+            return input_data.read_bytes()
 
-            return path.read_bytes()
+        if isinstance(input_data, str):
+            if len(input_data) <= 260 and "\n" not in input_data:
+                try:
+                    path = Path(input_data)
+                    if path.is_file():
+                        if path.name.lower().endswith(".fb2.zip") or path.suffix.lower() == ".zip":
+                            with self._validated_zip_input(path, suffix=".zip") as validated:
+                                return self._extract_fb2_from_zip(validated)
+                        return path.read_bytes()
+                except OSError:
+                    # Ignore path resolution or file read errors; fall back to treating string as raw XML
+                    pass
+
+            return input_data.encode("utf-8")
 
         if isinstance(input_data, bytes):
             if input_data.startswith(b"PK\x03\x04"):
