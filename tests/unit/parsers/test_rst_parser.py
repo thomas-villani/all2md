@@ -88,6 +88,29 @@ Level 3
         # Third heading is inside a section, so level may differ
         assert headings[2].level >= 1
 
+    def test_deeply_nested_headings(self) -> None:
+        """Test parsing deeply nested sections (> 6 levels) clamps heading level to 6."""
+        markers = ["=", "-", "~", "^", '"', "'", "+", "*", "#"]
+        lines = []
+        for i, m in enumerate(markers, start=1):
+            lines.extend([f"Section {i}", m * 10, ""])
+        rst = "\n".join(lines)
+
+        parser = RestructuredTextParser()
+        doc = parser.parse(rst)
+
+        def collect_headings(node):
+            res = []
+            if isinstance(node, Heading):
+                res.append(node)
+            for child in getattr(node, "children", []):
+                res.extend(collect_headings(child))
+            return res
+
+        headings = collect_headings(doc)
+        assert [h.level for h in headings] == [1, 2, 1, 2, 3, 4, 5, 6, 6]
+        assert headings[-1].level == 6
+
     def test_simple_paragraph(self) -> None:
         """Test parsing a simple paragraph."""
         rst = "This is a simple paragraph."
