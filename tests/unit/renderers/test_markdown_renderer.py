@@ -932,6 +932,28 @@ class TestTables:
         assert "<table>" in result
         assert "<th>Header</th>" in result
 
+    def test_table_body_rows_exceed_header_columns_padded(self):
+        """Test rendering table where body rows have more columns than the header row."""
+        header = TableRow(cells=[TableCell(content=[Text(content="H1")])], is_header=True)
+        row = TableRow(cells=[TableCell(content=[Text(content="C1")]), TableCell(content=[Text(content="C2")])])
+        table = Table(header=header, rows=[row])
+        options = MarkdownRendererOptions(pad_table_cells=True)
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(table)
+        assert "C2" in result
+        assert "| C1 | C2 |" in result
+
+    def test_table_body_rows_exceed_header_columns_ascii(self):
+        """Test rendering ASCII table where body rows have more columns than the header row."""
+        header = TableRow(cells=[TableCell(content=[Text(content="H1")])], is_header=True)
+        row = TableRow(cells=[TableCell(content=[Text(content="C1")]), TableCell(content=[Text(content="C2")])])
+        table = Table(header=header, rows=[row])
+        options = MarkdownRendererOptions(flavor="commonmark", unsupported_table_mode="ascii")
+        renderer = MarkdownRenderer(options)
+        result = renderer.render_to_string(table)
+        assert "C2" in result
+        assert "| C1 | C2 |" in result
+
 
 @pytest.mark.unit
 class TestThematicBreak:
