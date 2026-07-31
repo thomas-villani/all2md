@@ -1259,9 +1259,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
 
         # Calculate nesting level (depth in the stack)
-        nesting_level = len(self._list_ordered_stack) - 1
-        # Limit to reasonable depth for PowerPoint (0-8)
-        nesting_level = min(nesting_level, 8)
+        nesting_level = max(0, min(len(self._list_ordered_stack) - 1, 8))
 
         if is_ordered:
             # For ordered lists, manually add number prefix since python-pptx
