@@ -31,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Rendering failures now always raise `All2MdError`, whatever the underlying library
+  raised.** `from_ast` documents that failures surface as `All2MdError` subclasses, but
+  renderers delegate to third-party libraries that raise their own types, and only some
+  renderers translated them — `from_ast(doc, "pptx")` raised a bare `ValueError` and
+  `from_ast(doc, "rtf")` a bare `KeyError`, so a caller writing the documented
+  `except All2MdError` crashed instead. Probing the whole matrix showed 15 of the 24
+  formats leaked, not just the two the fuzzer happened to expose, so the translation now
+  happens at the single point every render passes through; a renderer that already raises
+  `All2MdError` keeps its own message. The PPTX renderer, which guarded only its save
+  step, and the RTF renderer, whose `render_to_string` was unguarded while `render` was
+  not, are both brought in line with the DOCX renderer (#212).
 - **HTML parser: nested tables no longer duplicate their cells into the outer row.**
   Cells were collected with a recursive `find_all`, so a table inside a `<td>` had its
   own `td`/`th` pulled into the enclosing row as well — a one-cell inner table turned
