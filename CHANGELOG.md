@@ -28,10 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   corpus, oracle, parser-policy, parser-runtime, or conversion drift, and requires review for
   both regressions and improvements. The full lane runs only on a monthly schedule or manual
   dispatch. Pull request and release CI keep using synthetic, network-free tests. The first
-  scheduled baseline is recorded by dispatching the workflow with `record_baseline` enabled;
-  until that candidate is reviewed and committed the gate reports `ABSENT_BASELINE` red.
+  baseline is recorded: text content 0.5058, reading order 0.6034, block structure 0.1176
+  over all 981 pages.
   Exact reproduction of the annotation scores 1.0, and no degradation of it scores higher:
-  checked across eleven degraded variants and all six dimensions on all 981 pages, plus the
+  checked across eleven degraded variants and all six dimensions that then existed, on all
+  981 pages, plus the
   variants that sweep did not cover — every one of its variants *deleted* blocks, so output
   that kept the block structure and destroyed the content, or kept both and only re-chunked,
   went untested. Both went on to matter. Blanking every block scored a perfect reading order,
@@ -41,7 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   894 of the 981 pages at exactly zero, 128 of them scoring 0.9 or better on text content.
   Blocks are now located inside the concatenated output, which is blind to how it was chunked,
   and the block-category sequence is reported on its own as `block_structure_similarity` —
-  segmentation is a real question and a different one from ordering.
+  segmentation is a real question and a different one from ordering. Read that dimension as a
+  granularity ratio rather than a quality score: it is bounded by the ratio of the two block
+  counts, it never inspects the text under a block, and it is independent of the other two
+  (+0.03 and +0.05, where those two correlate +0.84).
   Thanks [@santhreal](https://github.com/santhreal).
 
 ### Changed
