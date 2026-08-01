@@ -7,10 +7,13 @@ no OmniDocBench corpus content belongs in the source tree.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
 import re
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -236,29 +239,62 @@ def _prepare_revision_dir(cache_dir: Path) -> Path:
     return revision_dir
 
 
-@contextmanager
-def _cache_lock(revision_dir: Path) -> Iterator[None]:
-    # Imported here rather than at module scope so the adapter and its tests stay importable on
-    # platforms without `fcntl`. The lock guards cache integrity, so an unlockable platform is
-    # refused rather than silently run without exclusion.
-    if os.name != "posix":
-        raise CorpusCacheError(f"corpus cache locking requires a POSIX platform, got {os.name}")
+# An OS-level file lock rather than a lock directory, on both platforms: a cold 981-page
+# materialization runs inside it, so a crashed holder must not leave the cache permanently
+# unopenable. The branch is on `sys.platform` rather than `os.name` so a type checker analyses
+# only the branch that exists on the host.
+if sys.platform == "win32":
+    import msvcrt
+
+    # Windows byte-range locks are mandatory and per-region; the region only has to be
+    # consistent between holders, so one byte at offset 0 is enough.
+    _LOCK_CONTENTION_ERRNOS = frozenset({errno.EACCES, errno.EDEADLOCK, errno.EDEADLK})
+
+    def _acquire_lock(descriptor: int) -> None:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        while True:
+            try:
+                # LK_NBLCK rather than LK_LOCK: LK_LOCK gives up after ten one-second retries,
+                # and a second process may legitimately wait out a full corpus download.
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                return
+            except OSError as exc:
+                if exc.errno not in _LOCK_CONTENTION_ERRNOS:
+                    raise CorpusCacheError(f"cannot lock corpus cache: {exc}") from exc
+                time.sleep(0.05)
+
+    def _release_lock(descriptor: int) -> None:
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+
+else:
     import fcntl
 
+    def _acquire_lock(descriptor: int) -> None:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+
+    def _release_lock(descriptor: int) -> None:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+
+@contextmanager
+def _cache_lock(revision_dir: Path) -> Iterator[None]:
     lock_path = revision_dir / f".lock-{REVISION}"
     flags = os.O_RDWR | os.O_CREAT
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
+    for name in ("O_NOFOLLOW", "O_BINARY", "O_NOINHERIT"):
+        flags |= getattr(os, name, 0)
     try:
         descriptor = os.open(lock_path, flags, 0o600)
     except OSError as exc:
         raise CorpusCacheError(f"cannot open corpus cache lock: {exc}") from exc
-    with os.fdopen(descriptor, "a+b") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+    try:
+        _acquire_lock(descriptor)
         try:
             yield
         finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            _release_lock(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def _require_contained(path: Path, cache_dir: Path) -> None:
