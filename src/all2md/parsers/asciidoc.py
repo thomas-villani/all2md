@@ -1999,6 +1999,22 @@ class AsciiDocParser(BaseParser):
             # Strip whitespace but preserve empty cells
             content_text = part.strip()
 
+            # A span spec that belongs to the *next* cell sits at the end of this
+            # segment. Canonical AsciiDoc writes `|A 2+|B`, so splitting on `|`
+            # leaves `A 2+` here and `B` after; only the standalone `|A |2+|B`
+            # form, which our renderer used to emit, put the spec in a segment of
+            # its own. A spec has to be set off by whitespace or be the whole
+            # segment, so a cell reading `C2+` stays content.
+            if self.options.parse_table_spans:
+                trailing = re.search(r"(?:^|(?<=\s))(\d+)?(?:\.(\d+))?([+*])$", content_text)
+                if trailing and (trailing.group(1) or trailing.group(2)):
+                    if trailing.group(3) == "+":
+                        pending_colspan = int(trailing.group(1)) if trailing.group(1) else None
+                        pending_rowspan = int(trailing.group(2)) if trailing.group(2) else None
+                    elif trailing.group(1):
+                        pending_colspan = int(trailing.group(1))
+                    content_text = content_text[: trailing.start()].strip()
+
             # If content is empty and we have a span, this is likely a standalone
             # span spec (like |2+| where the content is in the next part)
             # Save the span for the next cell and skip this part

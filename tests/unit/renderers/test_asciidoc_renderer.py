@@ -908,15 +908,41 @@ class TestTableRendering:
         result = AsciiDocRenderer().render_to_string(doc)
 
         # The leading cell's spec replaces the row-opening `|`; a `|2+|Wide`
-        # form would read as an empty cell followed by a spanning one.
-        assert result == "|===\n2+|Wide |.3+|Tall |2.3+|Both |\n|===\n"
+        # form would read as an empty cell followed by a spanning one. The row
+        # ends with the last cell's content and no trailing delimiter.
+        assert result == "|===\n2+|Wide .3+|Tall 2.3+|Both\n|===\n"
 
         reparsed = AsciiDocParser().parse(result)
         table = reparsed.children[0]
         assert isinstance(table, Table)
         cells = table.header.cells if table.header else table.rows[0].cells
-        assert [(c.colspan, c.rowspan) for c in cells[:3]] == [(2, 1), (1, 3), (2, 3)]
-        assert [c.content[0].content for c in cells[:3]] == ["Wide", "Tall", "Both"]
+        assert len(cells) == 3
+        assert [(c.colspan, c.rowspan) for c in cells] == [(2, 1), (1, 3), (2, 3)]
+        assert [c.content[0].content for c in cells] == ["Wide", "Tall", "Both"]
+
+    @pytest.mark.parametrize("columns", [1, 2, 3, 5])
+    def test_a_table_round_trips_with_the_column_count_it_was_given(self, columns: int) -> None:
+        """A row must not end with a delimiter, which would open one more cell.
+
+        AsciiDoc reads whatever follows the final `|` as another cell, so the
+        `|A |B |` form the renderer used to emit parsed as three columns. Every
+        table was affected regardless of its contents -- an N-column table came
+        back with N+1, silently, and the spurious column persisted into anything
+        converted onward from that AsciiDoc.
+        """
+        header = TableRow(cells=[TableCell(content=[Text(content=f"h{i}")]) for i in range(columns)])
+        body = TableRow(cells=[TableCell(content=[Text(content=f"c{i}")]) for i in range(columns)])
+        doc = Document(children=[Table(header=header, rows=[body])])
+
+        rendered = AsciiDocRenderer().render_to_string(doc)
+        reparsed = AsciiDocParser().parse(rendered)
+
+        table = reparsed.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        assert len(table.header.cells) == columns
+        assert [len(row.cells) for row in table.rows] == [columns]
+        assert [cell.content[0].content for cell in table.header.cells] == [f"h{i}" for i in range(columns)]
 
 
 @pytest.mark.unit
