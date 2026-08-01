@@ -19,9 +19,12 @@ import traceback
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from .download import CorpusItem
+
+if TYPE_CHECKING:
+    from all2md.options.pdf import PdfOptions
 
 
 @dataclass
@@ -124,7 +127,7 @@ def run_benchmark(
     return results
 
 
-def _pdf_options(use_layout_model: bool):
+def _pdf_options(use_layout_model: bool) -> PdfOptions:
     """Build PdfOptions with the requested layout mode. Imported lazily."""
     from all2md.options.pdf import PdfOptions
 

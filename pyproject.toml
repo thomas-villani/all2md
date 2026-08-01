@@ -379,6 +379,8 @@ max-complexity = 28
     "E402",  # Module level import not at top (common with pytest.skip)
     "E501",  # Line too long (tests often have long assertion lines)
 ]
+# Enforced: the CI lint job runs ruff, black and mypy over benchmarks/ as well as
+# src/ and tests/, so these ignores are load-bearing rather than aspirational.
 "benchmarks/**/*.py" = [
     "D100",  # Missing docstring in public module
     "D101",  # Missing docstring in public class
@@ -461,6 +463,14 @@ exclude = '\.git|\.mypy_cache|\.pytest_cache|build|dist'
 skip-string-normalization = false
 
 [tool.bandit]
+# `benchmarks` and `scripts` stay excluded while `src` is scanned, and that is a
+# scope decision rather than an oversight: neither ships in the wheel, and both are
+# built out of the patterns bandit blacklists by design -- `subprocess` for `git`
+# and `tesseract --version`, `urlopen` for pinned corpus URLs, `random` for corpus
+# sampling, `ElementTree` for the arXiv API. Scanning benchmarks reports 15 such
+# findings, none of them a defect. Note that this exclusion makes a bandit run
+# pointed at those directories pass with zero lines scanned, so do not read one as
+# evidence they are clean. Lint and type checks do cover `benchmarks`.
 exclude_dirs = ["tests", "build", "dist", ".venv", "examples", "scripts", "benchmarks"]
 skips = [
     "B101",  # assert_used - asserts are fine in non-test code for invariants

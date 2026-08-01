@@ -35,20 +35,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[all,dev]"
 
+      # `benchmarks/` is in scope for all three. It had never been in any gate, and
+      # it is now ~2,700 lines of measurement logic -- the corpus, roundtrip, startup
+      # and OmniDocBench harnesses whose numbers we treat as evidence. Code that
+      # decides whether a release is green should be held to the same standard as the
+      # code it scores. It was already clean when it was added here, so nothing was
+      # reformatted to make this pass.
       - name: Run Black formatter check
         run: |
-          black --check src/ tests/
+          black --check src/ tests/ benchmarks/
 
       - name: Run Ruff linter
         # --no-fix is belt-and-braces: pyproject no longer sets `fix = true`, and
         # this makes the gate report violations regardless of what the config says.
         # A linter that repairs its findings in the runner and exits 0 is not a gate.
         run: |
-          ruff check --no-fix src/ tests/
+          ruff check --no-fix src/ tests/ benchmarks/
 
       - name: Run MyPy type checker
         run: |
-          mypy src/
+          mypy src/ benchmarks/
 
   docs:
     name: Build Documentation
