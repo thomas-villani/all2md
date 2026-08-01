@@ -7,7 +7,7 @@
   
   // HTML by Reviewer (2025-01-01): Reviewer note: ensure consistent tone across sections.
   
-  == Renderer Showcase
+  = Renderer Showcase
   
   Inline math such as stem:[E = mc^2] pairs with *bold emphasis* and a link to link:https://example.com[Example].<!-- DOCX_REVIEW by Reviewer: Consider expanding this introduction. -->
   

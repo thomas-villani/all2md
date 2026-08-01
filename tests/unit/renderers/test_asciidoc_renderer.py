@@ -41,35 +41,33 @@ class TestHeadingRendering:
     """Tests for heading rendering - only ATX style is valid AsciiDoc."""
 
     def test_heading_level_1(self):
-        """Test h1 renders with == prefix."""
+        """Test h1 renders with = prefix."""
         doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
-        assert "== Title" in result
+        assert "= Title" in result
 
     def test_heading_level_2(self):
-        """Test h2 renders with === prefix."""
+        """Test h2 renders with == prefix."""
         doc = Document(children=[Heading(level=2, content=[Text(content="Subtitle")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
-        assert "=== Subtitle" in result
+        assert "== Subtitle" in result
 
     def test_heading_level_3(self):
-        """Test h3 renders with ==== prefix."""
+        """Test h3 renders with === prefix."""
         doc = Document(children=[Heading(level=3, content=[Text(content="Section")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
-        assert "==== Section" in result
+        assert "=== Section" in result
 
     def test_no_setext_style(self):
         """Test that setext-style underlines are not used (not valid AsciiDoc)."""
         doc = Document(children=[Heading(level=1, content=[Text(content="Title")])])
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
-        # Should NOT have underline
-        assert "====" not in result or "== Title" in result
-        # Should have ATX style
-        assert "== Title" in result
+        # Should NOT have an underline on the line below
+        assert result.strip() == "= Title"
 
 
 @pytest.mark.unit
@@ -1035,7 +1033,7 @@ class TestEdgeCases:
         renderer = AsciiDocRenderer()
         result = renderer.render_to_string(doc)
 
-        assert "== Title" in result
+        assert "= Title" in result
         assert "*bold*" in result
         assert "_italic_" in result
         assert "* Item" in result
