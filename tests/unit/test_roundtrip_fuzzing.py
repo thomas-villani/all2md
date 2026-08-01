@@ -469,11 +469,6 @@ KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
     ("rst", "table-caption-survives"): "renderer emits no .. table:: directive (#237)",
     ("org", "table-caption-survives"): "renderer emits no #+CAPTION line (#237)",
     ("asciidoc", "table-caption-survives"): "parser ignores the .caption line the renderer emits (#237)",
-    # The ordered-list start attribute, from opposite ends (#239): asciidoc emits
-    # no `[start=N]`, while org emits a literal `5.` its own parser will not read
-    # back as a start.
-    ("asciidoc", "ordered-list-start-survives"): "renderer emits no [start=N] attribute (#239)",
-    ("org", "ordered-list-start-survives"): "renderer emits a literal '5.' the parser does not read as start (#239)",
 }
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe

@@ -424,6 +424,14 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             List to render
 
         """
+        # AsciiDoc numbers an ordered list itself, so a list that starts anywhere but
+        # 1 needs the `[start=N]` block attribute -- the renderer emitted no marker at
+        # all and the number was simply lost. The attribute goes on its own line above
+        # the list, which only works for a list that starts a block, so a nested list
+        # cannot carry one.
+        if node.ordered and node.start != 1 and not self._in_list:
+            self._output.append(f"[start={node.start}]\n")
+
         was_in_list = self._in_list
         self._in_list = True
         self._list_level += 1

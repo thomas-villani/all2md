@@ -1477,6 +1477,11 @@ class AsciiDocParser(BaseParser):
             Single list node or list of top-level lists if multiple roots
 
         """
+        # `[start=N]` sits on its own line before the list, so it has already been
+        # recorded as a pending block attribute by the time we get here. Pop it rather
+        # than read it, so it cannot leak onto a later list.
+        start_attr = self.pending_block_attrs.pop("start", None)
+
         # Create a ListBuilder for managing nesting
         list_builder = ListBuilder()
 
@@ -1543,6 +1548,15 @@ class AsciiDocParser(BaseParser):
 
         # Get the built document and extract the lists
         built_doc = list_builder.get_document()
+
+        if start_attr is not None:
+            for child in built_doc.children:
+                if isinstance(child, List) and child.ordered:
+                    try:
+                        child.start = int(start_attr)
+                    except ValueError:
+                        logger.debug("Ignoring non-numeric list start attribute: %r", start_attr)
+                    break
 
         # Return single list if there's only one, otherwise return all
         if len(built_doc.children) == 1:
