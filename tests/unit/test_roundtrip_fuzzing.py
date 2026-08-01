@@ -452,32 +452,48 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 
 #: Invariants that do not hold yet, as ``(format, invariant)`` with the reason.
 #:
-#: Everything here is a real asymmetry. Two of them are arguably by design and
-#: are called out as such; the rest are defects worth fixing. Entries are marked
-#: strict-xfail, so fixing one fails CI until the entry is deleted.
+#: Everything here is a real asymmetry, and every entry is now filed. Entries are
+#: marked strict-xfail, so fixing one fails CI until the entry is deleted.
+#:
+#: The reasons below were re-measured against ``main`` when the issues were
+#: filed, and four of them had blamed the wrong side of the trip: a renderer that
+#: does emit the right syntax, with a parser that will not read it back, is a
+#: different fix from a renderer that emits nothing. Prefer measuring the
+#: rendered output before trusting a reason in this table.
 KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
-    # Markdown and reStructuredText have no table-caption syntax, so the caption
-    # has nowhere to go. Arguably by design, though both could round-trip it
-    # through a comment or a `.. table::` directive.
-    ("markdown", "table-caption-survives"): "markdown has no caption syntax",
-    ("rst", "table-caption-survives"): "rst renderer does not emit a table directive",
-    ("org", "table-caption-survives"): "org renderer does not emit #+CAPTION",
-    ("asciidoc", "table-caption-survives"): "asciidoc renderer does not emit a .caption line",
+    # Table captions, all four for different reasons (#237). asciidoc renders
+    # `.My caption` correctly and its parser ignores the line; markdown has no
+    # caption syntax and demotes it to an italic paragraph, which also injects a
+    # node that was not in the input; rst and org emit nothing at all.
+    ("markdown", "table-caption-survives"): "renderer demotes the caption to an italic paragraph (#237)",
+    ("rst", "table-caption-survives"): "renderer emits no .. table:: directive (#237)",
+    ("org", "table-caption-survives"): "renderer emits no #+CAPTION line (#237)",
+    ("asciidoc", "table-caption-survives"): "parser ignores the .caption line the renderer emits (#237)",
     # rst derives heading level from the underline character, and the renderer
-    # reuses characters, so distinct levels collapse into each other.
-    ("rst", "heading-levels-survive"): "rst underline characters repeat, collapsing levels",
-    # asciidoc drops the first heading: the renderer treats a leading level-1 as
-    # the document title and the parser does not map it back.
-    ("asciidoc", "heading-levels-survive"): "leading h1 becomes the document title and is lost",
+    # uses `*` for both level 5 and level 6, so the two collapse (#238).
+    ("rst", "heading-levels-survive"): "underline character reused for levels 5 and 6 (#238)",
+    # asciidoc offsets every level by one (a level-1 heading renders as `==`),
+    # which pushes level 6 to a seven-`=` line that is not a heading at all, so
+    # six headings go in and five come back (#236).
+    (
+        "asciidoc",
+        "heading-levels-survive",
+    ): "renderer offsets every level by one; level 6 overflows and is dropped (#236)",
     # asciidoc writes a trailing pipe after the last cell, which its parser reads
-    # as an extra empty column, so every table gains a phantom column.
-    ("asciidoc", "duplicate-header-labels-survive"): "trailing pipe parses as an extra empty cell",
-    # asciidoc and org both drop the ordered-list start attribute.
-    ("asciidoc", "ordered-list-start-survives"): "renderer does not emit the start attribute",
-    ("org", "ordered-list-start-survives"): "renderer does not emit [@N]",
-    # org loses an empty list item and the source-block language.
-    ("org", "empty-list-item-survives"): "renderer drops the empty item's bullet",
-    ("org", "code-block-language-survives"): "renderer does not emit the #+BEGIN_SRC language",
+    # as an extra empty column. This is not specific to duplicate headers — every
+    # table goes in with N columns and comes back with N+1 (#235).
+    ("asciidoc", "duplicate-header-labels-survive"): "trailing pipe adds a phantom column to every table (#235)",
+    # The ordered-list start attribute, from opposite ends (#239): asciidoc emits
+    # no `[start=N]`, while org emits a literal `5.` its own parser will not read
+    # back as a start.
+    ("asciidoc", "ordered-list-start-survives"): "renderer emits no [start=N] attribute (#239)",
+    ("org", "ordered-list-start-survives"): "renderer emits a literal '5.' the parser does not read as start (#239)",
+    # Both org entries are parser-side, despite earlier reasons blaming the
+    # renderer (#240). The bullet and the #+BEGIN_SRC block are both emitted
+    # correctly; the parser drops the empty item, and produces no CodeBlock node
+    # at all from a source block.
+    ("org", "empty-list-item-survives"): "parser drops a bullet with no content (#240)",
+    ("org", "code-block-language-survives"): "parser produces no CodeBlock from #+BEGIN_SRC (#240)",
 }
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe
