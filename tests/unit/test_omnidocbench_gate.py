@@ -18,7 +18,7 @@ RESULTS = {
     "provenance": {
         "dataset_revision": "f5f559bddf50e36f7f9899d842d0006f13ce8afc",
         "annotation_sha256": "2fafe9329dc92fc426b30036aee51c716b3fcdcc1d20cb964dc7670579533817",
-        "oracle_schema_version": 3,
+        "oracle_schema_version": 4,
         "parser_config": {
             "layout_analysis_mode": "auto",
             "ocr": {
@@ -632,7 +632,7 @@ def test_matching_malformed_baseline_identity_is_red(path: tuple[str, ...], valu
                 ("schema_version",): "must be integer 2",
                 ("provenance", "dataset_revision"): "must be a 40-character lowercase hexadecimal revision",
                 ("provenance", "annotation_sha256"): "must be a 64-character lowercase hexadecimal digest",
-                ("provenance", "oracle_schema_version"): "must be integer 3",
+                ("provenance", "oracle_schema_version"): "must be integer 4",
                 ("provenance", "parser_config"): "must be a mapping",
                 ("provenance", "parser_runtime"): "must be a non-empty mapping",
             }[path],

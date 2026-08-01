@@ -516,6 +516,64 @@ def test_identical_output_scores_a_perfect_reading_order_despite_repeated_blocks
     assert score_page(page, page)["reading_order_similarity"] == 1.0
 
 
+def test_unrecognizable_blocks_cannot_outscore_correct_content_in_the_wrong_order() -> None:
+    """Destroying every block's content must not buy a better reading order than reversing it.
+
+    Ties in the block match resolve towards the block's own position, so when nothing resembles
+    a block the identity mapping falls out of the tie-break alone and the inversion count is
+    zero. Ten empty paragraphs scored a perfect 1.0 and ten junk paragraphs 1.0, against 0.0 for
+    emitting all ten correctly but reversed -- the metric ranked a parser that produced nothing
+    above one that produced everything. Every degraded variant checked before shipping *deleted*
+    blocks, which left the whole right-shape/wrong-payload quadrant untested.
+    """
+    blocks = tuple(f"Paragraph {index} with enough text to match on" for index in range(10))
+    kinds = ("text_block",) * 10
+    expected = PageProjection(blocks, kinds, (), ())
+
+    perfect = score_page(expected, expected)["reading_order_similarity"]
+    reversed_content = score_page(expected, PageProjection(blocks[::-1], kinds, (), ()))
+    empty = score_page(expected, PageProjection(("",) * 10, kinds, (), ()))
+    junk = score_page(expected, PageProjection(("zzz",) * 10, kinds, (), ()))
+
+    assert perfect == 1.0
+    assert reversed_content["reading_order_similarity"] == 0.0
+    assert empty["reading_order_similarity"] == 0.0
+    assert junk["reading_order_similarity"] == 0.0
+    # The content dimension already reds on these, and must keep saying so independently.
+    assert empty["text_content_similarity"] == 0.0
+    assert junk["text_content_similarity"] < 0.1
+
+
+def test_a_single_unrecognizable_block_earns_no_reading_order_credit() -> None:
+    """One block has no order to get wrong, but it still has to be the block it claims to be.
+
+    The order term used to be skipped entirely below two blocks, so a page answered with a single
+    junk paragraph collected the full block-kind coverage score -- the same 1.0 that byte-perfect
+    output earns. Identification is charged at every block count; only the inversion count needs
+    a pair.
+    """
+    expected = PageProjection(("The quick brown fox jumps",), ("text_block",), (), ())
+
+    assert score_page(expected, expected)["reading_order_similarity"] == 1.0
+    assert score_page(expected, PageProjection(("zzz",), ("text_block",), (), ()))["reading_order_similarity"] == 0.0
+
+
+def test_ordinary_extraction_noise_does_not_bleed_into_the_order_term() -> None:
+    """The identification floor must not turn reading order into a second content metric.
+
+    A block recognizably the same text, with the extraction damage the real corpus shows, has to
+    keep its vote -- otherwise every content regression reds two dimensions and the ratchet loses
+    the one signal that is only about sequence.
+    """
+    expected = PageProjection(("Alpha beta gamma", "Delta epsilon zeta"), ("text_block",) * 2, (), ())
+    noisy = PageProjection(("Alpha beta gamm", "Delta epsilonzeta"), ("text_block",) * 2, (), ())
+    swapped = PageProjection(("Delta epsilon zeta", "Alpha beta gamma"), ("text_block",) * 2, (), ())
+
+    assert score_page(expected, noisy)["reading_order_similarity"] == 1.0
+    assert score_page(expected, noisy)["text_content_similarity"] < 1.0
+    assert score_page(expected, swapped)["reading_order_similarity"] == 0.0
+
+
 def test_a_paragraph_holding_table_cells_costs_exactly_one_kind_substitution() -> None:
     """Recovering a table as a paragraph must be charged for segmentation and nothing else.
 
