@@ -72,6 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AsciiDoc and Org: an ordered list keeps the number it starts at.** Both formats
+  renumber a list themselves, so `1.` through `n.` is all either one preserved and a
+  `List(start=5)` came back as `start=1`. The two lost it at opposite ends. AsciiDoc
+  emitted no marker at all; it now writes the `[start=N]` block attribute, and the
+  parser reads it (and consumes it, so it cannot attach to a later list). Org *did*
+  emit the number — a literal `5.` — but Org renumbers from 1 unless the first item
+  carries an explicit counter set, so the information was in the document and thrown
+  away by Org and by our own parser alike. The renderer now adds `[@5]` to the first
+  item, and the parser reads both `[@N]` and, failing that, the list's own first
+  number, which is what the Markdown parser already did. Hand-written `5. First` in
+  Org therefore starts at 5 now (#239).
+
 - **RST: all six heading levels are now distinguishable.** Two defects collapsed them,
   and both are visible on any document with more than a couple of heading levels. The
   renderer had five underline characters for six levels, so levels 5 and 6 shared `*`

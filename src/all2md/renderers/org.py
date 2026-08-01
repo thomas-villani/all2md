@@ -529,6 +529,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 # Use numbered list format
                 number = node.start + i
                 marker = f"{number}. "
+                # Org renumbers an ordered list from 1 unless the first item carries a
+                # counter set, so the literal `5.` alone did not survive: the number was
+                # in the document and both Org and our own parser threw it away.
+                if i == 0 and node.start != 1:
+                    marker = f"{marker}[@{node.start}] "
             else:
                 # Use bullet list format
                 marker = "- "

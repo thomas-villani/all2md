@@ -216,6 +216,55 @@ class TestListItemContinuation:
 
 
 @pytest.mark.unit
+class TestOrderedListStart:
+    """An ordered list that does not start at 1 must say so."""
+
+    def test_a_start_offset_round_trips(self) -> None:
+        """AsciiDoc numbers the list itself, so the start needs `[start=N]`.
+
+        The renderer emitted no marker at all, so the number was simply dropped and
+        every ordered list came back starting at 1.
+        """
+        source = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=5,
+                    items=[ListItem(children=[Paragraph(content=[Text(content=text)])]) for text in ("a", "b")],
+                )
+            ]
+        )
+
+        rendered = AsciiDocRenderer().render_to_string(source)
+        reparsed = AsciiDocParser().parse(rendered)
+
+        assert rendered.startswith("[start=5]\n")
+        reparsed_list = reparsed.children[0]
+        assert isinstance(reparsed_list, List)
+        assert reparsed_list.start == 5
+        assert [item.children[0].content[0].content for item in reparsed_list.items] == ["a", "b"]
+
+    def test_a_list_starting_at_one_carries_no_attribute(self) -> None:
+        """The default needs no marker, and adding one would churn every document."""
+        source = Document(
+            children=[List(ordered=True, start=1, items=[ListItem(children=[Paragraph(content=[Text(content="a")])])])]
+        )
+
+        rendered = AsciiDocRenderer().render_to_string(source)
+
+        assert "start=" not in rendered
+
+    def test_a_start_does_not_leak_onto_the_next_list(self) -> None:
+        """The attribute is consumed by the list it precedes, not left pending."""
+        adoc = "[start=5]\n. a\n\nsep\n\n. b\n"
+
+        doc = AsciiDocParser().parse(adoc)
+
+        lists = [node for node in doc.children if isinstance(node, List)]
+        assert [node.start for node in lists] == [5, 1]
+
+
+@pytest.mark.unit
 class TestFootnoteFlattening:
     """Tests for footnote content flattening to inline text."""
 

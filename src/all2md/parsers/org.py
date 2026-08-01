@@ -1015,11 +1015,17 @@ class OrgParser(BaseParser):
         lines = block.split("\n")
         items: list[ListItem] = []
         ordered = False
+        start = 1
 
         # Check if ordered or unordered
         first_line = lines[0].strip()
-        if re.match(r"^\d+[\.\)]", first_line):
+        first_number = re.match(r"^(\d+)[\.\)]", first_line)
+        if first_number:
             ordered = True
+            # The list's own first number is its start. Taking it is what the Markdown
+            # parser already does, and without it a list written `5.` came back at 1 --
+            # the number was present in the document and discarded on the way in.
+            start = int(first_number.group(1))
 
         for line in lines:
             line_stripped = line.strip()
@@ -1037,12 +1043,19 @@ class OrgParser(BaseParser):
 
             if match:
                 item_text = (match.group(1) or "").strip()
+                # `[@N]` is Org's own counter set, and it wins over the literal number
+                # it follows -- that is the whole point of writing it.
+                counter = re.match(r"^\[@(\d+)\]\s*(.*)$", item_text, re.DOTALL)
+                if counter:
+                    if not items:
+                        start = int(counter.group(1))
+                    item_text = counter.group(2).strip()
                 if item_text:
                     items.append(ListItem(children=[Paragraph(content=self._parse_inline(item_text))]))
                 else:
                     items.append(ListItem(children=[]))
 
-        return List(ordered=ordered, items=items)
+        return List(ordered=ordered, start=start, items=items)
 
     def _parse_definition_list(self, block: str) -> DefinitionList | None:
         """Parse an Org definition list.

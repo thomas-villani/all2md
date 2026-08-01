@@ -31,6 +31,7 @@ from all2md.ast import (
     LineBreak,
     Link,
     List,
+    ListItem,
     MathBlock,
     MathInline,
     Paragraph,
@@ -323,6 +324,53 @@ class TestLists:
         lst = lists[0]
         assert lst.ordered
         assert len(lst.items) == 3
+
+    def test_the_first_number_is_the_list_start(self) -> None:
+        """A list written `5.` starts at 5, as it does in Markdown.
+
+        The number was in the document and the parser threw it away, so every
+        ordered list came back starting at 1.
+        """
+        parser = OrgParser()
+
+        doc = parser.parse("5. First\n6. Second\n")
+
+        lst = [node for node in doc.children if isinstance(node, List)][0]
+        assert lst.ordered
+        assert lst.start == 5
+        assert len(lst.items) == 2
+
+    def test_an_explicit_counter_set_wins_over_the_literal_number(self) -> None:
+        """`[@N]` is Org's own way to set the counter, so it outranks the digits."""
+        parser = OrgParser()
+
+        doc = parser.parse("1. [@7] First\n2. Second\n")
+
+        lst = [node for node in doc.children if isinstance(node, List)][0]
+        assert lst.start == 7
+        assert lst.items[0].children[0].content[0].content == "First"
+
+    def test_an_ordered_list_round_trips_its_start(self) -> None:
+        """Org renumbers from 1 unless the first item carries a counter set."""
+        from all2md.renderers.org import OrgRenderer
+
+        source = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=5,
+                    items=[ListItem(children=[Paragraph(content=[Text(content=text)])]) for text in ("a", "b")],
+                )
+            ]
+        )
+
+        rendered = OrgRenderer().render_to_string(source)
+        reparsed = OrgParser().parse(rendered)
+
+        assert "[@5]" in rendered
+        lst = [node for node in reparsed.children if isinstance(node, List)][0]
+        assert lst.start == 5
+        assert [item.children[0].content[0].content for item in lst.items] == ["a", "b"]
 
 
 @pytest.mark.unit
