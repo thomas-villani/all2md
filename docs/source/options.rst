@@ -9499,11 +9499,11 @@ reStructuredText output.
 
 **heading_chars**
 
-   Characters for heading underlines (h1-h5)
+   Characters for heading underlines (h1-h6), one per level, none repeated
 
    :Type: ``str``
    :CLI flag: ``--rst-renderer-heading-chars``
-   :Default: ``'=-~^*'``
+   :Default: ``'=-~^*"'``
    :Importance: advanced
 
 **table_style**

@@ -1020,7 +1020,11 @@ DEFAULT_PPTX_STRICT_LIST_DETECTION = False
 # Format-Specific Constants - reStructuredText (RST)
 # =============================================================================
 
-DEFAULT_RST_HEADING_CHARS = "=-~^*"
+#: One underline character per heading level, h1 to h6. reStructuredText derives a
+#: level from the order in which each character first appears, so two levels sharing a
+#: character are the same level. Six levels therefore need six distinct characters --
+#: this held only five, and level 6 reused level 5's.
+DEFAULT_RST_HEADING_CHARS = '=-~^*"'
 DEFAULT_RST_TABLE_STYLE: RstTableStyle = "grid"
 DEFAULT_RST_CODE_STYLE: RstCodeStyle = "directive"
 DEFAULT_RST_LINE_LENGTH = 80

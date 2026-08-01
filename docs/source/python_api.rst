@@ -1214,7 +1214,7 @@ Basic Conversion
 
    # With options
    options = RstRendererOptions(
-       heading_chars="=-~^*",           # Customize heading underlines
+       heading_chars='=-~^*"',          # Customize heading underlines
        table_style="grid",              # Use grid tables
        code_directive_style="directive" # Use .. code-block:: directives
    )
@@ -1269,9 +1269,9 @@ Customizing RST Output
 
    from all2md.renderers.rst import RestructuredTextRenderer, RstRendererOptions
 
-   # Custom heading characters (level 1-5)
+   # Custom heading characters (levels 1-6, one each, none repeated)
    options = RstRendererOptions(
-       heading_chars="#*+=",        # Different underline chars
+       heading_chars="#*+=~^",      # Different underline chars
        table_style="simple",        # Simple tables instead of grid
        code_directive_style="double_colon",  # Use :: for code blocks
        line_length=100              # Target line wrapping
@@ -1303,7 +1303,7 @@ Complete round-trip conversion example:
 
    # Render back to RST with custom options
    options = RstRendererOptions(
-       heading_chars="=-~^*",
+       heading_chars='=-~^*"',
        table_style="grid"
    )
    renderer = RestructuredTextRenderer(options)

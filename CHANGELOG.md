@@ -72,6 +72,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **RST: all six heading levels are now distinguishable.** Two defects collapsed them,
+  and both are visible on any document with more than a couple of heading levels. The
+  renderer had five underline characters for six levels, so levels 5 and 6 shared `*`
+  — and RST derives a heading's level from the order in which each underline character
+  *first appears*, which makes two levels sharing a character the same level. The
+  default gains a sixth character (`"`), and a repeated character is now rejected by
+  `RstRendererOptions` rather than silently merging two levels. Separately, on the
+  parsing side, docutils was promoting a lone top-level section's title to the document
+  title and a lone subsection's to the subtitle. That takes both out of the section
+  tree, so the depth count restarted underneath them: a document reading `Title` then
+  `Section` came back with **both at level 1**, and six properly nested headings came
+  back `[1, 2, 1, 2, 3, 4]`. Sections stay sections now (`doctitle_xform` off, as
+  Sphinx does), so the level is the nesting depth. Bibliographic fields written under
+  a title are still read as metadata — docutils only lifts them into a `docinfo` node
+  when it promotes the title, so they are now read from the field list directly (#238).
+
 - **AsciiDoc: heading levels no longer shift, and level 6 is no longer dropped.** The
   renderer added one `=` to every level, reserving a bare `=` for a document title it
   never actually wrote. Nothing read it back that way — the parser counts `=` and

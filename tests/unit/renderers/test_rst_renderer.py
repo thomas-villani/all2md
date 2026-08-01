@@ -430,6 +430,73 @@ Title
         assert "**bold**" in generated_rst
         assert "*italic*" in generated_rst
 
+    def test_every_heading_level_survives_a_round_trip(self) -> None:
+        """Six levels in, six levels out.
+
+        Two things collapsed them. The renderer had only five underline characters,
+        so levels 5 and 6 shared one -- and RST derives a level from the order in
+        which each character first appears, which makes two levels sharing a
+        character the *same* level. Separately, docutils promoted the first section's
+        title to the document title and the second's to the subtitle, taking both out
+        of the section tree so the depth count restarted below them: the trip used to
+        return [1, 2, 1, 2, 3, 4].
+        """
+        from all2md.parsers.rst import RestructuredTextParser
+
+        doc = Document(children=[Heading(level=level, content=[Text(content=f"h{level}")]) for level in range(1, 7)])
+
+        rendered = RestructuredTextRenderer().render_to_string(doc)
+        reparsed = RestructuredTextParser().parse(rendered)
+
+        headings = [node for node in reparsed.children if isinstance(node, Heading)]
+        assert [heading.level for heading in headings] == [1, 2, 3, 4, 5, 6]
+        assert [heading.content[0].content for heading in headings] == [f"h{level}" for level in range(1, 7)]
+
+    def test_the_default_underline_characters_are_all_distinct(self) -> None:
+        """The defaults have to cover six levels without reusing a character."""
+        options = RstRendererOptions()
+
+        assert len(options.heading_chars) >= 6
+        assert len(set(options.heading_chars)) == len(options.heading_chars)
+
+    def test_a_repeated_underline_character_is_rejected(self) -> None:
+        """A repeat silently merges two levels, so it is refused rather than diagnosed."""
+        with pytest.raises(ValueError, match="must not repeat a character"):
+            RstRendererOptions(heading_chars="=-=")
+
+    def test_nesting_depth_below_a_title_keeps_counting(self) -> None:
+        """The document title is a heading like any other, not a level of its own.
+
+        docutils promoted a lone top-level section's title to the document title and a
+        lone subsection's to the subtitle, taking both out of the section tree, so the
+        depth count restarted underneath them: this document returned [1, 2, 1].
+        """
+        from all2md.parsers.rst import RestructuredTextParser
+
+        rst = "Title\n=====\n\nSection\n-------\n\nSub\n~~~\n\nBody.\n"
+
+        doc = RestructuredTextParser().parse(rst)
+
+        headings = [node for node in doc.children if isinstance(node, Heading)]
+        assert [heading.level for heading in headings] == [1, 2, 3]
+
+    def test_bibliographic_fields_below_a_title_are_still_metadata(self) -> None:
+        """Keeping sections unpromoted must not cost the author of every document.
+
+        docutils only lifts a leading field list into a ``docinfo`` node when it also
+        promotes the title, so with promotion off the fields stay a plain field list
+        inside the first section and have to be read there.
+        """
+        from all2md.parsers.rst import RestructuredTextParser
+
+        rst = "Title\n=====\n\n:author: Me\n:version: 1.0\n\nBody.\n"
+
+        doc = RestructuredTextParser().parse(rst)
+
+        assert doc.metadata.get("title") == "Title"
+        assert doc.metadata.get("author") == "Me"
+        assert doc.metadata.get("version") == "1.0"
+
 
 @pytest.mark.unit
 class TestTextEscaping:
