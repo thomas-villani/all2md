@@ -12,12 +12,30 @@ name: Generative Roundtrip Gates
 #     HYPOTHESIS_PROFILE=ci pytest -m fuzzing --hypothesis-seed=random
 #
 # What forced the split: on the 3.12 leg these took over 3 hours, against ~60s
-# for the same file locally. That ~160x gap is not explained by the example
-# count, by coverage instrumentation, or by the Hypothesis profile (CI does not
-# set HYPOTHESIS_PROFILE, so it runs `dev` exactly as a dev box does), and it
-# was making every PR wait hours. --durations below is here to name the tests
-# responsible; until that lands, treat the runtime here as unexplained rather
-# than as the cost of the gates.
+# for the same file locally. That gap is still unexplained, and the list of
+# things it is NOT keeps growing -- each one measured, not argued:
+#
+#   - example count: #216's per-format budget is real, but it is 10x of ~6s
+#   - coverage: 61s plain vs 59s under --cov=all2md
+#   - Hypothesis profile: CI never sets HYPOTHESIS_PROFILE, so it loads `dev`
+#     exactly as a dev box does
+#   - Hypothesis version: CI installs 6.164.0 against 6.155.7 locally, but
+#     shadowing 6.164.0 onto a local run leaves dokuwiki at ~1s
+#   - corpus luck: dokuwiki is flat at ~1.5s across five different seeds
+#
+# The first --durations run ruled out a stall: the per-test durations sum to
+# 4938s against a 4993s job, so the time is real work spread over specific
+# tests. It is also wildly uneven -- dokuwiki 863s and asciidoc 557s in CI
+# against ~2s locally, while ipynb is only 6.5x. Locally those two are among
+# the *fastest* formats, so CI is not simply a slower machine: a constant
+# factor cannot invert the ordering.
+#
+# --hypothesis-show-statistics is the next instrument. Locally dokuwiki reports
+# 25 passing / 5 invalid examples with generation dominating (~74ms of an ~87ms
+# example). The CI numbers separate the live hypotheses: 25 examples at ~34s
+# each means execution is genuinely slow on this platform, while thousands of
+# invalid examples means Hypothesis is thrashing on generation and the finger
+# points away from our renderers entirely.
 
 on:
   schedule:
@@ -58,8 +76,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[all,dev]"
 
-      # --durations=0 prints every test rather than a top-N: the open question is
-      # the shape of the distribution (355 examples at ~25s each, or three tests
-      # hanging for 45 minutes), and a top-N cannot tell those apart.
+      # Record what the environment actually resolved to. `hypothesis` is pinned
+      # only as >=6.100.0, so the installed version drifts run to run, and
+      # ruling it in or out after the fact needs the number in the log.
+      - name: Record environment
+        run: |
+          python -VV
+          pip show hypothesis | head -2
+          python -c 'import sys; print("platform:", sys.platform)'
+
+      # --durations=0 prints every test rather than a top-N: the question is the
+      # shape of the distribution, and a top-N cannot show it.
+      #
+      # --hypothesis-show-statistics is the load-bearing flag here. It reports
+      # per test how many examples ran, how many were invalid, and how the time
+      # split between generating data and executing it -- which is what tells us
+      # whether 863s of dokuwiki is 25 slow round trips or a generator thrashing
+      # on rejected examples. Compare against the local baseline: 25 passing,
+      # 5 invalid, ~74ms of an ~87ms example spent in generation.
       - name: Run the generative gates
-        run: pytest tests/unit/test_roundtrip_fuzzing.py -m generative -v --durations=0
+        run: >
+          pytest tests/unit/test_roundtrip_fuzzing.py -m generative -v
+          --durations=0 --hypothesis-show-statistics

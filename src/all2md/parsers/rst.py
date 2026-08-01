@@ -257,6 +257,7 @@ class RestructuredTextParser(BaseParser):
             if isinstance(parent, docutils_nodes.section):
                 level += 1
             parent = parent.parent
+        level = min(level, 6)
 
         # Process children
         for child in node.children:
