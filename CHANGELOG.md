@@ -22,6 +22,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A `str` that names a missing file now raises instead of becoming the document.**
+  Every text parser accepts a `str` that may be either a file path or the document
+  content, and nothing in the signature distinguishes them — so each parser guessed, and
+  the library guessed two different ways. Fifteen parsers fell through to "it must be
+  content", which meant a typo in a filename produced a one-line document containing the
+  filename: `MarkdownToAstConverter().parse("does_not_exist.md")` returned a `Paragraph`
+  reading `does_not_exist.md`, which downstream is a successful conversion of the wrong
+  thing. The other three (`csv`, `fb2`, `rtf`) read *every* `str` as a path, so raw
+  content was unusable. Both halves now go through one classifier in
+  `all2md.utils.inputs.resolve_str_input`, so all 18 agree: raw content parses, and a
+  string that looks like a path but does not resolve raises `FileNotFoundError` naming
+  the escape hatches. "Looks like a path" is deliberately narrow — no whitespace, no
+  `://`, and ends with an extension all2md knows — so prose such as `"read config.json"`
+  or `"Visit https://example.com"` is still content. Callers who pass content that fits
+  that shape should pass `bytes` or `io.StringIO`; `Path(...)` still always means a path.
+  `ini`, `json`, `toml` and `yaml` also stop re-wrapping typed all2md failures as
+  `ParsingError`, so the more specific exception survives (#233).
 - **Type inference no longer reads `1` and `0` as booleans.** With `type_inference=True`,
   the JSON, YAML and TOML renderers treated the table cells `1` and `0` as `true`/`false`,
   so an `age` column of `1` serialized as a boolean. They are now integers; `true`/`yes`/`on`

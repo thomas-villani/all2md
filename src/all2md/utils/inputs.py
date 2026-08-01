@@ -88,6 +88,123 @@ def is_file_like(obj: Any) -> bool:
     return hasattr(obj, "read") and callable(obj.read)
 
 
+#: Longest ``str`` that is probed against the filesystem. Most platforms cap a
+#: single path component at 255 bytes, and on some of them ``Path.is_file()``
+#: raises ``OSError`` rather than returning ``False`` for an over-long name.
+MAX_PROBEABLE_PATH_LENGTH = 260
+
+
+def looks_like_path_attempt(value: str) -> bool:
+    """Return whether a ``str`` was plausibly meant as a file path.
+
+    Text parsers accept a ``str`` that may be either a path or the document
+    content itself, and nothing in the signature distinguishes them. When the
+    filesystem probe misses, this decides between two failure modes: raising
+    (the caller meant a path and mistyped it) or parsing the string as content
+    (the caller meant content all along).
+
+    The predicate is deliberately narrow, because a false positive breaks
+    working code that parses short strings while a false negative only leaves
+    today's behaviour in place. All four conditions must hold:
+
+    - short enough and single-line to be a plausible filename,
+    - no whitespace, so prose such as ``"read config.json"`` stays content,
+    - no ``://``, so a bare URL such as ``"https://example.com/a.md"`` stays
+      content,
+    - ends with a file extension all2md actually knows.
+
+    Parameters
+    ----------
+    value : str
+        The ambiguous string.
+
+    Returns
+    -------
+    bool
+        True if the string should be read as a mistyped path rather than as
+        document content.
+
+    Examples
+    --------
+    >>> looks_like_path_attempt("does_not_exist.md")
+    True
+    >>> looks_like_path_attempt("read config.json")
+    False
+    >>> looks_like_path_attempt("Visit https://example.com")
+    False
+
+    """
+    if not value or len(value) > MAX_PROBEABLE_PATH_LENGTH:
+        return False
+    if any(character.isspace() for character in value):
+        return False
+    if "://" in value:
+        return False
+
+    # Imported here rather than at module scope: the registry imports this
+    # module's siblings, and startup cost is a tracked budget.
+    from all2md.converter_registry import registry
+
+    lowered = value.lower()
+    return any(lowered.endswith(extension) for extension in registry.get_all_extensions())
+
+
+def resolve_str_input(value: str) -> Path | None:
+    """Classify an ambiguous ``str`` as a filesystem path or as document content.
+
+    Every text parser takes a ``str`` that may be either. This is the single
+    place that decides, so the 18 parsers agree and the rule can be changed
+    once.
+
+    Parameters
+    ----------
+    value : str
+        The ambiguous string.
+
+    Returns
+    -------
+    Path or None
+        The resolved path when the string names an existing file, otherwise
+        ``None``, meaning treat ``value`` itself as the document content.
+
+    Raises
+    ------
+    all2md.exceptions.FileNotFoundError
+        If the string looks like a path (see :func:`looks_like_path_attempt`)
+        but no such file exists. Without this a mistyped filename parsed into a
+        one-line document containing the filename, which reads downstream as a
+        successful conversion of the wrong thing.
+
+    Examples
+    --------
+    >>> resolve_str_input("# A heading") is None
+    True
+
+    """
+    if len(value) <= MAX_PROBEABLE_PATH_LENGTH and "\n" not in value:
+        try:
+            path = Path(value)
+            if path.is_file():
+                return path
+        except OSError:
+            # Over-long, or illegal characters for this platform. Not a path we
+            # can read either way, so fall through to the content decision.
+            pass
+
+    if looks_like_path_attempt(value):
+        raise All2MdFileNotFoundError(
+            file_path=value,
+            message=(
+                f"File not found: {value}\n"
+                "This string was read as a file path because it has no whitespace and ends "
+                "with a known all2md extension. If it is document content rather than a "
+                "path, pass it as bytes (value.encode()) or wrap it in io.StringIO to say "
+                "so explicitly; pass Path(...) to always mean a path."
+            ),
+        )
+    return None
+
+
 def validate_page_range(pages: list[int] | str | None, max_pages: int | None = None) -> list[int] | None:
     """Validate and normalize a page range specification.
 
