@@ -778,6 +778,18 @@ class AsciiDocParser(BaseParser):
 
         self.current_token_index = saved_index
 
+    @staticmethod
+    def _block_title_match(line: str) -> str | None:
+        """Return the text of a `.Title` block-title line, or None if it is not one.
+
+        A leading `..` is not a title -- that is how AsciiDoc escapes the marker -- and
+        neither is `. ` with a space, which is an ordered list item.
+        """
+        stripped = line.strip()
+        if len(stripped) < 2 or not stripped.startswith(".") or stripped[1] in ". \t":
+            return None
+        return stripped[1:].strip() or None
+
     def _parse_block(self) -> Node | list[Node] | None:
         """Parse a single block-level element.
 
@@ -793,6 +805,20 @@ class AsciiDocParser(BaseParser):
         if token.type == TokenType.ATTRIBUTE:
             self._advance()
             return None
+
+        # A block title -- `.My caption` on the line above a block. The renderer has
+        # always emitted one for a table's caption; nothing here read it back, so the
+        # caption made the trip out and not the trip in. Recognized only directly above
+        # a table, and only with the delimiter or a block attribute in between, so an
+        # ordinary paragraph opening with a period is still a paragraph.
+        if token.type == TokenType.TEXT_LINE and self._block_title_match(token.content):
+            offset = 1
+            while self._peek_token(offset).type == TokenType.BLOCK_ATTRIBUTE:
+                offset += 1
+            if self._peek_token(offset).type == TokenType.TABLE_DELIMITER:
+                self.pending_block_attrs["title"] = self._block_title_match(token.content)
+                self._advance()
+                return None
 
         # Comment (block-level //)
         if token.type == TokenType.COMMENT:
@@ -1868,6 +1894,7 @@ class AsciiDocParser(BaseParser):
         """
         # Consume pending attributes
         attrs = self._consume_pending_attrs()
+        caption = attrs.get("title")
 
         # Skip opening delimiter
         self._advance()
@@ -1919,7 +1946,7 @@ class AsciiDocParser(BaseParser):
         if self._current_token().type == TokenType.TABLE_DELIMITER:
             self._advance()
 
-        return Table(header=header, rows=rows)
+        return Table(header=header, rows=rows, caption=caption)
 
     def _parse_table_row(self, line: str) -> TableRow:
         r"""Parse a table row from a line.

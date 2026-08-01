@@ -60,6 +60,28 @@ from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
+#: Keywords that describe the document rather than the block beneath them. These are
+#: read into the metadata, so they are dropped from the body above the first heading
+#: instead of being printed twice. Affiliated keywords such as ``#+CAPTION:`` are
+#: deliberately absent: they belong to the block that follows.
+_FILE_PROPERTY_KEYWORDS = frozenset(
+    {
+        "AUTHOR",
+        "DATE",
+        "DESCRIPTION",
+        "EMAIL",
+        "FILETAGS",
+        "KEYWORDS",
+        "LANGUAGE",
+        "OPTIONS",
+        "PROPERTY",
+        "SETUPFILE",
+        "STARTUP",
+        "SUBTITLE",
+        "TITLE",
+    }
+)
+
 
 class OrgParser(BaseParser):
     r"""Convert Org-Mode to AST representation.
@@ -223,6 +245,10 @@ class OrgParser(BaseParser):
         with a code block silently lost it. The same block parsed correctly one line
         lower, under a heading, because only this preamble path filtered.
 
+        Only keywords that really are file-level qualify. Org spells affiliated
+        keywords such as ``#+CAPTION:`` the same way, and those belong to the block
+        underneath them rather than to the document.
+
         Lines inside a block are left exactly as they are: a ``#+TITLE:`` written
         inside a source block is code, not a document property.
         """
@@ -239,7 +265,8 @@ class OrgParser(BaseParser):
                 in_block = True
                 filtered_lines.append(line)
                 continue
-            if re.match(r"^#\+\w[\w-]*:", stripped):
+            keyword = re.match(r"^#\+([\w-]+):", stripped)
+            if keyword and keyword.group(1).upper() in _FILE_PROPERTY_KEYWORDS:
                 continue
             filtered_lines.append(line)
         return "\n".join(filtered_lines).strip()
@@ -650,6 +677,17 @@ class OrgParser(BaseParser):
             if not block:
                 continue
 
+            # `#+CAPTION:` is an affiliated keyword: it belongs to the block written
+            # under it, and no blank line separates the two, so it arrives at the head
+            # of this block rather than as one of its own.
+            caption = None
+            caption_match = re.match(r"^#\+CAPTION:\s*(.*)$", block.split("\n", 1)[0], re.IGNORECASE)
+            if caption_match:
+                caption = caption_match.group(1).strip() or None
+                block = block.split("\n", 1)[1].strip() if "\n" in block else ""
+                if not block:
+                    continue
+
             # Check for horizontal rules (5+ dashes)
             if re.match(r"^-{5,}$", block):
                 result.append(ThematicBreak())
@@ -683,6 +721,8 @@ class OrgParser(BaseParser):
             if block.startswith("|"):
                 table = self._parse_table(block)
                 if table:
+                    if caption:
+                        table.caption = caption
                     result.append(table)
                 continue
 

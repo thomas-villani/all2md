@@ -72,6 +72,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Table captions survive a round trip in AsciiDoc, RST and Org.** All three have a
+  caption syntax and none of them used it in both directions. AsciiDoc already *wrote*
+  the caption as a `.My caption` block title, and its parser ignored the line, so the
+  caption made the trip out and not the trip in. RST emitted a bare grid with nowhere
+  to put one; it now uses the `.. table::` directive, which takes the caption as its
+  argument and the table as its indented body, and reads it back. Org emitted nothing;
+  it now writes the `#+CAPTION:` affiliated keyword. Doing that also narrowed the
+  filter that keeps `#+TITLE:` and friends out of the body text, which previously
+  dropped every `#+KEYWORD:` line and would have eaten the caption with them — it now
+  works from a list of genuinely document-level keywords. One visible consequence: an
+  RST table caption that used to vanish on conversion now reaches the output, so
+  RST→Markdown gains an italic line above the table. Markdown has no caption syntax
+  and its arm of this is still open (#237).
+
 - **AsciiDoc and Org: an ordered list keeps the number it starts at.** Both formats
   renumber a list themselves, so `1.` through `n.` is all either one preserved and a
   `List(start=5)` came back as `start=1`. The two lost it at opposite ends. AsciiDoc

@@ -15,6 +15,7 @@ generate RST output.
 from __future__ import annotations
 
 import re
+import textwrap
 from pathlib import Path
 from typing import IO, Union
 
@@ -387,6 +388,21 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Table to render
 
         """
+        # A caption needs the `.. table::` directive, which takes the caption as its
+        # argument and the table as its indented body. Without it the caption was
+        # simply not written -- the renderer emitted a bare grid and the text was gone.
+        if node.caption:
+            self._output.append(f".. table:: {node.caption}\n\n")
+            start = len(self._output)
+            if self.options.table_style == "grid":
+                self._render_grid_table(node)
+            else:
+                self._render_simple_table(node)
+            body = "".join(self._output[start:])
+            del self._output[start:]
+            self._output.append(textwrap.indent(body, "   "))
+            return
+
         if self.options.table_style == "grid":
             self._render_grid_table(node)
         else:

@@ -265,6 +265,50 @@ class TestOrderedListStart:
 
 
 @pytest.mark.unit
+class TestTableCaption:
+    """A table caption must survive both directions."""
+
+    def test_a_caption_round_trips(self) -> None:
+        """The renderer already wrote `.My caption`; nothing read it back.
+
+        AsciiDoc's block title is the line above a block, so the caption made the
+        trip out and not the trip in, and every table came back with caption=None.
+        """
+        source = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="A")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                    caption="My caption",
+                )
+            ]
+        )
+
+        rendered = AsciiDocRenderer().render_to_string(source)
+        reparsed = AsciiDocParser().parse(rendered)
+
+        assert rendered.startswith(".My caption")
+        table = [node for node in reparsed.children if isinstance(node, Table)][0]
+        assert table.caption == "My caption"
+
+    def test_a_block_title_survives_an_intervening_attribute_line(self) -> None:
+        """`[cols=...]` may sit between the title and the table."""
+        adoc = '.Cap\n[cols="1,1"]\n|===\n|A |B\n|===\n'
+
+        doc = AsciiDocParser().parse(adoc)
+
+        table = [node for node in doc.children if isinstance(node, Table)][0]
+        assert table.caption == "Cap"
+
+    def test_a_paragraph_opening_with_a_period_is_still_a_paragraph(self) -> None:
+        """The title is only recognized directly above a table, not everywhere."""
+        doc = AsciiDocParser().parse(".Not a title, just prose.\n")
+
+        assert len(doc.children) == 1
+        assert doc.children[0].content[0].content == ".Not a title, just prose."
+
+
+@pytest.mark.unit
 class TestFootnoteFlattening:
     """Tests for footnote content flattening to inline text."""
 

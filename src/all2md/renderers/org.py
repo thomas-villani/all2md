@@ -595,6 +595,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not rows_to_render:
             return
 
+        # Org attaches a caption to the block below it with `#+CAPTION:`. Nothing was
+        # emitted at all, so the caption was dropped on the way out.
+        if node.caption:
+            self._output.append(f"#+CAPTION: {node.caption}\n")
+
         # Compute grid dimensions accounting for colspan/rowspan
         num_rows = len(rows_to_render)
         num_cols = self._compute_table_columns(rows_to_render)
