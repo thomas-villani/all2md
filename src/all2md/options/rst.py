@@ -94,9 +94,13 @@ class RstRendererOptions(BaseRendererOptions):
 
     Parameters
     ----------
-    heading_chars : str, default "=-~^*"
-        Characters to use for heading underlines from h1 to h5.
-        First character is for level 1, second for level 2, etc.
+    heading_chars : str, default '=-~^*"'
+        Characters to use for heading underlines from h1 to h6.
+        First character is for level 1, second for level 2, etc. No character may
+        repeat: RST derives a heading's level from the order in which each underline
+        character first appears, so two levels sharing one are read back as the same
+        level. A string shorter than six characters collapses the deepest levels onto
+        the last one for the same reason.
     table_style : {"grid", "simple"}, default "grid"
         Table rendering style:
         - "grid": Grid tables with +---+ borders
@@ -156,7 +160,10 @@ class RstRendererOptions(BaseRendererOptions):
 
     heading_chars: str = field(
         default=DEFAULT_RST_HEADING_CHARS,
-        metadata={"help": "Characters for heading underlines (h1-h5)", "importance": "advanced"},
+        metadata={
+            "help": "Characters for heading underlines (h1-h6), one per level, none repeated",
+            "importance": "advanced",
+        },
     )
     table_style: RstTableStyle = field(
         default=DEFAULT_RST_TABLE_STYLE,
@@ -216,3 +223,15 @@ class RstRendererOptions(BaseRendererOptions):
         # Validate non-empty heading chars
         if not self.heading_chars or len(self.heading_chars) == 0:
             raise ValueError("heading_chars must not be empty")
+
+        # A repeated character silently merges two levels, because RST derives a level
+        # from the order in which each character first appears rather than from the
+        # character itself. That is how the default lost the distinction between levels
+        # 5 and 6, so it is worth rejecting rather than diagnosing again later.
+        duplicates = sorted({char for char in self.heading_chars if self.heading_chars.count(char) > 1})
+        if duplicates:
+            raise ValueError(
+                f"heading_chars must not repeat a character, got {self.heading_chars!r} "
+                f"(repeated: {', '.join(repr(char) for char in duplicates)}). "
+                "RST reads two levels sharing an underline character as the same level."
+            )

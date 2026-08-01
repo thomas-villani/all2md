@@ -131,6 +131,16 @@ class RestructuredTextParser(BaseParser):
                 "report_level": 5 if not self.options.strict_mode else 2,
                 "halt_level": 5 if not self.options.strict_mode else 3,
                 "warning_stream": None,
+                # Keep every section a section. By default docutils promotes a lone
+                # top-level section's title to the document title (and a lone
+                # subsection's to the subtitle), which removes those levels from the
+                # tree -- so a document reading `Title` / `Section` came back with both
+                # at level 1, and six properly nested headings came back [1, 2, 1, 2,
+                # 3, 4] because the count restarted after the two promotions. Sphinx
+                # turns these off for the same reason. The title is still read as
+                # metadata; it is taken from the first section's title either way.
+                "doctitle_xform": False,
+                "sectsubtitle_xform": False,
             }
             doctree = publish_doctree(rst_content, settings_overrides=settings_overrides)
         except Exception as e:
@@ -886,28 +896,48 @@ class RestructuredTextParser(BaseParser):
 
         metadata = DocumentMetadata()
 
-        # Look for docinfo node in document children
+        # Bibliographic fields reach us in one of two shapes. docutils only promotes a
+        # leading field list to a `docinfo` node when it also promotes the document
+        # title, and we keep every section a section (see the doctitle_xform override
+        # in `parse`), so the usual `Title` / `:author:` layout now leaves a plain
+        # field_list inside the first section. Read both, or turning off the promotion
+        # would silently drop the author of every document written that way.
+        fields: list[Any] = []
         for child in document.children:
             if isinstance(child, docutils_nodes.docinfo):
-                # Process docinfo fields
-                for field in child.children:
-                    if isinstance(field, docutils_nodes.author):
-                        metadata.author = field.astext()
-                    elif isinstance(field, docutils_nodes.date):
-                        metadata.creation_date = field.astext()
-                    elif isinstance(field, docutils_nodes.version):
-                        metadata.custom["version"] = field.astext()
-                    elif isinstance(field, docutils_nodes.field):
-                        # Custom field
-                        field_name = None
-                        field_body = None
-                        for subfield in field.children:
-                            if isinstance(subfield, docutils_nodes.field_name):
-                                field_name = subfield.astext()
-                            elif isinstance(subfield, docutils_nodes.field_body):
-                                field_body = subfield.astext()
-                        if field_name and field_body:
-                            metadata.custom[field_name.lower()] = field_body
+                fields.extend(child.children)
+        first_section = next((c for c in document.children if isinstance(c, docutils_nodes.section)), None)
+        if first_section is not None:
+            for subchild in first_section.children:
+                if isinstance(subchild, docutils_nodes.field_list):
+                    fields.extend(subchild.children)
+                    break
+
+        for field in fields:
+            if isinstance(field, docutils_nodes.author):
+                metadata.author = field.astext()
+            elif isinstance(field, docutils_nodes.date):
+                metadata.creation_date = field.astext()
+            elif isinstance(field, docutils_nodes.version):
+                metadata.custom["version"] = field.astext()
+            elif isinstance(field, docutils_nodes.field):
+                # An un-promoted field carries its name as text rather than as a node
+                # type, so the well-known ones are recognized here instead.
+                field_name = None
+                field_body = None
+                for subfield in field.children:
+                    if isinstance(subfield, docutils_nodes.field_name):
+                        field_name = subfield.astext()
+                    elif isinstance(subfield, docutils_nodes.field_body):
+                        field_body = subfield.astext()
+                if field_name and field_body:
+                    key = field_name.lower()
+                    if key == "author":
+                        metadata.author = field_body
+                    elif key == "date":
+                        metadata.creation_date = field_body
+                    else:
+                        metadata.custom[key] = field_body
 
         # Try to extract title from first section or standalone title
         for child in document.children:

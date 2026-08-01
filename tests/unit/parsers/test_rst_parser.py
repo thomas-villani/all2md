@@ -79,14 +79,12 @@ Level 3
         parser = RestructuredTextParser()
         doc = parser.parse(rst.strip())
 
-        # Should have 3 headings
-        # Note: docutils interprets first as title, second as subtitle, third as section
+        # Nesting depth is the level. docutils would otherwise promote the first
+        # section's title to the document title and the second's to the subtitle,
+        # removing both from the section tree and restarting the count below them.
         headings = [node for node in doc.children if isinstance(node, Heading)]
         assert len(headings) == 3
-        assert headings[0].level == 1  # title
-        assert headings[1].level == 2  # subtitle
-        # Third heading is inside a section, so level may differ
-        assert headings[2].level >= 1
+        assert [heading.level for heading in headings] == [1, 2, 3]
 
     def test_deeply_nested_headings(self) -> None:
         """Test parsing deeply nested sections (> 6 levels) clamps heading level to 6."""
@@ -108,7 +106,7 @@ Level 3
             return res
 
         headings = collect_headings(doc)
-        assert [h.level for h in headings] == [1, 2, 1, 2, 3, 4, 5, 6, 6]
+        assert [h.level for h in headings] == [1, 2, 3, 4, 5, 6, 6, 6, 6]
         assert headings[-1].level == 6
 
     def test_simple_paragraph(self) -> None:
