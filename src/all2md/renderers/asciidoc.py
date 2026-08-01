@@ -516,14 +516,19 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             return ""
 
         def render_row(cells: list[TableCell]) -> None:
-            # A span spec attaches to the cell after the `|` it precedes, so the
-            # first cell's spec has to replace the row-opening `|` rather than
-            # follow it — otherwise it would apply to a phantom empty cell.
-            self._output.append((cell_span(cells[0]) if cells else "") or "|")
+            # Every cell is *introduced* by its `|`, and the row ends with the last
+            # cell's content. A trailing delimiter would open one more cell: AsciiDoc
+            # reads whatever follows the final `|` as another cell, so a row written
+            # `|A |B |` parsed as three columns and every N-column table came back
+            # with N+1. A span spec such as `2+|` carries its own delimiter, which is
+            # why it replaces the `|` rather than following it.
+            if not cells:
+                return
             for index, cell in enumerate(cells):
                 content = self._render_inline_content(cell.content)
-                prefix = "" if index == 0 else cell_span(cell)
-                self._output.append(f"{prefix}{content} |")
+                delimiter = cell_span(cell) or "|"
+                separator = "" if index == 0 else " "
+                self._output.append(f"{separator}{delimiter}{content}")
             self._output.append("\n")
 
         # Render header

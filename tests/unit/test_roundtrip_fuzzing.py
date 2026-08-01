@@ -479,10 +479,6 @@ KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
         "asciidoc",
         "heading-levels-survive",
     ): "renderer offsets every level by one; level 6 overflows and is dropped (#236)",
-    # asciidoc writes a trailing pipe after the last cell, which its parser reads
-    # as an extra empty column. This is not specific to duplicate headers — every
-    # table goes in with N columns and comes back with N+1 (#235).
-    ("asciidoc", "duplicate-header-labels-survive"): "trailing pipe adds a phantom column to every table (#235)",
     # The ordered-list start attribute, from opposite ends (#239): asciidoc emits
     # no `[start=N]`, while org emits a literal `5.` its own parser will not read
     # back as a start.

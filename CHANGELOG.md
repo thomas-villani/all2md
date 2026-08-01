@@ -72,6 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AsciiDoc: a table no longer gains a phantom column.** Rows were written with a
+  trailing delimiter — `|A |B |` — and AsciiDoc reads whatever follows the final `|`
+  as one more cell, so every N-column table parsed back as N+1. It was silent and it
+  did not depend on the contents: a one-column table came back with two. The extra
+  column also persisted into anything converted onward from that AsciiDoc. Each cell
+  is now introduced by its own delimiter and the row ends with the last cell's content.
+  Fixing the renderer exposed the matching parser gap: a span spec belongs to the cell
+  *after* it, so canonical AsciiDoc writes `|A 2+|B`, and the parser only recognized
+  the spec when it stood alone in its own segment — the form the old renderer happened
+  to emit. Hand-written `|A 2+|B` silently lost the span. Both forms parse now. Output
+  changes for anyone diffing rendered AsciiDoc tables (#235).
+
 - **Org: a source block above the first heading is no longer deleted.** Text before the
   first `*` heading went through a filter meant to keep file properties such as
   `#+TITLE:` out of the body, and it dropped *every* line starting with `#+`. Org spells
