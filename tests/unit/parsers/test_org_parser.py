@@ -1090,3 +1090,113 @@ Task body content.
 
         # LOGBOOK and CLOSED may or may not be present due to orgparse limitations
         # Just verify the document parses without error
+
+
+@pytest.mark.unit
+class TestGreaterBlocks:
+    """Tests for #+BEGIN_X / #+END_X blocks, including above the first heading."""
+
+    def test_source_block_before_the_first_heading_is_still_a_code_block(self) -> None:
+        """A file that opens with a source block must not lose it.
+
+        Text above the first heading went through a filter that dropped every line
+        beginning with ``#+``, meant for file properties such as ``#+TITLE:``. Block
+        delimiters share that prefix, so ``#+BEGIN_SRC``/``#+END_SRC`` were deleted and
+        the code re-flowed as a paragraph -- silently, and only in this position: the
+        same block one line below a heading parsed correctly.
+        """
+        parser = OrgParser()
+
+        doc = parser.parse("#+BEGIN_SRC python\nx = 1\n#+END_SRC\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].language == "python"
+        assert doc.children[0].content == "x = 1"
+
+    def test_file_properties_are_still_kept_out_of_the_body(self) -> None:
+        """The filter's actual purpose must survive: metadata is not also body text."""
+        parser = OrgParser()
+
+        doc = parser.parse("#+TITLE: My Title\n#+AUTHOR: Someone\n\nBody text.\n")
+
+        assert doc.metadata.get("title") == "My Title"
+        assert [type(node) for node in doc.children] == [Paragraph]
+        assert doc.children[0].content[0].content == "Body text."
+
+    def test_a_keyword_inside_a_source_block_stays_in_the_code(self) -> None:
+        """Filtering must not reach inside a block: there, ``#+TITLE:`` is source."""
+        parser = OrgParser()
+
+        doc = parser.parse("#+BEGIN_SRC org\n#+TITLE: not metadata\n#+END_SRC\n")
+
+        assert doc.children[0].content == "#+TITLE: not metadata"
+
+    @pytest.mark.parametrize("prefix", ["", "* Heading\n\n"])
+    def test_quote_block_becomes_a_block_quote(self, prefix: str) -> None:
+        """``#+BEGIN_QUOTE`` was unrecognized in both positions, not just the preamble."""
+        parser = OrgParser()
+
+        doc = parser.parse(f"{prefix}#+BEGIN_QUOTE\nQuoted line.\n#+END_QUOTE\n")
+
+        quotes = [node for node in doc.children if isinstance(node, BlockQuote)]
+        assert len(quotes) == 1
+        assert isinstance(quotes[0].children[0], Paragraph)
+        assert quotes[0].children[0].content[0].content == "Quoted line."
+
+    def test_example_block_becomes_a_code_block_with_no_language(self) -> None:
+        """An example block is verbatim text, so it maps to a fence with no language."""
+        parser = OrgParser()
+
+        doc = parser.parse("#+BEGIN_EXAMPLE\nliteral  text\n#+END_EXAMPLE\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].language is None
+        assert doc.children[0].content == "literal  text"
+
+    def test_an_unrecognized_block_keeps_its_contents_and_drops_its_delimiters(self) -> None:
+        """Delimiters must never reach the output as body text.
+
+        They used to, and mangled: ``+...+`` is Org's strikethrough syntax, so an
+        unrecognized ``#+BEGIN_CENTER`` surfaced as the text ``#~~BEGIN_CENTER``.
+        """
+        parser = OrgParser()
+
+        doc = parser.parse("#+BEGIN_CENTER\nCentered.\n#+END_CENTER\n")
+
+        assert [type(node) for node in doc.children] == [Paragraph]
+        assert doc.children[0].content[0].content == "Centered."
+
+
+@pytest.mark.unit
+class TestEmptyListItems:
+    """A bullet with no content is an item, not a line to discard."""
+
+    @pytest.mark.parametrize(
+        ("org", "expected_items"),
+        [
+            ("- \n- b\n", 2),
+            ("- a\n- \n- b\n", 3),
+            ("- a\n-\n- b\n", 3),
+            ("1. a\n2. \n3. b\n", 3),
+        ],
+        ids=["leading", "middle", "bare-marker", "ordered"],
+    )
+    def test_an_item_with_no_content_is_preserved(self, org: str, expected_items: int) -> None:
+        """The item regex required content, so an empty bullet vanished from the list."""
+        parser = OrgParser()
+
+        doc = parser.parse(org)
+
+        lists = [node for node in doc.children if isinstance(node, List)]
+        assert len(lists) == 1
+        assert len(lists[0].items) == expected_items
+
+    def test_an_empty_item_carries_no_paragraph(self) -> None:
+        """Shape must match the Markdown parser's, which emits a childless ListItem."""
+        parser = OrgParser()
+
+        doc = parser.parse("- \n- b\n")
+
+        items = doc.children[0].items
+        assert items[0].children == []
+        assert [type(child) for child in items[1].children] == [Paragraph]
