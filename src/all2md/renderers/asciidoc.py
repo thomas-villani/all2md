@@ -289,9 +289,16 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     def visit_heading(self, node: Heading) -> None:
         """Render a Heading node.
 
-        AsciiDoc uses = prefix syntax for all headings. The number of = characters
-        determines the heading level: = is document title (level 0), == is section
-        level 1, === is section level 2, etc.
+        AsciiDoc marks a heading with one ``=`` per level, so an AST level maps to
+        that many characters.
+
+        The mapping used to add one, reserving ``=`` for a document title the
+        renderer never actually wrote. Nothing read it back that way -- the parser
+        counts ``=`` and returns that number -- so every heading came back one level
+        deeper, and level 6 rendered as seven ``=``, which is not a heading at any
+        level: the node was dropped, six headings in and five out. AsciiDoc has
+        exactly six markers for six levels, so fitting all of them requires using
+        ``=`` for level 1.
 
         Parameters
         ----------
@@ -301,9 +308,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         content = self._render_inline_content(node.content)
 
-        # AsciiDoc levels: = is document title (level 0), == is section level 1, === is section level 2, etc.
-        # Map AST heading levels to AsciiDoc: level 1 -> ==, level 2 -> ===, etc.
-        prefix = "=" * (node.level + 1)
+        prefix = "=" * max(1, min(node.level, 6))
         self._output.append(f"{prefix} {content}")
 
     def visit_paragraph(self, node: Paragraph) -> None:

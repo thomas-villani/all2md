@@ -3,6 +3,8 @@
 
 import threading
 
+import pytest
+
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -1120,43 +1122,43 @@ code here
 class TestAsciiDocHeadingLevels:
     """Tests for correct heading level mapping."""
 
-    def test_heading_level_1_maps_to_double_equals(self) -> None:
-        """Test that AST level 1 maps to == (section level 1)."""
+    def test_heading_level_1_maps_to_a_single_equals(self) -> None:
+        """AST level 1 is one ``=``, which is what the parser reads back as level 1."""
         doc = Document(children=[Heading(level=1, content=[Text(content="Section 1")])])
         renderer = AsciiDocRenderer()
         output = renderer.render_to_string(doc)
 
-        assert "== Section 1" in output
-        # Verify it's exactly two equals signs, not one or three
-        assert output.strip().startswith("==")
-        assert not output.strip().startswith("===")
-        assert not output.strip().startswith("= ")
+        assert output.strip() == "= Section 1"
 
-    def test_heading_level_2_maps_to_triple_equals(self) -> None:
-        """Test that AST level 2 maps to === (section level 2)."""
-        doc = Document(children=[Heading(level=2, content=[Text(content="Section 2")])])
+    @pytest.mark.parametrize("level", [1, 2, 3, 4, 5, 6])
+    def test_a_level_renders_as_that_many_equals_signs(self, level: int) -> None:
+        """One marker per level.
+
+        The renderer used to add one, reserving ``=`` for a document title it never
+        wrote, so every heading was rendered one level deeper than it was.
+        """
+        doc = Document(children=[Heading(level=level, content=[Text(content=f"Level {level}")])])
         renderer = AsciiDocRenderer()
+
         output = renderer.render_to_string(doc)
 
-        assert "=== Section 2" in output
+        assert output.strip() == f"{'=' * level} Level {level}"
 
-    def test_heading_level_3_maps_to_quadruple_equals(self) -> None:
-        """Test that AST level 3 maps to ==== (section level 3)."""
-        doc = Document(children=[Heading(level=3, content=[Text(content="Section 3")])])
-        renderer = AsciiDocRenderer()
-        output = renderer.render_to_string(doc)
+    def test_every_level_survives_a_round_trip(self) -> None:
+        """Six levels in, six levels out.
 
-        assert "==== Section 3" in output
+        AsciiDoc has exactly six heading markers, so the old off-by-one left no room
+        for the deepest one: level 6 rendered as seven ``=``, which is not a heading at
+        any level. That node was silently dropped and six headings came back as five.
+        """
+        doc = Document(children=[Heading(level=level, content=[Text(content=f"h{level}")]) for level in range(1, 7)])
 
-    def test_heading_levels_1_through_6(self) -> None:
-        """Test all heading levels map correctly."""
-        for level in range(1, 7):
-            doc = Document(children=[Heading(level=level, content=[Text(content=f"Level {level}")])])
-            renderer = AsciiDocRenderer()
-            output = renderer.render_to_string(doc)
+        rendered = AsciiDocRenderer().render_to_string(doc)
+        reparsed = AsciiDocParser().parse(rendered)
 
-            expected_prefix = "=" * (level + 1)
-            assert f"{expected_prefix} Level {level}" in output
+        headings = [node for node in reparsed.children if isinstance(node, Heading)]
+        assert [heading.level for heading in headings] == [1, 2, 3, 4, 5, 6]
+        assert [heading.content[0].content for heading in headings] == [f"h{level}" for level in range(1, 7)]
 
 
 class TestAsciiDocInlineCodeDelimiters:

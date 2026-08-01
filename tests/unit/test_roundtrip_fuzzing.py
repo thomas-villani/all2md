@@ -472,13 +472,6 @@ KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
     # rst derives heading level from the underline character, and the renderer
     # uses `*` for both level 5 and level 6, so the two collapse (#238).
     ("rst", "heading-levels-survive"): "underline character reused for levels 5 and 6 (#238)",
-    # asciidoc offsets every level by one (a level-1 heading renders as `==`),
-    # which pushes level 6 to a seven-`=` line that is not a heading at all, so
-    # six headings go in and five come back (#236).
-    (
-        "asciidoc",
-        "heading-levels-survive",
-    ): "renderer offsets every level by one; level 6 overflows and is dropped (#236)",
     # The ordered-list start attribute, from opposite ends (#239): asciidoc emits
     # no `[start=N]`, while org emits a literal `5.` its own parser will not read
     # back as a start.

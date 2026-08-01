@@ -72,6 +72,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **AsciiDoc: heading levels no longer shift, and level 6 is no longer dropped.** The
+  renderer added one `=` to every level, reserving a bare `=` for a document title it
+  never actually wrote. Nothing read it back that way — the parser counts `=` and
+  returns that number — so every heading came back one level deeper than it went in.
+  Level 6 was worse than shifted: it rendered as seven `=`, which is not a heading at
+  any level, so the node was dropped and six headings became five. AsciiDoc has exactly
+  six markers for six levels, so all six only fit if level 1 is a single `=` — which is
+  what the renderer's own docstring already claimed it did. Output changes: a level-1
+  heading is now `= Title` rather than `== Title` (#236).
+
 - **AsciiDoc: a table no longer gains a phantom column.** Rows were written with a
   trailing delimiter — `|A |B |` — and AsciiDoc reads whatever follows the final `|`
   as one more cell, so every N-column table parsed back as N+1. It was silent and it
