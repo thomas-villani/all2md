@@ -317,6 +317,62 @@ class TestTables:
 
 
 @pytest.mark.unit
+class TestTableCaption:
+    """A caption needs the `.. table::` directive; a bare grid has nowhere to put it."""
+
+    @pytest.mark.parametrize("style", ["grid", "simple"])
+    def test_a_caption_round_trips(self, style: str) -> None:
+        """The renderer emitted a bare table, so the caption text was simply gone."""
+        from all2md.parsers.rst import RestructuredTextParser
+
+        source = Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="A")]),
+                            TableCell(content=[Text(content="B")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="1")]),
+                                TableCell(content=[Text(content="2")]),
+                            ]
+                        )
+                    ],
+                    caption="My caption",
+                )
+            ]
+        )
+
+        rendered = RestructuredTextRenderer(RstRendererOptions(table_style=style)).render_to_string(source)
+        reparsed = RestructuredTextParser().parse(rendered)
+
+        assert rendered.startswith(".. table:: My caption")
+        table = [node for node in reparsed.children if isinstance(node, Table)][0]
+        assert table.caption == "My caption"
+        assert len(table.rows) == 1
+
+    def test_a_table_without_a_caption_stays_a_bare_grid(self) -> None:
+        """The directive is only for captions; adding it everywhere would churn output."""
+        source = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="A")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                )
+            ]
+        )
+
+        rendered = RestructuredTextRenderer().render_to_string(source)
+
+        assert ".. table::" not in rendered
+        assert rendered.startswith("+---+")
+
+
+@pytest.mark.unit
 class TestDefinitionLists:
     """Tests for definition list rendering."""
 

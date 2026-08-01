@@ -570,6 +570,14 @@ class RestructuredTextParser(BaseParser):
         rows = []
         alignments: list[Literal["left", "center", "right"] | None] = []
 
+        # A `.. table:: Caption` directive puts the caption in a title child of the
+        # table itself, which is where the caption written by our renderer arrives.
+        caption = None
+        for child in node.children:
+            if isinstance(child, docutils_nodes.title):
+                caption = child.astext()
+                break
+
         # Find tgroup which contains table structure
         tgroup = None
         for child in node.children:
@@ -578,7 +586,7 @@ class RestructuredTextParser(BaseParser):
                 break
 
         if tgroup is None:
-            return Table(header=None, rows=[], alignments=[])
+            return Table(header=None, rows=[], alignments=[], caption=caption)
 
         # Process thead (header) and tbody (body)
         for child in tgroup.children:
@@ -596,7 +604,7 @@ class RestructuredTextParser(BaseParser):
                         cells = self._process_table_row_cells(row_node)
                         rows.append(TableRow(cells=cells, is_header=False))
 
-        return Table(header=header, rows=rows, alignments=alignments)
+        return Table(header=header, rows=rows, alignments=alignments, caption=caption)
 
     def _process_table_row_cells(self, row_node: Any) -> list[TableCell]:
         """Process table row cells.

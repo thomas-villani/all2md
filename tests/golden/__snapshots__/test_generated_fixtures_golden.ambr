@@ -475,6 +475,8 @@
       return f"Hello, {name}!"
   ```
   
+  *Sample Data*
+  
   | Column A | Column B |
   |---|---|
   | Alpha | 1 |

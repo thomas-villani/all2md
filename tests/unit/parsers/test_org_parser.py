@@ -40,6 +40,8 @@ from all2md.ast import (
     Subscript,
     Superscript,
     Table,
+    TableCell,
+    TableRow,
     Text,
     ThematicBreak,
     Underline,
@@ -1138,6 +1140,53 @@ Task body content.
 
         # LOGBOOK and CLOSED may or may not be present due to orgparse limitations
         # Just verify the document parses without error
+
+
+@pytest.mark.unit
+class TestTableCaption:
+    """Org attaches a caption to the block under it with an affiliated keyword."""
+
+    def test_a_caption_round_trips(self) -> None:
+        """Nothing was emitted at all, so the caption was dropped on the way out."""
+        from all2md.renderers.org import OrgRenderer
+
+        source = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="A")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                    caption="My caption",
+                )
+            ]
+        )
+
+        rendered = OrgRenderer().render_to_string(source)
+        reparsed = OrgParser().parse(rendered)
+
+        assert rendered.startswith("#+CAPTION: My caption")
+        table = [node for node in reparsed.children if isinstance(node, Table)][0]
+        assert table.caption == "My caption"
+
+    def test_a_caption_is_read_below_a_heading_too(self) -> None:
+        """Body text under a heading takes a different path than the preamble."""
+        org = "* H\n\n#+CAPTION: Cap\n| A |\n|---|\n| 1 |\n"
+
+        doc = OrgParser().parse(org)
+
+        table = [node for node in doc.children if isinstance(node, Table)][0]
+        assert table.caption == "Cap"
+
+    def test_a_file_property_is_still_kept_out_of_the_body(self) -> None:
+        """Only genuinely file-level keywords are filtered, not every `#+KEYWORD:`.
+
+        `#+CAPTION:` is spelled the same way and belongs to the block underneath it,
+        so the filter now works from a list of document-level keywords rather than
+        dropping the lot.
+        """
+        doc = OrgParser().parse("#+TITLE: T\n\nBody\n")
+
+        assert doc.metadata.get("title") == "T"
+        assert [type(node) for node in doc.children] == [Paragraph]
 
 
 @pytest.mark.unit
