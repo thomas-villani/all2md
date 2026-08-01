@@ -28,7 +28,9 @@ class TestViewCLIEndToEnd:
         """Clean up test environment."""
         cleanup_test_dir(self.temp_dir)
 
-    def _run_cli(self, args: list[str], mock_browser: bool = True) -> subprocess.CompletedProcess:
+    def _run_cli(
+        self, args: list[str], mock_browser: bool = True, cwd: Path | None = None
+    ) -> subprocess.CompletedProcess:
         """Run the CLI as a subprocess.
 
         Parameters
@@ -37,6 +39,8 @@ class TestViewCLIEndToEnd:
             Command line arguments to pass to the CLI
         mock_browser : bool
             If True, mock webbrowser.open to prevent browser launches
+        cwd : Path | None
+            Working directory for the subprocess. Defaults to the repository root.
 
         Returns
         -------
@@ -55,7 +59,7 @@ class TestViewCLIEndToEnd:
 
         return subprocess.run(
             cmd,
-            cwd=self.cli_path.parent.parent.parent,
+            cwd=cwd or self.cli_path.parent.parent.parent,
             capture_output=True,
             text=True,
             env=env,
@@ -362,14 +366,18 @@ The quadratic formula: $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$
         md_file = self._create_test_markdown()
         output_file = self.temp_dir / "output.html"
 
-        # Use relative path notation
-        rel_path = os.path.relpath(md_file, Path.cwd())
+        # Run from the file's own directory rather than relativizing against the
+        # repository root: on Windows the temp dir and the checkout can sit on
+        # different drives, and a relative path between two drives does not exist --
+        # `os.path.relpath` raises ValueError before the CLI is ever invoked. The
+        # GitHub Windows runner checks out to D: and puts TEMP on C:, so this test
+        # could only ever have passed where both happened to share a drive.
+        rel_path = md_file.name
 
-        result = self._run_cli(["view", rel_path, "--keep", str(output_file)])
+        result = self._run_cli(["view", rel_path, "--keep", str(output_file)], cwd=self.temp_dir)
 
-        # May succeed or fail depending on working directory
-        # Just verify it handles relative paths without crashing
-        assert result.returncode == 0 or "Error" in result.stderr
+        assert result.returncode == 0, result.stderr
+        assert output_file.exists()
 
     def test_view_preserves_markdown_formatting(self):
         """Test that view preserves markdown formatting in HTML output."""

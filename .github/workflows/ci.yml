@@ -139,6 +139,47 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  test-windows:
+    name: Test (Windows, Python 3.13)
+    runs-on: windows-latest
+
+    # Every other job in this file runs on ubuntu-latest, so until now nothing here could
+    # see a POSIX-only assumption. `benchmarks/omnidocbench` shipped a cache lock built on
+    # `fcntl.flock` that refused to run at all off POSIX: CI was green while the same
+    # commit failed 21 tests and produced 4 mypy errors on a Windows checkout. Windows is
+    # a supported platform for a library whose users mostly arrive through the CLI, so it
+    # gets a leg.
+    #
+    # One version, not a matrix: what this covers is the OS, and paying five times for it
+    # would buy interpreter differences the ubuntu matrix already reports. 3.13 because it
+    # is the fastest of the versions we support.
+    #
+    # It keeps `matrix_single`, which the ubuntu legs drop. That exclusion is sound for its
+    # own reason -- parser and renderer logic does not vary by interpreter -- but it does
+    # vary by OS: path separators, filename rules, newline translation, and the locale
+    # encoding are exactly what those tests touch. `generative` is excluded for the same
+    # reason as on 3.12: it is fixed-seed and belongs on a schedule (fuzz-corpus.yml).
+    #
+    # PYTHONUTF8 is deliberately not set. A Windows user gets the ANSI code page by
+    # default on 3.13, so setting it here would hide the encoding failures they would hit.
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Run tests
+        run: pytest tests/ -v --durations=25 -m "not generative"
+
   roundtrip:
     name: Roundtrip Fidelity Gate
     runs-on: ubuntu-latest
@@ -432,7 +473,7 @@ jobs:
     # (The Release created here uses GITHUB_TOKEN, whose `release: published`
     # event would not start release.yml anyway.)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint-and-typecheck, docs, test, roundtrip, startup, security-semgrep, security-bandit]
+    needs: [lint-and-typecheck, docs, test, test-windows, roundtrip, startup, security-semgrep, security-bandit]
     runs-on: ubuntu-latest
 
     steps:

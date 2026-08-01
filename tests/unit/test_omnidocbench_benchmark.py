@@ -286,7 +286,7 @@ def test_normalization_records_variance_failures_and_unsupported_dimensions(tmp_
     assert payload["conversion_failures"] == {"page-b": "RuntimeError: broken PDF"}
     assert payload["unscored_annotation_categories"] == {"figure": 2}
     assert payload["explicitly_ignored_annotations"] == 2
-    assert payload["provenance"]["oracle_schema_version"] == 3
+    assert payload["provenance"]["oracle_schema_version"] == 4
     assert payload["provenance"]["parser_config"]["layout_analysis_mode"] == "enabled"
     assert payload["provenance"]["parser_runtime"] == {
         "pymupdf": "1.28.0",
