@@ -281,6 +281,8 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     span_attrs += f' colspan="{cell.colspan}"'
                 if cell.rowspan > 1:
                     span_attrs += f' rowspan="{cell.rowspan}"'
+                if span_attrs:
+                    span_attrs += " |"
 
                 if first_cell:
                     self._output.append(f"!{span_attrs} ")
@@ -303,6 +305,8 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     span_attrs += f' colspan="{cell.colspan}"'
                 if cell.rowspan > 1:
                     span_attrs += f' rowspan="{cell.rowspan}"'
+                if span_attrs:
+                    span_attrs += " |"
 
                 if first_cell:
                     self._output.append(f"|{span_attrs} ")

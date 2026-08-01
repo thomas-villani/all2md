@@ -132,25 +132,7 @@ LOSSLESS_FORMATS = ("ast",)
 #: output its own parser rejects is always a bug. They are listed so the gate can
 #: distinguish "already known" from "newly introduced". Minimal reproductions for
 #: every entry are pinned in :class:`TestKnownCrashRepros` below.
-KNOWN_CRASHES: dict[tuple[str, str], str] = {
-    # The AsciiDoc renderer numbers nested list markers by absolute depth, so an
-    # ordered list inside an unordered item is written `..` with no `.` parent.
-    # AsciiDoc counts depth per list type, so its own parser rejects the output.
-    ("asciidoc", "Cannot nest to level"): "asciidoc renderer emits an orphaned level-2 list marker",
-    # Spanning cells that overflow the declared grid width reach python-docx as
-    # a merge whose target cell was never created.
-    ("docx", "no `tc` element"): "docx renderer merges spanning cells past the grid width",
-    # Same root shape, different downstream library.
-    ("pptx", "merged cells"): "pptx renderer re-merges cells that are already merged",
-    # An empty list item nested inside another list leaves the RTF renderer
-    # emitting a group the RTF parser walks off the end of.
-    ("rtf", "IndexError"): "rtf round trip of a nested empty list item indexes out of range",
-    # Same shape carrying a task status takes a different path and raises a
-    # KeyError from pyth. It is now wrapped in RenderingError (#212), so the
-    # needle matches the original error inside the wrapper's message; the crash
-    # itself is still live.
-    ("rtf", "KeyError"): "rtf round trip of a nested task list item raises a KeyError",
-}
+KNOWN_CRASHES: dict[tuple[str, str], str] = {}
 
 
 def is_known(fmt: str, exc: BaseException) -> bool:
@@ -302,36 +284,9 @@ def _cell(text: str = "", **kwargs: object) -> TableCell:
     return TableCell(content=[Text(content=text)] if text else [], **kwargs)  # type: ignore[arg-type]
 
 
-#: A table whose spanning cells overflow the declared grid width.
-SPANNING_GRID_OVERFLOW = Document(
-    children=[
-        Table(
-            header=TableRow(is_header=True, cells=[_cell("0"), _cell("0")]),
-            rows=[
-                TableRow(cells=[_cell(colspan=2, rowspan=2), _cell()]),
-                TableRow(cells=[_cell(colspan=1, rowspan=2), _cell()]),
-                TableRow(cells=[_cell(), _cell(colspan=2)]),
-            ],
-        )
-    ]
-)
-
-#: An empty list item nested one level down, alongside an empty sibling.
-NESTED_EMPTY_ITEM = Document(
-    children=[
-        Paragraph(content=[Text(content="0")]),
-        List(
-            ordered=False,
-            tight=False,
-            items=[
-                ListItem(children=[List(ordered=False, tight=False, items=[ListItem(children=[])])]),
-                ListItem(children=[]),
-            ],
-        ),
-    ]
-)
-
-#: The same shape, carrying a task status.
+#: An empty list item nested one level down, carrying a task status. The RTF
+#: repros that shared this shape moved to tests/unit/renderers/test_rtf_nested_lists.py
+#: when #209 and #210 were fixed.
 NESTED_TASK_ITEM = Document(
     children=[
         List(
@@ -367,38 +322,7 @@ class TestKnownCrashRepros:
 
     @pytest.mark.parametrize(
         ("doc", "fmt"),
-        [
-            pytest.param(
-                NESTED_TASK_ITEM,
-                "asciidoc",
-                id="asciidoc-orphaned-nested-list-marker",
-                marks=pytest.mark.xfail(strict=True, reason="renderer writes '..' with no '.' parent"),
-            ),
-            pytest.param(
-                SPANNING_GRID_OVERFLOW,
-                "docx",
-                id="docx-span-past-grid-width",
-                marks=pytest.mark.xfail(strict=True, reason="merge target cell was never created"),
-            ),
-            pytest.param(
-                SPANNING_GRID_OVERFLOW,
-                "pptx",
-                id="pptx-remerge-merged-cells",
-                marks=pytest.mark.xfail(strict=True, reason="re-merges an already merged range"),
-            ),
-            pytest.param(
-                NESTED_EMPTY_ITEM,
-                "rtf",
-                id="rtf-nested-empty-list-item",
-                marks=pytest.mark.xfail(strict=True, reason="parser indexes past the end of a group"),
-            ),
-            pytest.param(
-                NESTED_TASK_ITEM,
-                "rtf",
-                id="rtf-nested-task-list-item",
-                marks=pytest.mark.xfail(strict=True, reason="pyth raises KeyError on the task status"),
-            ),
-        ],
+        [],
     )
     def test_known_crash_still_reproduces(self, doc: Document, fmt: str) -> None:
         """Each known crash reproduces from a minimal document.

@@ -283,12 +283,56 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         List_cls = cast(Any, self._List)
         for entry in entries:
             if isinstance(entry, ListEntry_cls):
-                normalized_entries.append(entry)
+                normalized_entries.extend(self._flatten_entry(entry))
+            elif isinstance(entry, List_cls):
+                # Checked before Paragraph: pyth's List subclasses Paragraph.
+                normalized_entries.extend(self._flatten_entry(ListEntry_cls(content=[entry])))
             elif isinstance(entry, Paragraph_cls):
                 normalized_entries.append(ListEntry_cls(content=[entry]))
-            elif isinstance(entry, List_cls):
-                normalized_entries.append(ListEntry_cls(content=[entry]))
         return List_cls(content=normalized_entries)
+
+    def _flatten_entry(self, entry: Any) -> list[Any]:
+        r"""Split an entry that carries a sub-list into a run of sibling entries.
+
+        pyth writes one ``\ilvl`` prefix per *paragraph* inside an entry, so an
+        entry holding a nested list gets the outer level's prefix and the inner
+        level's prefix on the same output paragraph. Its reader then charges
+        those controls to the preceding paragraph and reads the result as a
+        level *decrease* it never saw a matching increase for - at which point it
+        pops the document off its own stack (#209), or, when a task marker made
+        us reach into the sub-list, dispatches on a bare string (#210).
+
+        Flattening keeps every paragraph and drops only the nesting depth, which
+        the RTF parser does not reconstruct in the first place: a plain two-item
+        list already round-trips back as two paragraphs.
+
+        Parameters
+        ----------
+        entry : Any
+            A pyth ``ListEntry``
+
+        Returns
+        -------
+        list of Any
+            One or more entries, none of which contains a nested list
+
+        """
+        ListEntry_cls = cast(Any, self._ListEntry)
+        List_cls = cast(Any, self._List)
+
+        own_paragraphs = [block for block in entry.content if not isinstance(block, List_cls)]
+        sub_lists = [block for block in entry.content if isinstance(block, List_cls)]
+
+        if not sub_lists:
+            return [entry]
+
+        flattened: list[Any] = []
+        if own_paragraphs:
+            flattened.append(ListEntry_cls(content=own_paragraphs))
+        for sub_list in sub_lists:
+            # Already flattened by the visit_list call that produced it.
+            flattened.extend(sub_list.content)
+        return flattened
 
     def visit_list_item(self, node: ListItem) -> Any:
         """Render a list item, preserving task status when present."""
@@ -296,14 +340,22 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         for child in node.children:
             paragraphs.extend(self._normalize_blocks(child.accept(self)))
         Paragraph_cls = cast(Any, self._Paragraph)
+        List_cls = cast(Any, self._List)
         if node.task_status in {"checked", "unchecked"}:
             marker = "[x] " if node.task_status == "checked" else "[ ] "
-            if paragraphs:
-                first = paragraphs[0]
-                if isinstance(first, Paragraph_cls):
-                    first.content.insert(0, self._create_text_run(marker))
+            # A List is a Paragraph in pyth, so the isinstance check has to
+            # exclude it explicitly. Without that, an item whose only child is a
+            # sub-list has the marker run inserted into the *list's* content,
+            # where only entries belong, and pyth's writer then dispatches on the
+            # bare string inside it (#210).
+            first = paragraphs[0] if paragraphs else None
+            if isinstance(first, Paragraph_cls) and not isinstance(first, List_cls):
+                first.content.insert(0, self._create_text_run(marker))
             else:
-                paragraphs.append(Paragraph_cls(content=[self._create_text_run(marker)]))
+                # No paragraph of the item's own to carry the marker, so give it
+                # one. Flattening turns it into the entry that precedes the
+                # sub-list's own entries.
+                paragraphs.insert(0, Paragraph_cls(content=[self._create_text_run(marker)]))
         if not paragraphs:
             paragraphs.append(Paragraph_cls(content=[self._create_text_run("")]))
         return cast(Any, self._ListEntry)(content=paragraphs)

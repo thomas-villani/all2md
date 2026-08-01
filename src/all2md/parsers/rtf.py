@@ -38,7 +38,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import create_attachment_sequencer, process_attachment
 from all2md.utils.decorators import requires_dependencies
-from all2md.utils.inputs import validate_and_convert_input
+from all2md.utils.inputs import resolve_str_input, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
@@ -110,6 +110,12 @@ class RtfToAstConverter(BaseParser):
 
         """
         from pyth.plugins.rtf15.reader import Rtf15Reader
+
+        # RTF is a text format, so a str may be the document itself rather than a
+        # path. Resolve it the same way the text parsers do (#233).
+        if isinstance(input_data, str):
+            resolved = resolve_str_input(input_data)
+            input_data = resolved if resolved is not None else input_data.encode("utf-8")
 
         doc = None
         try:

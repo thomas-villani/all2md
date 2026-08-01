@@ -568,6 +568,43 @@ class TestAsciiDocNestedLists:
         assert isinstance(nested_list, List)
         assert len(nested_list.items) == 2  # Two level-2 items
 
+    def test_continuation_keeps_the_list_open(self) -> None:
+        """A "+" attaches the next block to the item without closing the list.
+
+        Without continuation handling the list ends at the "+", so the item
+        after the attached block starts a fresh list at level 2 and has no
+        level-1 parent to nest under.
+        """
+        asciidoc = "* Outer\n** Inner\n+\nAttached\n** Sibling\n"
+        doc = AsciiDocParser().parse(asciidoc)
+
+        root_list = doc.children[0]
+        assert isinstance(root_list, List)
+        assert len(root_list.items) == 1
+
+        nested = root_list.items[0].children[1]
+        assert isinstance(nested, List)
+        assert len(nested.items) == 2
+
+        # The attached paragraph belongs to "Inner", not to the document
+        inner_paragraphs = [c for c in nested.items[0].children if isinstance(c, Paragraph)]
+        assert [p.content[0].content for p in inner_paragraphs] == ["Inner", "Attached"]
+        assert nested.items[1].children[0].content[0].content == "Sibling"
+
+    def test_continuation_attaches_a_code_block(self) -> None:
+        """A block attribute line before the attached block is not a list terminator."""
+        asciidoc = "* Outer\n** Inner\n+\n[source,python]\n----\nx = 1\n----\n** Sibling\n"
+        doc = AsciiDocParser().parse(asciidoc)
+
+        nested = doc.children[0].items[0].children[1]
+        assert isinstance(nested, List)
+        assert len(nested.items) == 2
+
+        code_blocks = [c for c in nested.items[0].children if isinstance(c, CodeBlock)]
+        assert len(code_blocks) == 1
+        assert code_blocks[0].content == "x = 1"
+        assert code_blocks[0].language == "python"
+
     def test_nested_ordered_list(self) -> None:
         """Test nested ordered lists."""
         asciidoc = """. First

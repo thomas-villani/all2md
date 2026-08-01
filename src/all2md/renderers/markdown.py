@@ -1148,7 +1148,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not rows_to_render:
             return
 
-        num_cols = len(rows_to_render[0].cells) if rows_to_render else 0
+        num_cols = self._compute_table_columns(rows_to_render)
         rendered_rows = self._render_cells_to_strings(rows_to_render)
 
         if self.options.pad_table_cells:
@@ -1200,7 +1200,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not rows_to_render:
             return
 
-        num_cols = len(rows_to_render[0].cells) if rows_to_render else 0
+        num_cols = self._compute_table_columns(rows_to_render)
 
         # Render all cells to determine column widths
         rendered_rows: list[list[str]] = []

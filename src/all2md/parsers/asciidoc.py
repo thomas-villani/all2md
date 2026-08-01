@@ -1451,6 +1451,21 @@ class AsciiDocParser(BaseParser):
             # Create and append the footnote definition
             children.append(FootnoteDefinition(identifier=identifier, content=cast(list[Node], content_nodes)))
 
+    def _is_list_continuation(self) -> bool:
+        """Report whether the cursor sits on a list continuation ("+") line.
+
+        The lexer has no dedicated token for it, so a continuation arrives as a
+        text line whose only content is a plus sign.
+
+        Returns
+        -------
+        bool
+            True if the current token is a lone "+" line
+
+        """
+        token = self._current_token()
+        return token.type == TokenType.TEXT_LINE and token.content.strip() == "+"
+
     def _parse_list(self) -> List | list[Node]:
         """Parse an ordered or unordered list with nesting support.
 
@@ -1497,6 +1512,34 @@ class AsciiDocParser(BaseParser):
             # Skip blank line after item if present
             if self._current_token().type == TokenType.BLANK_LINE:
                 self._advance()
+
+            # A "+" on a line of its own is a list continuation: the block that
+            # follows belongs to this item, and the list stays open. Consuming
+            # it here is what lets a later item keep its nesting level instead
+            # of starting a fresh list that has no parent to nest under.
+            while self._is_list_continuation():
+                self._advance()
+                if self._current_token().type == TokenType.BLANK_LINE:
+                    self._advance()
+
+                # A block attribute line such as "[source,python]" parses to
+                # None and only records pending state, so keep going until a
+                # real block materialises or the cursor stops moving.
+                attached: Node | list[Node] | None = None
+                while attached is None:
+                    before = self.current_token_index
+                    attached = self._parse_block()
+                    if self.current_token_index == before:
+                        break
+
+                if attached is None:
+                    # Nothing consumed - bail out rather than spin.
+                    break
+
+                list_builder.add_content_to_last_item(attached if isinstance(attached, list) else [attached])
+
+                if self._current_token().type == TokenType.BLANK_LINE:
+                    self._advance()
 
         # Get the built document and extract the lists
         built_doc = list_builder.get_document()

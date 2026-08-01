@@ -560,8 +560,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         if not all_rows:
             return 0.0
 
-        num_rows = len(all_rows)
-        num_cols = self._compute_table_columns(all_rows)
+        # Resolve the grid up front: overlapping spans would otherwise reach
+        # python-pptx as a merge over a range another merge already claimed,
+        # which it rejects with "range contains one or more merged cells".
+        grid = self._layout_table_grid(all_rows)
+        num_rows, num_cols = grid.num_rows, grid.num_cols
         if num_cols == 0 or num_rows == 0:
             return 0.0
 
@@ -575,34 +578,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         table_shape = slide.shapes.add_table(num_rows, num_cols, left, top, width, height)
         pptx_table = table_shape.table
 
-        # Track which grid cells are occupied by spanning cells
-        occupied = [[False] * num_cols for _ in range(num_rows)]
+        for placement in grid.placements:
+            pptx_cell = pptx_table.rows[placement.row].cells[placement.col]
+            pptx_cell.text = self._extract_text_from_nodes(placement.cell.content)
 
-        for row_idx, ast_row in enumerate(all_rows):
-            col_idx = 0
-            for ast_cell in ast_row.cells:
-                while col_idx < num_cols and occupied[row_idx][col_idx]:
-                    col_idx += 1
-                if col_idx >= num_cols:
-                    break
-
-                pptx_cell = pptx_table.rows[row_idx].cells[col_idx]
-                cell_text = self._extract_text_from_nodes(ast_cell.content)
-                pptx_cell.text = cell_text
-
-                colspan = ast_cell.colspan
-                rowspan = ast_cell.rowspan
-                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
-                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
-                        occupied[r][c] = True
-
-                if colspan > 1 or rowspan > 1:
-                    end_row = min(row_idx + rowspan - 1, num_rows - 1)
-                    end_col = min(col_idx + colspan - 1, num_cols - 1)
-                    if end_row > row_idx or end_col > col_idx:
-                        pptx_cell.merge(pptx_table.rows[end_row].cells[end_col])
-
-                col_idx += colspan
+            if placement.rowspan > 1 or placement.colspan > 1:
+                end_row = placement.row + placement.rowspan - 1
+                end_col = placement.col + placement.colspan - 1
+                pptx_cell.merge(pptx_table.rows[end_row].cells[end_col])
 
         return height_inches
 
@@ -1263,9 +1246,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
 
         # Calculate nesting level (depth in the stack)
-        nesting_level = len(self._list_ordered_stack) - 1
-        # Limit to reasonable depth for PowerPoint (0-8)
-        nesting_level = min(nesting_level, 8)
+        nesting_level = max(0, min(len(self._list_ordered_stack) - 1, 8))
 
         if is_ordered:
             # For ordered lists, manually add number prefix since python-pptx

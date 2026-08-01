@@ -364,25 +364,6 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("\n")
         self._output.append("____")
 
-    def _is_block_element(self, node: Node) -> bool:
-        """Check if a node is a block element requiring list continuation.
-
-        In AsciiDoc, block elements inside list items need a list continuation
-        line (+) to be properly associated with the list item.
-
-        Parameters
-        ----------
-        node : Node
-            Node to check
-
-        Returns
-        -------
-        bool
-            True if node is a block element
-
-        """
-        return isinstance(node, (CodeBlock, BlockQuote, List, Table))
-
     def _flatten_blocks_to_inline(self, nodes: list[Node]) -> str:
         """Flatten block-level nodes to inline text for use in inline contexts.
 
@@ -483,24 +464,21 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         # Render children
         for i, child in enumerate(node.children):
-            if i == 0:
-                # First child inline with marker
-                if isinstance(child, Paragraph):
-                    content = self._render_inline_content(child.content)
-                    self._output.append(content)
-                else:
-                    # First child is a block element - needs continuation
-                    self._output.append(f"\n{indent}+\n")
-                    child.accept(self)
+            if i == 0 and isinstance(child, Paragraph):
+                # First paragraph sits inline with the marker
+                self._output.append(self._render_inline_content(child.content))
+            elif isinstance(child, List):
+                # A nested list attaches to its parent item by marker depth
+                # alone. A "+" continuation would detach it into a block of its
+                # own, leaving the deeper marker with no parent at the level
+                # below it - output our own parser rejects as an orphaned
+                # nesting level.
+                self._output.append("\n")
+                child.accept(self)
             else:
-                # Subsequent children need continuation marker if they're blocks
-                if self._is_block_element(child):
-                    self._output.append(f"\n{indent}+\n")
-                    child.accept(self)
-                else:
-                    # Non-block subsequent children (e.g., additional Paragraphs)
-                    self._output.append(f"\n{indent}+\n")
-                    child.accept(self)
+                # Every other block attaches to the item via a continuation line
+                self._output.append(f"\n{indent}+\n")
+                child.accept(self)
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.

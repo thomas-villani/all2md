@@ -554,3 +554,41 @@ This is a [b]quoted[/b] text.
         assert content[0].content[0].content == "x"
         assert isinstance(content[1], Text)
         assert content[1].content == " y"
+
+    def test_nested_quotes(self) -> None:
+        """Verify that nested block tags match their corresponding closing tag at depth 0 without premature truncation."""
+        parser = BBCodeParser(BBCodeParserOptions(strict_mode=True))
+        doc = parser.parse("[quote=Alice]Outer [quote=Bob]Inner[/quote] Still outer[/quote]")
+
+        assert len(doc.children) == 1
+        outer_quote = doc.children[0]
+        assert isinstance(outer_quote, BlockQuote)
+        assert outer_quote.metadata.get("author") == "Alice"
+        assert len(outer_quote.children) == 3
+
+        outer_prefix = outer_quote.children[0]
+        assert isinstance(outer_prefix, Paragraph)
+        assert isinstance(outer_prefix.content[0], Text)
+        assert outer_prefix.content[0].content == "Outer"
+
+        inner_quote = outer_quote.children[1]
+        assert isinstance(inner_quote, BlockQuote)
+        assert inner_quote.metadata.get("author") == "Bob"
+        assert len(inner_quote.children) == 1
+        assert isinstance(inner_quote.children[0], Paragraph)
+        assert isinstance(inner_quote.children[0].content[0], Text)
+        assert inner_quote.children[0].content[0].content == "Inner"
+
+        outer_suffix = outer_quote.children[2]
+        assert isinstance(outer_suffix, Paragraph)
+        assert isinstance(outer_suffix.content[0], Text)
+        assert outer_suffix.content[0].content == "Still outer"
+
+    def test_nested_headings(self) -> None:
+        """Verify that nested heading tags account for nesting depth."""
+        parser = BBCodeParser(BBCodeParserOptions(strict_mode=True))
+        doc = parser.parse("[h1]Title [h1]Sub[/h1] End[/h1]")
+        assert len(doc.children) == 1
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.level == 1

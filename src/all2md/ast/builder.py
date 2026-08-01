@@ -194,6 +194,30 @@ class ListBuilder:
         item = ListItem(children=content, task_status=task_status)
         parent_list.items.append(item)
 
+    def add_content_to_last_item(self, content: list[Node]) -> None:
+        """Append block content to the most recently added item.
+
+        Formats with an explicit continuation marker - AsciiDoc's ``+`` line -
+        can attach a block to the open item without closing the list, so the
+        items that follow keep their nesting level.
+
+        Parameters
+        ----------
+        content : list of Node
+            Block nodes to append to the open item's children
+
+        Raises
+        ------
+        ValueError
+            If no item has been added yet, so there is nothing to attach to
+
+        """
+        current_list = self._list_stack[-1][0] if self._list_stack else None
+        if current_list is None or not current_list.items:
+            raise ValueError("Cannot attach content before the first list item")
+
+        current_list.items[-1].children.extend(content)
+
     def get_document(self) -> Document:
         """Get the constructed document.
 

@@ -292,16 +292,16 @@ def parse_section_ranges(section_spec: str, total_sections: int) -> list[int]:
             end_str = range_parts[1].strip()
 
             # Parse start (1-based to 0-based)
-            if start_str:
-                start = int(start_str) - 1
-            else:
-                start = 0
+            try:
+                start = int(start_str) - 1 if start_str else 0
+            except ValueError as e:
+                raise ValueError(f"Invalid section specification '{part}': '{start_str}' is not a valid integer") from e
 
             # Parse end (1-based to 0-based, or use total_sections if empty)
-            if end_str:
-                end = int(end_str) - 1
-            else:
-                end = total_sections - 1
+            try:
+                end = int(end_str) - 1 if end_str else total_sections - 1
+            except ValueError as e:
+                raise ValueError(f"Invalid section specification '{part}': '{end_str}' is not a valid integer") from e
 
             # Swap if reversed range (e.g., "10-5" becomes "5-10")
             if start > end:
@@ -313,7 +313,10 @@ def parse_section_ranges(section_spec: str, total_sections: int) -> list[int]:
                     sections.add(s)
         else:
             # Single section (1-based to 0-based)
-            section = int(part) - 1
+            try:
+                section = int(part) - 1
+            except ValueError as e:
+                raise ValueError(f"Invalid section specification '{part}': not a valid integer or range") from e
             if 0 <= section < total_sections:
                 sections.add(section)
 

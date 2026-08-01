@@ -21,6 +21,7 @@ from all2md.exceptions import InvalidOptionsError, ValidationError
 from all2md.options.base import BaseParserOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.utils.encoding import normalize_stream_to_bytes, normalize_stream_to_text, read_text_with_encoding_detection
+from all2md.utils.inputs import resolve_str_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import (
     append_attachment_footnotes as _append_attachment_footnotes_helper,
@@ -446,19 +447,13 @@ class BaseParser(ABC):
             with open(input_data, "rb") as f:
                 return read_text_with_encoding_detection(f.read())
         elif isinstance(input_data, str):
-            # Could be file path or content
-            # Check length first - Linux has 255 char limit for path components,
-            # and calling path.exists() on very long strings raises OSError
-            if len(input_data) <= 260 and "\n" not in input_data:
-                try:
-                    path = Path(input_data)
-                    if path.exists() and path.is_file():
-                        with open(path, "rb") as f:
-                            return read_text_with_encoding_detection(f.read())
-                except OSError:
-                    # Path too long or invalid - treat as content
-                    pass
-            # Assume it's content
+            # Ambiguous: could be a path or the content itself. resolve_str_input
+            # is the single place that decides, and raises rather than silently
+            # parsing a mistyped filename into a one-line document.
+            path = resolve_str_input(input_data)
+            if path is not None:
+                with open(path, "rb") as f:
+                    return read_text_with_encoding_detection(f.read())
             return input_data
         else:
             # File-like object (handles both binary and text mode)
@@ -482,9 +477,15 @@ class BaseParser(ABC):
         """
         if isinstance(input_data, bytes):
             return input_data
-        elif isinstance(input_data, (str, Path)):
-            path = Path(input_data)
-            return path.read_bytes()
+        elif isinstance(input_data, Path):
+            return input_data.read_bytes()
+        elif isinstance(input_data, str):
+            # Same path-or-content decision as _load_text_content; a string that
+            # is content becomes its UTF-8 encoding rather than a path error.
+            path = resolve_str_input(input_data)
+            if path is not None:
+                return path.read_bytes()
+            return input_data.encode("utf-8")
         elif hasattr(input_data, "read"):
             return normalize_stream_to_bytes(input_data)
         else:
