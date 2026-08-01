@@ -41,6 +41,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.encoding import normalize_stream_to_bytes
+from all2md.utils.inputs import resolve_str_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
@@ -200,13 +201,19 @@ class Fb2ToAstConverter(BaseParser):
     # ------------------------------------------------------------------
     def _load_fb2_bytes(self, input_data: Union[str, Path, IO[bytes], bytes]) -> bytes:
         if isinstance(input_data, (str, Path)):
-            path = Path(input_data)
-            if path.suffix.lower() == ".fb2":
-                return path.read_bytes()
+            path: Optional[Path]
+            if isinstance(input_data, Path):
+                path = input_data
+            else:
+                # A str is a path or the FB2 XML itself; resolve_str_input decides
+                # once for every text parser and raises on a mistyped filename.
+                path = resolve_str_input(input_data)
+                if path is None:
+                    return input_data.encode("utf-8")
+
             if path.name.lower().endswith(".fb2.zip") or path.suffix.lower() == ".zip":
                 with self._validated_zip_input(path, suffix=".zip") as validated:
                     return self._extract_fb2_from_zip(validated)
-
             return path.read_bytes()
 
         if isinstance(input_data, bytes):

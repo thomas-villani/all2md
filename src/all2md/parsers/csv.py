@@ -23,7 +23,7 @@ from all2md.options.csv import CsvOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.encoding import read_text_with_encoding_detection
-from all2md.utils.inputs import validate_and_convert_input
+from all2md.utils.inputs import resolve_str_input, validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.spreadsheet import build_table_ast, sanitize_cell_text, transform_header_case
 
@@ -373,6 +373,12 @@ class CsvToAstConverter(BaseParser):
             AST document with table node
 
         """
+        # A str is a path or the CSV text itself. Resolve it here so this parser
+        # agrees with the text parsers instead of reading every str as a path.
+        if isinstance(input_data, str):
+            resolved = resolve_str_input(input_data)
+            input_data = resolved if resolved is not None else input_data.encode("utf-8")
+
         # Validate and load text
         try:
             doc_input, _ = validate_and_convert_input(input_data, supported_types=["path-like", "file-like", "bytes"])
