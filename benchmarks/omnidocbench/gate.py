@@ -17,7 +17,7 @@ DEFAULT_BASELINE = HERE / "baseline.json"
 _DATASET_REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _SUPPORTED_SCHEMA_VERSION = 2
-_SUPPORTED_ORACLE_SCHEMA_VERSION = 4
+_SUPPORTED_ORACLE_SCHEMA_VERSION = 5
 
 _IDENTITY_FIELDS = (
     "schema_version",

@@ -6,6 +6,7 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from html.parser import HTMLParser
 from typing import Any, Callable, Iterable, Literal, Mapping, TypeVar
 
@@ -554,55 +555,81 @@ def _table_similarities(
     return structure / denominator, content / denominator
 
 
-def _reading_order_similarity(expected: PageProjection, actual: PageProjection) -> float:
-    """Score block-sequence coverage, scaled by how many blocks are identifiable and their order.
+def _locate(haystack: str, needle: str) -> tuple[int, float]:
+    """Return where ``needle`` best matches inside ``haystack`` and how much of it aligned.
 
-    The category sequence alone is not an order metric: eleven text categories collapse to
-    ``text_block``, so fully reversed output scored exactly 1.0 on 153 of the 981 pinned pages
-    and any permutation was free on the 113 pages with a single repeated kind. Matching each
-    emitted block to its most similar ground-truth block with an unconstrained argmax exposes
-    inversions, which an order-preserving alignment is blind to by construction.
+    The fraction counts every aligned character, not just the longest unbroken run. Sporadic
+    OCR damage fragments a block into many short runs without moving it, and scoring only the
+    longest run made a substitution as ordinary as ``o`` to ``0`` look like a block that had
+    gone missing. The alignment is monotonic, so the fragments cannot come from scattered
+    coincidences all over the page.
 
-    Equally similar candidates are resolved towards the block's own position, so a page that
-    repeats one string cannot invert against itself: identical output must score exactly 1.0.
-    That tie-break is also why a block has to earn its place in the ordering: when nothing
-    resembles it, position alone decides the match, the identity mapping falls out and the
-    inversion count is zero. Ten empty paragraphs therefore scored a *perfect* reading order --
-    better than emitting every block correctly but reversed. Only blocks matched at
-    ``_IDENTIFIED_MATCH`` or better vote on the ordering, and the score is scaled by the
-    fraction that do, so unrecognizable output can no longer buy order credit.
-
-    The threshold is a floor on identity, not on quality: at half the characters aligned the
-    pairing is still evidence that this block *is* that block, so ordinary extraction noise
-    leaves the term untouched and this stays a metric about order rather than a second copy of
-    ``text_content_similarity``.
+    Position is taken from the longest run, offset by where that run sits inside the needle, so
+    it is where the block *starts* rather than where its most recognizable part does.
     """
-    coverage = _sequence_similarity(expected.block_kinds, actual.block_kinds)
-    count = len(actual.text_blocks)
-    if not expected.text_blocks or count == 0:
-        return coverage
-    scale = (len(expected.text_blocks) - 1) / (count - 1) if count > 1 else 0.0
-    identified: list[int] = []
-    for position, block in enumerate(actual.text_blocks):
-        preferred = position * scale
-        similarities = [content_similarity(candidate, block) for candidate in expected.text_blocks]
-        index = max(
-            range(len(similarities)), key=lambda candidate: (similarities[candidate], -abs(candidate - preferred))
-        )
-        if similarities[index] >= _IDENTIFIED_MATCH:
-            identified.append(index)
+    matcher = SequenceMatcher(None, haystack, needle, autojunk=False)
+    runs = [run for run in matcher.get_matching_blocks() if run.size]
+    if not runs:
+        return -1, 0.0
+    anchor = max(runs, key=lambda run: run.size)
+    return anchor.a - anchor.b, sum(run.size for run in runs) / len(needle)
 
-    coverage *= len(identified) / count
-    if len(identified) < 2:
-        return coverage
-    pairs = len(identified) * (len(identified) - 1) // 2
+
+def _reading_order_similarity(expected: PageProjection, actual: PageProjection) -> float:
+    """Score how much of the page can be located, and whether it came out in order.
+
+    Each ground-truth block is located inside the *concatenated* emitted text, and the order of
+    those positions is compared with the order the annotation gives them. Position rather than
+    block index is deliberate. Pairing emitted blocks against ground-truth blocks one-to-one
+    measured segmentation as much as ordering, because a converter may split or merge blocks
+    without moving a single word: text reproduced exactly but emitted as one block scored
+    **0.0**, and splitting every block in two scored 0.44. On the pinned corpus that left 894 of
+    981 pages at exactly zero, 128 of which scored 0.9 or better on text content -- a
+    reading-order metric that reads zero for a page whose text is 90% right is measuring
+    something other than reading order. Locating the blocks is blind to how the output was
+    chunked and sensitive only to what moved.
+
+    A block has to be found before it votes: below ``_IDENTIFIED_MATCH`` of its characters
+    aligned it is not evidence of anything, and the score is scaled by the fraction that are
+    found. That is what stops absent content from buying order credit -- ten blank paragraphs
+    locate nothing and score 0, where an earlier version gave them a perfect 1.0.
+
+    Block *kinds* are deliberately not part of this. They were, as a coverage factor, and that
+    put segmentation back into the product through the other door: perfect text in perfect order
+    emitted as one block instead of four scored 0.25, because four kinds became one. Structure
+    is a real question and a separate one, scored on its own as ``block_structure_similarity``.
+    """
+    if not expected.text_blocks or not actual.text_blocks:
+        return 0.0
+
+    haystack = normalize_text(" ".join(actual.text_blocks))
+    if not haystack:
+        return 0.0
+
+    positions: list[int] = []
+    candidates = 0
+    for block in expected.text_blocks:
+        needle = normalize_text(block)
+        if not needle:
+            continue
+        candidates += 1
+        position, aligned = _locate(haystack, needle)
+        if aligned >= _IDENTIFIED_MATCH:
+            positions.append(position)
+
+    if candidates == 0:
+        return 0.0
+    located = len(positions) / candidates
+    if len(positions) < 2:
+        return located
+    pairs = len(positions) * (len(positions) - 1) // 2
     inversions = sum(
         1
-        for left in range(len(identified))
-        for right in range(left + 1, len(identified))
-        if identified[left] > identified[right]
+        for left in range(len(positions))
+        for right in range(left + 1, len(positions))
+        if positions[left] > positions[right]
     )
-    return coverage * (1.0 - inversions / pairs)
+    return located * (1.0 - inversions / pairs)
 
 
 def score_page(expected: PageProjection, actual: PageProjection) -> dict[str, float]:
@@ -613,6 +640,13 @@ def score_page(expected: PageProjection, actual: PageProjection) -> dict[str, fl
             " ".join(actual.text_blocks),
         ),
         "reading_order_similarity": _reading_order_similarity(expected, actual),
+        # The sequence of block categories, on its own rather than folded into the order
+        # score. It answers "did the page come apart into the right pieces", which is a
+        # different question from "did the pieces come out in the right order" -- and eleven
+        # text categories collapse to `text_block`, so it cannot answer the second one: fully
+        # reversed output scores exactly 1.0 here on 153 of the 981 pinned pages, and any
+        # permutation is free on the 113 pages with a single repeated kind.
+        "block_structure_similarity": _sequence_similarity(expected.block_kinds, actual.block_kinds),
     }
     if expected.tables or actual.tables:
         structure, content = _table_similarities(expected.tables, actual.tables)

@@ -32,10 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   until that candidate is reviewed and committed the gate reports `ABSENT_BASELINE` red.
   Exact reproduction of the annotation scores 1.0, and no degradation of it scores higher:
   checked across eleven degraded variants and all six dimensions on all 981 pages, plus the
-  two variants that sweep did not cover — every one of its variants *deleted* blocks, so
-  output that kept the block structure and destroyed the content went untested, and blanking
-  every block scored a perfect reading order. A block now has to be identifiable before it
-  votes on the ordering. Thanks [@santhreal](https://github.com/santhreal).
+  variants that sweep did not cover — every one of its variants *deleted* blocks, so output
+  that kept the block structure and destroyed the content, or kept both and only re-chunked,
+  went untested. Both went on to matter. Blanking every block scored a perfect reading order,
+  so a block now has to be located before it votes on the ordering; and pairing emitted blocks
+  against annotated ones one-to-one scored segmentation rather than order, so that text
+  reproduced *exactly* but emitted as a single block scored 0.0. The first full-corpus run put
+  894 of the 981 pages at exactly zero, 128 of them scoring 0.9 or better on text content.
+  Blocks are now located inside the concatenated output, which is blind to how it was chunked,
+  and the block-category sequence is reported on its own as `block_structure_similarity` —
+  segmentation is a real question and a different one from ordering.
+  Thanks [@santhreal](https://github.com/santhreal).
 
 ### Changed
 

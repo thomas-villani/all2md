@@ -165,7 +165,13 @@ def test_page_scores_have_exact_independent_dimension_semantics() -> None:
 
     assert scores == {
         "text_content_similarity": pytest.approx(2 / 3),
-        "reading_order_similarity": pytest.approx(2 / 3),
+        # "A B" is located in "AB" on two of its three characters, which clears the
+        # identification floor, and one located block cannot be out of order.
+        "reading_order_similarity": 1.0,
+        # One of three kinds dropped. This is the dimension the kind sequence answers;
+        # it used to be folded into the reading-order score, which made that score react
+        # to segmentation rather than to order.
+        "block_structure_similarity": pytest.approx(2 / 3),
         "formula_presence_accuracy": 0.0,
         "table_structure_similarity": pytest.approx(2 / 3),
         "table_content_similarity": pytest.approx(2 / 3),
@@ -277,6 +283,7 @@ def test_formula_metrics_are_absent_when_no_page_side_has_a_formula() -> None:
     assert score_page(plain, plain) == {
         "text_content_similarity": 1.0,
         "reading_order_similarity": 1.0,
+        "block_structure_similarity": 1.0,
     }
 
     missed = score_page(
@@ -574,14 +581,81 @@ def test_ordinary_extraction_noise_does_not_bleed_into_the_order_term() -> None:
     assert score_page(expected, swapped)["reading_order_similarity"] == 0.0
 
 
+def test_reading_order_does_not_depend_on_how_the_output_was_chunked() -> None:
+    """Splitting or merging blocks moves no text, so it must not move the order score.
+
+    Pairing emitted blocks one-to-one against ground-truth blocks measured segmentation and
+    called it order. Text reproduced exactly but emitted as a single block scored 0.0, and
+    splitting every block in two scored 0.44. On the pinned corpus that left 894 of 981 pages at
+    exactly zero, 128 of them scoring 0.9 or better on text content -- the metric had no dynamic
+    range left to detect a regression with. Ground-truth blocks are now located inside the
+    concatenated output, which is blind to chunking.
+    """
+    blocks = ("Alpha beta gamma", "Delta epsilon zeta", "Eta theta iota")
+    expected = PageProjection(blocks, ("text_block",) * 3, (), ())
+
+    merged = PageProjection((" ".join(blocks),), ("text_block",), (), ())
+    split = PageProjection(
+        tuple(part for block in blocks for part in (block[: len(block) // 2], block[len(block) // 2 :])),
+        ("text_block",) * 6,
+        (),
+        (),
+    )
+
+    assert score_page(expected, merged)["reading_order_similarity"] == 1.0
+    assert score_page(expected, split)["reading_order_similarity"] == 1.0
+    # ...and reordering the merged text still costs everything, so the insensitivity is to
+    # chunking only.
+    reversed_merged = PageProjection((" ".join(reversed(blocks)),), ("text_block",), (), ())
+    assert score_page(expected, reversed_merged)["reading_order_similarity"] == 0.0
+
+
+def test_block_structure_is_scored_separately_from_reading_order() -> None:
+    """Segmentation is a real question, and it is not the same question as ordering.
+
+    The block-kind sequence used to be a factor of the reading-order score, which is how
+    chunking got back into a metric that had just been made blind to it: four blocks correctly
+    merged into one scored 0.25 on order for no reason connected to order. It is now its own
+    dimension -- and it cannot answer the ordering question itself, because eleven text
+    categories collapse to ``text_block``, so reversed output scores a perfect 1.0 on it.
+    """
+    blocks = ("Alpha beta gamma", "Delta epsilon zeta", "Eta theta iota")
+    expected = PageProjection(blocks, ("text_block",) * 3, (), ())
+    merged = PageProjection((" ".join(blocks),), ("text_block",), (), ())
+    reversed_blocks = PageProjection(tuple(reversed(blocks)), ("text_block",) * 3, (), ())
+
+    assert score_page(expected, merged)["block_structure_similarity"] == pytest.approx(1 / 3)
+    assert score_page(expected, merged)["reading_order_similarity"] == 1.0
+
+    assert score_page(expected, reversed_blocks)["block_structure_similarity"] == 1.0
+    assert score_page(expected, reversed_blocks)["reading_order_similarity"] == 0.0
+
+
+def test_a_block_fragmented_by_character_level_noise_is_still_located() -> None:
+    """A block damaged throughout has not moved, and must not read as missing.
+
+    Scoring only the longest unbroken run of matched characters made a substitution as ordinary
+    as ``o`` for ``0`` -- which OCR makes constantly -- shatter a block into fragments too short
+    to clear the identification floor, so the block dropped out of the ordering entirely. Every
+    aligned character counts now.
+    """
+    blocks = ("The quick brown fox", "jumps over the lazy dog")
+    expected = PageProjection(blocks, ("text_block",) * 2, (), ())
+    damaged = PageProjection(tuple(block.replace("o", "0") for block in blocks), ("text_block",) * 2, (), ())
+
+    assert score_page(expected, damaged)["reading_order_similarity"] == 1.0
+    assert score_page(expected, damaged)["text_content_similarity"] < 1.0
+
+
 def test_a_paragraph_holding_table_cells_costs_exactly_one_kind_substitution() -> None:
     """Recovering a table as a paragraph must be charged for segmentation and nothing else.
 
-    The expected cost is one substitution in the block-kind coverage term, ``1 - 1/n``. Because
-    table cell text now sits in both text streams, that variant's blocks are byte-identical to
-    exact reproduction and sit at the same indices, so the order-agreement factor must be exactly
-    1.0. Anything lower would mean the agreement term double-charges a variant whose order is
-    right, and the ratchet would red the first time all2md starts recovering table cells.
+    The expected cost is one substitution in the block-kind sequence, ``1 - 1/n``, and it lands
+    on ``block_structure_similarity``. Because the table's cell text sits in both text streams,
+    this variant's text is byte-identical to exact reproduction and in the same order, so the
+    other two dimensions must be exactly 1.0. Anything lower would mean they double-charge a
+    variant whose text and order are right, and the ratchet would red the first time all2md
+    starts recovering table cells.
     """
     truth = PageProjection(
         ("Intro", "A B"),
@@ -593,4 +667,5 @@ def test_a_paragraph_holding_table_cells_costs_exactly_one_kind_substitution() -
 
     scores = score_page(truth, paragraph)
     assert scores["text_content_similarity"] == 1.0
-    assert scores["reading_order_similarity"] == 1 - 1 / len(truth.block_kinds)
+    assert scores["reading_order_similarity"] == 1.0
+    assert scores["block_structure_similarity"] == 1 - 1 / len(truth.block_kinds)
