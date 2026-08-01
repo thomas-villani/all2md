@@ -1,0 +1,64 @@
+{
+  "schema_version": 2,
+  "provenance": {
+    "dataset_revision": "f5f559bddf50e36f7f9899d842d0006f13ce8afc",
+    "annotation_sha256": "2fafe9329dc92fc426b30036aee51c716b3fcdcc1d20cb964dc7670579533817",
+    "oracle_schema_version": 5,
+    "all2md_commit": "935df18319be42a27f1e5ab85a762695a9094f3a",
+    "worktree_dirty": false,
+    "created_at": "2026-08-01T20:28:28.830972+00:00",
+    "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
+    "platform": "linux",
+    "parser_runtime": {
+      "pillow": "12.3.0",
+      "pymupdf": "1.28.0",
+      "pymupdf_layout": "1.28.0",
+      "pytesseract": "0.3.13",
+      "tessdata_chi_sim_sha256": "a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730",
+      "tessdata_eng_sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "tesseract": "tesseract 5.3.4"
+    },
+    "parser_config": {
+      "layout_analysis_mode": "enabled",
+      "ocr": {
+        "enabled": true,
+        "engine": "tesseract",
+        "mode": "auto",
+        "languages": "eng+chi_sim",
+        "dpi": 200
+      }
+    }
+  },
+  "pages": {
+    "expected": 981,
+    "annotations": 981,
+    "pdfs": 981,
+    "converted": 981,
+    "scored": 981,
+    "unique_ids": 981
+  },
+  "dimensions": {
+    "block_structure_similarity": {
+      "value": 0.11760506580643935,
+      "direction": "higher",
+      "eligible_items": 981,
+      "variance": 0.018084814915713822,
+      "tolerance": 0.005
+    },
+    "reading_order_similarity": {
+      "value": 0.603428009731495,
+      "direction": "higher",
+      "eligible_items": 981,
+      "variance": 0.12070405573312774,
+      "tolerance": 0.005
+    },
+    "text_content_similarity": {
+      "value": 0.5058411056348215,
+      "direction": "higher",
+      "eligible_items": 981,
+      "variance": 0.11687727263164714,
+      "tolerance": 0.005
+    }
+  },
+  "expected_conversion_failures": {}
+}
