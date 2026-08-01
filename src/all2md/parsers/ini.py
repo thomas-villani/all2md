@@ -71,7 +71,7 @@ from all2md.ast import (
     Text,
 )
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import ParsingError
+from all2md.exceptions import All2MdError, ParsingError
 from all2md.options.ini import IniParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
@@ -241,6 +241,10 @@ class IniParser(BaseParser):
             return Document(children=children, metadata=metadata.to_dict())
 
         except ParsingError:
+            raise
+        except All2MdError:
+            # Already a typed all2md failure (e.g. the input was a mistyped path);
+            # re-wrapping it as ParsingError would hide the more specific type.
             raise
         except Exception as e:
             raise ParsingError(f"Failed to parse INI: {e}") from e
