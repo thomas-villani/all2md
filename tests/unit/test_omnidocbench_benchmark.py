@@ -110,6 +110,7 @@ def test_evaluation_calls_to_ast_once_and_scores_the_returned_document(
             scores={
                 "text_content_similarity": 1.0,
                 "reading_order_similarity": 1.0,
+                "block_structure_similarity": 1.0,
             },
             predicted_tables=0,
             predicted_formulas=0,
@@ -159,6 +160,7 @@ def test_failed_ast_conversion_contributes_zero_scores(tmp_path: Path, monkeypat
     assert result.scores == {
         "text_content_similarity": 0.0,
         "reading_order_similarity": 0.0,
+        "block_structure_similarity": 0.0,
     }
     assert result.error_type == "RuntimeError"
     assert result.error == "broken PDF"
@@ -183,6 +185,7 @@ def test_degraded_pdf_fallback_contributes_zero_scores(tmp_path: Path, monkeypat
     assert result.scores == {
         "text_content_similarity": 0.0,
         "reading_order_similarity": 0.0,
+        "block_structure_similarity": 0.0,
     }
     assert result.error_type == "DegradedConversionError"
     assert result.error == '[{"kind": "ocr_fallback"}]'
@@ -286,7 +289,7 @@ def test_normalization_records_variance_failures_and_unsupported_dimensions(tmp_
     assert payload["conversion_failures"] == {"page-b": "RuntimeError: broken PDF"}
     assert payload["unscored_annotation_categories"] == {"figure": 2}
     assert payload["explicitly_ignored_annotations"] == 2
-    assert payload["provenance"]["oracle_schema_version"] == 4
+    assert payload["provenance"]["oracle_schema_version"] == 5
     assert payload["provenance"]["parser_config"]["layout_analysis_mode"] == "enabled"
     assert payload["provenance"]["parser_runtime"] == {
         "pymupdf": "1.28.0",

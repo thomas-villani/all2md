@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from all2md.options.pdf import PdfOptions
 
 SCHEMA_VERSION = 2
-ORACLE_SCHEMA_VERSION = 4
+ORACLE_SCHEMA_VERSION = 5
 
 
 class DegradedConversionError(RuntimeError):
