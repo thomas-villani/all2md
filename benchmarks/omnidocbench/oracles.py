@@ -54,6 +54,9 @@ _WHITESPACE = re.compile(r"\s+")
 # on none after it.
 _IDEOGRAPHIC = "\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff01-\uff60\uffe0-\uffe6"
 _CJK_ADJACENT_WHITESPACE = re.compile(rf"(?<=[{_IDEOGRAPHIC}])\s+|\s+(?=[{_IDEOGRAPHIC}])")
+# Content similarity at which an emitted block counts as *the* ground-truth block it matched,
+# and so is allowed to vote on reading order. See `_reading_order_similarity`.
+_IDENTIFIED_MATCH = 0.5
 _ProjectionT = TypeVar("_ProjectionT")
 
 
@@ -552,7 +555,7 @@ def _table_similarities(
 
 
 def _reading_order_similarity(expected: PageProjection, actual: PageProjection) -> float:
-    """Score block-sequence coverage, scaled by the order agreement of the matched blocks.
+    """Score block-sequence coverage, scaled by how many blocks are identifiable and their order.
 
     The category sequence alone is not an order metric: eleven text categories collapse to
     ``text_block``, so fully reversed output scored exactly 1.0 on 153 of the 981 pinned pages
@@ -562,23 +565,43 @@ def _reading_order_similarity(expected: PageProjection, actual: PageProjection) 
 
     Equally similar candidates are resolved towards the block's own position, so a page that
     repeats one string cannot invert against itself: identical output must score exactly 1.0.
+    That tie-break is also why a block has to earn its place in the ordering: when nothing
+    resembles it, position alone decides the match, the identity mapping falls out and the
+    inversion count is zero. Ten empty paragraphs therefore scored a *perfect* reading order --
+    better than emitting every block correctly but reversed. Only blocks matched at
+    ``_IDENTIFIED_MATCH`` or better vote on the ordering, and the score is scaled by the
+    fraction that do, so unrecognizable output can no longer buy order credit.
+
+    The threshold is a floor on identity, not on quality: at half the characters aligned the
+    pairing is still evidence that this block *is* that block, so ordinary extraction noise
+    leaves the term untouched and this stays a metric about order rather than a second copy of
+    ``text_content_similarity``.
     """
     coverage = _sequence_similarity(expected.block_kinds, actual.block_kinds)
     count = len(actual.text_blocks)
-    if len(expected.text_blocks) < 2 or count < 2:
+    if not expected.text_blocks or count == 0:
         return coverage
-    scale = (len(expected.text_blocks) - 1) / (count - 1)
-    matched = []
+    scale = (len(expected.text_blocks) - 1) / (count - 1) if count > 1 else 0.0
+    identified: list[int] = []
     for position, block in enumerate(actual.text_blocks):
         preferred = position * scale
-        matched.append(
-            max(
-                range(len(expected.text_blocks)),
-                key=lambda index: (content_similarity(expected.text_blocks[index], block), -abs(index - preferred)),
-            )
+        similarities = [content_similarity(candidate, block) for candidate in expected.text_blocks]
+        index = max(
+            range(len(similarities)), key=lambda candidate: (similarities[candidate], -abs(candidate - preferred))
         )
-    pairs = count * (count - 1) // 2
-    inversions = sum(1 for left in range(count) for right in range(left + 1, count) if matched[left] > matched[right])
+        if similarities[index] >= _IDENTIFIED_MATCH:
+            identified.append(index)
+
+    coverage *= len(identified) / count
+    if len(identified) < 2:
+        return coverage
+    pairs = len(identified) * (len(identified) - 1) // 2
+    inversions = sum(
+        1
+        for left in range(len(identified))
+        for right in range(left + 1, len(identified))
+        if identified[left] > identified[right]
+    )
     return coverage * (1.0 - inversions / pairs)
 
 
