@@ -192,15 +192,7 @@ class OrgParser(BaseParser):
             else (root.body.strip() if root.body else "")
         )
         if root_body:
-            # Filter out file-level properties (#+TITLE:, #+AUTHOR:, etc.)
-            # These are already extracted as metadata and should not be in body
-            filtered_lines = []
-            for line in root_body.split("\n"):
-                # Skip lines that start with #+KEYWORD: (file-level properties)
-                if line.strip().startswith("#+"):
-                    continue
-                filtered_lines.append(line)
-            filtered_body = "\n".join(filtered_lines).strip()
+            filtered_body = self._strip_file_properties(root_body)
 
             if filtered_body:
                 body_nodes = self._process_body(filtered_body)
@@ -216,6 +208,41 @@ class OrgParser(BaseParser):
                     children.append(ast_nodes)
 
         return Document(children=children, metadata=metadata.to_dict())
+
+    @staticmethod
+    def _strip_file_properties(body: str) -> str:
+        """Drop file-level keyword lines from the text above the first heading.
+
+        ``#+TITLE:``, ``#+AUTHOR:`` and friends are already read into the document
+        metadata, so leaving them in the body would print them twice.
+
+        Only ``#+KEYWORD:`` lines qualify. Org spells block delimiters with the same
+        ``#+`` prefix but no colon, and dropping every ``#+`` line deleted the
+        ``#+BEGIN_SRC``/``#+END_SRC`` pair around a source block that appeared before
+        the first heading -- the code then re-flowed as a paragraph, so a file opening
+        with a code block silently lost it. The same block parsed correctly one line
+        lower, under a heading, because only this preamble path filtered.
+
+        Lines inside a block are left exactly as they are: a ``#+TITLE:`` written
+        inside a source block is code, not a document property.
+        """
+        filtered_lines = []
+        in_block = False
+        for line in body.split("\n"):
+            stripped = line.strip()
+            if in_block:
+                filtered_lines.append(line)
+                if re.match(r"^#\+END_\w+", stripped, re.IGNORECASE):
+                    in_block = False
+                continue
+            if re.match(r"^#\+BEGIN_\w+", stripped, re.IGNORECASE):
+                in_block = True
+                filtered_lines.append(line)
+                continue
+            if re.match(r"^#\+\w[\w-]*:", stripped):
+                continue
+            filtered_lines.append(line)
+        return "\n".join(filtered_lines).strip()
 
     def _process_node(self, node: Any) -> Node | list[Node] | None:
         """Process an orgparse node into an AST node.
@@ -646,11 +673,10 @@ class OrgParser(BaseParser):
                 result.append(MathBlock(content=math_content, notation="latex"))
                 continue
 
-            # Check for code blocks (#+BEGIN_SRC / #+END_SRC)
-            if block.startswith("#+BEGIN_SRC") or block.startswith("#+begin_src"):
-                code_block = self._parse_code_block(block)
-                if code_block:
-                    result.append(code_block)
+            # Check for greater blocks (#+BEGIN_X / #+END_X)
+            greater_block = re.match(r"^#\+BEGIN_(\w+)", block, re.IGNORECASE)
+            if greater_block:
+                result.extend(self._parse_greater_block(greater_block.group(1).upper(), block))
                 continue
 
             # Check for tables (lines starting with |)
@@ -834,6 +860,49 @@ class OrgParser(BaseParser):
 
         return result if result else [Text(content=text)]
 
+    def _parse_greater_block(self, kind: str, block: str) -> list[Node]:
+        """Parse an Org greater block into AST nodes.
+
+        ``#+BEGIN_SRC`` was the only one recognized, so ``#+BEGIN_QUOTE`` and
+        ``#+BEGIN_EXAMPLE`` fell through to the paragraph branch and their delimiter
+        lines were rendered as body text -- and mangled on the way, since ``+...+``
+        is Org's strikethrough syntax, so ``#+BEGIN_QUOTE`` came out as ``#~~BEGIN_QUOTE``.
+
+        A block kind that is still unrecognized contributes its contents and drops its
+        delimiters, which is what the rest of the pipeline can represent.
+        """
+        if kind == "SRC":
+            code_block = self._parse_code_block(block)
+            return [code_block] if code_block else []
+
+        content = self._greater_block_content(block, kind)
+        if not content.strip():
+            return []
+        if kind == "EXAMPLE":
+            # An example block is verbatim text with no language, which is exactly a
+            # fenced code block with none set.
+            return [CodeBlock(content=content)]
+        if kind == "QUOTE":
+            return [BlockQuote(children=self._process_body(content))]
+        return self._process_body(content)
+
+    @staticmethod
+    def _greater_block_content(block: str, kind: str) -> str:
+        """Return the lines between a greater block's ``#+BEGIN_``/``#+END_`` delimiters."""
+        lines = block.split("\n")
+        end_marker = f"#+end_{kind.lower()}"
+        content_lines = []
+        started = False
+        for line in lines:
+            stripped = line.strip().lower()
+            if not started:
+                started = stripped.startswith(f"#+begin_{kind.lower()}")
+                continue
+            if stripped.startswith(end_marker):
+                break
+            content_lines.append(line)
+        return "\n".join(content_lines)
+
     def _parse_code_block(self, block: str) -> CodeBlock | None:
         """Parse a code block.
 
@@ -957,16 +1026,21 @@ class OrgParser(BaseParser):
             if not line_stripped:
                 continue
 
-            # Match list item
+            # Match list item. The content group is optional: a bullet with nothing
+            # after it is still an item, and requiring content silently deleted it --
+            # `- \n- b` came back as a one-item list. An empty item carries no
+            # Paragraph, which is the shape the Markdown parser already produces.
             if ordered:
-                match = re.match(r"^\d+[\.\)]\s+(.+)$", line_stripped)
+                match = re.match(r"^\d+[\.\)](?:\s+(.*))?$", line_stripped)
             else:
-                match = re.match(r"^[\-\+\*]\s+(.+)$", line_stripped)
+                match = re.match(r"^[\-\+\*](?:\s+(.*))?$", line_stripped)
 
             if match:
-                item_text = match.group(1)
-                content = self._parse_inline(item_text)
-                items.append(ListItem(children=[Paragraph(content=content)]))
+                item_text = (match.group(1) or "").strip()
+                if item_text:
+                    items.append(ListItem(children=[Paragraph(content=self._parse_inline(item_text))]))
+                else:
+                    items.append(ListItem(children=[]))
 
         return List(ordered=ordered, items=items)
 

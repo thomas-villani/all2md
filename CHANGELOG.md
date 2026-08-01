@@ -65,6 +65,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Org: a source block above the first heading is no longer deleted.** Text before the
+  first `*` heading went through a filter meant to keep file properties such as
+  `#+TITLE:` out of the body, and it dropped *every* line starting with `#+`. Org spells
+  its block delimiters with the same prefix, so `#+BEGIN_SRC`/`#+END_SRC` were removed
+  and the code between them re-flowed as a paragraph — an org file that opens with a
+  code block silently lost it, while the identical block one line below a heading parsed
+  correctly. Only `#+KEYWORD:` lines are filtered now, and never inside a block, so a
+  `#+TITLE:` written in Org source stays source. `#+BEGIN_QUOTE` and `#+BEGIN_EXAMPLE`
+  are also recognized for the first time — in *both* positions, since neither was ever
+  handled: they used to reach the output as literal text, mangled on the way, because
+  `+…+` is Org's strikethrough syntax and `#+BEGIN_QUOTE` therefore rendered as
+  `#~~BEGIN_QUOTE`. A quote block becomes a block quote, an example block a fence with
+  no language, and any block kind still unrecognized contributes its contents without
+  its delimiters. Also: a bullet with nothing after it is now a list item. The item
+  pattern required content, so `- \n- b` parsed as a one-item list (#240).
+
 - **AsciiDoc: nested lists survive a round trip.** The renderer emitted a `+` list
   continuation before a nested list, which detaches it into a block of its own and
   leaves the `**` marker with no `*` parent at the level below it — output the AsciiDoc

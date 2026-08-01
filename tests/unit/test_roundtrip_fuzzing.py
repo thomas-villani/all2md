@@ -488,12 +488,6 @@ KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
     # back as a start.
     ("asciidoc", "ordered-list-start-survives"): "renderer emits no [start=N] attribute (#239)",
     ("org", "ordered-list-start-survives"): "renderer emits a literal '5.' the parser does not read as start (#239)",
-    # Both org entries are parser-side, despite earlier reasons blaming the
-    # renderer (#240). The bullet and the #+BEGIN_SRC block are both emitted
-    # correctly; the parser drops the empty item, and produces no CodeBlock node
-    # at all from a source block.
-    ("org", "empty-list-item-survives"): "parser drops a bullet with no content (#240)",
-    ("org", "code-block-language-survives"): "parser produces no CodeBlock from #+BEGIN_SRC (#240)",
 }
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe
