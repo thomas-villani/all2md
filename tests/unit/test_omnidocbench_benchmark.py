@@ -302,3 +302,93 @@ def test_strict_result_json_rejects_non_finite_scores(tmp_path: Path) -> None:
     """NaN cannot enter a baseline because JSON readers disagree on its meaning."""
     with pytest.raises(ValueError, match="Out of range float values"):
         benchmark.write_result({"score": float("nan")}, tmp_path / "result.json")
+
+
+def _write_vector_pdf(path: Path) -> None:
+    """A born-digital page: real text and a ruled box."""
+    fitz = pytest.importorskip("fitz")
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 100), "Quarterly results", fontsize=12)
+    page.draw_rect(fitz.Rect(72, 120, 300, 200))
+    document.save(path)
+    document.close()
+
+
+def _write_scanned_pdf(path: Path, tmp_path: Path) -> None:
+    """A scanned page: one full-page raster, no text layer, no vector drawings."""
+    fitz = pytest.importorskip("fitz")
+    source = tmp_path / "_source.pdf"
+    _write_vector_pdf(source)
+    with fitz.open(source) as origin:
+        pixmap = origin[0].get_pixmap(dpi=72)
+        rect = origin[0].rect
+    document = fitz.open()
+    page = document.new_page(width=rect.width, height=rect.height)
+    page.insert_image(page.rect, pixmap=pixmap)
+    document.save(path)
+    document.close()
+
+
+def test_input_traits_tell_a_born_digital_page_from_a_scan(tmp_path: Path) -> None:
+    """The lane must record what its corpus contains, not assume PDFs carry text.
+
+    This is the check whose absence let an all-raster corpus be scored, gated and
+    baselined as though it exercised the PDF text and table paths.
+    """
+    vector = tmp_path / "vector.pdf"
+    scanned = tmp_path / "scanned.pdf"
+    _write_vector_pdf(vector)
+    _write_scanned_pdf(scanned, tmp_path)
+
+    assert benchmark._input_traits(vector) == frozenset({"text_layer", "vector_drawings"})
+    assert benchmark._input_traits(scanned) == frozenset({"one_full_page_image"})
+
+
+def test_an_unreadable_pdf_is_uncharacterized_rather_than_trait_free(tmp_path: Path) -> None:
+    """``None`` and "no traits" must stay distinct, or unreadable files read as scans."""
+    broken = tmp_path / "broken.pdf"
+    broken.write_bytes(b"not a pdf at all")
+
+    assert benchmark._input_traits(broken) is None
+    assert benchmark._input_traits(tmp_path / "absent.pdf") is None
+
+
+def test_characterization_counts_only_pages_it_could_measure(tmp_path: Path) -> None:
+    """An uncharacterized page must not be counted as lacking every trait."""
+    snapshot = _snapshot(tmp_path)
+    truth = {"page-a": _truth("page-a"), "page-b": _truth("page-b")}
+    evaluations = [
+        benchmark.PageEvaluation(
+            page_id="page-a",
+            scores={"text_content_similarity": 0.5},
+            predicted_tables=0,
+            predicted_formulas=0,
+            duration_seconds=0.1,
+            traits=frozenset({"one_full_page_image", "ocr_applied"}),
+        ),
+        benchmark.PageEvaluation(
+            page_id="page-b",
+            scores={"text_content_similarity": 0.5},
+            predicted_tables=0,
+            predicted_formulas=0,
+            duration_seconds=0.1,
+            traits=None,
+        ),
+    ]
+
+    payload = benchmark.normalize_results(
+        snapshot=snapshot,
+        ground_truth=truth,
+        evaluations=evaluations,
+        all2md_commit="all2md-commit",
+        parser_runtime={"pymupdf": "1.28.0"},
+    )
+
+    assert payload["provenance"]["corpus_characterization"] == {
+        "pages_characterized": 1,
+        "pages_with_text_layer": 0,
+        "pages_with_vector_drawings": 0,
+        "pages_with_one_full_page_image": 1,
+        "pages_ocr_applied": 1,
+    }
