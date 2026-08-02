@@ -981,3 +981,27 @@ def test_a_baseline_omitting_worktree_dirty_is_invalid() -> None:
         )
         in verdict.findings
     )
+
+
+def test_new_provenance_evidence_does_not_invalidate_a_recorded_baseline() -> None:
+    """Informational provenance must be addable without paying for a new baseline run.
+
+    Corpus characterization is evidence, not identity: the corpus is already pinned by
+    ``dataset_revision`` and ``annotation_sha256``, so these counts cannot drift without
+    those changing first. The gate compares an explicit allowlist of identity paths, and
+    this test pins that property -- adding a field to ``_IDENTITY_FIELDS`` would force an
+    ~80-minute re-record of every recorded baseline, which should be a deliberate choice
+    rather than a side effect.
+    """
+    results = _results()
+    baseline = _baseline()
+    results["provenance"]["corpus_characterization"] = {
+        "pages_characterized": 2,
+        "pages_with_text_layer": 0,
+        "pages_with_vector_drawings": 0,
+        "pages_with_one_full_page_image": 2,
+        "pages_ocr_applied": 2,
+    }
+
+    assert not gate.compare(results, baseline).failed
+    assert "provenance.corpus_characterization" not in gate._IDENTITY_FIELDS

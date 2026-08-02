@@ -39,6 +39,11 @@ class PageEvaluation:
     degraded_events: tuple[str, ...] = ()
     error_type: str | None = None
     error: str | None = None
+    #: What the *input* PDF contains, measured before conversion, plus whether OCR ran.
+    #: Names of the traits that hold; absent means the trait was measured and is false.
+    #: ``None`` means the file could not be characterized at all, which is distinct from
+    #: "has none of these traits" and must not be counted as either.
+    traits: frozenset[str] | None = None
 
 
 def _pdf_options(ocr_languages: str) -> PdfOptions:
@@ -115,6 +120,54 @@ def _degraded_kinds(document: Any) -> tuple[str, ...]:
     return tuple(sorted(str(event["kind"]) for event in events if isinstance(event, Mapping) and "kind" in event))
 
 
+#: Traits describing what a corpus PDF actually contains. Recorded because this lane was
+#: built, gated and baselined before anyone asked: every page turned out to be a single
+#: full-page raster, so the scores grade OCR rather than the PDF text and table paths, and
+#: nothing in the payload said so. Validating the annotation schema checks only one side of
+#: the comparison. Characterize the inputs too.
+_INPUT_TRAITS = ("text_layer", "vector_drawings", "one_full_page_image")
+#: Recorded alongside them because "no text layer" and "OCR ran" answer different questions.
+_RUN_TRAITS = ("ocr_applied",)
+
+
+def _input_traits(pdf_path: Path) -> frozenset[str] | None:
+    """Return which input traits a PDF's first page has, or ``None`` if unreadable.
+
+    Deliberately independent of all2md: it reads the file with PyMuPDF directly, so a
+    parser change can never quietly alter what the corpus is reported to contain.
+    """
+    try:
+        import fitz
+    except ImportError:
+        return None
+    try:
+        with fitz.open(pdf_path) as document:
+            if document.page_count < 1:
+                return frozenset()
+            page = document[0]
+            images = page.get_images(full=True)
+            traits = set()
+            if page.get_text().strip():
+                traits.add("text_layer")
+            if page.get_drawings():
+                traits.add("vector_drawings")
+            # One image and nothing else vector-drawn is the scanned-page-in-a-wrapper shape.
+            if len(images) == 1 and not page.get_drawings():
+                traits.add("one_full_page_image")
+            return frozenset(traits)
+    except Exception:  # noqa: BLE001 - characterization is evidence, never a reason to fail a page
+        return None
+
+
+def _ocr_applied(document: Any) -> bool:
+    """Report whether the parser actually ran OCR, rather than inferring it from emptiness."""
+    metadata = document.metadata if isinstance(document.metadata, Mapping) else {}
+    confidence = metadata.get("confidence")
+    signals = confidence.get("signals") if isinstance(confidence, Mapping) else None
+    fraction = signals.get("ocr_page_fraction") if isinstance(signals, Mapping) else None
+    return isinstance(fraction, (int, float)) and not isinstance(fraction, bool) and fraction > 0
+
+
 def _evaluate_page(
     page: CorpusPage,
     truth: GroundTruthPage,
@@ -123,6 +176,8 @@ def _evaluate_page(
     from all2md import to_ast
 
     started = time.perf_counter()
+    # Measured before conversion, so a page that fails to convert still reports what it was.
+    traits = _input_traits(page.pdf_path)
     try:
         document = to_ast(
             page.pdf_path,
@@ -140,6 +195,7 @@ def _evaluate_page(
             predicted_formulas=len(actual.formulas),
             duration_seconds=time.perf_counter() - started,
             degraded_events=_degraded_kinds(document),
+            traits=None if traits is None else traits | ({"ocr_applied"} if _ocr_applied(document) else set()),
         )
     except Exception as exc:  # noqa: BLE001 - failed pages stay in every applicable denominator
         empty = PageProjection((), (), (), ())
@@ -152,6 +208,7 @@ def _evaluate_page(
             duration_seconds=time.perf_counter() - started,
             error_type=type(exc).__name__,
             error=str(exc),
+            traits=traits,
         )
 
 
@@ -241,6 +298,12 @@ def normalize_results(
         explicitly_ignored += page.explicitly_ignored
 
     successful = sum(result.error_type is None for result in evaluations)
+    measured = [result.traits for result in evaluations if result.traits is not None]
+    corpus_characterization = {
+        "pages_characterized": len(measured),
+        **{f"pages_with_{trait}": sum(trait in traits for traits in measured) for trait in _INPUT_TRAITS},
+        **{f"pages_{trait}": sum(trait in traits for traits in measured) for trait in _RUN_TRAITS},
+    }
     return {
         "schema_version": SCHEMA_VERSION,
         "provenance": {
@@ -253,6 +316,11 @@ def normalize_results(
             "python": sys.version,
             "platform": sys.platform,
             "parser_runtime": dict(sorted(parser_runtime.items())),
+            # Evidence, not identity: the corpus is already pinned immutably by
+            # dataset_revision and annotation_sha256, so these counts cannot drift without
+            # those changing. Deliberately absent from the gate's _IDENTITY_FIELDS, which
+            # is what lets them be added without invalidating a recorded baseline.
+            "corpus_characterization": corpus_characterization,
             "parser_config": {
                 "layout_analysis_mode": "enabled",
                 "ocr": {

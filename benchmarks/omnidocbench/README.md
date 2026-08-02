@@ -100,6 +100,21 @@ Review the candidate's metric values, `eligible_items`, `variance`, and `toleran
 
 `baseline.json` records the run of 2026-08-01 over all 981 pinned pages at `935df18`: text content 0.5058, reading order 0.6034, block structure 0.1176. Re-record it the same way it was bootstrapped — dispatch the `OmniDocBench PDF Fidelity Gate` workflow with `record_baseline` enabled, review the uploaded candidate, and commit it. Recording the baseline from CI is required: a local run resolves different parser-runtime identity and every later CI run would report `IDENTITY_DRIFT`.
 
+`provenance.corpus_characterization` records what the corpus actually contains, counted
+over the pages that could be read: how many carry a text layer, vector drawings, or the
+single-full-page-image shape of a scan, and how many the parser ran OCR on. It exists
+because this lane was built, gated and baselined before anyone asked that question, and
+the answer turned out to decide what the scores mean — every page is a raster, so they
+grade OCR rather than the PDF text and table paths. `pages_characterized` is the
+denominator for the rest, and a file that cannot be read at all is excluded from it
+rather than counted as having no traits. The counts are read from the PDF directly rather
+than from an all2md projection, so a parser change cannot alter what the corpus is
+reported to contain. They are evidence, not identity: the corpus is already pinned by
+`dataset_revision` and `annotation_sha256`, so they cannot drift without those changing,
+and keeping them out of the gate's identity fields is what lets such evidence be added
+without invalidating a recorded baseline. **Characterize the inputs, not just the
+annotations** — schema-validating one side of a comparison proves nothing about the other.
+
 Review the candidate's numbers before committing one, rather than only its shape. Both metric defects this lane has had were caught that way and neither showed up as an error: a dimension reading 0.0267 with 894 of 981 pages at exactly zero is a passing measurement of a broken metric, and 128 of those pages scored 0.9 or better on text content at the time. A dimension pinned at one value has no range left to detect a regression with, whatever its value.
 
 Synthetic adapter, oracle, and ratchet tests run without the corpus:

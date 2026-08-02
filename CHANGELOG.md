@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The OmniDocBench lane records what its corpus actually contains.**
+  `provenance.corpus_characterization` counts how many pages carry a text layer, vector
+  drawings, or the single-full-page-image shape of a scan, and how many the parser ran OCR
+  on. The lane was built, gated and baselined before anyone asked that question, and the
+  answer changes what the scores mean: every page in the pinned corpus is a raster, so they
+  grade OCR rather than the PDF text and table paths. Counted from the PDF directly rather
+  than from a projection, so a parser change cannot alter what the corpus is reported to
+  contain, and excluded from the gate's identity fields so evidence like this can be added
+  without invalidating a recorded baseline.
+
 ## [1.11.0] - 2026-08-01
 
 ### Added
