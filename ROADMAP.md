@@ -6,6 +6,17 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
+**Status (2026-08-01).** The **External ground truth** batch is complete and cuts as **v1.11.0**.
+The OmniDocBench lane is live with a recorded baseline, and the fuzzer backlog it shipped
+alongside is closed: all seven crash classes and eleven of the twelve invariant gaps are fixed,
+leaving `KNOWN_INVARIANT_GAPS` at a single entry. Two lessons carried out of it. First, the
+same defect appeared twice in one metric — *segmentation measured and called order* — and
+both times the run **passed**; only reading the distribution caught it, which is why the
+review step is now written into the lane's README. Second, the corpus turned out to be
+981 page images, so the headline number grades our OCR pipeline rather than our PDF engine.
+That is the right instrument for Theme 8 and the wrong one for Theme 2's general claim, and
+knowing which is which is worth more than the number.
+
 **Status (2026-07-30).** The headline Theme 1 item — `all2md chunk` — is shipped, along with
 mermaid/syntax highlighting in `view`/`serve` and one-click `uv` install scripts. The
 **Fidelity & Trust** batch landed in **v1.9.0**: the conversion cache, the confidence report
@@ -30,8 +41,9 @@ pattern is real rather than a story we told ourselves. It came with a defect bac
 attached: six crash classes (#206–#211), a hole in the exception contract (#212), and eleven
 measured round-trip invariant gaps.
 
-The **next batch is (5) External ground truth**, with that backlog as its user-visible half.
-Bets 2 and 3 are now evaluable, which was the point. See **Suggested sequencing**.
+That batch — **(5) External ground truth**, with the backlog as its user-visible half — is now
+shipped as **v1.11.0**. Bet 2 (positional fidelity) is the next one up and is finally
+measurable, which was the point. See **Suggested sequencing**.
 
 ---
 
@@ -207,15 +219,29 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   hole (#212), and the first **enumerated** — rather than suspected — list of round-trip gaps
   in the org and asciidoc renderers (table captions, ordered-list `start`, the `#+BEGIN_SRC`
   language, and an asciidoc trailing pipe its own parser reads as a phantom column).
-- 🚀 **External ground truth** (lane landed in `benchmarks/omnidocbench`; the first baseline is
-  still to be recorded, so the gate reads `ABSENT_BASELINE` until then) is the headline
-  metric. `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own
+- 🚢 **External ground truth** — *lane landed in `benchmarks/omnidocbench`; baseline recorded
+  2026-08-01.* `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own
   parsers, not that we read the document correctly. A garbled table can round-trip perfectly.
-  The scheduled OmniDocBench lane now downloads an immutable 981-page corpus, calls
+  The scheduled OmniDocBench lane downloads an immutable 981-page corpus, calls
   `all2md.to_ast` once per page, and compares supported AST facts directly with annotation
   fields for text, formulae, tables, and reading order. Its committed ratchet fails on corpus
   drift, parser-policy drift, denominator drift, vacuous metrics, regressions, and unreviewed
-  improvements.
+  improvements. Recorded at `935df18`: text content 0.5058, reading order 0.6034, block
+  structure 0.1176.
+
+  **Read that as an OCR-pipeline score, not a PDF-conversion score.** Every page in the corpus
+  is a single full-page raster wrapped in a PDF — sampled across data sources, each has zero
+  text characters, one image, and no vector drawings. So there is no text layer to extract, no
+  ruling lines to detect, and no font or layout metadata to analyse: the numbers grade
+  Tesseract 5.3.4 at 200 dpi plus our OCR plumbing, and all2md's native PDF text and table
+  paths are never exercised. The zero tables follow from the corpus, not from a missing
+  capability — a synthetic ruled table is detected identically under the benchmark's own
+  parser policy and under library defaults, so `unsupported_dimensions` currently
+  mis-attributes a corpus property to a parser gap. This is still exactly the right
+  instrument for **Theme 8**, whose subject *is* OCR geometry; it is the wrong one for
+  "how well do we convert PDFs" in general, and the docs should not let it be read that way.
+  Making the lane actionable is tracked as its own follow-up: stratified scoring, honest
+  unsupported messages, and a content floor on block structure.
   Corpora remain split by job:
   - **Structure ground-truth (headline metric):** [**OmniDocBench**](https://github.com/opendatalab/OmniDocBench)
     (CVPR 2025), 981 pages and 9 document types with table, formula, text, and reading-order
@@ -556,37 +582,72 @@ round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢
    so an action that could version-drift from the library would silently redefine every
    consumer's threshold. A Marketplace listing is a separate, public call and is **not** done.
 
-**Remaining, ordered by leverage-per-effort.** The external-ground-truth lane selected for
-the next batch is now implemented:
+**Shipped in the External ground truth batch** (**v1.11.0**). Two halves, as planned:
 
-5. **External ground truth** (Theme 2) uses OmniDocBench as the headline score. The normalized
-   result records each aggregate, denominator, and sample variance. The gate rejects zero
-   variance, so the metric cannot pass merely because an evaluator path stayed constant.
-6. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). The external
-   baseline makes this bet measurable. Use score and denominator changes from the pinned lane
-   to decide whether positional provenance improves real pages before expanding the design.
-7. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
-   Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
-   a prerequisite for clean multi-worker training-corpus loading (Theme 1).
-8. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
-   ground-truth corpus.
+5. 🚢 **The OmniDocBench lane, with a recorded baseline** (Theme 2). The normalized result
+   records each aggregate, denominator, and sample variance; the gate rejects zero variance,
+   so a metric cannot pass merely because an evaluator path stayed constant. Two metric
+   defects were found and fixed *before* the baseline was recorded, both of which the run
+   reported as a pass.
+6. 🚢 **The fuzzer backlog** (#204's half). Seven crash classes and eleven invariant gaps
+   fixed across #206–#212 and #235–#240; `KNOWN_INVARIANT_GAPS` is down to one entry
+   (#237's markdown arm, which is a deliberate open question rather than a defect).
 
-**This batch delivers (5), plus the fuzzer's backlog as its visible half.** External ground
-truth is the headline and the measuring instrument for Theme 8. Alongside it, the defects the
-#204 fuzzer surfaced (#206–#212) are the batch's user-visible half: real fidelity fixes
-with shrunk reproductions already attached, which beats the RAG-framework loader adapters as
-filler because they deepen the moat instead of shipping commodity glue.
+**Remaining, ordered by leverage-per-effort.**
 
-Two of them are worth doing regardless of how the batch goes, because they are reachable from
-ordinary input rather than from a generated AST:
+7. **Make the external lane actionable** (Theme 2) — the cheapest high-value item on the
+   board now, and a prerequisite for trusting (8). Three parts, worth batching into one
+   change because each invalidates the baseline and costs an ~80-minute re-run:
+   **stratified scoring** (the annotations already carry `page_attribute`, which the corpus
+   validates as required and the oracle then ignores — one aggregate over newspapers,
+   handwritten notes, slides, textbooks and papers is not actionable, and the 9 data sources
+   are already known); **honest `unsupported_dimensions` messages** (say the corpus offers no
+   vector tables to detect, rather than implying we cannot detect tables); and the
+   **`block_structure_similarity` content floor** ([#256](https://github.com/thomas-villani/all2md/issues/256)). Tracked as [#257](https://github.com/thomas-villani/all2md/issues/257).
+8. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). The external
+   baseline makes this bet measurable, and the corpus being all-raster means the lane
+   exercises precisely the path Theme 8 changes. Use score and denominator changes from the
+   pinned lane to decide whether positional provenance improves real pages before expanding
+   the design. Note that the recorded run bears on Stage 1's premise: the PDF parser emits
+   roughly thirteen blocks per annotated region on OCR'd pages, which is not the "collapses
+   to one page-sized block" failure the blocker list describes — re-check that claim against
+   the current code before building on it.
+9. **OCR the embedded image, not a re-render, when a PDF page is one full-page image**
+   (Theme 8, small). Measured on corpus samples: rendering at a fixed 200 dpi produces up to
+   **4.3x** the embedded raster's pixels. No detail is lost — the render is native or above
+   on every page sampled — so this is a speed and cost item, not a fidelity one, and it
+   should not be sold as the latter.
+10. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
+    Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
+    a prerequisite for clean multi-worker training-corpus loading (Theme 1).
+11. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
+    ground-truth corpus. Note that OmniDocBench cannot grade this: 260 pages carry formula
+    ground truth, but on an all-raster corpus recovering them is OCR-side maths recognition,
+    not parsing. The arXiv source↔PDF pairs are the instrument that would actually measure it.
 
-- **#211 — odt/odp nested link.** Browsers accept nested `<a>` and our HTML parser preserves
-  the nesting, so `all2md page.html -t odt` fails on real pages today.
-- **#212 — `from_ast` can raise bare `ValueError`/`KeyError`.** A documented contract that two
-  renderers do not honour, so `except All2MdError` does not catch what the docs say it will.
+**Smaller open items**, none blocking: the markdown arm of
+[#237](https://github.com/thomas-villani/all2md/issues/237) (keep the lossy caption demotion
+and document it, or round-trip through an HTML comment — a deliberate call, not a defect);
+[#140](https://github.com/thomas-villani/all2md/issues/140)/[#178](https://github.com/thomas-villani/all2md/issues/178)
+(markdown HTML round trip); [#184](https://github.com/thomas-villani/all2md/issues/184)
+(unreachable options classes); [#183](https://github.com/thomas-villani/all2md/issues/183)
+(corpus throughput gate, parked on runner variance);
+[#186](https://github.com/thomas-villani/all2md/issues/186) (Marketplace listing — a public
+call, not an engineering one). Two CI gaps also remain: `scripts/` is in no gate and carries
+10 mypy errors, and the Windows leg does not run mypy, so the `msvcrt` branch has never been
+type-checked in CI.
 
-The batch also has a natural close: the #204 sensitivity fix above, so the instrument that
-generated the backlog is trustworthy before we lean on it further.
+Two of the fuzzer's defects were worth doing regardless of how the batch went, because they
+are reachable from ordinary input rather than from a generated AST:
+
+- 🚢 **#211 — odt/odp nested link.** Browsers accept nested `<a>` and our HTML parser preserves
+  the nesting, so `all2md page.html -t odt` failed on real pages. Fixed.
+- 🚢 **#212 — `from_ast` can raise bare `ValueError`/`KeyError`.** A documented contract that two
+  renderers did not honour, so `except All2MdError` did not catch what the docs said it would.
+  Fixed.
+
+The batch closed as intended: the instrument that generated the backlog was made trustworthy
+before we leaned on it further — twice, as it turned out.
 
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
 RAG-framework loader adapters (Theme 1) remain the cheapest filler on the board (~a day each)
