@@ -518,6 +518,8 @@ class OpenApiParser(BaseParser):
             untagged: list[tuple[str, str, dict[str, Any]]] = []
 
             for path, path_item in paths.items():
+                if not isinstance(path_item, dict):
+                    continue
                 for method, operation in path_item.items():
                     if method.upper() not in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE"]:
                         continue
@@ -552,6 +554,8 @@ class OpenApiParser(BaseParser):
         else:
             # List sequentially
             for path, path_item in paths.items():
+                if not isinstance(path_item, dict):
+                    continue
                 for method, operation in path_item.items():
                     if method.upper() not in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE"]:
                         continue
