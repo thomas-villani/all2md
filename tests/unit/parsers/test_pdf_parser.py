@@ -267,8 +267,6 @@ class TestTableDetection:
         # Tables should be flattened to paragraphs
         assert isinstance(ast_doc, Document)
 
-
-
     def test_parse_markdown_table_row_escaped_pipe(self) -> None:
         r"""Escaped pipes inside a cell must not split the cell."""
         converter = PdfToAstConverter()
