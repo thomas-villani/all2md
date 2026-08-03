@@ -2057,7 +2057,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("python-docx", "docx", "")],
     renderer_required_packages=[("python-docx", "docx", ">=1.2.0")],
     optional_packages=[],
-    import_error_message=("DOCX conversion requires 'python-docx'. " "Install with: pip install python-docx"),
+    import_error_message=("DOCX conversion requires 'python-docx'. Install with: pip install python-docx"),
     parser_options_class=DocxOptions,
     renderer_options_class="all2md.options.docx.DocxRendererOptions",
     description="Convert Microsoft Word DOCX documents to/from AST",
