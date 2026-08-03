@@ -188,6 +188,21 @@ class EpubToAstConverter(BaseParser):
 
         return Document(children=children)
 
+    def _process_toc_items(self, items: Any, level: int = 2) -> list[Node]:
+        """Recursively turn ebooklib TOC entries into heading nodes."""
+        nodes: list[Node] = []
+        if isinstance(items, (list, tuple)):
+            if len(items) == 2 and hasattr(items[0], "title") and isinstance(items[1], (list, tuple)):
+                section_or_link, subitems = items
+                nodes.append(Heading(level=min(level, 6), content=[Text(content=section_or_link.title)]))
+                nodes.extend(self._process_toc_items(subitems, level + 1))
+            else:
+                for subitem in items:
+                    nodes.extend(self._process_toc_items(subitem, level))
+        elif hasattr(items, "title"):
+            nodes.append(Heading(level=min(level, 6), content=[Text(content=items.title)]))
+        return nodes
+
     def _build_toc(self, book: Any) -> list[Node]:
         """Build table of contents from EPUB.
 
@@ -211,11 +226,7 @@ class EpubToAstConverter(BaseParser):
         # Add TOC heading
         nodes.append(Heading(level=1, content=[Text(content="Table of Contents")]))
 
-        # Process TOC items
-        for item in toc:
-            if hasattr(item, "title"):
-                nodes.append(Heading(level=2, content=[Text(content=item.title)]))
-
+        nodes.extend(self._process_toc_items(toc, level=2))
         return nodes
 
     def extract_metadata(self, document: Any) -> DocumentMetadata:
@@ -283,7 +294,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("ebooklib", "ebooklib", "")],
     renderer_required_packages=[("ebooklib", "ebooklib", ">=0.17")],
     optional_packages=[],
-    import_error_message=("ePub conversion requires 'ebooklib'. " "Install with: pip install ebooklib"),
+    import_error_message=("ePub conversion requires 'ebooklib'. Install with: pip install ebooklib"),
     parser_options_class=EpubOptions,
     renderer_options_class="all2md.options.epub.EpubRendererOptions",
     priority=8,
