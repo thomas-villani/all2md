@@ -354,7 +354,7 @@ class OdtToAstConverter(BaseParser):
             AST heading node
 
         """
-        level = int(h.getAttribute("outlinelevel") or 1)
+        level = min(6, max(1, int(h.getAttribute("outlinelevel") or 1)))
         content = self._process_text_runs(h, doc)
         return Heading(level=level, content=content)
 
