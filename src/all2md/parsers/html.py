@@ -1402,6 +1402,17 @@ class HtmlToAstConverter(BaseParser):
 
         return None
 
+    @staticmethod
+    def _parse_cell_span_attr(tag: Any, attr: str) -> int:
+        val = tag.get(attr)
+        if val is not None:
+            try:
+                parsed = int(str(val).strip())
+                return max(1, parsed)
+            except (ValueError, TypeError):
+                pass
+        return 1
+
     def _process_table_row_cells(
         self, tr: Any, collect_alignments: bool = False
     ) -> tuple[list[TableCell], list[str | None]]:
@@ -1411,9 +1422,12 @@ class HtmlToAstConverter(BaseParser):
         # Direct children only: recursive find_all duplicates nested td/th into the outer row
         for cell in tr.find_all(["th", "td"], recursive=False):
             content = self._process_table_cell_content(cell)
-            cells.append(TableCell(content=content))
+            alignment = self._get_alignment(cell)
+            colspan = self._parse_cell_span_attr(cell, "colspan")
+            rowspan = self._parse_cell_span_attr(cell, "rowspan")
+            cells.append(TableCell(content=content, colspan=colspan, rowspan=rowspan, alignment=alignment))
             if collect_alignments:
-                alignments.append(self._get_alignment(cell))
+                alignments.append(alignment)
         return cells, alignments
 
     def _process_thead_section(self, node: Any) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
