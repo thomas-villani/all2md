@@ -22,6 +22,7 @@ from typing import IO, Any, Optional, Union
 from urllib.parse import urljoin, urlparse
 
 from all2md.ast import (
+    Alignment,
     BlockQuote,
     Code,
     CodeBlock,
@@ -1402,21 +1403,35 @@ class HtmlToAstConverter(BaseParser):
 
         return None
 
+    @staticmethod
+    def _parse_cell_span_attr(tag: Any, attr: str) -> int:
+        val = tag.get(attr)
+        if val is not None:
+            try:
+                parsed = int(str(val).strip())
+                return max(1, parsed)
+            except (ValueError, TypeError):
+                pass
+        return 1
+
     def _process_table_row_cells(
         self, tr: Any, collect_alignments: bool = False
-    ) -> tuple[list[TableCell], list[str | None]]:
+    ) -> tuple[list[TableCell], list[Alignment | None]]:
         """Process cells in a table row. Returns (cells, alignments)."""
         cells = []
         alignments = []
         # Direct children only: recursive find_all duplicates nested td/th into the outer row
         for cell in tr.find_all(["th", "td"], recursive=False):
             content = self._process_table_cell_content(cell)
-            cells.append(TableCell(content=content))
+            alignment = self._get_alignment(cell)
+            colspan = self._parse_cell_span_attr(cell, "colspan")
+            rowspan = self._parse_cell_span_attr(cell, "rowspan")
+            cells.append(TableCell(content=content, colspan=colspan, rowspan=rowspan, alignment=alignment))
             if collect_alignments:
-                alignments.append(self._get_alignment(cell))
+                alignments.append(alignment)
         return cells, alignments
 
-    def _process_thead_section(self, node: Any) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
+    def _process_thead_section(self, node: Any) -> tuple[TableRow | None, list[TableRow], list[Alignment | None]]:
         """Process thead section. Returns (header, extra_rows, alignments)."""
         thead = node.find("thead")
         if not thead:
@@ -1441,13 +1456,13 @@ class HtmlToAstConverter(BaseParser):
 
     def _process_tbody_rows(
         self, node: Any, has_header: bool
-    ) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
+    ) -> tuple[TableRow | None, list[TableRow], list[Alignment | None]]:
         """Process tbody or direct rows. Returns (header_if_found, rows, alignments)."""
         tbody = node.find("tbody")
         row_container = tbody if tbody else node
         header = None
         rows = []
-        alignments: list[str | None] = []
+        alignments: list[Alignment | None] = []
 
         for tr in row_container.find_all("tr", recursive=False):
             if has_header and tr.parent.name == "thead":
@@ -1513,7 +1528,7 @@ class HtmlToAstConverter(BaseParser):
             if not alignments:
                 alignments = [None] * len(header.cells)
 
-        return Table(header=header, rows=rows, alignments=alignments, caption=caption)  # type: ignore[arg-type]
+        return Table(header=header, rows=rows, alignments=alignments, caption=caption)
 
     def _process_definition_list_to_ast(self, node: Any) -> DefinitionList:
         """Process dl element to DefinitionList node.
@@ -2309,7 +2324,7 @@ class HtmlToAstConverter(BaseParser):
 
         return sanitize_language_identifier(fallback)
 
-    def _get_alignment(self, cell: Any) -> str | None:
+    def _get_alignment(self, cell: Any) -> Alignment | None:
         """Get table cell alignment.
 
         Parameters
