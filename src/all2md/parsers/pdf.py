@@ -2960,9 +2960,11 @@ class PdfToAstConverter(BaseParser):
         if row_line.endswith("|"):
             row_line = row_line[:-1]
 
+        # The AST holds unescaped text: restore the placeholder as a bare "|" and let the
+        # renderer re-escape it. Keeping the backslash here would escape it a second time.
         escaped_pipe_placeholder = "\x00PIPE\x00"
         row_line_escaped = row_line.replace(r"\|", escaped_pipe_placeholder)
-        cells = [cell.replace(escaped_pipe_placeholder, r"\|").strip() for cell in row_line_escaped.split("|")]
+        cells = [cell.replace(escaped_pipe_placeholder, "|").strip() for cell in row_line_escaped.split("|")]
         return cells
 
     def _collect_image_exclusion_regions(self, layout: "PageLayoutPredictions | None") -> list[Any]:
