@@ -18,6 +18,7 @@ from fixtures.generators.epub_fixtures import (
 from utils import assert_markdown_valid
 
 from all2md import EpubOptions
+from all2md.ast import Heading
 from all2md import to_markdown as epub_to_markdown
 from all2md.exceptions import MalformedFileError, ParsingError
 from all2md.options import MarkdownRendererOptions
@@ -77,6 +78,25 @@ class TestEpubIntegrationBasic:
         assert isinstance(result, str)
         assert "Chapter 1: Introduction" in result
         assert_markdown_valid(result)
+
+    def test_epub_build_toc_nested_tuples(self) -> None:
+        """Nested ebooklib TOC tuples must yield section and chapter headings."""
+        from ebooklib import epub
+
+        from all2md.parsers.epub import EpubToAstConverter
+
+        book = epub.EpubBook()
+        sec1 = epub.Section("Part 1")
+        chap1 = epub.Link("c1.xhtml", "Chapter 1", "c1")
+        chap2 = epub.Link("c2.xhtml", "Chapter 2", "c2")
+        book.toc = ((sec1, (chap1, chap2)),)
+
+        nodes = EpubToAstConverter()._build_toc(book)
+        titles = [n.content[0].content for n in nodes if isinstance(n, Heading)]
+        assert titles == ["Table of Contents", "Part 1", "Chapter 1", "Chapter 2"]
+        levels = [n.level for n in nodes if isinstance(n, Heading)]
+        assert levels == [1, 2, 3, 3]
+
 
     def test_simple_epub_with_toc_disabled(self, temp_dir):
         """Test conversion with table of contents disabled."""
