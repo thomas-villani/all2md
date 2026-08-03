@@ -1076,4 +1076,3 @@ class TestInlineFormattingConsolidator:
         assert len(strike_node.content) == 1
         assert isinstance(strike_node.content[0], Strong)
         assert strike_node.content[0].content[0].content == "textmore"
-
