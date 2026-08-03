@@ -7,19 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **The OmniDocBench lane records what its corpus actually contains.**
-  `provenance.corpus_characterization` counts how many pages carry a text layer, vector
-  drawings, or the single-full-page-image shape of a scan, and how many the parser ran OCR
-  on. The lane was built, gated and baselined before anyone asked that question, and the
-  answer changes what the scores mean: every page in the pinned corpus is a raster, so they
-  grade OCR rather than the PDF text and table paths. Counted from the PDF directly rather
-  than from a projection, so a parser change cannot alter what the corpus is reported to
-  contain, and excluded from the gate's identity fields so evidence like this can be added
-  without invalidating a recorded baseline.
-
-## [1.11.0] - 2026-08-01
+## [1.11.0] - 2026-08-03
 
 ### Added
 
@@ -61,6 +49,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   counts, it never inspects the text under a block, and it is independent of the other two
   (+0.03 and +0.05, where those two correlate +0.84).
   Thanks [@santhreal](https://github.com/santhreal).
+- **The OmniDocBench lane records what its corpus actually contains.**
+  `provenance.corpus_characterization` counts how many pages carry a text layer, vector
+  drawings, or the single-full-page-image shape of a scan, and how many the parser ran OCR
+  on. The lane was built, gated and baselined before anyone asked that question, and the
+  answer changes what the scores mean: every page in the pinned corpus is a raster, so they
+  grade OCR rather than the PDF text and table paths. Counted from the PDF directly rather
+  than from a projection, so a parser change cannot alter what the corpus is reported to
+  contain, and excluded from the gate's identity fields so evidence like this can be added
+  without invalidating a recorded baseline.
 
 ### Changed
 
@@ -90,6 +87,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Bold and italic no longer swallow the images, links and code they wrap.** The inline
+  consolidator asked `_has_nested_formatting` whether a `Strong`/`Emphasis` held anything
+  worth recursing into, and that check looked only for nested `Strong`/`Emphasis`. A node
+  wrapping an `Image`, `Link` or `Code` therefore looked like a plain-text node, and the
+  fallthrough path rebuilt it from its concatenated text alone. An `Image` contributes no
+  text, so `**![alt](img.png)**` rebuilt to an empty `Strong` and rendered as the empty
+  string — the image and the paragraph around it both vanished, with no error anywhere.
+  Any non-`Text` child now counts, so the node
+  is recursed into instead of rebuilt. `Strikethrough`, `Mark`, `Underline`, `Superscript`
+  and `Subscript` are consolidated recursively too, rather than passed through untouched.
+  Thanks [@santhreal](https://github.com/santhreal) (#264).
+- **HTML table cells keep their `colspan`, `rowspan` and alignment.** The parser read a
+  cell's alignment only to build the table's column-alignment list and dropped the span
+  attributes on the floor, so `<td colspan="2">` parsed as an ordinary cell and the merge
+  no longer existed by the time anything rendered. All three now land on the `TableCell`
+  itself, and a span that is missing, non-numeric or below 1 falls back to 1 rather than
+  raising. Spans now survive HTML→HTML, DOCX and AsciiDoc round trips; Markdown has no
+  span syntax, and its renderer still does not pad for a spanned cell, so a `colspan="2"`
+  there continues to put the following cell in the next column.
+  Thanks [@santhreal](https://github.com/santhreal) (#266).
+- **A nested EPUB table of contents is no longer flattened to its top level.** ebooklib
+  returns a TOC as a tree, where a section with children is a `(Section, [children])`
+  tuple, and the builder iterated it one level deep — keeping entries that had a `.title`
+  and silently discarding every tuple. A book that nested its chapters under parts
+  emitted the parts and nothing else. The TOC is now walked recursively, one heading level
+  per level of depth, clamped at 6.
+  Thanks [@santhreal](https://github.com/santhreal) (#267).
+- **A Word or ODT heading deeper than level 6 no longer crashes the conversion.** `Heading`
+  validates its level as 1–6 in `__post_init__`, but the DOCX parser passed through
+  whatever number it matched in a `Heading N` style name and the ODT parser whatever
+  `outlinelevel` said. Word ships built-in styles through `Heading 9`, so an ordinary
+  document raised `ValueError: Heading level must be 1-6, got 7` and converted not at all.
+  Both parsers now clamp into range.
+  Thanks [@santhreal](https://github.com/santhreal) (#262, #263).
+- **A null path item or `components` section no longer crashes an OpenAPI spec.** YAML lets
+  a key be written with nothing under it — `/pets:` or `components:` on a line by itself —
+  and that parses as `None`, which is legal in a spec that is still being filled in. Both
+  were then used as dictionaries (`path_item.items()`, `components.get("schemas")`) and
+  raised `AttributeError`. Non-dict path items are skipped, and a null `components` now
+  falls back to Swagger 2.0's `definitions` the same way a missing one always did.
+  Thanks [@santhreal](https://github.com/santhreal) (#260, #269).
+- **An escaped pipe in a PDF table cell no longer splits the cell or doubles its backslash.**
+  The markdown-table fallback in the PDF parser split rows on every `|`, so a cell
+  containing `\|` fractured into two cells. Escaped pipes are now masked before the split
+  and restored as a bare `|` — the AST holds unescaped text and the Markdown renderer adds
+  the backslash back on the way out, so restoring the backslash here as well would have
+  escaped it twice and emitted `\\|`.
+  Thanks [@santhreal](https://github.com/santhreal) (#268).
 - **Table captions survive a round trip in AsciiDoc, RST and Org.** All three have a
   caption syntax and none of them used it in both directions. AsciiDoc already *wrote*
   the caption as a `.My caption` block title, and its parser ignored the line, so the
