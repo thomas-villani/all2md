@@ -697,3 +697,34 @@ class TestCommentAndMarkSerialization:
         assert isinstance(restored, Document)
         assert isinstance(restored.children[0], Comment)
         assert restored.children[0].content == "block note"
+
+@pytest.mark.unit
+class TestNullFieldHandlingInDeserialization:
+    """Test deserialization when JSON contains explicit null field values."""
+
+    def test_math_inline_with_null_representations(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "MathInline", "content": "x^2", "representations": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, MathInline)
+        assert node.content == "x^2"
+        assert node.representations == {"latex": "x^2"}
+
+    def test_paragraph_with_null_content_and_metadata(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "Paragraph", "content": null, "metadata": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, Paragraph)
+        assert node.content == []
+        assert node.metadata == {}
+
+    def test_document_with_null_children(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "Document", "children": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, Document)
+        assert node.children == []
+
+    def test_table_with_null_alignments_and_rows(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "Table", "rows": null, "alignments": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, Table)
+        assert node.rows == []
+        assert node.alignments == []
