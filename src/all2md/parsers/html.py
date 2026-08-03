@@ -22,6 +22,7 @@ from typing import IO, Any, Optional, Union
 from urllib.parse import urljoin, urlparse
 
 from all2md.ast import (
+    Alignment,
     BlockQuote,
     Code,
     CodeBlock,
