@@ -486,6 +486,7 @@ def _deserialize_children(children_data: list[dict[str, Any]] | None) -> list[No
         return []
     return [cast(Node, dict_to_ast(child)) for child in children_data if child]
 
+
 def _deserialize_source_location(loc_data: dict[str, Any] | None) -> SourceLocation | None:
     """Deserialize a source location if present.
 
@@ -514,6 +515,7 @@ def _deserialize_source_location_node(data: dict[str, Any]) -> SourceLocation:
         element_id=data.get("element_id"),
         metadata=data.get("metadata") or {},
     )
+
 
 def _deserialize_document(data: dict[str, Any]) -> Document:
     """Deserialize Document node."""
@@ -631,6 +633,7 @@ def _deserialize_table(data: dict[str, Any]) -> Table:
         metadata=data.get("metadata") or {},
         source_location=_deserialize_source_location(data.get("source_location")),
     )
+
 
 def _deserialize_table_row(data: dict[str, Any]) -> TableRow:
     """Deserialize TableRow node."""
@@ -806,6 +809,7 @@ def _deserialize_math_block(data: dict[str, Any]) -> MathBlock:
         metadata=data.get("metadata") or {},
         source_location=_deserialize_source_location(data.get("source_location")),
     )
+
 
 def _deserialize_footnote_reference(data: dict[str, Any]) -> FootnoteReference:
     """Deserialize FootnoteReference node."""
@@ -1057,8 +1061,7 @@ def json_to_ast(json_str: str, validate_schema: bool = True, strict_mode: bool =
             raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
         elif schema_version != 1:
             raise ValueError(
-                f"Unsupported schema version: {schema_version}. "
-                f"This version of all2md supports schema version 1 only."
+                f"Unsupported schema version: {schema_version}. This version of all2md supports schema version 1 only."
             )
     else:
         # Schema validation disabled - just log a warning if version differs

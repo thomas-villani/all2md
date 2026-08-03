@@ -698,6 +698,7 @@ class TestCommentAndMarkSerialization:
         assert isinstance(restored.children[0], Comment)
         assert restored.children[0].content == "block note"
 
+
 @pytest.mark.unit
 class TestNullFieldHandlingInDeserialization:
     """Test deserialization when JSON contains explicit null field values."""
