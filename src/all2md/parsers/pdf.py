@@ -2953,14 +2953,16 @@ class PdfToAstConverter(BaseParser):
             Cell contents
 
         """
-        # Remove leading/trailing pipes and split
+        # Remove leading/trailing pipes and split, respecting escaped pipes (\|)
         row_line = row_line.strip()
         if row_line.startswith("|"):
             row_line = row_line[1:]
         if row_line.endswith("|"):
             row_line = row_line[:-1]
 
-        cells = [cell.strip() for cell in row_line.split("|")]
+        escaped_pipe_placeholder = "\x00PIPE\x00"
+        row_line_escaped = row_line.replace(r"\|", escaped_pipe_placeholder)
+        cells = [cell.replace(escaped_pipe_placeholder, r"\|").strip() for cell in row_line_escaped.split("|")]
         return cells
 
     def _collect_image_exclusion_regions(self, layout: "PageLayoutPredictions | None") -> list[Any]:

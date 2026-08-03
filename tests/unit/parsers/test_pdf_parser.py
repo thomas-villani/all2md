@@ -268,6 +268,15 @@ class TestTableDetection:
         assert isinstance(ast_doc, Document)
 
 
+
+    def test_parse_markdown_table_row_escaped_pipe(self) -> None:
+        r"""Escaped pipes inside a cell must not split the cell."""
+        converter = PdfToAstConverter()
+        row = r"| cell1 \| extended | cell2 |"
+        cells = converter._parse_markdown_table_row(row)
+        assert cells == [r"cell1 \| extended", "cell2"]
+
+
 @pytest.mark.unit
 class TestImageExtraction:
     """Tests for image extraction."""
