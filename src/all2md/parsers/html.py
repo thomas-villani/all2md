@@ -1528,7 +1528,7 @@ class HtmlToAstConverter(BaseParser):
             if not alignments:
                 alignments = [None] * len(header.cells)
 
-        return Table(header=header, rows=rows, alignments=alignments, caption=caption)  # type: ignore[arg-type]
+        return Table(header=header, rows=rows, alignments=alignments, caption=caption)
 
     def _process_definition_list_to_ast(self, node: Any) -> DefinitionList:
         """Process dl element to DefinitionList node.
