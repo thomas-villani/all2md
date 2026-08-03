@@ -592,7 +592,7 @@ class DocxToAstConverter(BaseParser):
         """Try to process paragraph as a heading. Returns Heading or None."""
         heading_match = re.match(r"Heading (\d+)", style_name)
         if heading_match:
-            level = int(heading_match.group(1))
+            level = min(6, max(1, int(heading_match.group(1))))
             content = self._process_paragraph_runs_to_inline(paragraph)
             heading = Heading(level=level, content=content)
             if style_name:
@@ -2057,7 +2057,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("python-docx", "docx", "")],
     renderer_required_packages=[("python-docx", "docx", ">=1.2.0")],
     optional_packages=[],
-    import_error_message=("DOCX conversion requires 'python-docx'. " "Install with: pip install python-docx"),
+    import_error_message=("DOCX conversion requires 'python-docx'. Install with: pip install python-docx"),
     parser_options_class=DocxOptions,
     renderer_options_class="all2md.options.docx.DocxRendererOptions",
     description="Convert Microsoft Word DOCX documents to/from AST",

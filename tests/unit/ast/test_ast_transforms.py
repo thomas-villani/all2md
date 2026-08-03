@@ -1018,3 +1018,61 @@ class TestInlineFormattingConsolidator:
         assert isinstance(result, Paragraph)
         # Empty Strong should be removed
         assert len(result.content) == 0
+
+    def test_preserve_non_text_inline_nodes_in_formatting(self) -> None:
+        """Non-text inline nodes inside Strong must not be flattened to plain text."""
+        img = Image(url="icon.png", alt_text="link icon")
+        link = Link(url="http://example.com", content=[Text(content="Example")])
+        code = Code(content="x")
+        para = Paragraph(
+            content=[
+                Strong(
+                    content=[
+                        Text(content="Click here: "),
+                        img,
+                        Text(content=" "),
+                        link,
+                        Text(content=" use "),
+                        code,
+                    ]
+                )
+            ]
+        )
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        strong_node = result.content[0]
+        assert isinstance(strong_node, Strong)
+        types = [type(n).__name__ for n in strong_node.content]
+        assert types == ["Text", "Image", "Text", "Link", "Text", "Code"]
+        assert strong_node.content[0].content == "Click here: "
+        assert strong_node.content[1] == img
+        assert strong_node.content[3] == link
+        assert strong_node.content[5].content == "x"
+
+    def test_consolidate_strikethrough_container(self) -> None:
+        """Inline container nodes like Strikethrough are recursively consolidated."""
+        from all2md.ast import Strikethrough
+
+        para = Paragraph(
+            content=[
+                Strikethrough(
+                    content=[
+                        Strong(content=[Text(content="text")]),
+                        Strong(content=[Text(content="more")]),
+                    ]
+                )
+            ]
+        )
+        consolidator = InlineFormattingConsolidator()
+        result = consolidator.transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        strike_node = result.content[0]
+        assert isinstance(strike_node, Strikethrough)
+        assert len(strike_node.content) == 1
+        assert isinstance(strike_node.content[0], Strong)
+        assert strike_node.content[0].content[0].content == "textmore"

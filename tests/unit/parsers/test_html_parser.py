@@ -531,6 +531,34 @@ class TestTables:
         assert len(table.header.cells) == 2
         assert len(table.rows) == 2
 
+    def test_table_cell_colspan_rowspan_alignment(self) -> None:
+        """Test table cells preserve colspan, rowspan, and alignment attributes."""
+        html = """
+        <table>
+            <thead>
+                <tr><th colspan="2" rowspan="3" align="center">Header Spanned</th></tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="4" rowspan="5" align="right">Data Spanned</td></tr>
+            </tbody>
+        </table>
+        """
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast(html)
+
+        table = doc.children[0]
+        assert isinstance(table, Table)
+        assert table.header is not None
+        header_cell = table.header.cells[0]
+        assert header_cell.colspan == 2
+        assert header_cell.rowspan == 3
+        assert header_cell.alignment == "center"
+
+        row_cell = table.rows[0].cells[0]
+        assert row_cell.colspan == 4
+        assert row_cell.rowspan == 5
+        assert row_cell.alignment == "right"
+
     def test_empty_tr_without_cells_skipped(self) -> None:
         """Empty <tr></tr> must not become a 0-cell header row."""
         converter = HtmlToAstConverter()
