@@ -1415,7 +1415,7 @@ class HtmlToAstConverter(BaseParser):
 
     def _process_table_row_cells(
         self, tr: Any, collect_alignments: bool = False
-    ) -> tuple[list[TableCell], list[str | None]]:
+    ) -> tuple[list[TableCell], list[Alignment | None]]:
         """Process cells in a table row. Returns (cells, alignments)."""
         cells = []
         alignments = []
@@ -2323,7 +2323,7 @@ class HtmlToAstConverter(BaseParser):
 
         return sanitize_language_identifier(fallback)
 
-    def _get_alignment(self, cell: Any) -> str | None:
+    def _get_alignment(self, cell: Any) -> Alignment | None:
         """Get table cell alignment.
 
         Parameters
