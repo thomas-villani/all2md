@@ -792,7 +792,8 @@ class OpenApiParser(BaseParser):
         nodes: list[Node] = []
 
         # Get schemas from components (OpenAPI 3.x) or definitions (Swagger 2.0)
-        schemas = spec.get("components", {}).get("schemas", {})
+        components = spec.get("components")
+        schemas = components.get("schemas", {}) if isinstance(components, dict) else {}
         if not schemas:
             schemas = spec.get("definitions", {})
 
