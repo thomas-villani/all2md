@@ -17,6 +17,9 @@
 
 📦 **[PyPI](https://pypi.org/project/all2md/)** · 📖 **[Documentation](https://all2md.readthedocs.io/)** · 💡 **[Examples](examples/)**
 
+<!-- mcp-name: io.github.thomas-villani/all2md -->
+
+
 ## Quick start
 
 ```bash
