@@ -592,7 +592,7 @@ class DocxToAstConverter(BaseParser):
         """Try to process paragraph as a heading. Returns Heading or None."""
         heading_match = re.match(r"Heading (\d+)", style_name)
         if heading_match:
-            level = int(heading_match.group(1))
+            level = min(6, max(1, int(heading_match.group(1))))
             content = self._process_paragraph_runs_to_inline(paragraph)
             heading = Heading(level=level, content=content)
             if style_name:
