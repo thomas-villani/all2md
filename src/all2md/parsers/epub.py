@@ -188,7 +188,6 @@ class EpubToAstConverter(BaseParser):
 
         return Document(children=children)
 
-
     def _process_toc_items(self, items: Any, level: int = 2) -> list[Node]:
         """Recursively turn ebooklib TOC entries into heading nodes."""
         nodes: list[Node] = []
@@ -295,7 +294,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_required_packages=[("ebooklib", "ebooklib", "")],
     renderer_required_packages=[("ebooklib", "ebooklib", ">=0.17")],
     optional_packages=[],
-    import_error_message=("ePub conversion requires 'ebooklib'. " "Install with: pip install ebooklib"),
+    import_error_message=("ePub conversion requires 'ebooklib'. Install with: pip install ebooklib"),
     parser_options_class=EpubOptions,
     renderer_options_class="all2md.options.epub.EpubRendererOptions",
     priority=8,

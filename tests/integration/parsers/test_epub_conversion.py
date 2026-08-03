@@ -97,7 +97,6 @@ class TestEpubIntegrationBasic:
         levels = [n.level for n in nodes if isinstance(n, Heading)]
         assert levels == [1, 2, 3, 3]
 
-
     def test_simple_epub_with_toc_disabled(self, temp_dir):
         """Test conversion with table of contents disabled."""
         epub_content = create_simple_epub()
