@@ -1431,7 +1431,7 @@ class HtmlToAstConverter(BaseParser):
                 alignments.append(alignment)
         return cells, alignments
 
-    def _process_thead_section(self, node: Any) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
+    def _process_thead_section(self, node: Any) -> tuple[TableRow | None, list[TableRow], list[Alignment | None]]:
         """Process thead section. Returns (header, extra_rows, alignments)."""
         thead = node.find("thead")
         if not thead:
@@ -1456,13 +1456,13 @@ class HtmlToAstConverter(BaseParser):
 
     def _process_tbody_rows(
         self, node: Any, has_header: bool
-    ) -> tuple[TableRow | None, list[TableRow], list[str | None]]:
+    ) -> tuple[TableRow | None, list[TableRow], list[Alignment | None]]:
         """Process tbody or direct rows. Returns (header_if_found, rows, alignments)."""
         tbody = node.find("tbody")
         row_container = tbody if tbody else node
         header = None
         rows = []
-        alignments: list[str | None] = []
+        alignments: list[Alignment | None] = []
 
         for tr in row_container.find_all("tr", recursive=False):
             if has_header and tr.parent.name == "thead":
