@@ -267,6 +267,28 @@ class TestTableDetection:
         # Tables should be flattened to paragraphs
         assert isinstance(ast_doc, Document)
 
+    def test_parse_markdown_table_row_escaped_pipe(self) -> None:
+        r"""Escaped pipes inside a cell must not split the cell, and land unescaped in the AST."""
+        converter = PdfToAstConverter()
+        row = r"| cell1 \| extended | cell2 |"
+        cells = converter._parse_markdown_table_row(row)
+        assert cells == ["cell1 | extended", "cell2"]
+
+    def test_escaped_pipe_cell_survives_render(self) -> None:
+        r"""A cell holding a literal pipe is escaped exactly once on the way back out."""
+        from all2md.ast import TableCell, TableRow, Text
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        converter = PdfToAstConverter()
+        cells = converter._parse_markdown_table_row(r"| cell1 \| extended | cell2 |")
+        table = Table(
+            header=TableRow(cells=[TableCell(content=[Text(content=c)]) for c in cells], is_header=True),
+            rows=[],
+        )
+        md = MarkdownRenderer().render_to_string(Document(children=[table]))
+        assert r"| cell1 \| extended | cell2 |" in md
+        assert "\\\\" not in md
+
 
 @pytest.mark.unit
 class TestImageExtraction:
