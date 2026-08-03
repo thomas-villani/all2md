@@ -385,6 +385,23 @@ paths:
         assert "/null-endpoint" not in md
         assert "/string-endpoint" not in md
 
+    def test_null_components_section(self) -> None:
+        """Explicit components: null must not crash schema section build."""
+        spec = """openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+components: null
+"""
+        parser = OpenApiParser()
+        doc = parser.parse(spec.encode("utf-8"))
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert md.startswith("# Test API")
+        assert "1.0.0" in md
+
     def test_max_schema_depth(self) -> None:
         """Test max_schema_depth option."""
         spec = """openapi: 3.0.0
