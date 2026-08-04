@@ -46,7 +46,7 @@ def test_docx_fixture_contains_expected_notes() -> None:
 
 @pytest.mark.integration
 def test_docx_inline_comments_render_inline() -> None:
-    """DOCX comments render inline when configured."""
+    """DOCX comments render inline, next to the text they annotate."""
     options = DocxOptions(
         include_comments=True,
         comments_position="inline",
@@ -58,4 +58,32 @@ def test_docx_inline_comments_render_inline() -> None:
 
     assert "I decided not to think of something funny." in markdown_output
     assert "comment1" in markdown_output
-    assert "-->" not in markdown_output
+
+    # Inline means on the same line as the sentence it annotates, not hoisted away.
+    annotated = [line for line in markdown_output.split("\n") if "comment1" in line]
+    assert len(annotated) == 1
+    assert "Something hilarious" in annotated[0]
+
+    # Default comment_mode is "html" (#272): the annotation stays an annotation rather
+    # than being promoted into the body prose the reader sees. It carries more than the
+    # visible form did -- the author and the timestamp both survive.
+    assert "<!-- Comment comment1 by Thomas Villani" in markdown_output
+    assert "-->" in markdown_output
+
+
+@pytest.mark.integration
+def test_docx_inline_comments_can_be_made_visible() -> None:
+    """The reviewer-comment use case is opt-in rather than the default (#272).
+
+    ``comment_mode="blockquote"`` is what surfaces an annotation as text a reader can
+    see; it is the mode the old default was chosen for.
+    """
+    options = DocxOptions(include_comments=True, comments_position="inline")
+    document = DocxToAstConverter(options=options).parse(DOCX_FIXTURE_PATH)
+
+    markdown_output = MarkdownRenderer(
+        MarkdownRendererOptions(flavor="pandoc", comment_mode="blockquote")
+    ).render_to_string(document)
+
+    assert "[Comment comment1 by Thomas Villani: I decided not to think of something funny.]" in markdown_output
+    assert "<!--" not in markdown_output

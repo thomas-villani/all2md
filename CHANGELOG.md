@@ -329,10 +329,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Comment`. `"html"` is the only mode that is a fixed point, and it is what every other
   renderer already does — each defaults to its own native comment syntax, and textile,
   which offers the identical three choices, already defaulted to `"html"`. Markdown was
-  the lone outlier. `"blockquote"` remains available via `--markdown-comment-mode` for
-  the DOCX reviewer-comment case it was chosen for. Found by our own quality gate: it is
-  what blocked adding an `mcp-name` registry marker to `README.md`, which dropped the
-  README's round-trip fidelity from 97 to 96 and failed the build (#271, #272).
+  the lone outlier. Found by our own quality gate: it is what blocked adding an
+  `mcp-name` registry marker to `README.md`, which dropped the README's round-trip
+  fidelity from 97 to 96 and failed the build (#271, #272).
+
+  One visible consequence to know about: converting a DOCX with reviewer comments to
+  Markdown now emits `<!-- Comment ... -->` rather than a bracketed `[Comment by ...]`
+  glued to the end of the annotated sentence, so the annotations no longer show up in
+  the rendered prose. They are still there, and in fact carry more than before — the
+  HTML form keeps the author *and* the timestamp, where the visible form dropped the
+  timestamp. Pass `comment_mode="blockquote"` (or `--markdown-comment-mode blockquote`)
+  to get the old, reader-visible output back; that is the case the previous default was
+  chosen for, and it is now opt-in rather than the default for every Markdown document.
 
 ## [1.10.1] - 2026-07-27
 
