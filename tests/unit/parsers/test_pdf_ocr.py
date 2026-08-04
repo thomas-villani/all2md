@@ -653,3 +653,54 @@ class TestOCRLayoutRecovery:
         title_size = blocks[0]["lines"][0]["spans"][0]["size"]
         body_size = blocks[1]["lines"][0]["spans"][0]["size"]
         assert title_size > body_size
+
+
+class TestEngineReadingOrderIsPreserved:
+    """Sorting blocks by y assumes one column, and destroys OCR reading order.
+
+    OCR paragraph boxes are tight to their glyphs rather than the wide regular blocks
+    ``detect_columns`` looks for, so a two-column scan reports one column. The y sort then
+    interleaves left and right into alternating fragments: on a two-column reference page
+    it turned "Norlund / NRC / Official" into "Norlund / 1997.Occupational / NRC / Sluiter".
+    Content survives (character multiset overlap 1.000) while sequence similarity falls to
+    0.579, which is the signature of reordering rather than loss.
+    """
+
+    @staticmethod
+    def _blocks(engine_segmented: bool) -> list[dict]:
+        """Two columns: left at x=43 then right at x=312, each already in reading order."""
+        left = [{"type": 0, "bbox": (43.0, y, 300.0, y + 20.0), "lines": []} for y in (72.0, 102.0, 132.0)]
+        right = [{"type": 0, "bbox": (312.0, y, 570.0, y + 20.0), "lines": []} for y in (72.0, 102.0, 132.0)]
+        blocks = left + right
+        if engine_segmented:
+            for block in blocks:
+                block["_engine_segmented"] = True
+        return blocks
+
+    def test_native_blocks_are_still_sorted_by_y(self) -> None:
+        """Every non-OCR PDF must keep the existing ordering behaviour."""
+        converter = PdfToAstConverter()
+
+        items = converter._build_sorted_column_items(self._blocks(engine_segmented=False), [])
+
+        # y sort interleaves the two columns: 72, 72, 102, 102, 132, 132.
+        assert [item[1] for item in items] == [72.0, 72.0, 102.0, 102.0, 132.0, 132.0]
+
+    def test_engine_segmented_blocks_keep_the_engine_order(self) -> None:
+        converter = PdfToAstConverter()
+
+        items = converter._build_sorted_column_items(self._blocks(engine_segmented=True), [])
+
+        # Left column entire, then right column entire -- as the engine emitted them.
+        assert [item[2]["bbox"][0] for item in items] == [43.0, 43.0, 43.0, 312.0, 312.0, 312.0]
+        assert [item[1] for item in items] == [72.0, 102.0, 132.0, 72.0, 102.0, 132.0]
+
+    def test_a_table_on_the_page_falls_back_to_sorting(self) -> None:
+        """A table has to be placed relative to the text, and only y can do that."""
+        converter = PdfToAstConverter()
+        fitz = pytest.importorskip("fitz")
+        table = {"bbox": fitz.Rect(43.0, 110.0, 570.0, 130.0)}
+
+        items = converter._build_sorted_column_items(self._blocks(engine_segmented=True), [table])
+
+        assert [item[1] for item in items] == [72.0, 72.0, 102.0, 102.0, 110.0, 132.0, 132.0]
