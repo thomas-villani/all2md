@@ -189,6 +189,19 @@ class TestBasicElements:
         md = MarkdownRenderer().render_to_string(DocxToAstConverter().convert_to_ast(doc))
         assert md.startswith("Title text")
 
+    def test_heading_level_above_six_clamped(self) -> None:
+        """Heading 7/8/9 styles must clamp to Heading level 6 without ValueError."""
+        doc = docx.Document()
+        doc.add_paragraph("Deep Heading", style="Heading 7")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        assert len(ast_doc.children) == 1
+        heading = ast_doc.children[0]
+        assert isinstance(heading, Heading)
+        assert heading.level == 6
+        assert heading.content[0].content == "Deep Heading"
+
     def test_inline_math_extraction(self) -> None:
         """Inline OMML equations should become MathInline nodes."""
         doc = docx.Document()

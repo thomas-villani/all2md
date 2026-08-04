@@ -221,6 +221,80 @@ def _collect_nested_dataclass_kwargs(
     return {"nested": nested_kwargs, "remaining": remaining_kwargs}
 
 
+def _warn_unrecognized_kwargs(unmatched: list[str], stacklevel: int) -> None:
+    """Warn that keyword arguments matched no options field and were dropped.
+
+    Every public entry point that accepts ``**kwargs`` routes its leftovers here so
+    the warning stays identical across them. Silently discarding an option name is
+    the bad kind of failure: the call returns a plausible-looking result, so a typo
+    (or a parameter that simply doesn't exist, like ``filename``) reads as a library
+    bug rather than a caller mistake.
+
+    ``stacklevel`` is counted from the caller's frame, as if it had called
+    ``warnings.warn`` itself.
+    """
+    if not unmatched:
+        return
+    warnings.warn(
+        f"Unrecognized keyword arguments were ignored: {unmatched}. "
+        "Check the API documentation for valid parameter names.",
+        UserWarning,
+        stacklevel=stacklevel + 1,
+    )
+
+
+_ALL_OPTION_FIELD_NAMES: set[str] | None = None
+
+
+def _all_option_field_names() -> set[str]:
+    """Every field name declared by any parser or renderer options class.
+
+    Used to tell a *typo* apart from a *real option that this format ignores*.
+    Building it imports every options module, so it is computed on first use --
+    the warning path only -- and cached. Formats whose options class cannot be
+    loaded (missing optional dependency) are skipped rather than raising.
+    """
+    global _ALL_OPTION_FIELD_NAMES
+    if _ALL_OPTION_FIELD_NAMES is None:
+        names: set[str] = set()
+        for format_name in registry.list_formats():
+            for getter in (registry.get_parser_options_class, registry.get_renderer_options_class):
+                try:
+                    options_class = getter(format_name)
+                except Exception:  # pragma: no cover - defensive, optional deps
+                    continue
+                if not options_class or not is_dataclass(options_class):
+                    continue
+                # Resolve through get_type_hints rather than reading field.type: a
+                # module using `from __future__ import annotations` yields strings,
+                # which would drop every nested name and make valid options warn.
+                type_hints = _option_type_hints(options_class)
+                for field in fields(options_class):
+                    names.add(field.name)
+                    # Nested options dataclasses (e.g. network) are addressed by
+                    # their own field names at the API surface, so count them too.
+                    field_type = type_hints.get(field.name, field.type)
+                    if is_dataclass(field_type):
+                        names.update(nested.name for nested in fields(field_type))
+        _ALL_OPTION_FIELD_NAMES = names
+    return _ALL_OPTION_FIELD_NAMES
+
+
+def _warn_unknown_option_names(dropped: list[str], stacklevel: int) -> None:
+    """Warn only for dropped kwargs that are not options anywhere in all2md.
+
+    Unlike ``_split_kwargs_for_parser_and_renderer``, which sees both halves of a
+    conversion and can conclude a name is bogus, callers of this helper see only one
+    options class. A name like ``attachment_mode`` is a genuine option that this
+    particular format has no use for -- and the CLI packager, the MCP server and
+    ``convert``'s ``flavor`` shorthand all inject such options themselves. Warning
+    about those would blame the caller for something the library did, so they stay a
+    debug-level detail; only names that exist nowhere reach the user.
+    """
+    unknown = [name for name in dropped if name not in _all_option_field_names()]
+    _warn_unrecognized_kwargs(unknown, stacklevel=stacklevel + 1)
+
+
 def _create_options_from_kwargs(
     options_class: type[OptionsT] | None,
     options_type_name: str,
@@ -242,8 +316,19 @@ def _create_options_from_kwargs(
     OptionsT | None
         Options instance or None if options_class is None.
 
+    Warns
+    -----
+    UserWarning
+        If a keyword argument is not an option of any format (a typo, or a parameter
+        that does not exist such as ``filename``). Callers that pre-split kwargs
+        through ``_split_kwargs_for_parser_and_renderer`` have already filtered
+        theirs, so this only fires for entry points that pass user kwargs through
+        unfiltered (``to_ast``, ``from_ast``).
+
     """
     if not options_class:
+        # No options class for this format, so every kwarg is dropped.
+        _warn_unknown_option_names(list(kwargs), stacklevel=4)
         return None
 
     # Collect nested dataclass kwargs
@@ -282,6 +367,7 @@ def _create_options_from_kwargs(
     missing = [k for k in flat_kwargs if k not in valid_kwargs]
     if missing:
         logger.debug(f"Skipping unknown {options_type_name} options: {missing}")
+        _warn_unknown_option_names(missing, stacklevel=4)
     return options_class(**valid_kwargs)
 
 
@@ -380,13 +466,7 @@ def _split_kwargs_for_parser_and_renderer(
         else:
             unmatched.append(k)
 
-    if unmatched:
-        warnings.warn(
-            f"Unrecognized keyword arguments were ignored: {unmatched}. "
-            "Check the API documentation for valid parameter names.",
-            UserWarning,
-            stacklevel=4,
-        )
+    _warn_unrecognized_kwargs(unmatched, stacklevel=3)
 
     return parser_kwargs, renderer_kwargs
 

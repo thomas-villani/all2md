@@ -1283,7 +1283,7 @@ class InlineFormattingConsolidator(NodeTransformer):
         return result
 
     def _has_nested_formatting(self, node: Strong | Emphasis) -> bool:
-        """Check if a formatting node contains nested formatting (not just text).
+        """Check if a formatting node contains nested formatting or non-text nodes.
 
         Parameters
         ----------
@@ -1293,11 +1293,11 @@ class InlineFormattingConsolidator(NodeTransformer):
         Returns
         -------
         bool
-            True if node contains nested Strong/Emphasis, False if only Text/Code
+            True if node contains nested formatting or non-text nodes, False if only Text children
 
         """
         for child in node.content:
-            if isinstance(child, (Strong, Emphasis)):
+            if not isinstance(child, Text):
                 return True
         return False
 
@@ -1500,6 +1500,10 @@ class InlineFormattingConsolidator(NodeTransformer):
                         source_location=node.source_location,
                     )
                 )
+            elif isinstance(node, (Strikethrough, Mark, Underline, Superscript, Subscript)):
+                # Recursively consolidate other inline container nodes
+                consolidated_children = self._consolidate_inline_nodes(node.content)
+                processed.append(replace_node_children(node, consolidated_children))
             else:
                 processed.append(node)
 

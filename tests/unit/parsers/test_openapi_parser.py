@@ -359,6 +359,49 @@ paths: {}
         with pytest.raises(ParsingError, match="missing required 'info' section"):
             parser.parse(spec.encode("utf-8"))
 
+    def test_null_path_item(self) -> None:
+        """Null/non-dict path items must be skipped; valid neighbors still render."""
+        spec = """openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths:
+  /null-endpoint: null
+  /string-endpoint: not-a-mapping
+  /valid-endpoint:
+    get:
+      summary: Valid endpoint
+      responses:
+        '200':
+          description: Success
+"""
+        parser = OpenApiParser()
+        doc = parser.parse(spec.encode("utf-8"))
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert "GET /valid-endpoint" in md
+        assert "Valid endpoint" in md
+        assert "/null-endpoint" not in md
+        assert "/string-endpoint" not in md
+
+    def test_null_components_section(self) -> None:
+        """Explicit components: null must not crash schema section build."""
+        spec = """openapi: 3.0.0
+info:
+  title: Test API
+  version: 1.0.0
+paths: {}
+components: null
+"""
+        parser = OpenApiParser()
+        doc = parser.parse(spec.encode("utf-8"))
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        md = MarkdownRenderer().render_to_string(doc)
+        assert md.startswith("# Test API")
+        assert "1.0.0" in md
+
     def test_max_schema_depth(self) -> None:
         """Test max_schema_depth option."""
         spec = """openapi: 3.0.0

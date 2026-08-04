@@ -518,6 +518,8 @@ class OpenApiParser(BaseParser):
             untagged: list[tuple[str, str, dict[str, Any]]] = []
 
             for path, path_item in paths.items():
+                if not isinstance(path_item, dict):
+                    continue
                 for method, operation in path_item.items():
                     if method.upper() not in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE"]:
                         continue
@@ -552,6 +554,8 @@ class OpenApiParser(BaseParser):
         else:
             # List sequentially
             for path, path_item in paths.items():
+                if not isinstance(path_item, dict):
+                    continue
                 for method, operation in path_item.items():
                     if method.upper() not in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TRACE"]:
                         continue
@@ -788,7 +792,8 @@ class OpenApiParser(BaseParser):
         nodes: list[Node] = []
 
         # Get schemas from components (OpenAPI 3.x) or definitions (Swagger 2.0)
-        schemas = spec.get("components", {}).get("schemas", {})
+        components = spec.get("components")
+        schemas = components.get("schemas", {}) if isinstance(components, dict) else {}
         if not schemas:
             schemas = spec.get("definitions", {})
 

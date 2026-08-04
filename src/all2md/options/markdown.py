@@ -271,13 +271,15 @@ class MarkdownRendererOptions(BaseRendererOptions):
         - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
         Note: This does not affect fenced code blocks with language="html", which are
         always rendered as code and are already safe.
-    comment_mode : {"html", "blockquote", "ignore"}, default "blockquote"
+    comment_mode : {"html", "blockquote", "ignore"}, default "html"
         How to render Comment and CommentInline AST nodes:
         - "html": Render as HTML comments (<!-- Comment text -->)
         - "blockquote": Render as blockquotes with attribution ([Comment by Author: text])
         - "ignore": Skip comment nodes entirely
         This controls presentation of comments from DOCX reviewer comments, HTML comments,
-        and other format-specific annotations.
+        and other format-specific annotations. The default keeps a comment a comment:
+        "blockquote" makes an invisible annotation visible and reads back as a BlockQuote
+        rather than a Comment, so use it when surfacing reviewer notes is the point.
 
     """
 
