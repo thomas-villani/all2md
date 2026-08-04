@@ -996,11 +996,12 @@ def test_new_provenance_evidence_does_not_invalidate_a_recorded_baseline() -> No
     results = _results()
     baseline = _baseline()
     results["provenance"]["corpus_characterization"] = {
+        "documents_characterized": 2,
         "pages_characterized": 2,
         "pages_with_text_layer": 0,
         "pages_with_vector_drawings": 0,
         "pages_with_one_full_page_image": 2,
-        "pages_ocr_applied": 2,
+        "documents_ocr_applied": 2,
     }
 
     assert not gate.compare(results, baseline).failed
