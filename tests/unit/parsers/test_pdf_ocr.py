@@ -525,3 +525,131 @@ class TestPdfOptionsWithOCR:
         assert options.ocr.mode == "force"
         assert options.ocr.languages == "fra"
         assert options.ocr.dpi == 600
+
+
+def _tesseract_data() -> dict:
+    """Two paragraphs, the second of two lines, in the shape ``image_to_data`` returns."""
+    rows = [
+        # (block, par, line, text, left, top, width, height, conf)
+        (1, 1, 1, "Quarterly", 100, 100, 90, 20, 96.0),
+        (1, 1, 1, "Results", 200, 100, 70, 20, 95.0),
+        (2, 1, 1, "Revenue", 100, 300, 80, 14, 90.0),
+        (2, 1, 1, "rose", 190, 300, 40, 14, 91.0),
+        (2, 1, 2, "sharply", 100, 320, 60, 14, 89.0),
+        # Tesseract emits structural rows with conf -1 and no readable content.
+        (2, 1, 2, "", 0, 0, 0, 0, -1.0),
+    ]
+    return {
+        "block_num": [row[0] for row in rows],
+        "par_num": [row[1] for row in rows],
+        "line_num": [row[2] for row in rows],
+        "text": [row[3] for row in rows],
+        "left": [row[4] for row in rows],
+        "top": [row[5] for row in rows],
+        "width": [row[6] for row in rows],
+        "height": [row[7] for row in rows],
+        "conf": [row[8] for row in rows],
+    }
+
+
+class TestOCRLayoutRecovery:
+    """OCR must hand back the engine's own segmentation, not one page-sized blob.
+
+    Returning a flat string made every OCR'd page project as exactly one Paragraph --
+    measured at 0.92 semantic blocks per page against a median of 12 annotated regions,
+    across all nine OmniDocBench sources. Everything downstream of OCR segments on
+    block/line/span geometry, so a single page-sized rectangle leaves it nothing to work
+    with: no headings, no tables, no columns, no header/footer trimming.
+    """
+
+    @patch("fitz.Matrix")
+    @patch("pytesseract.image_to_data")
+    @patch("PIL.Image")
+    def test_paragraphs_and_lines_survive_with_real_geometry(
+        self, mock_image: Mock, mock_data: Mock, mock_matrix_class: Mock
+    ) -> None:
+        mock_page = Mock()
+        mock_page.rect.width = 612.0
+        mock_page.rect.height = 792.0
+        mock_page.rect.x0 = 0.0
+        mock_page.rect.y0 = 0.0
+        mock_pix = Mock()
+        mock_pix.width = 1224  # rendered at 2x, so PDF points are pixels / 2
+        mock_pix.height = 1584
+        mock_pix.samples = b"pixels"
+        mock_page.get_pixmap.return_value = mock_pix
+        mock_image.frombytes.return_value = Mock()
+        mock_data.return_value = _tesseract_data()
+
+        options = PdfOptions(ocr=OCROptions(enabled=True, languages="eng", dpi=144))
+        paragraphs = PdfToAstConverter._ocr_page_to_layout(mock_page, options)
+
+        assert paragraphs is not None
+        assert len(paragraphs) == 2, "block_num/par_num grouping must survive"
+        assert [len(p.lines) for p in paragraphs] == [1, 2]
+        assert paragraphs[0].lines[0].text == "Quarterly Results"
+        assert paragraphs[1].lines[1].text == "sharply", "conf -1 rows must not add empty words"
+        # Pixels map back to PDF points, so the boxes are usable by downstream geometry.
+        assert paragraphs[0].lines[0].bbox == (50.0, 50.0, 135.0, 60.0)
+        assert paragraphs[0].bbox != paragraphs[1].bbox
+
+    @patch("fitz.Matrix")
+    @patch("pytesseract.image_to_data")
+    @patch("PIL.Image")
+    def test_a_page_with_no_recognized_words_reports_no_layout(
+        self, mock_image: Mock, mock_data: Mock, mock_matrix_class: Mock
+    ) -> None:
+        """``None`` keeps the caller on the flat-text path instead of inventing one empty block."""
+        mock_page = Mock()
+        mock_page.rect.width = 612.0
+        mock_page.rect.height = 792.0
+        mock_page.rect.x0 = 0.0
+        mock_page.rect.y0 = 0.0
+        mock_pix = Mock()
+        mock_pix.width = 612
+        mock_pix.height = 792
+        mock_pix.samples = b"pixels"
+        mock_page.get_pixmap.return_value = mock_pix
+        mock_image.frombytes.return_value = Mock()
+        mock_data.return_value = {
+            "block_num": [1],
+            "par_num": [1],
+            "line_num": [1],
+            "text": [""],
+            "left": [0],
+            "top": [0],
+            "width": [0],
+            "height": [0],
+            "conf": [-1.0],
+        }
+
+        options = PdfOptions(ocr=OCROptions(enabled=True, languages="eng"))
+
+        assert PdfToAstConverter._ocr_page_to_layout(mock_page, options) is None
+
+    def test_blocks_carry_distinct_boxes_rather_than_the_whole_page(self) -> None:
+        """The regression itself: N paragraphs must become N blocks, not one page-sized block."""
+        from all2md.parsers._ocr import OcrLine, OcrParagraph
+
+        paragraphs = [
+            OcrParagraph(lines=(OcrLine("Title", (50.0, 50.0, 135.0, 70.0)),), bbox=(50.0, 50.0, 135.0, 70.0)),
+            OcrParagraph(
+                lines=(
+                    OcrLine("Body one", (50.0, 150.0, 200.0, 157.0)),
+                    OcrLine("Body two", (50.0, 160.0, 200.0, 167.0)),
+                ),
+                bbox=(50.0, 150.0, 200.0, 167.0),
+            ),
+        ]
+
+        blocks = PdfToAstConverter._blocks_from_ocr_layout(paragraphs)
+
+        assert len(blocks) == 2
+        assert [len(block["lines"]) for block in blocks] == [1, 2]
+        assert {block["bbox"] for block in blocks} == {(50.0, 50.0, 135.0, 70.0), (50.0, 150.0, 200.0, 167.0)}
+        assert all(block["type"] == 0 for block in blocks)
+        # Size tracks line height, so the size-relative heading heuristics see a taller
+        # title against shorter body text instead of one hardcoded value everywhere.
+        title_size = blocks[0]["lines"][0]["spans"][0]["size"]
+        body_size = blocks[1]["lines"][0]["spans"][0]["size"]
+        assert title_size > body_size
