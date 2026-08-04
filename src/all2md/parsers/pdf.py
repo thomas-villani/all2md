@@ -24,6 +24,8 @@ from all2md.utils.parser_helpers import attachment_result_to_image_node
 if TYPE_CHECKING:
     import fitz
 
+    from all2md.parsers._ocr import OcrParagraph
+
 from dataclasses import dataclass, field
 
 from all2md.ast import (
@@ -1134,6 +1136,74 @@ class PdfToAstConverter(BaseParser):
             if pix is not None:
                 pix = None
 
+    @staticmethod
+    def _ocr_page_to_layout(page: "fitz.Page", options: PdfOptions) -> "list[OcrParagraph] | None":
+        """OCR a page and keep the engine's paragraph segmentation.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page to extract text from
+        options : PdfOptions
+            PDF conversion options containing OCR settings
+
+        Returns
+        -------
+        list of OcrParagraph or None
+            Paragraphs in PDF coordinates, or ``None`` if the engine reports no layout.
+
+        """
+        import fitz
+
+        from all2md.parsers._ocr import ocr_pixmap_layout
+
+        zoom = options.ocr.dpi / 72.0
+        pix = None
+        try:
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+            return ocr_pixmap_layout(pix, page, options)
+        except Exception as exc:  # noqa: BLE001 - layout is an enhancement, never a reason to lose the page
+            # Falling back to flat text costs segmentation, which is bad; letting this
+            # propagate would cost the page's text entirely, which is worse.
+            logger.debug(f"OCR layout recovery unavailable, falling back to flat text: {exc}")
+            return None
+        finally:
+            if pix is not None:
+                pix = None
+
+    @staticmethod
+    def _blocks_from_ocr_layout(paragraphs: "list[OcrParagraph]") -> list[dict]:
+        """Shape OCR paragraphs like PyMuPDF text blocks so downstream stages see geometry.
+
+        Font size is estimated from line height in points. It is not the true point size,
+        but it is monotonic in it, which is what the size-relative heading and body-text
+        heuristics actually consume.
+        """
+        blocks: list[dict] = []
+        for paragraph in paragraphs:
+            lines = []
+            for line in paragraph.lines:
+                height = max(line.bbox[3] - line.bbox[1], 1.0)
+                lines.append(
+                    {
+                        "spans": [
+                            {
+                                "text": line.text,
+                                "font": "OCR",
+                                "size": round(height, 2),
+                                "flags": 0,
+                                "color": 0,
+                                "bbox": line.bbox,
+                            }
+                        ],
+                        "bbox": line.bbox,
+                        "dir": (1, 0),  # Horizontal text direction
+                    }
+                )
+            blocks.append({"type": 0, "bbox": paragraph.bbox, "lines": lines})
+        return blocks
+
     def _detect_page_tables(
         self, page: "fitz.Page", page_num: int, total_pages: int
     ) -> tuple[list[dict], list[Any], list[Any]]:
@@ -1248,13 +1318,31 @@ class PdfToAstConverter(BaseParser):
             return all_blocks, False
 
         try:
+            # Prefer the engine's own paragraph segmentation. Flattening a page to one
+            # string forces every later stage -- column detection, header/footer trimming,
+            # table-region filtering, block segmentation -- to re-derive structure from
+            # geometry that no longer exists, so an OCR'd page projected as a single
+            # page-sized block no matter what was on it.
+            paragraphs = self._ocr_page_to_layout(page, self.options)
+            if paragraphs:
+                ocr_blocks = self._blocks_from_ocr_layout(paragraphs)
+                if self.options.merge_hyphenated_words:
+                    # Now that OCR carries real spans, the normal walker applies.
+                    dehyphenate_blocks(ocr_blocks)
+                self._ocr_pages_applied += 1
+                if self.options.ocr.preserve_existing_text and extracted_text.strip():
+                    logger.debug(f"Supplementing existing text with {len(ocr_blocks)} OCR block(s)")
+                    return [*all_blocks, *ocr_blocks], True
+                logger.debug(f"Replacing PyMuPDF text with {len(ocr_blocks)} OCR block(s)")
+                return ocr_blocks, True
+
             ocr_text = self._ocr_page_to_text(page, self.options)
 
             if not ocr_text.strip():
                 logger.warning("OCR returned empty text, keeping original extraction")
                 return all_blocks, False
 
-            # OCR returns a flat string rather than the span structure
+            # This engine returns a flat string rather than the span structure
             # dehyphenate_blocks() walks, so line-break hyphenation ("be-\nwusst")
             # is merged here on the text instead. Same rules, same option.
             if self.options.merge_hyphenated_words:
@@ -1624,7 +1712,9 @@ class PdfToAstConverter(BaseParser):
             if not is_in_table:
                 text_blocks.append(block)
 
-        # Apply column detection if enabled
+        # Apply column detection if enabled. It runs on OCR-derived blocks too: the engine
+        # numbers its blocks in its own order, which is not reading order on multi-column
+        # and poster layouts, and sorting them into columns measurably recovers it.
         if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
             force_multi = self.options.column_detection_mode == "force_multi"
             columns = detect_columns(
