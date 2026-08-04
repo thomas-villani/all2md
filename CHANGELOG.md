@@ -320,6 +320,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   which made it useless to act on and collapsed every such warning into a single
   dedup entry; it now names the calling line (#273).
 
+- **An HTML comment stays a comment when rendering Markdown.** `comment_mode` defaulted
+  to `"blockquote"`, so `<!-- note -->` — valid Markdown, and invisible when rendered —
+  came out as a visible `> note`, and an inline comment was glued into the middle of a
+  sentence as `[Comment by Reviewer: ...]`. That is a content-fidelity bug rather than a
+  formatting preference: the round trip added text a reader can see, and it was not even
+  reversible, since the blockquote reads back as a `BlockQuote` node rather than a
+  `Comment`. `"html"` is the only mode that is a fixed point, and it is what every other
+  renderer already does — each defaults to its own native comment syntax, and textile,
+  which offers the identical three choices, already defaulted to `"html"`. Markdown was
+  the lone outlier. `"blockquote"` remains available via `--markdown-comment-mode` for
+  the DOCX reviewer-comment case it was chosen for. Found by our own quality gate: it is
+  what blocked adding an `mcp-name` registry marker to `README.md`, which dropped the
+  README's round-trip fidelity from 97 to 96 and failed the build (#271, #272).
+
 ## [1.10.1] - 2026-07-27
 
 A maintenance release. Almost all of it is infrastructure — the harnesses this

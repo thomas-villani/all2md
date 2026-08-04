@@ -1550,3 +1550,55 @@ class TestDefinitionListRendering:
         dls = [n for n in ast.children if isinstance(n, DefinitionList)]
         assert len(dls) == 1
         assert len(dls[0].items) == 2
+
+
+@pytest.mark.unit
+class TestCommentModeDefault:
+    """A comment must stay a comment by default (#272).
+
+    The default was ``blockquote``, which rendered an HTML comment -- valid Markdown,
+    and invisible when rendered -- as visible body text. That is a content-fidelity
+    bug rather than a formatting preference: the round trip added text a reader can
+    see, and the node came back as a ``BlockQuote`` instead of a ``Comment``.
+    """
+
+    def test_default_is_html(self):
+        from all2md.options.markdown import MarkdownRendererOptions
+
+        assert MarkdownRendererOptions().comment_mode == "html"
+
+    def test_comment_round_trips_to_itself(self):
+        """`html` is the only mode that is a fixed point."""
+        from all2md import to_ast
+        from all2md.ast import Comment
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        source = "Some text.\n\n<!-- mcp-name: io.github.example/tool -->\n\nMore.\n"
+        ast = to_ast(source, source_format="markdown")
+        assert any(isinstance(node, Comment) for node in ast.children)
+
+        rendered = MarkdownRenderer().render_to_string(ast)
+        assert "<!-- mcp-name: io.github.example/tool -->" in rendered
+        assert "> mcp-name" not in rendered
+
+        reparsed = to_ast(rendered, source_format="markdown")
+        assert [type(n).__name__ for n in reparsed.children] == [type(n).__name__ for n in ast.children]
+
+    def test_comment_does_not_become_visible_text(self):
+        from all2md import to_ast
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        ast = to_ast("<!-- internal note -->\n", source_format="markdown")
+        rendered = MarkdownRenderer().render_to_string(ast)
+        # The annotation must not be promoted out of a comment into prose.
+        assert not rendered.lstrip().startswith(">")
+
+    def test_blockquote_mode_still_available(self):
+        """The DOCX reviewer-comment use case is opt-in, not removed."""
+        from all2md import to_ast
+        from all2md.options.markdown import MarkdownRendererOptions
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        ast = to_ast("<!-- please review -->\n", source_format="markdown")
+        rendered = MarkdownRenderer(options=MarkdownRendererOptions(comment_mode="blockquote")).render_to_string(ast)
+        assert "> please review" in rendered

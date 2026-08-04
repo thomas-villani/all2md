@@ -77,13 +77,11 @@
 # ---
 # name: TestMarkdownRendererGolden.test_markdown_renderer_complex_document
   '''
-  > *Comment by Reviewer (2025-01-01)*
-  > 
-  > Reviewer note: ensure consistent tone across sections.
+  <!-- Comment by Reviewer (2025-01-01): Reviewer note: ensure consistent tone across sections. -->
   
   # Renderer Showcase
   
-  Inline math such as $E = mc^2$ pairs with **bold emphasis** and a link to [Example](https://example.com "Example Site").[Comment by Reviewer: Consider expanding this introduction.]
+  Inline math such as $E = mc^2$ pairs with **bold emphasis** and a link to [Example](https://example.com "Example Site").<!-- Comment by Reviewer: Consider expanding this introduction. -->
   
   $$
   \int_0^1 x^2\,dx = \frac{1}{3}

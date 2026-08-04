@@ -338,7 +338,12 @@ DEFAULT_ATTACHMENT_BASE_URL = None
 NEAR_SOURCE_ATTACHMENT_DIRNAME = ".attachments"
 
 # Comment handling defaults (general)
-DEFAULT_COMMENT_MODE: CommentMode = "blockquote"
+# "html" rather than "blockquote": an HTML comment is valid Markdown and invisible when
+# rendered, so emitting it as a blockquote promotes an annotation to visible body text and
+# changes the node type on the way back (Comment -> BlockQuote). "html" is the only mode
+# that round-trips to itself. Every other renderer already defaults to its own native
+# comment syntax -- textile, with the identical three choices, defaults to "html" too.
+DEFAULT_COMMENT_MODE: CommentMode = "html"
 DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 
 # Comment handling defaults (format-specific)
