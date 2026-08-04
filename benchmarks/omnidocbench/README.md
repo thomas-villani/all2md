@@ -102,12 +102,23 @@ Review the candidate's metric values, `eligible_items`, `variance`, and `toleran
 
 `provenance.corpus_characterization` records what the corpus actually contains, counted
 over the pages that could be read: how many carry a text layer, vector drawings, or the
-single-full-page-image shape of a scan, and how many the parser ran OCR on. It exists
+full-page-image shape of a scan, and how many documents the parser ran OCR on. It exists
 because this lane was built, gated and baselined before anyone asked that question, and
 the answer turned out to decide what the scores mean — every page is a raster, so they
 grade OCR rather than the PDF text and table paths. `pages_characterized` is the
-denominator for the rest, and a file that cannot be read at all is excluded from it
-rather than counted as having no traits. The counts are read from the PDF directly rather
+denominator for the per-page counts and `documents_characterized` for the per-document
+ones; the two diverge as soon as a corpus item is an article rather than a page, which is
+why both are recorded. A file that cannot be read at all is excluded from them rather
+than counted as having no traits.
+
+Every page of a document is measured, not only its first: a title page is not a sample of
+the article behind it. A page counts as `one_full_page_image` when a single image covers at
+least 80% of it. That threshold is calibrated, not guessed — across 49 pages of scanned
+journal back-catalogue the largest image covered exactly 100% of every page, and across 101
+pages of modern born-digital articles the largest figure reached 61% with a median of 12%.
+Deciding it by counting instead ("exactly one image and no vector drawings") was wrong in
+both directions on that sample: it fired on born-digital pages carrying a single figure and
+missed scans that ship a second small raster beside the page image. The counts are read from the PDF directly rather
 than from an all2md projection, so a parser change cannot alter what the corpus is
 reported to contain. They are evidence, not identity: the corpus is already pinned by
 `dataset_revision` and `annotation_sha256`, so they cannot drift without those changing,

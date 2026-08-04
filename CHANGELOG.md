@@ -51,13 +51,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Thanks [@santhreal](https://github.com/santhreal).
 - **The OmniDocBench lane records what its corpus actually contains.**
   `provenance.corpus_characterization` counts how many pages carry a text layer, vector
-  drawings, or the single-full-page-image shape of a scan, and how many the parser ran OCR
-  on. The lane was built, gated and baselined before anyone asked that question, and the
+  drawings, or the full-page-image shape of a scan, and how many documents the parser ran
+  OCR on. The lane was built, gated and baselined before anyone asked that question, and the
   answer changes what the scores mean: every page in the pinned corpus is a raster, so they
   grade OCR rather than the PDF text and table paths. Counted from the PDF directly rather
   than from a projection, so a parser change cannot alter what the corpus is reported to
   contain, and excluded from the gate's identity fields so evidence like this can be added
-  without invalidating a recorded baseline.
+  without invalidating a recorded baseline. Every page of a document is measured, not just
+  its first — a title page is not a sample of the article behind it — and the scan shape is
+  decided by image *area*: a page counts as scanned when one image covers at least 80% of
+  it. Calibrated against 49 pages of scanned journal back-catalogue, where the largest image
+  covered exactly 100% of every page, and 101 pages of modern born-digital articles, where
+  the largest figure reached 61%. The earlier rule of "exactly one image and no vector
+  drawings" was wrong in both directions on that sample: it fired on born-digital pages
+  carrying a single figure, and missed scans that ship a second small raster beside the page
+  image.
+- **An erased benchmark dimension no longer reads as a verdict on the parser.**
+  `unsupported_dimensions` said "all2md emitted no Table nodes on N converted page(s)",
+  which names one side of a two-sided fact. On this corpus it is the wrong side: every page
+  is a full-page raster, so the PDF table path never runs and there is nothing for it to
+  have missed. The message now states the parser's output, how many pages carry ground truth
+  for the dimension, and how many of the characterized pages are full-page images, then
+  points at `provenance.corpus_characterization` and leaves the cause to the reader (#257).
 
 ### Changed
 

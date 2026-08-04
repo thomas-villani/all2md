@@ -27,6 +27,28 @@ class DegradedConversionError(RuntimeError):
     """Requested PDF processing degraded to a fallback path."""
 
 
+#: Traits describing what a corpus PDF actually contains. Recorded because this lane was
+#: built, gated and baselined before anyone asked: every page turned out to be a single
+#: full-page raster, so the scores grade OCR rather than the PDF text and table paths, and
+#: nothing in the payload said so. Validating the annotation schema checks only one side of
+#: the comparison. Characterize the inputs too.
+_INPUT_TRAITS = ("text_layer", "vector_drawings", "one_full_page_image")
+
+
+@dataclass(frozen=True, slots=True)
+class InputTraits:
+    """How many of a PDF's pages carry each input trait.
+
+    Counted per page rather than sampled from page 1: OmniDocBench's PDFs are one page
+    each, but an article PDF opens on a title page that is unrepresentative of the rest.
+    """
+
+    pages: int
+    text_layer: int
+    vector_drawings: int
+    one_full_page_image: int
+
+
 @dataclass(frozen=True, slots=True)
 class PageEvaluation:
     """Direct external-ground-truth scores for one page."""
@@ -39,11 +61,13 @@ class PageEvaluation:
     degraded_events: tuple[str, ...] = ()
     error_type: str | None = None
     error: str | None = None
-    #: What the *input* PDF contains, measured before conversion, plus whether OCR ran.
-    #: Names of the traits that hold; absent means the trait was measured and is false.
-    #: ``None`` means the file could not be characterized at all, which is distinct from
-    #: "has none of these traits" and must not be counted as either.
-    traits: frozenset[str] | None = None
+    #: What the *input* PDF contains, measured before conversion. ``None`` means the file
+    #: could not be characterized at all, which is distinct from "has none of these traits"
+    #: and must not be counted as either.
+    traits: InputTraits | None = None
+    #: Whether the parser actually ran OCR. ``None`` when the page never converted, so a
+    #: failed page is not reported as one the parser chose not to OCR.
+    ocr_applied: bool | None = None
 
 
 def _pdf_options(ocr_languages: str) -> PdfOptions:
@@ -120,18 +144,27 @@ def _degraded_kinds(document: Any) -> tuple[str, ...]:
     return tuple(sorted(str(event["kind"]) for event in events if isinstance(event, Mapping) and "kind" in event))
 
 
-#: Traits describing what a corpus PDF actually contains. Recorded because this lane was
-#: built, gated and baselined before anyone asked: every page turned out to be a single
-#: full-page raster, so the scores grade OCR rather than the PDF text and table paths, and
-#: nothing in the payload said so. Validating the annotation schema checks only one side of
-#: the comparison. Characterize the inputs too.
-_INPUT_TRAITS = ("text_layer", "vector_drawings", "one_full_page_image")
-#: Recorded alongside them because "no text layer" and "OCR ran" answer different questions.
-_RUN_TRAITS = ("ocr_applied",)
+#: Share of a page's area its largest image must cover to read as a scan rather than a
+#: figure. Calibrated, not guessed: across 49 pages of scanned journal back-catalogue the
+#: largest image covered exactly 100% of every page, while across 101 pages of modern
+#: born-digital articles the largest figure reached 61% and the median was 12%.
+_FULL_PAGE_IMAGE_COVERAGE = 0.8
 
 
-def _input_traits(pdf_path: Path) -> frozenset[str] | None:
-    """Return which input traits a PDF's first page has, or ``None`` if unreadable.
+def _covers_page(page: Any) -> bool:
+    """Report whether any single image on the page covers most of it."""
+    area = abs(page.rect.get_area())
+    if area <= 0:
+        return False
+    for image in page.get_images(full=True):
+        for rect in page.get_image_rects(image[0]):
+            if abs(rect.get_area()) / area >= _FULL_PAGE_IMAGE_COVERAGE:
+                return True
+    return False
+
+
+def _input_traits(pdf_path: Path) -> InputTraits | None:
+    """Count how many of a PDF's pages carry each input trait, or ``None`` if unreadable.
 
     Deliberately independent of all2md: it reads the file with PyMuPDF directly, so a
     parser change can never quietly alter what the corpus is reported to contain.
@@ -142,19 +175,22 @@ def _input_traits(pdf_path: Path) -> frozenset[str] | None:
         return None
     try:
         with fitz.open(pdf_path) as document:
-            if document.page_count < 1:
-                return frozenset()
-            page = document[0]
-            images = page.get_images(full=True)
-            traits = set()
-            if page.get_text().strip():
-                traits.add("text_layer")
-            if page.get_drawings():
-                traits.add("vector_drawings")
-            # One image and nothing else vector-drawn is the scanned-page-in-a-wrapper shape.
-            if len(images) == 1 and not page.get_drawings():
-                traits.add("one_full_page_image")
-            return frozenset(traits)
+            pages = text_layer = vector_drawings = one_full_page_image = 0
+            for page in document:
+                pages += 1
+                text_layer += bool(page.get_text().strip())
+                vector_drawings += bool(page.get_drawings())
+                # Measured by area, not by counting images and assuming: a scan is a raster
+                # the size of the page. Requiring "exactly one image and no vector drawings"
+                # instead both fired on born-digital pages carrying a single figure and
+                # missed scans that ship a second small raster beside the page image.
+                one_full_page_image += _covers_page(page)
+            return InputTraits(
+                pages=pages,
+                text_layer=text_layer,
+                vector_drawings=vector_drawings,
+                one_full_page_image=one_full_page_image,
+            )
     except Exception:  # noqa: BLE001 - characterization is evidence, never a reason to fail a page
         return None
 
@@ -195,7 +231,8 @@ def _evaluate_page(
             predicted_formulas=len(actual.formulas),
             duration_seconds=time.perf_counter() - started,
             degraded_events=_degraded_kinds(document),
-            traits=None if traits is None else traits | ({"ocr_applied"} if _ocr_applied(document) else set()),
+            traits=traits,
+            ocr_applied=_ocr_applied(document),
         )
     except Exception as exc:  # noqa: BLE001 - failed pages stay in every applicable denominator
         empty = PageProjection((), (), (), ())
@@ -245,6 +282,19 @@ def _dimension(
     }
 
 
+def _input_shape_clause(evaluations: list[PageEvaluation]) -> str:
+    """Summarize what the inputs are, so an erased dimension carries its own counter-reading."""
+    measured = [result.traits for result in evaluations if result.traits is not None]
+    pages = sum(traits.pages for traits in measured)
+    if pages == 0:
+        return "; see provenance.corpus_characterization"
+    rasters = sum(traits.one_full_page_image for traits in measured)
+    return (
+        f" ({rasters} of {pages} characterized page(s) are a full-page image); "
+        f"see provenance.corpus_characterization"
+    )
+
+
 def normalize_results(
     *,
     snapshot: CorpusSnapshot,
@@ -267,17 +317,23 @@ def normalize_results(
     # needed the erased dimension instead of only how many pages converted.
     eligible_tables = sum(1 for page in ground_truth.values() if page.projection.tables)
     eligible_formulas = sum(1 for page in ground_truth.values() if page.projection.formulas)
+    # Naming only the parser reads as a parser gap, and on this corpus that reading is wrong:
+    # every page is a full-page raster, so the PDF table path never runs at all. State both
+    # sides and the input shape, and let the reader assign the cause.
+    shape = _input_shape_clause(evaluations)
     if predicted_tables == 0:
         metric_names -= {"table_structure_similarity", "table_content_similarity"}
         unsupported["table_fidelity"] = (
-            f"all2md emitted no Table nodes on {converted} converted page(s); "
-            f"{eligible_tables} pages have table ground truth"
+            f"no Table nodes on any of the {converted} converted page(s); "
+            f"{eligible_tables} page(s) carry table ground truth. This alone does not "
+            f"separate a parser gap from the corpus's input shape{shape}"
         )
     if predicted_formulas == 0:
         metric_names -= {"formula_presence_accuracy", "formula_content_similarity"}
         unsupported["formula_fidelity"] = (
-            f"all2md emitted no MathBlock or MathInline nodes on {converted} converted page(s); "
-            f"{eligible_formulas} pages have formula ground truth"
+            f"no MathBlock or MathInline nodes on any of the {converted} converted page(s); "
+            f"{eligible_formulas} page(s) carry formula ground truth. This alone does not "
+            f"separate a parser gap from the corpus's input shape{shape}"
         )
 
     dimensions: dict[str, dict[str, Any]] = {}
@@ -300,9 +356,13 @@ def normalize_results(
     successful = sum(result.error_type is None for result in evaluations)
     measured = [result.traits for result in evaluations if result.traits is not None]
     corpus_characterization = {
-        "pages_characterized": len(measured),
-        **{f"pages_with_{trait}": sum(trait in traits for traits in measured) for trait in _INPUT_TRAITS},
-        **{f"pages_{trait}": sum(trait in traits for traits in measured) for trait in _RUN_TRAITS},
+        # Both denominators, because they diverge the moment a corpus item is an article
+        # rather than a page, and a page count over an unstated number of files says little.
+        "documents_characterized": len(measured),
+        "pages_characterized": sum(traits.pages for traits in measured),
+        **{f"pages_with_{trait}": sum(getattr(traits, trait) for traits in measured) for trait in _INPUT_TRAITS},
+        # Document-level: the parser reports OCR per conversion, not per page.
+        "documents_ocr_applied": sum(1 for result in evaluations if result.ocr_applied),
     }
     return {
         "schema_version": SCHEMA_VERSION,

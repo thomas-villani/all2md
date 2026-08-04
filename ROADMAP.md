@@ -236,8 +236,9 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   Tesseract 5.3.4 at 200 dpi plus our OCR plumbing, and all2md's native PDF text and table
   paths are never exercised. The zero tables follow from the corpus, not from a missing
   capability — a synthetic ruled table is detected identically under the benchmark's own
-  parser policy and under library defaults, so `unsupported_dimensions` currently
-  mis-attributes a corpus property to a parser gap. This is still exactly the right
+  parser policy and under library defaults. `unsupported_dimensions` used to mis-attribute
+  that corpus property to a parser gap; it now states both sides and points at
+  `provenance.corpus_characterization` instead of assigning a cause. This is still exactly the right
   instrument for **Theme 8**, whose subject *is* OCR geometry; it is the wrong one for
   "how well do we convert PDFs" in general, and the docs should not let it be read that way.
   Making the lane actionable is tracked as its own follow-up: stratified scoring, honest
@@ -601,9 +602,12 @@ round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢
    **stratified scoring** (the annotations already carry `page_attribute`, which the corpus
    validates as required and the oracle then ignores — one aggregate over newspapers,
    handwritten notes, slides, textbooks and papers is not actionable, and the 9 data sources
-   are already known); **honest `unsupported_dimensions` messages** (say the corpus offers no
-   vector tables to detect, rather than implying we cannot detect tables); and the
-   **`block_structure_similarity` content floor** ([#256](https://github.com/thomas-villani/all2md/issues/256)). Tracked as [#257](https://github.com/thomas-villani/all2md/issues/257).
+   are already known); and the **`block_structure_similarity` content floor**
+   ([#256](https://github.com/thomas-villani/all2md/issues/256)). Tracked as
+   [#257](https://github.com/thomas-villani/all2md/issues/257). The third part —
+   **honest `unsupported_dimensions` messages** — is done: the message now reports the
+   input shape beside the parser's output rather than implying we cannot detect tables.
+   It needed no re-run, because it changes no score.
 8. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). The external
    baseline makes this bet measurable, and the corpus being all-raster means the lane
    exercises precisely the path Theme 8 changes. Use score and denominator changes from the
