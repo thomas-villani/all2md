@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Scanned PDFs now keep their block structure instead of collapsing to one paragraph.**
+  Every OCR'd page previously projected as exactly one `Paragraph` — no `Heading`, no
+  `Table`, no list structure — because the OCR result was returned as a flat string and
+  wrapped in a single synthetic block spanning the whole page, with one line, one span and
+  a hardcoded font size. Everything downstream of OCR segments on block, line and span
+  geometry, so column detection, header/footer trimming, table-region filtering and
+  block-to-node conversion all received one page-sized rectangle and had nothing left to
+  work with. Measured across all nine OmniDocBench data sources: 33 semantic blocks over 36
+  pages against 704 annotated regions. It was specific to the OCR path — under the same
+  parser policy, born-digital PDFs emit 7–20 blocks per page with real headings and tables.
+  Tesseract already assigns block, paragraph and line numbers and per-word boxes;
+  `image_to_string` discards them and `image_to_data` reports them, so OCR now returns
+  paragraphs mapped back into PDF points and the parser emits one block each. Engines that
+  cannot report layout, and any failure recovering it, fall back to the previous behaviour
+  rather than losing the page.
+- **Scanned multi-column pages no longer interleave their columns.** Sorting blocks by
+  vertical position assumes a column is one top-to-bottom run. OCR paragraph boxes are
+  tight to their glyphs rather than the wide regular blocks column detection looks for, so
+  a two-column scan was read as one column and the sort then alternated left and right
+  fragments — turning a reference list into "Norlund / 1997. Occupational / NRC / Sluiter".
+  The OCR engine already emits blocks in reading order across columns, so that order is now
+  preserved rather than rebuilt from geometry. Both fixes are scoped to OCR-derived blocks;
+  PDFs with a text layer are unaffected, and tests pin that.
+- **Scanned pages now carry usable positions.** Because paragraphs are real blocks, each one
+  reaches the AST with its own `SourceLocation.metadata['bbox']`. A scanned page went from a
+  single box covering the entire page to 54 distinct ones, so a citation into an OCR'd
+  document can resolve to a region rather than to "somewhere on this page".
+
 ## [1.11.0] - 2026-08-04
 
 ### Added
