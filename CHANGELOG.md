@@ -303,6 +303,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deep silently dropped its deepest item, because pyth pushed a list for the level
   increase and never re-attached it (#209, #210).
 
+- **`to_ast()` and `from_ast()` now warn about keyword arguments they don't recognise.**
+  `to_markdown()` has always warned; the other two dropped unknown kwargs at a
+  `logger.debug` call nobody sees. The result looked fine, which is the bad combination:
+  `to_ast(content, filename="x.md")` is a natural thing to write, `filename` is not a
+  parameter of anything (the real one is `source_format`), so the hint was discarded,
+  detection fell through to the *plaintext* parser, and the caller got back a `Document`
+  of bare `Paragraph`s — headings, lists and tables all gone, with no error. The same
+  applied to any misspelled option name. All three entry points now route through one
+  helper, so they cannot drift apart again. Two details worth knowing: the warning
+  fires only for names that are not options of *any* format, because a real option that
+  this particular format ignores is usually the library's own doing — the CLI packager
+  forces `attachment_mode`, the MCP server sets it from server config, and `convert`
+  injects its `flavor` shorthand — and blaming the caller for those would be wrong.
+  And the existing warning pointed one frame past the caller, landing on `<sys>:0`,
+  which made it useless to act on and collapsed every such warning into a single
+  dedup entry; it now names the calling line (#273).
+
 ## [1.10.1] - 2026-07-27
 
 A maintenance release. Almost all of it is infrastructure — the harnesses this
