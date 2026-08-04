@@ -1201,7 +1201,9 @@ class PdfToAstConverter(BaseParser):
                         "dir": (1, 0),  # Horizontal text direction
                     }
                 )
-            blocks.append({"type": 0, "bbox": paragraph.bbox, "lines": lines})
+            # Marked so the reading-order sort can leave these alone: the engine emitted
+            # them in reading order already. See _build_sorted_column_items.
+            blocks.append({"type": 0, "bbox": paragraph.bbox, "lines": lines, "_engine_segmented": True})
         return blocks
 
     def _detect_page_tables(
@@ -1479,7 +1481,15 @@ class PdfToAstConverter(BaseParser):
                 items.append(("block", block["bbox"][1], block))
         for table in col_tables:
             items.append(("table", table["bbox"].y0, table))
-        items.sort(key=lambda x: x[1])
+
+        # Sorting by y assumes one column of blocks. When an OCR engine segmented the page
+        # it has already emitted its blocks in reading order, including across columns that
+        # our own column detection may have missed -- and on a two-column page that it read
+        # as one, the y sort interleaves left and right into nonsense. Trust the engine's
+        # order instead. Scoped to engine-segmented pages with no tables to interleave;
+        # native blocks keep the existing behaviour exactly.
+        if col_tables or not items or not all(item[2].get("_engine_segmented") for item in items):
+            items.sort(key=lambda x: x[1])
         return items
 
     def _process_table_item(self, item_data: dict, page: "fitz.Page", page_num: int) -> Node | None:
