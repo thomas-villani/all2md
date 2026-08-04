@@ -5446,7 +5446,7 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
    How to render Comment and CommentInline nodes: html (HTML comments <!-- -->), blockquote (quoted blocks with attribution), ignore (skip comment nodes entirely). Controls presentation of comments from DOCX, HTML, and other formats that support annotations.
 
    :Type: ``Literal['html', 'blockquote', 'ignore']``
-   :Default: ``'blockquote'``
+   :Default: ``'html'``
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
 
@@ -11460,7 +11460,7 @@ modules to ensure consistent Markdown generation.
 
    :Type: ``Literal['html', 'blockquote', 'ignore']``
    :CLI flag: ``--markdown-comment-mode``
-   :Default: ``'blockquote'``
+   :Default: ``'html'``
    :Choices: ``html``, ``blockquote``, ``ignore``
    :Importance: core
 
