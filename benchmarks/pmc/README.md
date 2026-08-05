@@ -165,11 +165,62 @@ characterization above had to be an independent measurement; reading the filter'
 premise back out of the manifest and calling it a result would have been a measurement
 that cannot fail.
 
-**Step 3 — the oracle, and the alignment decision.** JATS describes a whole *article*
-with no page boundaries; OmniDocBench annotates *pages*. Either this lane scores
-per-article, or article truth is projected onto pages. That decision is **open and
-reserved**, and this fetcher is deliberately agnostic to it: it exposes whole articles and
-no page structure.
+**Step 3 — the oracle, and the alignment decision.** JATS describes a whole *article* with
+no page boundaries; OmniDocBench annotates *pages*. `benchmarks.pmc align` measures
+whether article truth can be projected onto pages well enough to score per page.
+
+Over all 66 articles / 4,153 blocks, matching **content only**:
+
+| outcome | share |
+| --- | --- |
+| **clean** — one page clearly wins | 75.6% |
+| **spans** — two *adjacent* pages, an ordinary page break | 14.6% |
+| **split** — two *non-adjacent* pages, a real ambiguity | 7.9% |
+| **missing** — not found | 1.9% |
+| | **90.2% placeable** |
+
+Per kind: `<p>` 90.5% placeable / 2.0% missing, `<table-wrap>` 92.2% / 1.4%,
+`<fig>` 85.0% / 0.4% — figures are weakest, at 14.5% `split`.
+
+**The probe validates itself on every run.** Scoring the same blocks against a *different*
+article's pages gives a false-placement rate of **0.8%**. A placement rate means nothing
+unless the method can fail, and two earlier versions of this probe produced confident
+wrong answers — see the module docstring, which records both.
+
+**Placement is order-free on purpose.** It never consults the reading order all2md
+extracts, only whether a page's text contains a block's n-grams. Aligning by extracted
+order would make page assignment depend on the very thing this lane grades. A useful
+consequence: float displacement stops mattering for *assignment*, because a figure is
+found where it renders rather than where JATS cites it.
+
+Where that does **not** help is reading order *within* a page: JATS gives document order,
+and for a page carrying a floated figure the correct order is a layout question JATS does
+not answer. That is where the residual risk sits.
+
+**The ~9.8% `split` + `missing` is the error budget.** Those blocks must be excluded *and
+reported*, never quietly dropped.
+
+### Score whole articles too, not instead
+
+Per-page and per-article scoring fail differently, so the lane should carry both:
+
+- **Per-page is blind to cross-page reading order.** It resets at every page boundary, so
+  emitting pages out of order, duplicating one, or dropping one can still score well.
+- **Per-article pays no alignment tax.** It does not need to know which page a block is
+  on, so it scores **100% of blocks rather than 90.2%** — including the `split`/`missing`
+  bucket, which is disproportionately figures and floats, exactly the hard cases. It is
+  not a weaker per-page; it has a larger denominator.
+- They **audit each other**: a sharp disagreement on one document is evidence the
+  *alignment* failed there, not the parser.
+- Per-article cannot localize, and dilutes — a mangled page 7 of 20 barely moves it.
+
+Two things to measure before trusting an article-level number, rather than assume: whether
+the `_locate`-based order metric stays sensitive over a whole-article sequence instead of
+saturating, and whether article scores actually spread across the corpus. If everything
+lands at 0.98 it is a gate that cannot fail.
+
+**Still reserved:** the `spans` assignment policy (first page, or both) and whether
+`<fig>`'s `split` rate deserves special handling. The fetcher stays agnostic to all of it.
 
 ## Licences
 
