@@ -461,3 +461,111 @@ def test_the_committed_manifest_spreads_across_the_id_range() -> None:
     for number in numbers:
         bands[number // 1_000_000] = bands.get(number // 1_000_000, 0) + 1
     assert max(bands.values()) <= len(numbers) / 3
+
+
+# ---------------------------------------------------------------------------
+# Corpus characterization (step 2)
+# ---------------------------------------------------------------------------
+
+
+def _make_pdf(path: Path, *, pages: int, drawings: int, text: bool, full_page_image: bool) -> None:
+    """Build a real PDF so the characterization is tested against its actual instrument."""
+    import fitz
+
+    document = fitz.open()
+    for _ in range(pages):
+        page = document.new_page()
+        if text:
+            page.insert_text((72, 72), "born digital")
+        for index in range(drawings):
+            page.draw_rect(fitz.Rect(10 + index, 10 + index, 40 + index, 40 + index), color=(0, 0, 0))
+        if full_page_image:
+            pixmap = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 8, 8))
+            page.insert_image(page.rect, pixmap=pixmap)
+    document.save(path)
+    document.close()
+
+
+def _snapshot_of(paths: dict[str, Path]) -> Any:
+    articles = tuple(
+        corpus.CorpusArticle(
+            article_id=article_id,
+            pmcid=article_id.split(".")[0],
+            version=1,
+            pdf_path=path,
+            xml_path=path,
+            pdf_sha256="a" * 64,
+            pdf_size_bytes=1,
+            xml_sha256="b" * 64,
+            xml_size_bytes=1,
+            licence="cc",
+            paragraphs=10,
+        )
+        for article_id, path in paths.items()
+    )
+    return corpus.CorpusSnapshot(
+        manifest_path=Path("manifest.json"),
+        manifest_sha256="c" * 64,
+        bucket=corpus.BUCKET,
+        articles=articles,
+        expected_articles=len(articles),
+        complete=True,
+    )
+
+
+def test_characterization_separates_born_digital_from_a_scan(tmp_path: Path) -> None:
+    from benchmarks.pmc.characterize import characterize
+
+    born = tmp_path / "born.pdf"
+    scan = tmp_path / "scan.pdf"
+    _make_pdf(born, pages=3, drawings=5, text=True, full_page_image=False)
+    _make_pdf(scan, pages=2, drawings=0, text=False, full_page_image=True)
+
+    result = characterize(_snapshot_of({"PMC1000001.1": born, "PMC2000002.1": scan}))
+
+    assert result.pages == 5
+    assert result.text_layer_pages == 3
+    assert result.vector_drawing_pages == 3
+    # The vacuity check that matters: the scan-shape test must be able to fire.
+    assert result.scan_shape_pages == 2
+    assert result.pages_by_drawing_count == {"zero": 2, "one": 0, "two_or_more": 3}
+
+
+def test_the_scan_shape_test_is_not_vacuous(tmp_path: Path) -> None:
+    """A 0% scan-shape result is only evidence if a scan can produce a non-zero one."""
+    from benchmarks.pmc.characterize import characterize
+
+    scan = tmp_path / "scan.pdf"
+    _make_pdf(scan, pages=4, drawings=0, text=False, full_page_image=True)
+
+    result = characterize(_snapshot_of({"PMC1000001.1": scan}))
+
+    assert result.scan_shape_pages == 4
+    assert result.share(result.scan_shape_pages) == 1.0
+
+
+def test_characterization_reports_unreadable_articles_rather_than_crashing(tmp_path: Path) -> None:
+    from benchmarks.pmc.characterize import characterize
+
+    broken = tmp_path / "broken.pdf"
+    broken.write_bytes(b"not a pdf at all")
+
+    result = characterize(_snapshot_of({"PMC1000001.1": broken}))
+
+    assert result.unreadable == ("PMC1000001.1",)
+    assert result.pages == 0
+    assert result.share(0) == 0.0
+
+
+def test_a_single_embedded_font_is_visible_as_the_retypeset_signature(tmp_path: Path) -> None:
+    """Geometrically born-digital, but an OCR dump: the font count is the only tell."""
+    from benchmarks.pmc.characterize import characterize
+
+    dump = tmp_path / "dump.pdf"
+    _make_pdf(dump, pages=2, drawings=1, text=True, full_page_image=False)
+
+    result = characterize(_snapshot_of({"PMC1000001.1": dump}))
+
+    assert result.min_font_count == 1
+    assert result.scan_shape_pages == 0
+    assert result.vector_drawing_pages == 2

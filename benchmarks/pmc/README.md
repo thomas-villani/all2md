@@ -53,26 +53,31 @@ structural markup. **The `<p>` test is the real discriminator, and it caught eve
 before the PDF was ever fetched** — which is also why the vector arm never got the chance
 to fire.
 
-The vector arm was then tested against three known scans on its own. It *can* reject
-(`PMC10000000.1` has no drawings on any page), but it **accepted two of the three**:
+Testing the vector arm against those articles on its own exposed something sharper: the
+bucket holds **two different kinds of non-born-digital material**, and only one of them is
+a scan.
 
-| article | pages | drawings/page (median) | verdict on its own |
-| --- | --- | --- | --- |
-| `PMC5000000.1` (scan) | 28 | 1.0 | would **accept** ✗ |
-| `PMC5000022.1` (scan) | 22 | 1.0 | would **accept** ✗ |
-| `PMC10000000.1` (scan) | 11 | 0.0 | reject ✓ |
-| `PMC10000015.1` (born-digital) | 5 | 6.0 | accept ✓ |
-| `PMC10000026.1` (born-digital) | 16 | 5.0 | accept ✓ |
-| `PMC10500000.1` (born-digital) | 2 | 15.5 | accept ✓ |
+| article | producer | fonts | pages | vector pages | ≥80%-area image pages |
+| --- | --- | --- | --- | --- | --- |
+| `PMC10000000.1` | ABBYY FineReader 14 | 2 | 11 | **0** | **11** |
+| `PMC5000000.1` | iTextSharp 5.4.1 | **1** (`CourierStd`) | 28 | **28** | 0 |
+| `PMC5000022.1` | iTextSharp 5.4.1 | **1** | 22 | **22** | 0 |
 
-Scanned pages carry **exactly one** drawing — a page frame. `bool(page.get_drawings())`
-cannot see the difference between that and a real figure; a *count* threshold could.
+1. **Raster scans with an OCR text layer** (`PMC10000000.1`, ABBYY). Both geometric tests
+   catch these: no vector drawings, and a page-sized image on every page.
+2. **OCR text dumps re-typeset into a PDF** (`PMC5000000.1`, iTextSharp, a single Courier
+   face, 1722 characters of monospace on page one). **No PDF-geometry test catches these**
+   — geometrically they *are* born-digital. They have a text layer on every page, no large
+   images at all, and their one "vector drawing" per page is a page-sized background
+   rectangle that `bool(page.get_drawings())` happily reads as a figure.
 
 **This corrects the plan**, which called vector drawings "the clean discriminator" on the
-strength of a nine-article spike. It is a backstop, not the discriminator. The corpus is
-unaffected — every accepted article passed **both** arms, and none was admitted on the
-weak arm alone — but calibrating that threshold belongs to step 2, on real data, not to a
-guess made from three articles here.
+strength of a nine-article spike. Against kind 1 it is redundant with the image test;
+against kind 2 it is actively fooled. Only the ground-truth side — does the JATS have
+paragraphs — reveals kind 2 at all.
+
+The corpus is unaffected: every accepted article passed both arms, none was admitted on
+the weak one alone, and neither kind survives (see below).
 
 ### The other two calibrations, which held
 
@@ -127,22 +132,38 @@ than committing a manifest that a bad link quietly thinned out.
 
 ## What comes next, and what must not be assumed
 
-**Step 2 — characterize before designing the oracle.** Run the corpus characterization
-over the built corpus and confirm the aggregate matches the spike (vector drawings high,
-single-full-page-image ~0). If it disagrees, stop and find out why.
+**Step 2 — characterization: DONE, and it agrees with the spike.** Measured over all 66
+articles / **750 pages** with the sibling lane's own `_input_traits`, so the two lanes are
+comparable:
 
-The filter guarantees *at least one* vector page per article, so it partly determines that
-result. What it does not determine — and what step 2 actually checks — is the aggregate
-*distribution* across all pages.
+| trait | corpus | OmniDocBench (the OCR lane) |
+| --- | --- | --- |
+| text layer | **100.0%** | — |
+| vector drawings | **81.1%** | ~2% |
+| one ≥80%-area image (scan shape) | **0.0%** | ~100% |
 
-**Carry the finding above into step 2:** a high aggregate vector-drawing rate is *not*
-evidence that the corpus is born-digital, because scans score on that metric too. Pair it
-with drawings-per-page and with the ≥80%-page-area image test, and set the threshold
-there rather than assuming this one.
+Median 10 pages per article; drawings per page median 5.0, with 76.1% of pages carrying
+two or more. The exact inverse of the raster lane, which is the point.
 
-This is also why the manifest deliberately records **no PDF page traits**. Reading the
-filter's own premise back out of the manifest and calling it characterization would be a
-measurement that cannot fail.
+**`0.0%` was checked for vacuity before being believed.** A zero is only evidence if the
+instrument can produce a non-zero: run against the known raster scan, the scan-shape test
+fires on **11 of 11** pages. It works.
+
+Neither kind of junk survived into the corpus:
+
+- **Raster scans:** 0 of 750 pages have the scan shape.
+- **Re-typeset OCR dumps:** the giveaway is a single embedded font. The **minimum font
+  count across all 66 articles is 6**; the dump had exactly 1.
+
+A caution for anyone extending this: `"modified using iText"` in the producer string is
+**not** the dump signature — PMC post-processes ordinary publisher PDFs with iText, and 14
+of the 66 carry it while having 6+ diverse subset fonts and 39–175 JATS paragraphs. The
+signature is iText *as sole producer* with a single monospace face.
+
+This is also why the manifest deliberately records **no PDF page traits**. The
+characterization above had to be an independent measurement; reading the filter's own
+premise back out of the manifest and calling it a result would have been a measurement
+that cannot fail.
 
 **Step 3 — the oracle, and the alignment decision.** JATS describes a whole *article*
 with no page boundaries; OmniDocBench annotates *pages*. Either this lane scores
