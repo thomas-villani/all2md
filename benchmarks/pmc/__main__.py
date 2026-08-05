@@ -156,6 +156,11 @@ def _score(args: argparse.Namespace) -> int:
     print(f"articles   : {corpus_facts['articles_converted']} of {corpus_facts['articles_scored']} converted")
     print(f"pages      : {corpus_facts['pages_scored']} scored")
     print(f"coverage   : {corpus_facts['coverage']['median']:.2f} median ground-truth words per PDF word")
+    print(
+        f"tables     : {corpus_facts['tables_emitted']} emitted against "
+        f"{corpus_facts['tables_expected']} expected, on "
+        f"{corpus_facts['pages_with_emitted_table']} of {corpus_facts['pages_with_expected_table']} page(s)"
+    )
     print()
     print("projection : how each ground-truth block reached a page")
     for name, count in projection["assignments"].items():
