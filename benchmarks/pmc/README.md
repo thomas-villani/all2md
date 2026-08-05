@@ -213,23 +213,106 @@ not answer. That is where the residual risk sits.
 **The ~4.3% `split` + `missing` is the error budget.** Those blocks must be excluded *and
 reported*, never quietly dropped.
 
-### Score whole articles too, not instead
+## The oracle: `benchmarks.pmc score`
 
-Per-page and per-article scoring fail differently, so the lane should carry both:
+`score` converts each article once and scores every page of it against the JATS truth
+projected onto that page, through the **same oracle the OmniDocBench lane uses**. The metric
+definitions are not duplicated: each carries a calibration story that took a corpus to
+settle, and reusing them is what makes a number here mean the same thing as a number there.
 
-- **Per-page is blind to cross-page reading order.** It resets at every page boundary, so
-  emitting pages out of order, duplicating one, or dropping one can still score well.
-- **Per-article pays no alignment tax.** It does not need to know which page a block is
-  on, so it scores **100% of blocks rather than 95.7%** — including the `split`/`missing`
-  bucket. It is not a weaker per-page; it has a larger denominator.
-- They **audit each other**: a sharp disagreement on one document is evidence the
-  *alignment* failed there, not the parser.
-- Per-article cannot localize, and dilutes — a mangled page 7 of 20 barely moves it.
+```bash
+.venv/Scripts/python.exe -m benchmarks.pmc score --limit 8
+.venv/Scripts/python.exe -m benchmarks.pmc score --out result.json
+```
 
-Two things to measure before trusting an article-level number, rather than assume: whether
-the `_locate`-based order metric stays sensitive over a whole-article sequence instead of
-saturating, and whether article scores actually spread across the corpus. If everything
-lands at 0.98 it is a gate that cannot fail.
+### The plan said "score whole articles too". Measurement said no, and why
+
+The intent was a second, article-level endpoint for overall layout and reading order,
+carrying a larger denominator because it pays no alignment tax. Two measurements killed
+that design and one killed its motivation.
+
+**The shared oracle's block-locating threshold does not survive an article-length haystack.**
+`_IDENTIFIED_MATCH` counts a ground-truth block as *found* once half its characters align
+monotonically. Over one page that is sound. Over a whole article, **77–86% of one article's
+blocks "locate" inside a completely different article's output**, at a median alignment of
+0.62–0.72 against 0.93–1.00 for their own. The safeguard that stops absent content from
+earning reading-order credit is inoperative at that length. Reading order is therefore
+scored **per page only**, where the calibration holds.
+
+**Page order cannot fail, so it is not scored.** Page attribution comes from the parser's own
+per-page loop, which emits a separator per PDF page, so content cannot migrate between page
+groups and a dropped page raises `PageBoundaryError` rather than scoring. A page-sequence
+metric would report a perfect score by construction — which is the definition of a
+measurement not worth having. The cross-page blindness that motivated an article-level
+endpoint is handled structurally instead.
+
+What survives at article level is a narrower question — **did this block's text survive
+anywhere in the output?** — measured with n-gram containment, the one instrument on this
+corpus with a published false-positive rate.
+
+### Raw recall is unreadable without its ceiling
+
+Much of a JATS article cannot be recovered from the PDF by **any** parser, because the markup
+does not record words in the order the page prints them: `<element-citation>` lists the
+journal before the authors, `<surname>` precedes `<given-names>` against the rendered byline.
+Measured against the PDF's **own text layer**, only **61.1%** of blocks are recoverable at
+all. So a raw 54.6% recall is **88.9% of what was available**, not a parser losing half the
+document. The ceiling is computed every run, because it is a property of the corpus and the
+extraction rather than a constant.
+
+### Projection rules, and what each one cost
+
+| rule | why | measured |
+| --- | --- | --- |
+| a `spans` block is **split** across its two pages | it belongs to both, but scoring it *whole* against both guarantees a mismatch on both | split point comes from the same n-gram evidence as the placement; when the token stream cannot be mapped back onto raw text the block counts whole on both, and that is counted |
+| short blocks try an **exact phrase**, then inherit | a three-word heading has no five-grams | headings are kept with the text they introduce, so the next placed block's page is the heading's page |
+| structured blocks fall back to **token containment** | see below | recovers 89.1% of n-gram misses at 0.6% false placement |
+| `split` and `missing` blocks are **excluded and reported** | they are the alignment's failures, not the parser's | ~2–5% error budget, printed with every run |
+
+**The token fallback is the one addition that changed the numbers, and it was calibrated
+rather than chosen.** N-gram containment assumes the page renders a block's words in the
+order JATS declares them, which structured markup breaks without changing a single word — a
+citation fully present on its page scores *zero* n-gram containment. At a 0.65 token-share
+threshold the fallback recovers **89.1%** of the blocks n-gram containment calls missing,
+agrees with n-gram placement on **99.0%** of blocks where that method already gives a
+confident answer, and places only **0.6%** of blocks onto a *different article's* pages.
+Raising it to 0.85 buys nothing and gives up half the recoveries. It is kept as a separate
+rule from `place_block` so the feasibility numbers above still describe what they measured.
+
+### Three findings from building it
+
+**A nested `<table-wrap>` inside a `<p>` corrupted three things at once.** JATS puts floats
+inside the prose that introduces them. Taking the paragraph's full text fused the paragraph,
+the caption and every cell into one string — so the table vanished from the ground truth, the
+caption stopped being its own page object, and the fused block straddled the paragraph's page
+and the table's page and was placed on the wrong one. Found by reading a single page's truth
+beside its output, not by any aggregate.
+
+**Ordering ground truth by position on the page is worse than JATS order — tested, refuted.**
+Within a page, JATS document order puts a floated table where the prose cites it rather than
+where it renders, which costs real score on float-heavy pages. The obvious fix is to order
+blocks by where their text appears in the page's own token stream. Measured, that ordering
+disagrees with JATS on **25% of block pairs** and makes **every dimension worse**
+(reading order 0.748 → 0.663). PyMuPDF's extraction order is not rendered reading order, and
+grading against it would punish correct column handling. JATS order stays; the float cost is
+a documented bias, not a bug.
+
+**`block_structure_similarity` must not be gated on here.** It separates own-page from
+wrong-page output by only ~0.06, and it *rises* when half the emitted content is deleted —
+so gating on it would reward dropping blocks. It stays in the payload as evidence, flagged
+`ungateable` with the measurement that disqualified it.
+
+### Controls that ship inside every run
+
+- **Mismatch.** Every page is scored again against the *next page of the same article* — a
+  harder confounder than a different article, sharing the running head, the vocabulary and a
+  sentence that continues across the break. A dimension that does not clearly beat that is
+  not measuring the page.
+- **Mutation.** Every page is scored against output that has been reversed, scrambled and
+  halved. A dimension that does not move cannot detect that class of defect.
+- **Input shape.** OCR is left **enabled in auto mode** rather than switched off. Disabling
+  it would make "no page needed OCR" true by construction; leaving it on makes it a
+  measurement that can fail, and the run names any article where it fired.
 
 **Decided 2026-08-05:** a `spans` block **counts on both** of its pages. `<fig>` needs no
 special handling — the case for excluding it rested on a 14.5% split rate that was a

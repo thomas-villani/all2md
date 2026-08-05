@@ -137,6 +137,67 @@ def _align(args: argparse.Namespace) -> int:
     return 0
 
 
+def _score(args: argparse.Namespace) -> int:
+    from benchmarks.pmc.benchmark import run, write_result
+
+    snapshot = corpus.load_corpus(
+        Path(args.cache),
+        manifest_path=None if args.manifest is None else Path(args.manifest),
+        limit=args.limit,
+        workers=args.workers,
+    )
+    payload = run(snapshot, all2md_commit=args.commit)
+    if args.out:
+        print(f"written    : {write_result(payload, Path(args.out))}")
+
+    corpus_facts = payload["corpus"]
+    projection = payload["projection"]
+    print(f"pin        : {payload['provenance']['corpus_pin']}")
+    print(f"articles   : {corpus_facts['articles_converted']} of {corpus_facts['articles_scored']} converted")
+    print(f"pages      : {corpus_facts['pages_scored']} scored")
+    print(f"coverage   : {corpus_facts['coverage']['median']:.2f} median ground-truth words per PDF word")
+    print()
+    print("projection : how each ground-truth block reached a page")
+    for name, count in projection["assignments"].items():
+        print(f"    {name:11s} {count:6d}")
+    print(f"  error budget (excluded from every page score): {projection['error_budget']:.1%}")
+    if projection["excluded_reasons"]:
+        print(f"  excluded because: {projection['excluded_reasons']}")
+    print()
+    print("dimensions : own score, then the same truth against the WRONG page, then the gap")
+    header = f"    {'dimension':34s} {'mean':>7s} {'median':>7s} {'wrong':>7s} {'gap':>7s}"
+    print(f"{header}  {'reversed':>9s} {'halved':>7s}")
+    for name, summary in payload["dimensions"].items():
+        drop = summary.get("mutation_drop", {})
+        flag = "  <- ungateable" if "ungateable" in summary else ""
+        print(
+            f"    {name:34s} {summary['mean']:7.3f} {summary['median']:7.3f} "
+            f"{summary.get('control_mean', 0.0):7.3f} {summary.get('discrimination', 0.0):7.3f}  "
+            f"{drop.get('reversed', 0.0):9.3f} {drop.get('halved', 0.0):7.3f}{flag}"
+        )
+    print()
+    recall = payload["article_recall"]
+    print("whole-article recall: did the text survive anywhere in the output")
+    print(f"    raw recall        {recall['recall']:6.1%} of {recall['scored']} blocks")
+    # Much of a JATS article cannot be recovered by any parser, because the markup records
+    # words in an order the page never prints. Raw recall against that is unreadable.
+    print(f"    attainable        {recall['ceiling']:6.1%}  (the PDF's own text layer reproduces this much)")
+    print(f"    of what's attainable {recall['attainable_recall']:6.1%}  <- the number worth reading")
+    print(f"    wrong article     {recall['control_recall']:6.1%}  (want ~0%)")
+    for kind, counts in recall["by_kind"].items():
+        print(
+            f"      {kind:12s} attainable {counts['attainable']:5d}/{counts['scored']:<5d}"
+            f"   recovered {counts['attainable_recall']:6.1%} of those"
+        )
+    if payload["ocr_articles"]:
+        print()
+        print(f"OCR fired on {len(payload['ocr_articles'])} article(s): {payload['ocr_articles']}")
+    if payload["conversion_failures"]:
+        print()
+        print(f"failures   : {payload['conversion_failures']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the PMC corpus command line.
 
@@ -189,6 +250,18 @@ def main(argv: list[str] | None = None) -> int:
     align.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
     align.add_argument("--workers", type=int, default=8, help="concurrent download workers")
     align.set_defaults(handler=_align)
+
+    score = subparsers.add_parser(
+        "score",
+        help="score all2md against the corpus page by page, with the mismatch and mutation controls",
+    )
+    score.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
+    score.add_argument("--cache", default=str(DEFAULT_CACHE), help="cache directory")
+    score.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
+    score.add_argument("--workers", type=int, default=8, help="concurrent download workers")
+    score.add_argument("--out", default=None, help="write the evidence payload here")
+    score.add_argument("--commit", default="unknown", help="all2md commit being scored")
+    score.set_defaults(handler=_score)
 
     show = subparsers.add_parser("show", help="summarize the committed manifest without any network access")
     show.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")

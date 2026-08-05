@@ -31,6 +31,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reading order, so it cannot quietly grade the reading-order metric against itself — and
   it ships with a control that scores every block against a different article's pages,
   where the false-placement rate is 0.8%.
+- **A born-digital scoring lane over that corpus** (`benchmarks.pmc score`). Each article is
+  converted once and every page scored against the JATS truth projected onto it, through the
+  *same* oracle the raster lane uses, so a number here means what a number there means. Page
+  boundaries come from the parser's own per-page separators, which keeps cross-page context
+  intact — splitting the PDF into single-page files would hide exactly the defects this lane
+  exists to find — and a dropped page raises rather than silently shifting every later page's
+  ground truth. Blocks that will not resolve to a page are excluded **and reported** as an
+  error budget printed with every run. Three controls ship inside the run: each page is
+  scored again against the *next page of the same article*, against deliberately reversed,
+  scrambled and halved output, and with OCR left enabled in auto mode so "no page needed OCR"
+  stays a measurement that could fail rather than a configuration. Two dimensions are
+  reported but flagged unusable as gates, with the measurement that disqualified them —
+  `block_structure_similarity` separates own-page from wrong-page output by only ~0.06 and
+  *rises* when half the content is deleted. Whole-article content recall ships with its
+  attainable ceiling: only 61.1% of JATS blocks are recoverable from the PDF text layer by
+  any parser, because structured citations and bylines record words in an order the page
+  never prints, so raw recall on its own reads as parser loss that is not there.
 
 ### Fixed
 
