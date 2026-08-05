@@ -433,7 +433,10 @@ def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool =
         recall=recall,
         all2md_commit=all2md_commit,
         worktree_dirty=worktree_dirty,
-        parser_runtime={"pymupdf": getattr(fitz, "__doc__", "") or "", "python": sys.version.split()[0]},
+        parser_runtime={
+            "pymupdf": str(getattr(fitz, "__version__", "unknown")),
+            "python": sys.version.split()[0],
+        },
     )
 
 
