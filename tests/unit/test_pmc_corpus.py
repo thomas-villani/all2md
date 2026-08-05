@@ -569,3 +569,159 @@ def test_a_single_embedded_font_is_visible_as_the_retypeset_signature(tmp_path: 
     assert result.min_font_count == 1
     assert result.scan_shape_pages == 0
     assert result.vector_drawing_pages == 2
+
+
+# ---------------------------------------------------------------------------
+# JATS-to-page alignment probe
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_repairs_typesetter_hyphenation() -> None:
+    from benchmarks.pmc.alignment import normalize
+
+    assert normalize("hyphen-\nated word") == ["hyphenated", "word"]
+    assert normalize("soft­hyphen") == ["softhyphen"]
+    assert normalize("MiXeD Case!") == ["mixed", "case"]
+
+
+def test_jats_blocks_join_with_a_separator() -> None:
+    """The regression that made tables look unlocatable.
+
+    Concatenating element text fuses ``<label>Table 2</label>`` onto its caption into the
+    bogus token ``2obtained``, corrupting an n-gram at every element boundary. Tables have
+    the most boundaries, so they suffered most: 32.1% apparently missing against a real
+    1.4%.
+    """
+    from xml.etree import ElementTree
+
+    from benchmarks.pmc.alignment import jats_blocks, normalize
+
+    root = ElementTree.fromstring(
+        "<article><table-wrap><label>Table 2</label>" "<caption><p>Obtained values</p></caption></table-wrap></article>"
+    )
+    table = next(text for kind, text in jats_blocks(root) if kind == "table-wrap")
+
+    assert "2obtained" not in normalize(table)
+    assert "obtained" in normalize(table)
+
+
+def _grams(text: str) -> Any:
+    from benchmarks.pmc.alignment import ngrams, normalize
+
+    return ngrams(normalize(text))
+
+
+def test_a_block_wholly_on_one_page_reads_clean() -> None:
+    from benchmarks.pmc.alignment import place_block
+
+    block = _grams("the mitochondrial membrane potential was measured with a fluorescent probe")
+    pages = [_grams("unrelated introductory matter about something else entirely here"), block]
+
+    placement = place_block(block, pages)
+
+    assert placement.verdict == "clean"
+    assert placement.page == 1
+
+
+def test_a_block_broken_by_a_page_break_reads_spans() -> None:
+    from benchmarks.pmc.alignment import place_block
+
+    head = "the mitochondrial membrane potential was measured with a fluorescent probe and"
+    tail = "and the resulting signal was normalized against the untreated control samples"
+    block = _grams(f"{head} {tail}")
+    pages = [_grams(head), _grams(tail)]
+
+    placement = place_block(block, pages)
+
+    assert placement.verdict == "spans"
+    assert (placement.page, placement.runner_up_page) == (0, 1)
+
+
+def test_a_block_matching_two_distant_pages_reads_split() -> None:
+    from benchmarks.pmc.alignment import place_block
+
+    head = "the mitochondrial membrane potential was measured with a fluorescent probe and"
+    tail = "and the resulting signal was normalized against the untreated control samples"
+    block = _grams(f"{head} {tail}")
+    pages = [_grams(head), _grams("wholly unrelated filler text occupying the middle page"), _grams(tail)]
+
+    placement = place_block(block, pages)
+
+    assert placement.verdict == "split"
+    assert {placement.page, placement.runner_up_page} == {0, 2}
+
+
+def test_a_block_that_is_nowhere_reads_missing() -> None:
+    from benchmarks.pmc.alignment import place_block
+
+    block = _grams("the mitochondrial membrane potential was measured with a fluorescent probe")
+    pages = [_grams("entirely different words concerning agricultural policy in the region")]
+
+    placement = place_block(block, pages)
+
+    assert placement.verdict == "missing"
+
+
+def test_a_block_with_too_little_text_is_not_counted_as_a_failure() -> None:
+    from benchmarks.pmc.alignment import place_block
+
+    placement = place_block(_grams("three short words"), [_grams("three short words")])
+
+    assert placement.verdict == "too_short"
+
+
+def test_placement_never_uses_page_order() -> None:
+    """Order-free by construction: shuffling the pages must only move the index."""
+    from benchmarks.pmc.alignment import place_block
+
+    block = _grams("the mitochondrial membrane potential was measured with a fluorescent probe")
+    filler = _grams("entirely different words concerning agricultural policy in the region")
+
+    first = place_block(block, [block, filler])
+    second = place_block(block, [filler, block])
+
+    assert first.verdict == second.verdict == "clean"
+    assert (first.page, second.page) == (0, 1)
+
+
+def test_the_control_collapses_when_blocks_meet_the_wrong_article(tmp_path: Path) -> None:
+    """A placement rate is meaningless unless the same method fails on the wrong article."""
+    import fitz
+
+    from benchmarks.pmc.alignment import measure
+
+    sentences = {
+        "PMC1000001.1": "the mitochondrial membrane potential was measured with a fluorescent probe",
+        "PMC2000002.1": "agricultural policy in the region shifted after the subsidy was withdrawn",
+    }
+    articles = []
+    for article_id, sentence in sentences.items():
+        pdf_path = tmp_path / f"{article_id}.pdf"
+        xml_path = tmp_path / f"{article_id}.xml"
+        document = fitz.open()
+        page = document.new_page()
+        page.insert_text((40, 60), sentence)
+        document.save(pdf_path)
+        document.close()
+        xml_path.write_bytes(f"<article><body><p>{sentence}</p></body></article>".encode())
+        articles.append(
+            corpus.CorpusArticle(
+                article_id=article_id,
+                pmcid=article_id.split(".")[0],
+                version=1,
+                pdf_path=pdf_path,
+                xml_path=xml_path,
+                pdf_sha256="a" * 64,
+                pdf_size_bytes=1,
+                xml_sha256="b" * 64,
+                xml_size_bytes=1,
+                licence="cc",
+                paragraphs=1,
+            )
+        )
+
+    report = measure(articles)
+
+    assert report.placeable == report.scored
+    assert report.control_false_placement == 0.0
+    assert report.share(report.placeable) == 1.0

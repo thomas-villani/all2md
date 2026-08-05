@@ -104,6 +104,39 @@ def _characterize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _align(args: argparse.Namespace) -> int:
+    from benchmarks.pmc.alignment import measure
+
+    snapshot = corpus.load_corpus(
+        Path(args.cache),
+        manifest_path=None if args.manifest is None else Path(args.manifest),
+        limit=args.limit,
+        workers=args.workers,
+    )
+    report = measure(snapshot.articles)
+    print(f"articles   : {report.articles}")
+    print(f"blocks     : {report.scored} scored ({report.verdicts['too_short']} too short to place)")
+    print("placement  :")
+    for verdict in ("clean", "spans", "split", "missing"):
+        count = report.verdicts[verdict]
+        print(f"    {verdict:9s} {count:6d}  {report.share(count):6.1%}")
+    print(f"  placeable (clean + spans): {report.share(report.placeable):.1%}")
+    print()
+    # Ships with the tool rather than being remembered: a placement rate is meaningless
+    # unless the same method fails on the wrong article.
+    print("control    : same blocks against a DIFFERENT article's pages")
+    print(f"    false placement rate    {report.control_false_placement:6.1%}  (want ~0%)")
+    print()
+    print("by kind    :")
+    for kind, counts in report.by_kind.items():
+        scored = sum(count for verdict, count in counts.items() if verdict != "too_short")
+        if not scored:
+            continue
+        row = "  ".join(f"{v}={counts[v] / scored:5.1%}" for v in ("clean", "spans", "split", "missing"))
+        print(f"    {kind:11s} n={scored:5d}  {row}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the PMC corpus command line.
 
@@ -146,6 +179,16 @@ def main(argv: list[str] | None = None) -> int:
     characterize.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
     characterize.add_argument("--workers", type=int, default=8, help="concurrent download workers")
     characterize.set_defaults(handler=_characterize)
+
+    align = subparsers.add_parser(
+        "align",
+        help="measure whether JATS blocks can be projected onto PDF pages, with its own control",
+    )
+    align.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
+    align.add_argument("--cache", default=str(DEFAULT_CACHE), help="cache directory")
+    align.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
+    align.add_argument("--workers", type=int, default=8, help="concurrent download workers")
+    align.set_defaults(handler=_align)
 
     show = subparsers.add_parser("show", help="summarize the committed manifest without any network access")
     show.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
