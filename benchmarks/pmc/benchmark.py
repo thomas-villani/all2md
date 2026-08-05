@@ -356,6 +356,13 @@ def normalize_results(
             # ground truth does not describe what the page renders, and every content score
             # carries an unearned penalty.
             "coverage": summarize(coverages),
+            # Both sides of the table count, because the score alone cannot tell "found
+            # nothing" from "found something wrong" -- and the parser's own
+            # `table_rejected` events say it often finds a candidate and then rejects it.
+            "tables_expected": sum(page.truth_tables for page in pages),
+            "tables_emitted": sum(page.emitted_tables for page in pages),
+            "pages_with_expected_table": sum(1 for page in pages if page.truth_tables),
+            "pages_with_emitted_table": sum(1 for page in pages if page.emitted_tables),
         },
         # The error budget, stated rather than absorbed. These blocks are excluded from every
         # per-page score; article-level recall still counts them.

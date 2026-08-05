@@ -318,6 +318,53 @@ so gating on it would reward dropping blocks. It stays in the payload as evidenc
 special handling — the case for excluding it rested on a 14.5% split rate that was a
 classifier artifact; the real figure is 1.8%.
 
+### First full-corpus run, 2026-08-05
+
+66 of 66 articles converted, **720 pages scored**, coverage median 0.98 ground-truth words
+per PDF word, **error budget 4.1%** (325 `missing`, 105 `split`, 44 trailing `too_short`).
+No gate is recorded from this — it is the first reading, not a baseline.
+
+| dimension | mean | median | wrong page | gap | sd | n |
+| --- | --- | --- | --- | --- | --- | --- |
+| `reading_order_similarity` | 0.757 | 0.786 | 0.294 | **0.463** | 0.222 | 720 |
+| `text_content_similarity` | 0.558 | 0.531 | 0.231 | **0.327** | 0.234 | 720 |
+| `table_structure_similarity` | 0.106 | **0.000** | 0.033 | 0.074 | 0.277 | 111 |
+| `table_content_similarity` | 0.097 | **0.000** | 0.017 | 0.080 | 0.256 | 111 |
+| `block_structure_similarity` | 0.494 | 0.500 | 0.424 | 0.070 | 0.212 | 720 | *(ungateable)* |
+
+**The scores spread, which was the second thing worth checking before trusting any of this.**
+Standard deviations of 0.21–0.28 with minima near 0 and maxima at 1.0 — these are not gates
+pinned at 0.98 that cannot fail.
+
+Whole-article recall: **94.2% of what is attainable** (raw 59.3%, ceiling 62.2%), against a
+mismatched-article control of **0.4%**. Per kind, of what was attainable: `text_block` 97.0%,
+`table` 96.5%, **`title` 90.2%** — headings are the weakest, and their ceiling is the highest
+at 94.4%, so that gap is the parser's.
+
+**Born-digital tables are the headline, and the parser's own telemetry sharpens it.** Median
+0.000 on both table dimensions across the 111 pages carrying table ground truth. On a
+12-article spot check: **32 ground-truth tables against 4 emitted `Table` nodes**, 28 pages
+with a table against 4.
+
+Two other numbers say precisely what is lost. Table **cell text** is recovered at **96.5% of
+attainable** — the words reach the output. And the run records **76 `table_rejected` degraded
+events**, so the parser *finds* table candidates and rejects them. The failure is not blindness
+and not text loss: it finds a table, rejects it, and emits the cells as prose. That is a
+different defect from "cannot see born-digital tables", and it has a different fix.
+
+This is also the gap the raster lane structurally cannot report: every OmniDocBench page is an
+image, so its PDF table path never runs and the whole table dimension is erased as
+unsupported.
+
+**OCR fired on 11 of 66 articles** — on a corpus characterized as 0.0% scan-shaped. Auto mode
+triggers on **≥50% image area regardless of how much text a page has**, and
+`preserve_existing_text` defaults to `False`, so on a figure-heavy born-digital page the
+publisher's real text layer is discarded and replaced with OCR output. This is why OCR was
+left enabled rather than switched off: it is a measurement that could fail, and it did.
+
+**Cost:** the full run takes over an hour of CPU on one core, most of it OCR. Use `--limit`
+for a spread subset; a per-PR gate over all 66 articles is not practical as it stands.
+
 ## Licences
 
 The OA subset is not uniformly licensed. Each article's licence is read out of its own
