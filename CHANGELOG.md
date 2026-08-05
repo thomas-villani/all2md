@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A pinned PMC Open Access corpus for born-digital PDF benchmarking**
+  (`benchmarks/pmc`). The existing external ground-truth lane is 981 rasters, so it
+  measures the OCR path; nothing external covered text-layer extraction, vector table
+  detection or layout-derived reading order, which is most real-world PDF conversion.
+  Articles come from the `pmc-oa-opendata` bucket, where each versioned prefix holds the
+  publisher PDF beside its JATS XML — publisher-produced ground truth with real sections,
+  paragraphs and table cell markup. The bucket has no corpus-wide revision to pin against,
+  so a committed manifest of SHA-256 digests for both files of all 66 articles takes that
+  role: loading never lists the bucket, revalidates every byte, and keys its cache by the
+  manifest digest. Selection keeps an article when its JATS has at least one `<p>` and its
+  PDF carries vector drawings; every rejected candidate is recorded by reason. Corpus
+  bytes are not committed, and this ships no oracle or gate — those follow separately.
+
 ### Fixed
 
 - **Scanned PDFs now keep their block structure instead of collapsing to one paragraph.**
