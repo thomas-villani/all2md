@@ -46,6 +46,14 @@ PLACEMENT_MIN = 0.30
 #: Adjacent runner-up is an ordinary page break; non-adjacent is a real ambiguity.
 RUNNER_UP_MIN = 0.15
 
+#: A page holding at least this share of a block holds the *whole* block, so the block
+#: cannot be split across pages no matter what a runner-up scores. Checking the runner-up
+#: first was a real defect: body text reusing a figure caption's wording made 71% of
+#: "split" blocks -- and 88% of split figures -- ambiguous when their top page already held
+#: 100% of them. Not 1.0, because normalization and de-hyphenation can cost an n-gram or
+#: two on a legitimate whole-block match.
+COMPLETE_MIN = 0.95
+
 #: Blocks with fewer n-grams than this carry too little text to place, and are reported
 #: separately rather than counted as failures.
 MIN_NGRAMS = 4
@@ -248,14 +256,23 @@ def place_block(block: set[tuple[str, ...]], pages: Sequence[set[tuple[str, ...]
     """
     if len(block) < MIN_NGRAMS or not pages:
         return BlockPlacement("", "too_short", None, None, 0.0)
-    shares = sorted(
-        ((len(block & page) / len(block), index) for index, page in enumerate(pages)),
+    # Negate the index so that equal shares break toward the *earliest* page. Without it
+    # the sort silently preferred the last page, which is arbitrary; first occurrence is
+    # both deterministic and the conventional reading of a duplicated block.
+    ranked = sorted(
+        ((len(block & page) / len(block), -index) for index, page in enumerate(pages)),
         reverse=True,
     )
+    shares = [(share, -negated_index) for share, negated_index in ranked]
     top_share, top_page = shares[0]
     second_share, second_page = shares[1] if len(shares) > 1 else (0.0, None)
     if top_share < PLACEMENT_MIN:
         return BlockPlacement("", "missing", None, None, top_share)
+    # Completeness before ambiguity. A page holding essentially all of a block holds the
+    # block; another page echoing its wording -- body text restating a figure caption, a
+    # running header, a repeated table label -- does not make it two-paged.
+    if top_share >= COMPLETE_MIN:
+        return BlockPlacement("", "clean", top_page, None, top_share)
     if second_share >= RUNNER_UP_MIN and second_page is not None:
         if abs(top_page - second_page) == 1:
             return BlockPlacement("", "spans", min(top_page, second_page), max(top_page, second_page), top_share)

@@ -173,14 +173,27 @@ Over all 66 articles / 4,153 blocks, matching **content only**:
 
 | outcome | share |
 | --- | --- |
-| **clean** — one page clearly wins | 75.6% |
-| **spans** — two *adjacent* pages, an ordinary page break | 14.6% |
-| **split** — two *non-adjacent* pages, a real ambiguity | 7.9% |
+| **clean** — one page clearly wins | 86.2% |
+| **spans** — two *adjacent* pages, an ordinary page break | 9.5% |
+| **split** — two *non-adjacent* pages, a real ambiguity | 2.4% |
 | **missing** — not found | 1.9% |
-| | **90.2% placeable** |
+| | **95.7% placeable** |
 
-Per kind: `<p>` 90.5% placeable / 2.0% missing, `<table-wrap>` 92.2% / 1.4%,
-`<fig>` 85.0% / 0.4% — figures are weakest, at 14.5% `split`.
+Per kind: `<p>` 95.5% placeable / 2.0% missing, `<table-wrap>` 95.7% / 1.4%,
+`<fig>` **97.8% / 0.4%** — figures are the *best*-behaved category.
+
+**Completeness is checked before ambiguity, and that ordering was a real defect once.**
+A page holding essentially all of a block holds the block; another page echoing its
+wording — body text restating a figure caption, a running header, a repeated table label
+— does not make it two-paged. Checking the runner-up first made **71% of `split` blocks,
+and 88% of split figures**, read as ambiguous when their top page already held 100% of
+them. Fixing the order moved placement from 90.2% to 95.7% and cut the error budget from
+9.8% to 4.3%, **with the mismatch control unchanged at 0.8%** — so the gain was real and
+not bought with false positives. Figures went from apparently worst (61.8% clean) to best
+(92.5%).
+
+Equal-scoring pages break toward the **earliest**; without that the sort silently
+preferred the last page.
 
 **The probe validates itself on every run.** Scoring the same blocks against a *different*
 article's pages gives a false-placement rate of **0.8%**. A placement rate means nothing
@@ -197,7 +210,7 @@ Where that does **not** help is reading order *within* a page: JATS gives docume
 and for a page carrying a floated figure the correct order is a layout question JATS does
 not answer. That is where the residual risk sits.
 
-**The ~9.8% `split` + `missing` is the error budget.** Those blocks must be excluded *and
+**The ~4.3% `split` + `missing` is the error budget.** Those blocks must be excluded *and
 reported*, never quietly dropped.
 
 ### Score whole articles too, not instead
@@ -207,9 +220,8 @@ Per-page and per-article scoring fail differently, so the lane should carry both
 - **Per-page is blind to cross-page reading order.** It resets at every page boundary, so
   emitting pages out of order, duplicating one, or dropping one can still score well.
 - **Per-article pays no alignment tax.** It does not need to know which page a block is
-  on, so it scores **100% of blocks rather than 90.2%** — including the `split`/`missing`
-  bucket, which is disproportionately figures and floats, exactly the hard cases. It is
-  not a weaker per-page; it has a larger denominator.
+  on, so it scores **100% of blocks rather than 95.7%** — including the `split`/`missing`
+  bucket. It is not a weaker per-page; it has a larger denominator.
 - They **audit each other**: a sharp disagreement on one document is evidence the
   *alignment* failed there, not the parser.
 - Per-article cannot localize, and dilutes — a mangled page 7 of 20 barely moves it.
@@ -219,8 +231,9 @@ the `_locate`-based order metric stays sensitive over a whole-article sequence i
 saturating, and whether article scores actually spread across the corpus. If everything
 lands at 0.98 it is a gate that cannot fail.
 
-**Still reserved:** the `spans` assignment policy (first page, or both) and whether
-`<fig>`'s `split` rate deserves special handling. The fetcher stays agnostic to all of it.
+**Decided 2026-08-05:** a `spans` block **counts on both** of its pages. `<fig>` needs no
+special handling — the case for excluding it rested on a 14.5% split rate that was a
+classifier artifact; the real figure is 1.8%.
 
 ## Licences
 

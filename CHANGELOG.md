@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with vector drawings, **0% with the single-full-page-image scan shape** — the inverse of
   the raster lane, and the zero was checked against a known scan first to confirm the test
   can fire at all. An `align` command measures whether article-level JATS truth can be
-  projected onto PDF pages: **90.2% of blocks place onto a page or an identifiable
+  projected onto PDF pages: **95.7% of blocks place onto a page or an identifiable
   adjacent pair**, with a 1.9% miss rate. Placement is content-only, never using extracted
   reading order, so it cannot quietly grade the reading-order metric against itself — and
   it ships with a control that scores every block against a different article's pages,
