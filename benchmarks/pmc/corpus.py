@@ -637,7 +637,11 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     staging_path = path.parent / f".{path.name}.{os.getpid()}.{uuid4().hex}.tmp"
     try:
-        with staging_path.open("w", encoding="utf-8") as output:
+        # Explicit LF, not the platform default: the manifest's own digest is this
+        # corpus's pin, and .gitattributes checks the file out as LF everywhere. Writing
+        # CRLF on Windows would make the builder compute a pin no other machine can
+        # reproduce from the same committed bytes.
+        with staging_path.open("w", encoding="utf-8", newline="\n") as output:
             json.dump(payload, output, indent=2, sort_keys=True)
             output.write("\n")
             output.flush()
