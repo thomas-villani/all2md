@@ -386,6 +386,10 @@ def normalize_results(
                 for kind, counts in recall.by_kind.items()
             },
             "control_recall": recall.control_recall,
+            # Reported so a zero cannot be read as a passing control: with one article there
+            # is no other article to score against, and the rate is 0.0% for want of a
+            # denominator rather than because nothing false was placed.
+            "control_scored": recall.control_scored,
             "discrimination": recall.recall - recall.control_recall,
         },
         "dimensions": dimensions,

@@ -183,7 +183,11 @@ def _score(args: argparse.Namespace) -> int:
     # words in an order the page never prints. Raw recall against that is unreadable.
     print(f"    attainable        {recall['ceiling']:6.1%}  (the PDF's own text layer reproduces this much)")
     print(f"    of what's attainable {recall['attainable_recall']:6.1%}  <- the number worth reading")
-    print(f"    wrong article     {recall['control_recall']:6.1%}  (want ~0%)")
+    if recall["control_scored"]:
+        print(f"    wrong article     {recall['control_recall']:6.1%}  (want ~0%)")
+    else:
+        # A 0.0% with no denominator behind it would read exactly like a passing control.
+        print("    wrong article        n/a  (needs more than one article to have a control)")
     for kind, counts in recall["by_kind"].items():
         print(
             f"      {kind:12s} attainable {counts['attainable']:5d}/{counts['scored']:<5d}"
