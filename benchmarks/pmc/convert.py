@@ -175,8 +175,9 @@ def convert_article(pdf_path: Path, expected_pages: int, *, options: PdfOptions 
     confidence = metadata.get("confidence")
     signals = confidence.get("signals") if isinstance(confidence, Mapping) else None
     raw_fraction = signals.get("ocr_page_fraction") if isinstance(signals, Mapping) else None
-    numeric = isinstance(raw_fraction, (int, float)) and not isinstance(raw_fraction, bool)
-    fraction = float(raw_fraction) if numeric else 0.0
+    fraction = 0.0
+    if isinstance(raw_fraction, (int, float)) and not isinstance(raw_fraction, bool):
+        fraction = float(raw_fraction)
     events = confidence.get("degraded_events") if isinstance(confidence, Mapping) else None
     kinds = (
         tuple(sorted(str(event["kind"]) for event in events if isinstance(event, Mapping) and "kind" in event))
