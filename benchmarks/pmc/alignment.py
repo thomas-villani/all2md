@@ -58,6 +58,24 @@ COMPLETE_MIN = 0.95
 #: separately rather than counted as failures.
 MIN_NGRAMS = 4
 
+#: Share of a block's distinct tokens a page must hold for `place_by_tokens` to place it.
+#: N-gram containment assumes the page renders a block's words in the order JATS declares
+#: them, and structured markup breaks that assumption without changing a single word: an
+#: ``<element-citation>`` lists source before authors while the page prints authors first,
+#: and ``<surname>``/``<given-names>`` invert against the rendered byline. Those blocks are
+#: fully present on their page and score zero n-gram containment.
+#:
+#: Calibrated on 8 articles, not chosen: at 0.65 the fallback recovers 89.1% of the blocks
+#: n-gram containment reports as missing, agrees with n-gram placement on 99.0% of the
+#: blocks where that method already gives a confident answer, and places only 0.6% of blocks
+#: onto a *different article's* pages. Raising it to 0.85 buys nothing -- false placement is
+#: already under 1% -- and gives up half the recovered blocks.
+TOKEN_PLACEMENT_MIN = 0.65
+
+#: Below this many distinct tokens a bag of words is not distinctive enough to identify a
+#: page, whatever share of it matches.
+TOKEN_MIN_DISTINCT = 5
+
 #: JATS elements worth placing on a page.
 PLACEABLE_TAGS = ("p", "table-wrap", "fig")
 
@@ -278,6 +296,35 @@ def place_block(block: set[tuple[str, ...]], pages: Sequence[set[tuple[str, ...]
             return BlockPlacement("", "spans", min(top_page, second_page), max(top_page, second_page), top_share)
         return BlockPlacement("", "split", top_page, second_page, top_share)
     return BlockPlacement("", "clean", top_page, None, top_share)
+
+
+def place_by_tokens(tokens: Sequence[str], pages: Sequence[set[str]]) -> int | None:
+    """Place a block by unordered token containment, for blocks whose word order is not the page's.
+
+    Deliberately kept apart from `place_block` rather than folded into it as a fallback: the
+    published feasibility numbers describe n-gram containment, and quietly widening the rule
+    they were measured with would leave them describing something else. Callers compose the
+    two and report which rule placed what.
+
+    Parameters
+    ----------
+    tokens : Sequence[str]
+        The block's normalized tokens.
+    pages : Sequence[set[str]]
+        Per-page distinct token sets, in page order.
+
+    Returns
+    -------
+    int or None
+        Zero-based page index, or ``None`` when no page holds enough of the block. Ties
+        break toward the earliest page, as in `place_block`.
+
+    """
+    distinct = set(tokens)
+    if len(distinct) < TOKEN_MIN_DISTINCT or not pages:
+        return None
+    share, negated_index = max((len(distinct & page) / len(distinct), -index) for index, page in enumerate(pages))
+    return -negated_index if share >= TOKEN_PLACEMENT_MIN else None
 
 
 def measure(articles: Iterable[Any]) -> AlignmentReport:
