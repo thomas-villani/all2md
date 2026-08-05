@@ -309,6 +309,14 @@ def test_recall_falls_when_the_parser_loses_recoverable_text() -> None:
     assert report.attainable_recall == pytest.approx(0.0)
 
 
+def test_a_single_article_reports_no_control_rather_than_a_flattering_zero() -> None:
+    """With nothing to mismatch against, 0.0% would read exactly like a passing control."""
+    text = "the participants completed every session of the supervised training programme"
+    report = article.measure_recall([("A", [("text_block", text)], text, text)])
+    assert report.control_scored == 0
+    assert report.control_recall == 0.0
+
+
 def test_recall_collapses_against_a_different_article() -> None:
     """A recall figure means nothing unless the same method fails on the wrong document."""
     first = "the participants completed every session of the supervised training programme"
