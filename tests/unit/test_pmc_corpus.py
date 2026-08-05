@@ -725,3 +725,53 @@ def test_the_control_collapses_when_blocks_meet_the_wrong_article(tmp_path: Path
     assert report.placeable == report.scored
     assert report.control_false_placement == 0.0
     assert report.share(report.placeable) == 1.0
+
+
+def test_a_page_holding_the_whole_block_wins_over_an_echo_elsewhere() -> None:
+    """Completeness beats ambiguity, and the ordering is the point.
+
+    Checking the runner-up first was a real defect: body text restating a figure caption
+    made 71% of 'split' blocks -- and 88% of split figures -- read as ambiguous when their
+    top page already held 100% of them.
+    """
+    from benchmarks.pmc.alignment import place_block
+
+    caption = "figure eight tensile toughness of the hybrid biocomposite films under strain"
+    block = _grams(caption)
+    pages = [
+        _grams("introductory material with no bearing on the matter at hand whatsoever"),
+        _grams(caption),
+        _grams("unrelated filler"),
+        _grams("as discussed above the tensile toughness result demonstrates this clearly"),
+    ]
+
+    placement = place_block(block, pages)
+
+    assert placement.verdict == "clean"
+    assert placement.page == 1
+
+
+def test_a_genuine_page_break_still_reads_spans_under_the_completeness_rule() -> None:
+    """The completeness short-circuit must not swallow real page-break splits."""
+    from benchmarks.pmc.alignment import place_block
+
+    head = "the mitochondrial membrane potential was measured with a fluorescent probe and"
+    tail = "and the resulting signal was normalized against the untreated control samples"
+    block = _grams(f"{head} {tail}")
+
+    placement = place_block(block, [_grams(head), _grams(tail)])
+
+    assert placement.verdict == "spans"
+    assert placement.top_share < 0.95
+
+
+def test_equal_scoring_pages_break_toward_the_earliest() -> None:
+    """Without an explicit tie-break the sort silently preferred the *last* page."""
+    from benchmarks.pmc.alignment import place_block
+
+    text = "the mitochondrial membrane potential was measured with a fluorescent probe"
+    block = _grams(text)
+
+    placement = place_block(block, [_grams(text), _grams("filler"), _grams(text)])
+
+    assert placement.page == 0
