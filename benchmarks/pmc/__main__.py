@@ -75,6 +75,35 @@ def _show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _characterize(args: argparse.Namespace) -> int:
+    from benchmarks.pmc.characterize import characterize
+
+    snapshot = corpus.load_corpus(
+        Path(args.cache),
+        manifest_path=None if args.manifest is None else Path(args.manifest),
+        limit=args.limit,
+        workers=args.workers,
+    )
+    result = characterize(snapshot)
+    print(f"articles                   : {len(result.articles)}")
+    print(f"pages                      : {result.pages}")
+    if result.unreadable:
+        print(f"unreadable                 : {', '.join(result.unreadable)}")
+    for label, pages in (
+        ("text layer", result.text_layer_pages),
+        ("vector drawings", result.vector_drawing_pages),
+        ("one full-page image (scan)", result.scan_shape_pages),
+    ):
+        print(f"  {label:26s} {pages:5d} / {result.pages} = {result.share(pages):6.1%}")
+    print(f"drawings per page (median) : {result.median_drawings_per_page:.1f}")
+    for label, pages in sorted(result.pages_by_drawing_count.items()):
+        print(f"  pages with {label:12s}    {pages:5d} = {result.share(pages):6.1%}")
+    # One embedded font is the signature of an OCR dump re-typeset into a PDF, which no
+    # geometric test can distinguish from a born-digital file.
+    print(f"fewest fonts in an article : {result.min_font_count}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the PMC corpus command line.
 
@@ -107,6 +136,16 @@ def main(argv: list[str] | None = None) -> int:
     load.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
     load.add_argument("--workers", type=int, default=8, help="concurrent download workers")
     load.set_defaults(handler=_load)
+
+    characterize = subparsers.add_parser(
+        "characterize",
+        help="measure what the built corpus contains, independently of the selection filter",
+    )
+    characterize.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
+    characterize.add_argument("--cache", default=str(DEFAULT_CACHE), help="cache directory")
+    characterize.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
+    characterize.add_argument("--workers", type=int, default=8, help="concurrent download workers")
+    characterize.set_defaults(handler=_characterize)
 
     show = subparsers.add_parser("show", help="summarize the committed manifest without any network access")
     show.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")

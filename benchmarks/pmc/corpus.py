@@ -722,12 +722,12 @@ def _has_vector_drawings(pdf_path: Path) -> bool | None:
     is reported to contain.
 
     **This is a backstop, not the born-digital discriminator** -- measured, against the
-    plan's expectation.  Scanned pages carry exactly one drawing (a page frame), so a
-    boolean test accepted two of three known scans on its own; the JATS ``<p>`` test is
-    what actually separates them, and it runs first.  A drawings-per-page threshold would
-    separate 1.0 from a born-digital median of 2-15, but calibrating it belongs to the
-    characterization step, on the whole corpus rather than on three articles.  See
-    ``README.md``.
+    plan's expectation.  The bucket holds two kinds of non-born-digital material and this
+    test handles neither well: against a raster scan it is redundant with the
+    page-area image test, and against an OCR text dump re-typeset into a PDF it is
+    actively fooled, because such a file's one "drawing" per page is a page-sized
+    background rectangle.  Geometrically those files *are* born-digital; only the JATS
+    ``<p>`` test reveals them, and it runs first.  See ``README.md``.
     """
     try:
         import fitz

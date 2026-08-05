@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   manifest digest. Selection keeps an article when its JATS has at least one `<p>` and its
   PDF carries vector drawings; every rejected candidate is recorded by reason. Corpus
   bytes are not committed, and this ships no oracle or gate — those follow separately.
+  A `characterize` command measures what the built corpus actually contains, deliberately
+  independent of the filter that selected it: 750 pages, 100% with a text layer, 81.1%
+  with vector drawings, **0% with the single-full-page-image scan shape** — the inverse of
+  the raster lane, and the zero was checked against a known scan first to confirm the test
+  can fire at all.
 
 ### Fixed
 
