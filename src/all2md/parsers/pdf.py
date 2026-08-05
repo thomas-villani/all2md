@@ -1168,9 +1168,6 @@ class PdfToAstConverter(BaseParser):
             # propagate would cost the page's text entirely, which is worse.
             logger.debug(f"OCR layout recovery unavailable, falling back to flat text: {exc}")
             return None
-        finally:
-            if pix is not None:
-                pix = None
 
     @staticmethod
     def _blocks_from_ocr_layout(paragraphs: "list[OcrParagraph]") -> list[dict]:
