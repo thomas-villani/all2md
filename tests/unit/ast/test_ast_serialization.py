@@ -32,6 +32,7 @@ from all2md.ast import (
     Text,
 )
 from all2md.ast.serialization import ast_to_dict, ast_to_json, dict_to_ast, json_to_ast
+from all2md.renderers.markdown import MarkdownRenderer
 
 
 @pytest.mark.unit
@@ -697,3 +698,97 @@ class TestCommentAndMarkSerialization:
         assert isinstance(restored, Document)
         assert isinstance(restored.children[0], Comment)
         assert restored.children[0].content == "block note"
+
+
+@pytest.mark.unit
+class TestNullFieldHandlingInDeserialization:
+    """Test deserialization when JSON contains explicit null field values."""
+
+    def test_math_inline_with_null_representations(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "MathInline", "content": "x^2", "representations": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, MathInline)
+        assert node.content == "x^2"
+        assert node.representations == {"latex": "x^2"}
+
+    def test_paragraph_with_null_content_and_metadata(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "Paragraph", "content": null, "metadata": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, Paragraph)
+        assert node.content == []
+        assert node.metadata == {}
+
+    def test_document_with_null_children(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "Document", "children": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, Document)
+        assert node.children == []
+
+    def test_table_with_null_alignments_and_rows(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "Table", "rows": null, "alignments": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, Table)
+        assert node.rows == []
+        assert node.alignments == []
+
+    @pytest.mark.parametrize(
+        ("node_type", "field"),
+        [
+            ("Text", "content"),
+            ("Code", "content"),
+            ("HTMLInline", "content"),
+            ("HTMLBlock", "content"),
+            ("Link", "url"),
+            ("Image", "url"),
+            ("FootnoteReference", "identifier"),
+        ],
+    )
+    def test_null_leaf_scalar_becomes_empty_string(self, node_type: str, field: str) -> None:
+        """A null scalar must not reach the node: it poisons every later renderer pass."""
+        node = json_to_ast(json.dumps({"schema_version": 1, "node_type": node_type, field: None}))
+        assert getattr(node, field) == ""
+
+    def test_null_scalars_survive_a_render(self) -> None:
+        """The whole point of coercing nulls: the document still renders."""
+        json_str = json.dumps(
+            {
+                "schema_version": 1,
+                "node_type": "Document",
+                "children": [
+                    {
+                        "node_type": "Paragraph",
+                        "content": [
+                            {"node_type": "Text", "content": None, "metadata": None},
+                            {"node_type": "Code", "content": None},
+                            {"node_type": "Link", "url": None, "content": None},
+                        ],
+                    }
+                ],
+            }
+        )
+        MarkdownRenderer().render_to_string(json_to_ast(json_str))
+
+    def test_null_table_cell_spans_fall_back_to_one(self) -> None:
+        json_str = '{"schema_version": 1, "node_type": "TableCell", "colspan": null, "rowspan": null}'
+        node = json_to_ast(json_str)
+        assert isinstance(node, TableCell)
+        assert (node.colspan, node.rowspan) == (1, 1)
+
+    @pytest.mark.parametrize(
+        ("node_type", "field", "payload"),
+        [
+            ("Heading", "level", {"content": []}),
+            ("Text", "content", {}),
+            ("Link", "url", {}),
+            ("List", "ordered", {"items": []}),
+        ],
+    )
+    def test_missing_required_field_is_reported(self, node_type: str, field: str, payload: dict) -> None:
+        """A structurally required field must fail loudly, not default silently.
+
+        Defaulting here would turn a corrupt payload into a plausible-looking
+        document, which is worse than a parse error for an interchange format.
+        """
+        json_str = json.dumps({"schema_version": 1, "node_type": node_type, **payload})
+        with pytest.raises(ValueError, match=f"{node_type} node is missing required field '{field}'"):
+            json_to_ast(json_str)
