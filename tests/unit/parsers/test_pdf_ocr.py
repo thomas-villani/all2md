@@ -13,6 +13,7 @@ from all2md.options.pdf import PdfOptions
 from all2md.parsers._pdf_ocr import (
     calculate_image_coverage,
     dehyphenate_text,
+    largest_image_coverage,
 )
 from all2md.parsers._pdf_ocr import (
     detect_page_language as _detect_page_language,
@@ -36,7 +37,7 @@ class TestOCROptions:
         assert opts.dpi == 300
         assert opts.text_threshold == 50
         assert opts.doc_text_threshold == 16
-        assert opts.image_area_threshold == 0.5
+        assert opts.image_area_threshold == 0.8
         assert opts.preserve_existing_text is False
         assert opts.tesseract_config == ""
 
@@ -84,6 +85,29 @@ class TestOCROptions:
             OCROptions(languages=["eng", "   "])
 
 
+class _Box:
+    """A stand-in for ``fitz.Rect`` carrying only what the coverage helpers read."""
+
+    def __init__(self, width: float, height: float) -> None:
+        self.width = width
+        self.height = height
+
+
+def _page_with_images(*images: list[tuple[float, float]], width: float = 612.0, height: float = 792.0) -> Mock:
+    """Build a mock page carrying the given images.
+
+    Each argument is one image, given as the list of boxes it is placed at — so a single
+    image drawn twice on the page is one argument with two boxes.
+    """
+    page = Mock()
+    page.rect.width = width
+    page.rect.height = height
+    page.get_images.return_value = [(xref, 0, 0, 0, 0, 0, 0) for xref in range(1, len(images) + 1)]
+    placements = {xref: [_Box(w, h) for w, h in boxes] for xref, boxes in enumerate(images, start=1)}
+    page.get_image_rects.side_effect = lambda xref, **_: placements.get(xref, [])
+    return page
+
+
 class TestImageCoverage:
     """Test image coverage calculation."""
 
@@ -127,6 +151,50 @@ class TestImageCoverage:
 
         coverage = calculate_image_coverage(mock_page)
         assert coverage == 0.0
+
+
+class TestLargestImageCoverage:
+    """The scan test asks whether one image dominates the page."""
+
+    def test_no_images(self) -> None:
+        """A page with no images covers none of itself."""
+        assert largest_image_coverage(_page_with_images()) == 0.0
+
+    def test_zero_page_area(self) -> None:
+        """A degenerate page reports no coverage rather than dividing by zero."""
+        page = _page_with_images([(10.0, 10.0)], width=0.0, height=0.0)
+        assert largest_image_coverage(page) == 0.0
+
+    def test_single_image(self) -> None:
+        """One image covering half the page reports half."""
+        page = _page_with_images([(612.0, 396.0)])
+        assert 0.49 < largest_image_coverage(page) < 0.51
+
+    def test_figure_panels_are_not_a_scan(self) -> None:
+        """Six figure panels covering the page between them are still six figures.
+
+        This is the case that made auto mode discard publisher text layers: summing the
+        panels' areas reaches any threshold, while no single panel comes close.
+        """
+        panels = [[(300.0, 260.0)] for _ in range(6)]
+        page = _page_with_images(*panels)
+        assert calculate_image_coverage(page) > 0.9  # what the old trigger saw
+        assert largest_image_coverage(page) < 0.21  # what is actually on the page
+
+    def test_page_sized_scan(self) -> None:
+        """A page-sized raster reports ~1.0, whatever else sits beside it."""
+        page = _page_with_images([(612.0, 792.0)], [(40.0, 40.0)])
+        assert largest_image_coverage(page) > 0.99
+
+    def test_measures_every_placement_not_just_the_first(self) -> None:
+        """A logo placed before the page raster must not be the one that gets measured."""
+        page = _page_with_images([(40.0, 40.0), (612.0, 792.0)])
+        assert largest_image_coverage(page) > 0.99
+
+    def test_never_exceeds_one(self) -> None:
+        """An image drawn larger than the page is clamped."""
+        page = _page_with_images([(1224.0, 1584.0)])
+        assert largest_image_coverage(page) == 1.0
 
 
 class TestShouldUseOCR:
@@ -205,17 +273,40 @@ class TestShouldUseOCR:
         # 20 meaningful chars -> above threshold -> no OCR.
         assert _should_use_ocr(mock_page, "a" * 20 + "  ...", options) is False
 
-    @patch("all2md.parsers._pdf_ocr.calculate_image_coverage")
-    def test_should_use_ocr_auto_high_image_coverage(self, mock_coverage: Mock) -> None:
-        """Test OCR triggering in auto mode with high image coverage."""
-        mock_page = Mock()
-        mock_coverage.return_value = 0.8  # 80% image coverage
+    def test_should_use_ocr_auto_page_sized_image(self) -> None:
+        """A scan carrying a thin text layer must still be OCR'd.
 
-        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=50, image_area_threshold=0.5))
+        The text branch cannot rescue this page — a running header clears
+        ``text_threshold`` — so the image branch is the only thing that reaches it. This
+        is what that branch exists for, and narrowing it must not disable it.
+        """
+        page = _page_with_images([(612.0, 792.0)])
+        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=50))
 
-        # High image coverage should trigger OCR even with some text
-        result = _should_use_ocr(mock_page, "A" * 100, options)
-        assert result is True
+        assert _should_use_ocr(page, "JOURNAL OF THE CHICAGO MEDICAL SOCIETY, VOL XXIV, No 3, page 118", options)
+
+    def test_should_use_ocr_auto_leaves_a_figure_heavy_page_alone(self) -> None:
+        """A born-digital page of figures keeps its publisher text layer.
+
+        OCR *replaces* the extracted text by default, so firing here is not a harmless
+        second opinion — it discards the real text and re-reads it from a picture.
+        """
+        panels = [[(300.0, 260.0)] for _ in range(6)]
+        page = _page_with_images(*panels)
+        options = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", text_threshold=50))
+
+        assert _should_use_ocr(page, "A" * 500, options) is False
+
+    def test_should_use_ocr_auto_image_threshold_is_configurable(self) -> None:
+        """The caller can still lower the bar back down to a figure-sized image."""
+        page = _page_with_images([(612.0, 396.0)])  # half the page
+        text = "A" * 100
+
+        conservative = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", image_area_threshold=0.8))
+        assert _should_use_ocr(page, text, conservative) is False
+
+        eager = PdfOptions(ocr=OCROptions(enabled=True, mode="auto", image_area_threshold=0.4))
+        assert _should_use_ocr(page, text, eager) is True
 
 
 class TestDetectPageLanguage:

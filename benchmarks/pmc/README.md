@@ -366,11 +366,11 @@ This is also the gap the raster lane structurally cannot report: every OmniDocBe
 image, so its PDF table path never runs and the whole table dimension is erased as
 unsupported.
 
-**OCR fired on 11 of 66 articles** — on a corpus characterized as 0.0% scan-shaped. Auto mode
-triggers on **≥50% image area regardless of how much text a page has**, and
+**OCR fired on 11 of 66 articles** — on a corpus characterized as 0.0% scan-shaped. This is
+why OCR was left enabled rather than switched off: it is a measurement that could fail, and it
+did. Auto mode triggered on **≥50% image area regardless of how much text a page had**, and
 `preserve_existing_text` defaults to `False`, so on a figure-heavy born-digital page the
-publisher's real text layer is discarded and replaced with OCR output. This is why OCR was
-left enabled rather than switched off: it is a measurement that could fail, and it did.
+publisher's real text layer was discarded and replaced with OCR output. Fixed — see below.
 
 **Cost:** the full run takes over an hour of CPU on one core, most of it OCR. Use `--limit`
 for a spread subset; a per-PR gate over all 66 articles is not practical as it stands.
@@ -411,6 +411,33 @@ With the guard, on the same subset: tables emitted **4 → 12**, `table_content_
 92.6%; `title` and `text_block` exactly unchanged). Conservative on purpose — it still refuses
 real tables whose extraction splits words, and the medians remain 0.000 — but it buys the table
 gain for nothing.
+
+### Fixing the OCR trigger, and the arm that was silently not the baseline
+
+The trigger held two faults, both visible in one pass over all 750 pages. Summing image areas
+does not ask whether a page is a scan: one affected page carries six figure panels of a tenth
+of the page each, summing past the threshold with nothing page-sized on it. And 0.5 sits far
+below where scans live. Measuring the **largest single image** separates the two cleanly —
+born-digital pages never pass **0.634**, real scans sit at exactly **1.000** — and 0.8 is the
+same boundary `benchmarks/omnidocbench` already calibrated for `one_full_page_image`.
+
+Both directions were checked. The 12 mis-firing born-digital pages stop; a real OmniDocBench
+scan raster with a running header painted onto it — enough characters to clear `text_threshold`,
+so only this branch can reach the page — still fires 6 of 6. The gated raster lane cannot move
+either way: all 52 of its cached pages have **no text layer at all**, so they trigger on the
+text branch and never reach this one.
+
+Over the 11 affected articles: `text_content_similarity` median **0.515 → 0.599**,
+`block_structure` mean **0.530 → 0.563**, recall of attainable **94.6% → 95.1%**, and 9 of the
+11 stop OCR'ing. **`title` recall does not move** (377/394 in both arms) — so the title gap and
+the OCR trigger are separate defects, which is what this A/B was run to find out.
+
+**The first baseline arm was not a baseline, and its scores looked fine.** It was produced by
+reassigning the `image_area_threshold` dataclass field default, which does nothing — a
+dataclass bakes its defaults into the generated `__init__` — so the arm silently ran the
+candidate. What exposed it was the payload's own `ocr_articles` field listing 2 articles where
+a true baseline must list 11. Patch the *function* the option feeds, and confirm an arm is the
+arm from a field recording what the parser did, never from the score it produced.
 
 ## Licences
 
