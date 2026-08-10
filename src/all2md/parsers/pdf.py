@@ -71,6 +71,7 @@ from all2md.parsers._pdf_images import extract_page_images
 from all2md.parsers._pdf_layout import (
     PageLayoutPredictions,
     annotate_blocks_with_layout,
+    annotate_lines_with_layout,
     is_layout_available,
     match_predictions_to_blocks,
     native_find_tables,
@@ -1739,6 +1740,10 @@ class PdfToAstConverter(BaseParser):
                 raw_predictions = predict_page_layout(page, self.options.layout_feature_set)
                 layout = match_predictions_to_blocks(raw_predictions, all_blocks, self.options.layout_iou_threshold)
                 annotate_blocks_with_layout(all_blocks, layout)
+                # Also label individual lines. A block-level label is only available when
+                # the block happens to be one semantic unit; on a journal page it is a whole
+                # column, and every heading inside it loses its label to the IoU test.
+                annotate_lines_with_layout(all_blocks, raw_predictions)
             except Exception as e:
                 logger.warning("Layout analysis failed for page %d: %s", page_num + 1, e)
                 layout = None
@@ -2643,11 +2648,13 @@ class PdfToAstConverter(BaseParser):
             if state.in_code_block:
                 self._finalize_code_block(state, page_num)
 
-            # Handle headers - layout label overrides font-size heuristics
-            if layout_label in ("title", "section-header"):
-                if self._handle_header_line_with_layout(
-                    spans, links, state, page_num, average_line_height, layout_label
-                ):
+            # Handle headers - layout label overrides font-size heuristics. A line carries
+            # its own label when the model drew a box around it, which is the only way a
+            # heading inside a full-column block is ever labelled; fall back to the block's
+            # label, which is all that exists when the block is one semantic unit.
+            line_label = line.get("_layout_label") or layout_label
+            if line_label in ("title", "section-header"):
+                if self._handle_header_line_with_layout(spans, links, state, page_num, average_line_height, line_label):
                     continue
             elif self._handle_header_line(spans, links, state, page_num, average_line_height):
                 continue
