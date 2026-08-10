@@ -51,6 +51,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Words no longer run together where a bold or italic run wraps onto the next line.** Lines
+  of a paragraph are joined with a separator space unless the text already ends with
+  whitespace there, and the check that decides this walks back to the last text leaf, which
+  may sit inside a `Strong`/`Emphasis`/`Link`. It conflated two different answers from a
+  wrapper — "its text does not end in whitespace" and "it holds no text at all" — and treated
+  both as *keep looking*. A line ending in a styled run therefore fell through to whatever
+  preceded that run, and if *that* ended with a space the separator was suppressed and the
+  two halves were concatenated: `negotiating Roang on` + `Lamotrek Atoll` came back as
+  `Roang onLamotrek`. The two runs then looked adjacent to the inline consolidator, which
+  merged them into a single node, so the space could not be recovered downstream either.
+  The walk now distinguishes "no text here" from a definite verdict about the join point.
+  This affects any wrapped styled run, not one document kind, but it surfaced through
+  bibliography entries on the PMC born-digital corpus: a wrapped reference title is short
+  enough that one bad join costs it more n-grams than a recall threshold allows, while a long
+  paragraph absorbs the same damage unnoticed. Over a 20-article subset it recovers **16 of
+  the 33** unrecoverable titles with **none newly lost**, taking `title` recall of attainable
+  from **95.4% to 97.6%**; one review article with a large reference list goes from 22 lost to
+  6. The remaining losses are a separate defect — text genuinely absent from the output rather
+  than reflowed — and are still open.
 - **Borderless tables in layout-predicted regions are recovered instead of being emitted as
   prose.** With layout analysis on (`pdf_layout`), a region the layout model predicts to be a
   table was searched with PyMuPDF's default `find_tables()` strategy, which requires ruling
