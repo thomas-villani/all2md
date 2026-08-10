@@ -51,6 +51,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Auto-mode OCR no longer discards a good text layer because the page has figures on it.**
+  In `mode="auto"` the decision to OCR a page was made by summing the area of every image on
+  it and comparing that to `image_area_threshold` (then 0.5) — *regardless of how much text
+  the page already had*. Since `preserve_existing_text` defaults to `False`, a page that
+  tripped this had its publisher-supplied text thrown away and re-read from a picture. On the
+  PMC born-digital corpus, characterized as **0.0% scan-shaped**, this fired on 20 pages
+  across **11 of 66 articles**; every one of those pages had real extracted text (median 536
+  characters, up to 1998).
+  Two separate faults. Summing image areas does not measure whether a page is a scan: one
+  affected page carried six figure panels covering a tenth of the page each, which summed
+  past the threshold while nothing on the page was remotely page-sized. And the threshold sat
+  far below where scans actually live. The trigger now measures the **largest single image**,
+  and the default is **0.8**. That boundary is calibrated rather than picked: across 101
+  scanned pages the largest image covers exactly 100% of every one, while across 851
+  born-digital pages it never passes 64% (median 13% of pages carrying any image at all).
+  Note the threshold's meaning changed with its default, so an explicit
+  `image_area_threshold` is now read against the largest image rather than the summed area.
+  The narrowing was checked in both directions: a real scan raster carrying a thin text layer
+  — a running header, which clears `text_threshold` so only this branch can reach it — still
+  triggers OCR, and reverting the measure makes the born-digital pages fire again. Measured
+  over the 11 affected articles: `text_content_similarity` median 0.515 → 0.599,
+  `block_structure_similarity` mean 0.530 → 0.563, whole-article recall of attainable 94.6% →
+  95.1%, and 9 of the 11 articles stop OCR'ing entirely. Table scores and `title` recall are
+  unchanged, and the 55 unaffected articles are untouched by construction — exactly 16 of the
+  corpus's 750 page decisions change, all of them from OCR to no-OCR.
 - **Borderless tables in layout-predicted regions are recovered instead of being emitted as
   prose.** With layout analysis on (`pdf_layout`), a region the layout model predicts to be a
   table was searched with PyMuPDF's default `find_tables()` strategy, which requires ruling
