@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Section headings inside a multi-line block are no longer flattened to prose**
+  (PDF, requires `pymupdf-layout`). Layout labels were assigned per *block*, by IoU against
+  the model's predicted region. That is a fair test only when a block is one semantic unit,
+  and PyMuPDF returns a whole journal column as a single block — so a two-line heading
+  inside it scored an IoU near 0.03 against its own block and its `section-header` label was
+  discarded before anything could use it. Measured on the born-digital corpus, **54% of
+  `section-header` predictions never reached a block**, the median miss being a block 38x
+  the prediction's area; the same plumbing lost 52% of `list-item` and 51% of `page-header`
+  labels. Labels are now also stamped per line, by containment rather than IoU — a line
+  inside a correct region has a low IoU with it by construction — and the heading path
+  consults the line's own label before the block's. Against JATS section titles on 12
+  articles, the share emitted as headings rose from **0.420 to 0.729** (79 → 137 of 188)
+  for five additional headings not backed by a title. Two articles went from 0/32 and 3/33
+  to 24/32 and 26/33. Nothing else on the corpus moved: text recall is identical to the
+  digit in both arms (95.6% of attainable overall; `title` 94.2%, `text_block` 96.3%,
+  `table` 96.7%), reading order is unchanged at 0.779, and `block_structure_similarity`
+  rises 0.548 → 0.567 — a change in structure and nothing else, which is what was intended.
+  This is the same class of defect as the partial table region fixed above: a block is the
+  wrong unit to judge, and the fix is to judge the line.
+- **The structural half of heading detection is now measured.** The corpus lane scored
+  `title` as *text recall*, which cannot distinguish `## Materials and Methods` from a bare
+  paragraph carrying the same words — a parser that flattened every heading in the corpus
+  would have scored 1.00 on it. Note the ground truth for this is section titles
+  specifically: the oracle's `title` kind also maps `article-title`, which appears inside
+  every bibliography `<ref>`, so scoring headings against it rewards exactly the wrong
+  behaviour on a 60-reference article.
+
 ### Added
 
 - **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
