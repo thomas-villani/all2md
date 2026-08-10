@@ -379,6 +379,12 @@ def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None
         # its bbox.
         return None if not kept else dict(block)
 
+    # Rescue prose, not whitespace. The lines bordering a table region are routinely blank
+    # or a single space, and emitting those as a paragraph adds an empty block where the
+    # whole block used to be dropped -- visible in output as a stray gap.
+    if not any(span.get("text", "").strip() for line in kept for span in line.get("spans", [])):
+        return None
+
     tightened = None
     for line in kept:
         if line.get("bbox") is None:

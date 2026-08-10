@@ -51,9 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A table region covering part of a text block no longer deletes the rest of that block**
-  (requires `pymupdf-layout`; without it nothing predicts these regions and the path is not
-  reached). Blocks a table region covers are withheld from the text stream, because the
+- **A table region covering part of a text block no longer deletes the rest of that block.**
+  Blocks a table region covers are withheld from the text stream, because the
   region is emitted in its own right — as a table, or as a paragraph when the grid is
   rejected — and emitting both would duplicate it. That decision was made per block on a
   majority-area test, so a region covering more than half of a block removed the whole
@@ -66,9 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line: lines a region covers are still withheld, and whatever lies outside every region
   survives with its bounding box tightened to what remains, so reading order still sorts
   correctly against the table it precedes. A line straddling a region boundary is assigned
-  by the same majority rule rather than duplicated or dropped by both sides. Measured on 20
-  articles of the PMC born-digital corpus, title recall of attainable rose from 97.6% to
-  **99.2%**, and the four full-height column drops the corpus contained fell to two.
+  by the same majority rule rather than duplicated or dropped by both sides. Lines that are
+  blank or whitespace are not rescued: those border a table region routinely, and emitting
+  them would replace a dropped block with an empty paragraph. Measured on 20 articles of the
+  PMC born-digital corpus, title recall of attainable rose from 97.6% to **99.2%**, and the
+  four full-height column drops the corpus contained fell to two.
 - **Words no longer run together where a bold or italic run wraps onto the next line.** Lines
   of a paragraph are joined with a separator space unless the text already ends with
   whitespace there, and the check that decides this walks back to the last text leaf, which
