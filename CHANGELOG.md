@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
+  requires `pymupdf-layout`; inert otherwise). The package bundles three: `imf+rf` (the
+  default, image and text-geometry features), `imf` (image only) and `rf` (text geometry
+  only). Which one is right depends on the document, so it is now a searchable option and
+  is registered as an `optimize` knob rather than decided globally. The difference is not
+  subtle: on a two-column reference page the image-feature models read the dense left column
+  as a table — deleting nine reference entries before the fix elsewhere in this release, and
+  splitting one table into two on three further pages — while `rf` labels all 41 entries
+  correctly and predicts no table at all. Across 20 born-digital articles `rf` led on every
+  axis measured (title recall 0.9916 → 0.9972, identical table content recall, three fewer
+  spurious table nodes on the same 16 pages, 29% faster for skipping image inference).
+  **The default is deliberately unchanged**: that is one corpus of one document kind, and
+  image features plausibly earn their place on scanned pages, of which it contains none.
+  Models are now cached per feature set instead of in a single global — an unkeyed cache
+  returned whichever model loaded first, which would have made every arm of a search over
+  this knob identical and the setting look inert.
 - **A pinned PMC Open Access corpus for born-digital PDF benchmarking**
   (`benchmarks/pmc`). The existing external ground-truth lane is 981 rasters, so it
   measures the OCR path; nothing external covered text-layer extraction, vector table
@@ -51,6 +67,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A table region covering part of a text block no longer deletes the rest of that block.**
+  Blocks a table region covers are withheld from the text stream, because the
+  region is emitted in its own right — as a table, or as a paragraph when the grid is
+  rejected — and emitting both would duplicate it. That decision was made per block on a
+  majority-area test, so a region covering more than half of a block removed the whole
+  block. But "more than half" is not "all of it": PyMuPDF returns a full-height journal
+  column as a single block, so a region predicted over its lower half cleared the bar for
+  the entire column and the upper half was carried out with it — deleted outright, since
+  the re-emitted region text does not include it. On page 16 of one benchmark article this
+  silently removed nine reference entries, a region over y=380–733 of a column spanning
+  y=90–733 taking 54.8% of it and everything above with it. Coverage is now judged per
+  line: lines a region covers are still withheld, and whatever lies outside every region
+  survives with its bounding box tightened to what remains, so reading order still sorts
+  correctly against the table it precedes. A line straddling a region boundary is assigned
+  by the same majority rule rather than duplicated or dropped by both sides. Lines that are
+  blank or whitespace are not rescued: those border a table region routinely, and emitting
+  them would replace a dropped block with an empty paragraph. Measured on 20 articles of the
+  PMC born-digital corpus, title recall of attainable rose from 97.6% to **99.2%**, and the
+  four full-height column drops the corpus contained fell to two.
 - **Words no longer run together where a bold or italic run wraps onto the next line.** Lines
   of a paragraph are joined with a separator space unless the text already ends with
   whitespace there, and the check that decides this walks back to the last text leaf, which

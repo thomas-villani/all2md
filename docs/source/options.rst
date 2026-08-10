@@ -8539,6 +8539,16 @@ supported via ``engine``: Tesseract (default) and EasyOCR.
    :Default: ``0.3``
    :Importance: advanced
 
+**layout_feature_set**
+
+   Which layout classifier to run: 'imf+rf' (image and text-geometry features), 'rf' (text geometry only), 'imf' (image only). Ignored unless layout analysis runs
+
+   :Type: ``Literal['imf+rf', 'rf', 'imf']``
+   :CLI flag: ``--pdf-layout-feature-set``
+   :Default: ``'imf+rf'``
+   :Choices: ``imf+rf``, ``rf``, ``imf``
+   :Importance: advanced
+
 PDF Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
 

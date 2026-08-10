@@ -34,6 +34,7 @@ from all2md.constants import (
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_LAYOUT_ANALYSIS_MODE,
+    DEFAULT_LAYOUT_FEATURE_SET,
     DEFAULT_LAYOUT_IOU_THRESHOLD,
     DEFAULT_LINK_OVERLAP_THRESHOLD,
     DEFAULT_MERGE_HYPHENATED_WORDS,
@@ -54,6 +55,7 @@ from all2md.constants import (
     ColumnDetectionMode,
     ImageFormat,
     LayoutAnalysisMode,
+    LayoutFeatureSet,
     PageSize,
     PdfCommentMode,
     TableDetectionMode,
@@ -589,6 +591,17 @@ class PdfOptions(PaginatedParserOptions):
         metadata={
             "help": "Minimum IoU overlap to match layout predictions to text blocks (0.0-1.0)",
             "type": float,
+            "importance": "advanced",
+        },
+    )
+    layout_feature_set: LayoutFeatureSet = field(
+        default=DEFAULT_LAYOUT_FEATURE_SET,
+        metadata={
+            "help": (
+                "Which layout classifier to run: 'imf+rf' (image and text-geometry features), "
+                "'rf' (text geometry only), 'imf' (image only). Ignored unless layout analysis runs"
+            ),
+            "choices": ["imf+rf", "rf", "imf"],
             "importance": "advanced",
         },
     )

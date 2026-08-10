@@ -26,6 +26,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterator
 
+from all2md.constants import DEFAULT_LAYOUT_FEATURE_SET
+
 if TYPE_CHECKING:
     import fitz
 
@@ -152,8 +154,11 @@ class PageLayoutPredictions:
         return [p for p in self.predictions if p.label == label]
 
 
-# Module-level model cache (singleton, loaded once per process)
-_layout_model: Any = None
+#: Loaded models, keyed by feature set. Keyed rather than a singleton because the feature
+#: set selects a *different* ONNX model, and a caller that switches sets mid-process -- the
+#: optimizer searching this knob does exactly that -- would otherwise silently keep getting
+#: whichever model was loaded first, making every arm of the search identical.
+_layout_models: dict[str, Any] = {}
 
 
 def is_layout_available() -> bool:
@@ -166,11 +171,17 @@ def is_layout_available() -> bool:
         return False
 
 
-def get_layout_model() -> Any:
-    """Get or create the cached layout analysis model.
+def get_layout_model(feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> Any:
+    """Get or create the cached layout analysis model for a feature set.
 
-    Returns the DocumentLayoutAnalyzer model instance, caching it
-    for reuse across pages and documents.
+    Models are cached per feature set and reused across pages and documents; loading one
+    costs several MB of ONNX weights, and a search over this knob revisits each value many
+    times.
+
+    Parameters
+    ----------
+    feature_set : str
+        Which classifier to load -- see `LayoutFeatureSet`.
 
     Returns
     -------
@@ -183,22 +194,23 @@ def get_layout_model() -> Any:
         If pymupdf-layout is not installed.
 
     """
-    global _layout_model  # noqa: PLW0603
-    if _layout_model is None:
+    if feature_set not in _layout_models:
         from pymupdf.layout import DocumentLayoutAnalyzer
 
-        _layout_model = DocumentLayoutAnalyzer.get_model()
-        logger.debug("Loaded pymupdf-layout GNN model")
-    return _layout_model
+        _layout_models[feature_set] = DocumentLayoutAnalyzer.get_model(feature_set_name=feature_set)
+        logger.debug("Loaded pymupdf-layout GNN model (feature_set=%s)", feature_set)
+    return _layout_models[feature_set]
 
 
-def predict_page_layout(page: "fitz.Page") -> list[LayoutPrediction]:
+def predict_page_layout(page: "fitz.Page", feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> list[LayoutPrediction]:
     """Run layout prediction on a single page.
 
     Parameters
     ----------
     page : fitz.Page
         PDF page to analyze.
+    feature_set : str
+        Which classifier to run -- see `LayoutFeatureSet`.
 
     Returns
     -------
@@ -206,7 +218,7 @@ def predict_page_layout(page: "fitz.Page") -> list[LayoutPrediction]:
         Predicted regions with semantic labels.
 
     """
-    model = get_layout_model()
+    model = get_layout_model(feature_set)
     raw_predictions = model.predict(page)
     # raw_predictions: list of [x0, y0, x1, y1, label_str]
 
