@@ -324,6 +324,75 @@ def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
     return _trailing_whitespace_verdict(nodes) is True
 
 
+def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None:
+    """Return ``block`` reduced to the lines no table region covers, or None if none remain.
+
+    A detected table region is emitted in its own right -- as a table, or as a paragraph
+    when the grid is rejected -- so the lines it covers must not be emitted a second time as
+    body text. The lines it does *not* cover are a different matter: they are ordinary prose
+    that happens to share a PyMuPDF block with the region, and no other node carries them.
+
+    This exists because "the region covers most of this block" and "the region is this
+    block" are not the same statement. A layout-predicted region over the lower half of a
+    full-height reference column clears the 50% bar for the whole column, and discarding the
+    block outright deleted the upper half -- nine reference entries on one page of the
+    born-digital corpus, with nothing recording the loss.
+
+    Parameters
+    ----------
+    block : dict
+        PyMuPDF text block.
+    regions : list
+        Table region rectangles.
+
+    Returns
+    -------
+    dict or None
+        A copy of ``block`` holding only the uncovered lines, with its bbox tightened to
+        them; ``None`` when every line is covered, which is the ordinary case of a block
+        that really is the table.
+
+    """
+    import fitz
+
+    lines = block.get("lines")
+    if not lines:
+        return None
+
+    kept = []
+    for line in lines:
+        bbox = line.get("bbox")
+        if bbox is None:
+            kept.append(line)
+            continue
+        rect = fitz.Rect(bbox)
+        area = abs(rect)
+        # Judge a line by the same majority rule used for blocks, so a line straddling the
+        # region boundary is assigned rather than duplicated or dropped by both sides.
+        if area > 0 and any(abs(rect & region) > 0.5 * area for region in regions):
+            continue
+        kept.append(line)
+
+    if not kept or len(kept) == len(lines):
+        # Nothing survived, or nothing was covered -- in both cases the caller's existing
+        # whole-block decision is already correct and a rebuilt copy would only differ by
+        # its bbox.
+        return None if not kept else dict(block)
+
+    tightened = None
+    for line in kept:
+        if line.get("bbox") is None:
+            continue
+        rect = fitz.Rect(line["bbox"])
+        tightened = rect if tightened is None else (tightened | rect)
+
+    remainder = dict(block)
+    remainder["lines"] = kept
+    if tightened is not None:
+        remainder["bbox"] = tuple(tightened)
+    return remainder
+
+
 @dataclass
 class _BlockProcessingState:
     """State tracking for block-to-AST processing.
@@ -1734,6 +1803,14 @@ class PdfToAstConverter(BaseParser):
             is_in_table = any(abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect) for table in table_info)
             if not is_in_table:
                 text_blocks.append(block)
+                continue
+
+            # Mostly-a-table is not entirely-a-table. Keep whatever lies outside every
+            # region, so a region covering part of a tall block does not take the rest of
+            # that block with it -- only the region's own text is re-emitted downstream.
+            remainder = _block_outside_table_regions(block, [table["bbox"] for table in table_info])
+            if remainder is not None:
+                text_blocks.append(remainder)
 
         # Apply column detection if enabled. It runs on OCR-derived blocks too: the engine
         # numbers its blocks in its own order, which is not reading order on multi-column
