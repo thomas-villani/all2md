@@ -62,8 +62,10 @@ jobs:
 
       # OCR is left enabled in auto mode rather than switched off: on a corpus characterized
       # as 0.0% scan-shaped it should never fire, and "never fired" is only worth having as a
-      # measurement that could have failed. It fires on 11 of 66 articles, so Tesseract is a
-      # real dependency here and not a formality.
+      # measurement that could have failed. It did fail -- auto mode was OCR'ing figure-heavy
+      # born-digital pages and discarding their text layers, on 11 of 66 articles. With the
+      # trigger narrowed to the scan shape it reaches 2, on near-empty pages, so Tesseract is
+      # still a real dependency here and the measurement can still fire.
       - name: Install OCR language data
         run: |
           sudo apt-get update

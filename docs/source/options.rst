@@ -8495,11 +8495,11 @@ supported via ``engine``: Tesseract (default) and EasyOCR.
 
 **image_area_threshold**
 
-   Image area ratio (0.0-1.0) to trigger OCR (for auto mode)
+   Share of the page (0.0-1.0) its largest image must cover to trigger OCR (auto mode)
 
    :Type: ``float``
    :CLI flag: ``--pdf-ocr-image-area-threshold``
-   :Default: ``0.5``
+   :Default: ``0.8``
    :Importance: advanced
 
 **preserve_existing_text**
