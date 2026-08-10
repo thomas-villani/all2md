@@ -15,10 +15,16 @@ text is re-emitted. On page 16 of PMC7500012 that silently removed nine referenc
 the layout model predicted a table over y=380-733 of a column spanning y=90-733, which is
 54.8% of it, and references 19-27 above the region were never emitted by anything.
 
-The loss needs ``pymupdf-layout`` installed to reproduce end-to-end, since nothing else
-predicts these regions -- with layout analysis off the same page converts intact. These tests
-therefore drive the filter directly rather than depending on that extra, so they run on the
-same install CI's unit lane uses.
+The *observed* loss came from a layout-predicted region, but the filter is fed by ordinary
+``find_tables()`` detections too, so this path is reached with or without ``pymupdf-layout``.
+The tests drive the filter directly rather than through either detector, which keeps them
+honest on the unit lane's install (no ``pdf_layout`` extra) and keeps them from silently
+depending on what a model happens to predict this release.
+
+One consequence is worth stating because it was missed once: rescuing lines *adds* blocks the
+parser previously discarded, so it can change output on documents that have nothing to do
+with the original bug. The PDF golden snapshots are the instrument for that, and they run on
+Linux only -- passing ``tests/golden`` on Windows says nothing about them.
 """
 
 from __future__ import annotations
@@ -131,6 +137,25 @@ class TestBlockOutsideTableRegions:
         remainder = _block_outside_table_regions(block, regions)
 
         assert _text_of(remainder) == "top prose middle prose"
+
+    def test_whitespace_only_survivors_are_not_rescued(self):
+        import fitz
+
+        # The lines bordering a table region are routinely blank or a single space. Rescuing
+        # those turns a dropped block into an empty paragraph, which shows up as a stray gap
+        # in the output -- caught by the PDF golden snapshot, which only runs on Linux.
+        block = _block(_line(90, 100, " "), _line(400, 410, "cell one"))
+
+        assert _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)]) is None
+
+    def test_real_text_beside_whitespace_still_survives(self):
+        import fitz
+
+        block = _block(_line(90, 100, " "), _line(100, 110, "prose"), _line(400, 410, "cell"))
+
+        remainder = _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)])
+
+        assert _text_of(remainder) == "  prose"
 
     def test_a_block_without_lines_yields_nothing(self):
         import fitz
