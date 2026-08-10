@@ -11,11 +11,13 @@ name: PMC Born-Digital Fidelity
 # Tesseract would report drift instead of fidelity. The lockfile and the image are part of
 # the measurement.
 #
-# NOT gated yet, deliberately. The first full run reports a median of 0.000 on both table
-# dimensions -- all2md finds born-digital tables and rejects them, logging 76 table_rejected
-# events while recovering their cell text at 96.5%. Recording a baseline now would ratchet
-# that floor in as accepted. This lane publishes evidence until that is fixed or explicitly
-# accepted; gating is a separate change.
+# NOT gated yet, deliberately. The first full run reported a median of 0.000 on both table
+# dimensions: the default find_tables() strategy needs ruling lines on both axes, and journal
+# tables are booktabs-style, so it recovered 0 of 31 layout-predicted table regions. Text-
+# alignment detection now recovers a share of them, but the fix is deliberately conservative
+# -- it refuses any grid whose columns cut through words -- and the medians are still 0.000.
+# Recording a baseline now would ratchet that floor in as accepted. This lane publishes
+# evidence until that improves or is explicitly accepted; gating is a separate change.
 #
 # Also not on per-PR CI: a full run is over an hour of CPU, most of it OCR, and it downloads
 # ~146 MB from the PMC Open Access bucket.

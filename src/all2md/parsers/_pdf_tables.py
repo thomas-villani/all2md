@@ -23,11 +23,14 @@ __all__ = [
     "MIN_TABLE_ROWS",
     "MAX_TABLE_EMPTY_RATIO",
     "MAX_TABLE_ROWS",
+    "MAX_SPLIT_WORD_RATIO",
     "MIN_FILLED_FOR_UNIFORMITY_CHECK",
+    "TABLE_REGION_STRATEGIES",
     "TABLE_SIGNAL_RULING_THRESHOLD",
     "detect_tables_by_ruling_lines",
     "is_dot_leader_cell",
     "page_has_table_signals",
+    "split_word_ratio",
 ]
 
 # Hard caps and guards applied to detected tables. Real prose tables rarely
@@ -52,6 +55,37 @@ MIN_FILLED_FOR_UNIFORMITY_CHECK = 5
 # visual row), the table is treated as a TOC region and rejected.
 MAX_DOT_LEADER_CELL_RATIO = 0.30
 
+# ``find_tables()`` strategies tried inside a region the layout model predicted to be a
+# table, in order. PyMuPDF's default wants ruling lines on both axes, and journal tables
+# are typically booktabs-style: horizontal rules only, or none at all. On the PMC
+# born-digital corpus the line strategies recovered 0 of 31 such regions and ``"text"``,
+# which infers columns from glyph alignment, recovered a >=2x2 grid in all 31.
+#
+# ``"lines"`` (looser than ``"lines_strict"``: it also accepts thin filled rectangles as
+# rules) is deliberately absent -- it found nothing the strict pass had not, on every one
+# of those 31 regions, and each strategy costs a full detection pass.
+#
+# Text alignment is trusted *only* inside a layout-predicted region. Run page-wide it
+# reads any vertically aligned prose as a grid; the predicted region is the prior that
+# makes it safe, and the guards in ``_process_table_to_ast`` still filter what it returns.
+TABLE_REGION_STRATEGIES = ("lines_strict", "text")
+
+# Maximum share of a text-aligned grid's word tokens that may be fragments -- pieces that are
+# not a whole word anywhere on the page. A real table's columns sit in the whitespace gutters
+# between cells, so its cells hold whole words. A column boundary invented over prose cuts
+# through them: on a mis-predicted abstract region it produced "condu"/"cted",
+# "micronutr"/"ients", "coronaviru", and rendered a page of prose as a seven-column table.
+#
+# Measured on the PMC born-digital corpus, this is the only signal found that separates the
+# two. Grid shape (rows, columns, fill ratio, words per cell), reading-order preservation, and
+# region corroboration (ruling lines, a "Table N" caption) were each measured and each failed:
+# every one of them had near-identical distributions for real tables and for gridded prose.
+#
+# Clean regions measured 0.000-0.022 and damaged ones 0.128-0.333, so the threshold sits in an
+# empty gap rather than on a slope. The residue in clean regions is ligature and encoding
+# noise, not splitting.
+MAX_SPLIT_WORD_RATIO = 0.05
+
 # Ruling-line length threshold (as a fraction of page width/height) used by
 # the cheap pre-flight gate that decides whether to call ``page.find_tables()``.
 # Smaller than the fallback threshold (0.5) on purpose: the gate just needs to
@@ -66,6 +100,57 @@ TABLE_SIGNAL_RULING_THRESHOLD = 0.15
 # alone.
 _DOT_ONLY = re.compile(r"^[.…\s]+$")
 _DOT_LEADER_TAIL = re.compile(r"\n\s*[.…](?:\s*[.…]){2,}\s*$")
+
+# Letters only. Digits are never "split words" -- a column boundary falling inside a number
+# yields two numbers, both plausible, and counting those would flag real numeric tables.
+_WORD_TOKEN = re.compile(r"[^\W\d_]+", re.UNICODE)
+
+
+def split_word_ratio(page: "fitz.Page", table_data: list[list[str | None]]) -> float:
+    """Share of a grid's word tokens that are not whole words of the page.
+
+    A grid whose columns fall in the whitespace gutters between cells holds whole words. One
+    whose column boundaries were invented over running prose cuts through them, leaving
+    fragments (``"condu"``, ``"cted"``) that appear nowhere on the page as words. That is the
+    difference between adding structure to a table and shredding a paragraph into one.
+
+    The page's own word segmentation is the reference, taken **unclipped**: clipping to the
+    region truncates any word straddling its boundary, which manufactures the very fragments
+    this is meant to detect.
+
+    Parameters
+    ----------
+    page : PyMuPDF Page
+        Page the grid was extracted from.
+    table_data : list of list of (str or None)
+        Extracted cell text, as returned by ``Table.extract()``.
+
+    Returns
+    -------
+    float
+        Fragment share in ``0.0..1.0``. ``0.0`` when the grid holds no word tokens, and on
+        error, so an unreadable page falls back to the other guards rather than dropping a
+        table nothing has shown to be bad.
+
+    """
+    tokens: list[str] = []
+    for row in table_data:
+        for cell in row:
+            if cell is not None:
+                tokens.extend(token.lower() for token in _WORD_TOKEN.findall(str(cell)))
+    if not tokens:
+        return 0.0
+
+    try:
+        vocabulary: set[str] = set()
+        for word in page.get_text("words"):
+            vocabulary.update(token.lower() for token in _WORD_TOKEN.findall(word[4]))
+    except Exception:
+        return 0.0
+    if not vocabulary:
+        return 0.0
+
+    return sum(1 for token in tokens if token not in vocabulary) / len(tokens)
 
 
 def is_dot_leader_cell(text: str) -> bool:

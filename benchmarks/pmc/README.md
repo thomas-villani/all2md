@@ -346,11 +346,21 @@ at 94.4%, so that gap is the parser's.
 12-article spot check: **32 ground-truth tables against 4 emitted `Table` nodes**, 28 pages
 with a table against 4.
 
-Two other numbers say precisely what is lost. Table **cell text** is recovered at **96.5% of
-attainable** — the words reach the output. And the run records **76 `table_rejected` degraded
-events**, so the parser *finds* table candidates and rejects them. The failure is not blindness
-and not text loss: it finds a table, rejects it, and emits the cells as prose. That is a
-different defect from "cannot see born-digital tables", and it has a different fix.
+Table **cell text** is recovered at **96.5% of attainable** — the words reach the output, so
+this is a structure failure and not text loss.
+
+The run also records **76 `table_rejected` degraded events**, which first read as "the parser
+finds table candidates and rejects them" — a guard-tuning problem. **That reading was wrong,
+and the counter is what misled it.** 31 of those events are `layout_region_not_tabular`, which
+the code recorded whenever a layout-predicted region failed to *become* a table — including
+when nothing tabular was found there at all. Instrumenting the branch separately showed
+`find_tables()` recovering a grid in **0 of 31** such regions. No guard rejected anything; the
+detector saw nothing to reject. (The event also double-counted: a region whose grid *was*
+found and then rejected recorded both the specific reason and this vaguer one.)
+
+The cause is that PyMuPDF's default strategy needs ruling lines on both axes and journal
+tables are booktabs-style — horizontal rules only, or none. `strategy="text"` recovers a ≥2×2
+grid in **all 31**. See the "Fixing it" section below for why that alone is not the fix.
 
 This is also the gap the raster lane structurally cannot report: every OmniDocBench page is an
 image, so its PDF table path never runs and the whole table dimension is erased as
@@ -364,6 +374,43 @@ left enabled rather than switched off: it is a measurement that could fail, and 
 
 **Cost:** the full run takes over an hour of CPU on one core, most of it OCR. Use `--limit`
 for a spread subset; a per-PR gate over all 66 articles is not practical as it stands.
+
+### Fixing it, and what the fix needed that no table metric could supply
+
+Adding `strategy="text"` as a fallback moved every table number sharply the right way, on a
+12-article subset: `table_content_similarity` median **0.000 → 0.824**, `table_structure`
+**0.000 → 0.440**, tables emitted 4 → 40 against 32 expected, and both wrong-page gaps widened.
+Read on the table dimensions alone, it was an unambiguous win.
+
+**It was a serious regression.** Whole-article recall fell from **92.6% to 83.8%** of
+attainable, `title` from 87.5% to 71.2%. Reading the rendered output said why: the layout model
+over-fires, and on a mis-predicted region the text strategy turned a page of abstract prose
+into a seven-column table whose columns cut *through words* — `study was condu | cted to
+explore`, `micronutr | ients in the`. Emitted character count went **up**; nothing was deleted,
+it was shredded. This is the case for pairing a sharp instrument with a noisy one: every table
+metric approved, and only whole-article recall objected.
+
+Finding a guard took five measured attempts, four of them refuted. Grid **shape** (rows,
+columns, fill ratio, words per cell) does not separate the two — the text strategy chops prose
+into one-word cells, so gridded prose looks exactly as tabular as a table (mean words per cell
+1.54 vs 1.56). **Reading-order preservation** does not (0.812 vs 0.827). Region
+**corroboration** does not, and inverts: mis-predicted regions carried *more* ruling lines
+(median 2 vs 0) and 13 of 19 carried a `Table N` caption. A first **word-splitting** measure
+appeared to fail too, until the probe itself turned out to be at fault — it built its
+vocabulary with `get_text("words", clip=region)`, and clipping truncates words at the boundary,
+manufacturing the fragments it was counting.
+
+Measured unclipped, it separates cleanly: clean regions **0.000–0.022**, damaged ones
+**0.128–0.333**, with the threshold in an empty gap. On the known-bad article the mis-predicted
+abstract scores 0.2415 and its four real tables score exactly 0.0000. The guard is also right
+independent of the metric — a grid whose columns split words has corrupted cell text, so it
+should be refused whether or not a table is really there.
+
+With the guard, on the same subset: tables emitted **4 → 12**, `table_content_similarity` mean
+**0.075 → 0.241**, `table_structure` **0.091 → 0.235**, and recall back at baseline (92.5% vs
+92.6%; `title` and `text_block` exactly unchanged). Conservative on purpose — it still refuses
+real tables whose extraction splits words, and the medians remain 0.000 — but it buys the table
+gain for nothing.
 
 ## Licences
 
