@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
+  requires `pymupdf-layout`; inert otherwise). The package bundles three: `imf+rf` (the
+  default, image and text-geometry features), `imf` (image only) and `rf` (text geometry
+  only). Which one is right depends on the document, so it is now a searchable option and
+  is registered as an `optimize` knob rather than decided globally. The difference is not
+  subtle: on a two-column reference page the image-feature models read the dense left column
+  as a table — deleting nine reference entries before the fix elsewhere in this release, and
+  splitting one table into two on three further pages — while `rf` labels all 41 entries
+  correctly and predicts no table at all. Across 20 born-digital articles `rf` led on every
+  axis measured (title recall 0.9916 → 0.9972, identical table content recall, three fewer
+  spurious table nodes on the same 16 pages, 29% faster for skipping image inference).
+  **The default is deliberately unchanged**: that is one corpus of one document kind, and
+  image features plausibly earn their place on scanned pages, of which it contains none.
+  Models are now cached per feature set instead of in a single global — an unkeyed cache
+  returned whichever model loaded first, which would have made every arm of a search over
+  this knob identical and the setting look inert.
 - **A pinned PMC Open Access corpus for born-digital PDF benchmarking**
   (`benchmarks/pmc`). The existing external ground-truth lane is 981 rasters, so it
   measures the OCR path; nothing external covered text-layer extraction, vector table
