@@ -291,6 +291,29 @@ def _strip_leading_whitespace_in_place(nodes: list[Node]) -> None:
             return  # Code preserves whitespace; don't trim.
 
 
+def _trailing_whitespace_verdict(nodes: list[Node]) -> bool | None:
+    """Report whether the last Text-bearing leaf in ``nodes`` ends with whitespace.
+
+    Returns ``None`` — meaning "no text here, keep looking" — rather than ``False``
+    when there is no Text leaf to judge. The distinction matters: a wrapper whose
+    text does *not* end in whitespace is a definite answer about the join point, and
+    collapsing it into "keep looking" makes the walk fall through to an earlier
+    sibling and answer about the wrong position entirely.
+    """
+    for node in reversed(nodes):
+        if isinstance(node, Text):
+            return bool(node.content) and node.content[-1] in (" ", "\t")
+        if isinstance(node, (Strong, Emphasis, Link)):
+            verdict = _trailing_whitespace_verdict(node.content) if node.content else None
+            if verdict is not None:
+                return verdict
+            # This wrapper really had no Text leaves — keep walking outward.
+            continue
+        if isinstance(node, Code):
+            return False
+    return None
+
+
 def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
     """Return True if the last Text-bearing leaf in ``nodes`` ends with whitespace.
 
@@ -298,17 +321,7 @@ def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
     Used to decide whether an inter-line separator space would create a
     redundant whitespace run.
     """
-    for node in reversed(nodes):
-        if isinstance(node, Text):
-            return bool(node.content) and node.content[-1] in (" ", "\t")
-        if isinstance(node, (Strong, Emphasis, Link)):
-            if node.content and _trailing_text_is_whitespace(node.content):
-                return True
-            # Wrapper had no Text leaves — keep walking outward.
-            continue
-        if isinstance(node, Code):
-            return False
-    return False
+    return _trailing_whitespace_verdict(nodes) is True
 
 
 @dataclass
