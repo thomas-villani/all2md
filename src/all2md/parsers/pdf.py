@@ -142,6 +142,16 @@ RUNNING_POSITION_TOLERANCE = 5.0
 _RUNNING_DIGITS = re.compile(r"\d+")
 
 
+def _leading_text(spans: list) -> str:
+    """Return a line's text as printed, for tests that only look at how it starts.
+
+    Taken from the spans rather than from converted inline nodes: a line opening with a
+    link or a styled run puts something other than a Text node first, and picking the
+    first Text node anywhere on the line asks the question of the middle of the line.
+    """
+    return "".join(span.get("text", "") for span in spans)
+
+
 def _running_text_key(text: str) -> str:
     """Key a header/footer candidate by what stays the same from page to page.
 
@@ -2560,8 +2570,15 @@ class PdfToAstConverter(BaseParser):
         average_line_height: float | None,
     ) -> None:
         """Accumulate regular text line into paragraph state."""
-        # Check if we should start a new paragraph (don't break list items)
-        if vertical_gap > paragraph_break_threshold and state.paragraph_content and not state.paragraph_is_list:
+        # A list item runs on across the vertical gaps that separate paragraphs -- the space
+        # between two bullets is the same space that ends a paragraph -- so the gap rule is
+        # suspended once a list has started. Without a second rule to end an item, though,
+        # every bullet in a list ran into its predecessor and the whole list arrived as a
+        # single item: one born-digital article emitted 1 list item for its 16 bullets.
+        # A line carrying its own marker is the next item, whatever the spacing says.
+        starts_new_item = state.paragraph_is_list and self._is_valid_list_marker(_leading_text(spans))[0]
+        breaks_paragraph = vertical_gap > paragraph_break_threshold and not state.paragraph_is_list
+        if state.paragraph_content and (starts_new_item or breaks_paragraph):
             self._flush_state_paragraph(state, page_num)
 
         inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
