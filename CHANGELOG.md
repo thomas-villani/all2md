@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A lone math glyph is no longer promoted to a heading** (PDF). Heading classification
+  validated a candidate by font size, bold/all-caps requirement, maximum length and an
+  internal-sentence-boundary check, and never asked whether the text contained a letter.
+  Large delimiters are set in a symbol font well above body size, so they cleared the size
+  gate and passed every remaining one — short, non-empty, no sentence boundary — and were
+  emitted as headings from inside displayed equations. One chemistry paper in the
+  born-digital corpus produced **179 headings for its 9 sections, 122 of them a single
+  Private Use Area glyph** (∑, ∫, large parentheses and brackets); it now emits 55, with
+  its real headings untouched and its text content byte-identical once heading markers are
+  stripped. The gate is `str.isalnum`, not an ASCII character class, precisely so that
+  headings in CJK, Cyrillic, Arabic, Devanagari, Greek and Hangul still qualify — an ASCII
+  test would have deleted every one of them while fixing this.
+
 ### Added
 
 - **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
