@@ -78,6 +78,12 @@ ImageFormat = Literal["png", "jpeg"]
 OCRMode = Literal["auto", "force", "off"]
 OCREngine = Literal["tesseract", "easyocr"]
 LayoutAnalysisMode = Literal["auto", "enabled", "disabled"]
+#: Which pymupdf-layout classifier to run. The names are the upstream feature sets: ``rf``
+#: reads text geometry ("rule features"), ``imf`` reads a raster of the page ("image
+#: features"), and ``imf+rf`` combines them. Each selects a different bundled ONNX model.
+#: Upstream also accepts ``imf+rf+yf`` and ``rf+jf``, which are omitted because they pass
+#: validation and then fail on a missing config file.
+LayoutFeatureSet = Literal["imf+rf", "rf", "imf"]
 
 # Email-specific types
 DateFormatMode = Literal["iso8601", "locale", "strftime"]
@@ -777,6 +783,12 @@ DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
 # Layout analysis defaults (requires pymupdf-layout)
 DEFAULT_LAYOUT_ANALYSIS_MODE: LayoutAnalysisMode = "auto"
 DEFAULT_LAYOUT_IOU_THRESHOLD = 0.3  # Min IoU to match a prediction to a text block
+#: Upstream's own default, kept deliberately. Measured on 20 born-digital journal articles
+#: ``rf`` scored better on every axis -- title recall 0.9916 -> 0.9972, three fewer spurious
+#: table nodes on the same 16 pages, 29% faster -- but that is one corpus of one document
+#: kind, and image features plausibly earn their place on scanned pages, which that corpus
+#: contains none of. The value is exposed for per-document search rather than changed here.
+DEFAULT_LAYOUT_FEATURE_SET: LayoutFeatureSet = "imf+rf"
 
 # PDF rendering defaults (for Markdown to PDF conversion)
 DEFAULT_PDF_PAGE_SIZE: PageSize = "letter"

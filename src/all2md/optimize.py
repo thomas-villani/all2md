@@ -234,6 +234,15 @@ KNOBS: dict[str, dict[str, list[Any]]] = {
         "trim_headers_footers": [True, False],
         "auto_trim_headers_footers": [True, False],
         "dedup_running_headings": [True, False],
+        # Which layout classifier reads the page. A genuine per-document trade-off: the
+        # image-feature models see a dense two-column reference list as a table and delete
+        # it, while the text-geometry model reads the same page correctly -- and the
+        # reverse is expected on scanned pages, where there is no text geometry to read.
+        # Inert when layout analysis does not run, which the search tolerates: the values
+        # simply tie. Measured on 20 born-digital articles, 'rf' beat the default on title
+        # recall, spurious table nodes and runtime; that is one document kind, which is
+        # why this is searched per document rather than changed as a default.
+        "layout_feature_set": ["imf+rf", "rf", "imf"],
     },
     "html": {
         "extract_readable": [True, False],

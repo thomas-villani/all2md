@@ -1736,7 +1736,7 @@ class PdfToAstConverter(BaseParser):
         layout: PageLayoutPredictions | None = None
         if self._use_layout:
             try:
-                raw_predictions = predict_page_layout(page)
+                raw_predictions = predict_page_layout(page, self.options.layout_feature_set)
                 layout = match_predictions_to_blocks(raw_predictions, all_blocks, self.options.layout_iou_threshold)
                 annotate_blocks_with_layout(all_blocks, layout)
             except Exception as e:
