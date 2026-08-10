@@ -141,6 +141,30 @@ RUNNING_POSITION_TOLERANCE = 5.0
 #: because it is running furniture.
 _RUNNING_DIGITS = re.compile(r"\d+")
 
+#: How far apart, as a multiple of the line's own height, two heading lines may sit and
+#: still be the same heading wrapped onto a second printed line. Set as a ratio rather
+#: than in points so it means the same thing for a 24pt article title and a 9pt
+#: subheading. Consecutive *distinct* headings are separated by the space above a new
+#: section, which is what puts them beyond this.
+HEADING_WRAP_GAP_RATIO = 1.6
+
+
+def _span_union_bbox(spans: list) -> tuple[float, float, float, float] | None:
+    """Bounding box covering every span on a line, or None if none carry one.
+
+    The line's own bbox is not in scope where headings are emitted, and a span union is
+    the same rectangle for this purpose: spans partition the line.
+    """
+    boxes = [s["bbox"] for s in spans if s.get("bbox")]
+    if not boxes:
+        return None
+    return (
+        min(b[0] for b in boxes),
+        min(b[1] for b in boxes),
+        max(b[2] for b in boxes),
+        max(b[3] for b in boxes),
+    )
+
 
 def _running_text_key(text: str) -> str:
     """Key a header/footer candidate by what stays the same from page to page.
@@ -426,6 +450,13 @@ class _BlockProcessingState:
     pending_heading_prefix_content: list[Node] | None = None
     pending_heading_prefix_level: int = 0
     pending_heading_prefix_page: int = 0
+    # Bottom edge of the line the most recent heading was emitted from, and the index it
+    # occupies in `nodes`. Together these say "the previous node is a heading and it came
+    # from the line directly above this one", which is how a heading that wrapped onto a
+    # second printed line is recognised and joined instead of emitted twice.
+    last_heading_slot: int = -1
+    last_heading_bottom: float = 0.0
+    last_heading_height: float = 0.0
 
     def reset_paragraph(self) -> None:
         """Reset paragraph accumulation state."""
@@ -1942,7 +1973,7 @@ class PdfToAstConverter(BaseParser):
 
         if header_level > 0:
             line_text = "".join(s.get("text", "") for s in spans).strip()
-            self._emit_heading(state, header_level, line_text, inline_content, page_num)
+            self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
         else:
             # Paragraph emission orphans any buffered numbering prefix —
             # flush it as its own heading so the marker isn't lost.
@@ -2288,6 +2319,7 @@ class PdfToAstConverter(BaseParser):
         line_text: str,
         inline_content: list[Node],
         page_num: int,
+        line_bbox: tuple[float, float, float, float] | None = None,
     ) -> None:
         """Emit a heading or buffer a numbering-only prefix for merging.
 
@@ -2297,7 +2329,20 @@ class PdfToAstConverter(BaseParser):
         heading. PDFs often visually break Roman-numeral section markers
         onto their own line above the actual heading text, and emitting
         them as separate headings produced obviously-wrong output before.
+
+        A heading too long for one printed line is set on two, and each line
+        reaches here separately. When ``line_bbox`` shows this line sits
+        directly under the heading just emitted, at the same level, the text
+        is appended to that heading rather than starting a new one.
         """
+        if line_bbox is not None and self._continues_wrapped_heading(state, level, line_text, line_bbox):
+            heading = state.nodes[-1]
+            assert isinstance(heading, Heading)  # guaranteed by _continues_wrapped_heading
+            heading.content.extend([Text(content=" "), *inline_content])
+            state.last_heading_bottom = line_bbox[3]
+            state.last_heading_height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
+            return
+
         if parse_numbering_prefix(line_text) is not None:
             # If we *already* have a buffered prefix and this is also one,
             # flush the older one first so neither gets lost (rare in real
@@ -2326,6 +2371,7 @@ class PdfToAstConverter(BaseParser):
                 )
             )
             self._last_heading_level = merged_level
+            self._mark_heading_line(state, line_bbox)
             return
 
         _strip_leading_whitespace_in_place(inline_content)
@@ -2337,6 +2383,50 @@ class PdfToAstConverter(BaseParser):
             )
         )
         self._last_heading_level = level
+        self._mark_heading_line(state, line_bbox)
+
+    @staticmethod
+    def _mark_heading_line(state: _BlockProcessingState, line_bbox: tuple[float, float, float, float] | None) -> None:
+        """Record where the heading just appended to ``state.nodes`` was printed."""
+        if line_bbox is None:
+            state.last_heading_slot = -1
+            return
+        state.last_heading_slot = len(state.nodes) - 1
+        state.last_heading_bottom = line_bbox[3]
+        state.last_heading_height = line_bbox[3] - line_bbox[1]
+
+    @staticmethod
+    def _continues_wrapped_heading(
+        state: _BlockProcessingState,
+        level: int,
+        line_text: str,
+        line_bbox: tuple[float, float, float, float],
+    ) -> bool:
+        """Report whether this line is the rest of the heading emitted immediately above it.
+
+        Four things have to hold, and each rules out a way two heading lines can be
+        adjacent without being one heading: the previous node is a heading and nothing
+        came between them; it is at this line's level, since a subheading under a
+        heading is two headings; the line sits within a line's height of it, which is
+        what a wrap looks like and what the space above a new section does not; and it
+        does not open with its own numbering, which announces a new section however
+        tightly it is set.
+        """
+        if not state.nodes or state.last_heading_slot != len(state.nodes) - 1:
+            return False
+        previous = state.nodes[-1]
+        if not isinstance(previous, Heading) or previous.level != level:
+            return False
+        if parse_numbering_prefix(line_text.split(" ", 1)[0]) is not None:
+            return False
+
+        height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
+        if height <= 0:
+            return False
+        gap = line_bbox[3] - state.last_heading_bottom
+        # Strictly below: a line at or above the previous one is a different column or a
+        # reading-order artefact, not a continuation.
+        return 0 < gap <= height * HEADING_WRAP_GAP_RATIO
 
     def _flush_pending_heading_prefix(self, state: _BlockProcessingState) -> None:
         """Emit any buffered numbering-prefix heading as a standalone heading."""
@@ -2454,7 +2544,7 @@ class PdfToAstConverter(BaseParser):
 
         self._flush_state_paragraph(state, page_num)
         line_text = "".join(s.get("text", "") for s in spans).strip()
-        self._emit_heading(state, header_level, line_text, inline_content, page_num)
+        self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
         return True
 
     def _handle_header_line_with_layout(
@@ -2545,7 +2635,7 @@ class PdfToAstConverter(BaseParser):
             return True
 
         self._flush_state_paragraph(state, page_num)
-        self._emit_heading(state, level, line_style.text, inline_content, page_num)
+        self._emit_heading(state, level, line_style.text, inline_content, page_num, _span_union_bbox(spans))
         return True
 
     def _accumulate_paragraph_line(

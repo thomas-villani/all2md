@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A heading that wraps onto a second printed line is now one heading** (PDF). A PDF has
+  no notion of a wrapped heading — it has two lines of type — and each line reached the
+  emitter on its own, so a long section heading became two sibling headings and an article
+  title set on three lines became three `#`s. None of them matched the real title, so the
+  text was there and the structure was not. A heading line now continues the heading
+  directly above it when the two are at the same level, nothing was emitted between them,
+  and the second sits within `HEADING_WRAP_GAP_RATIO` line heights of the first — the gap
+  is a ratio rather than a point count so it means the same thing for a 24pt title and a
+  9pt subheading. Two headings that genuinely follow one another are separated by the
+  space above a new section, which is what puts them beyond it, and a second line opening
+  with its own numbering starts a new heading however tightly it is set. Measured on the
+  born-digital corpus, section-title recall rises **0.729 → 0.766** and precision
+  **0.507 → 0.623** — 231 headings emitted for 188 real titles, down from 270, so the
+  join removes 39 duplicate headings as well as recovering 7 real ones.
 - **A lone math glyph is no longer promoted to a heading** (PDF). Heading classification
   validated a candidate by font size, bold/all-caps requirement, maximum length and an
   internal-sentence-boundary check, and never asked whether the text contained a letter.
