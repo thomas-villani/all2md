@@ -86,15 +86,18 @@ from all2md.parsers._pdf_ocr import (
 )
 from all2md.parsers._pdf_tables import (
     MAX_DOT_LEADER_CELL_RATIO,
+    MAX_SPLIT_WORD_RATIO,
     MAX_TABLE_COLS,
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
+    TABLE_REGION_STRATEGIES,
     detect_tables_by_ruling_lines,
     is_dot_leader_cell,
     page_has_table_signals,
+    split_word_ratio,
 )
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
@@ -2955,8 +2958,9 @@ class PdfToAstConverter(BaseParser):
     ) -> Node | None:
         """Extract the content of a region the layout model predicted to be a table.
 
-        Uses ``page.find_tables()`` scoped to the predicted region. When no structured
-        table can be recovered there, the region's text is returned as a **paragraph**.
+        Uses ``page.find_tables()`` scoped to the predicted region, trying ruling lines
+        first and then text alignment. When no structured table can be recovered there,
+        the region's text is returned as a **paragraph**.
 
         It used to be returned as a single-column table -- one row per line of text --
         and that was wrong twice over. A one-column table is not a table: it is prose
@@ -2988,23 +2992,51 @@ class PdfToAstConverter(BaseParser):
             its text. ``None`` only when the region is empty.
 
         """
-        # Try PyMuPDF's find_tables within the predicted region. Only a real table is
-        # accepted here: a rejected detection may hand back a paragraph covering just
-        # the grid's bbox, which can be narrower than the region the layout model
-        # predicted. Falling through instead keeps the whole region's text.
-        try:
-            tabs = page.find_tables(clip=table_rect)
-            if tabs.tables:
-                table = self._process_table_to_ast(tabs.tables[0], page, page_num)
-                if isinstance(table, AstTable):
-                    return table
-        except Exception:
-            # PyMuPDF table detection is best-effort; fall through to the text path.
-            pass
+        # Try PyMuPDF's find_tables within the predicted region, line-based detection
+        # first and text alignment second (see TABLE_REGION_STRATEGIES: the default
+        # strategy needs ruling lines on both axes, which borderless journal tables do
+        # not have). Only a real table is accepted here: a rejected detection may hand
+        # back a paragraph covering just the grid's bbox, which can be narrower than the
+        # region the layout model predicted. Falling through instead keeps the whole
+        # region's text.
+        found_grid = False
+        for strategy in TABLE_REGION_STRATEGIES:
+            try:
+                tabs = page.find_tables(clip=table_rect, strategy=strategy)
+            except Exception:
+                # PyMuPDF table detection is best-effort; try the next strategy.
+                continue
+            if not tabs.tables:
+                continue
+            # Text alignment has no ruling lines corroborating it, so it is held to one
+            # extra test the line strategies are not: its columns must not cut through
+            # words. See MAX_SPLIT_WORD_RATIO -- without this, a mis-predicted region
+            # renders a page of prose as a multi-column table of half-words.
+            if strategy == "text":
+                try:
+                    fragments = split_word_ratio(page, tabs.tables[0].extract())
+                except Exception:
+                    fragments = 0.0
+                if fragments > MAX_SPLIT_WORD_RATIO:
+                    logger.debug(
+                        f"Rejecting text-aligned grid on page {page_num + 1}: "
+                        f"{fragments:.0%} of its word tokens are fragments, so its columns "
+                        f"cut through words rather than falling between them"
+                    )
+                    self._record_table_rejection("text_grid_splits_words")
+                    continue
+            found_grid = True
+            table = self._process_table_to_ast(tabs.tables[0], page, page_num)
+            if isinstance(table, AstTable):
+                return table
 
         # No table here -- the layout model was wrong. Keep the text, drop the pipes.
         paragraph = self._region_text_as_paragraph(page, table_rect, page_num)
-        if paragraph is not None:
+        if paragraph is not None and not found_grid:
+            # Only when nothing tabular was found at all. If a grid *was* found and then
+            # rejected, that guard has already recorded its own, more specific reason --
+            # adding this vaguer one on top counts the same region twice and takes a
+            # second bite out of the confidence score.
             self._record_table_rejection("layout_region_not_tabular")
         return paragraph
 

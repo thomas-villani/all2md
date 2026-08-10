@@ -51,6 +51,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Borderless tables in layout-predicted regions are recovered instead of being emitted as
+  prose.** With layout analysis on (`pdf_layout`), a region the layout model predicts to be a
+  table was searched with PyMuPDF's default `find_tables()` strategy, which requires ruling
+  lines on both axes. Journal tables are typically booktabs-style — horizontal rules only, or
+  none — so the search found nothing and the region was demoted to a paragraph. On the PMC
+  born-digital corpus that was **0 of 31** such regions recovered. The parser's own
+  `layout_region_not_tabular` telemetry made this look like guards rejecting tables they had
+  found; instrumenting the branch showed no grid was ever found to reject, and that the event
+  also fired a second time on regions whose specific rejection reason had already been
+  recorded, double-charging the confidence score. Text-alignment detection is now tried as a
+  fallback, and the duplicate event is gone.
+  Because that fallback has no ruling lines corroborating it and the layout model over-fires,
+  it is held to one extra test the line strategies are not: its columns must not cut through
+  words. Without it, a mis-predicted region rendered a page of abstract prose as a
+  seven-column table of half-words (`study was condu | cted to explore`) — every table metric
+  improved while whole-article recall fell from 92.6% to 83.8%. Grid shape, reading-order
+  preservation and region corroboration (ruling lines, a `Table N` caption) were each measured
+  as guards and each failed to separate real tables from gridded prose; whole-word integrity,
+  measured against the page's own unclipped word segmentation, separates them cleanly. Net
+  effect on a 12-article subset: tables emitted 4 → 12 of 32 expected,
+  `table_content_similarity` mean 0.075 → 0.241, `table_structure_similarity` 0.091 → 0.235,
+  with whole-article recall unchanged at baseline.
 - **Scanned PDFs now keep their block structure instead of collapsing to one paragraph.**
   Every OCR'd page previously projected as exactly one `Paragraph` — no `Heading`, no
   `Table`, no list structure — because the OCR result was returned as a flat string and
