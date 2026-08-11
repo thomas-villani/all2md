@@ -176,12 +176,12 @@ class TestWrappedHeadingOnAPage:
 
     @staticmethod
     def _page_with_a_wrapped_title(tmp_path):
-        import fitz
+        import pymupdf
 
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=300, height=400)
-        writer = fitz.TextWriter(page.rect)
-        font = fitz.Font("helv")
+        writer = pymupdf.TextWriter(page.rect)
+        font = pymupdf.Font("helv")
         # A two-line title at a size the font heuristic promotes, over body text that it
         # does not.
         writer.append((40, 60), "Long-term outcomes of an", font=font, fontsize=20)
@@ -195,13 +195,13 @@ class TestWrappedHeadingOnAPage:
         return str(path)
 
     def test_the_title_is_one_heading(self, tmp_path):
-        import fitz
+        import pymupdf
 
         from all2md.ast.transforms import NodeCollector
         from all2md.parsers._pdf_headers import IdentifyHeaders
 
         path = self._page_with_a_wrapped_title(tmp_path)
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         page = doc[0]
 
         options = PdfOptions()

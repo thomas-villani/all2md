@@ -421,7 +421,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         magic_bytes=[(b"%PDF", 0)],
         parser_class="all2md.parsers.pdf.PdfToAstConverter",
         renderer_class="all2md.renderers.pdf.PdfRenderer",
-        parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
+        parser_required_packages=[("pymupdf", "pymupdf", ">=1.27.2")],
         renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
         optional_packages=[("pytesseract", "pytesseract"), ("easyocr", "easyocr"), ("Pillow", "PIL")],
         import_error_message="PDF conversion requires 'PyMuPDF'. Install with: pip install pymupdf",

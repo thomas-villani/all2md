@@ -125,12 +125,12 @@ class TestPageEmitsAHeadingInsideAColumn:
 
     @staticmethod
     def _column_page(tmp_path):
-        import fitz
+        import pymupdf
 
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=300, height=500)
-        writer = fitz.TextWriter(page.rect)
-        font = fitz.Font("helv")
+        writer = pymupdf.TextWriter(page.rect)
+        font = pymupdf.Font("helv")
         # A uniform cadence and one font size throughout, so the font heuristic has nothing
         # to go on and only the layout label can promote the heading. A larger heading font
         # would let the existing heuristic pass the test without the fix.
@@ -144,7 +144,7 @@ class TestPageEmitsAHeadingInsideAColumn:
         return str(path)
 
     def test_the_heading_line_becomes_a_heading(self, tmp_path, monkeypatch):
-        import fitz
+        import pymupdf
 
         from all2md.ast.nodes import Heading
         from all2md.ast.transforms import NodeCollector
@@ -154,7 +154,7 @@ class TestPageEmitsAHeadingInsideAColumn:
         from all2md.parsers.pdf import PdfToAstConverter
 
         path = self._column_page(tmp_path)
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         page = doc[0]
 
         blocks = [b for b in page.get_text("dict")["blocks"] if b.get("type") == 0]

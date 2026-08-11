@@ -7,32 +7,32 @@ for testing various aspects of PDF-to-Markdown conversion.
 import tempfile
 from pathlib import Path
 
-import fitz
+import pymupdf
 
 
-def create_pdf_with_figures() -> fitz.Document:
+def create_pdf_with_figures() -> pymupdf.Document:
     """Create a PDF with figure placeholders (shapes) for testing image-like content."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)  # A4 size
 
     # Add title
     page.insert_text((50, 50), "Test Document with Figures", fontsize=16, color=(0, 0, 0))
 
     # Create first "figure" using drawn shapes
-    fig1_rect = fitz.Rect(100, 100, 200, 150)
+    fig1_rect = pymupdf.Rect(100, 100, 200, 150)
     page.draw_rect(fig1_rect, color=(0, 0, 1), fill=(0.8, 0.8, 1.0), width=2)
-    page.draw_circle(fitz.Point(150, 125), 15, color=(1, 0, 0), fill=(1, 0.8, 0.8))
+    page.draw_circle(pymupdf.Point(150, 125), 15, color=(1, 0, 0), fill=(1, 0.8, 0.8))
 
     # Add image caption
     page.insert_text((100, 160), "Figure 1: Sample chart showing data trends", fontsize=10)
 
     # Create second "figure"
-    fig2_rect = fitz.Rect(300, 200, 400, 250)
+    fig2_rect = pymupdf.Rect(300, 200, 400, 250)
     page.draw_rect(fig2_rect, color=(0, 1, 0), fill=(0.8, 1.0, 0.8), width=2)
     # Draw a simple bar chart-like shape
-    page.draw_rect(fitz.Rect(310, 230, 320, 240), fill=(0, 0.5, 0))
-    page.draw_rect(fitz.Rect(325, 220, 335, 240), fill=(0, 0.5, 0))
-    page.draw_rect(fitz.Rect(340, 210, 350, 240), fill=(0, 0.5, 0))
+    page.draw_rect(pymupdf.Rect(310, 230, 320, 240), fill=(0, 0.5, 0))
+    page.draw_rect(pymupdf.Rect(325, 220, 335, 240), fill=(0, 0.5, 0))
+    page.draw_rect(pymupdf.Rect(340, 210, 350, 240), fill=(0, 0.5, 0))
 
     # Add second caption
     page.insert_text((300, 260), "Figure 2: Additional visualization", fontsize=10)
@@ -44,9 +44,9 @@ def create_pdf_with_figures() -> fitz.Document:
     return doc
 
 
-def create_pdf_with_tables() -> fitz.Document:
+def create_pdf_with_tables() -> pymupdf.Document:
     """Create a PDF with tables for testing table detection."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
 
     # Add title
@@ -63,7 +63,7 @@ def create_pdf_with_tables() -> fitz.Document:
         x = table1_start[0] + i * cell_width
         y = table1_start[1]
         # Draw cell border
-        rect = fitz.Rect(x, y, x + cell_width, y + cell_height)
+        rect = pymupdf.Rect(x, y, x + cell_width, y + cell_height)
         page.draw_rect(rect, color=(0, 0, 0), width=1)
         # Add text
         page.insert_text((x + 5, y + 15), header, fontsize=10, color=(0, 0, 0))
@@ -76,7 +76,7 @@ def create_pdf_with_tables() -> fitz.Document:
             x = table1_start[0] + col_idx * cell_width
             y = table1_start[1] + (row_idx + 1) * cell_height
             # Draw cell border
-            rect = fitz.Rect(x, y, x + cell_width, y + cell_height)
+            rect = pymupdf.Rect(x, y, x + cell_width, y + cell_height)
             page.draw_rect(rect, color=(0, 0, 0), width=1)
             # Add text
             page.insert_text((x + 5, y + 15), cell, fontsize=10, color=(0, 0, 0))
@@ -93,7 +93,7 @@ def create_pdf_with_tables() -> fitz.Document:
     for i, header in enumerate(headers2):
         x = table2_start[0] + i * cell_width2
         y = table2_start[1]
-        rect = fitz.Rect(x, y, x + cell_width2, y + cell_height)
+        rect = pymupdf.Rect(x, y, x + cell_width2, y + cell_height)
         page.draw_rect(rect, color=(0, 0, 0), width=1)
         page.insert_text((x + 5, y + 15), header, fontsize=10, color=(0, 0, 0))
 
@@ -104,16 +104,16 @@ def create_pdf_with_tables() -> fitz.Document:
         for col_idx, cell in enumerate(row):
             x = table2_start[0] + col_idx * cell_width2
             y = table2_start[1] + (row_idx + 1) * cell_height
-            rect = fitz.Rect(x, y, x + cell_width2, y + cell_height)
+            rect = pymupdf.Rect(x, y, x + cell_width2, y + cell_height)
             page.draw_rect(rect, color=(0, 0, 0), width=1)
             page.insert_text((x + 5, y + 15), cell, fontsize=10, color=(0, 0, 0))
 
     return doc
 
 
-def create_pdf_with_formatting() -> fitz.Document:
+def create_pdf_with_formatting() -> pymupdf.Document:
     """Create a PDF with various text formatting for testing emphasis detection."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
 
     # Normal text
@@ -151,9 +151,9 @@ def create_pdf_with_formatting() -> fitz.Document:
     return doc
 
 
-def create_pdf_with_complex_layout() -> fitz.Document:
+def create_pdf_with_complex_layout() -> pymupdf.Document:
     """Create a PDF with complex layout including figures and text flow."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=595, height=842)
 
     # Title
@@ -167,12 +167,12 @@ def create_pdf_with_complex_layout() -> fitz.Document:
     page.insert_text((50, 100), para1, fontsize=12, color=(0, 0, 0))
 
     # Insert figure that text should flow around (using shapes instead of image)
-    fig_rect = fitz.Rect(350, 150, 450, 200)
+    fig_rect = pymupdf.Rect(350, 150, 450, 200)
     page.draw_rect(fig_rect, color=(0.5, 0.5, 0.5), fill=(0.9, 0.9, 0.9), width=1)
     # Draw a simple chart-like visualization
-    page.draw_line(fitz.Point(360, 190), fitz.Point(440, 190), color=(0, 0, 0))  # X-axis
-    page.draw_line(fitz.Point(360, 190), fitz.Point(360, 160), color=(0, 0, 0))  # Y-axis
-    page.draw_line(fitz.Point(370, 185), fitz.Point(430, 165), color=(1, 0, 0), width=2)  # Data line
+    page.draw_line(pymupdf.Point(360, 190), pymupdf.Point(440, 190), color=(0, 0, 0))  # X-axis
+    page.draw_line(pymupdf.Point(360, 190), pymupdf.Point(360, 160), color=(0, 0, 0))  # Y-axis
+    page.draw_line(pymupdf.Point(370, 185), pymupdf.Point(430, 165), color=(1, 0, 0), width=2)  # Data line
 
     page.insert_text((350, 210), "Figure: Sample chart", fontsize=10, color=(0, 0, 0))
 
@@ -190,7 +190,7 @@ def create_pdf_with_complex_layout() -> fitz.Document:
 
     for i, header in enumerate(headers):
         x, y = table_start[0] + i * cell_w, table_start[1]
-        rect = fitz.Rect(x, y, x + cell_w, y + cell_h)
+        rect = pymupdf.Rect(x, y, x + cell_w, y + cell_h)
         page.draw_rect(rect, color=(0, 0, 0), width=1)
         page.insert_text((x + 5, y + 12), header, fontsize=10)
 
@@ -199,7 +199,7 @@ def create_pdf_with_complex_layout() -> fitz.Document:
         for col_i, cell in enumerate(row):
             x = table_start[0] + col_i * cell_w
             y = table_start[1] + (row_i + 1) * cell_h
-            rect = fitz.Rect(x, y, x + cell_w, y + cell_h)
+            rect = pymupdf.Rect(x, y, x + cell_w, y + cell_h)
             page.draw_rect(rect, color=(0, 0, 0), width=1)
             page.insert_text((x + 5, y + 12), cell, fontsize=10)
 

@@ -37,7 +37,7 @@ class IdentifyHeaders:
 
     Parameters
     ----------
-    doc : fitz.Document
+    doc : pymupdf.Document
         PDF document to analyze
     pages : list[int], range, or None, optional
         Pages to analyze for font size distribution. If None, samples first 5 pages
@@ -76,7 +76,7 @@ class IdentifyHeaders:
 
         Parameters
         ----------
-        doc : fitz.Document
+        doc : pymupdf.Document
             PDF document to analyze
         pages : list[int], range, or None, optional
             Pages to analyze for font size distribution. If None, samples first 5 pages.
@@ -126,7 +126,7 @@ class IdentifyHeaders:
 
         Parameters
         ----------
-        doc : fitz.Document
+        doc : pymupdf.Document
             PDF document
         pages : list[int], range, or None
             User-specified pages to analyze
@@ -195,7 +195,7 @@ class IdentifyHeaders:
 
         Parameters
         ----------
-        doc : fitz.Document
+        doc : pymupdf.Document
             PDF document
         pages_to_use : list[int]
             Page indices to analyze
@@ -207,7 +207,7 @@ class IdentifyHeaders:
             mapping font sizes to character counts
 
         """
-        import fitz
+        import pymupdf
 
         fontsizes: dict[int, int] = {}
         fontweight_sizes: dict[int, int] = {}
@@ -215,7 +215,7 @@ class IdentifyHeaders:
 
         for pno in pages_to_use:
             page = doc[pno]
-            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+            blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
 
             for span in self._iter_horizontal_spans(blocks):
                 fontsz = round(span["size"])

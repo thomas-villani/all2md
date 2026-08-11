@@ -26,8 +26,8 @@ COMPLEX_DOCX = FIXTURES / "complex.docx"
 @pytest.fixture
 def blank_pdf(tmp_path) -> Path:
     """A single blank page — the near-empty / scanned-PDF shape (no text layer)."""
-    fitz = pytest.importorskip("fitz")
-    doc = fitz.open()
+    pymupdf = pytest.importorskip("pymupdf")
+    doc = pymupdf.open()
     doc.new_page()
     path = tmp_path / "blank.pdf"
     doc.save(str(path))

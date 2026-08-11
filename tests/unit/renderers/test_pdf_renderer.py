@@ -1186,7 +1186,7 @@ class TestLineBreakInline:
 
     def test_soft_line_break_renders_as_space(self, tmp_path):
         """Test soft line break renders as a space, keeping text on one line."""
-        import fitz
+        import pymupdf
 
         from all2md.ast import LineBreak
 
@@ -1205,7 +1205,7 @@ class TestLineBreakInline:
         output_file = tmp_path / "soft_line_break.pdf"
         renderer.render(doc, output_file)
 
-        with fitz.open(str(output_file)) as pdf:
+        with pymupdf.open(str(output_file)) as pdf:
             text = pdf[0].get_text()
         assert "Line 1 Line 2" in text
         if PDF_VERIFICATION_AVAILABLE:

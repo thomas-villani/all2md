@@ -100,7 +100,7 @@ class TestPdfLayoutAdvanced:
         assert len(columns) == 1
         assert len(columns[0]) == len(blocks)
 
-    @patch("all2md.parsers.pdf.fitz.open")
+    @patch("all2md.parsers.pdf.pymupdf.open")
     def test_rotated_text_handling(self, mock_fitz_open):
         """Test handling of rotated text blocks."""
         # Mock PDF with rotated text
@@ -216,7 +216,7 @@ class TestPdfLayoutAdvanced:
         columns_large = detect_columns(blocks, column_gap_threshold=50)
         assert len(columns_large) <= 3
 
-    @patch("all2md.parsers.pdf.fitz.open")
+    @patch("all2md.parsers.pdf.pymupdf.open")
     def test_header_detection_with_rotation(self, mock_fitz_open):
         """Test header detection considering rotated text."""
         mock_doc = Mock()
@@ -301,7 +301,7 @@ class TestPdfLayoutAdvanced:
         """Test column detection on complex.pdf with spanning header."""
         from pathlib import Path
 
-        import fitz
+        import pymupdf
 
         # Use the actual complex.pdf fixture
         pdf_path = Path("tests/fixtures/documents/complex.pdf")
@@ -310,9 +310,9 @@ class TestPdfLayoutAdvanced:
             return
 
         # Test that column detection works
-        doc = fitz.open(str(pdf_path))
+        doc = pymupdf.open(str(pdf_path))
         page = doc[0]
-        blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+        blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
 
         columns = detect_columns(blocks, column_gap_threshold=20)
 

@@ -58,7 +58,7 @@ class TestBlockOutsideTableRegions:
     """The unit that decides what survives a partially-covering region."""
 
     def test_keeps_the_lines_above_a_region_covering_the_lower_half(self):
-        import fitz
+        import pymupdf
 
         block = _block(
             _line(90, 100, "reference nineteen"),
@@ -66,7 +66,7 @@ class TestBlockOutsideTableRegions:
             _line(400, 410, "cell one"),
             _line(410, 420, "cell two"),
         )
-        region = fitz.Rect(50, 380, 300, 430)
+        region = pymupdf.Rect(50, 380, 300, 430)
 
         remainder = _block_outside_table_regions(block, [region])
 
@@ -74,11 +74,11 @@ class TestBlockOutsideTableRegions:
         assert _text_of(remainder) == "reference nineteen reference twenty"
 
     def test_tightens_the_bbox_to_what_survives(self):
-        import fitz
+        import pymupdf
 
         block = _block(_line(90, 100, "kept"), _line(400, 410, "covered"))
 
-        remainder = _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)])
+        remainder = _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)])
 
         assert remainder is not None
         # A stale bbox would still claim the region's rows, and reading order is decided by
@@ -87,44 +87,44 @@ class TestBlockOutsideTableRegions:
         assert remainder["bbox"][3] == 100
 
     def test_returns_none_when_the_region_covers_every_line(self):
-        import fitz
+        import pymupdf
 
         block = _block(_line(400, 410, "cell one"), _line(410, 420, "cell two"))
 
-        assert _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)]) is None
+        assert _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)]) is None
 
     def test_does_not_mutate_the_original_block(self):
-        import fitz
+        import pymupdf
 
         block = _block(_line(90, 100, "kept"), _line(400, 410, "covered"))
 
-        _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)])
+        _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)])
 
         assert len(block["lines"]) == 2
         assert block["bbox"][3] == 410
 
     def test_a_line_straddling_the_boundary_is_assigned_not_duplicated(self):
-        import fitz
+        import pymupdf
 
         # Mostly below the region edge, so it belongs to the region and must not also appear
         # in the remainder; the alternative is the same words emitted twice.
         block = _block(_line(90, 100, "prose"), _line(374, 390, "straddler"))
 
-        remainder = _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)])
+        remainder = _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)])
 
         assert _text_of(remainder) == "prose"
 
     def test_a_line_mostly_outside_the_region_survives(self):
-        import fitz
+        import pymupdf
 
         block = _block(_line(90, 100, "prose"), _line(370, 386, "straddler"))
 
-        remainder = _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)])
+        remainder = _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)])
 
         assert _text_of(remainder) == "prose straddler"
 
     def test_several_regions_are_all_honoured(self):
-        import fitz
+        import pymupdf
 
         block = _block(
             _line(90, 100, "top prose"),
@@ -132,37 +132,37 @@ class TestBlockOutsideTableRegions:
             _line(300, 310, "middle prose"),
             _line(500, 510, "second table"),
         )
-        regions = [fitz.Rect(50, 195, 300, 215), fitz.Rect(50, 495, 300, 515)]
+        regions = [pymupdf.Rect(50, 195, 300, 215), pymupdf.Rect(50, 495, 300, 515)]
 
         remainder = _block_outside_table_regions(block, regions)
 
         assert _text_of(remainder) == "top prose middle prose"
 
     def test_whitespace_only_survivors_are_not_rescued(self):
-        import fitz
+        import pymupdf
 
         # The lines bordering a table region are routinely blank or a single space. Rescuing
         # those turns a dropped block into an empty paragraph, which shows up as a stray gap
         # in the output -- caught by the PDF golden snapshot, which only runs on Linux.
         block = _block(_line(90, 100, " "), _line(400, 410, "cell one"))
 
-        assert _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)]) is None
+        assert _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)]) is None
 
     def test_real_text_beside_whitespace_still_survives(self):
-        import fitz
+        import pymupdf
 
         block = _block(_line(90, 100, " "), _line(100, 110, "prose"), _line(400, 410, "cell"))
 
-        remainder = _block_outside_table_regions(block, [fitz.Rect(50, 380, 300, 430)])
+        remainder = _block_outside_table_regions(block, [pymupdf.Rect(50, 380, 300, 430)])
 
         assert _text_of(remainder) == "  prose"
 
     def test_a_block_without_lines_yields_nothing(self):
-        import fitz
+        import pymupdf
 
         # Image blocks carry no lines; there is no prose to rescue and the caller's existing
         # decision to drop them stands.
-        assert _block_outside_table_regions({"bbox": (0, 0, 10, 10), "type": 1}, [fitz.Rect(0, 0, 10, 10)]) is None
+        assert _block_outside_table_regions({"bbox": (0, 0, 10, 10), "type": 1}, [pymupdf.Rect(0, 0, 10, 10)]) is None
 
 
 class TestPageKeepsProseAboveAPartialRegion:
@@ -181,12 +181,12 @@ class TestPageKeepsProseAboveAPartialRegion:
         which is the precondition for the bug -- a region over the bottom rows then clears
         the majority-area bar for the whole column.
         """
-        import fitz
+        import pymupdf
 
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=300, height=500)
-        writer = fitz.TextWriter(page.rect)
-        font = fitz.Font("helv")
+        writer = pymupdf.TextWriter(page.rect)
+        font = pymupdf.Font("helv")
         # One uninterrupted 10pt cadence across both halves. A wider gap at the join makes
         # PyMuPDF start a second block, and two blocks cannot reproduce this at all.
         for idx in range(10):
@@ -200,13 +200,13 @@ class TestPageKeepsProseAboveAPartialRegion:
         return str(path)
 
     def test_prose_above_the_region_survives(self, tmp_path, monkeypatch):
-        import fitz
+        import pymupdf
 
         from all2md.options.pdf import PdfOptions
         from all2md.parsers.pdf import PdfToAstConverter
 
         path = self._column_page(tmp_path, "column.pdf")
-        doc = fitz.open(path)
+        doc = pymupdf.open(path)
         page = doc[0]
 
         block = next(b for b in page.get_text("dict")["blocks"] if b.get("type") == 0)
@@ -215,8 +215,8 @@ class TestPageKeepsProseAboveAPartialRegion:
         # loosened.
         assert block["bbox"][1] < 100 and block["bbox"][3] > 300
 
-        region = fitz.Rect(40, 155, 290, 360)
-        assert abs(region & fitz.Rect(block["bbox"])) > 0.5 * abs(fitz.Rect(block["bbox"]))
+        region = pymupdf.Rect(40, 155, 290, 360)
+        assert abs(region & pymupdf.Rect(block["bbox"])) > 0.5 * abs(pymupdf.Rect(block["bbox"]))
 
         converter = PdfToAstConverter(options=PdfOptions())
         monkeypatch.setattr(

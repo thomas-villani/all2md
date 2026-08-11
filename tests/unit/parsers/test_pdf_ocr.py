@@ -86,7 +86,7 @@ class TestOCROptions:
 
 
 class _Box:
-    """A stand-in for ``fitz.Rect`` carrying only what the coverage helpers read."""
+    """A stand-in for ``pymupdf.Rect`` carrying only what the coverage helpers read."""
 
     def __init__(self, width: float, height: float) -> None:
         self.width = width
@@ -346,7 +346,7 @@ class TestDetectPageLanguage:
 class TestOCRPageToText:
     """Test OCR text extraction method."""
 
-    @patch("fitz.Matrix")
+    @patch("pymupdf.Matrix")
     @patch("pytesseract.image_to_string")
     @patch("PIL.Image")
     def test_ocr_page_to_text_success(self, mock_image: Mock, mock_pytesseract: Mock, mock_matrix_class: Mock) -> None:
@@ -366,7 +366,7 @@ class TestOCRPageToText:
         # Mock pytesseract
         mock_pytesseract.return_value = "Extracted text from OCR"
 
-        # Mock fitz.Matrix
+        # Mock pymupdf.Matrix
         mock_matrix = Mock()
         mock_matrix_class.return_value = mock_matrix
 
@@ -378,7 +378,7 @@ class TestOCRPageToText:
         mock_pytesseract.assert_called_once()
         mock_matrix_class.assert_called_once_with(300 / 72.0, 300 / 72.0)
 
-    @patch("fitz.Matrix")
+    @patch("pymupdf.Matrix")
     @patch("pytesseract.image_to_string")
     @patch("pytesseract.TesseractNotFoundError", new=Exception)
     @patch("PIL.Image")
@@ -401,7 +401,7 @@ class TestOCRPageToText:
         # Mock pytesseract raising TesseractNotFoundError
         mock_pytesseract.side_effect = Exception("Tesseract not found")
 
-        # Mock fitz.Matrix
+        # Mock pymupdf.Matrix
         mock_matrix = Mock()
         mock_matrix_class.return_value = mock_matrix
 
@@ -410,7 +410,7 @@ class TestOCRPageToText:
         with pytest.raises(RuntimeError, match="Tesseract OCR is not installed"):
             PdfToAstConverter._ocr_page_to_text(mock_page, options)
 
-    @patch("fitz.Matrix")
+    @patch("pymupdf.Matrix")
     @patch("pytesseract.image_to_string")
     @patch("PIL.Image")
     def test_ocr_page_to_text_with_config(
@@ -432,7 +432,7 @@ class TestOCRPageToText:
         # Mock pytesseract
         mock_pytesseract.return_value = "OCR text"
 
-        # Mock fitz.Matrix
+        # Mock pymupdf.Matrix
         mock_matrix = Mock()
         mock_matrix_class.return_value = mock_matrix
 
@@ -557,7 +557,7 @@ class TestOCRSpanBbox:
     """
 
     def _ocr_blocks(self, *, preserve: bool, extracted: str) -> list[dict]:
-        import fitz
+        import pymupdf
 
         options = PdfOptions(
             ocr=OCROptions(enabled=True, mode="force", preserve_existing_text=preserve),
@@ -565,7 +565,7 @@ class TestOCRSpanBbox:
         converter = PdfToAstConverter(options=options)
 
         mock_page = Mock()
-        mock_page.rect = fitz.Rect(0, 0, 612, 792)
+        mock_page.rect = pymupdf.Rect(0, 0, 612, 792)
 
         with patch.object(PdfToAstConverter, "_ocr_page_to_text", return_value="scanned text"):
             blocks, applied = converter._apply_ocr_if_needed(mock_page, [], extracted_text=extracted)
@@ -586,13 +586,13 @@ class TestOCRSpanBbox:
 
     def test_resolve_link_for_span_handles_ocr_span(self) -> None:
         """The OCR span no longer crashes link resolution (issue: KeyError('bbox'))."""
-        import fitz
+        import pymupdf
 
         converter = PdfToAstConverter(options=PdfOptions(ocr=OCROptions(enabled=True, mode="force")))
         span = self._ocr_blocks(preserve=False, extracted="")[0]["lines"][0]["spans"][0]
 
         # A small hyperlink hotspot on the page (as returned by page.get_links()).
-        links = [{"from": fitz.Rect(100, 100, 200, 120), "uri": "https://example.com/"}]
+        links = [{"from": pymupdf.Rect(100, 100, 200, 120), "uri": "https://example.com/"}]
 
         # Must not raise, and a page-sized span must not spuriously match a tiny link.
         assert converter._resolve_link_for_span(links, span, average_line_height=12.0) is None
@@ -653,7 +653,7 @@ class TestOCRLayoutRecovery:
     with: no headings, no tables, no columns, no header/footer trimming.
     """
 
-    @patch("fitz.Matrix")
+    @patch("pymupdf.Matrix")
     @patch("pytesseract.image_to_data")
     @patch("PIL.Image")
     def test_paragraphs_and_lines_survive_with_real_geometry(
@@ -684,7 +684,7 @@ class TestOCRLayoutRecovery:
         assert paragraphs[0].lines[0].bbox == (50.0, 50.0, 135.0, 60.0)
         assert paragraphs[0].bbox != paragraphs[1].bbox
 
-    @patch("fitz.Matrix")
+    @patch("pymupdf.Matrix")
     @patch("pytesseract.image_to_data")
     @patch("PIL.Image")
     def test_a_page_with_no_recognized_words_reports_no_layout(
@@ -789,8 +789,8 @@ class TestEngineReadingOrderIsPreserved:
     def test_a_table_on_the_page_falls_back_to_sorting(self) -> None:
         """A table has to be placed relative to the text, and only y can do that."""
         converter = PdfToAstConverter()
-        fitz = pytest.importorskip("fitz")
-        table = {"bbox": fitz.Rect(43.0, 110.0, 570.0, 130.0)}
+        pymupdf = pytest.importorskip("pymupdf")
+        table = {"bbox": pymupdf.Rect(43.0, 110.0, 570.0, 130.0)}
 
         items = converter._build_sorted_column_items(self._blocks(engine_segmented=True), [table])
 

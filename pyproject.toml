@@ -446,6 +446,18 @@ module = "numpy.*"
 follow_imports = "skip"
 follow_imports_for_stubs = true
 
+# PyMuPDF ships `py.typed` but almost none of its methods carry annotations, so
+# following it makes `disallow_untyped_calls` fire on ~40 ordinary calls
+# (`Rect()`, `get_text()`, `find_tables()`). The legacy `fitz` shim we imported
+# until now has no `py.typed`, so `ignore_missing_imports` quietly made it Any and
+# we never saw them. This override keeps that behaviour when importing the
+# canonical name, rather than scattering per-call ignores; it declares the type
+# information we were already not getting instead of pretending we lost some.
+[[tool.mypy.overrides]]
+module = ["pymupdf", "pymupdf.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
 # context_menu.py is Windows-only (winreg registry plumbing). The CI type check
 # runs on Linux, where the stdlib `winreg` module exposes no attributes
 # (attr-defined) and the `sys.platform != "win32"` guard makes the Windows code

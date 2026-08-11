@@ -470,17 +470,17 @@ def test_the_committed_manifest_spreads_across_the_id_range() -> None:
 
 def _make_pdf(path: Path, *, pages: int, drawings: int, text: bool, full_page_image: bool) -> None:
     """Build a real PDF so the characterization is tested against its actual instrument."""
-    import fitz
+    import pymupdf
 
-    document = fitz.open()
+    document = pymupdf.open()
     for _ in range(pages):
         page = document.new_page()
         if text:
             page.insert_text((72, 72), "born digital")
         for index in range(drawings):
-            page.draw_rect(fitz.Rect(10 + index, 10 + index, 40 + index, 40 + index), color=(0, 0, 0))
+            page.draw_rect(pymupdf.Rect(10 + index, 10 + index, 40 + index, 40 + index), color=(0, 0, 0))
         if full_page_image:
-            pixmap = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 8, 8))
+            pixmap = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 8, 8))
             page.insert_image(page.rect, pixmap=pixmap)
     document.save(path)
     document.close()
@@ -686,7 +686,7 @@ def test_placement_never_uses_page_order() -> None:
 
 def test_the_control_collapses_when_blocks_meet_the_wrong_article(tmp_path: Path) -> None:
     """A placement rate is meaningless unless the same method fails on the wrong article."""
-    import fitz
+    import pymupdf
 
     from benchmarks.pmc.alignment import measure
 
@@ -698,7 +698,7 @@ def test_the_control_collapses_when_blocks_meet_the_wrong_article(tmp_path: Path
     for article_id, sentence in sentences.items():
         pdf_path = tmp_path / f"{article_id}.pdf"
         xml_path = tmp_path / f"{article_id}.xml"
-        document = fitz.open()
+        document = pymupdf.open()
         page = document.new_page()
         page.insert_text((40, 60), sentence)
         document.save(pdf_path)

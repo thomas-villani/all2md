@@ -21,7 +21,7 @@ from all2md.utils.decorators import requires_dependencies
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    import fitz
+    import pymupdf
 
     from all2md.options.pdf import PdfOptions
     from all2md.parsers._ocr import OcrParagraph
@@ -30,14 +30,14 @@ logger = logging.getLogger(__name__)
 
 
 @requires_dependencies("pdf", DEPS_PDF_OCR)
-def ocr_pixmap(pix: "fitz.Pixmap", page: "fitz.Page", options: "PdfOptions") -> str:
+def ocr_pixmap(pix: "pymupdf.Pixmap", page: "pymupdf.Page", options: "PdfOptions") -> str:
     """Extract text from a rendered page pixmap using Tesseract.
 
     Parameters
     ----------
-    pix : fitz.Pixmap
+    pix : pymupdf.Pixmap
         Page rendered to an RGB pixmap.
-    page : fitz.Page
+    page : pymupdf.Page
         Source page (used for language auto-detection).
     options : PdfOptions
         PDF conversion options containing OCR settings.
@@ -85,7 +85,7 @@ def ocr_pixmap(pix: "fitz.Pixmap", page: "fitz.Page", options: "PdfOptions") -> 
     return ocr_text
 
 
-def _resolve_language(page: "fitz.Page", options: "PdfOptions") -> str:
+def _resolve_language(page: "pymupdf.Page", options: "PdfOptions") -> str:
     ocr_opts = options.ocr
     if ocr_opts.auto_detect_language:
         return detect_page_language(page, options)
@@ -96,8 +96,8 @@ def _resolve_language(page: "fitz.Page", options: "PdfOptions") -> str:
 
 @requires_dependencies("pdf", DEPS_PDF_OCR)
 def ocr_pixmap_layout(
-    pix: "fitz.Pixmap",
-    page: "fitz.Page",
+    pix: "pymupdf.Pixmap",
+    page: "pymupdf.Page",
     options: "PdfOptions",
 ) -> "list[OcrParagraph] | None":
     """Extract text from a pixmap while keeping Tesseract's own segmentation.
@@ -109,9 +109,9 @@ def ocr_pixmap_layout(
 
     Parameters
     ----------
-    pix : fitz.Pixmap
+    pix : pymupdf.Pixmap
         Page rendered to an RGB pixmap.
-    page : fitz.Page
+    page : pymupdf.Page
         Source page, supplying the coordinate space and language auto-detection.
     options : PdfOptions
         PDF conversion options containing OCR settings.

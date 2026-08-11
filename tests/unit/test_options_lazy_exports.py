@@ -26,6 +26,11 @@ pytestmark = pytest.mark.unit
 # Names ``options/__init__.py`` defines itself rather than re-exporting.
 _DEFINED_LOCALLY = frozenset({"create_updated_options"})
 
+# Resolvable on purpose, but not public API. Subclassing contracts, not
+# configuration: exporting them would promise their shape to anyone who inherits.
+# Listed rather than filtered by name so a *new* unexported entry still fails.
+_INTENTIONALLY_UNEXPORTED = frozenset({"AttachmentOptionsMixin", "CloneFrozenMixin"})
+
 
 @pytest.mark.parametrize("name", sorted(_LAZY_EXPORTS))
 def test_every_lazy_export_resolves_to_the_real_object(name: str) -> None:
@@ -43,7 +48,7 @@ def test_all_and_the_lazy_table_agree() -> None:
     provided = set(_LAZY_EXPORTS) | _DEFINED_LOCALLY
 
     assert declared - provided == set(), "in __all__ but not resolvable"
-    assert provided - declared == set(), "resolvable but missing from __all__"
+    assert provided - declared == _INTENTIONALLY_UNEXPORTED, "resolvable but missing from __all__"
 
 
 def test_the_package_init_pulls_in_no_submodules_of_its_own() -> None:

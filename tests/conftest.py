@@ -33,15 +33,15 @@ except ImportError:
 
 def _setup_test_imports():
     """Setup imports needed for testing while maintaining lazy loading in production."""
-    # Make fitz available for PDF tests that need to mock it
+    # Make pymupdf available for PDF tests that need to mock it
     try:
-        import fitz
+        import pymupdf
 
         import all2md.parsers.pdf
 
-        all2md.parsers.pdf.fitz = fitz
+        all2md.parsers.pdf.pymupdf = pymupdf
     except ImportError:
-        # If fitz isn't available, that's ok - tests that need it will skip
+        # If pymupdf isn't available, that's ok - tests that need it will skip
         pass
 
     # Make Hyperlink available for DOCX tests (already handled in the module)

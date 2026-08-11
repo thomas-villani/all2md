@@ -5205,7 +5205,7 @@ The ``list-formats`` command displays all supported file formats, their extensio
    Extensions: .pdf
    MIME types: application/pdf
    Dependencies:
-     - PyMuPDF (fitz) - ✓ Installed (version 1.23.8)
+     - PyMuPDF (pymupdf) - ✓ Installed (version 1.23.8)
    Features:
      - Table detection and extraction
      - Multi-column layout handling

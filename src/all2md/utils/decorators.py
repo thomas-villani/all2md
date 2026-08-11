@@ -37,8 +37,8 @@ def requires_dependencies(converter_name: str, packages: List[Tuple[str, str, st
         in error messages to help users identify which converter needs dependencies.
     packages : list of tuple
         Required packages as (install_name, import_name, version_spec) tuples where:
-        - install_name: Package name for pip install (e.g., "pymupdf")
-        - import_name: Module name for import statement (e.g., "fitz")
+        - install_name: Package name for pip install (e.g., "Pillow")
+        - import_name: Module name for import statement, which often differs (e.g., "PIL")
         - version_spec: Version requirement (e.g., ">=1.26.4" or "" for any version)
 
     Returns
@@ -60,9 +60,9 @@ def requires_dependencies(converter_name: str, packages: List[Tuple[str, str, st
     --------
     Apply to a parser's parse method:
 
-        >>> @requires_dependencies("pdf", [("pymupdf", "fitz", ">=1.26.4")])
+        >>> @requires_dependencies("pdf", [("pymupdf", "pymupdf", ">=1.26.4")])
         ... def parse(self, input_data):
-        ...     import fitz
+        ...     import pymupdf
         ...     # parsing logic here
 
     Apply to a renderer's render method:
