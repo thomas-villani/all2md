@@ -162,7 +162,7 @@ class BaseParser(ABC):
         ----------
         document : Any
             The loaded document object (format-specific type, e.g.,
-            docx.Document, fitz.Document, email.message.Message, etc.)
+            docx.Document, pymupdf.Document, email.message.Message, etc.)
 
         Returns
         -------

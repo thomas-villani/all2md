@@ -19,7 +19,7 @@ layout model **off**, which is what a stock install and CI actually have.
 
 from __future__ import annotations
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import to_markdown
@@ -33,7 +33,7 @@ class _StubPage:
     """Just enough page for the zone filter: it only reads ``rect.height``."""
 
     def __init__(self, height: float) -> None:
-        self.rect = fitz.Rect(0, 0, 612, height)
+        self.rect = pymupdf.Rect(0, 0, 612, height)
 
 
 HEADER = "ACME CONFIDENTIAL -- INTERNAL USE ONLY"
@@ -58,14 +58,14 @@ def _no_layout_model(monkeypatch):
 
 
 def _make_pdf(tmp_path, n_pages: int, *, footer: str = "Page {n} of {total}") -> str:
-    doc = fitz.open()
+    doc = pymupdf.open()
     for i in range(n_pages):
         page = doc.new_page(width=612, height=792)
         page.insert_text((72, 40), HEADER, fontsize=8)
         page.insert_text((72, 760), footer.format(n=i + 1, total=n_pages), fontsize=8)
         # Body sits clear of the header zone (the top 20% of the page).
         page.insert_textbox(
-            fitz.Rect(72, 220, 540, 520), f"Section {i + 1} opens here. {BODIES[i % len(BODIES)]}", fontsize=11
+            pymupdf.Rect(72, 220, 540, 520), f"Section {i + 1} opens here. {BODIES[i % len(BODIES)]}", fontsize=11
         )
     path = tmp_path / f"doc{n_pages}.pdf"
     doc.save(str(path))
@@ -163,12 +163,12 @@ class TestNonFurnitureIsSafe:
         position check these headings key alike, repeat often enough, and get trimmed --
         taking every line above them with them.
         """
-        doc = fitz.open()
+        doc = pymupdf.open()
         for i in range(4):
             page = doc.new_page(width=612, height=792)
             # Same text shape, but it drifts down the page: not anchored, not furniture.
             page.insert_text((72, 60 + i * 12), f"Section {i + 1}", fontsize=14)
-            page.insert_textbox(fitz.Rect(72, 200, 540, 400), f"Body of section {i + 1}.", fontsize=11)
+            page.insert_textbox(pymupdf.Rect(72, 200, 540, 400), f"Body of section {i + 1}.", fontsize=11)
         path = tmp_path / "sections.pdf"
         doc.save(str(path))
         doc.close()

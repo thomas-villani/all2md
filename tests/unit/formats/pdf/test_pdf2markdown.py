@@ -8,7 +8,7 @@ various PDF-specific features.
 
 import tempfile
 
-import fitz
+import pymupdf
 import pytest
 
 import all2md.parsers.pdf as pdf_parser
@@ -63,7 +63,7 @@ def test_identify_headers_mapping():
 @pytest.mark.unit
 def test_resolve_links_no_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": "X"}
-    link = {"from": fitz.Rect(50, 50, 60, 60), "uri": "u"}  # Link is completely outside span
+    link = {"from": pymupdf.Rect(50, 50, 60, 60), "uri": "u"}  # Link is completely outside span
     assert resolve_links([link], span) is None
 
 
@@ -71,7 +71,7 @@ def test_resolve_links_no_overlap():
 def test_resolve_links_partial_overlap():
     """Test link resolution with partial overlap."""
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for more info"}
-    link = {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://example.com"}
+    link = {"from": pymupdf.Rect(0, 0, 50, 10), "uri": "http://example.com"}
     # Link covers 50% of span, use 50% threshold so it's detected
     result = resolve_links([link], span, overlap_threshold=50.0)
     assert result is not None
@@ -83,8 +83,8 @@ def test_resolve_links_multiple_links():
     """Test handling of multiple links in one span."""
     span = {"bbox": (0, 0, 200, 10), "text": "Link1 and Link2 here"}
     links = [
-        {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
-        {"from": fitz.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
+        {"from": pymupdf.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
+        {"from": pymupdf.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
     ]
     # Each link covers 25% of span, use 20% threshold so both are detected
     result = resolve_links(links, span, overlap_threshold=20.0)
@@ -176,7 +176,7 @@ def test_detect_tables_by_ruling_lines_empty():
     # This would need a mock page with drawing commands
     # For now, test that the function exists and handles empty input
     class MockPage:
-        rect = fitz.Rect(0, 0, 600, 800)
+        rect = pymupdf.Rect(0, 0, 600, 800)
 
         def get_drawings(self):
             return []
@@ -212,7 +212,7 @@ def test_image_extraction_options():
 @pytest.mark.unit
 def test_resolve_links_overlap():
     span = {"bbox": (0, 0, 10, 10), "text": " click "}
-    link = {"from": fitz.Rect(0, 0, 10, 10), "uri": "http://test"}
+    link = {"from": pymupdf.Rect(0, 0, 10, 10), "uri": "http://test"}
     res = resolve_links([link], span)
     assert res == "[click](http://test)"
 
@@ -227,7 +227,7 @@ def test_link_overlap_threshold_high():
     """Test link resolution with high overlap threshold (90%)."""
     span = {"bbox": (0, 0, 100, 10), "text": "Click here for info"}
     # Link only covers first 40% of span
-    link = {"from": fitz.Rect(0, 0, 40, 10), "uri": "http://example.com"}
+    link = {"from": pymupdf.Rect(0, 0, 40, 10), "uri": "http://example.com"}
 
     # With 90% threshold, should NOT detect link
     result = resolve_links([link], span, overlap_threshold=90.0)
@@ -263,9 +263,9 @@ def test_link_overlap_multiple_links_threshold():
     span = {"bbox": (0, 0, 200, 10), "text": "Link1 and Link2 and more text"}
     links = [
         # First link covers chars 0-50 (25% of span)
-        {"from": fitz.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
+        {"from": pymupdf.Rect(0, 0, 50, 10), "uri": "http://link1.com"},
         # Second link covers chars 100-150 (25% of span)
-        {"from": fitz.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
+        {"from": pymupdf.Rect(100, 0, 150, 10), "uri": "http://link2.com"},
     ]
 
     # With 50% threshold, neither link should be detected (each is only 25%)
@@ -364,23 +364,23 @@ def test_detect_tables_by_ruling_lines():
 
     # Create a mock page with drawing commands
     class MockPage:
-        rect = fitz.Rect(0, 0, 600, 800)
+        rect = pymupdf.Rect(0, 0, 600, 800)
 
         def get_drawings(self):
             # Simulate a simple 2x2 table with horizontal and vertical lines
             return [
                 {
                     "items": [
-                        ("l", fitz.Point(100, 100), fitz.Point(400, 100)),  # Top h-line
-                        ("l", fitz.Point(100, 150), fitz.Point(400, 150)),  # Middle h-line
-                        ("l", fitz.Point(100, 200), fitz.Point(400, 200)),  # Bottom h-line
+                        ("l", pymupdf.Point(100, 100), pymupdf.Point(400, 100)),  # Top h-line
+                        ("l", pymupdf.Point(100, 150), pymupdf.Point(400, 150)),  # Middle h-line
+                        ("l", pymupdf.Point(100, 200), pymupdf.Point(400, 200)),  # Bottom h-line
                     ]
                 },
                 {
                     "items": [
-                        ("l", fitz.Point(100, 100), fitz.Point(100, 200)),  # Left v-line
-                        ("l", fitz.Point(250, 100), fitz.Point(250, 200)),  # Middle v-line
-                        ("l", fitz.Point(400, 100), fitz.Point(400, 200)),  # Right v-line
+                        ("l", pymupdf.Point(100, 100), pymupdf.Point(100, 200)),  # Left v-line
+                        ("l", pymupdf.Point(250, 100), pymupdf.Point(250, 200)),  # Middle v-line
+                        ("l", pymupdf.Point(400, 100), pymupdf.Point(400, 200)),  # Right v-line
                     ]
                 },
             ]

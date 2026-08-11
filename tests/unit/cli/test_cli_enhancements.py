@@ -146,7 +146,7 @@ class TestListFormatsCommand:
         )
         mock_metadata.priority = 100
         # required_packages is a list of (install_name, import_name, version_spec) tuples
-        mock_metadata.required_packages = [("pymupdf", "fitz", ">=1.24.0")]
+        mock_metadata.required_packages = [("pymupdf", "pymupdf", ">=1.24.0")]
 
         mock_registry.get_format_info = Mock(return_value=[mock_metadata])
 

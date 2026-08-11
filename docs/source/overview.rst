@@ -198,7 +198,7 @@ PDF Processing
 - Image extraction and placement
 - Page-specific processing
 
-**Technology:** PyMuPDF (fitz) for robust PDF parsing
+**Technology:** PyMuPDF (pymupdf) for robust PDF parsing
 
 .. code-block:: python
 

@@ -17,7 +17,7 @@ from all2md.options.pdf import PdfOptions
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 
 if TYPE_CHECKING:
-    import fitz
+    import pymupdf
 
 __all__ = ["extract_page_images", "detect_image_caption"]
 
@@ -39,7 +39,7 @@ def _bbox_in_any_region(bbox: Any, regions: list[Any], coverage: float = 0.7) ->
     return False
 
 
-def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | None:
+def detect_image_caption(page: "pymupdf.Page", image_bbox: "pymupdf.Rect") -> str | None:
     """Detect caption text near an image.
 
     Looks for text blocks immediately below or above the image
@@ -64,13 +64,13 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
         r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Table)\s+[A-Z]\.",
     ]
 
-    import fitz
+    import pymupdf
 
     # Search below image
-    search_below = fitz.Rect(image_bbox.x0 - 20, image_bbox.y1, image_bbox.x1 + 20, image_bbox.y1 + 50)
+    search_below = pymupdf.Rect(image_bbox.x0 - 20, image_bbox.y1, image_bbox.x1 + 20, image_bbox.y1 + 50)
 
     # Search above image (less common)
-    search_above = fitz.Rect(image_bbox.x0 - 20, image_bbox.y0 - 50, image_bbox.x1 + 20, image_bbox.y0)
+    search_above = pymupdf.Rect(image_bbox.x0 - 20, image_bbox.y0 - 50, image_bbox.x1 + 20, image_bbox.y0)
 
     for search_rect in [search_below, search_above]:
         text = page.get_textbox(search_rect)
@@ -93,7 +93,7 @@ def detect_image_caption(page: "fitz.Page", image_bbox: "fitz.Rect") -> str | No
 
 
 def extract_page_images(
-    page: "fitz.Page",
+    page: "pymupdf.Page",
     page_num: int,
     options: PdfOptions | None = None,
     base_filename: str = "document",
@@ -117,7 +117,7 @@ def extract_page_images(
         Base filename stem for generating standardized image names
     attachment_sequencer : object, optional
         Sequencer for generating unique attachment names
-    excluded_regions : list of fitz.Rect, optional
+    excluded_regions : list of pymupdf.Rect, optional
         Regions on the page where images should be skipped (e.g. page-header
         and page-footer zones from layout analysis). An image is dropped if
         its bbox is mostly contained in any excluded region.
@@ -156,7 +156,7 @@ def extract_page_images(
     if options.attachment_mode == "alt_text":
         return [], collected_footnotes
 
-    import fitz
+    import pymupdf
 
     min_dim = float(options.min_image_dimension or 0.0)
     exclusion_rects = list(excluded_regions or [])
@@ -190,13 +190,13 @@ def extract_page_images(
             if exclusion_rects and _bbox_in_any_region(bbox, exclusion_rects):
                 continue
 
-            pix = fitz.Pixmap(page.parent, xref)
+            pix = pymupdf.Pixmap(page.parent, xref)
 
             # Convert to RGB if needed
             if pix.n - pix.alpha < 4:  # GRAY or RGB
                 pix_rgb = pix
             else:
-                pix_rgb = fitz.Pixmap(fitz.csRGB, pix)
+                pix_rgb = pymupdf.Pixmap(pymupdf.csRGB, pix)
 
             # Determine image format and convert pixmap to bytes
             img_format = options.image_format if options.image_format else "png"

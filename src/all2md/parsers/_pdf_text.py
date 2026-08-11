@@ -158,9 +158,9 @@ def resolve_links(
     if not links or not span.get("text"):
         return None
 
-    import fitz
+    import pymupdf
 
-    bbox = fitz.Rect(span["bbox"])  # span bbox
+    bbox = pymupdf.Rect(span["bbox"])  # span bbox
     span_text = span["text"]
 
     # Use provided threshold or fall back to default

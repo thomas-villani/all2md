@@ -14,7 +14,7 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import fitz
+    import pymupdf
 
 __all__ = [
     "MAX_DOT_LEADER_CELL_RATIO",
@@ -106,7 +106,7 @@ _DOT_LEADER_TAIL = re.compile(r"\n\s*[.…](?:\s*[.…]){2,}\s*$")
 _WORD_TOKEN = re.compile(r"[^\W\d_]+", re.UNICODE)
 
 
-def split_word_ratio(page: "fitz.Page", table_data: list[list[str | None]]) -> float:
+def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
     """Share of a grid's word tokens that are not whole words of the page.
 
     A grid whose columns fall in the whitespace gutters between cells holds whole words. One
@@ -233,7 +233,7 @@ def _extract_ruling_lines(
 
 
 def page_has_table_signals(
-    page: "fitz.Page",
+    page: "pymupdf.Page",
     threshold: float = TABLE_SIGNAL_RULING_THRESHOLD,
 ) -> bool:
     """Return True if the page has drawings that could indicate a table.
@@ -296,7 +296,7 @@ def page_has_table_signals(
     return False
 
 
-def _check_table_overlap(table_rect: "fitz.Rect", existing_rects: list["fitz.Rect"]) -> bool:
+def _check_table_overlap(table_rect: "pymupdf.Rect", existing_rects: list["pymupdf.Rect"]) -> bool:
     """Check if a table rect overlaps significantly with existing tables.
 
     Returns
@@ -314,7 +314,7 @@ def _check_table_overlap(table_rect: "fitz.Rect", existing_rects: list["fitz.Rec
 def _find_table_regions(
     h_lines: list[tuple],
     v_lines: list[tuple],
-) -> list["fitz.Rect"]:
+) -> list["pymupdf.Rect"]:
     """Find table regions from horizontal and vertical lines.
 
     Parameters
@@ -326,13 +326,13 @@ def _find_table_regions(
 
     Returns
     -------
-    list[fitz.Rect]
+    list[pymupdf.Rect]
         List of detected table bounding boxes
 
     """
-    import fitz
+    import pymupdf
 
-    table_rects: list["fitz.Rect"] = []
+    table_rects: list["pymupdf.Rect"] = []
 
     if len(h_lines) < 2 or len(v_lines) < 2:
         return table_rects
@@ -353,7 +353,7 @@ def _find_table_regions(
             x_min = min(min(h_lines[i][0], h_lines[j][0]), min(v[0] for v in spanning_vlines))
             x_max = max(max(h_lines[i][2], h_lines[j][2]), max(v[2] for v in spanning_vlines))
 
-            table_rect = fitz.Rect(x_min, y1, x_max, y2)
+            table_rect = pymupdf.Rect(x_min, y1, x_max, y2)
 
             if not table_rect.is_empty and not _check_table_overlap(table_rect, table_rects):
                 table_rects.append(table_rect)
@@ -362,7 +362,7 @@ def _find_table_regions(
 
 
 def _collect_lines_for_tables(
-    table_rects: list["fitz.Rect"],
+    table_rects: list["pymupdf.Rect"],
     h_lines: list[tuple],
     v_lines: list[tuple],
 ) -> list[tuple[list[tuple], list[tuple]]]:
@@ -383,8 +383,8 @@ def _collect_lines_for_tables(
 
 
 def detect_tables_by_ruling_lines(
-    page: "fitz.Page", threshold: float = 0.5
-) -> tuple[list["fitz.Rect"], list[tuple[list[tuple], list[tuple]]]]:
+    page: "pymupdf.Page", threshold: float = 0.5
+) -> tuple[list["pymupdf.Rect"], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
     Uses page drawing commands to detect horizontal and vertical lines
@@ -425,7 +425,7 @@ def detect_tables_by_ruling_lines(
 
     # Drop rects whose internal line count would produce an absurdly large
     # grid - those are essentially always bordered non-tabular content.
-    filtered_rects: list["fitz.Rect"] = []
+    filtered_rects: list["pymupdf.Rect"] = []
     filtered_lines: list[tuple[list[tuple], list[tuple]]] = []
     for rect, (th, tv) in zip(table_rects, table_lines, strict=True):
         # cols = len(v_lines) - 1, rows = len(h_lines) - 1

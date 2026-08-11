@@ -11,7 +11,7 @@ contains the marker of the requested page or it does not. Every way of expressin
 selection -- string range, list, and the CLI flag -- is checked against the same document.
 """
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import to_markdown
@@ -26,7 +26,7 @@ MARKERS = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
 @pytest.fixture(scope="module")
 def marked_pdf(tmp_path_factory) -> str:
     """A five-page PDF whose page N contains the marker word MARKERS[N-1] and nothing else."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     for marker in MARKERS:
         page = doc.new_page()
         page.insert_text((72, 100), marker, fontsize=14)

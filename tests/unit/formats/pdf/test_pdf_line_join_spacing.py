@@ -17,7 +17,7 @@ threshold that a long paragraph would have absorbed.
 
 import re
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import to_markdown
@@ -98,10 +98,10 @@ class TestBoldRunAcrossLineBreak:
         single paragraph and therefore makes the inter-line join happen at all.
         """
         size = 8.0
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page()
-        writer = fitz.TextWriter(page.rect)
-        fonts = {False: fitz.Font("helv"), True: fitz.Font("hebo")}
+        writer = pymupdf.TextWriter(page.rect)
+        fonts = {False: pymupdf.Font("helv"), True: pymupdf.Font("hebo")}
 
         x = 60.0
         for text, is_bold in first_line:

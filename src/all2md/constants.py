@@ -217,6 +217,11 @@ DocumentFormat = Literal[
 # Each spec is a list of tuples: (pip_package, import_name, version_constraint)
 # These are used with the @requires_dependencies decorator to check for optional deps
 
+# Lives here rather than in the PDF section below so the dependency spec and the
+# runtime guard in pdf.py cannot disagree; they had drifted to three different
+# minimums across the codebase.
+PDF_MIN_PYMUPDF_VERSION = "1.27.2"
+
 # Document parsers
 DEPS_CHM = [("pychm", "chm", "")]
 DEPS_DOCX = [("python-docx", "docx", "")]
@@ -230,7 +235,7 @@ DEPS_ODF = [("odfpy", "odf", "")]  # Used by ODP, ODS, ODT
 DEPS_OPENAPI = [("PyYAML", "yaml", ">=5.1")]
 DEPS_ORG = [("orgparse", "orgparse", "")]
 DEPS_OUTLOOK = [("extract-msg", "extract_msg", "")]
-DEPS_PDF = [("pymupdf", "fitz", ">=1.27.2")]
+DEPS_PDF = [("pymupdf", "pymupdf", f">={PDF_MIN_PYMUPDF_VERSION}")]
 DEPS_PPTX = [("python-pptx", "pptx", ">=1.0.2")]
 DEPS_RST = [("docutils", "docutils", ">=0.18")]
 DEPS_RTF = [("pyth3", "pyth", "")]
@@ -708,8 +713,7 @@ DANGEROUS_REGEX_PATTERNS = [
 # Format-Specific Constants - PDF
 # =============================================================================
 
-# Version requirements
-PDF_MIN_PYMUPDF_VERSION = "1.27.2"
+# Version requirements: PDF_MIN_PYMUPDF_VERSION is defined with DEPS_PDF above.
 
 # Header detection
 DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives

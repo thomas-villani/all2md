@@ -10,7 +10,7 @@ as a pure function or drove the OCR path; none ran a real text PDF through the
 parser and asserted the word came back joined. These do.
 """
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import to_markdown
@@ -26,9 +26,9 @@ def _pdf_with_lines(tmp_path, text: str, name: str = "h.pdf") -> str:
     each line in its own block, where no dehyphenator (ours or PyMuPDF's) can join
     them; that is a property of the fixture, not of the parser.
     """
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
-    page.insert_textbox(fitz.Rect(50, 50, 400, 300), text, fontsize=10)
+    page.insert_textbox(pymupdf.Rect(50, 50, 400, 300), text, fontsize=10)
     path = tmp_path / name
     doc.save(str(path))
     doc.close()

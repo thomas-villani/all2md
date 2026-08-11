@@ -704,7 +704,7 @@ Common Installation Issues
 Missing Dependencies
 ~~~~~~~~~~~~~~~~~~~~
 
-**Error:** ``ImportError: No module named 'fitz'``
+**Error:** ``ImportError: No module named 'pymupdf'``
 
 **Solution:** Install PDF support: ``pip install all2md[pdf]``
 

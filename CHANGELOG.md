@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **PyMuPDF is imported under its own name, not the deprecated `fitz` alias.** Some PyMuPDF
+  releases emit a `DeprecationWarning` on `import fitz`, which reached anyone running the
+  CLI as noise about a dependency they did not choose and could not act on. `pymupdf` has
+  been the real module name since 1.24.3 and we require 1.27.2, so nothing is lost: 149
+  references across 15 modules now use it. No public API changes — the `fitz` module object
+  is still what PyMuPDF hands back, and `_pdf_layout.py` still neutralises the layout hook
+  on both module objects, since the alias can be a distinct object in some installs (#284).
 - **A dropped keyword argument is now diagnosed by which mistake it was.** A name that is an
   option of no format still reports as `Unrecognized keyword arguments were ignored` — the
   typo case #273 was about. A name that is a real all2md option the conversion's formats
@@ -21,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **"Your PyMuPDF is too old" now says so instead of raising `TypeError`** (PDF). The version
+  guard built its message by joining PyMuPDF's version tuple, which holds ints, so the one
+  branch that exists to tell a user to upgrade crashed from inside itself and reported
+  nothing useful. It also reconciles the minimum version, which had drifted to three
+  different values: the runtime guard demanded 1.27.2 while the converter's declared
+  dependency — the number `list-formats` prints and dependency errors quote — still said
+  1.26.4. Both now read one constant.
 - **Two columns that start level are read left-to-right, not by a hairline** (PDF). Blocks
   were ordered on `y` alone, so on a page whose gutter is too narrow for column detection
   to split, whichever column's top edge happened to be a fraction of a point higher was

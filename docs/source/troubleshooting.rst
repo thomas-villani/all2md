@@ -52,7 +52,7 @@ Missing Dependencies
 ~~~~~~~~~~~~~~~~~~~~
 
 **Error Messages:**
-   * ``ImportError: No module named 'fitz'``
+   * ``ImportError: No module named 'pymupdf'``
    * ``ModuleNotFoundError: No module named 'docx'``
    * ``ImportError: PyMuPDF is required for PDF processing``
 

@@ -59,7 +59,7 @@ class ConverterMetadata:
         The install_name is the package name for pip install, import_name is
         the name used in Python import statements, and version_spec is the
         version requirement (can be empty string for no requirement).
-        e.g., [("pymupdf", "fitz", ">=1.26.4"), ("Pillow", "PIL", ">=9.0.0")]
+        e.g., [("pymupdf", "pymupdf", ">=1.26.4"), ("Pillow", "PIL", ">=9.0.0")]
     renderer_required_packages : list[tuple[str, str, str]]
         Required packages for the renderer as (install_name, import_name, version_spec) tuples.
         Same format as parser_required_packages. Empty list if no renderer or no special
