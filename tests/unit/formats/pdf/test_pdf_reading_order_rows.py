@@ -9,7 +9,7 @@ Note those values are *not* equal, which is why the obvious ``(y, x)`` sort key
 does not fix it: the blocks have to be treated as level first.
 """
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import to_markdown
@@ -118,7 +118,7 @@ class TestEndToEnd:
         the columns wide enough for the gap here to be similarly narrow.
         """
         padding = "filler text to widen the column " * 4
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page()
         # Right column drawn first and started a hair higher, reproducing the
         # shape of the reported page.

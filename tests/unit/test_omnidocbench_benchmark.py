@@ -308,24 +308,24 @@ def test_strict_result_json_rejects_non_finite_scores(tmp_path: Path) -> None:
 
 def _write_vector_pdf(path: Path) -> None:
     """A born-digital page: real text and a ruled box."""
-    fitz = pytest.importorskip("fitz")
-    document = fitz.open()
+    pymupdf = pytest.importorskip("pymupdf")
+    document = pymupdf.open()
     page = document.new_page()
     page.insert_text((72, 100), "Quarterly results", fontsize=12)
-    page.draw_rect(fitz.Rect(72, 120, 300, 200))
+    page.draw_rect(pymupdf.Rect(72, 120, 300, 200))
     document.save(path)
     document.close()
 
 
 def _write_scanned_pdf(path: Path, tmp_path: Path) -> None:
     """A scanned page: one full-page raster, no text layer, no vector drawings."""
-    fitz = pytest.importorskip("fitz")
+    pymupdf = pytest.importorskip("pymupdf")
     source = tmp_path / "_source.pdf"
     _write_vector_pdf(source)
-    with fitz.open(source) as origin:
+    with pymupdf.open(source) as origin:
         pixmap = origin[0].get_pixmap(dpi=72)
         rect = origin[0].rect
-    document = fitz.open()
+    document = pymupdf.open()
     page = document.new_page(width=rect.width, height=rect.height)
     page.insert_image(page.rect, pixmap=pixmap)
     document.save(path)
@@ -334,15 +334,15 @@ def _write_scanned_pdf(path: Path, tmp_path: Path) -> None:
 
 def _write_illustrated_pdf(path: Path, tmp_path: Path) -> None:
     """A born-digital page carrying one figure: text, no vector drawings, one small image."""
-    fitz = pytest.importorskip("fitz")
+    pymupdf = pytest.importorskip("pymupdf")
     source = tmp_path / "_figure_source.pdf"
     _write_vector_pdf(source)
-    with fitz.open(source) as origin:
+    with pymupdf.open(source) as origin:
         pixmap = origin[0].get_pixmap(dpi=36)
-    document = fitz.open()
+    document = pymupdf.open()
     page = document.new_page()
     page.insert_text((72, 100), "Figure 1 shows the assay results.", fontsize=12)
-    page.insert_image(fitz.Rect(72, 120, 220, 240), pixmap=pixmap)
+    page.insert_image(pymupdf.Rect(72, 120, 220, 240), pixmap=pixmap)
     document.save(path)
     document.close()
 
@@ -385,13 +385,13 @@ def test_a_page_with_one_figure_is_not_reported_as_a_scan(tmp_path: Path) -> Non
 
 def test_input_traits_count_every_page_not_just_the_first(tmp_path: Path) -> None:
     """A title page is not a sample of the document behind it."""
-    fitz = pytest.importorskip("fitz")
+    pymupdf = pytest.importorskip("pymupdf")
     scanned = tmp_path / "scanned.pdf"
     _write_scanned_pdf(scanned, tmp_path)
     mixed = tmp_path / "mixed.pdf"
-    document = fitz.open()
+    document = pymupdf.open()
     document.new_page().insert_text((72, 100), "Title only", fontsize=18)
-    with fitz.open(scanned) as source:
+    with pymupdf.open(scanned) as source:
         document.insert_pdf(source)
         document.insert_pdf(source)
     document.save(mixed)

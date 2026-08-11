@@ -4,7 +4,7 @@ These tests focus on the core formatting detection algorithms without mocking,
 using real PDF fixtures to test font flag interpretation and emphasis mapping.
 """
 
-import fitz
+import pymupdf
 import pytest
 from fixtures.generators.pdf_test_fixtures import create_pdf_with_figures
 
@@ -279,13 +279,13 @@ class TestPdfTextAssembly:
         assert normalize_whitespace("normal text") == "normal text"
 
 
-def _make_pdf(spans: list[tuple[str, float, bool]]) -> fitz.Document:
+def _make_pdf(spans: list[tuple[str, float, bool]]) -> pymupdf.Document:
     """Build a single-page PDF where each (text, size, bold) spans onto its own line.
 
     Used by the regression tests below to construct documents with
     precisely-controlled font distributions.
     """
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page(width=612, height=792)
     y = 60.0
     for text, size, bold in spans:

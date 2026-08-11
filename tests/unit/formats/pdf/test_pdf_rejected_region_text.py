@@ -25,7 +25,7 @@ from all2md.parsers.pdf import PdfToAstConverter
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf]
 
-fitz = pytest.importorskip("fitz")
+pymupdf = pytest.importorskip("pymupdf")
 
 
 TOP = 100
@@ -33,7 +33,7 @@ TOP = 100
 
 def _pdf_bytes(*lines: str) -> bytes:
     """A one-page PDF holding ``lines``, one under the other."""
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     for offset, line in enumerate(lines):
         page.insert_text((72, TOP + offset * 14), line, fontsize=11)
@@ -42,8 +42,8 @@ def _pdf_bytes(*lines: str) -> bytes:
 
 def _page_with_lines(*lines: str):
     """The same page, re-opened from bytes, plus a rect covering every line on it."""
-    page = fitz.open(stream=_pdf_bytes(*lines), filetype="pdf")[0]
-    region = fitz.Rect(60, TOP - 14, 400, TOP + len(lines) * 14 + 4)
+    page = pymupdf.open(stream=_pdf_bytes(*lines), filetype="pdf")[0]
+    region = pymupdf.Rect(60, TOP - 14, 400, TOP + len(lines) * 14 + 4)
     return page, region
 
 
@@ -124,7 +124,7 @@ class TestTheRestOfTheFallbackIsUnchanged:
 
     def test_a_region_with_no_text_still_yields_nothing(self):
         page, region = _page_with_lines("text well below the region")
-        empty = fitz.Rect(0, 0, 20, 20)
+        empty = pymupdf.Rect(0, 0, 20, 20)
 
         converter = PdfToAstConverter(options=PdfOptions())
 

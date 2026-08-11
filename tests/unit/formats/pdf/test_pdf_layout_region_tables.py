@@ -78,9 +78,9 @@ def converter() -> PdfToAstConverter:
 
 
 def _rect(*values: float):
-    import fitz
+    import pymupdf
 
-    return fitz.Rect(*values)
+    return pymupdf.Rect(*values)
 
 
 # A booktabs table: real columns, whole words in every cell.

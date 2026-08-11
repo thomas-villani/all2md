@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import fitz
+    import pymupdf
 
     from all2md.options.pdf import PdfOptions
 
@@ -45,17 +45,17 @@ class OcrParagraph:
 
 
 def ocr_pixmap_layout(
-    pix: "fitz.Pixmap",
-    page: "fitz.Page",
+    pix: "pymupdf.Pixmap",
+    page: "pymupdf.Page",
     options: "PdfOptions",
 ) -> list[OcrParagraph] | None:
     """Run OCR and keep the engine's paragraph and line segmentation.
 
     Parameters
     ----------
-    pix : fitz.Pixmap
+    pix : pymupdf.Pixmap
         The page rendered to a pixmap at the configured OCR DPI.
-    page : fitz.Page
+    page : pymupdf.Page
         The source page, supplying the coordinate space results are mapped back into.
     options : PdfOptions
         PDF conversion options; ``options.ocr.engine`` selects the backend.
@@ -77,14 +77,14 @@ def ocr_pixmap_layout(
     return _run(pix, page, options)
 
 
-def ocr_pixmap(pix: "fitz.Pixmap", page: "fitz.Page", options: "PdfOptions") -> str:
+def ocr_pixmap(pix: "pymupdf.Pixmap", page: "pymupdf.Page", options: "PdfOptions") -> str:
     """Run OCR on a rendered page pixmap using the configured engine.
 
     Parameters
     ----------
-    pix : fitz.Pixmap
+    pix : pymupdf.Pixmap
         The page rendered to a pixmap at the configured OCR DPI.
-    page : fitz.Page
+    page : pymupdf.Page
         The source page (used for language auto-detection).
     options : PdfOptions
         PDF conversion options; ``options.ocr.engine`` selects the backend.

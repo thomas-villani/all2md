@@ -755,7 +755,7 @@ with the exact install command:
    from all2md.exceptions import DependencyError
 
    try:
-       import fitz  # PyMuPDF
+       import pymupdf  # PyMuPDF
    except ImportError as e:
        raise DependencyError(
            converter_name="pdf",

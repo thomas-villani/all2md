@@ -22,7 +22,7 @@ from all2md.utils.attachments import create_attachment_sequencer
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 if TYPE_CHECKING:
-    import fitz
+    import pymupdf
 
     from all2md.parsers._ocr import OcrParagraph
 
@@ -509,7 +509,7 @@ def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None
         that really is the table.
 
     """
-    import fitz
+    import pymupdf
 
     lines = block.get("lines")
     if not lines:
@@ -521,7 +521,7 @@ def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None
         if bbox is None:
             kept.append(line)
             continue
-        rect = fitz.Rect(bbox)
+        rect = pymupdf.Rect(bbox)
         area = abs(rect)
         # Judge a line by the same majority rule used for blocks, so a line straddling the
         # region boundary is assigned rather than duplicated or dropped by both sides.
@@ -545,7 +545,7 @@ def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None
     for line in kept:
         if line.get("bbox") is None:
             continue
-        rect = fitz.Rect(line["bbox"])
+        rect = pymupdf.Rect(line["bbox"])
         tightened = rect if tightened is None else (tightened | rect)
 
     remainder = dict(block)
@@ -617,18 +617,22 @@ def _check_pymupdf_version() -> None:
 
     Notes
     -----
-    This function assumes fitz is already imported. It should be called
+    This function assumes pymupdf is already imported. It should be called
     after dependency checking via the @requires_dependencies decorator.
 
     """
-    import fitz
+    import pymupdf
 
     min_version = tuple(map(int, PDF_MIN_PYMUPDF_VERSION.split(".")))
-    if fitz.pymupdf_version_tuple < min_version:
+    if pymupdf.pymupdf_version_tuple < min_version:
+        # str() per component: the tuple holds ints, and joining it directly
+        # raised TypeError from inside the error path, so the one user this
+        # branch exists for got a traceback instead of "upgrade pymupdf".
+        installed = ".".join(str(part) for part in pymupdf.pymupdf_version_tuple)
         raise DependencyError(
             converter_name="pdf",
             missing_packages=[],
-            version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
+            version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, installed)],
         )
 
 
@@ -652,11 +656,11 @@ def _silence_pymupdf_layout_advisory() -> None:
     ``pdf_layout`` extra and already reports its absence through its own
     dependency machinery, which writes to stderr.
     """
-    import fitz
+    import pymupdf
 
     # Guarded: the entry point is PyMuPDF's own, but it is not load-bearing, and
     # a version without it should convert rather than crash.
-    suppress = getattr(fitz, "no_recommend_layout", None)
+    suppress = getattr(pymupdf, "no_recommend_layout", None)
     if suppress is not None:
         suppress()
 
@@ -717,7 +721,7 @@ class PdfToAstConverter(BaseParser):
             AST document node
 
         """
-        import fitz
+        import pymupdf
 
         _check_pymupdf_version()
         _silence_pymupdf_layout_advisory()
@@ -739,25 +743,25 @@ class PdfToAstConverter(BaseParser):
 
         # Validate and convert input
         doc_input, input_type = validate_and_convert_input(
-            input_data, supported_types=["path-like", "file-like (BytesIO)", "fitz.Document objects"]
+            input_data, supported_types=["path-like", "file-like (BytesIO)", "pymupdf.Document objects"]
         )
 
         # Open document based on input type
         try:
             if input_type == "path":
-                doc = fitz.open(filename=str(doc_input))
+                doc = pymupdf.open(filename=str(doc_input))
             elif input_type in ("file", "bytes"):
                 # PyMuPDF expects bytes, not file-like objects
                 stream_bytes = normalize_stream_to_bytes(doc_input)
-                doc = fitz.open(stream=stream_bytes, filetype="pdf")
+                doc = pymupdf.open(stream=stream_bytes, filetype="pdf")
             elif input_type == "object":
-                if isinstance(doc_input, fitz.Document) or (
+                if isinstance(doc_input, pymupdf.Document) or (
                     hasattr(doc_input, "page_count") and hasattr(doc_input, "__getitem__")
                 ):
                     doc = doc_input
                 else:
                     raise ValidationError(
-                        f"Expected fitz.Document object, got {type(doc_input).__name__}",
+                        f"Expected pymupdf.Document object, got {type(doc_input).__name__}",
                         parameter_name="input_data",
                         parameter_value=doc_input,
                     )
@@ -859,16 +863,16 @@ class PdfToAstConverter(BaseParser):
         return block_text if block_text else None
 
     def _collect_page_blocks(
-        self, doc: "fitz.Document", sample_pages: list[int]
+        self, doc: "pymupdf.Document", sample_pages: list[int]
     ) -> dict[int, list[tuple[str, float, float]]]:
         """Collect text blocks with positions from sampled pages."""
-        import fitz
+        import pymupdf
 
         page_blocks: dict[int, list[tuple[str, float, float]]] = {}
 
         for page_num in sample_pages:
             page = doc[page_num]
-            blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
+            blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
             page_blocks[page_num] = []
 
             for block in blocks:
@@ -937,7 +941,7 @@ class PdfToAstConverter(BaseParser):
 
         return max_header_y, max_footer_y
 
-    def _auto_detect_header_footer_zones(self, doc: "fitz.Document", pages_to_use: range | list[int]) -> None:
+    def _auto_detect_header_footer_zones(self, doc: "pymupdf.Document", pages_to_use: range | list[int]) -> None:
         """Automatically detect and set header/footer zones by analyzing repeating text patterns.
 
         This method analyzes text blocks across multiple pages to identify repeating
@@ -947,7 +951,7 @@ class PdfToAstConverter(BaseParser):
 
         Parameters
         ----------
-        doc : fitz.Document
+        doc : pymupdf.Document
             PDF document to analyze
         pages_to_use : range or list[int]
             Pages to process (used to determine sample range)
@@ -977,7 +981,7 @@ class PdfToAstConverter(BaseParser):
             footer_height_value = int(page_height - max_footer_y + 5)
             self.options = self.options.create_updated(footer_height=footer_height_value, trim_headers_footers=True)
 
-    def extract_metadata(self, document: "fitz.Document") -> DocumentMetadata:
+    def extract_metadata(self, document: "pymupdf.Document") -> DocumentMetadata:
         """Extract metadata from PDF document.
 
         Extracts standard metadata fields from a PDF document including title,
@@ -987,7 +991,7 @@ class PdfToAstConverter(BaseParser):
 
         Parameters
         ----------
-        document : fitz.Document
+        document : pymupdf.Document
             PyMuPDF document object to extract metadata from
 
         Returns
@@ -1116,12 +1120,12 @@ class PdfToAstConverter(BaseParser):
             pass
         return date_str
 
-    def convert_to_ast(self, doc: "fitz.Document", pages_to_use: range | list[int], base_filename: str) -> Document:
+    def convert_to_ast(self, doc: "pymupdf.Document", pages_to_use: range | list[int], base_filename: str) -> Document:
         """Convert PDF document to AST Document.
 
         Parameters
         ----------
-        doc : fitz.Document
+        doc : pymupdf.Document
             PDF document to convert
         pages_to_use : range or list of int
             Pages to process
@@ -1243,7 +1247,7 @@ class PdfToAstConverter(BaseParser):
 
     def _render_pages(
         self,
-        doc: "fitz.Document",
+        doc: "pymupdf.Document",
         pages_list: list[int],
         base_filename: str,
         attachment_sequencer: Any,
@@ -1321,7 +1325,7 @@ class PdfToAstConverter(BaseParser):
 
     def _maybe_retry_with_ocr(
         self,
-        doc: "fitz.Document",
+        doc: "pymupdf.Document",
         pages_list: list[int],
         base_filename: str,
         total_pages: int,
@@ -1372,7 +1376,7 @@ class PdfToAstConverter(BaseParser):
         return children
 
     @staticmethod
-    def _ocr_page_to_text(page: "fitz.Page", options: PdfOptions) -> str:
+    def _ocr_page_to_text(page: "pymupdf.Page", options: PdfOptions) -> str:
         """Extract text from a PDF page using OCR (Optical Character Recognition).
 
         Renders the page to an image at the configured DPI and hands it to the
@@ -1382,7 +1386,7 @@ class PdfToAstConverter(BaseParser):
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page to extract text from
         options : PdfOptions
             PDF conversion options containing OCR settings
@@ -1400,7 +1404,7 @@ class PdfToAstConverter(BaseParser):
             If the Tesseract binary is missing, or EasyOCR cannot initialize
 
         """
-        import fitz
+        import pymupdf
 
         from all2md.parsers._ocr import ocr_pixmap
 
@@ -1411,7 +1415,7 @@ class PdfToAstConverter(BaseParser):
         # Initialize pixmap reference for proper cleanup in finally block
         pix = None
         try:
-            mat = fitz.Matrix(zoom, zoom)
+            mat = pymupdf.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
             return ocr_pixmap(pix, page, options)
         finally:
@@ -1421,12 +1425,12 @@ class PdfToAstConverter(BaseParser):
                 pix = None
 
     @staticmethod
-    def _ocr_page_to_layout(page: "fitz.Page", options: PdfOptions) -> "list[OcrParagraph] | None":
+    def _ocr_page_to_layout(page: "pymupdf.Page", options: PdfOptions) -> "list[OcrParagraph] | None":
         """OCR a page and keep the engine's paragraph segmentation.
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page to extract text from
         options : PdfOptions
             PDF conversion options containing OCR settings
@@ -1437,14 +1441,14 @@ class PdfToAstConverter(BaseParser):
             Paragraphs in PDF coordinates, or ``None`` if the engine reports no layout.
 
         """
-        import fitz
+        import pymupdf
 
         from all2md.parsers._ocr import ocr_pixmap_layout
 
         zoom = options.ocr.dpi / 72.0
         pix = None
         try:
-            mat = fitz.Matrix(zoom, zoom)
+            mat = pymupdf.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
             return ocr_pixmap_layout(pix, page, options)
         except Exception as exc:  # noqa: BLE001 - layout is an enhancement, never a reason to lose the page
@@ -1488,13 +1492,13 @@ class PdfToAstConverter(BaseParser):
         return blocks
 
     def _detect_page_tables(
-        self, page: "fitz.Page", page_num: int, total_pages: int
+        self, page: "pymupdf.Page", page_num: int, total_pages: int
     ) -> tuple[list[dict], list[Any], list[Any]]:
         """Detect tables on a PDF page.
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page to analyze
         page_num : int
             Page number (0-based)
@@ -1507,7 +1511,7 @@ class PdfToAstConverter(BaseParser):
             (table_info, fallback_table_rects, fallback_table_lines)
 
         """
-        import fitz
+        import pymupdf
 
         mode = self.options.table_detection_mode.lower()
 
@@ -1550,7 +1554,7 @@ class PdfToAstConverter(BaseParser):
         table_info = []
         for i, t in enumerate(tabs.tables):
             try:
-                bbox = fitz.Rect(t.bbox) | fitz.Rect(t.header.bbox)
+                bbox = pymupdf.Rect(t.bbox) | pymupdf.Rect(t.header.bbox)
             except ValueError:
                 # PyMuPDF may detect a table structure with no cells,
                 # causing t.bbox to fail with "min() iterable argument is empty".
@@ -1576,13 +1580,13 @@ class PdfToAstConverter(BaseParser):
         return table_info, fallback_table_rects, fallback_table_lines
 
     def _apply_ocr_if_needed(
-        self, page: "fitz.Page", all_blocks: list[dict], extracted_text: str
+        self, page: "pymupdf.Page", all_blocks: list[dict], extracted_text: str
     ) -> tuple[list[dict], bool]:
         """Apply OCR to page if needed based on options and content.
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page
         all_blocks : list of dict
             Extracted text blocks
@@ -1841,14 +1845,14 @@ class PdfToAstConverter(BaseParser):
         bbox = data.get("bbox")
         return float(bbox[0]) if bbox else 0.0
 
-    def _process_table_item(self, item_data: dict, page: "fitz.Page", page_num: int) -> Node | None:
+    def _process_table_item(self, item_data: dict, page: "pymupdf.Page", page_num: int) -> Node | None:
         """Process a single table item and return its AST node.
 
         Parameters
         ----------
         item_data : dict
             Table information dictionary
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page
         page_num : int
             Page number
@@ -1869,12 +1873,12 @@ class PdfToAstConverter(BaseParser):
             return self._extract_table_from_layout_region(page, item_data["bbox"], page_num)
         return None
 
-    def _get_page_links(self, page: "fitz.Page") -> list:
+    def _get_page_links(self, page: "pymupdf.Page") -> list:
         """Extract URI links from a page.
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page
 
         Returns
@@ -1892,7 +1896,7 @@ class PdfToAstConverter(BaseParser):
         self,
         columns: list[list[dict]],
         table_info: list[dict],
-        page: "fitz.Page",
+        page: "pymupdf.Page",
         page_num: int,
         page_images: list[Any],
     ) -> list[Node]:
@@ -1904,7 +1908,7 @@ class PdfToAstConverter(BaseParser):
             Text block columns
         table_info : list of dict
             Table information
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page
         page_num : int
             Page number
@@ -1951,7 +1955,7 @@ class PdfToAstConverter(BaseParser):
 
     def _process_page_to_ast(
         self,
-        page: "fitz.Page",
+        page: "pymupdf.Page",
         page_num: int,
         base_filename: str,
         attachment_sequencer: Callable[[str, str], tuple[str, int]],
@@ -1961,7 +1965,7 @@ class PdfToAstConverter(BaseParser):
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page to process
         page_num : int
             Page number (0-based)
@@ -1978,14 +1982,14 @@ class PdfToAstConverter(BaseParser):
             List of AST nodes representing the page
 
         """
-        import fitz
+        import pymupdf
 
         # Detect tables on the page
         table_info, _, _ = self._detect_page_tables(page, page_num, total_pages)
 
         # Extract all text blocks from the page
         try:
-            all_blocks = page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT, sort=False)["blocks"]
+            all_blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT, sort=False)["blocks"]
             if self.options.merge_hyphenated_words:
                 dehyphenate_blocks(all_blocks)
         except (AttributeError, KeyError, Exception):
@@ -2046,7 +2050,7 @@ class PdfToAstConverter(BaseParser):
         # Supplement table detection with layout-predicted tables
         if layout:
             for pred in layout.get_predictions_by_label("table"):
-                pred_rect = fitz.Rect(pred.x0, pred.y0, pred.x1, pred.y1)
+                pred_rect = pymupdf.Rect(pred.x0, pred.y0, pred.x1, pred.y1)
                 # Check both directions: layout region covered by existing table,
                 # OR existing table covered by layout region
                 already_covered = any(
@@ -2070,7 +2074,7 @@ class PdfToAstConverter(BaseParser):
                 text_blocks.append(block)
                 continue
 
-            block_rect = fitz.Rect(block["bbox"])
+            block_rect = pymupdf.Rect(block["bbox"])
             is_in_table = any(abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect) for table in table_info)
             if not is_in_table:
                 text_blocks.append(block)
@@ -2281,14 +2285,14 @@ class PdfToAstConverter(BaseParser):
 
         return state.nodes
 
-    def _process_text_region_to_ast(self, page: "fitz.Page", clip: "fitz.Rect", page_num: int) -> list[Node]:
+    def _process_text_region_to_ast(self, page: "pymupdf.Page", clip: "pymupdf.Rect", page_num: int) -> list[Node]:
         """Process a text region to AST nodes.
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page
-        clip : fitz.Rect
+        clip : pymupdf.Rect
             Clipping rectangle for text extraction
         page_num : int
             Page number for source tracking
@@ -2299,7 +2303,7 @@ class PdfToAstConverter(BaseParser):
             List of AST nodes (paragraphs, headings, code blocks)
 
         """
-        import fitz
+        import pymupdf
 
         # Extract URL type links on page
         try:
@@ -2312,7 +2316,7 @@ class PdfToAstConverter(BaseParser):
             blocks = page.get_text(
                 "dict",
                 clip=clip,
-                flags=fitz.TEXTFLAGS_TEXT,
+                flags=pymupdf.TEXTFLAGS_TEXT,
                 sort=False,
             )["blocks"]
             if self.options.merge_hyphenated_words:
@@ -3044,9 +3048,9 @@ class PdfToAstConverter(BaseParser):
         if not links or not span.get("text"):
             return None
 
-        import fitz
+        import pymupdf
 
-        bbox = fitz.Rect(span["bbox"])
+        bbox = pymupdf.Rect(span["bbox"])
 
         # Calculate span height
         span_height = bbox.height
@@ -3098,7 +3102,7 @@ class PdfToAstConverter(BaseParser):
             return ""
         return str(cell_text).strip()
 
-    def _process_table_to_ast(self, table: Any, page: "fitz.Page", page_num: int) -> Node | None:
+    def _process_table_to_ast(self, table: Any, page: "pymupdf.Page", page_num: int) -> Node | None:
         """Process a PyMuPDF table to AST Table node.
 
         Directly accesses table cell data from PyMuPDF table object instead of
@@ -3108,7 +3112,7 @@ class PdfToAstConverter(BaseParser):
         ----------
         table : PyMuPDF Table
             Table object from find_tables()
-        page : fitz.Page
+        page : pymupdf.Page
             Page containing the table. Used to recover the region's text when the
             detection is rejected as a degenerate grid.
         page_num : int
@@ -3122,7 +3126,7 @@ class PdfToAstConverter(BaseParser):
             the region has no usable content.
 
         """
-        import fitz
+        import pymupdf
 
         try:
             # Try to extract cells directly from PyMuPDF table object
@@ -3158,13 +3162,13 @@ class PdfToAstConverter(BaseParser):
                     f"{MIN_TABLE_ROWS}x{MIN_TABLE_COLS})"
                 )
                 self._record_table_rejection("degenerate_grid")
-                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
             if n_cols > MAX_TABLE_COLS or n_rows > MAX_TABLE_ROWS:
                 logger.debug(
                     f"Rejecting pymupdf table on page {page_num + 1}: {n_rows}x{n_cols} grid exceeds size caps"
                 )
                 self._record_table_rejection("oversized_grid")
-                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
             n_empty = sum(1 for r in table_data for c in r if c is None or not str(c).strip())
             if n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
                 logger.debug(
@@ -3172,7 +3176,7 @@ class PdfToAstConverter(BaseParser):
                     f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
                 )
                 self._record_table_rejection("mostly_empty")
-                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
             unique_texts = {str(c).strip() for r in table_data for c in r if c is not None and str(c).strip()}
             n_filled = n_cells - n_empty
             if len(unique_texts) == 1 and n_filled >= MIN_FILLED_FOR_UNIFORMITY_CHECK:
@@ -3181,7 +3185,7 @@ class PdfToAstConverter(BaseParser):
                     f"all {n_filled} non-empty cells have identical content"
                 )
                 self._record_table_rejection("uniform_cells")
-                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
             n_dot_leader = sum(1 for r in table_data for c in r if c is not None and is_dot_leader_cell(str(c)))
             if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
                 logger.debug(
@@ -3190,7 +3194,7 @@ class PdfToAstConverter(BaseParser):
                     f"dot-leader noise (looks like TOC region)"
                 )
                 self._record_table_rejection("dot_leader_toc")
-                return self._region_text_as_paragraph(page, fitz.Rect(table.bbox), page_num)
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
 
             # Separate header row (first row) from data rows
             header_row_data = table_data[0] if table_data else []
@@ -3271,7 +3275,12 @@ class PdfToAstConverter(BaseParser):
             return None
 
     def _extract_table_from_ruling_rect(
-        self, page: "fitz.Page", table_rect: "fitz.Rect", h_lines: list[tuple], v_lines: list[tuple], page_num: int
+        self,
+        page: "pymupdf.Page",
+        table_rect: "pymupdf.Rect",
+        h_lines: list[tuple],
+        v_lines: list[tuple],
+        page_num: int,
     ) -> AstTable | None:
         """Extract table content from a bounding box using ruling lines.
 
@@ -3280,9 +3289,9 @@ class PdfToAstConverter(BaseParser):
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page containing the table
-        table_rect : fitz.Rect
+        table_rect : pymupdf.Rect
             Bounding box of the table
         h_lines : list of tuple
             Horizontal ruling lines as (x0, y0, x1, y1) tuples
@@ -3326,7 +3335,7 @@ class PdfToAstConverter(BaseParser):
         n_cols = len(col_x_coords)
         n_cells = n_rows * n_cols
 
-        import fitz
+        import pymupdf
 
         n_empty = 0
         n_dot_leader = 0
@@ -3336,7 +3345,7 @@ class PdfToAstConverter(BaseParser):
             cells: list[TableCell] = []
 
             for _col_idx, (x0, x1) in enumerate(col_x_coords):
-                cell_rect = fitz.Rect(x0, y0, x1, y1)
+                cell_rect = pymupdf.Rect(x0, y0, x1, y1)
                 cell_text = page.get_textbox(cell_rect).strip()
 
                 if cell_text:
@@ -3395,7 +3404,7 @@ class PdfToAstConverter(BaseParser):
         )
 
     def _extract_table_from_layout_region(
-        self, page: "fitz.Page", table_rect: "fitz.Rect", page_num: int
+        self, page: "pymupdf.Page", table_rect: "pymupdf.Rect", page_num: int
     ) -> Node | None:
         """Extract the content of a region the layout model predicted to be a table.
 
@@ -3419,9 +3428,9 @@ class PdfToAstConverter(BaseParser):
 
         Parameters
         ----------
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page containing the region.
-        table_rect : fitz.Rect
+        table_rect : pymupdf.Rect
             Bounding box predicted by the layout model.
         page_num : int
             Page number for source tracking.
@@ -3481,7 +3490,9 @@ class PdfToAstConverter(BaseParser):
             self._record_table_rejection("layout_region_not_tabular")
         return paragraph
 
-    def _region_text_as_paragraph(self, page: "fitz.Page", region: "fitz.Rect", page_num: int) -> AstParagraph | None:
+    def _region_text_as_paragraph(
+        self, page: "pymupdf.Page", region: "pymupdf.Rect", page_num: int
+    ) -> AstParagraph | None:
         """Return a region's text as a paragraph, for regions rejected as tables.
 
         Text inside a detected table's bbox is removed from the ordinary text blocks so
@@ -3556,12 +3567,12 @@ class PdfToAstConverter(BaseParser):
         """
         if layout is None or not self.options.filter_header_footer_images:
             return []
-        import fitz
+        import pymupdf
 
         regions: list[Any] = []
         for label in ("page-header", "page-footer"):
             for pred in layout.get_predictions_by_label(label):
-                regions.append(fitz.Rect(pred.x0, pred.y0, pred.x1, pred.y1))
+                regions.append(pymupdf.Rect(pred.x0, pred.y0, pred.x1, pred.y1))
         return regions
 
     def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
@@ -3601,14 +3612,14 @@ class PdfToAstConverter(BaseParser):
             logger.debug(f"Failed to create image node: {e}")
             return None
 
-    def _filter_headers_footers(self, blocks: list[dict], page: "fitz.Page") -> list[dict]:
+    def _filter_headers_footers(self, blocks: list[dict], page: "pymupdf.Page") -> list[dict]:
         """Filter out text blocks in header/footer zones.
 
         Parameters
         ----------
         blocks : list of dict
             Text blocks from PyMuPDF
-        page : fitz.Page
+        page : pymupdf.Page
             PDF page
 
         Returns
@@ -4341,7 +4352,7 @@ CONVERTER_METADATA = ConverterMetadata(
     parser_class=PdfToAstConverter,
     renderer_class="all2md.renderers.pdf.PdfRenderer",
     renders_as_string=False,
-    parser_required_packages=[("pymupdf", "fitz", ">=1.26.4")],
+    parser_required_packages=DEPS_PDF,
     renderer_required_packages=[("reportlab", "reportlab", ">=4.0.0")],
     optional_packages=[
         ("pytesseract", "pytesseract"),

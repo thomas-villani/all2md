@@ -16,7 +16,7 @@ exotic one.
 
 import importlib.util
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import to_markdown
@@ -32,13 +32,13 @@ def _one_page_pdf(tmp_path) -> str:
     so a prose-only page never reaches the call that emits the advisory. Drawing
     a grid is what arms it.
     """
-    doc = fitz.open()
+    doc = pymupdf.open()
     page = doc.new_page()
     page.insert_text((72, 72), "Peregrine falcons nest nearby.")
     for offset in (0, 20, 40):
-        page.draw_line(fitz.Point(72, 120 + offset), fitz.Point(300, 120 + offset))
+        page.draw_line(pymupdf.Point(72, 120 + offset), pymupdf.Point(300, 120 + offset))
     for offset in (0, 114, 228):
-        page.draw_line(fitz.Point(72 + offset, 120), fitz.Point(72 + offset, 160))
+        page.draw_line(pymupdf.Point(72 + offset, 120), pymupdf.Point(72 + offset, 160))
     path = tmp_path / "advisory.pdf"
     doc.save(str(path))
     doc.close()
@@ -97,5 +97,5 @@ class TestSuppressionIsNotLoadBearing:
     """A PyMuPDF without the entry point must convert, not crash."""
 
     def test_missing_entry_point_is_tolerated(self, tmp_path, monkeypatch):
-        monkeypatch.delattr(fitz, "no_recommend_layout", raising=False)
+        monkeypatch.delattr(pymupdf, "no_recommend_layout", raising=False)
         assert "Peregrine" in to_markdown(_one_page_pdf(tmp_path))

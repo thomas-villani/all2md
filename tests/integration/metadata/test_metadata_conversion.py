@@ -13,7 +13,7 @@ from all2md.options import MarkdownRendererOptions
 # Check for optional dependencies
 ODFPY_AVAILABLE = importlib.util.find_spec("odf") is not None
 PYTH_AVAILABLE = importlib.util.find_spec("pyth") is not None
-PYMUPDF_AVAILABLE = importlib.util.find_spec("fitz") is not None
+PYMUPDF_AVAILABLE = importlib.util.find_spec("pymupdf") is not None
 DOCX_AVAILABLE = importlib.util.find_spec("docx") is not None
 OPENPYXL_AVAILABLE = importlib.util.find_spec("openpyxl") is not None
 
@@ -323,13 +323,13 @@ Content-Type: text/html; charset=utf-8
     @pytest.mark.skipif(not PYMUPDF_AVAILABLE, reason="PyMuPDF not installed")
     def test_pdf_metadata_extraction_integration(self):
         """Test PDF metadata extraction."""
-        import fitz
+        import pymupdf
 
         from all2md import PdfOptions
 
         # Create a PDF with metadata using PyMuPDF
         pdf_file = self.temp_dir / "test.pdf"
-        doc = fitz.open()
+        doc = pymupdf.open()
         page = doc.new_page(width=595, height=842)
 
         # Add content

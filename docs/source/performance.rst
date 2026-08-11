@@ -190,8 +190,8 @@ For very large files, use chunked processing:
    def process_large_pdf_in_chunks(pdf_path: str, chunk_size: int = 10) -> str:
        """Process large PDF in chunks to manage memory."""
        # First, determine total pages (quick metadata read via PyMuPDF)
-       import fitz  # PyMuPDF, already required for PDF support
-       with fitz.open(pdf_path) as pdf:
+       import pymupdf  # PyMuPDF, already required for PDF support
+       with pymupdf.open(pdf_path) as pdf:
            total_pages = pdf.page_count
 
        all_markdown = []

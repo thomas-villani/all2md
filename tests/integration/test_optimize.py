@@ -15,7 +15,7 @@ Measured here it was anti-correlated with the truth (Pearson r = -0.88): it reli
 recommended the worst settings available.
 """
 
-import fitz
+import pymupdf
 import pytest
 
 from all2md import optimizable_formats, optimize_options, to_markdown
@@ -59,7 +59,7 @@ def gnarly_pdf(tmp_path_factory) -> str:
     We place every element, so the correct parse is known: the header and footer are
     furniture and should be trimmed; both columns and every table cell must survive.
     """
-    doc = fitz.open()
+    doc = pymupdf.open()
     for page_no in range(2):
         left_tag = "Alpha" if page_no == 0 else "Gamma"
         right_tag = "Beta" if page_no == 0 else "Delta"
@@ -72,8 +72,8 @@ def gnarly_pdf(tmp_path_factory) -> str:
 
         col_left = " ".join(f"{left_tag} sentence A{i}: {t}." for i, t in enumerate(BODIES[left_tag], 1))
         col_right = " ".join(f"{right_tag} sentence B{i}: {t}." for i, t in enumerate(BODIES[right_tag], 1))
-        page.insert_textbox(fitz.Rect(72, 100, 280, 290), col_left, fontsize=9)
-        page.insert_textbox(fitz.Rect(320, 100, 540, 290), col_right, fontsize=9)
+        page.insert_textbox(pymupdf.Rect(72, 100, 280, 290), col_left, fontsize=9)
+        page.insert_textbox(pymupdf.Rect(320, 100, 540, 290), col_right, fontsize=9)
 
         # A ruled 4x3 table with known cell text.
         top, left, row_h, col_w = 320, 72, 20, 150

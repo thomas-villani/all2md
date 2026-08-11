@@ -20,7 +20,7 @@ from all2md.options.pdf import PdfOptions
 from all2md.utils.decorators import requires_dependencies
 
 if TYPE_CHECKING:
-    import fitz
+    import pymupdf
 
 __all__ = [
     "should_use_ocr",
@@ -162,7 +162,7 @@ def dehyphenate_blocks(blocks: list[dict[str, Any]]) -> None:
             index += 1
 
 
-def calculate_image_coverage(page: "fitz.Page") -> float:
+def calculate_image_coverage(page: "pymupdf.Page") -> float:
     """Calculate the ratio of image area to total page area.
 
     This function analyzes a PDF page to determine what fraction of the page
@@ -170,7 +170,7 @@ def calculate_image_coverage(page: "fitz.Page") -> float:
 
     Parameters
     ----------
-    page : fitz.Page
+    page : pymupdf.Page
         PDF page to analyze
 
     Returns
@@ -215,7 +215,7 @@ def calculate_image_coverage(page: "fitz.Page") -> float:
     return coverage_ratio
 
 
-def largest_image_coverage(page: "fitz.Page") -> float:
+def largest_image_coverage(page: "pymupdf.Page") -> float:
     """Calculate the share of the page covered by its single largest image.
 
     This is the scan test. A scanned page is one raster the size of the page, so the
@@ -226,7 +226,7 @@ def largest_image_coverage(page: "fitz.Page") -> float:
 
     Parameters
     ----------
-    page : fitz.Page
+    page : pymupdf.Page
         PDF page to analyze
 
     Returns
@@ -253,7 +253,7 @@ def largest_image_coverage(page: "fitz.Page") -> float:
     return min(1.0, largest)
 
 
-def should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) -> bool:
+def should_use_ocr(page: "pymupdf.Page", extracted_text: str, options: PdfOptions) -> bool:
     """Determine whether OCR should be applied to a PDF page.
 
     Analyzes the page content based on the OCR mode and detection thresholds
@@ -261,7 +261,7 @@ def should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) 
 
     Parameters
     ----------
-    page : fitz.Page
+    page : pymupdf.Page
         PDF page to analyze
     extracted_text : str
         Text extracted by PyMuPDF from the page
@@ -413,7 +413,7 @@ def get_tesseract_lang(detected_lang_code: str) -> str:
 
 
 @requires_dependencies("pdf", DEPS_PDF_LANGDETECT)
-def detect_page_language(page: "fitz.Page", options: PdfOptions) -> str:
+def detect_page_language(page: "pymupdf.Page", options: PdfOptions) -> str:
     """Attempt to auto-detect the language of a PDF page for OCR.
 
     This is an experimental feature that tries to determine the language
@@ -421,7 +421,7 @@ def detect_page_language(page: "fitz.Page", options: PdfOptions) -> str:
 
     Parameters
     ----------
-    page : fitz.Page
+    page : pymupdf.Page
         PDF page to analyze
     options : PdfOptions
         PDF conversion options containing OCR settings

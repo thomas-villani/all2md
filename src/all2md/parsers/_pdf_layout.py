@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any, Iterator
 from all2md.constants import DEFAULT_LAYOUT_FEATURE_SET
 
 if TYPE_CHECKING:
-    import fitz
+    import pymupdf
 
 __all__ = [
     "LayoutPrediction",
@@ -203,12 +203,12 @@ def get_layout_model(feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> Any:
     return _layout_models[feature_set]
 
 
-def predict_page_layout(page: "fitz.Page", feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> list[LayoutPrediction]:
+def predict_page_layout(page: "pymupdf.Page", feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> list[LayoutPrediction]:
     """Run layout prediction on a single page.
 
     Parameters
     ----------
-    page : fitz.Page
+    page : pymupdf.Page
         PDF page to analyze.
     feature_set : str
         Which classifier to run -- see `LayoutFeatureSet`.
@@ -358,19 +358,19 @@ def annotate_lines_with_layout(
         Number of lines stamped, for logging.
 
     """
-    import fitz
+    import pymupdf
 
     if not predictions:
         return 0
 
-    rects = [(pred, fitz.Rect(pred.bbox)) for pred in predictions]
+    rects = [(pred, pymupdf.Rect(pred.bbox)) for pred in predictions]
     stamped = 0
     for block in blocks:
         for line in block.get("lines", ()):
             bbox = line.get("bbox")
             if bbox is None:
                 continue
-            rect = fitz.Rect(bbox)
+            rect = pymupdf.Rect(bbox)
             area = abs(rect)
             if area <= 0:
                 continue
