@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Table captions survive a Markdown round trip.** Markdown has no caption syntax, so the
+  renderer demoted `Table.caption` to an italic paragraph — which a reader could see, but
+  which came back as ordinary prose, so the trip lost the caption *and* gained a `Paragraph`
+  node that was not in the input. The caption is now written as that same italic paragraph
+  followed by an `<!-- all2md:table-caption -->` marker, which the Markdown parser folds back
+  into `Table.caption` along with the paragraph. Readers still see the caption, the AST comes
+  back with the node count it started with, and since the marker carries no copy of the text,
+  editing the visible line edits the caption. The fold is deliberately narrow: a bare marker,
+  a marker with no table after it, or an italic paragraph with no marker are all left alone.
+  `comment_mode="ignore"` suppresses the marker, and the caption then degrades to the italic
+  paragraph as before. This was the last of the four formats in #237 — asciidoc, rst and org
+  already round-tripped their captions (#237).
+- **`json_to_ast` no longer crashes on explicit JSON nulls.** A producer outside this library
+  routinely writes `null` for a field it has nothing to say about, and `"children": [null]`,
+  `"content": null` or a null `metadata` object reached the node constructors unchanged. The
+  failure then surfaced much later, inside a renderer, as a `TypeError` naming nothing that
+  would help. Null list and object fields now read as empty, null child entries are skipped,
+  and a field that is structurally required — a `Heading` level, a `List` ordered flag —
+  raises a `ValueError` naming the node and the field instead of defaulting to something
+  plausible. Thanks to @santhreal (#265).
+
+### Added
+
+- **Every registered format's options class is now importable from both `all2md` and
+  `all2md.options`.** Twenty were missing from `all2md.options` and thirty-one from the top
+  level, including whole formats — `ArchiveOptions`, `EnexOptions`, `MboxOptions`,
+  `OutlookOptions`, `WebArchiveOptions`, and the JSON, YAML, TOML, INI, Textile, OpenAPI and
+  BBCode option classes — so configuring those converters from the Python API meant importing
+  from a private submodule path. The split did not track anything: `ArxivPackagerOptions` was
+  reachable from `all2md` but not from `all2md.options`, which is backwards from every
+  sibling. The two surfaces are now derived from the converter registry and a test fails if
+  either drifts from it again, so adding a format cannot quietly skip the export (#184).
+
 ### Changed
 
 - **Raw HTML in Markdown is passed through instead of escaped.** The Markdown renderer's
@@ -25,20 +60,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `html_passthrough_mode="escape"` (or `--markdown-html-passthrough-mode escape`). Only the
   Markdown renderer changes; the HTML, AsciiDoc and Textile renderers still default to
   `escape` (#178).
-
-### Added
-
-- **Every registered format's options class is now importable from both `all2md` and
-  `all2md.options`.** Twenty were missing from `all2md.options` and thirty-one from the top
-  level, including whole formats — `ArchiveOptions`, `EnexOptions`, `MboxOptions`,
-  `OutlookOptions`, `WebArchiveOptions`, and the JSON, YAML, TOML, INI, Textile, OpenAPI and
-  BBCode option classes — so configuring those converters from the Python API meant importing
-  from a private submodule path. The split did not track anything: `ArxivPackagerOptions` was
-  reachable from `all2md` but not from `all2md.options`, which is backwards from every
-  sibling. The two surfaces are now derived from the converter registry and a test fails if
-  either drifts from it again, so adding a format cannot quietly skip the export (#184).
-
-### Changed
 
 - **PyMuPDF is imported under its own name, not the deprecated `fitz` alias.** Some PyMuPDF
   releases emit a `DeprecationWarning` on `import fitz`, which reached anyone running the

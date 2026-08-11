@@ -394,6 +394,14 @@ HTML_PASSTHROUGH_MODES = ["pass-through", "escape", "drop", "sanitize"]
 # outright, so they never reach a renderer to be escaped. See #178.
 DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "pass-through"
 
+# Markdown has no table-caption syntax, so the renderer writes the caption as an
+# italic paragraph (which readers see) followed by this marker comment (which the
+# parser sees). Neither alone is enough: the paragraph is indistinguishable from
+# ordinary prose on the way back in, and a comment carrying the text would hide
+# the caption from anyone reading the file. The marker deliberately carries no
+# caption text, so editing the visible line edits the caption. See #237.
+MARKDOWN_TABLE_CAPTION_MARKER = "all2md:table-caption"
+
 # Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
 DEFAULT_BOILERPLATE_PATTERNS = [
     r"^CONFIDENTIAL$",

@@ -477,6 +477,8 @@
   
   *Sample Data*
   
+  <!-- all2md:table-caption -->
+  
   | Column A | Column B |
   |---|---|
   | Alpha | 1 |
