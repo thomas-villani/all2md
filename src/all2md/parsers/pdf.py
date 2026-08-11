@@ -630,6 +630,35 @@ def _check_pymupdf_version() -> None:
         )
 
 
+def _silence_pymupdf_layout_advisory() -> None:
+    """Stop PyMuPDF writing its layout-package advisory to stdout.
+
+    PyMuPDF emits::
+
+        Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+
+    with a bare ``print()`` -- not a warning, not a log record -- the first time
+    ``find_tables()`` runs in a process where ``pymupdf.layout`` is not
+    installed. all2md writes converted documents to stdout, so the advisory
+    landed *inside the document*: ``all2md report.pdf > report.md`` made it line
+    one of the markdown. It is not a rare configuration either, since
+    ``pymupdf-layout`` is deliberately excluded from the ``all`` extra over its
+    Polyform Noncommercial license, so the plain and ``[all]`` installs both hit
+    it.
+
+    Suppressing it costs the user nothing: all2md ships that package as the
+    ``pdf_layout`` extra and already reports its absence through its own
+    dependency machinery, which writes to stderr.
+    """
+    import fitz
+
+    # Guarded: the entry point is PyMuPDF's own, but it is not load-bearing, and
+    # a version without it should convert rather than crash.
+    suppress = getattr(fitz, "no_recommend_layout", None)
+    if suppress is not None:
+        suppress()
+
+
 # Note: Column detection, table detection, image extraction, header identification,
 # OCR utilities, and text processing functions have been moved to private submodules:
 # - _pdf_columns.py: detect_columns and helpers
@@ -689,6 +718,7 @@ class PdfToAstConverter(BaseParser):
         import fitz
 
         _check_pymupdf_version()
+        _silence_pymupdf_layout_advisory()
 
         # Determine if layout analysis should be used
         if self.options.layout_analysis_mode == "enabled":
