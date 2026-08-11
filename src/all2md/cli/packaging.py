@@ -83,15 +83,6 @@ def create_package_from_conversions(
     extension = registry.get_default_extension_for_format(target_format)
 
     base_options = options.copy() if options else {}
-    # Prepare options with base64 embedding for attachments
-    conversion_options = options.copy() if options else {}
-    # Force base64 embedding to keep everything in memory. Formats without attachment
-    # handling (markdown, txt) have no such option and drop it; mark it as ours so the
-    # drop does not warn the user about a parameter we added, not them (#275).
-    injected: tuple[str, ...] = ()
-    if "attachment_mode" not in conversion_options:
-        conversion_options["attachment_mode"] = "base64"
-        injected = ("attachment_mode",)
 
     total_size = 0
     file_count = 0
@@ -106,9 +97,16 @@ def create_package_from_conversions(
                 # Each item may be a different format, so the namespaced options are
                 # projected per item rather than once for the batch.
                 conversion_options = dict(option_resolver(item)) if option_resolver else dict(base_options)
-                # Force base64 embedding to keep everything in memory.
+                # Force base64 embedding to keep everything in memory. Formats without
+                # attachment handling (markdown, txt) have no such option and drop it;
+                # mark it as ours so the drop does not warn the user about a parameter we
+                # added, not them (#275). This has to be decided per item, since whether
+                # the caller's own attachment_mode survives projection depends on the
+                # item's format.
+                injected: tuple[str, ...] = ()
                 if "attachment_mode" not in conversion_options:
                     conversion_options["attachment_mode"] = "base64"
+                    injected = ("attachment_mode",)
 
                 # Convert to BytesIO buffer (always binary)
                 buffer = BytesIO()
