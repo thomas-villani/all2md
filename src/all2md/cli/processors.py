@@ -1515,6 +1515,9 @@ def _create_output_package(
     try:
         # Determine target format
         target_format = getattr(parsed_args, "output_format", "markdown")
+        # For projecting renderer options, "auto" resolves the way the to-stdout path
+        # resolves it; the extension and convert() call keep the caller's spelling.
+        render_target = target_format if target_format != "auto" else "markdown"
 
         # Determine zip path
         if parsed_args.zip == "auto":
@@ -1528,7 +1531,11 @@ def _create_output_package(
             zip_path = Path(parsed_args.zip)
 
         # Create the zip package directly from conversions
-        # Pass user-specified options and transforms
+        # Pass user-specified options and transforms. The options dict is namespaced
+        # (``pdf.pages``, and the subcommand sections' own settings such as
+        # ``view.dark``), so it is projected per item exactly as the to-disk paths
+        # project per input file -- otherwise every key is forwarded to convert()
+        # verbatim and the unusable ones are reported to the user as their typos.
         created_zip = create_package_from_conversions(
             input_items=input_items,
             zip_path=zip_path,
@@ -1536,6 +1543,9 @@ def _create_output_package(
             options=options,
             transforms=transforms,
             source_format=format_arg,
+            option_resolver=lambda item: prepare_options_for_execution(
+                options, item.best_path(), format_arg, render_target
+            ),
         )
 
         print(f"Created package: {created_zip}", file=sys.stderr)
