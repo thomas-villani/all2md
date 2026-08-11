@@ -456,13 +456,20 @@ to unwind later.
 But the adapter contract is:
 
 ```python
-def ocr_pixmap(pix: fitz.Pixmap, page: fitz.Page, options: PdfOptions) -> str
+def ocr_pixmap(pix: pymupdf.Pixmap, page: pymupdf.Page, options: PdfOptions) -> str
 ```
 
 It returns **`str`**, and the geometry is destroyed twice on the way out: EasyOCR already
 returns bounding boxes, and our adapter uses them to reconstruct reading order and then
 discards them; then the PDF parser wraps the resulting flat string in a single synthetic
 PyMuPDF block spanning the whole page.
+
+**The second of those two losses is now fixed** (unreleased). A geometry-carrying contract
+sits beside the flat one — `ocr_pixmap_layout(...) -> list[OcrParagraph] | None` — which
+Tesseract implements through `image_to_data`, and the PDF parser emits one block per
+returned paragraph. The first loss stands: EasyOCR still returns flat text and still
+discards its own boxes, so `ocr_pixmap_layout` returns `None` for it and `-> str` remains a
+live fallback rather than a replaced one.
 
 So a socket on top of this contract lets you plug in Textract, Azure Document Intelligence,
 Google Document AI, surya or olmOCR — and then discard precisely the thing you are paying
@@ -476,11 +483,14 @@ one thread.
   `constants.py`, with the `choices` list duplicated in the options metadata — an engine name
   lives in three places. A registry-backed `str` with dynamically-populated choices is needed;
   the transforms registry resolves the same tension by validating at lookup time.
-- **The "generic" OCR layer is PyMuPDF-coupled.** `fitz.Pixmap` + a live `fitz.Page` in the
-  signature — the page only for language auto-detection, which both adapters call themselves.
-  Any non-PDF caller would have to fabricate a `fitz.Page`. Both adapters immediately convert
-  to PIL anyway, so the natural contract is image-bytes/PIL + `OCROptions`, with language
-  detection hoisted out.
+- **The "generic" OCR layer is PyMuPDF-coupled.** `pymupdf.Pixmap` + a live `pymupdf.Page` in
+  the signature. Any non-PDF caller would have to fabricate a `pymupdf.Page`. Both adapters
+  immediately convert to PIL anyway, so the natural contract is image-bytes/PIL +
+  `OCROptions`, with language detection hoisted out. **This got harder, not easier:** the page
+  used to be needed only for language auto-detection, but `ocr_pixmap_layout` also reads
+  `page.rect` for the scale factors that map results back into PDF points. Hoisting language
+  detection is therefore no longer sufficient on its own — the target coordinate space has to
+  be passed in as well.
 - **Engine-specific fields sit on shared options.** `tesseract_config` and `gpu` both live on
   `OCROptions`. This does not scale and a plugin cannot add its own — wants an
   `engine_options: dict[str, Any]` passthrough.
@@ -489,11 +499,15 @@ one thread.
 
 ### Shape (staged, each stage independently useful)
 
-1. 🌱 **A geometry-carrying OCR result type.** Replace `-> str` with a result object
-   carrying text + per-span bboxes + confidence. Stop the EasyOCR adapter from flattening;
-   stop the PDF parser from collapsing to one page-sized block. **No new engine, no plugin
-   API** — this stage is pure internal correctness and is where the value is. Tesseract
-   exposes boxes via `image_to_data`, so both existing engines can honour it.
+1. 🌱 **A geometry-carrying OCR result type** — *partially shipped (unreleased).*
+   `OcrParagraph`/`OcrLine` exist, Tesseract fills them from `image_to_data`, and the PDF
+   parser no longer collapses a page to one block; per-paragraph bboxes reach the AST
+   through `SourceLocation.metadata['bbox']`. **Three pieces are still open:** granularity is
+   the line rather than the span; confidence is *read* from Tesseract only to drop `conf < 0`
+   rows and then discarded, so nothing downstream can weigh a low-confidence region; and the
+   EasyOCR adapter still flattens, which is what keeps `-> str` alive as a fallback instead
+   of replacing it. **No new engine, no plugin API** — this stage is pure internal
+   correctness and is where the value is.
 2. 🌱 **Decouple + then socket.** Move to PIL/bytes + `OCROptions`, hoist language detection,
    add `engine_options` passthrough, *then* add an `all2md.ocr_engines` entry-point group
    modelled on the transforms registry. Cheap once (1) fixed the contract; actively harmful
