@@ -172,6 +172,9 @@ faster follow-up queries.
    # Reuse an existing index without reprocessing inputs
    all2md search "incident response" --index-dir ./index
 
+   # Index an archive directly; its members are converted first, binaries included
+   all2md search "termination clause" contracts.zip --keyword
+
 Common grep-style flags are supported:
 
 * ``-A/-B/-C`` to control trailing/leading context lines (e.g. ``-C 1`` for one line around each match)
@@ -211,6 +214,9 @@ overhead of building persistent indexes.
 
    # Limit line width and enable rich output
    all2md grep -M 100 --rich "keyword" report.docx
+
+   # Archives are searched without unpacking; each member becomes a section
+   all2md grep "clause 4" contracts.zip
 
 Common grep-style options:
 
