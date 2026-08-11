@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 from all2md.cli.input_items import CLIInputItem
-from all2md.converter_registry import check_package_installed, registry
+from all2md.converter_registry import check_package_installed, match_extension, registry
 from all2md.utils.packages import check_version_requirement
 
 __all__ = [
@@ -57,8 +57,8 @@ def _detect_format_for_item(item: CLIInputItem, format_arg: str) -> tuple[str, s
     # Determine detection method
     metadata_list = registry.get_format_info(detected_format)
     metadata = metadata_list[0] if metadata_list else None
-    suffix = item.suffix.lower() if item.suffix else ""
-    if metadata and suffix in metadata.extensions:
+    name = item.path_hint.name if item.path_hint else item.display_name
+    if metadata and match_extension(name, metadata.extensions) is not None:
         return detected_format, "file extension"
 
     # Check MIME type
@@ -298,8 +298,8 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
                     for fmt_info in fmt_info_list:
                         all_extensions.extend(fmt_info.extensions)
 
-            suffix = item.suffix.lower() if item.suffix else ""
-            detection_method = "extension" if suffix in all_extensions else "content analysis"
+            name = item.path_hint.name if item.path_hint else item.display_name
+            detection_method = "extension" if match_extension(name, all_extensions) else "content analysis"
 
         converter_metadata_list = registry.get_format_info(detected_format)
         converter_metadata = converter_metadata_list[0] if converter_metadata_list else None

@@ -20,7 +20,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import unquote, urlparse
 
 from all2md.cli.input_items import CLIInputItem
-from all2md.converter_registry import registry
+from all2md.converter_registry import match_extension, registry
 from all2md.utils.packages import check_version_requirement, get_package_version
 
 _GLOB_CHARS = "*?["
@@ -324,7 +324,7 @@ def collect_input_files(
     def extension_allowed(path: Path) -> bool:
         if normalized_exts is None:
             return True
-        return path.suffix.lower() in normalized_exts
+        return match_extension(path, normalized_exts) is not None
 
     local_candidates: List[Path] = []
     remote_items: Dict[str, CLIInputItem] = {}

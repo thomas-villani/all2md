@@ -20,7 +20,7 @@ from typing import Optional, Sequence
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import collect_input_files
 from all2md.cli.input_items import CLIInputItem
-from all2md.converter_registry import registry
+from all2md.converter_registry import match_extension, registry
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ def _step_inputs(p: _Prompter) -> Optional[tuple[list[str], list[CLIInputItem], 
             default=",".join(available),
         )
         chosen_exts = [_normalize_ext(e) for e in wanted.split(",") if e.strip()]
-        items = [it for it in items if (it.suffix.lower() in chosen_exts)]
+        items = [it for it in items if _registered_suffix(it) in chosen_exts]
         if not items:
             p.print("[yellow]No files left after filtering.[/yellow]")
             return None
@@ -276,10 +276,21 @@ def _step_advanced(p: _Prompter) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _registered_suffix(item: CLIInputItem) -> str:
+    """Return the extension the registry recognises, else plain ``Path`` semantics.
+
+    ``item.suffix`` reports ``.gz`` for ``bundle.tar.gz``; the registry declares
+    ``.tar.gz``. Grouping and filtering both go through here so the extension the
+    table offers is the one the filter accepts.
+    """
+    name = item.path_hint.name if item.path_hint else item.display_name
+    return match_extension(name, registry.get_all_extensions()) or item.suffix.lower()
+
+
 def _counts_by_suffix(items: list[CLIInputItem]) -> Counter:
     counter: Counter = Counter()
     for item in items:
-        suffix = item.suffix.lower() or "(no extension)"
+        suffix = _registered_suffix(item) or "(no extension)"
         counter[suffix] += 1
     return counter
 
