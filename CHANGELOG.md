@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A bulleted or numbered list is no longer collapsed into a single item** (PDF). The
+  vertical gap between two list items is the same gap that separates two paragraphs, so
+  the paragraph-break rule is suspended once a list has started — otherwise every item
+  that wrapped would be split at its own second line. Nothing was put in its place, so an
+  item could only end when its block did, and a whole list arrived as one item: one
+  born-digital article emitted **1 list item for its 16 bullets**. A line carrying its own
+  marker now starts the next item, whatever the spacing says. The rule is narrow on
+  purpose — it applies only inside a paragraph already recognised as a list, so it cannot
+  turn prose into one. Measured on the born-digital corpus, list-item recall rises
+  **0.059 → 0.212** and precision **0.040 → 0.113**.
+
 - **A heading that wraps onto a second printed line is now one heading** (PDF). A PDF has
   no notion of a wrapped heading — it has two lines of type — and each line reached the
   emitter on its own, so a long section heading became two sibling headings and an article
