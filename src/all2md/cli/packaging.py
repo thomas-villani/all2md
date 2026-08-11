@@ -6,6 +6,7 @@ directly from memory without intermediate disk I/O.
 
 import logging
 import zipfile
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
@@ -25,6 +26,7 @@ def create_package_from_conversions(
     transforms: Optional[list] = None,
     source_format: str = "auto",
     progress_callback: Optional[Any] = None,
+    option_resolver: Optional[Callable[[CLIInputItem], Dict[str, Any]]] = None,
 ) -> Path:
     """Create zip package by converting files directly to memory without disk I/O.
 
@@ -48,6 +50,13 @@ def create_package_from_conversions(
         Source format (auto-detect if "auto")
     progress_callback : ProgressCallback, optional
         Optional callback for progress updates
+    option_resolver : Callable[[CLIInputItem], dict], optional
+        Projects ``options`` onto the kwargs one item's formats actually accept,
+        called once per item. The CLI's options dict is namespaced
+        (``pdf.pages``, ``view.dark``) and has to be flattened against the format
+        that will handle each file; without this every key is forwarded verbatim
+        and the API reports the unusable ones as the caller's typos (#303). When
+        omitted, ``options`` is passed through unchanged.
 
     Returns
     -------
@@ -73,11 +82,7 @@ def create_package_from_conversions(
     # Get target extension
     extension = registry.get_default_extension_for_format(target_format)
 
-    # Prepare options with base64 embedding for attachments
-    conversion_options = options.copy() if options else {}
-    # Force base64 embedding to keep everything in memory
-    if "attachment_mode" not in conversion_options:
-        conversion_options["attachment_mode"] = "base64"
+    base_options = options.copy() if options else {}
 
     total_size = 0
     file_count = 0
@@ -88,6 +93,13 @@ def create_package_from_conversions(
             try:
                 # Generate output name
                 output_name = f"{item.derive_output_stem(index)}{extension}"
+
+                # Each item may be a different format, so the namespaced options are
+                # projected per item rather than once for the batch.
+                conversion_options = dict(option_resolver(item)) if option_resolver else dict(base_options)
+                # Force base64 embedding to keep everything in memory.
+                if "attachment_mode" not in conversion_options:
+                    conversion_options["attachment_mode"] = "base64"
 
                 # Convert to BytesIO buffer (always binary)
                 buffer = BytesIO()

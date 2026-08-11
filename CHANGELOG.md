@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`--zip` projects its namespaced options like every other path.** The CLI carries
+  options fully qualified — `pdf.pages`, `markdown.flavor`, and the subcommand sections'
+  own settings such as `view.dark` — and flattens them against the format that will
+  actually handle each file. Every path that writes to disk does that per input file;
+  `--zip` handed the whole namespaced dict to `convert()`, which matched none of it and
+  reported the leftovers as the user's typos: `Unrecognized keyword arguments were
+  ignored: ['view.no_wait', 'view.dark']`. Nobody typed those — they are the `[view]`
+  section's settings, and the function that exists to drop them was never called on this
+  path. Projection is now per item, so a mixed batch applies `pdf.*` to the PDFs and
+  `html.*` to the HTML rather than to everything, matching what the same files get when
+  converted to disk.
 - **Text rescued from a rejected table region is dehyphenated like any other prose** (PDF).
   When a detected table's grid turns out to be degenerate the region is emitted as a
   paragraph instead, and its text is recovered with `page.get_textbox()` — raw extraction,
