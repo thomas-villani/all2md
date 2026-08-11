@@ -139,7 +139,8 @@ def test_synthetic_corpus_loads() -> None:
     assert cases, "synthetic corpus should not be empty"
     names = {c.name for c in cases}
     assert "kitchen-sink" in names
-    # The raw-html document must be flagged so the HTML oracle skips it.
+    # The raw-html document is still detected as such; the flag is descriptive
+    # now rather than gating a skip (#178).
     raw = next(c for c in cases if c.name == "raw-html")
     assert raw.has_raw_html
     # The admonitions document must be flagged so the HTML oracle skips it.
@@ -147,11 +148,17 @@ def test_synthetic_corpus_loads() -> None:
     assert adm.has_admonitions
 
 
-def test_evaluate_case_skips_html_oracle_for_raw_html() -> None:
+def test_evaluate_case_judges_raw_html_rather_than_skipping_it() -> None:
+    """Raw HTML used to be exempt from the HTML oracle because escaping made it lossy.
+
+    #178 made pass-through the Markdown renderer's default, so there is nothing
+    left to excuse: both oracles judge the document like any other.
+    """
     case = corpus.Case(name="x", markdown="<div>raw</div>\n", has_raw_html=True)
     results = {r.oracle: r for r in evaluate_case(case)}
-    assert results["html_equivalence"].skipped
-    assert "idempotency" in results
+    assert not results["html_equivalence"].skipped
+    assert results["html_equivalence"].passed
+    assert results["idempotency"].passed
 
 
 def test_evaluate_case_skips_html_oracle_for_admonitions() -> None:

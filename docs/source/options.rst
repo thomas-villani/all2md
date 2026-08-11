@@ -5434,10 +5434,10 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
 
 **html_passthrough_mode**
 
-   How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
+   How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'pass-through', since markdown permits raw HTML and escaping it breaks a round trip; use 'escape' for untrusted markdown. Does not affect code blocks.
 
    :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
-   :Default: ``'escape'``
+   :Default: ``'pass-through'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
 
@@ -11456,11 +11456,11 @@ modules to ensure consistent Markdown generation.
 
 **html_passthrough_mode**
 
-   How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'escape' for security. Does not affect code blocks.
+   How to handle raw HTML content in markdown: pass-through (allow HTML as-is), escape (show as text), drop (remove entirely), sanitize (remove dangerous elements). Default is 'pass-through', since markdown permits raw HTML and escaping it breaks a round trip; use 'escape' for untrusted markdown. Does not affect code blocks.
 
    :Type: ``Literal['pass-through', 'escape', 'drop', 'sanitize']``
    :CLI flag: ``--markdown-html-passthrough-mode``
-   :Default: ``'escape'``
+   :Default: ``'pass-through'``
    :Choices: ``pass-through``, ``escape``, ``drop``, ``sanitize``
    :Importance: security
 

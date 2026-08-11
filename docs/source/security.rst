@@ -29,7 +29,8 @@ Secure by Default
    - Remote fetching is DISABLED by default
    - robots.txt is ENFORCED by default (strict mode)
    - Local file access is DISABLED by default
-   - HTML is ESCAPED by default
+   - Executable HTML (``<script>``, ``<iframe>``, ``<form>``, ``<svg onload>``) is
+     DROPPED by the HTML parser, before any renderer sees it
    - OCR is DISABLED by default
    - Dangerous URL schemes are BLOCKED
    - Private IP ranges are BLOCKED
@@ -52,7 +53,7 @@ Secure by Default
            └──────────────┬──────────────┘
                           │
            ┌──────────────▼──────────────┐
-           │      Sanitized output       │  -- HTML escaping, attachment policies, metadata limits
+           │      Sanitized output       │  -- tag allowlisting, attachment policies, metadata limits
            └─────────────────────────────┘
 
 Key Risk Areas

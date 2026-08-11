@@ -32,34 +32,27 @@ from .oracles import CheckResult, html_equivalence_check, idempotency_check
 # codebase, so it must be updated in the same commit that changes the behavior.
 # An expected failure is for behavior we have *decided* to accept; never add an
 # entry to silence a genuine regression.
-EXPECTED_FAILURES: dict[tuple[str, str], str] = {
-    ("raw-html", "idempotency"): (
-        "all2md escapes raw HTML by policy (html_passthrough_mode='escape'), so pass 2 sees "
-        "&lt;div&gt; where pass 1 saw <div>. Deliberate - the escape policy is a security "
-        "posture, not a roundtrip bug. Same root cause as the html_equivalence policy skip."
-    ),
-}
+# Emptied by #178: raw HTML used to fail idempotency because the Markdown renderer
+# escaped it, so pass 2 saw &lt;div&gt; where pass 1 saw <div>. The default is now
+# pass-through and the case passes on its own. This table found that out by going
+# red on the XPASS, which is what it is for.
+EXPECTED_FAILURES: dict[tuple[str, str], str] = {}
 
 
 def evaluate_case(case: Case) -> list[CheckResult]:
     """Run every oracle against one case, honoring policy skips.
 
-    Idempotency always runs. The HTML-equivalence oracle is skipped for cases it
-    cannot fairly judge: raw HTML (lossy by all2md's escape policy) and
-    admonitions (the reference mistune renderer has no method for all2md's custom
-    admonition block token). Skips are neither a pass nor a failure.
+    Idempotency always runs. The HTML-equivalence oracle is skipped for the one
+    case it cannot fairly judge: admonitions, where the reference mistune renderer
+    has no method for all2md's custom admonition block token. Skips are neither a
+    pass nor a failure.
+
+    Raw HTML used to be skipped here too, on the grounds that the escape policy
+    made it lossy. #178 made pass-through the default, so the oracle can judge it
+    like anything else and the exemption is gone.
     """
     results = [idempotency_check(case.markdown)]
-    if case.has_raw_html:
-        results.append(
-            CheckResult(
-                "html_equivalence",
-                passed=True,
-                skipped=True,
-                detail="raw HTML present; lossy by policy (html_passthrough_mode='escape')",
-            )
-        )
-    elif case.has_admonitions:
+    if case.has_admonitions:
         results.append(
             CheckResult(
                 "html_equivalence",

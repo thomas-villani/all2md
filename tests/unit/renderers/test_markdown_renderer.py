@@ -982,11 +982,11 @@ class TestHTMLNodes:
         doc = Document(children=[HTMLBlock(content="<div>Custom HTML</div>")])
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
-        assert result == "&lt;div&gt;Custom HTML&lt;/div&gt;"
-
-        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="pass-through"))
-        result = renderer.render_to_string(doc)
         assert result == "<div>Custom HTML</div>"
+
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="escape"))
+        result = renderer.render_to_string(doc)
+        assert result == "&lt;div&gt;Custom HTML&lt;/div&gt;"
 
     def test_html_inline(self):
         """Test rendering inline HTML."""
@@ -1003,11 +1003,11 @@ class TestHTMLNodes:
         )
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
-        assert result == "Text with &lt;span&gt;HTML&lt;/span&gt; inline"
-
-        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="pass-through"))
-        result = renderer.render_to_string(doc)
         assert result == "Text with <span>HTML</span> inline"
+
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="escape"))
+        result = renderer.render_to_string(doc)
+        assert result == "Text with &lt;span&gt;HTML&lt;/span&gt; inline"
 
 
 @pytest.mark.unit
@@ -1205,19 +1205,44 @@ class TestFootnotes:
 class TestHTMLSanitization:
     """Tests for HTML sanitization options."""
 
-    def test_html_block_escape_default(self):
-        """Test that HTML blocks are escaped by default (secure-by-default)."""
-        doc = Document(children=[HTMLBlock(content="<script>alert('xss')</script>")])
+    def test_html_block_passes_through_by_default(self):
+        """Markdown permits raw HTML, so the renderer emits it rather than escaping (#178).
+
+        Escaping here corrupted a Markdown -> Markdown round trip without buying
+        anything: whatever renders our output would have rendered the same HTML
+        straight from the original file.
+        """
+        doc = Document(children=[HTMLBlock(content="<details><summary>S</summary>")])
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
-        # Should be escaped
+        assert result == "<details><summary>S</summary>"
+
+    def test_html_block_escape_is_one_option_away(self):
+        """Converting untrusted markdown is what "escape" is for."""
+        doc = Document(children=[HTMLBlock(content="<script>alert('xss')</script>")])
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="escape"))
+        result = renderer.render_to_string(doc)
         assert "&lt;script&gt;" in result
         assert "&lt;/script&gt;" in result
-        # Should not contain raw HTML
         assert "<script>" not in result
 
-    def test_html_inline_escape_default(self):
-        """Test that inline HTML is escaped by default (secure-by-default)."""
+    def test_html_inline_passes_through_by_default(self):
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="Text with "),
+                        HTMLInline(content="<abbr title='x'>HTML</abbr>"),
+                        Text(content=" inline"),
+                    ]
+                )
+            ]
+        )
+        renderer = MarkdownRenderer()
+        result = renderer.render_to_string(doc)
+        assert result == "Text with <abbr title='x'>HTML</abbr> inline"
+
+    def test_html_inline_escape_is_one_option_away(self):
         doc = Document(
             children=[
                 Paragraph(
@@ -1229,12 +1254,9 @@ class TestHTMLSanitization:
                 )
             ]
         )
-        renderer = MarkdownRenderer()
+        renderer = MarkdownRenderer(MarkdownRendererOptions(html_passthrough_mode="escape"))
         result = renderer.render_to_string(doc)
-        # Should be escaped
         assert "&lt;img" in result
-        assert "&gt;" in result
-        # Should not contain raw HTML
         assert "<img" not in result
 
     def test_html_sanitization_pass_through_mode(self):

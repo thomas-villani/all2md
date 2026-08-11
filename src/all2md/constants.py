@@ -384,7 +384,15 @@ DEFAULT_UNSUPPORTED_INLINE_MODE: UnsupportedInlineMode = "force"
 DEFAULT_MATH_MODE: MathMode = "latex"
 DEFAULT_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"
 HTML_PASSTHROUGH_MODES = ["pass-through", "escape", "drop", "sanitize"]
-DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "escape"  # Secure by default
+# Markdown permits raw HTML by design, and the HTMLBlock/HTMLInline nodes that
+# reach *this* renderer overwhelmingly come from the markdown parser - i.e. HTML
+# the author wrote in their own markdown. Escaping those corrupts the document
+# and buys nothing, because anything rendering our output would have rendered
+# that HTML from the original file too. The `html -> markdown` direction, which
+# is where untrusted input actually arrives, is protected by the HTML *parser*:
+# it maps tags to AST nodes and drops <script>, <iframe>, <form> and <svg>
+# outright, so they never reach a renderer to be escaped. See #178.
+DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "pass-through"
 
 # Markdown has no table-caption syntax, so the renderer writes the caption as an
 # italic paragraph (which readers see) followed by this marker comment (which the
