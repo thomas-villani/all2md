@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **PyMuPDF's layout advisory no longer lands inside the converted document** (PDF).
+  PyMuPDF prints `Consider using the pymupdf_layout package for a greatly improved page
+  layout analysis.` with a bare `print()` — not a warning, not a log record — the first
+  time `find_tables()` runs in a process where `pymupdf.layout` is not installed. all2md
+  writes converted documents to stdout, so the advisory arrived *inside the document*:
+  `all2md report.pdf > report.md` made it line one of the markdown, and any pipeline
+  reading all2md's stdout got it as content. This was the common case rather than an
+  exotic one — `pymupdf-layout` is deliberately excluded from the `all` extra over its
+  Polyform Noncommercial license, so the plain and `[all]` installs both hit it. all2md
+  now opts out through PyMuPDF's own entry point when it opens a PDF; it ships that
+  package as the `pdf_layout` extra and already reports its absence through its own
+  dependency machinery, which writes to stderr.
 - **`--zip` projects its namespaced options like every other path.** The CLI carries
   options fully qualified — `pdf.pages`, `markdown.flavor`, and the subcommand sections'
   own settings such as `view.dark` — and flattens them against the format that will
