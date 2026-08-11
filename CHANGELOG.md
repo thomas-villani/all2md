@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Text rescued from a rejected table region is dehyphenated like any other prose** (PDF).
+  When a detected table's grid turns out to be degenerate the region is emitted as a
+  paragraph instead, and its text is recovered with `page.get_textbox()` — raw extraction,
+  which returns the glyphs with their printed line breaks intact. Every other route into
+  the AST passes through `dehyphenate_blocks()` first and this one did not, so a word broken
+  across a line stayed broken: `Coroman-` and `del` never became `Coromandel`, and the word
+  appeared **nowhere in the output at all**, which no text-recall measure notices because
+  both fragments are still present. This is a growing path rather than an edge case — the
+  layout model over-predicts tables, and each over-prediction routes a whole region's prose
+  through it; on the page this was found on the predicted region covered the entire page
+  body. On that article, 32 line-break fragments become 0 and 8 words reappear. The join now
+  reads identically to ordinary prose, including where the two agree to leave a hyphen
+  alone: a capitalised continuation keeps it (`Anglo-Saxon`) and a digit continuation is
+  never merged.
+
 - **A bulleted or numbered list is no longer collapsed into a single item** (PDF). The
   vertical gap between two list items is the same gap that separates two paragraphs, so
   the paragraph-break rule is suspended once a list has started — otherwise every item

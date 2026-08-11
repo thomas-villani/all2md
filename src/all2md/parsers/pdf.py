@@ -3269,6 +3269,15 @@ class PdfToAstConverter(BaseParser):
         if not text or not text.strip():
             return None
 
+        # get_textbox is raw extraction: it returns the glyphs with their printed line
+        # breaks, and this is the only path into the AST that does not pass through
+        # dehyphenate_blocks(). Without this a word broken across a line survives as two
+        # fragments and the whole word is absent from the output -- "Coroman-" + "del" meant
+        # "Coromandel" appeared nowhere at all. The line break is consumed with the hyphen,
+        # so the join below does not put a space back between the halves.
+        if self.options.merge_hyphenated_words:
+            text = dehyphenate_text(text)
+
         lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
         if not lines:
             return None
