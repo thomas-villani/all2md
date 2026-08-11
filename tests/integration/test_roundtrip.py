@@ -113,15 +113,21 @@ class TestRoundTripApi:
     def test_escaped_inline_html_is_priced_as_a_real_loss(self, escaping_html_md):
         """Escaped raw HTML costs fidelity, and the score says so.
 
-        The Markdown renderer escapes raw HTML by default
-        (``html_passthrough_mode="escape"``, a security posture), so a document
-        carrying a tag with no AST equivalent (``<span>``) cannot round trip
-        perfectly -- and the score reports that rather than quietly forgiving it.
+        Escaping is no longer the Markdown renderer's default (#178) but remains
+        the right setting for untrusted markdown, and it is genuinely lossy: a tag
+        with no AST equivalent (``<span>``) cannot survive it. The score has to
+        report that rather than quietly forgiving it.
         """
-        report = roundtrip_report(escaping_html_md)
+        report = roundtrip_report(escaping_html_md, html_passthrough_mode="escape")
         assert report.score < 100
         assert {delta.kind for delta in report.deltas} == {"inline_lost", "text_lost"}
         assert any(delta.detail == "htmlinline" for delta in report.deltas)
+
+    def test_raw_inline_html_survives_under_the_default(self, escaping_html_md):
+        """The other half of #178: the default no longer costs those points."""
+        report = roundtrip_report(escaping_html_md)
+        assert report.score == 100
+        assert report.deltas == []
 
     def test_underline_html_roundtrips_losslessly(self):
         """``<u>`` is not "raw HTML" to the scorer -- it is an Underline node.
@@ -138,9 +144,11 @@ class TestRoundTripApi:
         """The score must move when converter options move.
 
         This is what makes it usable as the ``optimize`` capstone's fitness
-        function: flipping one renderer option recovers the lost points.
+        function: flipping one renderer option moves the points. Asserted against
+        an explicit ``pass-through`` rather than the default, so the comparison
+        keeps meaning if the default moves again.
         """
-        escaped = roundtrip_report(escaping_html_md)
+        escaped = roundtrip_report(escaping_html_md, html_passthrough_mode="escape")
         passed_through = roundtrip_report(escaping_html_md, html_passthrough_mode="pass-through")
 
         assert passed_through.score == 100

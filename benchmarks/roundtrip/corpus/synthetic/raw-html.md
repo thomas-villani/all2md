@@ -8,6 +8,6 @@ A raw HTML block:
   <p>A paragraph inside a raw HTML block.</p>
 </div>
 
-A paragraph after the block. Raw HTML is escaped by policy under all2md's
-default `html_passthrough_mode="escape"`, so the HTML-equivalence oracle skips
-this document; idempotency should still hold.
+A paragraph after the block. Raw HTML passes through by default, so both
+oracles judge this document: it must be idempotent and must agree with the
+reference renderer.

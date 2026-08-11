@@ -41,11 +41,12 @@ the table has started lying about the codebase, so it must be updated in the sam
 commit that changes the behavior. Without that, an allowlist decays into a
 permanent excuse list and the ratchet quietly stops being one.
 
-Currently allowlisted: **`raw-html:idempotency`** — the escape policy
-(`html_passthrough_mode="escape"`) turns `<div>` into `&lt;div&gt;` on the second
-pass. That is a deliberate security posture, not a roundtrip bug; it is the same
-root cause as the `html_equivalence` policy skip below. Never add an entry to
-silence a genuine regression.
+Currently allowlisted: **nothing**. The table held one entry —
+`raw-html:idempotency`, where escaping turned `<div>` into `&lt;div&gt;` on the
+second pass — until #178 made `pass-through` the Markdown renderer's default and
+the case started passing on its own. The XPASS is how we found out, which is the
+whole point of failing on one. Never add an entry to silence a genuine
+regression.
 
 ## Two oracles
 
@@ -65,9 +66,10 @@ slip past both:
   AST + render halves of the pipeline, not of the parse half. That matches our
   failure surface but is not a fully third-party judge.
 
-Documents containing raw HTML are **skipped** by the HTML oracle: all2md escapes
-raw HTML by policy (`html_passthrough_mode="escape"`), so a difference there is
-expected, not a bug.
+Documents containing raw HTML used to be **skipped** by the HTML oracle, because
+escaping made a difference there expected rather than a bug. Since #178 the
+Markdown renderer passes raw HTML through, so the oracle judges those documents
+like any other.
 
 ## Corpus
 

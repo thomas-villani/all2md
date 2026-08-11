@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Raw HTML in Markdown is passed through instead of escaped.** The Markdown renderer's
+  `html_passthrough_mode` now defaults to `pass-through`. Escaping was described as a
+  security posture, but it was not the one doing the work: in the `html → markdown`
+  direction — the direction where untrusted input actually arrives — the HTML *parser* maps
+  tags to AST nodes and drops `<script>`, `<iframe>`, `<form>`, `<object>`, `<embed>` and
+  `<svg onload>` outright, so they never reach a renderer to be escaped. The `HTMLBlock` and
+  `HTMLInline` nodes the Markdown renderer actually saw came from the Markdown *parser*:
+  HTML an author wrote in their own Markdown, which Markdown permits by design and which
+  any downstream renderer would have rendered from the original file anyway. Escaping it
+  broke `markdown → markdown` for no gain — our own `README.md` lost the contents of all
+  eleven `<details>` sections and scored 97; it now scores 100 with no deltas, as do all six
+  tracked root documents, and the CI fidelity gate is re-recorded from 97 to 100. Converting
+  *untrusted* Markdown is the case that wants the old behaviour: pass
+  `html_passthrough_mode="escape"` (or `--markdown-html-passthrough-mode escape`). Only the
+  Markdown renderer changes; the HTML, AsciiDoc and Textile renderers still default to
+  `escape` (#178).
+
 ### Added
 
 - **Every registered format's options class is now importable from both `all2md` and

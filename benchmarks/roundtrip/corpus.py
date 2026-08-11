@@ -3,9 +3,9 @@
 Phase 0/1 ships the *synthetic* corpus only: labeled Markdown files under
 ``corpus/synthetic/``, one construct family per file plus a ``kitchen-sink``
 document that combines them. Each file's stem is its construct family; tags are
-derived from content (e.g. ``has_raw_html`` marks a doc that is lossy by policy
-under all2md's ``html_passthrough_mode="escape"`` posture, so the HTML oracle
-skips it rather than flagging an expected loss).
+derived from content (e.g. ``has_raw_html`` marks a doc carrying raw HTML; it
+gated an HTML-oracle skip while the Markdown renderer escaped raw HTML, and is
+descriptive only now that pass-through is the default).
 
 The CommonMark / GFM spec suites (Phase 2) will land as an additional loader
 here; the ``Case`` shape is already source-agnostic to accommodate them.
@@ -37,8 +37,10 @@ class Case:
     """One corpus document.
 
     ``source`` distinguishes the synthetic corpus from later spec suites.
-    ``has_raw_html`` flags documents the HTML-equivalence oracle should skip
-    because all2md intentionally escapes raw HTML (a policy loss, not a bug).
+    ``has_raw_html`` records that a document carries raw HTML. It used to gate a
+    skip of the HTML-equivalence oracle, back when the Markdown renderer escaped
+    raw HTML; since #178 made pass-through the default, both oracles judge those
+    documents and the flag is descriptive only, carried into the JSON report.
     """
 
     name: str
