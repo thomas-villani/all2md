@@ -7,29 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **Table captions survive a Markdown round trip.** Markdown has no caption syntax, so the
-  renderer demoted `Table.caption` to an italic paragraph — which a reader could see, but
-  which came back as ordinary prose, so the trip lost the caption *and* gained a `Paragraph`
-  node that was not in the input. The caption is now written as that same italic paragraph
-  followed by an `<!-- all2md:table-caption -->` marker, which the Markdown parser folds back
-  into `Table.caption` along with the paragraph. Readers still see the caption, the AST comes
-  back with the node count it started with, and since the marker carries no copy of the text,
-  editing the visible line edits the caption. The fold is deliberately narrow: a bare marker,
-  a marker with no table after it, or an italic paragraph with no marker are all left alone.
-  `comment_mode="ignore"` suppresses the marker, and the caption then degrades to the italic
-  paragraph as before. This was the last of the four formats in #237 — asciidoc, rst and org
-  already round-tripped their captions (#237).
-- **`json_to_ast` no longer crashes on explicit JSON nulls.** A producer outside this library
-  routinely writes `null` for a field it has nothing to say about, and `"children": [null]`,
-  `"content": null` or a null `metadata` object reached the node constructors unchanged. The
-  failure then surfaced much later, inside a renderer, as a `TypeError` naming nothing that
-  would help. Null list and object fields now read as empty, null child entries are skipped,
-  and a field that is structurally required — a `Heading` level, a `List` ordered flag —
-  raises a `ValueError` naming the node and the field instead of defaulting to something
-  plausible. Thanks to @santhreal (#265).
-
 ### Added
 
 - **Every registered format's options class is now importable from both `all2md` and
@@ -41,6 +18,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reachable from `all2md` but not from `all2md.options`, which is backwards from every
   sibling. The two surfaces are now derived from the converter registry and a test fails if
   either drifts from it again, so adding a format cannot quietly skip the export (#184).
+- **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
+  requires `pymupdf-layout`; inert otherwise). The package bundles three: `imf+rf` (the
+  default, image and text-geometry features), `imf` (image only) and `rf` (text geometry
+  only). Which one is right depends on the document, so it is now a searchable option and
+  is registered as an `optimize` knob rather than decided globally. The difference is not
+  subtle: on a two-column reference page the image-feature models read the dense left column
+  as a table — deleting nine reference entries before the fix elsewhere in this release, and
+  splitting one table into two on three further pages — while `rf` labels all 41 entries
+  correctly and predicts no table at all. Across 20 born-digital articles `rf` led on every
+  axis measured (title recall 0.9916 → 0.9972, identical table content recall, three fewer
+  spurious table nodes on the same 16 pages, 29% faster for skipping image inference).
+  **The default is deliberately unchanged**: that is one corpus of one document kind, and
+  image features plausibly earn their place on scanned pages, of which it contains none.
+  Models are now cached per feature set instead of in a single global — an unkeyed cache
+  returned whichever model loaded first, which would have made every arm of a search over
+  this knob identical and the setting look inert.
+- **A pinned PMC Open Access corpus for born-digital PDF benchmarking**
+  (`benchmarks/pmc`). The existing external ground-truth lane is 981 rasters, so it
+  measures the OCR path; nothing external covered text-layer extraction, vector table
+  detection or layout-derived reading order, which is most real-world PDF conversion.
+  Articles come from the `pmc-oa-opendata` bucket, where each versioned prefix holds the
+  publisher PDF beside its JATS XML — publisher-produced ground truth with real sections,
+  paragraphs and table cell markup. The bucket has no corpus-wide revision to pin against,
+  so a committed manifest of SHA-256 digests for both files of all 66 articles takes that
+  role: loading never lists the bucket, revalidates every byte, and keys its cache by the
+  manifest digest. Selection keeps an article when its JATS has at least one `<p>` and its
+  PDF carries vector drawings; every rejected candidate is recorded by reason. Corpus
+  bytes are not committed, and this ships no oracle or gate — those follow separately.
+  A `characterize` command measures what the built corpus actually contains, deliberately
+  independent of the filter that selected it: 750 pages, 100% with a text layer, 81.1%
+  with vector drawings, **0% with the single-full-page-image scan shape** — the inverse of
+  the raster lane, and the zero was checked against a known scan first to confirm the test
+  can fire at all. An `align` command measures whether article-level JATS truth can be
+  projected onto PDF pages: **95.7% of blocks place onto a page or an identifiable
+  adjacent pair**, with a 1.9% miss rate. Placement is content-only, never using extracted
+  reading order, so it cannot quietly grade the reading-order metric against itself — and
+  it ships with a control that scores every block against a different article's pages,
+  where the false-placement rate is 0.8%.
+- **A born-digital scoring lane over that corpus** (`benchmarks.pmc score`). Each article is
+  converted once and every page scored against the JATS truth projected onto it, through the
+  *same* oracle the raster lane uses, so a number here means what a number there means. Page
+  boundaries come from the parser's own per-page separators, which keeps cross-page context
+  intact — splitting the PDF into single-page files would hide exactly the defects this lane
+  exists to find — and a dropped page raises rather than silently shifting every later page's
+  ground truth. Blocks that will not resolve to a page are excluded **and reported** as an
+  error budget printed with every run. Three controls ship inside the run: each page is
+  scored again against the *next page of the same article*, against deliberately reversed,
+  scrambled and halved output, and with OCR left enabled in auto mode so "no page needed OCR"
+  stays a measurement that could fail rather than a configuration. Two dimensions are
+  reported but flagged unusable as gates, with the measurement that disqualified them —
+  `block_structure_similarity` separates own-page from wrong-page output by only ~0.06 and
+  *rises* when half the content is deleted. Whole-article content recall ships with its
+  attainable ceiling: only 61.1% of JATS blocks are recoverable from the PDF text layer by
+  any parser, because structured citations and bylines record words in an order the page
+  never prints, so raw recall on its own reads as parser loss that is not there.
 
 ### Changed
 
@@ -60,7 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `html_passthrough_mode="escape"` (or `--markdown-html-passthrough-mode escape`). Only the
   Markdown renderer changes; the HTML, AsciiDoc and Textile renderers still default to
   `escape` (#178).
-
 - **PyMuPDF is imported under its own name, not the deprecated `fitz` alias.** Some PyMuPDF
   releases emit a `DeprecationWarning` on `import fitz`, which reached anyone running the
   CLI as noise about a dependency they did not choose and could not act on. `pymupdf` has
@@ -85,6 +116,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Table captions survive a Markdown round trip.** Markdown has no caption syntax, so the
+  renderer demoted `Table.caption` to an italic paragraph — which a reader could see, but
+  which came back as ordinary prose, so the trip lost the caption *and* gained a `Paragraph`
+  node that was not in the input. The caption is now written as that same italic paragraph
+  followed by an `<!-- all2md:table-caption -->` marker, which the Markdown parser folds back
+  into `Table.caption` along with the paragraph. Readers still see the caption, the AST comes
+  back with the node count it started with, and since the marker carries no copy of the text,
+  editing the visible line edits the caption. The fold is deliberately narrow: a bare marker,
+  a marker with no table after it, or an italic paragraph with no marker are all left alone.
+  `comment_mode="ignore"` suppresses the marker, and the caption then degrades to the italic
+  paragraph as before. This was the last of the four formats in #237 — asciidoc, rst and org
+  already round-tripped their captions (#237).
+- **`json_to_ast` no longer crashes on explicit JSON nulls.** A producer outside this library
+  routinely writes `null` for a field it has nothing to say about, and `"children": [null]`,
+  `"content": null` or a null `metadata` object reached the node constructors unchanged. The
+  failure then surfaced much later, inside a renderer, as a `TypeError` naming nothing that
+  would help. Null list and object fields now read as empty, null child entries are skipped,
+  and a field that is structurally required — a `Heading` level, a `List` ordered flag —
+  raises a `ValueError` naming the node and the field instead of defaulting to something
+  plausible. Thanks to @santhreal (#265).
 - **"Your PyMuPDF is too old" now says so instead of raising `TypeError`** (PDF). The version
   guard built its message by joining PyMuPDF's version tuple, which holds ints, so the one
   branch that exists to tell a user to upgrade crashed from inside itself and reported
@@ -214,7 +265,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   locally, list-item recall rises **0.231 → 0.269** and precision **0.116 → 0.141**; only
   three articles change at all. The items still missed are overwhelmingly ones the PDF
   prints with **no marker of any kind**, which no marker rule can reach.
-
 - **A bulleted or numbered list is no longer collapsed into a single item** (PDF). The
   vertical gap between two list items is the same gap that separates two paragraphs, so
   the paragraph-break rule is suspended once a list has started — otherwise every item
@@ -225,7 +275,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   purpose — it applies only inside a paragraph already recognised as a list, so it cannot
   turn prose into one. Measured on the born-digital corpus, list-item recall rises
   **0.059 → 0.212** and precision **0.040 → 0.113**.
-
 - **A heading that wraps onto a second printed line is now one heading** (PDF). A PDF has
   no notion of a wrapped heading — it has two lines of type — and each line reached the
   emitter on its own, so a long section heading became two sibling headings and an article
@@ -278,67 +327,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   specifically: the oracle's `title` kind also maps `article-title`, which appears inside
   every bibliography `<ref>`, so scoring headings against it rewards exactly the wrong
   behaviour on a 60-reference article.
-
-### Added
-
-- **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
-  requires `pymupdf-layout`; inert otherwise). The package bundles three: `imf+rf` (the
-  default, image and text-geometry features), `imf` (image only) and `rf` (text geometry
-  only). Which one is right depends on the document, so it is now a searchable option and
-  is registered as an `optimize` knob rather than decided globally. The difference is not
-  subtle: on a two-column reference page the image-feature models read the dense left column
-  as a table — deleting nine reference entries before the fix elsewhere in this release, and
-  splitting one table into two on three further pages — while `rf` labels all 41 entries
-  correctly and predicts no table at all. Across 20 born-digital articles `rf` led on every
-  axis measured (title recall 0.9916 → 0.9972, identical table content recall, three fewer
-  spurious table nodes on the same 16 pages, 29% faster for skipping image inference).
-  **The default is deliberately unchanged**: that is one corpus of one document kind, and
-  image features plausibly earn their place on scanned pages, of which it contains none.
-  Models are now cached per feature set instead of in a single global — an unkeyed cache
-  returned whichever model loaded first, which would have made every arm of a search over
-  this knob identical and the setting look inert.
-- **A pinned PMC Open Access corpus for born-digital PDF benchmarking**
-  (`benchmarks/pmc`). The existing external ground-truth lane is 981 rasters, so it
-  measures the OCR path; nothing external covered text-layer extraction, vector table
-  detection or layout-derived reading order, which is most real-world PDF conversion.
-  Articles come from the `pmc-oa-opendata` bucket, where each versioned prefix holds the
-  publisher PDF beside its JATS XML — publisher-produced ground truth with real sections,
-  paragraphs and table cell markup. The bucket has no corpus-wide revision to pin against,
-  so a committed manifest of SHA-256 digests for both files of all 66 articles takes that
-  role: loading never lists the bucket, revalidates every byte, and keys its cache by the
-  manifest digest. Selection keeps an article when its JATS has at least one `<p>` and its
-  PDF carries vector drawings; every rejected candidate is recorded by reason. Corpus
-  bytes are not committed, and this ships no oracle or gate — those follow separately.
-  A `characterize` command measures what the built corpus actually contains, deliberately
-  independent of the filter that selected it: 750 pages, 100% with a text layer, 81.1%
-  with vector drawings, **0% with the single-full-page-image scan shape** — the inverse of
-  the raster lane, and the zero was checked against a known scan first to confirm the test
-  can fire at all. An `align` command measures whether article-level JATS truth can be
-  projected onto PDF pages: **95.7% of blocks place onto a page or an identifiable
-  adjacent pair**, with a 1.9% miss rate. Placement is content-only, never using extracted
-  reading order, so it cannot quietly grade the reading-order metric against itself — and
-  it ships with a control that scores every block against a different article's pages,
-  where the false-placement rate is 0.8%.
-- **A born-digital scoring lane over that corpus** (`benchmarks.pmc score`). Each article is
-  converted once and every page scored against the JATS truth projected onto it, through the
-  *same* oracle the raster lane uses, so a number here means what a number there means. Page
-  boundaries come from the parser's own per-page separators, which keeps cross-page context
-  intact — splitting the PDF into single-page files would hide exactly the defects this lane
-  exists to find — and a dropped page raises rather than silently shifting every later page's
-  ground truth. Blocks that will not resolve to a page are excluded **and reported** as an
-  error budget printed with every run. Three controls ship inside the run: each page is
-  scored again against the *next page of the same article*, against deliberately reversed,
-  scrambled and halved output, and with OCR left enabled in auto mode so "no page needed OCR"
-  stays a measurement that could fail rather than a configuration. Two dimensions are
-  reported but flagged unusable as gates, with the measurement that disqualified them —
-  `block_structure_similarity` separates own-page from wrong-page output by only ~0.06 and
-  *rises* when half the content is deleted. Whole-article content recall ships with its
-  attainable ceiling: only 61.1% of JATS blocks are recoverable from the PDF text layer by
-  any parser, because structured citations and bylines record words in an order the page
-  never prints, so raw recall on its own reads as parser loss that is not there.
-
-### Fixed
-
 - **A table region covering part of a text block no longer deletes the rest of that block.**
   Blocks a table region covers are withheld from the text stream, because the
   region is emitted in its own right — as a table, or as a paragraph when the grid is
