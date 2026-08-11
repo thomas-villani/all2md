@@ -39,6 +39,7 @@ from all2md.ast import (
     Link,
     List,
     ListItem,
+    Mark,
     Node,
     Paragraph,
     Strikethrough,
@@ -871,6 +872,7 @@ class HtmlToAstConverter(BaseParser):
         "img": "_process_image_to_ast",
         "u": "_process_underline_to_ast",
         "ins": "_process_insert_to_ast",
+        "mark": "_process_mark_to_ast",
     }
 
     def _process_node_to_ast(self, node: Any) -> Node | list[Node] | None:
@@ -1705,6 +1707,27 @@ class HtmlToAstConverter(BaseParser):
         """
         content = self._process_children_to_inline(node)
         return Subscript(content=content)
+
+    def _process_mark_to_ast(self, node: Any) -> Mark:
+        """Process mark element to Mark node.
+
+        ``mark`` was listed as an inline element but had no handler, so it fell
+        through to the generic unwrap and the highlight was dropped outright --
+        ``<mark>x</mark>`` became a bare ``x``. Same gap ``<ins>`` had (#113).
+
+        Parameters
+        ----------
+        node : Any
+            Mark element
+
+        Returns
+        -------
+        Mark
+            Mark node
+
+        """
+        content = self._process_children_to_inline(node)
+        return Mark(content=content)
 
     def _process_link_to_ast(self, node: Any) -> Link:
         """Process a element to Link node.
