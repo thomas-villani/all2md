@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Table captions survive a Markdown round trip.** Markdown has no caption syntax, so the
+  renderer demoted `Table.caption` to an italic paragraph — which a reader could see, but
+  which came back as ordinary prose, so the trip lost the caption *and* gained a `Paragraph`
+  node that was not in the input. The caption is now written as that same italic paragraph
+  followed by an `<!-- all2md:table-caption -->` marker, which the Markdown parser folds back
+  into `Table.caption` along with the paragraph. Readers still see the caption, the AST comes
+  back with the node count it started with, and since the marker carries no copy of the text,
+  editing the visible line edits the caption. The fold is deliberately narrow: a bare marker,
+  a marker with no table after it, or an italic paragraph with no marker are all left alone.
+  `comment_mode="ignore"` suppresses the marker, and the caption then degrades to the italic
+  paragraph as before. This was the last of the four formats in #237 — asciidoc, rst and org
+  already round-tripped their captions (#237).
+
 ### Added
 
 - **Every registered format's options class is now importable from both `all2md` and

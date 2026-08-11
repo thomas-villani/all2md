@@ -460,15 +460,12 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 #: does emit the right syntax, with a parser that will not read it back, is a
 #: different fix from a renderer that emits nothing. Prefer measuring the
 #: rendered output before trusting a reason in this table.
-KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
-    # The last of the four table-caption entries (#237). asciidoc, rst and org each
-    # have a caption syntax and now use it. Markdown has none, and the current
-    # behaviour is worse than a dropped attribute: the caption is demoted to an
-    # italic paragraph, which injects a node that was not in the input. Whether to
-    # keep that and document it as lossy, or round-trip through an HTML comment, is
-    # a deliberate choice about output aimed at human readers, so it is still open.
-    ("markdown", "table-caption-survives"): "renderer demotes the caption to an italic paragraph (#237)",
-}
+#:
+#: Empty since #237 closed the last table-caption entry. Markdown has no caption
+#: syntax, so the renderer emits the caption twice over -- an italic paragraph for
+#: readers, a marker comment for the parser -- and the invariant holds without
+#: making the caption invisible in the file.
+KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {}
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe
 #: specific node attributes, and the container formats lose so much structure

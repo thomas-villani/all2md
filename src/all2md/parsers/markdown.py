@@ -61,7 +61,8 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md.constants import DEPS_MARKDOWN
+from all2md.ast.utils import extract_text
+from all2md.constants import DEPS_MARKDOWN, MARKDOWN_TABLE_CAPTION_MARKER
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
@@ -475,7 +476,7 @@ class MarkdownToAstConverter(BaseParser):
 
         # Convert tokens to AST (tokens should always be a list for our configuration)
         if isinstance(tokens, list):
-            children = self._process_tokens(tokens)
+            children = self._reattach_table_captions(self._process_tokens(tokens))
         else:
             # Fallback for unexpected token format
             children = []
@@ -1214,6 +1215,79 @@ class MarkdownToAstConverter(BaseParser):
                     nodes.append(node)
 
         return self._fold_underline_html(nodes)
+
+    def _reattach_table_captions(self, nodes: list[Node]) -> list[Node]:
+        """Fold ``*caption*`` + marker comment + table back into ``Table.caption``.
+
+        Markdown has no caption syntax, so the renderer emits the caption twice
+        over: an italic paragraph a reader can see, and a marker comment that
+        says the paragraph was a caption rather than prose (#237). Without the
+        marker there is nothing to distinguish the two on the way back in, and a
+        round trip both lost the caption *and* gained a paragraph node -- a
+        structural change, not just a missing attribute.
+
+        Deliberately conservative. Only the exact triple folds, and only when the
+        paragraph holds a single Emphasis; a bare marker, a marker with no table
+        after it, or an italic paragraph with no marker are all left untouched,
+        because each is more likely to be someone's real content than a caption
+        we should be rewriting. The caption text is read from the *visible*
+        paragraph, not the marker, so editing the rendered line edits the
+        caption.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Block-level nodes, in document order
+
+        Returns
+        -------
+        list of Node
+            The same nodes with any caption triples collapsed into their table
+
+        """
+        for node in nodes:
+            # Tables nest inside list items and blockquotes, so the marker can be
+            # there too; recurse before matching so the inner fold happens. Both
+            # attribute names are needed: List holds its ListItems under `items`,
+            # everything else uses `children`. DefinitionList also has `items` but
+            # holds tuples, hence the element check rather than a bare isinstance.
+            for attribute in ("children", "items"):
+                container = getattr(node, attribute, None)
+                if isinstance(container, list) and container and all(isinstance(c, Node) for c in container):
+                    setattr(node, attribute, self._reattach_table_captions(container))
+
+        result: list[Node] = []
+        index = 0
+        while index < len(nodes):
+            caption = self._caption_from_triple(nodes, index)
+            if caption is not None:
+                table = nodes[index + 2]
+                assert isinstance(table, Table)
+                table.caption = caption
+                result.append(table)
+                index += 3
+                continue
+            result.append(nodes[index])
+            index += 1
+        return result
+
+    def _caption_from_triple(self, nodes: list[Node], index: int) -> str | None:
+        """Return the caption text if ``nodes[index:index + 3]`` is a caption triple."""
+        if index + 2 >= len(nodes):
+            return None
+
+        paragraph, comment, table = nodes[index], nodes[index + 1], nodes[index + 2]
+        if not (isinstance(paragraph, Paragraph) and isinstance(comment, Comment) and isinstance(table, Table)):
+            return None
+        if comment.content.strip() != MARKDOWN_TABLE_CAPTION_MARKER:
+            return None
+        if table.caption:
+            return None
+        if len(paragraph.content) != 1 or not isinstance(paragraph.content[0], Emphasis):
+            return None
+
+        text = extract_text(paragraph.content[0], joiner="").strip()
+        return text or None
 
     def _fold_underline_html(self, nodes: list[Node]) -> list[Node]:
         """Fold ``<u>``/``<ins>`` HTMLInline pairs back into Underline nodes.
