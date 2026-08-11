@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`<del>`, `<s>`, `<sup>`, `<sub>` and `<mark>` survive a Markdown round trip.** mistune
+  hands raw inline HTML through untouched, so the Markdown parser produced loose
+  `HTMLInline` nodes rather than the AST node that already existed for the meaning; the
+  default `html_passthrough_mode="escape"` then escaped them on the way back out and
+  `a <del>x</del> b` returned as `a &lt;del&gt;x&lt;/del&gt; b`. They now fold into
+  `Strikethrough`, `Superscript`, `Subscript` and `Mark` the way `<u>`/`<ins>` already
+  folded into `Underline`, and render as `~~x~~`, `^x^`, `~x~` and `==x==`. The existing
+  constraints are unchanged: a tag carrying attributes stays raw HTML, because the
+  attributes hold information the node cannot, and an unmatched opener or stray closer
+  stays raw rather than being guessed at.
+- **`<mark>` no longer disappears when parsing HTML.** It was listed as an inline element
+  but had no handler, so it fell through to the generic unwrap and the highlight was
+  dropped outright — `<mark>x</mark>` became a bare `x`. Unlike the Markdown side this was
+  silent loss rather than escaping, so no round-trip text comparison would have noticed
+  it; a golden snapshot had captured the damaged output as expected. Same gap `<ins>` had.
 - **PyMuPDF's layout advisory no longer lands inside the converted document** (PDF).
   PyMuPDF prints `Consider using the pymupdf_layout package for a greatly improved page
   layout analysis.` with a bare `print()` — not a warning, not a log record — the first
