@@ -57,6 +57,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
+from all2md.constants import MARKDOWN_TABLE_CAPTION_MARKER
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.flavors import (
@@ -1126,9 +1127,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Split out from ``visit_table`` so the caller can capture the table in a
         buffer and shift it to the current indentation.
         """
-        # Render caption if present
+        # Render caption if present. Markdown has no caption syntax, so the
+        # caption becomes an italic paragraph plus a marker comment: the
+        # paragraph is what a reader sees, the marker is what tells our parser
+        # that paragraph was a caption rather than prose (#237). Suppressed under
+        # comment_mode="ignore", which asks for no comments in the output at all;
+        # the caption then degrades to the italic paragraph, as it always did.
         if node.caption:
             self._output.append(f"*{node.caption}*\n\n")
+            if self.options.comment_mode != "ignore":
+                self._output.append(f"<!-- {MARKDOWN_TABLE_CAPTION_MARKER} -->\n\n")
 
         # Handle tables not supported by the flavor
         if not self._flavor.supports_tables():
