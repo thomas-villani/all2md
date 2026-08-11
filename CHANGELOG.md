@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `html_passthrough_mode="escape"` (or `--markdown-html-passthrough-mode escape`). Only the
   Markdown renderer changes; the HTML, AsciiDoc and Textile renderers still default to
   `escape` (#178).
+### Fixed
+
+- **`json_to_ast` no longer crashes on explicit JSON nulls.** A producer outside this library
+  routinely writes `null` for a field it has nothing to say about, and `"children": [null]`,
+  `"content": null` or a null `metadata` object reached the node constructors unchanged. The
+  failure then surfaced much later, inside a renderer, as a `TypeError` naming nothing that
+  would help. Null list and object fields now read as empty, null child entries are skipped,
+  and a field that is structurally required — a `Heading` level, a `List` ordered flag —
+  raises a `ValueError` naming the node and the field instead of defaulting to something
+  plausible. Thanks to @santhreal (#265).
 
 ### Added
 
