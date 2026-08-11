@@ -11,7 +11,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
-from all2md.api import convert
+from all2md.api import convert, library_injected_options
 from all2md.cli.input_items import CLIInputItem
 from all2md.converter_registry import registry
 
@@ -83,6 +83,15 @@ def create_package_from_conversions(
     extension = registry.get_default_extension_for_format(target_format)
 
     base_options = options.copy() if options else {}
+    # Prepare options with base64 embedding for attachments
+    conversion_options = options.copy() if options else {}
+    # Force base64 embedding to keep everything in memory. Formats without attachment
+    # handling (markdown, txt) have no such option and drop it; mark it as ours so the
+    # drop does not warn the user about a parameter we added, not them (#275).
+    injected: tuple[str, ...] = ()
+    if "attachment_mode" not in conversion_options:
+        conversion_options["attachment_mode"] = "base64"
+        injected = ("attachment_mode",)
 
     total_size = 0
     file_count = 0
@@ -103,15 +112,16 @@ def create_package_from_conversions(
 
                 # Convert to BytesIO buffer (always binary)
                 buffer = BytesIO()
-                convert(
-                    source=item.raw_input,
-                    output=buffer,
-                    source_format=cast(Any, source_format),
-                    target_format=cast(Any, target_format),
-                    transforms=transforms,
-                    progress_callback=progress_callback,
-                    **conversion_options,
-                )
+                with library_injected_options(*injected):
+                    convert(
+                        source=item.raw_input,
+                        output=buffer,
+                        source_format=cast(Any, source_format),
+                        target_format=cast(Any, target_format),
+                        transforms=transforms,
+                        progress_callback=progress_callback,
+                        **conversion_options,
+                    )
 
                 # Write buffer contents to zip
                 content_bytes = buffer.getvalue()
