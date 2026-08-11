@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Every registered format's options class is now importable from both `all2md` and
+  `all2md.options`.** Twenty were missing from `all2md.options` and thirty-one from the top
+  level, including whole formats — `ArchiveOptions`, `EnexOptions`, `MboxOptions`,
+  `OutlookOptions`, `WebArchiveOptions`, and the JSON, YAML, TOML, INI, Textile, OpenAPI and
+  BBCode option classes — so configuring those converters from the Python API meant importing
+  from a private submodule path. The split did not track anything: `ArxivPackagerOptions` was
+  reachable from `all2md` but not from `all2md.options`, which is backwards from every
+  sibling. The two surfaces are now derived from the converter registry and a test fails if
+  either drifts from it again, so adding a format cannot quietly skip the export (#184).
+
 ### Changed
 
 - **PyMuPDF is imported under its own name, not the deprecated `fitz` alias.** Some PyMuPDF
@@ -16,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   references across 15 modules now use it. No public API changes — the `fitz` module object
   is still what PyMuPDF hands back, and `_pdf_layout.py` still neutralises the layout hook
   on both module objects, since the alias can be a distinct object in some installs (#284).
+- **`AttachmentOptionsMixin` and `CloneFrozenMixin` are no longer part of the public API.**
+  They remain importable from `all2md.options` and nothing about them has changed; they are
+  simply no longer listed in `__all__`, because exporting a mixin promises its shape to
+  anyone who subclasses it and that is a larger commitment than an options dataclass. Only
+  `from all2md.options import *` is affected.
 - **A dropped keyword argument is now diagnosed by which mistake it was.** A name that is an
   option of no format still reports as `Unrecognized keyword arguments were ignored` — the
   typo case #273 was about. A name that is a real all2md option the conversion's formats
