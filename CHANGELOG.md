@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`.tar.gz`, `.tar.bz2` and `.tar.xz` are accepted on the command line again.** Every
+  read-side command collects inputs through one extension filter, and that filter compared
+  `Path.suffix` — which returns only the last dot-separated component — against the set of
+  registered extensions. `Path("bundle.tar.gz").suffix` is `".gz"`, which no converter
+  declares, so the file was dropped before any converter saw it and the CLI reported
+  `No valid input files found` about a file that was present, correctly named, and readable:
+  `to_markdown("bundle.tar.gz")` had opened it all along. The split was exact — every
+  single-part spelling (`.tar`, `.tgz`, `.tbz2`, `.txz`) worked and every two-part one
+  failed. Matching now walks the tails of `Path.suffixes` longest-first, so `.tar.gz` wins
+  where it applies while `report.2024.pdf` still resolves to `.pdf`. This reached `all2md`,
+  `grep`, `search`, `view` and `watch` alike. The same rule now backs the interactive
+  `batch` type table, so the extension it offers is the one its filter accepts.
 - **`--zip` projects its namespaced options like every other path.** The CLI carries
   options fully qualified — `pdf.pages`, `markdown.flavor`, and the subcommand sections'
   own settings such as `view.dark` — and flattens them against the format that will

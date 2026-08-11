@@ -295,12 +295,8 @@ This pairs with ``--zip``, which packages a batch conversion into an archive
 (see :doc:`batch`) — the result is searchable the same way, so a converted bundle
 remains queryable without being unpacked.
 
-.. note::
-
-   Archives named with a two-part extension (``.tar.gz``, ``.tar.bz2``, ``.tar.xz``) are
-   currently rejected by the CLI, though the Python API reads them normally
-   (`#306 <https://github.com/thomas-villani/all2md/issues/306>`_). Single-extension
-   spellings — ``.zip``, ``.tar``, ``.tgz``, ``.tbz2``, ``.txz`` — work everywhere.
+Every archive spelling works the same way — ``.zip``, ``.tar``, ``.tgz``, ``.tbz2``,
+``.txz``, and the two-part forms ``.tar.gz``, ``.tar.bz2`` and ``.tar.xz``.
 
 5. Progress Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~
