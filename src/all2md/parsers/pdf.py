@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from all2md.parsers._ocr import OcrParagraph
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from all2md.ast import (
     Code,
@@ -166,14 +166,133 @@ def _span_union_bbox(spans: list) -> tuple[float, float, float, float] | None:
     )
 
 
-def _leading_text(spans: list) -> str:
-    """Return a line's text as printed, for tests that only look at how it starts.
+#: Inline nodes that can wrap the text a line opens with. A span's font flags become
+#: ``Strong``/``Emphasis`` and a hyperlink becomes ``Link``, so a marker printed in bold, in
+#: italic, or inside a link arrives wrapped rather than as a bare ``Text``. ``Superscript``
+#: is deliberately absent: a superscript digit opening a line is a footnote or citation
+#: reference, and descending into one would read ``1. Smith et al.`` off a footnote.
+_INLINE_WRAPPERS = (Strong, Emphasis, Link)
 
-    Taken from the spans rather than from converted inline nodes: a line opening with a
-    link or a styled run puts something other than a Text node first, and picking the
-    first Text node anywhere on the line asks the question of the middle of the line.
+#: How much of a line's opening text the marker tests need. The longest marker they accept
+#: is a run of digits, a ``.`` or ``)`` and a space, so this is generous; it exists to stop
+#: the walk after a few nodes rather than to bound what counts as a marker.
+_LEADING_TEXT_CHARS = 16
+
+#: A bullet standing alone, with the space that follows it not yet read. The walk crosses a
+#: node boundary only while what it holds matches this -- see :func:`_leading_inline_text`.
+#: Numbers are deliberately not here, and that is the whole of what keeps a bibliography
+#: from becoming an ordered list.
+_BULLET_AWAITING_ITS_SPACE = re.compile("^[-–—*+•◦▪▫o]$")
+
+
+def _leading_inline_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) -> str:
+    """Return the text a paragraph or line *opens with*, descending into inline wrappers.
+
+    Reading the first top-level ``Text`` node instead gets the question wrong in both
+    directions. A bullet set in a symbol font is italic by its font flags, so it arrives as
+    ``Emphasis(Text("-"))`` and the line has no top-level ``Text`` at all -- it reads as
+    empty and never starts a list. A citation opening with a styled journal name has its
+    first top-level ``Text`` in the *middle* of the line, so ``Nature 12. 45-67`` reported
+    an ordered marker and became a list item.
+
+    Reading the raw spans instead is no better, and is the reason this is not simply a text
+    join over ``line["spans"]``: ``_process_text_spans_to_inline`` rewrites four bullet
+    glyphs (``U+F0B7``, ``U+00B7``, ``U+2022``, ``U+25CF``) to ``-``, and three of the four
+    are not markers in their printed form. The conversion is what makes a symbol-font bullet
+    recognisable, so detection has to run after it.
+
+    The walk crosses a node boundary **only while what it has read so far is a lone
+    bullet**, waiting on the space that follows it. A bullet is its own span by typographic
+    necessity -- it is set in a different font from the text -- and the letter ``o`` is only
+    a bullet when a space follows, so without that one step the rule that keeps "office"
+    from being a bullet could never fire and Word's second-level bullets could never be
+    recognised at all.
+
+    Numbers get no such step, and that restriction is the load-bearing part. A numbered
+    marker arrives split exactly the same way -- ``Text("44.")`` then ``Text(" Konema,
+    Nigeria ...")`` -- and nothing in the PDF distinguishes the 44th bibliography entry from
+    the 44th item of a list. Reading across that boundary turned reference lists into
+    ordered lists, whereupon the renderer renumbered them from 1 and destroyed every
+    citation number in the document. A numbered marker must therefore be complete within one
+    node, which is exactly what it was before.
+
+    ``Code`` and anything else that is not an inline wrapper stops the walk: a line opening
+    with inline code does not open with a list marker, and reporting the text past it would
+    reintroduce the middle-of-the-line reading.
     """
-    return "".join(span.get("text", "") for span in spans)
+    text = ""
+    for node in content:
+        if isinstance(node, Text):
+            piece = node.content
+        elif isinstance(node, _INLINE_WRAPPERS):
+            piece = _leading_inline_text(node.content, limit)
+        else:
+            break
+        if text and not _BULLET_AWAITING_ITS_SPACE.match(text.strip()):
+            break
+        text += piece
+        if len(text.lstrip()) >= limit:
+            break
+    return text
+
+
+def _opening_line_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) -> str:
+    """Everything a line opens with, wrappers descended and node boundaries ignored.
+
+    The liberal counterpart to :func:`_leading_inline_text`, and safe only where it is used.
+    The item-split test runs *inside* a paragraph already known to be a list, so reading
+    across node boundaries there can re-split a list that exists but can never create one --
+    and it has to read across them, because a numbered item's marker is routinely a span of
+    its own and every item after the first would otherwise run into its predecessor.
+
+    The tests that *create* lists cannot use this, which is the whole distinction between
+    the two readers: a bibliography entry is a numbered marker in its own span too, and
+    creating a list from one renumbers the references from 1.
+    """
+    text = ""
+    for node in content:
+        if isinstance(node, Text):
+            text += node.content
+        elif isinstance(node, _INLINE_WRAPPERS):
+            text += _opening_line_text(node.content, limit)
+        else:
+            break
+        if len(text.lstrip()) >= limit:
+            break
+    return text
+
+
+def _consume_leading_chars(content: list[Node], count: int) -> tuple[list[Node], int]:
+    """Drop the first ``count`` characters of ``content``, descending into inline wrappers.
+
+    Counts characters exactly as :func:`_leading_inline_text` reports them, so a marker
+    *located* by that function is *removed* by this one even when it sits inside a wrapper
+    or straddles two nodes -- ``Emphasis(Text("-"))`` followed by ``Text(" Body")`` keeps
+    the bullet in the first node and the space after it in the second. A wrapper left with
+    nothing inside it is dropped rather than emitted empty.
+
+    Returns the new content and however much of ``count`` went unconsumed.
+    """
+    out: list[Node] = []
+    remaining = count
+    for node in content:
+        if remaining <= 0:
+            out.append(node)
+        elif isinstance(node, Text):
+            if len(node.content) <= remaining:
+                remaining -= len(node.content)  # wholly marker; drop the node
+            else:
+                out.append(replace(node, content=node.content[remaining:]))
+                remaining = 0
+        elif isinstance(node, _INLINE_WRAPPERS):
+            inner, remaining = _consume_leading_chars(node.content, remaining)
+            if inner:
+                out.append(replace(node, content=inner))
+        else:
+            # Opaque to the reader above, so it cannot have been part of the marker.
+            out.append(node)
+            remaining = 0
+    return out, remaining
 
 
 def _running_text_key(text: str) -> str:
@@ -2660,18 +2779,29 @@ class PdfToAstConverter(BaseParser):
         average_line_height: float | None,
     ) -> None:
         """Accumulate regular text line into paragraph state."""
+        # Converted before the split test below rather than after it, because the conversion
+        # is what turns a symbol-font bullet into a recognisable marker -- see
+        # _leading_inline_text. The flush still has to happen before the empty-content
+        # return, so that a line which converts to nothing keeps ending a paragraph on gap.
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+
         # A list item runs on across the vertical gaps that separate paragraphs -- the space
         # between two bullets is the same space that ends a paragraph -- so the gap rule is
         # suspended once a list has started. Without a second rule to end an item, though,
         # every bullet in a list ran into its predecessor and the whole list arrived as a
         # single item: one born-digital article emitted 1 list item for its 16 bullets.
         # A line carrying its own marker is the next item, whatever the spacing says.
-        starts_new_item = state.paragraph_is_list and self._is_valid_list_marker(_leading_text(spans))[0]
+        #
+        # This asks with the liberal reader, unlike the paragraph-start test below. It is
+        # gated on the paragraph already being a list, so it can only ever re-split one;
+        # narrowing it to the conservative reader ran a whole ordered list back into a
+        # single item, because "2." is a span of its own and stops that reader dead.
+        opens_with_marker = self._is_valid_list_marker(_opening_line_text(inline_content))[0]
+        starts_new_item = state.paragraph_is_list and opens_with_marker
         breaks_paragraph = vertical_gap > paragraph_break_threshold and not state.paragraph_is_list
         if state.paragraph_content and (starts_new_item or breaks_paragraph):
             self._flush_state_paragraph(state, page_num)
 
-        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
         if not inline_content:
             return
 
@@ -2684,8 +2814,9 @@ class PdfToAstConverter(BaseParser):
         else:
             # Starting new paragraph
             state.paragraph_bbox = line["bbox"]
-            first_text = next((n.content for n in inline_content if isinstance(n, Text)), "")
-            state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(first_text)
+            state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(
+                _leading_inline_text(inline_content)
+            )
 
         state.paragraph_content.extend(inline_content)
 
@@ -3465,18 +3596,11 @@ class PdfToAstConverter(BaseParser):
         if not paragraph.content:
             return False
 
-        def extract_text(nodes: list[Node]) -> str:
-            """Recursively extract text from nodes."""
-            text_parts = []
-            for node in nodes:
-                if isinstance(node, Text):
-                    text_parts.append(node.content)
-                elif hasattr(node, "content") and isinstance(node.content, list):
-                    text_parts.append(extract_text(node.content))
-            return "".join(text_parts)
-
-        full_text = extract_text(paragraph.content)
-        is_list, _ = self._is_valid_list_marker(full_text)
+        # The liberal reader, because this only ever *protects* a paragraph from being
+        # merged into its neighbour -- it creates nothing. Answering it conservatively let
+        # consecutive numbered items merge back into a single paragraph, which is how a
+        # whole ordered list came out on one line.
+        is_list, _ = self._is_valid_list_marker(_opening_line_text(paragraph.content))
         return is_list
 
     def _determine_list_level_from_x(self, x_coord: float, x_levels: dict[int, float]) -> int:
@@ -3818,13 +3942,7 @@ class PdfToAstConverter(BaseParser):
             "ordered", "unordered", or None
 
         """
-        full_text = ""
-        for node in para.content:
-            if isinstance(node, Text):
-                full_text = node.content
-                break
-
-        return self._is_valid_list_marker(full_text)
+        return self._is_valid_list_marker(_leading_inline_text(para.content))
 
     def _extract_list_item_x_coord(self, node: AstParagraph) -> float | None:
         """Extract x-coordinate from a paragraph's bbox metadata.
@@ -3860,11 +3978,7 @@ class PdfToAstConverter(BaseParser):
             Content nodes with the list marker removed
 
         """
-        full_text = ""
-        for node in para.content:
-            if isinstance(node, Text):
-                full_text = node.content
-                break
+        full_text = _leading_inline_text(para.content)
 
         # Use the robust marker detection to validate this is actually a list item
         is_list, list_type = self._is_valid_list_marker(full_text)
@@ -3889,20 +4003,12 @@ class PdfToAstConverter(BaseParser):
             if match:
                 marker_end = match.end()
 
-        # Create new content without the marker
-        new_content: list[Node] = []
-        if marker_end > 0:
-            # Remove marker from first text node
-            for i, node in enumerate(para.content):
-                if i == 0 and isinstance(node, Text):
-                    remaining_text = node.content[marker_end:]
-                    if remaining_text:
-                        new_content.append(Text(content=remaining_text))
-                else:
-                    new_content.append(node)
-        else:
-            new_content = list(para.content)
+        if marker_end <= 0:
+            return list(para.content)
 
+        # The marker may sit inside a wrapper and may straddle two nodes, so it is removed
+        # by character count rather than by rewriting whichever node happens to be first.
+        new_content, _ = _consume_leading_chars(para.content, marker_end)
         return new_content
 
     def _finalize_pending_lists(self, list_stack: list[tuple[str, int, list[ListItem]]], result: list[Node]) -> None:
