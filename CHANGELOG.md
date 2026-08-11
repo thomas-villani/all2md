@@ -21,6 +21,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Two columns that start level are read left-to-right, not by a hairline** (PDF). Blocks
+  were ordered on `y` alone, so on a page whose gutter is too narrow for column detection
+  to split, whichever column's top edge happened to be a fraction of a point higher was
+  read first — and that decided the order of the entire page. On page 16 of `PMC7500012.1`
+  the two columns begin at `y=89.708191` and `y=89.702942`, five thousandths of a point
+  apart, and the references came out running 39–61 and then 19–38: a document that looks
+  correct and is not. Blocks whose tops fall within a twentieth of the page's average line
+  height are now treated as starting on the same row and ordered by `x`. That is a
+  size-relative measure rather than a constant, since what reads as "level" scales with the
+  type size, and it is deliberately small: it only reaches blocks that begin at effectively
+  the same height, where the `y` order was noise to begin with. Measured on the PMC
+  born-digital corpus (117 pages), reading-order similarity rises from 0.779 to 0.785 mean
+  and 0.821 to 0.835 median, with block structure and text content up slightly and tables
+  and whole-article recall unchanged — no dimension regressed.
 - **`<del>`, `<s>`, `<sup>`, `<sub>` and `<mark>` survive a Markdown round trip.** mistune
   hands raw inline HTML through untouched, so the Markdown parser produced loose
   `HTMLInline` nodes rather than the AST node that already existed for the meaning; the

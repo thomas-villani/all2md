@@ -60,6 +60,8 @@ from all2md.constants import (
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
     PDF_MIN_PYMUPDF_VERSION,
+    PDF_READING_ORDER_MIN_ROW_TOLERANCE,
+    PDF_READING_ORDER_ROW_TOLERANCE_RATIO,
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
@@ -1768,8 +1770,76 @@ class PdfToAstConverter(BaseParser):
         # order instead. Scoped to engine-segmented pages with no tables to interleave;
         # native blocks keep the existing behaviour exactly.
         if col_tables or not items or not all(item[2].get("_engine_segmented") for item in items):
-            items.sort(key=lambda x: x[1])
+            items = self._sort_items_into_reading_order(items, column)
         return items
+
+    def _sort_items_into_reading_order(
+        self, items: list[tuple[str, float, Any]], column: list[dict]
+    ) -> list[tuple[str, float, Any]]:
+        """Order items top-to-bottom, and left-to-right among those starting level.
+
+        Sorting on ``y`` alone makes the *first* item decided by whichever block's
+        top edge is a hair higher, and on a two-column page that column detection
+        read as one, that hair decides the order of the whole page. On page 16 of
+        ``PMC7500012.1`` the two columns start at ``y=89.708`` and ``y=89.703`` --
+        five thousandths of a point apart -- and the right column wins, so the
+        references read 39-61 and then 19-38 (#290).
+
+        The blocks are not exactly level, so a plain ``(y, x)`` key does not help:
+        they have to be treated as level first. Items whose tops fall within
+        ``row_tolerance`` of the row's first item form one row and are ordered by
+        ``x``. The tolerance is a quarter of the page's average line height rather
+        than a constant, because what counts as "level" scales with the type size
+        -- the same reason an absolute ``column_gap_threshold`` misjudges this
+        page. At a quarter of a line it cannot merge consecutive lines of running
+        text; it only reaches blocks that begin at effectively the same height,
+        where the ``y`` order was noise to begin with.
+
+        Parameters
+        ----------
+        items : list of tuple
+            ``(item_type, y_coord, item_data)`` tuples to order.
+        column : list of dict
+            The column's text blocks, used to size the tolerance.
+
+        Returns
+        -------
+        list of tuple
+            The same tuples in reading order.
+
+        """
+        ordered = sorted(items, key=lambda item: item[1])
+        if len(ordered) < 2:
+            return ordered
+
+        average_line_height = self._calculate_blocks_average_line_height(column)
+        row_tolerance = max(
+            PDF_READING_ORDER_MIN_ROW_TOLERANCE,
+            (average_line_height or 0.0) * PDF_READING_ORDER_ROW_TOLERANCE_RATIO,
+        )
+
+        result: list[tuple[str, float, Any]] = []
+        start = 0
+        while start < len(ordered):
+            end = start + 1
+            # Compared against the row's first item, not its predecessor, so a
+            # column of near-level blocks cannot chain into one giant row.
+            while end < len(ordered) and ordered[end][1] - ordered[start][1] <= row_tolerance:
+                end += 1
+            row = ordered[start:end]
+            row.sort(key=lambda item: self._item_x0(item))
+            result.extend(row)
+            start = end
+        return result
+
+    @staticmethod
+    def _item_x0(item: tuple[str, float, Any]) -> float:
+        """Return the left edge of a block or table item."""
+        kind, _, data = item
+        if kind == "table":
+            return float(data["bbox"].x0)
+        bbox = data.get("bbox")
+        return float(bbox[0]) if bbox else 0.0
 
     def _process_table_item(self, item_data: dict, page: "fitz.Page", page_num: int) -> Node | None:
         """Process a single table item and return its AST node.
