@@ -745,6 +745,21 @@ PDF_COLUMN_FREQ_THRESHOLD_RATIO = 0.3  # Ratio of max frequency for gap detectio
 PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK = 3  # Minimum blocks to perform median width check
 PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO = 0.6  # Width ratio threshold for single column detection
 
+# Reading order: how close two block tops must be to count as starting on the same
+# row, in which case they are read left-to-right instead of by a hairline y
+# difference. A fraction of the page's average line height rather than a constant,
+# because what reads as "level" scales with the type size.
+#
+# Deliberately a twentieth of a line, not a quarter. The defect this corrects is
+# float-level noise -- the two columns of PMC7500012.1 p16 start 0.005pt apart --
+# so the tolerance only has to cover blocks that begin at effectively the same
+# height. A quarter of a line also swept up genuine offsets: it put a left-margin
+# "OPEN" badge sitting 2.2pt below a paper's title ahead of the title. Both values
+# score the same on the PMC corpus (reading order 0.785 mean / 0.835 median), so
+# the corpus could not choose between them and the conservative one wins.
+PDF_READING_ORDER_ROW_TOLERANCE_RATIO = 0.05
+PDF_READING_ORDER_MIN_ROW_TOLERANCE = 0.25  # Points floor, for pages with no measurable lines
+
 # Table detection and extraction
 DEFAULT_TABLE_DETECTION_MODE: TableDetectionMode = "both"
 DEFAULT_TABLE_FALLBACK_DETECTION = True
