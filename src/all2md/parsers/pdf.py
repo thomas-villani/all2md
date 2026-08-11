@@ -1412,17 +1412,13 @@ class PdfToAstConverter(BaseParser):
         # the zoom matrix (DPI/72 = zoom factor).
         zoom = options.ocr.dpi / 72.0
 
-        # Initialize pixmap reference for proper cleanup in finally block
-        pix = None
-        try:
-            mat = pymupdf.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat)
-            return ocr_pixmap(pix, page, options)
-        finally:
-            # Clean up pixmap resources to prevent memory leaks
-            # This is critical for long-running OCR operations
-            if pix is not None:
-                pix = None
+        # No explicit pixmap cleanup: the buffer is freed when the last reference to it
+        # goes away, and that is this function returning. Rebinding the local to None
+        # first — as this did — happens after the return value is computed and drops a
+        # reference that is about to be dropped anyway.
+        mat = pymupdf.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat)
+        return ocr_pixmap(pix, page, options)
 
     @staticmethod
     def _ocr_page_to_layout(page: "pymupdf.Page", options: PdfOptions) -> "list[OcrParagraph] | None":
@@ -1446,7 +1442,6 @@ class PdfToAstConverter(BaseParser):
         from all2md.parsers._ocr import ocr_pixmap_layout
 
         zoom = options.ocr.dpi / 72.0
-        pix = None
         try:
             mat = pymupdf.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
