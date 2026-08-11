@@ -265,15 +265,15 @@ class MarkdownRendererOptions(BaseRendererOptions):
         constraints.
     html_passthrough_mode : {"pass-through", "escape", "drop", "sanitize"}, default "pass-through"
         How to handle raw HTML content in markdown (HTMLBlock and HTMLInline nodes):
-        - "pass-through": Pass HTML through unchanged (the default; markdown permits
-          raw HTML, and escaping it breaks a Markdown -> Markdown round trip)
+        - "pass-through": Pass HTML through unchanged; markdown permits raw HTML
         - "escape": HTML-escape the content to show as text
         - "drop": Remove HTML content entirely
         - "sanitize": Remove dangerous elements/attributes (requires bleach for best results)
-        Note: This does not affect fenced code blocks with language="html", which are
-        always rendered as code and are already safe. Converting *untrusted* markdown
-        is the case for "escape": the `html -> markdown` direction needs no such help,
-        because the HTML parser drops script/iframe/form/svg before any renderer runs.
+        Escaping breaks a Markdown to Markdown round trip, so it is no longer the default.
+        Converting *untrusted* markdown is the case for it; the html-to-markdown direction
+        needs no such help, because the HTML parser drops script/iframe/form/svg before
+        any renderer runs. This does not affect fenced code blocks with language="html",
+        which are always rendered as code and are already safe.
     comment_mode : {"html", "blockquote", "ignore"}, default "html"
         How to render Comment and CommentInline AST nodes:
         - "html": Render as HTML comments (<!-- Comment text -->)
