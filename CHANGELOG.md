@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A list marker set in a symbol font now starts a list** (PDF). Whether a line opened
+  with a marker was decided by finding the first top-level `Text` node, which is the wrong
+  question in both directions. A bullet set in a symbol font carries that font's flags, so
+  it arrives wrapped — italic flags make `Emphasis(Text("-"))` — and the line has no
+  top-level `Text` at all: it read as empty and never started a list, so one born-digital
+  article's bullets came out as plain paragraphs each beginning with a literal `- `. In the
+  other direction, reading past the first node to find *some* `Text` answers for the middle
+  of the line, so a citation opening with a styled journal name, `Nature 12. 45-67`,
+  reported a numbered marker and became a list item. Detection now descends into inline
+  wrappers, and the marker is removed by character count so that it comes off even when it
+  sits inside a wrapper or straddles two nodes. Reading the raw spans instead would not
+  work, which is worth recording because it looks like the obvious fix: the parser rewrites
+  four bullet glyphs (`U+F0B7`, `U+00B7`, `U+2022`, `U+25CF`) to `-`, and three of those
+  four are not markers in their printed form, so detection has to run after that conversion
+  rather than before it.
+
+  A marker and the space that disambiguates it are also routinely *separate* spans, which
+  is why **Word's second-level Courier `o` bullets** never became list items at all — the
+  rule that an `o` must be followed by a space (so that "office" is not a bullet) could
+  never fire, because the space was in the next node. Those bullets now nest under the
+  item above them instead of landing as loose paragraphs between the items they belong to.
+
+  That look-ahead is allowed **only for a bullet**, never for a number, and the restriction
+  is the load-bearing part rather than a tidiness. A numbered marker arrives split exactly
+  the same way — `Text("44.")` then `Text(" Konema, Nigeria …")` — and nothing in a PDF
+  distinguishes the 44th bibliography entry from the 44th item of a list. Reading across
+  that boundary turned reference lists into ordered lists, and since nothing carries a start
+  number through, the renderer printed them from 1: reference 44 came out as item 1 and no
+  citation in the body could be matched to its reference. A numbered marker must therefore
+  be complete within one span, as it always was.
+
+  Measured on the born-digital corpus over the twelve list-bearing articles that complete
+  locally, list-item recall rises **0.231 → 0.269** and precision **0.116 → 0.141**; only
+  three articles change at all. The items still missed are overwhelmingly ones the PDF
+  prints with **no marker of any kind**, which no marker rule can reach.
+
 - **A bulleted or numbered list is no longer collapsed into a single item** (PDF). The
   vertical gap between two list items is the same gap that separates two paragraphs, so
   the paragraph-break rule is suspended once a list has started — otherwise every item
