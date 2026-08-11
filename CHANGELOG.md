@@ -7,8 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A dropped keyword argument is now diagnosed by which mistake it was.** A name that is an
+  option of no format still reports as `Unrecognized keyword arguments were ignored` — the
+  typo case #273 was about. A name that is a real all2md option the conversion's formats
+  simply have no field for (`pages` on a markdown parse, `flavor` on an HTML render) now
+  says so instead of telling the caller to check for a misspelling they did not make. Both
+  can arrive from one call, as two warnings. `to_ast` and `from_ast` previously stayed silent
+  for the second case while `to_markdown` warned; they now agree, which closes the last gap
+  #273 left open. Callers who pass a real-but-inapplicable option to `to_ast` will see a
+  warning where they saw none — it is telling them the option did nothing.
+
 ### Fixed
 
+- **Packaging no longer warns the user about an `attachment_mode` it injected itself.**
+  `create_package_from_conversions` forces `attachment_mode="base64"` so attachments stay in
+  memory, then passed it to `convert()`; for a source format with no such option (markdown,
+  txt) it was dropped and reported as an unrecognized keyword argument. The user never typed
+  it. An ordinary `all2md *.md --package out.zip` said "Check the API documentation for valid
+  parameter names" about a command line that was entirely valid. Library-internal call sites
+  can now mark an option as their own, and the three that inject one — the CLI packager, the
+  MCP server's `attachment_mode` from server config, and `convert`'s `flavor` shorthand — do.
+  An `attachment_mode` the caller passed explicitly is still theirs and still warns.
 - **Text rescued from a rejected table region is dehyphenated like any other prose** (PDF).
   When a detected table's grid turns out to be degenerate the region is emitted as a
   paragraph instead, and its text is recovered with `page.get_textbox()` — raw extraction,
