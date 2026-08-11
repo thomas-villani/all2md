@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, cast, get_args
 from urllib.parse import unquote
 
-from all2md.api import from_ast, from_markdown, to_ast
+from all2md.api import from_ast, from_markdown, library_injected_options, to_ast
 from all2md.ast.nodes import Document, Image
 from all2md.ast.sections import extract_sections
 from all2md.ast.transforms import NodeCollector
@@ -297,7 +297,10 @@ def read_document_as_markdown_impl(input_data: ReadDocumentAsMarkdownInput, conf
     try:
         # Convert to AST first (allows us to extract images and sections)
         # format_hint has been validated above, safe to cast to DocumentFormat
-        doc = to_ast(source, source_format=cast(DocumentFormat, input_data.format_hint or "auto"), **kwargs)
+        # attachment_mode comes from server config, not from the caller, so a format
+        # without attachment handling must drop it quietly rather than warn (#275).
+        with library_injected_options("attachment_mode"):
+            doc = to_ast(source, source_format=cast(DocumentFormat, input_data.format_hint or "auto"), **kwargs)
 
         # Validate return type
         if not isinstance(doc, Document):
