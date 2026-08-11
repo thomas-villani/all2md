@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dropped outright — `<mark>x</mark>` became a bare `x`. Unlike the Markdown side this was
   silent loss rather than escaping, so no round-trip text comparison would have noticed
   it; a golden snapshot had captured the damaged output as expected. Same gap `<ins>` had.
+- **PyMuPDF's layout advisory no longer lands inside the converted document** (PDF).
+  PyMuPDF prints `Consider using the pymupdf_layout package for a greatly improved page
+  layout analysis.` with a bare `print()` — not a warning, not a log record — the first
+  time `find_tables()` runs in a process where `pymupdf.layout` is not installed. all2md
+  writes converted documents to stdout, so the advisory arrived *inside the document*:
+  `all2md report.pdf > report.md` made it line one of the markdown, and any pipeline
+  reading all2md's stdout got it as content. This was the common case rather than an
+  exotic one — `pymupdf-layout` is deliberately excluded from the `all` extra over its
+  Polyform Noncommercial license, so the plain and `[all]` installs both hit it. all2md
+  now opts out through PyMuPDF's own entry point when it opens a PDF; it ships that
+  package as the `pdf_layout` extra and already reports its absence through its own
+  dependency machinery, which writes to stderr.
 - **`.tar.gz`, `.tar.bz2` and `.tar.xz` are accepted on the command line again.** Every
   read-side command collects inputs through one extension filter, and that filter compared
   `Path.suffix` — which returns only the last dot-separated component — against the set of
