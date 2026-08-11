@@ -1,0 +1,113 @@
+name: PMC Born-Digital Fidelity
+
+# Scores all2md against publisher PDFs with JATS ground truth, page by page. This is the
+# born-digital counterpart to the OmniDocBench lane: that corpus is 981 rasters, so it
+# measures the OCR path and its PDF table path never runs at all.
+#
+# Modelled on omnidocbench-gate.yml rather than on the Corpus Benchmark, because the two
+# external-ground-truth lanes share a corpus that is pinned rather than resolved live, the
+# same oracle, and the same runtime-identity problem: the ratchet compares against a recorded
+# baseline, so a resolver free to move PyMuPDF or a runner image free to change the system
+# Tesseract would report drift instead of fidelity. The lockfile and the image are part of
+# the measurement.
+#
+# NOT gated yet, deliberately. The first full run reported a median of 0.000 on both table
+# dimensions: the default find_tables() strategy needs ruling lines on both axes, and journal
+# tables are booktabs-style, so it recovered 0 of 31 layout-predicted table regions. Text-
+# alignment detection now recovers a share of them, but the fix is deliberately conservative
+# -- it refuses any grid whose columns cut through words -- and the medians are still 0.000.
+# Recording a baseline now would ratchet that floor in as accepted. This lane publishes
+# evidence until that improves or is explicitly accepted; gating is a separate change.
+#
+# Also not on per-PR CI: a full run is over an hour of CPU, most of it OCR, and it downloads
+# ~146 MB from the PMC Open Access bucket.
+
+on:
+  schedule:
+    # 06:00 UTC on the 15th. Monthly for the same reason as the OmniDocBench lane -- the
+    # corpus is pinned by a committed manifest, so the only thing that changes between runs
+    # is our code -- and mid-month rather than on the 1st so the two external lanes report a
+    # fortnight apart instead of on the same morning.
+    - cron: "0 6 15 * *"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Score an evenly spaced subset of this many articles (blank = all 66)"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: pmc-borndigital-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fidelity:
+    name: PMC Born-Digital Fidelity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out all2md
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      # OCR is left enabled in auto mode rather than switched off: on a corpus characterized
+      # as 0.0% scan-shaped it should never fire, and "never fired" is only worth having as a
+      # measurement that could have failed. It did fail -- auto mode was OCR'ing figure-heavy
+      # born-digital pages and discarding their text layers, on 11 of 66 articles. With the
+      # trigger narrowed to the scan shape it reaches 2, on near-empty pages, so Tesseract is
+      # still a real dependency here and the measurement can still fire.
+      - name: Install OCR language data
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes tesseract-ocr tesseract-ocr-eng
+
+      - name: Install all2md from the lockfile
+        run: uv sync --frozen --extra pdf_layout --extra ocr
+
+      - name: Score the corpus
+        run: |
+          ARGS=(--out benchmarks/pmc/.cache/results/current.json --commit "${GITHUB_SHA}")
+          if [ -n "${LIMIT}" ]; then
+            ARGS+=(--limit "${LIMIT}")
+          fi
+          uv run --frozen --extra pdf_layout --extra ocr python -m benchmarks.pmc score "${ARGS[@]}" \
+            | tee "${RUNNER_TEMP}/pmc-summary.txt"
+        env:
+          LIMIT: ${{ inputs.limit }}
+
+      # The artifact alone is easy to ignore, and this lane's whole point is that somebody
+      # reads the numbers beside their controls.
+      - name: Append the reading to the job summary
+        if: always()
+        run: |
+          {
+            echo '### PMC born-digital fidelity'
+            echo
+            echo '```'
+            cat "${RUNNER_TEMP}/pmc-summary.txt" || echo "no summary produced"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload derived scores
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pmc-borndigital-scores-${{ github.run_number }}
+          # Results live under the gitignored `.cache/` directory, and this action skips
+          # anything inside a dot-directory unless hidden files are opted in. Without this the
+          # upload silently produces an empty artifact. Only derived score JSON is matched;
+          # the article PDFs sit in the digest-keyed corpus directory beside it.
+          include-hidden-files: true
+          path: benchmarks/pmc/.cache/results/*.json
+          if-no-files-found: error
+          retention-days: 14

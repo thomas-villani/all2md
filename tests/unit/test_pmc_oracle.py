@@ -1,0 +1,411 @@
+"""Tests for the PMC born-digital oracle: JATS projection, page assignment, and its controls.
+
+Several of these pin findings rather than code. Where a test's name states a measured fact,
+the fact was measured first and the behaviour written to match it -- not the other way round.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree
+
+import pytest
+
+from benchmarks.pmc import alignment, article, benchmark, convert, oracles, pages
+
+pytestmark = pytest.mark.unit
+
+
+def _jats(body: str) -> Any:
+    return ElementTree.fromstring(f"<article><body>{body}</body></article>")
+
+
+# ---------------------------------------------------------------------------
+# Ground-truth projection
+# ---------------------------------------------------------------------------
+
+
+def test_a_table_nested_in_a_paragraph_is_its_own_block() -> None:
+    """JATS nests floats inside prose, and swallowing them corrupted three things at once.
+
+    Taking a ``<p>``'s full text fused the paragraph, the caption and every cell into one
+    string: the table vanished from the ground truth, the caption stopped being its own
+    page object, and the fused block straddled the paragraph's page and the table's page so
+    it was placed on the wrong one.
+    """
+    root = _jats(
+        "<p>Results appear in <xref>Table 1</xref>."
+        "<table-wrap><label>Table 1</label><caption><p>Characteristics</p></caption>"
+        "<table><tr><th>Group</th><th>N</th></tr><tr><td>Control</td><td>15</td></tr></table>"
+        "</table-wrap></p>"
+    )
+    blocks, projection = oracles.project_jats(root)
+
+    prose = [block for block in blocks if block.kind == "text_block"]
+    tables = [block for block in blocks if block.kind == "table"]
+    assert len(tables) == 1
+    assert tables[0].table is not None
+    assert tables[0].table.rows == 2
+    # The paragraph keeps its own words and the cross-reference, and none of the table's.
+    assert prose[0].text == "Results appear in Table 1 ."
+    assert "Characteristics" not in prose[0].text
+    assert "Control" not in prose[0].text
+    # Caption and cell text reach the text stream as separate page objects.
+    assert "Table 1 Characteristics" in projection.text_blocks
+    assert any("Control" in block for block in projection.text_blocks)
+
+
+def test_cross_reference_text_is_kept_because_the_page_prints_it() -> None:
+    blocks, _ = oracles.project_jats(_jats("<p>See <xref ref-type='table'>Table 3</xref> for detail.</p>"))
+    assert blocks[0].text == "See Table 3 for detail."
+
+
+def test_unrendered_metadata_never_reaches_the_text_stream() -> None:
+    root = ElementTree.fromstring(
+        "<article><front><article-meta>"
+        "<article-id>10.1000/xyz</article-id><counts><page-count count='9'/></counts>"
+        "<title-group><article-title>Real Title</article-title></title-group>"
+        "</article-meta></front></article>"
+    )
+    _, projection = oracles.project_jats(root)
+    joined = " ".join(projection.text_blocks)
+    assert "Real Title" in joined
+    assert "10.1000/xyz" not in joined
+
+
+def test_jats_and_html_tables_are_counted_identically() -> None:
+    """The two lanes must not measure table shape differently, or they are incomparable."""
+    from benchmarks.omnidocbench.oracles import _html_table
+
+    markup = (
+        "<table><tr><th colspan='2'>Head</th></tr>"
+        "<tr><td rowspan='2'>A</td><td>B</td></tr><tr><td>C</td></tr></table>"
+    )
+    jats = oracles._jats_table(ElementTree.fromstring(markup))
+    html = _html_table(markup)
+    assert (jats.rows, jats.columns, jats.cell_slots) == (html.rows, html.columns, html.cell_slots)
+    assert jats.text == html.text
+
+
+def test_a_table_wrap_without_a_table_is_not_scored_as_an_empty_table() -> None:
+    """It renders as a graphic and a caption; an empty Table would punish a parser for nothing."""
+    blocks, projection = oracles.project_jats(
+        _jats("<table-wrap><label>Table 2</label><caption><p>Only an image</p></caption></table-wrap>")
+    )
+    assert projection.tables == ()
+    assert blocks[0].kind == "text_block"
+    assert "Only an image" in blocks[0].text
+
+
+def test_element_text_is_joined_not_concatenated() -> None:
+    """Concatenation fused ``<label>Table 2</label>`` onto its caption as one bogus token."""
+    blocks, _ = oracles.project_jats(_jats("<p><italic>Table 2</italic>obtained results</p>"))
+    assert "2obtained" not in blocks[0].text
+
+
+def test_coverage_reports_ground_truth_against_the_page_rather_than_assuming_it() -> None:
+    _, projection = oracles.project_jats(_jats("<p>one two three four</p>"))
+    assert oracles.coverage(projection, pdf_words=4) == pytest.approx(1.0)
+    assert oracles.coverage(projection, pdf_words=8) == pytest.approx(0.5)
+    assert oracles.coverage(projection, pdf_words=0) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Page boundaries
+# ---------------------------------------------------------------------------
+
+
+def _document(*children: Any) -> Any:
+    from all2md.ast.nodes import Document
+
+    return Document(children=list(children))
+
+
+def _separator(page_num: int, total: int) -> Any:
+    from all2md.ast.nodes import Comment
+
+    return Comment(
+        content=convert.PAGE_SEPARATOR_TEMPLATE.format(page_num=page_num, total_pages=total),
+        metadata={"comment_type": "page_separator"},
+    )
+
+
+def _paragraph(text: str) -> Any:
+    from all2md.ast.nodes import Paragraph, Text
+
+    return Paragraph(content=[Text(content=text)])
+
+
+def test_pages_are_recovered_from_one_conversion() -> None:
+    document = _document(_paragraph("one"), _separator(1, 3), _paragraph("two"), _separator(2, 3), _paragraph("three"))
+    recovered = convert.split_pages(document, 3)
+    assert [len(page.children) for page in recovered] == [1, 1, 1]
+
+
+def test_a_dropped_page_is_an_error_rather_than_a_silent_shift() -> None:
+    """Without this the parser's missing page would shift every later page's ground truth."""
+    document = _document(_paragraph("one"), _separator(1, 3), _paragraph("two"))
+    with pytest.raises(convert.PageBoundaryError, match="2 page group"):
+        convert.split_pages(document, 3)
+
+
+def test_out_of_order_separators_are_an_error() -> None:
+    document = _document(_paragraph("one"), _separator(2, 3), _paragraph("two"), _separator(1, 3), _paragraph("x"))
+    with pytest.raises(convert.PageBoundaryError, match="not consecutive"):
+        convert.split_pages(document, 3)
+
+
+def test_an_unrecognized_separator_is_an_error() -> None:
+    from all2md.ast.nodes import Comment
+
+    document = _document(
+        _paragraph("one"),
+        Comment(content="-----", metadata={"comment_type": "page_separator"}),
+        _paragraph("two"),
+    )
+    with pytest.raises(convert.PageBoundaryError, match="unparsable"):
+        convert.split_pages(document, 2)
+
+
+def test_the_lane_leaves_ocr_enabled_so_a_non_born_digital_corpus_would_say_so() -> None:
+    options = convert.pdf_options()
+    assert options.ocr.enabled is True
+    assert options.ocr.mode == "auto"
+    assert options.include_page_numbers is True
+
+
+# ---------------------------------------------------------------------------
+# Placement
+# ---------------------------------------------------------------------------
+
+
+def _page(text: str) -> pages.PageText:
+    tokens = alignment.normalize(text)
+    return pages.PageText(grams=alignment.ngrams(tokens), phrase=" ".join(tokens), tokens=set(tokens))
+
+
+def test_token_placement_finds_a_block_whose_word_order_the_page_does_not_print() -> None:
+    """A structured citation lists its fields in an order the rendered page never uses."""
+    citation = "Ferlay J Soerjomataram I Int J Cancer 2015 10.1002/ijc.29210"
+    rendered = _page("Ferlay J, Soerjomataram I, et al. Int J Cancer. 2015. doi:10.1002/ijc.29210")
+    tokens = alignment.normalize(citation)
+
+    assert alignment.place_block(alignment.ngrams(tokens), [rendered.grams]).verdict == "missing"
+    assert alignment.place_by_tokens(tokens, [rendered.tokens]) == 0
+
+
+def test_token_placement_refuses_a_page_that_holds_too_little() -> None:
+    tokens = alignment.normalize("alpha beta gamma delta epsilon zeta eta theta")
+    assert alignment.place_by_tokens(tokens, [_page("alpha beta unrelated words here").tokens]) is None
+
+
+def test_token_placement_refuses_a_block_with_too_few_distinct_words() -> None:
+    """Below a handful of words a bag is not distinctive enough to name a page."""
+    tokens = alignment.normalize("the the results")
+    assert alignment.place_by_tokens(tokens, [_page("the results section follows here").tokens]) is None
+
+
+def test_token_placement_breaks_ties_toward_the_earliest_page() -> None:
+    tokens = alignment.normalize("alpha beta gamma delta epsilon")
+    page = _page("alpha beta gamma delta epsilon")
+    assert alignment.place_by_tokens(tokens, [page.tokens, page.tokens, page.tokens]) == 0
+
+
+def test_a_block_crossing_a_page_break_is_split_rather_than_counted_whole_twice() -> None:
+    """Counting it whole on both pages would guarantee a mismatch on both."""
+    head = "the quick brown fox jumps over the lazy dog and keeps running onward"
+    tail = "through the tall wet grass until it reaches the far riverbank at dusk"
+    block = oracles.JatsBlock(kind="text_block", text=f"{head} {tail}")
+    assigned = pages.assign_pages([block], [_page(head), _page(tail)])
+
+    assert assigned.assignments["spans"] == 1
+    first, second = assigned.pages[0][0].block.text, assigned.pages[1][0].block.text
+    assert first.startswith("the quick brown fox")
+    assert second.endswith("far riverbank at dusk")
+    # The whole block appears on neither page on its own.
+    assert first != block.text and second != block.text
+
+
+def test_a_split_that_cannot_be_mapped_back_is_counted_rather_than_applied_wrongly() -> None:
+    """De-hyphenation makes one token out of two words, so the raw offset would be wrong."""
+    assert pages._split_at_token("run-\nning water", token_index=1) is None
+
+
+def test_a_short_block_is_placed_by_a_phrase_that_only_one_page_carries() -> None:
+    block = oracles.JatsBlock(kind="title", text="Statistical Analysis")
+    assigned = pages.assign_pages(
+        [block],
+        [_page("introduction and background material"), _page("statistical analysis was performed")],
+    )
+    assert assigned.assignments["phrase"] == 1
+    assert assigned.pages[1][0].assignment == "phrase"
+
+
+def test_a_short_block_on_no_unique_page_takes_the_page_of_what_it_introduces() -> None:
+    """A heading is kept with the text it introduces, so its successor's page is its own."""
+    heading = oracles.JatsBlock(kind="title", text="Results")
+    body = oracles.JatsBlock(
+        kind="text_block",
+        text="participants completed the protocol without any reported adverse events at all",
+    )
+    assigned = pages.assign_pages(
+        [heading, body],
+        [
+            # "Results" appears on both pages, so no phrase uniquely identifies one.
+            _page("results were mixed across every measured outcome results"),
+            _page("results participants completed the protocol without any reported adverse events at all"),
+        ],
+    )
+    assert [placed.assignment for placed in assigned.pages[1]] == ["inherited", "clean"]
+    assert assigned.pages[0] == ()
+
+
+def test_a_short_block_with_nothing_after_it_is_excluded_rather_than_guessed() -> None:
+    trailing = oracles.JatsBlock(kind="title", text="Results")
+    assigned = pages.assign_pages([trailing], [_page("results here"), _page("results there")])
+    assert assigned.assignments["excluded"] == 1
+    assert assigned.excluded == ("too_short",)
+
+
+def test_unplaceable_blocks_are_counted_as_an_error_budget_not_dropped() -> None:
+    present = oracles.JatsBlock(kind="text_block", text="alpha beta gamma delta epsilon zeta eta theta iota")
+    absent = oracles.JatsBlock(kind="text_block", text="wholly unrelated wording nowhere near this document at all")
+    assigned = pages.assign_pages([present, absent], [_page("alpha beta gamma delta epsilon zeta eta theta iota")])
+    assert assigned.assignments["excluded"] == 1
+    assert assigned.error_budget == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Article-level recall
+# ---------------------------------------------------------------------------
+
+
+def test_recall_is_reported_against_what_the_pdf_can_actually_yield() -> None:
+    """39% of this corpus's blocks are unreachable for any parser, so raw recall misleads."""
+    reachable = "the participants completed every session of the supervised training programme"
+    unreachable = "Ferlay J Soerjomataram I Int J Cancer 2015"
+    report = article.measure_recall(
+        [
+            (
+                "A",
+                [("text_block", reachable), ("text_block", unreachable)],
+                reachable,
+                reachable,
+            ),
+        ]
+    )
+    assert report.scored == 2
+    assert report.ceiling == pytest.approx(0.5)
+    assert report.recall == pytest.approx(0.5)
+    # All of what was available was recovered, even though raw recall reads as half.
+    assert report.attainable_recall == pytest.approx(1.0)
+
+
+def test_recall_falls_when_the_parser_loses_recoverable_text() -> None:
+    reachable = "the participants completed every session of the supervised training programme"
+    report = article.measure_recall([("A", [("text_block", reachable)], "nothing useful here", reachable)])
+    assert report.ceiling == pytest.approx(1.0)
+    assert report.attainable_recall == pytest.approx(0.0)
+
+
+def test_a_single_article_reports_no_control_rather_than_a_flattering_zero() -> None:
+    """With nothing to mismatch against, 0.0% would read exactly like a passing control."""
+    text = "the participants completed every session of the supervised training programme"
+    report = article.measure_recall([("A", [("text_block", text)], text, text)])
+    assert report.control_scored == 0
+    assert report.control_recall == 0.0
+
+
+def test_recall_collapses_against_a_different_article() -> None:
+    """A recall figure means nothing unless the same method fails on the wrong document."""
+    first = "the participants completed every session of the supervised training programme"
+    second = "vector drawings were counted on each page of the publisher issued document"
+    report = article.measure_recall(
+        [("A", [("text_block", first)], first, first), ("B", [("text_block", second)], second, second)]
+    )
+    assert report.recall == pytest.approx(1.0)
+    assert report.control_recall == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Controls that qualify the scores
+# ---------------------------------------------------------------------------
+
+
+def _projection(*blocks: str) -> Any:
+    from benchmarks.omnidocbench.oracles import PageProjection
+
+    return PageProjection(
+        text_blocks=tuple(blocks),
+        block_kinds=tuple("text_block" for _ in blocks),
+        tables=(),
+        formulas=(),
+    )
+
+
+def test_every_mutation_actually_damages_the_output_it_is_given() -> None:
+    """A control that does not change anything cannot show that a score can fail."""
+    original = _projection("alpha", "beta", "gamma", "delta")
+    assert benchmark.MUTATIONS["reversed"](original).text_blocks == ("delta", "gamma", "beta", "alpha")
+    assert benchmark.MUTATIONS["halved"](original).text_blocks == ("alpha", "gamma")
+    assert benchmark.MUTATIONS["shuffled"](original).text_blocks != original.text_blocks
+
+
+def test_shuffling_is_seeded_so_two_runs_are_comparable() -> None:
+    original = _projection(*(f"block {index}" for index in range(12)))
+    assert benchmark.MUTATIONS["shuffled"](original) == benchmark.MUTATIONS["shuffled"](original)
+
+
+def test_block_structure_is_recorded_but_marked_unusable_as_a_gate() -> None:
+    """It rises when half the content is deleted, so gating on it would reward dropping blocks."""
+    assert "block_structure_similarity" in benchmark.UNGATEABLE
+
+
+def test_a_dimension_carries_its_control_and_its_mutation_drops() -> None:
+    page = benchmark.PageEvaluation(
+        article_id="PMC1.1",
+        page=0,
+        scores={"text_content_similarity": 0.8},
+        control_scores={"text_content_similarity": 0.2},
+        mutated={name: {"text_content_similarity": 0.3} for name in benchmark.MUTATIONS},
+        truth_blocks=3,
+        truth_tables=0,
+        emitted_blocks=3,
+        emitted_tables=0,
+    )
+    summary = benchmark._dimension([page], "text_content_similarity")
+    assert summary is not None
+    assert summary["discrimination"] == pytest.approx(0.6)
+    assert summary["mutation_drop"]["reversed"] == pytest.approx(0.5)
+
+
+def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path) -> None:
+    """The excluded blocks must be reported beside the scores they were excluded from."""
+    payload = benchmark.normalize_results(
+        snapshot=type(
+            "Snapshot",
+            (),
+            {"manifest_sha256": "a" * 64, "bucket": "b", "complete": True, "expected_articles": 1},
+        )(),
+        evaluations=[
+            benchmark.ArticleEvaluation(
+                article_id="PMC1.1",
+                pages=(),
+                assignments={"clean": 9, "excluded": 1},
+                unsplit_spans=0,
+                excluded={"missing": 1},
+                coverage=1.0,
+                ocr_page_fraction=0.0,
+                degraded_kinds=(),
+                duration_seconds=0.1,
+                ground_truth_blocks=10,
+            )
+        ],
+        recall=article.measure_recall([]),
+        all2md_commit="deadbeef",
+        parser_runtime={},
+    )
+    assert payload["projection"]["error_budget"] == pytest.approx(0.1)
+    assert payload["projection"]["excluded_reasons"] == {"missing": 1}
+    assert payload["ocr_articles"] == []

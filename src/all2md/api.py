@@ -4,6 +4,9 @@
 # src/all2md/api.py
 import logging
 import warnings
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_type_hints
@@ -221,26 +224,38 @@ def _collect_nested_dataclass_kwargs(
     return {"nested": nested_kwargs, "remaining": remaining_kwargs}
 
 
-def _warn_unrecognized_kwargs(unmatched: list[str], stacklevel: int) -> None:
-    """Warn that keyword arguments matched no options field and were dropped.
+_LIBRARY_INJECTED_OPTIONS: ContextVar[frozenset[str]] = ContextVar("all2md_library_injected_options")
 
-    Every public entry point that accepts ``**kwargs`` routes its leftovers here so
-    the warning stays identical across them. Silently discarding an option name is
-    the bad kind of failure: the call returns a plausible-looking result, so a typo
-    (or a parameter that simply doesn't exist, like ``filename``) reads as a library
-    bug rather than a caller mistake.
 
-    ``stacklevel`` is counted from the caller's frame, as if it had called
-    ``warnings.warn`` itself.
+@contextmanager
+def library_injected_options(*names: str) -> Iterator[None]:
+    """Mark option names as supplied by all2md rather than by the caller.
+
+    Several internal call sites add an option the caller never wrote: the CLI
+    packager forces ``attachment_mode="base64"`` so attachments stay in memory, the
+    MCP server sets it from server config, and ``convert``/``to_markdown`` push their
+    ``flavor`` shorthand into renderer kwargs. When the resolved format has no such
+    field the option is dropped, which is harmless -- a format with no attachment
+    handling has nothing to embed -- but the drop used to raise "Unrecognized keyword
+    arguments were ignored", telling the user to check parameter names they never
+    typed. An ordinary ``all2md *.md --package out.zip`` said exactly that (#275).
+
+    Wrapping the call marks those names as best-effort for its duration, so a drop
+    stays a debug-level detail. Names the caller *did* pass are unaffected: mark only
+    what was actually injected.
+
+    Nested and concurrent use is safe -- a :class:`~contextvars.ContextVar` is
+    per-thread and per-task, and the marks union rather than replace::
+
+        with library_injected_options("attachment_mode"):
+            convert(source, output=buffer, **conversion_options)
     """
-    if not unmatched:
-        return
-    warnings.warn(
-        f"Unrecognized keyword arguments were ignored: {unmatched}. "
-        "Check the API documentation for valid parameter names.",
-        UserWarning,
-        stacklevel=stacklevel + 1,
-    )
+    marked = _LIBRARY_INJECTED_OPTIONS.get(frozenset())
+    token = _LIBRARY_INJECTED_OPTIONS.set(marked | frozenset(names))
+    try:
+        yield
+    finally:
+        _LIBRARY_INJECTED_OPTIONS.reset(token)
 
 
 _ALL_OPTION_FIELD_NAMES: set[str] | None = None
@@ -280,19 +295,52 @@ def _all_option_field_names() -> set[str]:
     return _ALL_OPTION_FIELD_NAMES
 
 
-def _warn_unknown_option_names(dropped: list[str], stacklevel: int) -> None:
-    """Warn only for dropped kwargs that are not options anywhere in all2md.
+def _warn_dropped_kwargs(dropped: list[str], stacklevel: int) -> None:
+    """Warn that keyword arguments matched no options field and were dropped.
 
-    Unlike ``_split_kwargs_for_parser_and_renderer``, which sees both halves of a
-    conversion and can conclude a name is bogus, callers of this helper see only one
-    options class. A name like ``attachment_mode`` is a genuine option that this
-    particular format has no use for -- and the CLI packager, the MCP server and
-    ``convert``'s ``flavor`` shorthand all inject such options themselves. Warning
-    about those would blame the caller for something the library did, so they stay a
-    debug-level detail; only names that exist nowhere reach the user.
+    Every public entry point that accepts ``**kwargs`` routes its leftovers here, so
+    the same mistake reads the same way whichever one you called. Silently discarding
+    an option name is the bad kind of failure: the call returns a plausible-looking
+    result, so a typo (or a parameter that simply doesn't exist, like ``filename``)
+    reads as a library bug rather than a caller mistake.
+
+    Two different mistakes end up here and they get two different messages, because
+    telling someone to check for a typo in a name they spelled correctly sends them
+    hunting for nothing:
+
+    * a name that is an option of no format at all -- a typo, or an invented parameter;
+    * a name that is a real all2md option, just not one this conversion's formats have
+      (``pages`` on a markdown parse, ``flavor`` on an HTML render).
+
+    Options all2md injected itself are exempt from both -- see
+    ``library_injected_options``.
+
+    ``stacklevel`` is counted from the caller's frame, as if it had called
+    ``warnings.warn`` itself.
     """
-    unknown = [name for name in dropped if name not in _all_option_field_names()]
-    _warn_unrecognized_kwargs(unknown, stacklevel=stacklevel + 1)
+    injected = _LIBRARY_INJECTED_OPTIONS.get(frozenset())
+    names = [name for name in dropped if name not in injected]
+    if not names:
+        return
+
+    known_somewhere = _all_option_field_names()
+    unrecognized = [name for name in names if name not in known_somewhere]
+    wrong_format = [name for name in names if name in known_somewhere]
+
+    if unrecognized:
+        warnings.warn(
+            f"Unrecognized keyword arguments were ignored: {unrecognized}. "
+            "Check the API documentation for valid parameter names.",
+            UserWarning,
+            stacklevel=stacklevel + 1,
+        )
+    if wrong_format:
+        warnings.warn(
+            f"Keyword arguments were ignored: {wrong_format}. "
+            "They are valid all2md options, but not for the formats in this conversion.",
+            UserWarning,
+            stacklevel=stacklevel + 1,
+        )
 
 
 def _create_options_from_kwargs(
@@ -319,16 +367,18 @@ def _create_options_from_kwargs(
     Warns
     -----
     UserWarning
-        If a keyword argument is not an option of any format (a typo, or a parameter
-        that does not exist such as ``filename``). Callers that pre-split kwargs
-        through ``_split_kwargs_for_parser_and_renderer`` have already filtered
-        theirs, so this only fires for entry points that pass user kwargs through
-        unfiltered (``to_ast``, ``from_ast``).
+        If a keyword argument is dropped, either because it is an option of no format
+        (a typo, or a parameter that does not exist such as ``filename``) or because
+        it is a real option that ``options_class`` has no field for. Options all2md
+        injected itself are exempt; see ``library_injected_options``. Callers that
+        pre-split kwargs through ``_split_kwargs_for_parser_and_renderer`` have
+        already warned about theirs, so this fires for the entry points that pass
+        user kwargs through unfiltered (``to_ast``, ``from_ast``).
 
     """
     if not options_class:
         # No options class for this format, so every kwarg is dropped.
-        _warn_unknown_option_names(list(kwargs), stacklevel=4)
+        _warn_dropped_kwargs(list(kwargs), stacklevel=4)
         return None
 
     # Collect nested dataclass kwargs
@@ -367,7 +417,7 @@ def _create_options_from_kwargs(
     missing = [k for k in flat_kwargs if k not in valid_kwargs]
     if missing:
         logger.debug(f"Skipping unknown {options_type_name} options: {missing}")
-        _warn_unknown_option_names(missing, stacklevel=4)
+        _warn_dropped_kwargs(missing, stacklevel=4)
     return options_class(**valid_kwargs)
 
 
@@ -466,7 +516,7 @@ def _split_kwargs_for_parser_and_renderer(
         else:
             unmatched.append(k)
 
-    _warn_unrecognized_kwargs(unmatched, stacklevel=3)
+    _warn_dropped_kwargs(unmatched, stacklevel=3)
 
     return parser_kwargs, renderer_kwargs
 
@@ -1788,9 +1838,13 @@ def convert(
         remote_input_options=remote_input_options,
     )
 
-    # Prepare renderer options
+    # Prepare renderer options. ``flavor`` is a named parameter of this function that
+    # we push into renderer kwargs ourselves, so a target format without it (html,
+    # docx) must drop it quietly -- the caller did not pass a stray kwarg (#275).
+    injected_by_shorthand: tuple[str, ...] = ()
     if flavor:
         renderer_kwargs["flavor"] = flavor
+        injected_by_shorthand = ("flavor",)
 
     # Inject template_path / clear_template_body when preserve_formatting=True
     _maybe_apply_preserve_formatting(
@@ -1802,14 +1856,15 @@ def convert(
     )
 
     final_renderer_options: Optional[BaseRendererOptions]
-    if renderer_kwargs and renderer_options:
-        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
-    elif renderer_kwargs:
-        final_renderer_options = _create_renderer_options_from_kwargs(
-            cast(DocumentFormat, actual_target_format), **renderer_kwargs
-        )
-    else:
-        final_renderer_options = renderer_options
+    with library_injected_options(*injected_by_shorthand):
+        if renderer_kwargs and renderer_options:
+            final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+        elif renderer_kwargs:
+            final_renderer_options = _create_renderer_options_from_kwargs(
+                cast(DocumentFormat, actual_target_format), **renderer_kwargs
+            )
+        else:
+            final_renderer_options = renderer_options
 
     # Render AST to target format
     renderer_spec = renderer or actual_target_format

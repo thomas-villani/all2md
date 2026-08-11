@@ -26,6 +26,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Iterator
 
+from all2md.constants import DEFAULT_LAYOUT_FEATURE_SET
+
 if TYPE_CHECKING:
     import fitz
 
@@ -35,6 +37,7 @@ __all__ = [
     "get_layout_model",
     "predict_page_layout",
     "match_predictions_to_blocks",
+    "annotate_lines_with_layout",
     "is_layout_available",
     "native_find_tables",
 ]
@@ -152,8 +155,11 @@ class PageLayoutPredictions:
         return [p for p in self.predictions if p.label == label]
 
 
-# Module-level model cache (singleton, loaded once per process)
-_layout_model: Any = None
+#: Loaded models, keyed by feature set. Keyed rather than a singleton because the feature
+#: set selects a *different* ONNX model, and a caller that switches sets mid-process -- the
+#: optimizer searching this knob does exactly that -- would otherwise silently keep getting
+#: whichever model was loaded first, making every arm of the search identical.
+_layout_models: dict[str, Any] = {}
 
 
 def is_layout_available() -> bool:
@@ -166,11 +172,17 @@ def is_layout_available() -> bool:
         return False
 
 
-def get_layout_model() -> Any:
-    """Get or create the cached layout analysis model.
+def get_layout_model(feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> Any:
+    """Get or create the cached layout analysis model for a feature set.
 
-    Returns the DocumentLayoutAnalyzer model instance, caching it
-    for reuse across pages and documents.
+    Models are cached per feature set and reused across pages and documents; loading one
+    costs several MB of ONNX weights, and a search over this knob revisits each value many
+    times.
+
+    Parameters
+    ----------
+    feature_set : str
+        Which classifier to load -- see `LayoutFeatureSet`.
 
     Returns
     -------
@@ -183,22 +195,23 @@ def get_layout_model() -> Any:
         If pymupdf-layout is not installed.
 
     """
-    global _layout_model  # noqa: PLW0603
-    if _layout_model is None:
+    if feature_set not in _layout_models:
         from pymupdf.layout import DocumentLayoutAnalyzer
 
-        _layout_model = DocumentLayoutAnalyzer.get_model()
-        logger.debug("Loaded pymupdf-layout GNN model")
-    return _layout_model
+        _layout_models[feature_set] = DocumentLayoutAnalyzer.get_model(feature_set_name=feature_set)
+        logger.debug("Loaded pymupdf-layout GNN model (feature_set=%s)", feature_set)
+    return _layout_models[feature_set]
 
 
-def predict_page_layout(page: "fitz.Page") -> list[LayoutPrediction]:
+def predict_page_layout(page: "fitz.Page", feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> list[LayoutPrediction]:
     """Run layout prediction on a single page.
 
     Parameters
     ----------
     page : fitz.Page
         PDF page to analyze.
+    feature_set : str
+        Which classifier to run -- see `LayoutFeatureSet`.
 
     Returns
     -------
@@ -206,7 +219,7 @@ def predict_page_layout(page: "fitz.Page") -> list[LayoutPrediction]:
         Predicted regions with semantic labels.
 
     """
-    model = get_layout_model()
+    model = get_layout_model(feature_set)
     raw_predictions = model.predict(page)
     # raw_predictions: list of [x0, y0, x1, y1, label_str]
 
@@ -309,6 +322,74 @@ def match_predictions_to_blocks(
 
     logger.debug("Matched %d/%d blocks to layout labels", len(block_labels), len(blocks))
     return PageLayoutPredictions(predictions=predictions, block_labels=block_labels)
+
+
+def annotate_lines_with_layout(
+    blocks: list[dict],
+    predictions: list[LayoutPrediction],
+    coverage_threshold: float = 0.5,
+) -> int:
+    """Stamp ``_layout_label`` onto each *line* a prediction covers.
+
+    :func:`match_predictions_to_blocks` assigns labels per block, by IoU. That works when
+    a block is one semantic unit, and fails whenever it is not: PyMuPDF returns a whole
+    journal column as a single block, so a two-line section heading inside it has an IoU of
+    roughly 0.03 against its own block and the label is discarded. Measured on the PMC
+    corpus, 54% of ``section-header`` predictions never reached a block, the median offender
+    being a block 38x the area of the prediction.
+
+    Coverage of the *line* answers the question the matcher was really asking -- "did the
+    model draw a box around this text" -- without depending on how PyMuPDF happened to group
+    it. IoU is wrong at this granularity: a line inside a large correct region has a low IoU
+    with it, so containment is the test, in the same direction the table-region filter uses.
+
+    Parameters
+    ----------
+    blocks : list[dict]
+        Text blocks from ``page.get_text("dict")``; their lines are mutated in place.
+    predictions : list[LayoutPrediction]
+        Layout model predictions for the page.
+    coverage_threshold : float
+        Share of the line's area a prediction must cover to claim it.
+
+    Returns
+    -------
+    int
+        Number of lines stamped, for logging.
+
+    """
+    import fitz
+
+    if not predictions:
+        return 0
+
+    rects = [(pred, fitz.Rect(pred.bbox)) for pred in predictions]
+    stamped = 0
+    for block in blocks:
+        for line in block.get("lines", ()):
+            bbox = line.get("bbox")
+            if bbox is None:
+                continue
+            rect = fitz.Rect(bbox)
+            area = abs(rect)
+            if area <= 0:
+                continue
+            best_label: str | None = None
+            best_share = coverage_threshold
+            for pred, pred_rect in rects:
+                share = abs(rect & pred_rect) / area
+                # Strict improvement, so the first prediction wins a tie -- predictions
+                # arrive in the model's own order and a stable choice keeps the same page
+                # producing the same output across runs.
+                if share > best_share:
+                    best_share = share
+                    best_label = pred.label
+            if best_label is not None:
+                line["_layout_label"] = best_label
+                stamped += 1
+
+    logger.debug("Stamped %d line(s) with layout labels", stamped)
+    return stamped
 
 
 def annotate_blocks_with_layout(

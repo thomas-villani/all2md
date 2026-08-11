@@ -27,6 +27,7 @@ __all__ = [
     "get_tesseract_lang",
     "detect_page_language",
     "calculate_image_coverage",
+    "largest_image_coverage",
     "dehyphenate_text",
     "dehyphenate_blocks",
 ]
@@ -179,8 +180,11 @@ def calculate_image_coverage(page: "fitz.Page") -> float:
 
     Notes
     -----
-    This function accounts for overlapping images by combining their bounding
-    boxes and calculating the total covered area.
+    Image areas are summed, so images that overlap are counted more than once and
+    the result is an upper bound on true coverage. It is therefore *not* the test
+    for "is this page a scan" -- several unrelated figures sum past any threshold
+    on a page that is plainly born-digital. Use :func:`largest_image_coverage` for
+    that; this remains available as a rough measure of how image-heavy a page is.
 
     """
     page_area = page.rect.width * page.rect.height
@@ -209,6 +213,44 @@ def calculate_image_coverage(page: "fitz.Page") -> float:
     # Calculate ratio
     coverage_ratio = min(1.0, total_image_area / page_area)
     return coverage_ratio
+
+
+def largest_image_coverage(page: "fitz.Page") -> float:
+    """Calculate the share of the page covered by its single largest image.
+
+    This is the scan test. A scanned page is one raster the size of the page, so the
+    question is whether *one* image dominates -- not how much image there is in total.
+    A page carrying several figures has plenty of image area while remaining entirely
+    born-digital, and summing those areas (:func:`calculate_image_coverage`) cannot
+    tell the two apart.
+
+    Parameters
+    ----------
+    page : fitz.Page
+        PDF page to analyze
+
+    Returns
+    -------
+    float
+        Area of the largest image placement divided by the page area (0.0 to 1.0)
+
+    Notes
+    -----
+    Every placement of every image is measured, not just the first, because a scan
+    may embed the page raster once and a small logo elsewhere; taking only the first
+    occurrence would score the logo.
+
+    """
+    page_area = page.rect.width * page.rect.height
+    if page_area == 0:
+        return 0.0
+
+    largest = 0.0
+    for img in page.get_images():
+        for bbox in page.get_image_rects(img[0]):
+            largest = max(largest, (bbox.width * bbox.height) / page_area)
+
+    return min(1.0, largest)
 
 
 def should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) -> bool:
@@ -262,11 +304,16 @@ def should_use_ocr(page: "fitz.Page", extracted_text: str, options: PdfOptions) 
             )
             return True
 
-        # Check image coverage threshold
-        image_coverage = calculate_image_coverage(page)
+        # The page has real text. It is still worth OCR'ing if that text is a thin
+        # layer over a scan -- a running header above a page-sized raster -- so ask
+        # whether one image covers the page, which is what a scan looks like. The
+        # summed area of every image is not that question: a born-digital page with
+        # five figure panels reaches any coverage threshold you like while its text
+        # layer is the publisher's own and replacing it destroys the page.
+        image_coverage = largest_image_coverage(page)
         if image_coverage >= ocr_opts.image_area_threshold:
             logger.debug(
-                f"Page has {image_coverage:.1%} image coverage "
+                f"Page's largest image covers {image_coverage:.1%} of it "
                 f"(threshold: {ocr_opts.image_area_threshold:.1%}), triggering OCR"
             )
             return True

@@ -17,7 +17,7 @@ from all2md.api import convert
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 from all2md.cli.processors import generate_output_path
 from all2md.constants import IMAGE_EXTENSIONS, DocumentFormat
-from all2md.converter_registry import registry
+from all2md.converter_registry import match_extension, registry
 from all2md.exceptions import All2MdError
 
 try:
@@ -133,7 +133,7 @@ class ConversionEventHandler(FileSystemEventHandler):
         # Add IMAGE_EXTENSIONS for watch mode (images can be converted)
         all_extensions = supported_extensions | set(IMAGE_EXTENSIONS)
 
-        if path.suffix.lower() not in all_extensions:
+        if match_extension(path, all_extensions) is None:
             logger.debug(f"Skipping {file_path}: unsupported extension")
             return False
 

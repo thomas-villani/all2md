@@ -115,6 +115,7 @@ def test_evaluation_calls_to_ast_once_and_scores_the_returned_document(
             predicted_tables=0,
             predicted_formulas=0,
             duration_seconds=results[0].duration_seconds,
+            ocr_applied=False,
         )
     ]
 
@@ -282,8 +283,9 @@ def test_normalization_records_variance_failures_and_unsupported_dimensions(tmp_
     assert "formula_content_similarity" not in payload["dimensions"]
     assert payload["unsupported_dimensions"] == {
         "formula_fidelity": (
-            "all2md emitted no MathBlock or MathInline nodes on 1 converted page(s); "
-            "0 pages have formula ground truth"
+            "no MathBlock or MathInline nodes on any of the 1 converted page(s); "
+            "0 page(s) carry formula ground truth. This alone does not separate a parser "
+            "gap from the corpus's input shape; see provenance.corpus_characterization"
         )
     }
     assert payload["conversion_failures"] == {"page-b": "RuntimeError: broken PDF"}
@@ -330,6 +332,21 @@ def _write_scanned_pdf(path: Path, tmp_path: Path) -> None:
     document.close()
 
 
+def _write_illustrated_pdf(path: Path, tmp_path: Path) -> None:
+    """A born-digital page carrying one figure: text, no vector drawings, one small image."""
+    fitz = pytest.importorskip("fitz")
+    source = tmp_path / "_figure_source.pdf"
+    _write_vector_pdf(source)
+    with fitz.open(source) as origin:
+        pixmap = origin[0].get_pixmap(dpi=36)
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 100), "Figure 1 shows the assay results.", fontsize=12)
+    page.insert_image(fitz.Rect(72, 120, 220, 240), pixmap=pixmap)
+    document.save(path)
+    document.close()
+
+
 def test_input_traits_tell_a_born_digital_page_from_a_scan(tmp_path: Path) -> None:
     """The lane must record what its corpus contains, not assume PDFs carry text.
 
@@ -341,8 +358,48 @@ def test_input_traits_tell_a_born_digital_page_from_a_scan(tmp_path: Path) -> No
     _write_vector_pdf(vector)
     _write_scanned_pdf(scanned, tmp_path)
 
-    assert benchmark._input_traits(vector) == frozenset({"text_layer", "vector_drawings"})
-    assert benchmark._input_traits(scanned) == frozenset({"one_full_page_image"})
+    assert benchmark._input_traits(vector) == benchmark.InputTraits(
+        pages=1, text_layer=1, vector_drawings=1, one_full_page_image=0
+    )
+    assert benchmark._input_traits(scanned) == benchmark.InputTraits(
+        pages=1, text_layer=0, vector_drawings=0, one_full_page_image=1
+    )
+
+
+def test_a_page_with_one_figure_is_not_reported_as_a_scan(tmp_path: Path) -> None:
+    """An illustrated born-digital page also has one image and no vector drawings.
+
+    Defining the scan shape by counting images would have mislabelled such pages the moment
+    this characterization was pointed at a corpus that has any, which is the whole point of
+    it. Area is the property that actually separates a scan from a figure.
+    """
+    illustrated = tmp_path / "illustrated.pdf"
+    _write_illustrated_pdf(illustrated, tmp_path)
+
+    traits = benchmark._input_traits(illustrated)
+    assert traits is not None
+    assert traits.text_layer == 1
+    assert traits.vector_drawings == 0
+    assert traits.one_full_page_image == 0
+
+
+def test_input_traits_count_every_page_not_just_the_first(tmp_path: Path) -> None:
+    """A title page is not a sample of the document behind it."""
+    fitz = pytest.importorskip("fitz")
+    scanned = tmp_path / "scanned.pdf"
+    _write_scanned_pdf(scanned, tmp_path)
+    mixed = tmp_path / "mixed.pdf"
+    document = fitz.open()
+    document.new_page().insert_text((72, 100), "Title only", fontsize=18)
+    with fitz.open(scanned) as source:
+        document.insert_pdf(source)
+        document.insert_pdf(source)
+    document.save(mixed)
+    document.close()
+
+    assert benchmark._input_traits(mixed) == benchmark.InputTraits(
+        pages=3, text_layer=1, vector_drawings=0, one_full_page_image=2
+    )
 
 
 def test_an_unreadable_pdf_is_uncharacterized_rather_than_trait_free(tmp_path: Path) -> None:
@@ -352,6 +409,50 @@ def test_an_unreadable_pdf_is_uncharacterized_rather_than_trait_free(tmp_path: P
 
     assert benchmark._input_traits(broken) is None
     assert benchmark._input_traits(tmp_path / "absent.pdf") is None
+
+
+def test_an_erased_dimension_reports_the_input_shape_not_a_parser_verdict(tmp_path: Path) -> None:
+    """Saying all2md emitted no Table nodes reads as a parser gap. Here it is not one.
+
+    Every page is a full-page raster, so the PDF table path never runs and there is nothing
+    for it to have missed. The message must put the parser's output beside what the inputs
+    are and leave the cause to the reader, or the payload argues for a conclusion it cannot
+    support.
+    """
+    snapshot = _snapshot(tmp_path, ("page-a",))
+    truth = {
+        "page-a": GroundTruthPage(
+            page_id="page-a",
+            projection=PageProjection(("Body",), ("text_block",), ("<table><tr><td>1</td></tr></table>",), ()),
+            unscored_categories={},
+            explicitly_ignored=0,
+        )
+    }
+    evaluations = [
+        benchmark.PageEvaluation(
+            page_id="page-a",
+            scores={"text_content_similarity": 0.5},
+            predicted_tables=0,
+            predicted_formulas=0,
+            duration_seconds=0.1,
+            traits=benchmark.InputTraits(pages=1, text_layer=0, vector_drawings=0, one_full_page_image=1),
+            ocr_applied=True,
+        )
+    ]
+
+    payload = benchmark.normalize_results(
+        snapshot=snapshot,
+        ground_truth=truth,
+        evaluations=evaluations,
+        all2md_commit="all2md-commit",
+        parser_runtime={"pymupdf": "1.28.0"},
+    )
+
+    message = payload["unsupported_dimensions"]["table_fidelity"]
+    assert "all2md emitted" not in message
+    assert "1 page(s) carry table ground truth" in message
+    assert "1 of 1 characterized page(s) are a full-page image" in message
+    assert "provenance.corpus_characterization" in message
 
 
 def test_characterization_counts_only_pages_it_could_measure(tmp_path: Path) -> None:
@@ -365,7 +466,8 @@ def test_characterization_counts_only_pages_it_could_measure(tmp_path: Path) -> 
             predicted_tables=0,
             predicted_formulas=0,
             duration_seconds=0.1,
-            traits=frozenset({"one_full_page_image", "ocr_applied"}),
+            traits=benchmark.InputTraits(pages=1, text_layer=0, vector_drawings=0, one_full_page_image=1),
+            ocr_applied=True,
         ),
         benchmark.PageEvaluation(
             page_id="page-b",
@@ -386,9 +488,10 @@ def test_characterization_counts_only_pages_it_could_measure(tmp_path: Path) -> 
     )
 
     assert payload["provenance"]["corpus_characterization"] == {
+        "documents_characterized": 1,
         "pages_characterized": 1,
         "pages_with_text_layer": 0,
         "pages_with_vector_drawings": 0,
         "pages_with_one_full_page_image": 1,
-        "pages_ocr_applied": 1,
+        "documents_ocr_applied": 1,
     }

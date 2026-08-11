@@ -14,6 +14,7 @@ import importlib.metadata
 import io
 import logging
 import mimetypes
+from collections.abc import Iterable
 from pathlib import Path
 from typing import IO, Dict, List, NoReturn, Optional, Tuple, Union
 
@@ -184,6 +185,55 @@ def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_nam
 
     """
     return _load_class(renderer_class_spec, f"all2md.renderers.{format_name}", "renderer")
+
+
+def match_extension(name: Union[str, Path], known_extensions: Iterable[str]) -> Optional[str]:
+    """Return the longest extension in ``known_extensions`` that ``name`` ends with.
+
+    ``Path.suffix`` returns only the final dot-separated component, so testing it
+    for membership cannot see a multi-part extension: ``Path("a.tar.gz").suffix``
+    is ``".gz"``, which no converter declares, while ``.tar.gz`` is declared and
+    parseable. Use this wherever a file name is checked against a set of
+    extensions.
+
+    Tails are tried longest-first so that a genuine two-part extension wins, and
+    shorter tails are still tried so that a dotted stem does not mask a real
+    extension: ``report.2024.pdf`` resolves to ``.pdf``.
+
+    Parameters
+    ----------
+    name : str or Path
+        File name or path to inspect. Only the final path component matters.
+    known_extensions : Iterable[str]
+        Extensions to match against, each dot-prefixed. Compared
+        case-insensitively.
+
+    Returns
+    -------
+    str or None
+        The matched extension in the spelling carried by ``name`` (lowercased),
+        or ``None`` when no tail matches.
+
+    Examples
+    --------
+        >>> match_extension("bundle.tar.gz", {".tar.gz", ".pdf"})
+        '.tar.gz'
+        >>> match_extension("report.2024.pdf", {".tar.gz", ".pdf"})
+        '.pdf'
+        >>> match_extension("notes.txt", {".pdf"}) is None
+        True
+
+    """
+    known = {ext.lower() for ext in known_extensions}
+    if not known:
+        return None
+
+    suffixes = [suffix.lower() for suffix in Path(name).suffixes]
+    for start in range(len(suffixes)):
+        candidate = "".join(suffixes[start:])
+        if candidate in known:
+            return candidate
+    return None
 
 
 class ConverterRegistry:
@@ -767,7 +817,11 @@ class ConverterRegistry:
         Get all supported extensions for file filtering:
             >>> from pathlib import Path
             >>> supported = registry.get_all_extensions()
-            >>> files = [f for f in Path('.').glob('*') if f.suffix in supported]
+            >>> files = [f for f in Path('.').glob('*') if match_extension(f, supported)]
+
+        Match with :func:`match_extension` rather than ``f.suffix in supported``:
+        ``Path.suffix`` returns only the last component, so two-part extensions
+        such as ``.tar.gz`` never compare equal to anything registered.
 
         """
         all_extensions: set[str] = set()
@@ -778,6 +832,33 @@ class ConverterRegistry:
                     if metadata.extensions:
                         all_extensions.update(metadata.extensions)
         return all_extensions
+
+    def match_extension(self, name: Union[str, Path]) -> Optional[str]:
+        """Return the registered extension ``name`` carries, or ``None``.
+
+        Convenience wrapper over :func:`match_extension` using every extension
+        the registry knows about.
+
+        Parameters
+        ----------
+        name : str or Path
+            File name or path to inspect. Only the final path component matters.
+
+        Returns
+        -------
+        str or None
+            The matched extension, lowercase and dot-prefixed, or ``None`` when
+            the name carries no registered extension.
+
+        Examples
+        --------
+            >>> registry.match_extension("bundle.tar.gz")
+            '.tar.gz'
+            >>> registry.match_extension("report.2024.pdf")
+            '.pdf'
+
+        """
+        return match_extension(name, self.get_all_extensions())
 
     def check_dependencies(
         self,

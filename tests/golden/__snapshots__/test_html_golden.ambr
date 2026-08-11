@@ -28,7 +28,7 @@
   '''
   # Complex Formatting
   
-  Text with **bold**, *italic*, `code`, ~~strikethrough~~, and highlighted text.
+  Text with **bold**, *italic*, `code`, ~~strikethrough~~, and ==highlighted== text.
   
   Text with ~subscript~ and ^superscript^.
   

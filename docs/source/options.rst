@@ -8495,11 +8495,11 @@ supported via ``engine``: Tesseract (default) and EasyOCR.
 
 **image_area_threshold**
 
-   Image area ratio (0.0-1.0) to trigger OCR (for auto mode)
+   Share of the page (0.0-1.0) its largest image must cover to trigger OCR (auto mode)
 
    :Type: ``float``
    :CLI flag: ``--pdf-ocr-image-area-threshold``
-   :Default: ``0.5``
+   :Default: ``0.8``
    :Importance: advanced
 
 **preserve_existing_text**
@@ -8537,6 +8537,16 @@ supported via ``engine``: Tesseract (default) and EasyOCR.
    :Type: ``float``
    :CLI flag: ``--pdf-layout-iou-threshold``
    :Default: ``0.3``
+   :Importance: advanced
+
+**layout_feature_set**
+
+   Which layout classifier to run: 'imf+rf' (image and text-geometry features), 'rf' (text geometry only), 'imf' (image only). Ignored unless layout analysis runs
+
+   :Type: ``Literal['imf+rf', 'rf', 'imf']``
+   :CLI flag: ``--pdf-layout-feature-set``
+   :Default: ``'imf+rf'``
+   :Choices: ``imf+rf``, ``rf``, ``imf``
    :Importance: advanced
 
 PDF Renderer Options

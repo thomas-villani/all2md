@@ -15,6 +15,7 @@ import json
 import logging
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 if sys.version_info >= (3, 11):
@@ -371,13 +372,26 @@ class MarkdownToAstConverter(BaseParser):
 
     """
 
-    # Bare inline tags folded back into Underline nodes, mapped to the semantic
-    # they carry. Only these two: the other inline formatting tags (<del>, <sup>,
-    # <sub>, <mark>) have the same escaping problem but are tracked separately.
-    _FOLDABLE_INLINE_TAGS: dict[str, Literal["underline", "insert"]] = {"u": "underline", "ins": "insert"}
+    # Bare inline formatting tags folded back into the AST node that already
+    # carries their meaning. Each maps to the constructor for that node, so a tag
+    # is added by naming its node rather than by touching the folding logic.
+    # ``<u>`` and ``<ins>`` share Underline and are told apart by ``semantic``.
+    _FOLDABLE_INLINE_TAGS: dict[str, Callable[[list[Node]], Node]] = {
+        "u": lambda content: Underline(content=content, semantic="underline"),
+        "ins": lambda content: Underline(content=content, semantic="insert"),
+        "del": lambda content: Strikethrough(content=content),
+        "s": lambda content: Strikethrough(content=content),
+        "sup": lambda content: Superscript(content=content),
+        "sub": lambda content: Subscript(content=content),
+        "mark": lambda content: Mark(content=content),
+    }
     # Matches only attribute-free tags -- one with attributes carries information
-    # the Underline node cannot hold, so it stays raw HTML.
-    _FOLDABLE_TAG_RE = re.compile(r"^<\s*(/)?\s*(u|ins)\s*>$", re.IGNORECASE)
+    # the node cannot hold, so it stays raw HTML. Longest name first so that the
+    # alternation cannot settle on ``s`` when the tag is ``<sub>``.
+    _FOLDABLE_TAG_RE = re.compile(
+        r"^<\s*(/)?\s*(" + "|".join(sorted(_FOLDABLE_INLINE_TAGS, key=len, reverse=True)) + r")\s*>$",
+        re.IGNORECASE,
+    )
 
     def __init__(
         self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
@@ -1256,7 +1270,7 @@ class MarkdownToAstConverter(BaseParser):
             _, start, _ = open_tags.pop()
             content = result[start:]
             del result[start:]
-            result.append(Underline(content=content, semantic=self._FOLDABLE_INLINE_TAGS[name]))
+            result.append(self._FOLDABLE_INLINE_TAGS[name](content))
 
         # Openers that never closed: put their raw tags back where they were.
         for _, start, raw in reversed(open_tags):

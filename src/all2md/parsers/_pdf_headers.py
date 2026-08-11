@@ -570,6 +570,18 @@ class IdentifyHeaders:
             return 0
         if len(text) > self.options.header_max_line_length:
             return 0
+        # A heading names something, so it contains at least one alphanumeric character.
+        # Without this, a large math delimiter set in a symbol font passes every other gate
+        # -- it is short, non-empty and holds no sentence boundary -- and its size alone
+        # promotes it. One chemistry paper emitted 179 headings for its 9 sections, 122 of
+        # them a single Private Use Area glyph (large parentheses, sigma, integral signs)
+        # sitting inside displayed equations.
+        #
+        # `str.isalnum` rather than an ASCII class on purpose: it is Unicode-aware, so
+        # headings in CJK, Cyrillic, Arabic and Devanagari still qualify, while PUA
+        # codepoints (category Co, where symbol fonts put their glyphs) do not.
+        if not any(char.isalnum() for char in text):
+            return 0
         # Multi-sentence body text isn't a heading. Detected via lowercase
         # letter immediately preceding `.`/`!`/`?`, then whitespace, then a
         # capital letter — sidesteps acronyms like "U.S. Department".

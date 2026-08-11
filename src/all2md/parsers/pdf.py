@@ -24,7 +24,9 @@ from all2md.utils.parser_helpers import attachment_result_to_image_node
 if TYPE_CHECKING:
     import fitz
 
-from dataclasses import dataclass, field
+    from all2md.parsers._ocr import OcrParagraph
+
+from dataclasses import dataclass, field, replace
 
 from all2md.ast import (
     Code,
@@ -58,6 +60,8 @@ from all2md.constants import (
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
     PDF_MIN_PYMUPDF_VERSION,
+    PDF_READING_ORDER_MIN_ROW_TOLERANCE,
+    PDF_READING_ORDER_ROW_TOLERANCE_RATIO,
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
@@ -69,6 +73,7 @@ from all2md.parsers._pdf_images import extract_page_images
 from all2md.parsers._pdf_layout import (
     PageLayoutPredictions,
     annotate_blocks_with_layout,
+    annotate_lines_with_layout,
     is_layout_available,
     match_predictions_to_blocks,
     native_find_tables,
@@ -84,15 +89,18 @@ from all2md.parsers._pdf_ocr import (
 )
 from all2md.parsers._pdf_tables import (
     MAX_DOT_LEADER_CELL_RATIO,
+    MAX_SPLIT_WORD_RATIO,
     MAX_TABLE_COLS,
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
+    TABLE_REGION_STRATEGIES,
     detect_tables_by_ruling_lines,
     is_dot_leader_cell,
     page_has_table_signals,
+    split_word_ratio,
 )
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
@@ -134,6 +142,159 @@ RUNNING_POSITION_TOLERANCE = 5.0
 #: Runs of digits in a running header/footer, which differ from page to page precisely
 #: because it is running furniture.
 _RUNNING_DIGITS = re.compile(r"\d+")
+
+#: How far apart, as a multiple of the line's own height, two heading lines may sit and
+#: still be the same heading wrapped onto a second printed line. Set as a ratio rather
+#: than in points so it means the same thing for a 24pt article title and a 9pt
+#: subheading. Consecutive *distinct* headings are separated by the space above a new
+#: section, which is what puts them beyond this.
+HEADING_WRAP_GAP_RATIO = 1.6
+
+
+def _span_union_bbox(spans: list) -> tuple[float, float, float, float] | None:
+    """Bounding box covering every span on a line, or None if none carry one.
+
+    The line's own bbox is not in scope where headings are emitted, and a span union is
+    the same rectangle for this purpose: spans partition the line.
+    """
+    boxes = [s["bbox"] for s in spans if s.get("bbox")]
+    if not boxes:
+        return None
+    return (
+        min(b[0] for b in boxes),
+        min(b[1] for b in boxes),
+        max(b[2] for b in boxes),
+        max(b[3] for b in boxes),
+    )
+
+
+#: Inline nodes that can wrap the text a line opens with. A span's font flags become
+#: ``Strong``/``Emphasis`` and a hyperlink becomes ``Link``, so a marker printed in bold, in
+#: italic, or inside a link arrives wrapped rather than as a bare ``Text``. ``Superscript``
+#: is deliberately absent: a superscript digit opening a line is a footnote or citation
+#: reference, and descending into one would read ``1. Smith et al.`` off a footnote.
+_INLINE_WRAPPERS = (Strong, Emphasis, Link)
+
+#: How much of a line's opening text the marker tests need. The longest marker they accept
+#: is a run of digits, a ``.`` or ``)`` and a space, so this is generous; it exists to stop
+#: the walk after a few nodes rather than to bound what counts as a marker.
+_LEADING_TEXT_CHARS = 16
+
+#: A bullet standing alone, with the space that follows it not yet read. The walk crosses a
+#: node boundary only while what it holds matches this -- see :func:`_leading_inline_text`.
+#: Numbers are deliberately not here, and that is the whole of what keeps a bibliography
+#: from becoming an ordered list.
+_BULLET_AWAITING_ITS_SPACE = re.compile("^[-–—*+•◦▪▫o]$")
+
+
+def _leading_inline_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) -> str:
+    """Return the text a paragraph or line *opens with*, descending into inline wrappers.
+
+    Reading the first top-level ``Text`` node instead gets the question wrong in both
+    directions. A bullet set in a symbol font is italic by its font flags, so it arrives as
+    ``Emphasis(Text("-"))`` and the line has no top-level ``Text`` at all -- it reads as
+    empty and never starts a list. A citation opening with a styled journal name has its
+    first top-level ``Text`` in the *middle* of the line, so ``Nature 12. 45-67`` reported
+    an ordered marker and became a list item.
+
+    Reading the raw spans instead is no better, and is the reason this is not simply a text
+    join over ``line["spans"]``: ``_process_text_spans_to_inline`` rewrites four bullet
+    glyphs (``U+F0B7``, ``U+00B7``, ``U+2022``, ``U+25CF``) to ``-``, and three of the four
+    are not markers in their printed form. The conversion is what makes a symbol-font bullet
+    recognisable, so detection has to run after it.
+
+    The walk crosses a node boundary **only while what it has read so far is a lone
+    bullet**, waiting on the space that follows it. A bullet is its own span by typographic
+    necessity -- it is set in a different font from the text -- and the letter ``o`` is only
+    a bullet when a space follows, so without that one step the rule that keeps "office"
+    from being a bullet could never fire and Word's second-level bullets could never be
+    recognised at all.
+
+    Numbers get no such step, and that restriction is the load-bearing part. A numbered
+    marker arrives split exactly the same way -- ``Text("44.")`` then ``Text(" Konema,
+    Nigeria ...")`` -- and nothing in the PDF distinguishes the 44th bibliography entry from
+    the 44th item of a list. Reading across that boundary turned reference lists into
+    ordered lists, whereupon the renderer renumbered them from 1 and destroyed every
+    citation number in the document. A numbered marker must therefore be complete within one
+    node, which is exactly what it was before.
+
+    ``Code`` and anything else that is not an inline wrapper stops the walk: a line opening
+    with inline code does not open with a list marker, and reporting the text past it would
+    reintroduce the middle-of-the-line reading.
+    """
+    text = ""
+    for node in content:
+        if isinstance(node, Text):
+            piece = node.content
+        elif isinstance(node, _INLINE_WRAPPERS):
+            piece = _leading_inline_text(node.content, limit)
+        else:
+            break
+        if text and not _BULLET_AWAITING_ITS_SPACE.match(text.strip()):
+            break
+        text += piece
+        if len(text.lstrip()) >= limit:
+            break
+    return text
+
+
+def _opening_line_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) -> str:
+    """Everything a line opens with, wrappers descended and node boundaries ignored.
+
+    The liberal counterpart to :func:`_leading_inline_text`, and safe only where it is used.
+    The item-split test runs *inside* a paragraph already known to be a list, so reading
+    across node boundaries there can re-split a list that exists but can never create one --
+    and it has to read across them, because a numbered item's marker is routinely a span of
+    its own and every item after the first would otherwise run into its predecessor.
+
+    The tests that *create* lists cannot use this, which is the whole distinction between
+    the two readers: a bibliography entry is a numbered marker in its own span too, and
+    creating a list from one renumbers the references from 1.
+    """
+    text = ""
+    for node in content:
+        if isinstance(node, Text):
+            text += node.content
+        elif isinstance(node, _INLINE_WRAPPERS):
+            text += _opening_line_text(node.content, limit)
+        else:
+            break
+        if len(text.lstrip()) >= limit:
+            break
+    return text
+
+
+def _consume_leading_chars(content: list[Node], count: int) -> tuple[list[Node], int]:
+    """Drop the first ``count`` characters of ``content``, descending into inline wrappers.
+
+    Counts characters exactly as :func:`_leading_inline_text` reports them, so a marker
+    *located* by that function is *removed* by this one even when it sits inside a wrapper
+    or straddles two nodes -- ``Emphasis(Text("-"))`` followed by ``Text(" Body")`` keeps
+    the bullet in the first node and the space after it in the second. A wrapper left with
+    nothing inside it is dropped rather than emitted empty.
+
+    Returns the new content and however much of ``count`` went unconsumed.
+    """
+    out: list[Node] = []
+    remaining = count
+    for node in content:
+        if remaining <= 0:
+            out.append(node)
+        elif isinstance(node, Text):
+            if len(node.content) <= remaining:
+                remaining -= len(node.content)  # wholly marker; drop the node
+            else:
+                out.append(replace(node, content=node.content[remaining:]))
+                remaining = 0
+        elif isinstance(node, _INLINE_WRAPPERS):
+            inner, remaining = _consume_leading_chars(node.content, remaining)
+            if inner:
+                out.append(replace(node, content=inner))
+        else:
+            # Opaque to the reader above, so it cannot have been part of the marker.
+            out.append(node)
+            remaining = 0
+    return out, remaining
 
 
 def _running_text_key(text: str) -> str:
@@ -286,6 +447,29 @@ def _strip_leading_whitespace_in_place(nodes: list[Node]) -> None:
             return  # Code preserves whitespace; don't trim.
 
 
+def _trailing_whitespace_verdict(nodes: list[Node]) -> bool | None:
+    """Report whether the last Text-bearing leaf in ``nodes`` ends with whitespace.
+
+    Returns ``None`` — meaning "no text here, keep looking" — rather than ``False``
+    when there is no Text leaf to judge. The distinction matters: a wrapper whose
+    text does *not* end in whitespace is a definite answer about the join point, and
+    collapsing it into "keep looking" makes the walk fall through to an earlier
+    sibling and answer about the wrong position entirely.
+    """
+    for node in reversed(nodes):
+        if isinstance(node, Text):
+            return bool(node.content) and node.content[-1] in (" ", "\t")
+        if isinstance(node, (Strong, Emphasis, Link)):
+            verdict = _trailing_whitespace_verdict(node.content) if node.content else None
+            if verdict is not None:
+                return verdict
+            # This wrapper really had no Text leaves — keep walking outward.
+            continue
+        if isinstance(node, Code):
+            return False
+    return None
+
+
 def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
     """Return True if the last Text-bearing leaf in ``nodes`` ends with whitespace.
 
@@ -293,17 +477,82 @@ def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
     Used to decide whether an inter-line separator space would create a
     redundant whitespace run.
     """
-    for node in reversed(nodes):
-        if isinstance(node, Text):
-            return bool(node.content) and node.content[-1] in (" ", "\t")
-        if isinstance(node, (Strong, Emphasis, Link)):
-            if node.content and _trailing_text_is_whitespace(node.content):
-                return True
-            # Wrapper had no Text leaves — keep walking outward.
+    return _trailing_whitespace_verdict(nodes) is True
+
+
+def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None:
+    """Return ``block`` reduced to the lines no table region covers, or None if none remain.
+
+    A detected table region is emitted in its own right -- as a table, or as a paragraph
+    when the grid is rejected -- so the lines it covers must not be emitted a second time as
+    body text. The lines it does *not* cover are a different matter: they are ordinary prose
+    that happens to share a PyMuPDF block with the region, and no other node carries them.
+
+    This exists because "the region covers most of this block" and "the region is this
+    block" are not the same statement. A layout-predicted region over the lower half of a
+    full-height reference column clears the 50% bar for the whole column, and discarding the
+    block outright deleted the upper half -- nine reference entries on one page of the
+    born-digital corpus, with nothing recording the loss.
+
+    Parameters
+    ----------
+    block : dict
+        PyMuPDF text block.
+    regions : list
+        Table region rectangles.
+
+    Returns
+    -------
+    dict or None
+        A copy of ``block`` holding only the uncovered lines, with its bbox tightened to
+        them; ``None`` when every line is covered, which is the ordinary case of a block
+        that really is the table.
+
+    """
+    import fitz
+
+    lines = block.get("lines")
+    if not lines:
+        return None
+
+    kept = []
+    for line in lines:
+        bbox = line.get("bbox")
+        if bbox is None:
+            kept.append(line)
             continue
-        if isinstance(node, Code):
-            return False
-    return False
+        rect = fitz.Rect(bbox)
+        area = abs(rect)
+        # Judge a line by the same majority rule used for blocks, so a line straddling the
+        # region boundary is assigned rather than duplicated or dropped by both sides.
+        if area > 0 and any(abs(rect & region) > 0.5 * area for region in regions):
+            continue
+        kept.append(line)
+
+    if not kept or len(kept) == len(lines):
+        # Nothing survived, or nothing was covered -- in both cases the caller's existing
+        # whole-block decision is already correct and a rebuilt copy would only differ by
+        # its bbox.
+        return None if not kept else dict(block)
+
+    # Rescue prose, not whitespace. The lines bordering a table region are routinely blank
+    # or a single space, and emitting those as a paragraph adds an empty block where the
+    # whole block used to be dropped -- visible in output as a stray gap.
+    if not any(span.get("text", "").strip() for line in kept for span in line.get("spans", [])):
+        return None
+
+    tightened = None
+    for line in kept:
+        if line.get("bbox") is None:
+            continue
+        rect = fitz.Rect(line["bbox"])
+        tightened = rect if tightened is None else (tightened | rect)
+
+    remainder = dict(block)
+    remainder["lines"] = kept
+    if tightened is not None:
+        remainder["bbox"] = tuple(tightened)
+    return remainder
 
 
 @dataclass
@@ -332,6 +581,13 @@ class _BlockProcessingState:
     pending_heading_prefix_content: list[Node] | None = None
     pending_heading_prefix_level: int = 0
     pending_heading_prefix_page: int = 0
+    # Bottom edge of the line the most recent heading was emitted from, and the index it
+    # occupies in `nodes`. Together these say "the previous node is a heading and it came
+    # from the line directly above this one", which is how a heading that wrapped onto a
+    # second printed line is recognised and joined instead of emitted twice.
+    last_heading_slot: int = -1
+    last_heading_bottom: float = 0.0
+    last_heading_height: float = 0.0
 
     def reset_paragraph(self) -> None:
         """Reset paragraph accumulation state."""
@@ -374,6 +630,35 @@ def _check_pymupdf_version() -> None:
             missing_packages=[],
             version_mismatches=[("pymupdf", PDF_MIN_PYMUPDF_VERSION, ".".join(fitz.pymupdf_version_tuple))],
         )
+
+
+def _silence_pymupdf_layout_advisory() -> None:
+    """Stop PyMuPDF writing its layout-package advisory to stdout.
+
+    PyMuPDF emits::
+
+        Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+
+    with a bare ``print()`` -- not a warning, not a log record -- the first time
+    ``find_tables()`` runs in a process where ``pymupdf.layout`` is not
+    installed. all2md writes converted documents to stdout, so the advisory
+    landed *inside the document*: ``all2md report.pdf > report.md`` made it line
+    one of the markdown. It is not a rare configuration either, since
+    ``pymupdf-layout`` is deliberately excluded from the ``all`` extra over its
+    Polyform Noncommercial license, so the plain and ``[all]`` installs both hit
+    it.
+
+    Suppressing it costs the user nothing: all2md ships that package as the
+    ``pdf_layout`` extra and already reports its absence through its own
+    dependency machinery, which writes to stderr.
+    """
+    import fitz
+
+    # Guarded: the entry point is PyMuPDF's own, but it is not load-bearing, and
+    # a version without it should convert rather than crash.
+    suppress = getattr(fitz, "no_recommend_layout", None)
+    if suppress is not None:
+        suppress()
 
 
 # Note: Column detection, table detection, image extraction, header identification,
@@ -435,6 +720,7 @@ class PdfToAstConverter(BaseParser):
         import fitz
 
         _check_pymupdf_version()
+        _silence_pymupdf_layout_advisory()
 
         # Determine if layout analysis should be used
         if self.options.layout_analysis_mode == "enabled":
@@ -1134,6 +1420,73 @@ class PdfToAstConverter(BaseParser):
             if pix is not None:
                 pix = None
 
+    @staticmethod
+    def _ocr_page_to_layout(page: "fitz.Page", options: PdfOptions) -> "list[OcrParagraph] | None":
+        """OCR a page and keep the engine's paragraph segmentation.
+
+        Parameters
+        ----------
+        page : fitz.Page
+            PDF page to extract text from
+        options : PdfOptions
+            PDF conversion options containing OCR settings
+
+        Returns
+        -------
+        list of OcrParagraph or None
+            Paragraphs in PDF coordinates, or ``None`` if the engine reports no layout.
+
+        """
+        import fitz
+
+        from all2md.parsers._ocr import ocr_pixmap_layout
+
+        zoom = options.ocr.dpi / 72.0
+        pix = None
+        try:
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
+            return ocr_pixmap_layout(pix, page, options)
+        except Exception as exc:  # noqa: BLE001 - layout is an enhancement, never a reason to lose the page
+            # Falling back to flat text costs segmentation, which is bad; letting this
+            # propagate would cost the page's text entirely, which is worse.
+            logger.debug(f"OCR layout recovery unavailable, falling back to flat text: {exc}")
+            return None
+
+    @staticmethod
+    def _blocks_from_ocr_layout(paragraphs: "list[OcrParagraph]") -> list[dict]:
+        """Shape OCR paragraphs like PyMuPDF text blocks so downstream stages see geometry.
+
+        Font size is estimated from line height in points. It is not the true point size,
+        but it is monotonic in it, which is what the size-relative heading and body-text
+        heuristics actually consume.
+        """
+        blocks: list[dict] = []
+        for paragraph in paragraphs:
+            lines = []
+            for line in paragraph.lines:
+                height = max(line.bbox[3] - line.bbox[1], 1.0)
+                lines.append(
+                    {
+                        "spans": [
+                            {
+                                "text": line.text,
+                                "font": "OCR",
+                                "size": round(height, 2),
+                                "flags": 0,
+                                "color": 0,
+                                "bbox": line.bbox,
+                            }
+                        ],
+                        "bbox": line.bbox,
+                        "dir": (1, 0),  # Horizontal text direction
+                    }
+                )
+            # Marked so the reading-order sort can leave these alone: the engine emitted
+            # them in reading order already. See _build_sorted_column_items.
+            blocks.append({"type": 0, "bbox": paragraph.bbox, "lines": lines, "_engine_segmented": True})
+        return blocks
+
     def _detect_page_tables(
         self, page: "fitz.Page", page_num: int, total_pages: int
     ) -> tuple[list[dict], list[Any], list[Any]]:
@@ -1248,13 +1601,31 @@ class PdfToAstConverter(BaseParser):
             return all_blocks, False
 
         try:
+            # Prefer the engine's own paragraph segmentation. Flattening a page to one
+            # string forces every later stage -- column detection, header/footer trimming,
+            # table-region filtering, block segmentation -- to re-derive structure from
+            # geometry that no longer exists, so an OCR'd page projected as a single
+            # page-sized block no matter what was on it.
+            paragraphs = self._ocr_page_to_layout(page, self.options)
+            if paragraphs:
+                ocr_blocks = self._blocks_from_ocr_layout(paragraphs)
+                if self.options.merge_hyphenated_words:
+                    # Now that OCR carries real spans, the normal walker applies.
+                    dehyphenate_blocks(ocr_blocks)
+                self._ocr_pages_applied += 1
+                if self.options.ocr.preserve_existing_text and extracted_text.strip():
+                    logger.debug(f"Supplementing existing text with {len(ocr_blocks)} OCR block(s)")
+                    return [*all_blocks, *ocr_blocks], True
+                logger.debug(f"Replacing PyMuPDF text with {len(ocr_blocks)} OCR block(s)")
+                return ocr_blocks, True
+
             ocr_text = self._ocr_page_to_text(page, self.options)
 
             if not ocr_text.strip():
                 logger.warning("OCR returned empty text, keeping original extraction")
                 return all_blocks, False
 
-            # OCR returns a flat string rather than the span structure
+            # This engine returns a flat string rather than the span structure
             # dehyphenate_blocks() walks, so line-break hyphenation ("be-\nwusst")
             # is merged here on the text instead. Same rules, same option.
             if self.options.merge_hyphenated_words:
@@ -1391,8 +1762,84 @@ class PdfToAstConverter(BaseParser):
                 items.append(("block", block["bbox"][1], block))
         for table in col_tables:
             items.append(("table", table["bbox"].y0, table))
-        items.sort(key=lambda x: x[1])
+
+        # Sorting by y assumes one column of blocks. When an OCR engine segmented the page
+        # it has already emitted its blocks in reading order, including across columns that
+        # our own column detection may have missed -- and on a two-column page that it read
+        # as one, the y sort interleaves left and right into nonsense. Trust the engine's
+        # order instead. Scoped to engine-segmented pages with no tables to interleave;
+        # native blocks keep the existing behaviour exactly.
+        if col_tables or not items or not all(item[2].get("_engine_segmented") for item in items):
+            items = self._sort_items_into_reading_order(items, column)
         return items
+
+    def _sort_items_into_reading_order(
+        self, items: list[tuple[str, float, Any]], column: list[dict]
+    ) -> list[tuple[str, float, Any]]:
+        """Order items top-to-bottom, and left-to-right among those starting level.
+
+        Sorting on ``y`` alone makes the *first* item decided by whichever block's
+        top edge is a hair higher, and on a two-column page that column detection
+        read as one, that hair decides the order of the whole page. On page 16 of
+        ``PMC7500012.1`` the two columns start at ``y=89.708`` and ``y=89.703`` --
+        five thousandths of a point apart -- and the right column wins, so the
+        references read 39-61 and then 19-38 (#290).
+
+        The blocks are not exactly level, so a plain ``(y, x)`` key does not help:
+        they have to be treated as level first. Items whose tops fall within
+        ``row_tolerance`` of the row's first item form one row and are ordered by
+        ``x``. The tolerance is a quarter of the page's average line height rather
+        than a constant, because what counts as "level" scales with the type size
+        -- the same reason an absolute ``column_gap_threshold`` misjudges this
+        page. At a quarter of a line it cannot merge consecutive lines of running
+        text; it only reaches blocks that begin at effectively the same height,
+        where the ``y`` order was noise to begin with.
+
+        Parameters
+        ----------
+        items : list of tuple
+            ``(item_type, y_coord, item_data)`` tuples to order.
+        column : list of dict
+            The column's text blocks, used to size the tolerance.
+
+        Returns
+        -------
+        list of tuple
+            The same tuples in reading order.
+
+        """
+        ordered = sorted(items, key=lambda item: item[1])
+        if len(ordered) < 2:
+            return ordered
+
+        average_line_height = self._calculate_blocks_average_line_height(column)
+        row_tolerance = max(
+            PDF_READING_ORDER_MIN_ROW_TOLERANCE,
+            (average_line_height or 0.0) * PDF_READING_ORDER_ROW_TOLERANCE_RATIO,
+        )
+
+        result: list[tuple[str, float, Any]] = []
+        start = 0
+        while start < len(ordered):
+            end = start + 1
+            # Compared against the row's first item, not its predecessor, so a
+            # column of near-level blocks cannot chain into one giant row.
+            while end < len(ordered) and ordered[end][1] - ordered[start][1] <= row_tolerance:
+                end += 1
+            row = ordered[start:end]
+            row.sort(key=lambda item: self._item_x0(item))
+            result.extend(row)
+            start = end
+        return result
+
+    @staticmethod
+    def _item_x0(item: tuple[str, float, Any]) -> float:
+        """Return the left edge of a block or table item."""
+        kind, _, data = item
+        if kind == "table":
+            return float(data["bbox"].x0)
+        bbox = data.get("bbox")
+        return float(bbox[0]) if bbox else 0.0
 
     def _process_table_item(self, item_data: dict, page: "fitz.Page", page_num: int) -> Node | None:
         """Process a single table item and return its AST node.
@@ -1550,9 +1997,13 @@ class PdfToAstConverter(BaseParser):
         layout: PageLayoutPredictions | None = None
         if self._use_layout:
             try:
-                raw_predictions = predict_page_layout(page)
+                raw_predictions = predict_page_layout(page, self.options.layout_feature_set)
                 layout = match_predictions_to_blocks(raw_predictions, all_blocks, self.options.layout_iou_threshold)
                 annotate_blocks_with_layout(all_blocks, layout)
+                # Also label individual lines. A block-level label is only available when
+                # the block happens to be one semantic unit; on a journal page it is a whole
+                # column, and every heading inside it loses its label to the IoU test.
+                annotate_lines_with_layout(all_blocks, raw_predictions)
             except Exception as e:
                 logger.warning("Layout analysis failed for page %d: %s", page_num + 1, e)
                 layout = None
@@ -1623,8 +2074,18 @@ class PdfToAstConverter(BaseParser):
             is_in_table = any(abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect) for table in table_info)
             if not is_in_table:
                 text_blocks.append(block)
+                continue
 
-        # Apply column detection if enabled
+            # Mostly-a-table is not entirely-a-table. Keep whatever lies outside every
+            # region, so a region covering part of a tall block does not take the rest of
+            # that block with it -- only the region's own text is re-emitted downstream.
+            remainder = _block_outside_table_regions(block, [table["bbox"] for table in table_info])
+            if remainder is not None:
+                text_blocks.append(remainder)
+
+        # Apply column detection if enabled. It runs on OCR-derived blocks too: the engine
+        # numbers its blocks in its own order, which is not reading order on multi-column
+        # and poster layouts, and sorting them into columns measurably recovers it.
         if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
             force_multi = self.options.column_detection_mode == "force_multi"
             columns = detect_columns(
@@ -1741,7 +2202,7 @@ class PdfToAstConverter(BaseParser):
 
         if header_level > 0:
             line_text = "".join(s.get("text", "") for s in spans).strip()
-            self._emit_heading(state, header_level, line_text, inline_content, page_num)
+            self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
         else:
             # Paragraph emission orphans any buffered numbering prefix —
             # flush it as its own heading so the marker isn't lost.
@@ -2087,6 +2548,7 @@ class PdfToAstConverter(BaseParser):
         line_text: str,
         inline_content: list[Node],
         page_num: int,
+        line_bbox: tuple[float, float, float, float] | None = None,
     ) -> None:
         """Emit a heading or buffer a numbering-only prefix for merging.
 
@@ -2096,7 +2558,20 @@ class PdfToAstConverter(BaseParser):
         heading. PDFs often visually break Roman-numeral section markers
         onto their own line above the actual heading text, and emitting
         them as separate headings produced obviously-wrong output before.
+
+        A heading too long for one printed line is set on two, and each line
+        reaches here separately. When ``line_bbox`` shows this line sits
+        directly under the heading just emitted, at the same level, the text
+        is appended to that heading rather than starting a new one.
         """
+        if line_bbox is not None and self._continues_wrapped_heading(state, level, line_text, line_bbox):
+            heading = state.nodes[-1]
+            assert isinstance(heading, Heading)  # guaranteed by _continues_wrapped_heading
+            heading.content.extend([Text(content=" "), *inline_content])
+            state.last_heading_bottom = line_bbox[3]
+            state.last_heading_height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
+            return
+
         if parse_numbering_prefix(line_text) is not None:
             # If we *already* have a buffered prefix and this is also one,
             # flush the older one first so neither gets lost (rare in real
@@ -2125,6 +2600,7 @@ class PdfToAstConverter(BaseParser):
                 )
             )
             self._last_heading_level = merged_level
+            self._mark_heading_line(state, line_bbox)
             return
 
         _strip_leading_whitespace_in_place(inline_content)
@@ -2136,6 +2612,50 @@ class PdfToAstConverter(BaseParser):
             )
         )
         self._last_heading_level = level
+        self._mark_heading_line(state, line_bbox)
+
+    @staticmethod
+    def _mark_heading_line(state: _BlockProcessingState, line_bbox: tuple[float, float, float, float] | None) -> None:
+        """Record where the heading just appended to ``state.nodes`` was printed."""
+        if line_bbox is None:
+            state.last_heading_slot = -1
+            return
+        state.last_heading_slot = len(state.nodes) - 1
+        state.last_heading_bottom = line_bbox[3]
+        state.last_heading_height = line_bbox[3] - line_bbox[1]
+
+    @staticmethod
+    def _continues_wrapped_heading(
+        state: _BlockProcessingState,
+        level: int,
+        line_text: str,
+        line_bbox: tuple[float, float, float, float],
+    ) -> bool:
+        """Report whether this line is the rest of the heading emitted immediately above it.
+
+        Four things have to hold, and each rules out a way two heading lines can be
+        adjacent without being one heading: the previous node is a heading and nothing
+        came between them; it is at this line's level, since a subheading under a
+        heading is two headings; the line sits within a line's height of it, which is
+        what a wrap looks like and what the space above a new section does not; and it
+        does not open with its own numbering, which announces a new section however
+        tightly it is set.
+        """
+        if not state.nodes or state.last_heading_slot != len(state.nodes) - 1:
+            return False
+        previous = state.nodes[-1]
+        if not isinstance(previous, Heading) or previous.level != level:
+            return False
+        if parse_numbering_prefix(line_text.split(" ", 1)[0]) is not None:
+            return False
+
+        height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
+        if height <= 0:
+            return False
+        gap = line_bbox[3] - state.last_heading_bottom
+        # Strictly below: a line at or above the previous one is a different column or a
+        # reading-order artefact, not a continuation.
+        return 0 < gap <= height * HEADING_WRAP_GAP_RATIO
 
     def _flush_pending_heading_prefix(self, state: _BlockProcessingState) -> None:
         """Emit any buffered numbering-prefix heading as a standalone heading."""
@@ -2253,7 +2773,7 @@ class PdfToAstConverter(BaseParser):
 
         self._flush_state_paragraph(state, page_num)
         line_text = "".join(s.get("text", "") for s in spans).strip()
-        self._emit_heading(state, header_level, line_text, inline_content, page_num)
+        self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
         return True
 
     def _handle_header_line_with_layout(
@@ -2344,7 +2864,7 @@ class PdfToAstConverter(BaseParser):
             return True
 
         self._flush_state_paragraph(state, page_num)
-        self._emit_heading(state, level, line_style.text, inline_content, page_num)
+        self._emit_heading(state, level, line_style.text, inline_content, page_num, _span_union_bbox(spans))
         return True
 
     def _accumulate_paragraph_line(
@@ -2359,11 +2879,29 @@ class PdfToAstConverter(BaseParser):
         average_line_height: float | None,
     ) -> None:
         """Accumulate regular text line into paragraph state."""
-        # Check if we should start a new paragraph (don't break list items)
-        if vertical_gap > paragraph_break_threshold and state.paragraph_content and not state.paragraph_is_list:
+        # Converted before the split test below rather than after it, because the conversion
+        # is what turns a symbol-font bullet into a recognisable marker -- see
+        # _leading_inline_text. The flush still has to happen before the empty-content
+        # return, so that a line which converts to nothing keeps ending a paragraph on gap.
+        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+
+        # A list item runs on across the vertical gaps that separate paragraphs -- the space
+        # between two bullets is the same space that ends a paragraph -- so the gap rule is
+        # suspended once a list has started. Without a second rule to end an item, though,
+        # every bullet in a list ran into its predecessor and the whole list arrived as a
+        # single item: one born-digital article emitted 1 list item for its 16 bullets.
+        # A line carrying its own marker is the next item, whatever the spacing says.
+        #
+        # This asks with the liberal reader, unlike the paragraph-start test below. It is
+        # gated on the paragraph already being a list, so it can only ever re-split one;
+        # narrowing it to the conservative reader ran a whole ordered list back into a
+        # single item, because "2." is a span of its own and stops that reader dead.
+        opens_with_marker = self._is_valid_list_marker(_opening_line_text(inline_content))[0]
+        starts_new_item = state.paragraph_is_list and opens_with_marker
+        breaks_paragraph = vertical_gap > paragraph_break_threshold and not state.paragraph_is_list
+        if state.paragraph_content and (starts_new_item or breaks_paragraph):
             self._flush_state_paragraph(state, page_num)
 
-        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
         if not inline_content:
             return
 
@@ -2376,8 +2914,9 @@ class PdfToAstConverter(BaseParser):
         else:
             # Starting new paragraph
             state.paragraph_bbox = line["bbox"]
-            first_text = next((n.content for n in inline_content if isinstance(n, Text)), "")
-            state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(first_text)
+            state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(
+                _leading_inline_text(inline_content)
+            )
 
         state.paragraph_content.extend(inline_content)
 
@@ -2447,11 +2986,13 @@ class PdfToAstConverter(BaseParser):
             if state.in_code_block:
                 self._finalize_code_block(state, page_num)
 
-            # Handle headers - layout label overrides font-size heuristics
-            if layout_label in ("title", "section-header"):
-                if self._handle_header_line_with_layout(
-                    spans, links, state, page_num, average_line_height, layout_label
-                ):
+            # Handle headers - layout label overrides font-size heuristics. A line carries
+            # its own label when the model drew a box around it, which is the only way a
+            # heading inside a full-column block is ever labelled; fall back to the block's
+            # label, which is all that exists when the block is one semantic unit.
+            line_label = line.get("_layout_label") or layout_label
+            if line_label in ("title", "section-header"):
+                if self._handle_header_line_with_layout(spans, links, state, page_num, average_line_height, line_label):
                     continue
             elif self._handle_header_line(spans, links, state, page_num, average_line_height):
                 continue
@@ -2858,8 +3399,9 @@ class PdfToAstConverter(BaseParser):
     ) -> Node | None:
         """Extract the content of a region the layout model predicted to be a table.
 
-        Uses ``page.find_tables()`` scoped to the predicted region. When no structured
-        table can be recovered there, the region's text is returned as a **paragraph**.
+        Uses ``page.find_tables()`` scoped to the predicted region, trying ruling lines
+        first and then text alignment. When no structured table can be recovered there,
+        the region's text is returned as a **paragraph**.
 
         It used to be returned as a single-column table -- one row per line of text --
         and that was wrong twice over. A one-column table is not a table: it is prose
@@ -2891,23 +3433,51 @@ class PdfToAstConverter(BaseParser):
             its text. ``None`` only when the region is empty.
 
         """
-        # Try PyMuPDF's find_tables within the predicted region. Only a real table is
-        # accepted here: a rejected detection may hand back a paragraph covering just
-        # the grid's bbox, which can be narrower than the region the layout model
-        # predicted. Falling through instead keeps the whole region's text.
-        try:
-            tabs = page.find_tables(clip=table_rect)
-            if tabs.tables:
-                table = self._process_table_to_ast(tabs.tables[0], page, page_num)
-                if isinstance(table, AstTable):
-                    return table
-        except Exception:
-            # PyMuPDF table detection is best-effort; fall through to the text path.
-            pass
+        # Try PyMuPDF's find_tables within the predicted region, line-based detection
+        # first and text alignment second (see TABLE_REGION_STRATEGIES: the default
+        # strategy needs ruling lines on both axes, which borderless journal tables do
+        # not have). Only a real table is accepted here: a rejected detection may hand
+        # back a paragraph covering just the grid's bbox, which can be narrower than the
+        # region the layout model predicted. Falling through instead keeps the whole
+        # region's text.
+        found_grid = False
+        for strategy in TABLE_REGION_STRATEGIES:
+            try:
+                tabs = page.find_tables(clip=table_rect, strategy=strategy)
+            except Exception:
+                # PyMuPDF table detection is best-effort; try the next strategy.
+                continue
+            if not tabs.tables:
+                continue
+            # Text alignment has no ruling lines corroborating it, so it is held to one
+            # extra test the line strategies are not: its columns must not cut through
+            # words. See MAX_SPLIT_WORD_RATIO -- without this, a mis-predicted region
+            # renders a page of prose as a multi-column table of half-words.
+            if strategy == "text":
+                try:
+                    fragments = split_word_ratio(page, tabs.tables[0].extract())
+                except Exception:
+                    fragments = 0.0
+                if fragments > MAX_SPLIT_WORD_RATIO:
+                    logger.debug(
+                        f"Rejecting text-aligned grid on page {page_num + 1}: "
+                        f"{fragments:.0%} of its word tokens are fragments, so its columns "
+                        f"cut through words rather than falling between them"
+                    )
+                    self._record_table_rejection("text_grid_splits_words")
+                    continue
+            found_grid = True
+            table = self._process_table_to_ast(tabs.tables[0], page, page_num)
+            if isinstance(table, AstTable):
+                return table
 
         # No table here -- the layout model was wrong. Keep the text, drop the pipes.
         paragraph = self._region_text_as_paragraph(page, table_rect, page_num)
-        if paragraph is not None:
+        if paragraph is not None and not found_grid:
+            # Only when nothing tabular was found at all. If a grid *was* found and then
+            # rejected, that guard has already recorded its own, more specific reason --
+            # adding this vaguer one on top counts the same region twice and takes a
+            # second bite out of the confidence score.
             self._record_table_rejection("layout_region_not_tabular")
         return paragraph
 
@@ -2929,6 +3499,15 @@ class PdfToAstConverter(BaseParser):
         text = page.get_textbox(region)
         if not text or not text.strip():
             return None
+
+        # get_textbox is raw extraction: it returns the glyphs with their printed line
+        # breaks, and this is the only path into the AST that does not pass through
+        # dehyphenate_blocks(). Without this a word broken across a line survives as two
+        # fragments and the whole word is absent from the output -- "Coroman-" + "del" meant
+        # "Coromandel" appeared nowhere at all. The line break is consumed with the hyphen,
+        # so the join below does not put a space back between the halves.
+        if self.options.merge_hyphenated_words:
+            text = dehyphenate_text(text)
 
         lines = [line.strip() for line in text.strip().split("\n") if line.strip()]
         if not lines:
@@ -3117,18 +3696,11 @@ class PdfToAstConverter(BaseParser):
         if not paragraph.content:
             return False
 
-        def extract_text(nodes: list[Node]) -> str:
-            """Recursively extract text from nodes."""
-            text_parts = []
-            for node in nodes:
-                if isinstance(node, Text):
-                    text_parts.append(node.content)
-                elif hasattr(node, "content") and isinstance(node.content, list):
-                    text_parts.append(extract_text(node.content))
-            return "".join(text_parts)
-
-        full_text = extract_text(paragraph.content)
-        is_list, _ = self._is_valid_list_marker(full_text)
+        # The liberal reader, because this only ever *protects* a paragraph from being
+        # merged into its neighbour -- it creates nothing. Answering it conservatively let
+        # consecutive numbered items merge back into a single paragraph, which is how a
+        # whole ordered list came out on one line.
+        is_list, _ = self._is_valid_list_marker(_opening_line_text(paragraph.content))
         return is_list
 
     def _determine_list_level_from_x(self, x_coord: float, x_levels: dict[int, float]) -> int:
@@ -3470,13 +4042,7 @@ class PdfToAstConverter(BaseParser):
             "ordered", "unordered", or None
 
         """
-        full_text = ""
-        for node in para.content:
-            if isinstance(node, Text):
-                full_text = node.content
-                break
-
-        return self._is_valid_list_marker(full_text)
+        return self._is_valid_list_marker(_leading_inline_text(para.content))
 
     def _extract_list_item_x_coord(self, node: AstParagraph) -> float | None:
         """Extract x-coordinate from a paragraph's bbox metadata.
@@ -3512,11 +4078,7 @@ class PdfToAstConverter(BaseParser):
             Content nodes with the list marker removed
 
         """
-        full_text = ""
-        for node in para.content:
-            if isinstance(node, Text):
-                full_text = node.content
-                break
+        full_text = _leading_inline_text(para.content)
 
         # Use the robust marker detection to validate this is actually a list item
         is_list, list_type = self._is_valid_list_marker(full_text)
@@ -3541,20 +4103,12 @@ class PdfToAstConverter(BaseParser):
             if match:
                 marker_end = match.end()
 
-        # Create new content without the marker
-        new_content: list[Node] = []
-        if marker_end > 0:
-            # Remove marker from first text node
-            for i, node in enumerate(para.content):
-                if i == 0 and isinstance(node, Text):
-                    remaining_text = node.content[marker_end:]
-                    if remaining_text:
-                        new_content.append(Text(content=remaining_text))
-                else:
-                    new_content.append(node)
-        else:
-            new_content = list(para.content)
+        if marker_end <= 0:
+            return list(para.content)
 
+        # The marker may sit inside a wrapper and may straddle two nodes, so it is removed
+        # by character count rather than by rewriting whichever node happens to be first.
+        new_content, _ = _consume_leading_chars(para.content, marker_end)
         return new_content
 
     def _finalize_pending_lists(self, list_stack: list[tuple[str, int, list[ListItem]]], result: list[Node]) -> None:

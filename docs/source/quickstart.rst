@@ -266,6 +266,38 @@ Extract and convert multiple files from ZIP archives:
    # Flatten directory structure (disable directory preservation)
    all2md archive.zip --zip-no-preserve-directory --out combined.md
 
+Searching inside an archive
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+An archive converts to a single document, with each member under a heading of its own
+name. That means it is an ordinary target for the read-side commands — no unpacking
+step, and no separate handling for the members that are binary:
+
+.. code-block:: bash
+
+   # Search a bundle without extracting it
+   all2md grep "Peregrine falcons" bundle.zip
+
+   # Members are converted first, so this searches the PDF's text too
+   all2md search --keyword "termination clause" contracts.zip
+
+   # Read the whole bundle in the browser
+   all2md view bundle.zip
+
+Output identifies the match by its heading, so the member a hit came from stays visible:
+
+.. code-block:: text
+
+   bundle.zip
+     Gamma:Peregrine falcons nest nearby.
+
+This pairs with ``--zip``, which packages a batch conversion into an archive
+(see :doc:`batch`) — the result is searchable the same way, so a converted bundle
+remains queryable without being unpacked.
+
+Every archive spelling works the same way — ``.zip``, ``.tar``, ``.tgz``, ``.tbz2``,
+``.txz``, and the two-part forms ``.tar.gz``, ``.tar.bz2`` and ``.tar.xz``.
+
 5. Progress Monitoring
 ~~~~~~~~~~~~~~~~~~~~~~
 

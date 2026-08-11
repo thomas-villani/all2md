@@ -7,7 +7,381 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.11.0] - 2026-08-03
+### Changed
+
+- **A dropped keyword argument is now diagnosed by which mistake it was.** A name that is an
+  option of no format still reports as `Unrecognized keyword arguments were ignored` — the
+  typo case #273 was about. A name that is a real all2md option the conversion's formats
+  simply have no field for (`pages` on a markdown parse, `flavor` on an HTML render) now
+  says so instead of telling the caller to check for a misspelling they did not make. Both
+  can arrive from one call, as two warnings. `to_ast` and `from_ast` previously stayed silent
+  for the second case while `to_markdown` warned; they now agree, which closes the last gap
+  #273 left open. Callers who pass a real-but-inapplicable option to `to_ast` will see a
+  warning where they saw none — it is telling them the option did nothing.
+
+### Fixed
+
+- **Two columns that start level are read left-to-right, not by a hairline** (PDF). Blocks
+  were ordered on `y` alone, so on a page whose gutter is too narrow for column detection
+  to split, whichever column's top edge happened to be a fraction of a point higher was
+  read first — and that decided the order of the entire page. On page 16 of `PMC7500012.1`
+  the two columns begin at `y=89.708191` and `y=89.702942`, five thousandths of a point
+  apart, and the references came out running 39–61 and then 19–38: a document that looks
+  correct and is not. Blocks whose tops fall within a twentieth of the page's average line
+  height are now treated as starting on the same row and ordered by `x`. That is a
+  size-relative measure rather than a constant, since what reads as "level" scales with the
+  type size, and it is deliberately small: it only reaches blocks that begin at effectively
+  the same height, where the `y` order was noise to begin with. Measured on the PMC
+  born-digital corpus (117 pages), reading-order similarity rises from 0.779 to 0.785 mean
+  and 0.821 to 0.835 median, with block structure and text content up slightly and tables
+  and whole-article recall unchanged — no dimension regressed.
+- **`<del>`, `<s>`, `<sup>`, `<sub>` and `<mark>` survive a Markdown round trip.** mistune
+  hands raw inline HTML through untouched, so the Markdown parser produced loose
+  `HTMLInline` nodes rather than the AST node that already existed for the meaning; the
+  default `html_passthrough_mode="escape"` then escaped them on the way back out and
+  `a <del>x</del> b` returned as `a &lt;del&gt;x&lt;/del&gt; b`. They now fold into
+  `Strikethrough`, `Superscript`, `Subscript` and `Mark` the way `<u>`/`<ins>` already
+  folded into `Underline`, and render as `~~x~~`, `^x^`, `~x~` and `==x==`. The existing
+  constraints are unchanged: a tag carrying attributes stays raw HTML, because the
+  attributes hold information the node cannot, and an unmatched opener or stray closer
+  stays raw rather than being guessed at.
+- **`<mark>` no longer disappears when parsing HTML.** It was listed as an inline element
+  but had no handler, so it fell through to the generic unwrap and the highlight was
+  dropped outright — `<mark>x</mark>` became a bare `x`. Unlike the Markdown side this was
+  silent loss rather than escaping, so no round-trip text comparison would have noticed
+  it; a golden snapshot had captured the damaged output as expected. Same gap `<ins>` had.
+- **PyMuPDF's layout advisory no longer lands inside the converted document** (PDF).
+  PyMuPDF prints `Consider using the pymupdf_layout package for a greatly improved page
+  layout analysis.` with a bare `print()` — not a warning, not a log record — the first
+  time `find_tables()` runs in a process where `pymupdf.layout` is not installed. all2md
+  writes converted documents to stdout, so the advisory arrived *inside the document*:
+  `all2md report.pdf > report.md` made it line one of the markdown, and any pipeline
+  reading all2md's stdout got it as content. This was the common case rather than an
+  exotic one — `pymupdf-layout` is deliberately excluded from the `all` extra over its
+  Polyform Noncommercial license, so the plain and `[all]` installs both hit it. all2md
+  now opts out through PyMuPDF's own entry point when it opens a PDF; it ships that
+  package as the `pdf_layout` extra and already reports its absence through its own
+  dependency machinery, which writes to stderr.
+- **`.tar.gz`, `.tar.bz2` and `.tar.xz` are accepted on the command line again.** Every
+  read-side command collects inputs through one extension filter, and that filter compared
+  `Path.suffix` — which returns only the last dot-separated component — against the set of
+  registered extensions. `Path("bundle.tar.gz").suffix` is `".gz"`, which no converter
+  declares, so the file was dropped before any converter saw it and the CLI reported
+  `No valid input files found` about a file that was present, correctly named, and readable:
+  `to_markdown("bundle.tar.gz")` had opened it all along. The split was exact — every
+  single-part spelling (`.tar`, `.tgz`, `.tbz2`, `.txz`) worked and every two-part one
+  failed. Matching now walks the tails of `Path.suffixes` longest-first, so `.tar.gz` wins
+  where it applies while `report.2024.pdf` still resolves to `.pdf`. This reached `all2md`,
+  `grep`, `search`, `view` and `watch` alike. The same rule now backs the interactive
+  `batch` type table, so the extension it offers is the one its filter accepts.
+- **`--zip` projects its namespaced options like every other path.** The CLI carries
+  options fully qualified — `pdf.pages`, `markdown.flavor`, and the subcommand sections'
+  own settings such as `view.dark` — and flattens them against the format that will
+  actually handle each file. Every path that writes to disk does that per input file;
+  `--zip` handed the whole namespaced dict to `convert()`, which matched none of it and
+  reported the leftovers as the user's typos: `Unrecognized keyword arguments were
+  ignored: ['view.no_wait', 'view.dark']`. Nobody typed those — they are the `[view]`
+  section's settings, and the function that exists to drop them was never called on this
+  path. Projection is now per item, so a mixed batch applies `pdf.*` to the PDFs and
+  `html.*` to the HTML rather than to everything, matching what the same files get when
+  converted to disk.
+- **Packaging no longer warns the user about an `attachment_mode` it injected itself.**
+  `create_package_from_conversions` forces `attachment_mode="base64"` so attachments stay in
+  memory, then passed it to `convert()`; for a source format with no such option (markdown,
+  txt) it was dropped and reported as an unrecognized keyword argument. The user never typed
+  it. An ordinary `all2md *.md --package out.zip` said "Check the API documentation for valid
+  parameter names" about a command line that was entirely valid. Library-internal call sites
+  can now mark an option as their own, and the three that inject one — the CLI packager, the
+  MCP server's `attachment_mode` from server config, and `convert`'s `flavor` shorthand — do.
+  An `attachment_mode` the caller passed explicitly is still theirs and still warns.
+- **Text rescued from a rejected table region is dehyphenated like any other prose** (PDF).
+  When a detected table's grid turns out to be degenerate the region is emitted as a
+  paragraph instead, and its text is recovered with `page.get_textbox()` — raw extraction,
+  which returns the glyphs with their printed line breaks intact. Every other route into
+  the AST passes through `dehyphenate_blocks()` first and this one did not, so a word broken
+  across a line stayed broken: `Coroman-` and `del` never became `Coromandel`, and the word
+  appeared **nowhere in the output at all**, which no text-recall measure notices because
+  both fragments are still present. This is a growing path rather than an edge case — the
+  layout model over-predicts tables, and each over-prediction routes a whole region's prose
+  through it; on the page this was found on the predicted region covered the entire page
+  body. On that article, 32 line-break fragments become 0 and 8 words reappear. The join now
+  reads identically to ordinary prose, including where the two agree to leave a hyphen
+  alone: a capitalised continuation keeps it (`Anglo-Saxon`) and a digit continuation is
+  never merged.
+- **A list marker set in a symbol font now starts a list** (PDF). Whether a line opened
+  with a marker was decided by finding the first top-level `Text` node, which is the wrong
+  question in both directions. A bullet set in a symbol font carries that font's flags, so
+  it arrives wrapped — italic flags make `Emphasis(Text("-"))` — and the line has no
+  top-level `Text` at all: it read as empty and never started a list, so one born-digital
+  article's bullets came out as plain paragraphs each beginning with a literal `- `. In the
+  other direction, reading past the first node to find *some* `Text` answers for the middle
+  of the line, so a citation opening with a styled journal name, `Nature 12. 45-67`,
+  reported a numbered marker and became a list item. Detection now descends into inline
+  wrappers, and the marker is removed by character count so that it comes off even when it
+  sits inside a wrapper or straddles two nodes. Reading the raw spans instead would not
+  work, which is worth recording because it looks like the obvious fix: the parser rewrites
+  four bullet glyphs (`U+F0B7`, `U+00B7`, `U+2022`, `U+25CF`) to `-`, and three of those
+  four are not markers in their printed form, so detection has to run after that conversion
+  rather than before it.
+
+  A marker and the space that disambiguates it are also routinely *separate* spans, which
+  is why **Word's second-level Courier `o` bullets** never became list items at all — the
+  rule that an `o` must be followed by a space (so that "office" is not a bullet) could
+  never fire, because the space was in the next node. Those bullets now nest under the
+  item above them instead of landing as loose paragraphs between the items they belong to.
+
+  That look-ahead is allowed **only for a bullet**, never for a number, and the restriction
+  is the load-bearing part rather than a tidiness. A numbered marker arrives split exactly
+  the same way — `Text("44.")` then `Text(" Konema, Nigeria …")` — and nothing in a PDF
+  distinguishes the 44th bibliography entry from the 44th item of a list. Reading across
+  that boundary turned reference lists into ordered lists, and since nothing carries a start
+  number through, the renderer printed them from 1: reference 44 came out as item 1 and no
+  citation in the body could be matched to its reference. A numbered marker must therefore
+  be complete within one span, as it always was.
+
+  Measured on the born-digital corpus over the twelve list-bearing articles that complete
+  locally, list-item recall rises **0.231 → 0.269** and precision **0.116 → 0.141**; only
+  three articles change at all. The items still missed are overwhelmingly ones the PDF
+  prints with **no marker of any kind**, which no marker rule can reach.
+
+- **A bulleted or numbered list is no longer collapsed into a single item** (PDF). The
+  vertical gap between two list items is the same gap that separates two paragraphs, so
+  the paragraph-break rule is suspended once a list has started — otherwise every item
+  that wrapped would be split at its own second line. Nothing was put in its place, so an
+  item could only end when its block did, and a whole list arrived as one item: one
+  born-digital article emitted **1 list item for its 16 bullets**. A line carrying its own
+  marker now starts the next item, whatever the spacing says. The rule is narrow on
+  purpose — it applies only inside a paragraph already recognised as a list, so it cannot
+  turn prose into one. Measured on the born-digital corpus, list-item recall rises
+  **0.059 → 0.212** and precision **0.040 → 0.113**.
+
+- **A heading that wraps onto a second printed line is now one heading** (PDF). A PDF has
+  no notion of a wrapped heading — it has two lines of type — and each line reached the
+  emitter on its own, so a long section heading became two sibling headings and an article
+  title set on three lines became three `#`s. None of them matched the real title, so the
+  text was there and the structure was not. A heading line now continues the heading
+  directly above it when the two are at the same level, nothing was emitted between them,
+  and the second sits within `HEADING_WRAP_GAP_RATIO` line heights of the first — the gap
+  is a ratio rather than a point count so it means the same thing for a 24pt title and a
+  9pt subheading. Two headings that genuinely follow one another are separated by the
+  space above a new section, which is what puts them beyond it, and a second line opening
+  with its own numbering starts a new heading however tightly it is set. Measured on the
+  born-digital corpus, section-title recall rises **0.729 → 0.766** and precision
+  **0.507 → 0.623** — 231 headings emitted for 188 real titles, down from 270, so the
+  join removes 39 duplicate headings as well as recovering 7 real ones.
+- **A lone math glyph is no longer promoted to a heading** (PDF). Heading classification
+  validated a candidate by font size, bold/all-caps requirement, maximum length and an
+  internal-sentence-boundary check, and never asked whether the text contained a letter.
+  Large delimiters are set in a symbol font well above body size, so they cleared the size
+  gate and passed every remaining one — short, non-empty, no sentence boundary — and were
+  emitted as headings from inside displayed equations. One chemistry paper in the
+  born-digital corpus produced **179 headings for its 9 sections, 122 of them a single
+  Private Use Area glyph** (∑, ∫, large parentheses and brackets); it now emits 55, with
+  its real headings untouched and its text content byte-identical once heading markers are
+  stripped. The gate is `str.isalnum`, not an ASCII character class, precisely so that
+  headings in CJK, Cyrillic, Arabic, Devanagari, Greek and Hangul still qualify — an ASCII
+  test would have deleted every one of them while fixing this.
+- **Section headings inside a multi-line block are no longer flattened to prose**
+  (PDF, requires `pymupdf-layout`). Layout labels were assigned per *block*, by IoU against
+  the model's predicted region. That is a fair test only when a block is one semantic unit,
+  and PyMuPDF returns a whole journal column as a single block — so a two-line heading
+  inside it scored an IoU near 0.03 against its own block and its `section-header` label was
+  discarded before anything could use it. Measured on the born-digital corpus, **54% of
+  `section-header` predictions never reached a block**, the median miss being a block 38x
+  the prediction's area; the same plumbing lost 52% of `list-item` and 51% of `page-header`
+  labels. Labels are now also stamped per line, by containment rather than IoU — a line
+  inside a correct region has a low IoU with it by construction — and the heading path
+  consults the line's own label before the block's. Against JATS section titles on 12
+  articles, the share emitted as headings rose from **0.420 to 0.729** (79 → 137 of 188)
+  for five additional headings not backed by a title. Two articles went from 0/32 and 3/33
+  to 24/32 and 26/33. Nothing else on the corpus moved: text recall is identical to the
+  digit in both arms (95.6% of attainable overall; `title` 94.2%, `text_block` 96.3%,
+  `table` 96.7%), reading order is unchanged at 0.779, and `block_structure_similarity`
+  rises 0.548 → 0.567 — a change in structure and nothing else, which is what was intended.
+  This is the same class of defect as the partial table region fixed above: a block is the
+  wrong unit to judge, and the fix is to judge the line.
+- **The structural half of heading detection is now measured.** The corpus lane scored
+  `title` as *text recall*, which cannot distinguish `## Materials and Methods` from a bare
+  paragraph carrying the same words — a parser that flattened every heading in the corpus
+  would have scored 1.00 on it. Note the ground truth for this is section titles
+  specifically: the oracle's `title` kind also maps `article-title`, which appears inside
+  every bibliography `<ref>`, so scoring headings against it rewards exactly the wrong
+  behaviour on a 60-reference article.
+
+### Added
+
+- **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
+  requires `pymupdf-layout`; inert otherwise). The package bundles three: `imf+rf` (the
+  default, image and text-geometry features), `imf` (image only) and `rf` (text geometry
+  only). Which one is right depends on the document, so it is now a searchable option and
+  is registered as an `optimize` knob rather than decided globally. The difference is not
+  subtle: on a two-column reference page the image-feature models read the dense left column
+  as a table — deleting nine reference entries before the fix elsewhere in this release, and
+  splitting one table into two on three further pages — while `rf` labels all 41 entries
+  correctly and predicts no table at all. Across 20 born-digital articles `rf` led on every
+  axis measured (title recall 0.9916 → 0.9972, identical table content recall, three fewer
+  spurious table nodes on the same 16 pages, 29% faster for skipping image inference).
+  **The default is deliberately unchanged**: that is one corpus of one document kind, and
+  image features plausibly earn their place on scanned pages, of which it contains none.
+  Models are now cached per feature set instead of in a single global — an unkeyed cache
+  returned whichever model loaded first, which would have made every arm of a search over
+  this knob identical and the setting look inert.
+- **A pinned PMC Open Access corpus for born-digital PDF benchmarking**
+  (`benchmarks/pmc`). The existing external ground-truth lane is 981 rasters, so it
+  measures the OCR path; nothing external covered text-layer extraction, vector table
+  detection or layout-derived reading order, which is most real-world PDF conversion.
+  Articles come from the `pmc-oa-opendata` bucket, where each versioned prefix holds the
+  publisher PDF beside its JATS XML — publisher-produced ground truth with real sections,
+  paragraphs and table cell markup. The bucket has no corpus-wide revision to pin against,
+  so a committed manifest of SHA-256 digests for both files of all 66 articles takes that
+  role: loading never lists the bucket, revalidates every byte, and keys its cache by the
+  manifest digest. Selection keeps an article when its JATS has at least one `<p>` and its
+  PDF carries vector drawings; every rejected candidate is recorded by reason. Corpus
+  bytes are not committed, and this ships no oracle or gate — those follow separately.
+  A `characterize` command measures what the built corpus actually contains, deliberately
+  independent of the filter that selected it: 750 pages, 100% with a text layer, 81.1%
+  with vector drawings, **0% with the single-full-page-image scan shape** — the inverse of
+  the raster lane, and the zero was checked against a known scan first to confirm the test
+  can fire at all. An `align` command measures whether article-level JATS truth can be
+  projected onto PDF pages: **95.7% of blocks place onto a page or an identifiable
+  adjacent pair**, with a 1.9% miss rate. Placement is content-only, never using extracted
+  reading order, so it cannot quietly grade the reading-order metric against itself — and
+  it ships with a control that scores every block against a different article's pages,
+  where the false-placement rate is 0.8%.
+- **A born-digital scoring lane over that corpus** (`benchmarks.pmc score`). Each article is
+  converted once and every page scored against the JATS truth projected onto it, through the
+  *same* oracle the raster lane uses, so a number here means what a number there means. Page
+  boundaries come from the parser's own per-page separators, which keeps cross-page context
+  intact — splitting the PDF into single-page files would hide exactly the defects this lane
+  exists to find — and a dropped page raises rather than silently shifting every later page's
+  ground truth. Blocks that will not resolve to a page are excluded **and reported** as an
+  error budget printed with every run. Three controls ship inside the run: each page is
+  scored again against the *next page of the same article*, against deliberately reversed,
+  scrambled and halved output, and with OCR left enabled in auto mode so "no page needed OCR"
+  stays a measurement that could fail rather than a configuration. Two dimensions are
+  reported but flagged unusable as gates, with the measurement that disqualified them —
+  `block_structure_similarity` separates own-page from wrong-page output by only ~0.06 and
+  *rises* when half the content is deleted. Whole-article content recall ships with its
+  attainable ceiling: only 61.1% of JATS blocks are recoverable from the PDF text layer by
+  any parser, because structured citations and bylines record words in an order the page
+  never prints, so raw recall on its own reads as parser loss that is not there.
+
+### Fixed
+
+- **A table region covering part of a text block no longer deletes the rest of that block.**
+  Blocks a table region covers are withheld from the text stream, because the
+  region is emitted in its own right — as a table, or as a paragraph when the grid is
+  rejected — and emitting both would duplicate it. That decision was made per block on a
+  majority-area test, so a region covering more than half of a block removed the whole
+  block. But "more than half" is not "all of it": PyMuPDF returns a full-height journal
+  column as a single block, so a region predicted over its lower half cleared the bar for
+  the entire column and the upper half was carried out with it — deleted outright, since
+  the re-emitted region text does not include it. On page 16 of one benchmark article this
+  silently removed nine reference entries, a region over y=380–733 of a column spanning
+  y=90–733 taking 54.8% of it and everything above with it. Coverage is now judged per
+  line: lines a region covers are still withheld, and whatever lies outside every region
+  survives with its bounding box tightened to what remains, so reading order still sorts
+  correctly against the table it precedes. A line straddling a region boundary is assigned
+  by the same majority rule rather than duplicated or dropped by both sides. Lines that are
+  blank or whitespace are not rescued: those border a table region routinely, and emitting
+  them would replace a dropped block with an empty paragraph. Measured on 20 articles of the
+  PMC born-digital corpus, title recall of attainable rose from 97.6% to **99.2%**, and the
+  four full-height column drops the corpus contained fell to two.
+- **Words no longer run together where a bold or italic run wraps onto the next line.** Lines
+  of a paragraph are joined with a separator space unless the text already ends with
+  whitespace there, and the check that decides this walks back to the last text leaf, which
+  may sit inside a `Strong`/`Emphasis`/`Link`. It conflated two different answers from a
+  wrapper — "its text does not end in whitespace" and "it holds no text at all" — and treated
+  both as *keep looking*. A line ending in a styled run therefore fell through to whatever
+  preceded that run, and if *that* ended with a space the separator was suppressed and the
+  two halves were concatenated: `negotiating Roang on` + `Lamotrek Atoll` came back as
+  `Roang onLamotrek`. The two runs then looked adjacent to the inline consolidator, which
+  merged them into a single node, so the space could not be recovered downstream either.
+  The walk now distinguishes "no text here" from a definite verdict about the join point.
+  This affects any wrapped styled run, not one document kind, but it surfaced through
+  bibliography entries on the PMC born-digital corpus: a wrapped reference title is short
+  enough that one bad join costs it more n-grams than a recall threshold allows, while a long
+  paragraph absorbs the same damage unnoticed. Over a 20-article subset it recovers **16 of
+  the 33** unrecoverable titles with **none newly lost**, taking `title` recall of attainable
+  from **95.4% to 97.6%**; one review article with a large reference list goes from 22 lost to
+  6. The remaining losses are a separate defect — text genuinely absent from the output rather
+  than reflowed — and are still open.
+- **Auto-mode OCR no longer discards a good text layer because the page has figures on it.**
+  In `mode="auto"` the decision to OCR a page was made by summing the area of every image on
+  it and comparing that to `image_area_threshold` (then 0.5) — *regardless of how much text
+  the page already had*. Since `preserve_existing_text` defaults to `False`, a page that
+  tripped this had its publisher-supplied text thrown away and re-read from a picture. On the
+  PMC born-digital corpus, characterized as **0.0% scan-shaped**, this fired on 20 pages
+  across **11 of 66 articles**; every one of those pages had real extracted text (median 536
+  characters, up to 1998).
+  Two separate faults. Summing image areas does not measure whether a page is a scan: one
+  affected page carried six figure panels covering a tenth of the page each, which summed
+  past the threshold while nothing on the page was remotely page-sized. And the threshold sat
+  far below where scans actually live. The trigger now measures the **largest single image**,
+  and the default is **0.8**. That boundary is calibrated rather than picked: across 101
+  scanned pages the largest image covers exactly 100% of every one, while across 851
+  born-digital pages it never passes 64% (median 13% of pages carrying any image at all).
+  Note the threshold's meaning changed with its default, so an explicit
+  `image_area_threshold` is now read against the largest image rather than the summed area.
+  The narrowing was checked in both directions: a real scan raster carrying a thin text layer
+  — a running header, which clears `text_threshold` so only this branch can reach it — still
+  triggers OCR, and reverting the measure makes the born-digital pages fire again. Measured
+  over the 11 affected articles: `text_content_similarity` median 0.515 → 0.599,
+  `block_structure_similarity` mean 0.530 → 0.563, whole-article recall of attainable 94.6% →
+  95.1%, and 9 of the 11 articles stop OCR'ing entirely. Table scores and `title` recall are
+  unchanged, and the 55 unaffected articles are untouched by construction — exactly 16 of the
+  corpus's 750 page decisions change, all of them from OCR to no-OCR.
+- **Borderless tables in layout-predicted regions are recovered instead of being emitted as
+  prose.** With layout analysis on (`pdf_layout`), a region the layout model predicts to be a
+  table was searched with PyMuPDF's default `find_tables()` strategy, which requires ruling
+  lines on both axes. Journal tables are typically booktabs-style — horizontal rules only, or
+  none — so the search found nothing and the region was demoted to a paragraph. On the PMC
+  born-digital corpus that was **0 of 31** such regions recovered. The parser's own
+  `layout_region_not_tabular` telemetry made this look like guards rejecting tables they had
+  found; instrumenting the branch showed no grid was ever found to reject, and that the event
+  also fired a second time on regions whose specific rejection reason had already been
+  recorded, double-charging the confidence score. Text-alignment detection is now tried as a
+  fallback, and the duplicate event is gone.
+  Because that fallback has no ruling lines corroborating it and the layout model over-fires,
+  it is held to one extra test the line strategies are not: its columns must not cut through
+  words. Without it, a mis-predicted region rendered a page of abstract prose as a
+  seven-column table of half-words (`study was condu | cted to explore`) — every table metric
+  improved while whole-article recall fell from 92.6% to 83.8%. Grid shape, reading-order
+  preservation and region corroboration (ruling lines, a `Table N` caption) were each measured
+  as guards and each failed to separate real tables from gridded prose; whole-word integrity,
+  measured against the page's own unclipped word segmentation, separates them cleanly. Net
+  effect on a 12-article subset: tables emitted 4 → 12 of 32 expected,
+  `table_content_similarity` mean 0.075 → 0.241, `table_structure_similarity` 0.091 → 0.235,
+  with whole-article recall unchanged at baseline.
+- **Scanned PDFs now keep their block structure instead of collapsing to one paragraph.**
+  Every OCR'd page previously projected as exactly one `Paragraph` — no `Heading`, no
+  `Table`, no list structure — because the OCR result was returned as a flat string and
+  wrapped in a single synthetic block spanning the whole page, with one line, one span and
+  a hardcoded font size. Everything downstream of OCR segments on block, line and span
+  geometry, so column detection, header/footer trimming, table-region filtering and
+  block-to-node conversion all received one page-sized rectangle and had nothing left to
+  work with. Measured across all nine OmniDocBench data sources: 33 semantic blocks over 36
+  pages against 704 annotated regions. It was specific to the OCR path — under the same
+  parser policy, born-digital PDFs emit 7–20 blocks per page with real headings and tables.
+  Tesseract already assigns block, paragraph and line numbers and per-word boxes;
+  `image_to_string` discards them and `image_to_data` reports them, so OCR now returns
+  paragraphs mapped back into PDF points and the parser emits one block each. Engines that
+  cannot report layout, and any failure recovering it, fall back to the previous behaviour
+  rather than losing the page.
+- **Scanned multi-column pages no longer interleave their columns.** Sorting blocks by
+  vertical position assumes a column is one top-to-bottom run. OCR paragraph boxes are
+  tight to their glyphs rather than the wide regular blocks column detection looks for, so
+  a two-column scan was read as one column and the sort then alternated left and right
+  fragments — turning a reference list into "Norlund / 1997. Occupational / NRC / Sluiter".
+  The OCR engine already emits blocks in reading order across columns, so that order is now
+  preserved rather than rebuilt from geometry. Both fixes are scoped to OCR-derived blocks;
+  PDFs with a text layer are unaffected, and tests pin that.
+- **Scanned pages now carry usable positions.** Because paragraphs are real blocks, each one
+  reaches the AST with its own `SourceLocation.metadata['bbox']`. A scanned page went from a
+  single box covering the entire page to 54 distinct ones, so a citation into an OCR'd
+  document can resolve to a region rather than to "somewhere on this page".
+
+## [1.11.0] - 2026-08-04
 
 ### Added
 
@@ -51,13 +425,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Thanks [@santhreal](https://github.com/santhreal).
 - **The OmniDocBench lane records what its corpus actually contains.**
   `provenance.corpus_characterization` counts how many pages carry a text layer, vector
-  drawings, or the single-full-page-image shape of a scan, and how many the parser ran OCR
-  on. The lane was built, gated and baselined before anyone asked that question, and the
+  drawings, or the full-page-image shape of a scan, and how many documents the parser ran
+  OCR on. The lane was built, gated and baselined before anyone asked that question, and the
   answer changes what the scores mean: every page in the pinned corpus is a raster, so they
   grade OCR rather than the PDF text and table paths. Counted from the PDF directly rather
   than from a projection, so a parser change cannot alter what the corpus is reported to
   contain, and excluded from the gate's identity fields so evidence like this can be added
-  without invalidating a recorded baseline.
+  without invalidating a recorded baseline. Every page of a document is measured, not just
+  its first — a title page is not a sample of the article behind it — and the scan shape is
+  decided by image *area*: a page counts as scanned when one image covers at least 80% of
+  it. Calibrated against 49 pages of scanned journal back-catalogue, where the largest image
+  covered exactly 100% of every page, and 101 pages of modern born-digital articles, where
+  the largest figure reached 61%. The earlier rule of "exactly one image and no vector
+  drawings" was wrong in both directions on that sample: it fired on born-digital pages
+  carrying a single figure, and missed scans that ship a second small raster beside the page
+  image.
+- **An erased benchmark dimension no longer reads as a verdict on the parser.**
+  `unsupported_dimensions` said "all2md emitted no Table nodes on N converted page(s)",
+  which names one side of a two-sided fact. On this corpus it is the wrong side: every page
+  is a full-page raster, so the PDF table path never runs and there is nothing for it to
+  have missed. The message now states the parser's output, how many pages carry ground truth
+  for the dimension, and how many of the characterized pages are full-page images, then
+  points at `provenance.corpus_characterization` and leaves the cause to the reader (#257).
 
 ### Changed
 

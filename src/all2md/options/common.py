@@ -586,9 +586,13 @@ class OCROptions(CloneFrozenMixin):
         mode, if no page triggered OCR yet the rendered document has fewer
         meaningful characters than this, the PDF parser retries once with OCR
         forced. Catches scanned/image-only documents the per-page heuristic missed.
-    image_area_threshold : float, default 0.5
-        Minimum ratio of image area to total area (0.0-1.0) to consider
-        content as image-based. Used by parsers in "auto" mode.
+    image_area_threshold : float, default 0.8
+        Share of the page (0.0-1.0) that its **largest single image** must cover
+        for "auto" mode to read the page as a scan and OCR it. Measured on the
+        largest image rather than on every image's area added together, because a
+        born-digital page carrying several figures has a large total image area
+        while its publisher-supplied text layer is perfectly good — and OCR
+        replaces that text rather than adding to it (see ``preserve_existing_text``).
     preserve_existing_text : bool, default False
         Whether to preserve existing text when OCR is applied:
 
@@ -708,7 +712,7 @@ class OCROptions(CloneFrozenMixin):
     image_area_threshold: float = field(
         default=DEFAULT_OCR_IMAGE_AREA_THRESHOLD,
         metadata={
-            "help": "Image area ratio (0.0-1.0) to trigger OCR (for auto mode)",
+            "help": "Share of the page (0.0-1.0) its largest image must cover to trigger OCR (auto mode)",
             "type": float,
             "importance": "advanced",
         },

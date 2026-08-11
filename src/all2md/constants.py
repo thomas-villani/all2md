@@ -78,6 +78,12 @@ ImageFormat = Literal["png", "jpeg"]
 OCRMode = Literal["auto", "force", "off"]
 OCREngine = Literal["tesseract", "easyocr"]
 LayoutAnalysisMode = Literal["auto", "enabled", "disabled"]
+#: Which pymupdf-layout classifier to run. The names are the upstream feature sets: ``rf``
+#: reads text geometry ("rule features"), ``imf`` reads a raster of the page ("image
+#: features"), and ``imf+rf`` combines them. Each selects a different bundled ONNX model.
+#: Upstream also accepts ``imf+rf+yf`` and ``rf+jf``, which are omitted because they pass
+#: validation and then fail on a missing config file.
+LayoutFeatureSet = Literal["imf+rf", "rf", "imf"]
 
 # Email-specific types
 DateFormatMode = Literal["iso8601", "locale", "strftime"]
@@ -739,6 +745,21 @@ PDF_COLUMN_FREQ_THRESHOLD_RATIO = 0.3  # Ratio of max frequency for gap detectio
 PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK = 3  # Minimum blocks to perform median width check
 PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO = 0.6  # Width ratio threshold for single column detection
 
+# Reading order: how close two block tops must be to count as starting on the same
+# row, in which case they are read left-to-right instead of by a hairline y
+# difference. A fraction of the page's average line height rather than a constant,
+# because what reads as "level" scales with the type size.
+#
+# Deliberately a twentieth of a line, not a quarter. The defect this corrects is
+# float-level noise -- the two columns of PMC7500012.1 p16 start 0.005pt apart --
+# so the tolerance only has to cover blocks that begin at effectively the same
+# height. A quarter of a line also swept up genuine offsets: it put a left-margin
+# "OPEN" badge sitting 2.2pt below a paper's title ahead of the title. Both values
+# score the same on the PMC corpus (reading order 0.785 mean / 0.835 median), so
+# the corpus could not choose between them and the conservative one wins.
+PDF_READING_ORDER_ROW_TOLERANCE_RATIO = 0.05
+PDF_READING_ORDER_MIN_ROW_TOLERANCE = 0.25  # Points floor, for pages with no measurable lines
+
 # Table detection and extraction
 DEFAULT_TABLE_DETECTION_MODE: TableDetectionMode = "both"
 DEFAULT_TABLE_FALLBACK_DETECTION = True
@@ -777,6 +798,12 @@ DEFAULT_FOOTER_HEIGHT = 0  # Height in points to trim from bottom
 # Layout analysis defaults (requires pymupdf-layout)
 DEFAULT_LAYOUT_ANALYSIS_MODE: LayoutAnalysisMode = "auto"
 DEFAULT_LAYOUT_IOU_THRESHOLD = 0.3  # Min IoU to match a prediction to a text block
+#: Upstream's own default, kept deliberately. Measured on 20 born-digital journal articles
+#: ``rf`` scored better on every axis -- title recall 0.9916 -> 0.9972, three fewer spurious
+#: table nodes on the same 16 pages, 29% faster -- but that is one corpus of one document
+#: kind, and image features plausibly earn their place on scanned pages, which that corpus
+#: contains none of. The value is exposed for per-document search rather than changed here.
+DEFAULT_LAYOUT_FEATURE_SET: LayoutFeatureSet = "imf+rf"
 
 # PDF rendering defaults (for Markdown to PDF conversion)
 DEFAULT_PDF_PAGE_SIZE: PageSize = "letter"
@@ -807,7 +834,12 @@ DEFAULT_OCR_AUTO_DETECT_LANGUAGE = False
 DEFAULT_OCR_DPI = 300
 DEFAULT_OCR_TEXT_THRESHOLD = 50  # Minimum characters to consider page as text-based
 DEFAULT_OCR_DOC_TEXT_THRESHOLD = 16  # Whole-doc meaningful-char floor below which auto OCR retries
-DEFAULT_OCR_IMAGE_AREA_THRESHOLD = 0.5  # Ratio of image area to page area to trigger OCR
+# Share of a page its largest image must cover for auto mode to read the page as a scan.
+# Calibrated, not guessed: across 49 pages of scanned journal back-catalogue and 52 raster
+# benchmark pages the largest image covered exactly 100% of every page, while across 851
+# pages of born-digital articles it never passed 64% (median 13% of the pages carrying any
+# image at all). 0.8 sits in that gap, and nothing measured lands near it from either side.
+DEFAULT_OCR_IMAGE_AREA_THRESHOLD = 0.8
 DEFAULT_OCR_PRESERVE_EXISTING_TEXT = False
 DEFAULT_OCR_TESSERACT_CONFIG = ""
 
