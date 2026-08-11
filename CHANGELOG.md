@@ -21,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `comment_mode="ignore"` suppresses the marker, and the caption then degrades to the italic
   paragraph as before. This was the last of the four formats in #237 — asciidoc, rst and org
   already round-tripped their captions (#237).
+- **`json_to_ast` no longer crashes on explicit JSON nulls.** A producer outside this library
+  routinely writes `null` for a field it has nothing to say about, and `"children": [null]`,
+  `"content": null` or a null `metadata` object reached the node constructors unchanged. The
+  failure then surfaced much later, inside a renderer, as a `TypeError` naming nothing that
+  would help. Null list and object fields now read as empty, null child entries are skipped,
+  and a field that is structurally required — a `Heading` level, a `List` ordered flag —
+  raises a `ValueError` naming the node and the field instead of defaulting to something
+  plausible. Thanks to @santhreal (#265).
 
 ### Added
 

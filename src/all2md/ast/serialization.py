@@ -468,12 +468,12 @@ def ast_to_dict(node: Node | SourceLocation) -> dict[str, Any]:
 
 
 # Helper functions for deserialization
-def _deserialize_children(children_data: list[dict[str, Any]]) -> list[Node]:
+def _deserialize_children(children_data: list[dict[str, Any]] | None) -> list[Node]:
     """Recursively deserialize a list of child nodes.
 
     Parameters
     ----------
-    children_data : list[dict]
+    children_data : list[dict] or None
         List of dictionaries representing child nodes
 
     Returns
@@ -482,7 +482,98 @@ def _deserialize_children(children_data: list[dict[str, Any]]) -> list[Node]:
         List of deserialized nodes
 
     """
-    return [cast(Node, dict_to_ast(child)) for child in children_data]
+    if not children_data:
+        return []
+    return [cast(Node, dict_to_ast(child)) for child in children_data if child]
+
+
+def _opt(data: dict[str, Any], field: str, default: Any) -> Any:
+    """Read an optional field, treating an explicit JSON null as "use the default".
+
+    Producers outside this library routinely emit ``null`` for a field they have
+    nothing to say about. Passing that ``None`` through to a node constructor
+    poisons the AST: the failure surfaces much later, inside a renderer, as a
+    ``TypeError`` with no hint of which node was malformed.
+
+    Parameters
+    ----------
+    data : dict
+        Serialized node
+    field : str
+        Field name to read
+    default : Any
+        Value to use when the field is absent or null
+
+    Returns
+    -------
+    Any
+        The field value, or ``default``
+
+    """
+    value = data.get(field, default)
+    return default if value is None else value
+
+
+def _required(data: dict[str, Any], field: str, node_type: str) -> Any:
+    """Read a field that has no sensible empty value, rejecting absent or null.
+
+    Parameters
+    ----------
+    data : dict
+        Serialized node
+    field : str
+        Field name to read
+    node_type : str
+        Node type name, used in the error message
+
+    Returns
+    -------
+    Any
+        The field value
+
+    Raises
+    ------
+    ValueError
+        If the field is missing or null
+
+    """
+    value = data.get(field)
+    if value is None:
+        raise ValueError(f"{node_type} node is missing required field '{field}'")
+    return value
+
+
+def _required_str(data: dict[str, Any], field: str, node_type: str) -> str:
+    """Read a required string field, treating an explicit null as the empty string.
+
+    Unlike :func:`_required`, an empty value is meaningful here - a Text node
+    carrying no text, or a Link with no destination, is representable - so only
+    an absent field is an error.
+
+    Parameters
+    ----------
+    data : dict
+        Serialized node
+    field : str
+        Field name to read
+    node_type : str
+        Node type name, used in the error message
+
+    Returns
+    -------
+    str
+        The field value, or "" when explicitly null
+
+    Raises
+    ------
+    ValueError
+        If the field is missing
+
+    """
+    if field not in data:
+        raise ValueError(f"{node_type} node is missing required field '{field}'")
+    value = data[field]
+    return "" if value is None else cast(str, value)
 
 
 def _deserialize_source_location(loc_data: dict[str, Any] | None) -> SourceLocation | None:
@@ -506,20 +597,20 @@ def _deserialize_source_location(loc_data: dict[str, Any] | None) -> SourceLocat
 def _deserialize_source_location_node(data: dict[str, Any]) -> SourceLocation:
     """Deserialize SourceLocation."""
     return SourceLocation(
-        format=data["format"],
+        format=_required_str(data, "format", "SourceLocation"),
         page=data.get("page"),
         line=data.get("line"),
         column=data.get("column"),
         element_id=data.get("element_id"),
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
     )
 
 
 def _deserialize_document(data: dict[str, Any]) -> Document:
     """Deserialize Document node."""
     return Document(
-        children=_deserialize_children(data.get("children", [])),
-        metadata=data.get("metadata", {}),
+        children=_deserialize_children(data.get("children")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -527,9 +618,9 @@ def _deserialize_document(data: dict[str, Any]) -> Document:
 def _deserialize_heading(data: dict[str, Any]) -> Heading:
     """Deserialize Heading node."""
     return Heading(
-        level=data["level"],
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        level=_required(data, "level", "Heading"),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -537,8 +628,8 @@ def _deserialize_heading(data: dict[str, Any]) -> Heading:
 def _deserialize_paragraph(data: dict[str, Any]) -> Paragraph:
     """Deserialize Paragraph node."""
     return Paragraph(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -546,11 +637,11 @@ def _deserialize_paragraph(data: dict[str, Any]) -> Paragraph:
 def _deserialize_code_block(data: dict[str, Any]) -> CodeBlock:
     """Deserialize CodeBlock node."""
     return CodeBlock(
-        content=data["content"],
+        content=_required_str(data, "content", "CodeBlock"),
         language=data.get("language"),
-        fence_char=data.get("fence_char", "`"),
-        fence_length=data.get("fence_length", 3),
-        metadata=data.get("metadata", {}),
+        fence_char=_opt(data, "fence_char", "`"),
+        fence_length=_opt(data, "fence_length", 3),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -558,8 +649,8 @@ def _deserialize_code_block(data: dict[str, Any]) -> CodeBlock:
 def _deserialize_block_quote(data: dict[str, Any]) -> BlockQuote:
     """Deserialize BlockQuote node."""
     return BlockQuote(
-        children=_deserialize_children(data.get("children", [])),
-        metadata=data.get("metadata", {}),
+        children=_deserialize_children(data.get("children")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -567,11 +658,11 @@ def _deserialize_block_quote(data: dict[str, Any]) -> BlockQuote:
 def _deserialize_list(data: dict[str, Any]) -> List:
     """Deserialize List node."""
     return List(
-        ordered=data["ordered"],
-        items=_deserialize_children(data.get("items", [])),  # type: ignore
-        start=data.get("start", 1),
-        tight=data.get("tight", True),
-        metadata=data.get("metadata", {}),
+        ordered=_required(data, "ordered", "List"),
+        items=_deserialize_children(data.get("items")),  # type: ignore
+        start=_opt(data, "start", 1),
+        tight=_opt(data, "tight", True),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -579,9 +670,9 @@ def _deserialize_list(data: dict[str, Any]) -> List:
 def _deserialize_list_item(data: dict[str, Any]) -> ListItem:
     """Deserialize ListItem node."""
     return ListItem(
-        children=_deserialize_children(data.get("children", [])),
+        children=_deserialize_children(data.get("children")),
         task_status=data.get("task_status"),
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -591,13 +682,14 @@ def _deserialize_definition_list(data: dict[str, Any]) -> DefinitionList:
     items = [
         (
             dict_to_ast(item["term"]),
-            [dict_to_ast(d) for d in item["descriptions"]],
+            [dict_to_ast(d) for d in _opt(item, "descriptions", [])],
         )
-        for item in data.get("items", [])
+        for item in _opt(data, "items", [])
+        if item and "term" in item
     ]
     return DefinitionList(
         items=items,  # type: ignore
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -605,8 +697,8 @@ def _deserialize_definition_list(data: dict[str, Any]) -> DefinitionList:
 def _deserialize_definition_term(data: dict[str, Any]) -> DefinitionTerm:
     """Deserialize DefinitionTerm node."""
     return DefinitionTerm(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -614,8 +706,8 @@ def _deserialize_definition_term(data: dict[str, Any]) -> DefinitionTerm:
 def _deserialize_definition_description(data: dict[str, Any]) -> DefinitionDescription:
     """Deserialize DefinitionDescription node."""
     return DefinitionDescription(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -623,11 +715,11 @@ def _deserialize_definition_description(data: dict[str, Any]) -> DefinitionDescr
 def _deserialize_table(data: dict[str, Any]) -> Table:
     """Deserialize Table node."""
     return Table(
-        rows=_deserialize_children(data.get("rows", [])),  # type: ignore
+        rows=_deserialize_children(data.get("rows")),  # type: ignore
         header=dict_to_ast(data["header"]) if data.get("header") else None,  # type: ignore
-        alignments=data.get("alignments", []),
+        alignments=_opt(data, "alignments", []),
         caption=data.get("caption"),
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -635,9 +727,9 @@ def _deserialize_table(data: dict[str, Any]) -> Table:
 def _deserialize_table_row(data: dict[str, Any]) -> TableRow:
     """Deserialize TableRow node."""
     return TableRow(
-        cells=_deserialize_children(data.get("cells", [])),  # type: ignore
-        is_header=data.get("is_header", False),
-        metadata=data.get("metadata", {}),
+        cells=_deserialize_children(data.get("cells")),  # type: ignore
+        is_header=_opt(data, "is_header", False),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -645,11 +737,11 @@ def _deserialize_table_row(data: dict[str, Any]) -> TableRow:
 def _deserialize_table_cell(data: dict[str, Any]) -> TableCell:
     """Deserialize TableCell node."""
     return TableCell(
-        content=_deserialize_children(data.get("content", [])),
-        colspan=data.get("colspan", 1),
-        rowspan=data.get("rowspan", 1),
+        content=_deserialize_children(data.get("content")),
+        colspan=_opt(data, "colspan", 1),
+        rowspan=_opt(data, "rowspan", 1),
         alignment=data.get("alignment"),
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -657,15 +749,15 @@ def _deserialize_table_cell(data: dict[str, Any]) -> TableCell:
 def _deserialize_thematic_break(data: dict[str, Any]) -> ThematicBreak:
     """Deserialize ThematicBreak node."""
     return ThematicBreak(
-        metadata=data.get("metadata", {}), source_location=_deserialize_source_location(data.get("source_location"))
+        metadata=_opt(data, "metadata", {}), source_location=_deserialize_source_location(data.get("source_location"))
     )
 
 
 def _deserialize_html_block(data: dict[str, Any]) -> HTMLBlock:
     """Deserialize HTMLBlock node."""
     return HTMLBlock(
-        content=data["content"],
-        metadata=data.get("metadata", {}),
+        content=_required_str(data, "content", "HTMLBlock"),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -673,8 +765,8 @@ def _deserialize_html_block(data: dict[str, Any]) -> HTMLBlock:
 def _deserialize_text(data: dict[str, Any]) -> Text:
     """Deserialize Text node."""
     return Text(
-        content=data["content"],
-        metadata=data.get("metadata", {}),
+        content=_required_str(data, "content", "Text"),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -682,8 +774,8 @@ def _deserialize_text(data: dict[str, Any]) -> Text:
 def _deserialize_emphasis(data: dict[str, Any]) -> Emphasis:
     """Deserialize Emphasis node."""
     return Emphasis(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -691,8 +783,8 @@ def _deserialize_emphasis(data: dict[str, Any]) -> Emphasis:
 def _deserialize_strong(data: dict[str, Any]) -> Strong:
     """Deserialize Strong node."""
     return Strong(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -700,19 +792,19 @@ def _deserialize_strong(data: dict[str, Any]) -> Strong:
 def _deserialize_strikethrough(data: dict[str, Any]) -> Strikethrough:
     """Deserialize Strikethrough node."""
     return Strikethrough(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
 
 def _deserialize_underline(data: dict[str, Any]) -> Underline:
     """Deserialize Underline node."""
-    semantic = data.get("semantic", "underline")
+    semantic = _opt(data, "semantic", "underline")
     return Underline(
-        content=_deserialize_children(data.get("content", [])),
+        content=_deserialize_children(data.get("content")),
         semantic="insert" if semantic == "insert" else "underline",
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -720,8 +812,8 @@ def _deserialize_underline(data: dict[str, Any]) -> Underline:
 def _deserialize_superscript(data: dict[str, Any]) -> Superscript:
     """Deserialize Superscript node."""
     return Superscript(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -729,8 +821,8 @@ def _deserialize_superscript(data: dict[str, Any]) -> Superscript:
 def _deserialize_subscript(data: dict[str, Any]) -> Subscript:
     """Deserialize Subscript node."""
     return Subscript(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -738,8 +830,8 @@ def _deserialize_subscript(data: dict[str, Any]) -> Subscript:
 def _deserialize_code(data: dict[str, Any]) -> Code:
     """Deserialize Code node."""
     return Code(
-        content=data["content"],
-        metadata=data.get("metadata", {}),
+        content=_required_str(data, "content", "Code"),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -747,10 +839,10 @@ def _deserialize_code(data: dict[str, Any]) -> Code:
 def _deserialize_link(data: dict[str, Any]) -> Link:
     """Deserialize Link node."""
     return Link(
-        url=data["url"],
-        content=_deserialize_children(data.get("content", [])),
+        url=_required_str(data, "url", "Link"),
+        content=_deserialize_children(data.get("content")),
         title=data.get("title"),
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -758,12 +850,12 @@ def _deserialize_link(data: dict[str, Any]) -> Link:
 def _deserialize_image(data: dict[str, Any]) -> Image:
     """Deserialize Image node."""
     return Image(
-        url=data["url"],
-        alt_text=data.get("alt_text", ""),
+        url=_required_str(data, "url", "Image"),
+        alt_text=_opt(data, "alt_text", ""),
         title=data.get("title"),
         width=data.get("width"),
         height=data.get("height"),
-        metadata=data.get("metadata", {}),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -771,8 +863,8 @@ def _deserialize_image(data: dict[str, Any]) -> Image:
 def _deserialize_line_break(data: dict[str, Any]) -> LineBreak:
     """Deserialize LineBreak node."""
     return LineBreak(
-        soft=data.get("soft", False),
-        metadata=data.get("metadata", {}),
+        soft=_opt(data, "soft", False),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -780,8 +872,8 @@ def _deserialize_line_break(data: dict[str, Any]) -> LineBreak:
 def _deserialize_html_inline(data: dict[str, Any]) -> HTMLInline:
     """Deserialize HTMLInline node."""
     return HTMLInline(
-        content=data["content"],
-        metadata=data.get("metadata", {}),
+        content=_required_str(data, "content", "HTMLInline"),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -789,10 +881,10 @@ def _deserialize_html_inline(data: dict[str, Any]) -> HTMLInline:
 def _deserialize_math_inline(data: dict[str, Any]) -> MathInline:
     """Deserialize MathInline node."""
     return MathInline(
-        content=data.get("content", ""),
-        notation=data.get("notation", "latex"),
-        representations=data.get("representations", {}).copy(),
-        metadata=data.get("metadata", {}),
+        content=_opt(data, "content", ""),
+        notation=_opt(data, "notation", "latex"),
+        representations=_opt(data, "representations", {}).copy(),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -800,10 +892,10 @@ def _deserialize_math_inline(data: dict[str, Any]) -> MathInline:
 def _deserialize_math_block(data: dict[str, Any]) -> MathBlock:
     """Deserialize MathBlock node."""
     return MathBlock(
-        content=data.get("content", ""),
-        notation=data.get("notation", "latex"),
-        representations=data.get("representations", {}).copy(),
-        metadata=data.get("metadata", {}),
+        content=_opt(data, "content", ""),
+        notation=_opt(data, "notation", "latex"),
+        representations=_opt(data, "representations", {}).copy(),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -811,8 +903,8 @@ def _deserialize_math_block(data: dict[str, Any]) -> MathBlock:
 def _deserialize_footnote_reference(data: dict[str, Any]) -> FootnoteReference:
     """Deserialize FootnoteReference node."""
     return FootnoteReference(
-        identifier=data["identifier"],
-        metadata=data.get("metadata", {}),
+        identifier=_required_str(data, "identifier", "FootnoteReference"),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -820,9 +912,9 @@ def _deserialize_footnote_reference(data: dict[str, Any]) -> FootnoteReference:
 def _deserialize_footnote_definition(data: dict[str, Any]) -> FootnoteDefinition:
     """Deserialize FootnoteDefinition node."""
     return FootnoteDefinition(
-        identifier=data["identifier"],
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        identifier=_required_str(data, "identifier", "FootnoteDefinition"),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -830,8 +922,8 @@ def _deserialize_footnote_definition(data: dict[str, Any]) -> FootnoteDefinition
 def _deserialize_comment(data: dict[str, Any]) -> Comment:
     """Deserialize Comment node."""
     return Comment(
-        content=data.get("content", ""),
-        metadata=data.get("metadata", {}),
+        content=_opt(data, "content", ""),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -839,8 +931,8 @@ def _deserialize_comment(data: dict[str, Any]) -> Comment:
 def _deserialize_comment_inline(data: dict[str, Any]) -> CommentInline:
     """Deserialize CommentInline node."""
     return CommentInline(
-        content=data.get("content", ""),
-        metadata=data.get("metadata", {}),
+        content=_opt(data, "content", ""),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -848,8 +940,8 @@ def _deserialize_comment_inline(data: dict[str, Any]) -> CommentInline:
 def _deserialize_mark(data: dict[str, Any]) -> Mark:
     """Deserialize Mark node."""
     return Mark(
-        content=_deserialize_children(data.get("content", [])),
-        metadata=data.get("metadata", {}),
+        content=_deserialize_children(data.get("content")),
+        metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )
 
@@ -1058,8 +1150,7 @@ def json_to_ast(json_str: str, validate_schema: bool = True, strict_mode: bool =
             raise ValueError(f"Schema version must be an integer, got {type(schema_version).__name__}")
         elif schema_version != 1:
             raise ValueError(
-                f"Unsupported schema version: {schema_version}. "
-                f"This version of all2md supports schema version 1 only."
+                f"Unsupported schema version: {schema_version}. This version of all2md supports schema version 1 only."
             )
     else:
         # Schema validation disabled - just log a warning if version differs
