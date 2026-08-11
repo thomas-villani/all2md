@@ -95,29 +95,45 @@ if TYPE_CHECKING:
     from all2md.ast import Document  # noqa: F401 - used in docstrings
 
     # Import all option classes for type checking
-    from all2md.options.arxiv import ArxivPackagerOptions  # noqa: F401
+    from all2md.options.archive import ArchiveOptions  # noqa: F401
     from all2md.options.asciidoc import AsciiDocOptions, AsciiDocRendererOptions  # noqa: F401
+    from all2md.options.ast_json import AstJsonParserOptions, AstJsonRendererOptions  # noqa: F401
+    from all2md.options.bbcode import BBCodeParserOptions  # noqa: F401
     from all2md.options.chm import ChmOptions  # noqa: F401
-    from all2md.options.csv import CsvOptions  # noqa: F401
+    from all2md.options.csv import CsvOptions, CsvRendererOptions  # noqa: F401
     from all2md.options.docx import DocxOptions, DocxRendererOptions  # noqa: F401
+    from all2md.options.dokuwiki import DokuWikiOptions, DokuWikiParserOptions  # noqa: F401
     from all2md.options.eml import EmlOptions  # noqa: F401
+    from all2md.options.enex import EnexOptions  # noqa: F401
     from all2md.options.epub import EpubOptions, EpubRendererOptions  # noqa: F401
+    from all2md.options.fb2 import Fb2Options  # noqa: F401
     from all2md.options.html import HtmlOptions, HtmlRendererOptions  # noqa: F401
+    from all2md.options.ini import IniParserOptions, IniRendererOptions  # noqa: F401
     from all2md.options.ipynb import IpynbOptions, IpynbRendererOptions  # noqa: F401
+    from all2md.options.jinja import JinjaRendererOptions  # noqa: F401
+    from all2md.options.json import JsonParserOptions, JsonRendererOptions  # noqa: F401
     from all2md.options.latex import LatexOptions, LatexRendererOptions  # noqa: F401
     from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions  # noqa: F401
-    from all2md.options.mediawiki import MediaWikiOptions  # noqa: F401
+    from all2md.options.mbox import MboxOptions  # noqa: F401
+    from all2md.options.mediawiki import MediaWikiOptions, MediaWikiParserOptions  # noqa: F401
     from all2md.options.mhtml import MhtmlOptions  # noqa: F401
-    from all2md.options.odp import OdpOptions  # noqa: F401
+    from all2md.options.odp import OdpOptions, OdpRendererOptions  # noqa: F401
     from all2md.options.ods import OdsSpreadsheetOptions  # noqa: F401
-    from all2md.options.odt import OdtOptions  # noqa: F401
+    from all2md.options.odt import OdtOptions, OdtRendererOptions  # noqa: F401
+    from all2md.options.openapi import OpenApiParserOptions  # noqa: F401
+    from all2md.options.org import OrgParserOptions, OrgRendererOptions  # noqa: F401
+    from all2md.options.outlook import OutlookOptions  # noqa: F401
     from all2md.options.pdf import PdfOptions, PdfRendererOptions  # noqa: F401
-    from all2md.options.plaintext import PlainTextOptions  # noqa: F401
+    from all2md.options.plaintext import PlainTextOptions, PlainTextParserOptions  # noqa: F401
     from all2md.options.pptx import PptxOptions, PptxRendererOptions  # noqa: F401
     from all2md.options.rst import RstParserOptions, RstRendererOptions  # noqa: F401
-    from all2md.options.rtf import RtfOptions  # noqa: F401
+    from all2md.options.rtf import RtfOptions, RtfRendererOptions  # noqa: F401
     from all2md.options.sourcecode import SourceCodeOptions  # noqa: F401
+    from all2md.options.textile import TextileParserOptions, TextileRendererOptions  # noqa: F401
+    from all2md.options.toml import TomlParserOptions, TomlRendererOptions  # noqa: F401
+    from all2md.options.webarchive import WebArchiveOptions  # noqa: F401
     from all2md.options.xlsx import XlsxOptions  # noqa: F401
+    from all2md.options.yaml import YamlParserOptions, YamlRendererOptions  # noqa: F401
     from all2md.options.zip import ZipOptions  # noqa: F401
     from all2md.utils.input_sources import RemoteInputOptions  # noqa: F401
 
@@ -161,39 +177,69 @@ _lazy_modules = {
 
 # Lazy loading for option classes - maps class name to (module_path, class_name)
 _lazy_options = {
-    "ArxivPackagerOptions": ("all2md.options.arxiv", "ArxivPackagerOptions"),
+    "ArchiveOptions": ("all2md.options.archive", "ArchiveOptions"),
     "AsciiDocOptions": ("all2md.options.asciidoc", "AsciiDocOptions"),
     "AsciiDocRendererOptions": ("all2md.options.asciidoc", "AsciiDocRendererOptions"),
+    "AstJsonParserOptions": ("all2md.options.ast_json", "AstJsonParserOptions"),
+    "AstJsonRendererOptions": ("all2md.options.ast_json", "AstJsonRendererOptions"),
+    "BBCodeParserOptions": ("all2md.options.bbcode", "BBCodeParserOptions"),
     "ChmOptions": ("all2md.options.chm", "ChmOptions"),
     "CsvOptions": ("all2md.options.csv", "CsvOptions"),
+    "CsvRendererOptions": ("all2md.options.csv", "CsvRendererOptions"),
     "DocxOptions": ("all2md.options.docx", "DocxOptions"),
     "DocxRendererOptions": ("all2md.options.docx", "DocxRendererOptions"),
+    "DokuWikiOptions": ("all2md.options.dokuwiki", "DokuWikiOptions"),
+    "DokuWikiParserOptions": ("all2md.options.dokuwiki", "DokuWikiParserOptions"),
     "EmlOptions": ("all2md.options.eml", "EmlOptions"),
+    "EnexOptions": ("all2md.options.enex", "EnexOptions"),
     "EpubOptions": ("all2md.options.epub", "EpubOptions"),
     "EpubRendererOptions": ("all2md.options.epub", "EpubRendererOptions"),
+    "Fb2Options": ("all2md.options.fb2", "Fb2Options"),
     "HtmlOptions": ("all2md.options.html", "HtmlOptions"),
     "HtmlRendererOptions": ("all2md.options.html", "HtmlRendererOptions"),
+    "IniParserOptions": ("all2md.options.ini", "IniParserOptions"),
+    "IniRendererOptions": ("all2md.options.ini", "IniRendererOptions"),
     "IpynbOptions": ("all2md.options.ipynb", "IpynbOptions"),
     "IpynbRendererOptions": ("all2md.options.ipynb", "IpynbRendererOptions"),
+    "JinjaRendererOptions": ("all2md.options.jinja", "JinjaRendererOptions"),
+    "JsonParserOptions": ("all2md.options.json", "JsonParserOptions"),
+    "JsonRendererOptions": ("all2md.options.json", "JsonRendererOptions"),
     "LatexOptions": ("all2md.options.latex", "LatexOptions"),
     "LatexRendererOptions": ("all2md.options.latex", "LatexRendererOptions"),
     "MarkdownParserOptions": ("all2md.options.markdown", "MarkdownParserOptions"),
     "MarkdownRendererOptions": ("all2md.options.markdown", "MarkdownRendererOptions"),
+    "MboxOptions": ("all2md.options.mbox", "MboxOptions"),
     "MediaWikiOptions": ("all2md.options.mediawiki", "MediaWikiOptions"),
+    "MediaWikiParserOptions": ("all2md.options.mediawiki", "MediaWikiParserOptions"),
     "MhtmlOptions": ("all2md.options.mhtml", "MhtmlOptions"),
     "OdpOptions": ("all2md.options.odp", "OdpOptions"),
+    "OdpRendererOptions": ("all2md.options.odp", "OdpRendererOptions"),
     "OdsSpreadsheetOptions": ("all2md.options.ods", "OdsSpreadsheetOptions"),
     "OdtOptions": ("all2md.options.odt", "OdtOptions"),
+    "OdtRendererOptions": ("all2md.options.odt", "OdtRendererOptions"),
+    "OpenApiParserOptions": ("all2md.options.openapi", "OpenApiParserOptions"),
+    "OrgParserOptions": ("all2md.options.org", "OrgParserOptions"),
+    "OrgRendererOptions": ("all2md.options.org", "OrgRendererOptions"),
+    "OutlookOptions": ("all2md.options.outlook", "OutlookOptions"),
     "PdfOptions": ("all2md.options.pdf", "PdfOptions"),
     "PdfRendererOptions": ("all2md.options.pdf", "PdfRendererOptions"),
     "PlainTextOptions": ("all2md.options.plaintext", "PlainTextOptions"),
+    "PlainTextParserOptions": ("all2md.options.plaintext", "PlainTextParserOptions"),
     "PptxOptions": ("all2md.options.pptx", "PptxOptions"),
     "PptxRendererOptions": ("all2md.options.pptx", "PptxRendererOptions"),
     "RstParserOptions": ("all2md.options.rst", "RstParserOptions"),
     "RstRendererOptions": ("all2md.options.rst", "RstRendererOptions"),
     "RtfOptions": ("all2md.options.rtf", "RtfOptions"),
+    "RtfRendererOptions": ("all2md.options.rtf", "RtfRendererOptions"),
     "SourceCodeOptions": ("all2md.options.sourcecode", "SourceCodeOptions"),
+    "TextileParserOptions": ("all2md.options.textile", "TextileParserOptions"),
+    "TextileRendererOptions": ("all2md.options.textile", "TextileRendererOptions"),
+    "TomlParserOptions": ("all2md.options.toml", "TomlParserOptions"),
+    "TomlRendererOptions": ("all2md.options.toml", "TomlRendererOptions"),
+    "WebArchiveOptions": ("all2md.options.webarchive", "WebArchiveOptions"),
     "XlsxOptions": ("all2md.options.xlsx", "XlsxOptions"),
+    "YamlParserOptions": ("all2md.options.yaml", "YamlParserOptions"),
+    "YamlRendererOptions": ("all2md.options.yaml", "YamlRendererOptions"),
     "ZipOptions": ("all2md.options.zip", "ZipOptions"),
     "RemoteInputOptions": ("all2md.utils.input_sources", "RemoteInputOptions"),
 }
@@ -236,39 +282,69 @@ __all__ = [
     "BaseParserOptions",
     "NetworkFetchOptions",
     "LocalFileAccessOptions",
-    "ArxivPackagerOptions",
-    "AsciiDocRendererOptions",
+    "ArchiveOptions",
     "AsciiDocOptions",
+    "AsciiDocRendererOptions",
+    "AstJsonParserOptions",
+    "AstJsonRendererOptions",
+    "BBCodeParserOptions",
     "ChmOptions",
     "CsvOptions",
+    "CsvRendererOptions",
     "DocxOptions",
     "DocxRendererOptions",
+    "DokuWikiOptions",
+    "DokuWikiParserOptions",
     "EmlOptions",
+    "EnexOptions",
     "EpubOptions",
     "EpubRendererOptions",
-    "HtmlRendererOptions",
+    "Fb2Options",
     "HtmlOptions",
+    "HtmlRendererOptions",
+    "IniParserOptions",
+    "IniRendererOptions",
     "IpynbOptions",
     "IpynbRendererOptions",
-    "LatexRendererOptions",
+    "JinjaRendererOptions",
+    "JsonParserOptions",
+    "JsonRendererOptions",
     "LatexOptions",
-    "MarkdownRendererOptions",
+    "LatexRendererOptions",
     "MarkdownParserOptions",
+    "MarkdownRendererOptions",
+    "MboxOptions",
     "MediaWikiOptions",
+    "MediaWikiParserOptions",
     "MhtmlOptions",
     "OdpOptions",
+    "OdpRendererOptions",
     "OdsSpreadsheetOptions",
     "OdtOptions",
+    "OdtRendererOptions",
+    "OpenApiParserOptions",
+    "OrgParserOptions",
+    "OrgRendererOptions",
+    "OutlookOptions",
     "PdfOptions",
     "PdfRendererOptions",
+    "PlainTextOptions",
+    "PlainTextParserOptions",
     "PptxOptions",
     "PptxRendererOptions",
     "RstParserOptions",
     "RstRendererOptions",
     "RtfOptions",
+    "RtfRendererOptions",
     "SourceCodeOptions",
-    "PlainTextOptions",
+    "TextileParserOptions",
+    "TextileRendererOptions",
+    "TomlParserOptions",
+    "TomlRendererOptions",
+    "WebArchiveOptions",
     "XlsxOptions",
+    "YamlParserOptions",
+    "YamlRendererOptions",
     "ZipOptions",
     "RemoteInputOptions",
     # Exceptions
