@@ -611,7 +611,7 @@ Pattern: ALL2MD_<OPTION_NAME>
      - ``--pdf-pages``
      - ``1-10``
    * - ``ALL2MD_PDF_DETECT_COLUMNS``
-     - ``--pdf-detect-columns``
+     - ``--pdf-no-detect-columns``
      - ``true``
    * - ``ALL2MD_HTML_STRIP_DANGEROUS_ELEMENTS``
      - ``--html-strip-dangerous-elements``

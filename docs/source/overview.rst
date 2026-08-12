@@ -381,7 +381,17 @@ Options can also be provided as keyword arguments, which are merged with (and ov
    # Method 3: Mixed (kwargs override options)
    markdown = to_markdown('doc.pdf', parser_options=options, attachment_mode='base64')
 
-All CLI flags are generated from these dataclasses (nesting included), so ``HtmlOptions.network.require_https`` maps to ``--html-network-require-https`` and also honours the ``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS`` environment variable.
+All CLI flags are generated from these dataclasses (nesting included), so ``PdfOptions.pages``
+maps to ``--pdf-pages`` and also honours the ``ALL2MD_PDF_PAGES`` environment variable.
+
+One wrinkle worth knowing, because it is the difference between a flag that exists and one that
+does not: a boolean field generates only the flag that *changes* its default, so there is never a
+flag for turning on something already on. ``HtmlOptions.network.require_https`` defaults to
+``True``, and the only generated flag is therefore ``--html-network-no-require-https``. A field
+defaulting to ``False`` works the other way round: ``PptxOptions.include_slide_numbers`` gives you
+``--pptx-include-slide-numbers`` and no negative form. The environment variable keeps the field's
+own name in both cases (``ALL2MD_HTML_NETWORK_REQUIRE_HTTPS``) and takes ``true`` or ``false``,
+so it does not mirror the flag spelling.
 
 * :doc:`options` — the complete option reference for every format
 * :doc:`configuration` — config files, presets, and precedence rules

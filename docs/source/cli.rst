@@ -3395,18 +3395,21 @@ Markdown Formatting
       # Custom bullet symbols
       all2md document.docx --markdown-bullet-symbols "•◦▪"
 
-``--markdown-page-separator-template``
-   Template text used to separate pages in multi-page documents. Use ``{page_num}`` to include the page number.
+``--pdf-page-separator-template``
+   Template text used to separate pages in multi-page documents. Use ``{page_num}`` to include
+   the page number. This belongs to the paginated *parsers* rather than the Markdown renderer,
+   so the same option exists as ``--odp-page-separator-template`` and
+   ``--pptx-page-separator-template``.
 
    **Default:** ``-----``
 
    .. code-block:: bash
 
       # Custom page separator template
-      all2md document.pdf --markdown-page-separator-template "=== PAGE BREAK ==="
+      all2md document.pdf --pdf-page-separator-template "=== PAGE BREAK ==="
 
       # Include page numbers in separator
-      all2md document.pdf --markdown-page-separator-template "--- Page {page_num} ---"
+      all2md document.pdf --pdf-page-separator-template "--- Page {page_num} ---"
 
 Rich Terminal Output
 ~~~~~~~~~~~~~~~~~~~~
@@ -3421,9 +3424,6 @@ Rich Terminal Output
 ``--rich-code-theme`` / ``--rich-inline-code-theme``
    Pick Pygments themes for fenced code blocks and inline code. ``monokai`` is the default. List available styles with
    ``pygmentize -L styles``.
-
-``--rich-word-wrap``
-   Apply word-wrapping to long lines in the Rich renderer.
 
 ``--rich-no-word-wrap``
    Disable Rich's automatic line wrapping when you need wide tables or preformatted output to stay on a single line.
@@ -4326,15 +4326,16 @@ Network Security Options
       # In config.json: {"html.network.allowed_hosts": ["example.com", "cdn.example.com"]}
       all2md webpage.html --html-network-allow-remote-fetch --config config.json
 
-``--html-network-require-https``
-   Require HTTPS for all remote URL fetching.
+``--html-network-no-require-https``
+   Allow plain HTTP for remote URL fetching. HTTPS is **required by default**
+   (``NetworkFetchOptions.require_https`` is ``True``), so only the opt-out flag exists.
 
-   **Default:** Disabled
+   **Default:** HTTPS required
 
    .. code-block:: bash
 
-      # Force HTTPS for security
-      all2md webpage.html --html-network-allow-remote-fetch --html-network-require-https
+      # Permit an http:// asset host (weakens transport security)
+      all2md webpage.html --html-network-allow-remote-fetch --html-network-no-require-https
 
 ``--html-network-network-timeout``
    Timeout in seconds for remote URL fetching.
@@ -4346,15 +4347,15 @@ Network Security Options
       # Set 5-second timeout
       all2md webpage.html --html-network-allow-remote-fetch --html-network-network-timeout 5
 
-``--html-network-max-remote-asset-bytes``
-   Maximum allowed size in bytes for downloaded remote assets.
+``--html-max-asset-size-bytes``
+   Maximum allowed size in bytes for a downloaded asset.
 
-   **Default:** 20971520 (20MB)
+   **Default:** 52428800 (50MB)
 
    .. code-block:: bash
 
-      # Limit remote assets to 2MB
-      all2md webpage.html --html-network-allow-remote-fetch --html-network-max-remote-asset-bytes 2097152
+      # Limit assets to 2MB
+      all2md webpage.html --html-network-allow-remote-fetch --html-max-asset-size-bytes 2097152
 
 Global Network Control
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -4559,13 +4560,15 @@ For absolute maximum security across all operations (not just HTML), use the ``A
 PowerPoint Options
 ~~~~~~~~~~~~~~~~~~
 
-``--pptx-slide-numbers``
+``--pptx-include-slide-numbers``
    Include slide numbers in output.
+
+   **Default:** Disabled
 
    .. code-block:: bash
 
       # Add slide numbers
-      all2md presentation.pptx --pptx-slide-numbers
+      all2md presentation.pptx --pptx-include-slide-numbers
 
 ``--pptx-no-include-notes``
    Exclude speaker notes from conversion.
@@ -5892,7 +5895,7 @@ The generated completion scripts provide:
 * **Global option completion** - Complete universal options like ``--out``, ``--format``, ``--verbose``
 * **Format-aware completion** - When ``--format pdf`` is present, suggest PDF-specific options
 * **File extension detection** - Automatically detect format from input file extension
-* **Renderer context** - Suggest renderer options when ``--output-type`` is specified
+* **Renderer context** - Suggest renderer options when ``--output-format`` is specified
 * **Choice completion** - Complete valid values for options with predefined choices
 
 Install Skills Command
