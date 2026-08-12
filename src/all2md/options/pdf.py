@@ -230,7 +230,7 @@ class PdfOptions(PaginatedParserOptions):
         ... )
 
     Enable OCR for scanned PDF documents:
-        >>> from all2md.options.common import OCROptions
+        >>> from all2md.options import OCROptions
         >>> options = PdfOptions(
         ...     ocr=OCROptions(enabled=True, mode="auto", languages="eng")
         ... )

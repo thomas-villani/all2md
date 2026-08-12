@@ -160,9 +160,10 @@ from all2md.optimize import Candidate, DocumentMetrics, OptimizationReport
 
 # Keep only base and common option classes that are lightweight and frequently used
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions
+from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions, OCROptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.roundtrip import RoundTripReport, StructuralDelta
+from all2md.utils.metadata import MetadataRenderPolicy
 
 # Import parsers to trigger registration (must be eager, not lazy)
 from . import parsers  # noqa: F401
@@ -282,6 +283,8 @@ __all__ = [
     "BaseParserOptions",
     "NetworkFetchOptions",
     "LocalFileAccessOptions",
+    "MetadataRenderPolicy",
+    "OCROptions",
     "ArchiveOptions",
     "AsciiDocOptions",
     "AsciiDocRendererOptions",

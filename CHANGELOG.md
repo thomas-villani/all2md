@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reachable from `all2md` but not from `all2md.options`, which is backwards from every
   sibling. The two surfaces are now derived from the converter registry and a test fails if
   either drifts from it again, so adding a format cannot quietly skip the export (#184).
+- **`OCROptions` and `MetadataRenderPolicy` are importable from `all2md` and `all2md.options`
+  too.** Both are the declared type of a field on an exported options class — `PdfOptions.ocr`
+  and `BaseRendererOptions.metadata_policy`, the latter reaching every renderer — so a caller
+  has to construct one to set that field, and neither was reachable from either public
+  surface. Configuring OCR from the Python API meant importing `all2md.options.common`, which
+  the `PdfOptions` docstring told you to do; passing a plain dict instead did not work, and
+  failed deep inside parsing with `'dict' object has no attribute 'enabled'` rather than at
+  the call. The check that was supposed to catch this could not: #184 derives its expectation
+  from the converter manifest, which names only *format* options classes, and a nested
+  configuration group belongs to no format. The new rule is derived rather than listed — any
+  dataclass appearing in a public options class's field annotations must be public itself —
+  and it resolves the annotations before looking, because this package uses `from __future__
+  import annotations` and 91% of those fields carry their type as a plain string, so the
+  obvious version of the check inspects 89 of 982 fields and reports success.
 - **`layout_feature_set`, choosing which layout classifier reads the page** (`--pdf-layout-feature-set`,
   requires `pymupdf-layout`; inert otherwise). The package bundles three: `imf+rf` (the
   default, image and text-geometry features), `imf` (image only) and `rf` (text geometry
