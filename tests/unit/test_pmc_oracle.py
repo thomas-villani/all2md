@@ -475,7 +475,13 @@ def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path)
         snapshot=type(
             "Snapshot",
             (),
-            {"manifest_sha256": "a" * 64, "bucket": "b", "complete": True, "expected_articles": 1},
+            {
+                "manifest_sha256": "a" * 64,
+                "bucket": "b",
+                "complete": True,
+                "expected_articles": 1,
+                "unavailable": {},
+            },
         )(),
         evaluations=[
             benchmark.ArticleEvaluation(
@@ -509,7 +515,13 @@ def test_recall_and_precision_are_reported_together() -> None:
         snapshot=type(
             "Snapshot",
             (),
-            {"manifest_sha256": "a" * 64, "bucket": "b", "complete": True, "expected_articles": 2},
+            {
+                "manifest_sha256": "a" * 64,
+                "bucket": "b",
+                "complete": True,
+                "expected_articles": 2,
+                "unavailable": {},
+            },
         )(),
         evaluations=[],
         recall=article.measure_recall(scored),
