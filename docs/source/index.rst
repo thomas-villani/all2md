@@ -144,6 +144,7 @@ Guides & References
    threat_model
    performance
    optimizations
+   benchmarks
    recipes
 
 .. toctree::
