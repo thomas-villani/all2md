@@ -180,9 +180,15 @@ class CorpusSnapshot:
         Validated articles selected for this invocation.
     expected_articles : int
         Article count of the complete pinned corpus.
+    unavailable : dict[str, str]
+        Article id to error text, for pinned articles the bucket no longer serves.
+        Empty on a healthy run.  A first-class field rather than a log line because a
+        score computed over 65 of 66 articles is a different measurement from one
+        computed over 66, and nothing downstream can tell unless it is told.
     complete : bool
-        ``True`` only when the caller requested the whole manifest.  Supplying a
-        ``limit`` always produces ``False``, even when it equals the manifest size.
+        ``True`` only when the caller requested the whole manifest *and* every pinned
+        article was materialized.  Supplying a ``limit`` always produces ``False``,
+        even when it equals the manifest size.
 
     """
 
@@ -191,6 +197,7 @@ class CorpusSnapshot:
     bucket: str
     articles: tuple[CorpusArticle, ...]
     expected_articles: int
+    unavailable: dict[str, str]
     complete: bool
 
 
@@ -261,6 +268,12 @@ def load_corpus(
     Every selected PDF and JATS file is revalidated against the manifest digest on each
     call, whether it was just downloaded or found warm in the cache.
 
+    The manifest pins what the bytes *are*, which is not the same as pinning that they
+    are still served.  PMC reprocesses articles and withdraws the superseded version, so
+    a pinned object can start returning 404 without a single retained byte changing.
+    Those articles land in ``CorpusSnapshot.unavailable`` and the snapshot is no longer
+    ``complete``; only a large enough share of them aborts the load.
+
     Parameters
     ----------
     cache_dir : pathlib.Path
@@ -288,7 +301,8 @@ def load_corpus(
     CorpusCacheError
         If the manifest is unreadable or a cached artifact fails validation.
     CorpusDownloadError
-        If a manifest artifact cannot be downloaded.
+        If a manifest artifact cannot be downloaded, or if so many pinned articles have
+        been withdrawn that what remains is no longer the pinned corpus.
     CorpusIntegrityError
         If a freshly downloaded artifact does not match the manifest.
 
@@ -300,14 +314,15 @@ def load_corpus(
 
     corpus_dir = _prepare_cache_dir(Path(cache_dir), manifest.sha256)
     with _cache_lock(corpus_dir, manifest.sha256):
-        articles = _materialize(selected, corpus_dir, workers=workers)
+        articles, unavailable = _materialize(selected, corpus_dir, workers=workers)
     return CorpusSnapshot(
         manifest_path=manifest.path,
         manifest_sha256=manifest.sha256,
         bucket=manifest.bucket,
         articles=articles,
         expected_articles=len(manifest.articles),
-        complete=limit is None,
+        unavailable=unavailable,
+        complete=limit is None and not unavailable,
     )
 
 
@@ -502,28 +517,40 @@ def _materialize(
     corpus_dir: Path,
     *,
     workers: int,
-) -> tuple[CorpusArticle, ...]:
-    def materialize(entry: ManifestArticle) -> CorpusArticle:
+) -> tuple[tuple[CorpusArticle, ...], dict[str, str]]:
+    """Materialize every selected article, tolerating ones the bucket has withdrawn.
+
+    A 404 is the one download failure a retry cannot fix, and the only one that says
+    nothing about the bytes: everything still served matches the manifest exactly.
+    Every other failure -- a transient network error, a digest mismatch, an unreadable
+    warm file -- still raises, because those are claims about the artifact rather than
+    about its existence.
+    """
+
+    def materialize(entry: ManifestArticle) -> CorpusArticle | str:
         pmcid, version = _parse_article_id(entry.article_id, source="corpus manifest")
         article_dir = corpus_dir / "articles" / entry.article_id
         _require_contained(article_dir, corpus_dir)
         article_dir.mkdir(parents=True, exist_ok=True)
         pdf_path = article_dir / f"{entry.article_id}.pdf"
         xml_path = article_dir / f"{entry.article_id}.xml"
-        _ensure_artifact(
-            pdf_path,
-            url=_object_url(entry.article_id, "pdf"),
-            sha256=entry.pdf_sha256,
-            size_bytes=entry.pdf_size_bytes,
-            label=f"PDF {entry.article_id}",
-        )
-        _ensure_artifact(
-            xml_path,
-            url=_object_url(entry.article_id, "xml"),
-            sha256=entry.xml_sha256,
-            size_bytes=entry.xml_size_bytes,
-            label=f"JATS {entry.article_id}",
-        )
+        try:
+            _ensure_artifact(
+                pdf_path,
+                url=_object_url(entry.article_id, "pdf"),
+                sha256=entry.pdf_sha256,
+                size_bytes=entry.pdf_size_bytes,
+                label=f"PDF {entry.article_id}",
+            )
+            _ensure_artifact(
+                xml_path,
+                url=_object_url(entry.article_id, "xml"),
+                sha256=entry.xml_sha256,
+                size_bytes=entry.xml_size_bytes,
+                label=f"JATS {entry.article_id}",
+            )
+        except ArtifactMissingError as exc:
+            return str(exc)
         return CorpusArticle(
             article_id=entry.article_id,
             pmcid=pmcid,
@@ -539,9 +566,26 @@ def _materialize(
         )
 
     if len(selected) == 1:
-        return (materialize(selected[0]),)
-    with ThreadPoolExecutor(max_workers=min(workers, len(selected))) as executor:
-        return tuple(executor.map(materialize, selected))
+        outcomes: list[CorpusArticle | str] = [materialize(selected[0])]
+    else:
+        with ThreadPoolExecutor(max_workers=min(workers, len(selected))) as executor:
+            outcomes = list(executor.map(materialize, selected))
+
+    articles = tuple(outcome for outcome in outcomes if isinstance(outcome, CorpusArticle))
+    unavailable = {
+        entry.article_id: outcome for entry, outcome in zip(selected, outcomes, strict=True) if isinstance(outcome, str)
+    }
+    # A tolerance, not a licence to erode: past this point the surviving articles are a
+    # different corpus than the one the pin names, and reporting them under that pin
+    # would be the quiet truncation the manifest exists to prevent.  The empty case is
+    # spelled out because the share test alone would wave through losing the only
+    # article of a one-article selection.
+    if not articles or len(unavailable) > max(1, int(_MAX_UNAVAILABLE_SHARE * len(selected))):
+        raise CorpusDownloadError(
+            f"corpus pin is no longer served: {len(unavailable)} of {len(selected)} pinned "
+            f"articles have been withdrawn ({', '.join(sorted(unavailable))}); rebuild the manifest"
+        )
+    return articles, unavailable
 
 
 def _ensure_artifact(

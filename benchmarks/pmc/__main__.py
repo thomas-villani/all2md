@@ -52,6 +52,10 @@ def _load(args: argparse.Namespace) -> int:
     print(f"pin        : {snapshot.manifest_sha256}")
     print(f"articles   : {len(snapshot.articles)} of {snapshot.expected_articles}")
     print(f"complete   : {snapshot.complete}")
+    if snapshot.unavailable:
+        print(f"unavailable: {len(snapshot.unavailable)} pinned article(s) the bucket no longer serves")
+        for article_id, error in sorted(snapshot.unavailable.items()):
+            print(f"    {article_id:20s} {error}")
     total = sum(article.pdf_size_bytes + article.xml_size_bytes for article in snapshot.articles)
     print(f"bytes      : {total:,}")
     return 0
@@ -154,6 +158,13 @@ def _score(args: argparse.Namespace) -> int:
     projection = payload["projection"]
     print(f"pin        : {payload['provenance']['corpus_pin']}")
     print(f"articles   : {corpus_facts['articles_converted']} of {corpus_facts['articles_scored']} converted")
+    if corpus_facts["articles_unavailable"]:
+        # Beside the article count, not in a footer: every number below it is computed over
+        # a smaller corpus than the pin names.
+        print(
+            f"  withdrawn: {len(corpus_facts['articles_unavailable'])} pinned article(s) no longer "
+            f"served: {', '.join(corpus_facts['articles_unavailable'])}"
+        )
     print(f"pages      : {corpus_facts['pages_scored']} scored")
     print(f"coverage   : {corpus_facts['coverage']['median']:.2f} median ground-truth words per PDF word")
     print(
