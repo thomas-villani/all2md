@@ -3,6 +3,8 @@ Performance Tuning
 
 This guide covers performance optimization strategies, benchmarks, and best practices for efficient document conversion with all2md. Whether processing single large files or batches of documents, these techniques will help maximize throughput and minimize resource usage.
 
+This page is about speed. For how much of a document survives conversion — measured against published ground truth, with controls — see :doc:`benchmarks`.
+
 .. contents::
    :local:
    :depth: 2

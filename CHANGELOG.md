@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A conversion fidelity page** (`docs/source/benchmarks.rst`), with a committed evidence
+  artifact behind it (`benchmarks/pmc/reference.json`). The benchmark lanes have been
+  producing numbers for several releases and none of them were published anywhere a user
+  would look: the documentation could say all2md converts documents well, but not how anyone
+  would check. Every figure on the page now comes from a committed artifact and is printed
+  beside its control — the same measurement applied where it ought to fail — because on most
+  text metrics the highest-scoring converter is one that dumps the raw text layer with no
+  structure at all, and a fidelity score with nothing to falsify it is not evidence.
+  The born-digital reading, over 65 articles and 699 pages of publisher PDFs scored against
+  publisher JATS: **95.3%** of attainable text recovered against a 0.4% wrong-article
+  control, and **1.0%** of emitted n-grams novel — containing a word the document does not
+  have anywhere — against a 0.7% control. Both figures are reported with the denominators
+  that make them readable rather than flattering, and the page explains why raw recall
+  (60.1%) and raw unsupported output (6.2%) are the wrong numbers to quote.
+  It is candid where the numbers are weak. Tables are the worst area and say so: 88 emitted
+  against 117 expected, with detection rather than extraction as the bottleneck. It also
+  states what the lanes structurally cannot see — every corpus is English, so a change that
+  deleted all CJK, Cyrillic and Arabic text would score perfectly on all three.
 - **Content precision beside content recall on the born-digital lane**
   (`benchmarks.pmc.article.measure_precision`). Recall alone cannot be trusted, and this lane
   has already been misread once because of it: the highest recall available on this corpus

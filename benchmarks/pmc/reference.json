@@ -1,0 +1,208 @@
+{
+  "article_precision": {
+    "control_emitted": 438975,
+    "control_precision": 0.0071051882225639275,
+    "discrimination": 0.9312512102055926,
+    "duplication": 0.004572057167902784,
+    "emitted": 438975,
+    "excess": 2128,
+    "novel": 4261,
+    "novel_share": 0.009706703115211572,
+    "occurrences": 465436,
+    "precision": 0.9383563984281565,
+    "resequenced": 22799,
+    "supported": 411915
+  },
+  "article_recall": {
+    "attainable": 5494,
+    "attainable_recall": 0.9528576629049873,
+    "by_kind": {
+      "table": {
+        "attainable": 107,
+        "attainable_recall": 0.8317757009345794,
+        "recovered": 90,
+        "scored": 119
+      },
+      "text_block": {
+        "attainable": 3124,
+        "attainable_recall": 0.9759923175416133,
+        "recovered": 3079,
+        "scored": 6289
+      },
+      "title": {
+        "attainable": 2263,
+        "attainable_recall": 0.926646045072912,
+        "recovered": 2123,
+        "scored": 2397
+      }
+    },
+    "ceiling": 0.6239636570130608,
+    "control_recall": 0.003634298693923907,
+    "control_scored": 8805,
+    "discrimination": 0.5973878478137421,
+    "recall": 0.601022146507666,
+    "recovered": 5292,
+    "scored": 8805,
+    "too_short": 2570
+  },
+  "conversion_failures": {},
+  "corpus": {
+    "articles_converted": 65,
+    "articles_expected": 66,
+    "articles_scored": 65,
+    "articles_unavailable": [
+      "PMC11000011.1"
+    ],
+    "coverage": {
+      "count": 65.0,
+      "maximum": 1.1974210089736823,
+      "mean": 0.9646370447748418,
+      "median": 0.9834683954619124,
+      "minimum": 0.09476843910806175,
+      "stdev": 0.13621574832109762
+    },
+    "ground_truth_blocks": 11375,
+    "pages_scored": 699,
+    "pages_with_emitted_table": 67,
+    "pages_with_expected_table": 92,
+    "tables_emitted": 88,
+    "tables_expected": 117
+  },
+  "degraded_events": {
+    "table_rejected": 100
+  },
+  "dimensions": {
+    "block_structure_similarity": {
+      "control_mean": 0.44477015471855613,
+      "count": 699.0,
+      "direction": "higher",
+      "discrimination": 0.10860080708839287,
+      "maximum": 1.0,
+      "mean": 0.553370961806949,
+      "median": 0.5714285714285714,
+      "minimum": 0.016393442622950838,
+      "mutation_drop": {
+        "halved": 0.08048727169312125,
+        "reversed": 0.008931599647340019,
+        "shuffled": 0.021105204174661576
+      },
+      "stdev": 0.2035308134591419,
+      "ungateable": "compares kind sequences without inspecting the text under a block, so content-free output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the born-digital lane it separates own-page from wrong-page output by only ~0.06 while *rising* when half the emitted content is deleted, which rewards dropping blocks"
+    },
+    "reading_order_similarity": {
+      "control_mean": 0.289276363029886,
+      "count": 699.0,
+      "direction": "higher",
+      "discrimination": 0.4737108796419468,
+      "maximum": 1.0,
+      "mean": 0.7629872426718328,
+      "median": 0.7936507936507936,
+      "minimum": 0.0,
+      "mutation_drop": {
+        "halved": 0.327080903335266,
+        "reversed": 0.4355050729667941,
+        "shuffled": 0.20203765039149885
+      },
+      "stdev": 0.21871713873751256
+    },
+    "table_content_similarity": {
+      "control_mean": 0.025807012965666117,
+      "count": 112.0,
+      "direction": "higher",
+      "discrimination": 0.27574490528133505,
+      "maximum": 1.0,
+      "mean": 0.30155191824700117,
+      "median": 0.0,
+      "minimum": 0.0,
+      "mutation_drop": {
+        "halved": 0.2832438647594491,
+        "reversed": 0.0,
+        "shuffled": 0.0
+      },
+      "stdev": 0.398820123564122
+    },
+    "table_structure_similarity": {
+      "control_mean": 0.060566312501200446,
+      "count": 112.0,
+      "direction": "higher",
+      "discrimination": 0.22167317433513126,
+      "maximum": 1.0,
+      "mean": 0.2822394868363317,
+      "median": 0.0,
+      "minimum": 0.0,
+      "mutation_drop": {
+        "halved": 0.2595106674937074,
+        "reversed": 0.0,
+        "shuffled": 0.0
+      },
+      "stdev": 0.3667505412022915
+    },
+    "text_content_similarity": {
+      "control_mean": 0.23168532321615054,
+      "count": 699.0,
+      "direction": "higher",
+      "discrimination": 0.33607319751797515,
+      "maximum": 0.9901380670611439,
+      "mean": 0.5677585207341257,
+      "median": 0.5410639290713952,
+      "minimum": 0.010652463382157085,
+      "mutation_drop": {
+        "halved": 0.24782331110942807,
+        "reversed": 0.18364141745839718,
+        "shuffled": 0.1202661449939388
+      },
+      "stdev": 0.23048325889923907
+    }
+  },
+  "ocr_articles": [
+    "PMC10500011.1",
+    "PMC8500015.1"
+  ],
+  "projection": {
+    "assignments": {
+      "clean": 7083,
+      "excluded": 473,
+      "inherited": 1068,
+      "phrase": 1458,
+      "spans": 316,
+      "tokens": 977
+    },
+    "error_budget": 0.04158241758241758,
+    "excluded_reasons": {
+      "missing": 325,
+      "split": 104,
+      "too_short": 44
+    },
+    "unsplit_spans": 42
+  },
+  "provenance": {
+    "all2md_commit": "002b0551ecda8bfa56f0b3f9f56c703a47a3a86c",
+    "bucket": "pmc-oa-opendata",
+    "complete_corpus": false,
+    "corpus_pin": "34cc7c503bba146884a23399d32e34555ad0ee376d0e9a80a0b25f884242e373",
+    "created_at": "2026-08-12T21:36:34.054494+00:00",
+    "oracle_schema_version": 1,
+    "parser_config": {
+      "include_page_numbers": true,
+      "layout_analysis_mode": "enabled",
+      "ocr": {
+        "dpi": 200,
+        "enabled": true,
+        "engine": "tesseract",
+        "mode": "auto"
+      }
+    },
+    "parser_runtime": {
+      "pymupdf": "1.28.0",
+      "python": "3.12.3"
+    },
+    "placement_config": {
+      "recall_min": 0.8,
+      "token_placement_min": 0.65
+    },
+    "platform": "linux",
+    "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
+    "worktree_dirty": false
+  },
+  "schema_version": 3
+}
