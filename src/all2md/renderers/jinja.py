@@ -482,13 +482,22 @@ class JinjaRenderer(BaseRenderer):
         if self.options.template_dir:
             template_dir = self.options.template_dir
 
-        # Create environment (autoescape=False is intentional - we output Markdown, not HTML)
+        # Create environment. autoescape=False is intentional: this renderer emits
+        # Markdown, DocBook, YAML and terminal text, and HTML-escaping every value would
+        # corrupt all of them. A caller templating to HTML is templating to a format this
+        # renderer does not claim to escape for; :doc:`templates` says so.
+        #
+        # Two rule ids fire on this, from two rulesets. The second was invisible while the
+        # Semgrep job was crash-passing, so suppressing only the first looked sufficient
+        # for months.
         if template_dir:
             loader = FileSystemLoader(template_dir)
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # nosemgrep: python.jinja2.security.audit.autoescape-disabled-false.incorrect-autoescape-disabled
             self._env = Environment(loader=loader, autoescape=False)  # nosec B701
         else:
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # nosemgrep: python.jinja2.security.audit.autoescape-disabled-false.incorrect-autoescape-disabled
             self._env = Environment(autoescape=False)  # nosec B701
 
         # Set undefined behavior
