@@ -99,7 +99,75 @@ def test_an_exact_normalized_run_is_green() -> None:
     verdict = gate.compare(_results(), _baseline())
     assert verdict.findings == []
     assert verdict.failed is False
-    assert gate.format_verdict(verdict) == "OMNIDOCBENCH GATE PASS"
+    assert gate.format_verdict(verdict).splitlines()[0] == "OMNIDOCBENCH GATE PASS"
+
+
+# ---------------------------------------------------------------------------
+# Dimensions recorded but not gated
+# ---------------------------------------------------------------------------
+
+_UNGATED = next(iter(gate.UNGATEABLE))
+#: The trailer `format_verdict` appends to every verdict, red or green.
+_NOT_GATED_LINE = f"NOT GATED dimensions.{_UNGATED}: {gate.UNGATEABLE[_UNGATED].split(';')[0]}"
+
+
+def _with_ungated(value: float = 0.5) -> tuple[dict, dict]:
+    """Return a results/baseline pair carrying one ungateable dimension at ``value``."""
+    results = _results()
+    results["dimensions"][_UNGATED] = {
+        "value": value,
+        "direction": "higher",
+        "eligible_items": 3,
+        "variance": 0.0,
+        "sample_scores": {"page-001": value, "page-002": value, "page-003": value},
+    }
+    baseline = gate.emit_baseline(
+        results,
+        {"edit_distance": 0.01, "text_similarity": 0.01, _UNGATED: 0.01},
+    )
+    return results, baseline
+
+
+def test_a_dimension_declared_ungateable_does_not_fail_on_drift() -> None:
+    """It moves the wrong way under damage, so a drift in it is not evidence either way."""
+    results, baseline = _with_ungated()
+    _set_metric_value(results, _UNGATED, 0.05)  # far outside the 0.01 tolerance
+    verdict = gate.compare(results, baseline)
+    assert verdict.findings == []
+    assert verdict.failed is False
+
+
+def test_the_same_drift_on_a_gated_dimension_is_still_red() -> None:
+    """The control for the test above: without it, a broken gate would look identical."""
+    results, baseline = _with_ungated()
+    _set_metric_value(results, "text_similarity", 0.5)
+    verdict = gate.compare(results, baseline)
+    assert [finding.status for finding in verdict.findings] == ["REGRESSION"]
+
+
+def test_an_ungateable_dimension_is_still_held_to_its_own_sample_scores() -> None:
+    """Not gated is not unchecked: shape, range and self-consistency all still apply."""
+    results, baseline = _with_ungated()
+    results["dimensions"][_UNGATED]["value"] = 0.9  # sample_scores still average 0.5
+    verdict = gate.compare(results, baseline)
+    assert [finding.status for finding in verdict.findings] == ["IDENTITY_DRIFT"]
+
+
+def test_an_ungateable_dimension_missing_from_the_run_is_still_red() -> None:
+    """A dimension nobody gates on is still evidence, and evidence cannot go quietly absent."""
+    results, baseline = _with_ungated()
+    del results["dimensions"][_UNGATED]
+    verdict = gate.compare(results, baseline)
+    assert [finding.status for finding in verdict.findings] == ["MISSING_METRIC"]
+
+
+def test_the_verdict_names_what_it_did_not_gate() -> None:
+    """A gate that quietly stops comparing reads exactly like one that compared and passed."""
+    verdict = gate.compare(*_with_ungated())
+    assert verdict.failed is False
+    report = gate.format_verdict(verdict)
+    assert f"NOT GATED dimensions.{_UNGATED}" in report
+    assert "#256" in report
 
 
 def test_failed_conversion_stays_in_the_scored_denominator() -> None:
@@ -580,6 +648,7 @@ def test_cli_formats_findings_concisely_and_returns_failure(tmp_path, capsys) ->
     assert capsys.readouterr().out == (
         "OMNIDOCBENCH GATE FAIL (1 finding(s))\n"
         "REGRESSION dimensions.text_similarity: higher is better: baseline 0.8, result 0.78, tolerance 0.01\n"
+        f"{_NOT_GATED_LINE}\n"
     )
 
 
@@ -595,7 +664,9 @@ def test_cli_reports_a_missing_baseline_as_a_red_verdict(tmp_path, capsys) -> No
     rc = gate.main([str(results_path), "--baseline", str(tmp_path / "absent.json")])
     assert rc == 1
     assert capsys.readouterr().out == (
-        "OMNIDOCBENCH GATE FAIL (1 finding(s))\n" "ABSENT_BASELINE baseline: a committed baseline is required\n"
+        "OMNIDOCBENCH GATE FAIL (1 finding(s))\n"
+        "ABSENT_BASELINE baseline: a committed baseline is required\n"
+        f"{_NOT_GATED_LINE}\n"
     )
 
 
