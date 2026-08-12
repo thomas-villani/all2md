@@ -184,6 +184,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pipes into `tee` without `set -o pipefail`, so `tee` supplied the exit code and a
   traceback in the summary file went green. The lane is ungated on fidelity by design;
   that was never a reason to lose a hard crash as well.
+- **`report-fail-under` is a measurement again instead of a constant.** The GitHub Action
+  advertises it as "fail if any document's conversion confidence falls below this score",
+  and for most formats it could not fail at any threshold. `all2md report` returns a
+  hardcoded score of **100** banded `not_assessed` whenever no detector ran for the
+  document's producer — which is every markdown, text, docx, pptx and html input, PDF
+  being the only richly instrumented format. `all2md.confidence` names this "a vacuous 100
+  that means 'no detector ran', not 'verified clean'"; the gate read `score` and discarded
+  `band`, so an empty file, a valid file and a deliberately broken file all passed
+  `--report-fail-under 100` identically.
+  The gate now reads the band. An unassessed document is neither a pass nor a failure: it
+  is reported as *not assessed*, excluded from the threshold comparison, and never
+  rendered as a bare 100. If a threshold was set and **nothing** could be assessed, the run
+  is a configuration error — the same class as an empty glob, and exit 2 rather than 1, so
+  it cannot read as "your documents failed". A mixed corpus keeps working; only a wholly
+  unassessable one is refused.
+  This repo's own CI was one of the affected consumers: `--report-fail-under 100` over
+  `*.md` has been dropped from the docs gate, because Markdown can never satisfy it
+  honestly. Fidelity remains gated at 100.
+- **The Semgrep security scan actually scans again.** It had been reporting success without
+  reading a single rule since 2026-07-01. `semgrep/semgrep-action@v1` pins semgrep 1.36.0,
+  which cannot parse registry rules carrying `severity: MEDIUM`, so every run died on
+  `ValueError: invalid rule severity value: MEDIUM` — and the action wrapper swallowed the
+  non-zero exit. The last genuine scan was 2026-06-30 (`Found 0 findings from 1059 rules`,
+  57 seconds); every run after it finished in 11–16 seconds having loaded nothing. Because
+  `Security Scan (Semgrep)` is both a required check on `main` and a release gate, **v1.11.0
+  published through a gate that was structurally incapable of failing**.
+  `SEMGREP_APP_TOKEN` was never set either, so the old comment's reasoning about a cloud
+  ruleset described a token-authenticated scan this job had never performed. The CLI now runs
+  directly against the pinned `p/python` and `p/security-audit` rulesets, which needs no
+  token.
+  A **positive control runs first**: semgrep is pointed at a deliberately vulnerable file
+  written at run time, and the step fails if it reports *no* findings. That is the specific
+  failure that went unnoticed for six weeks — a scanner that finds nothing because it loaded
+  nothing looks exactly like a clean repository.
+  The first working run scanned 1241 files with 346 rules and reported **18 findings**, of
+  which **2 are in shipped code**: both the deliberate `autoescape=False` in the Jinja
+  renderer, which emits Markdown rather than HTML. That line already carried a `nosemgrep`
+  for one rule id; the new ruleset flags it under a second, which nothing could have noticed
+  while the job was crash-passing. The remaining 16 are in `tests/`, `benchmarks/` and
+  `stubs/` — none of which the wheel ships — so the blocking scan is scoped to `src/` and
+  those are triaged separately rather than blocking a release.
 - **The two external ground-truth lanes no longer disagree about which dimensions may support
   a verdict.** `block_structure_similarity` compares block-category sequences without ever
   inspecting the text underneath, so content-free output scores 1.0 on it (issue #256). The

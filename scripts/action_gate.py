@@ -62,13 +62,23 @@ class GateError(Exception):
 
 @dataclass
 class DocumentScores:
-    """One document's scores, keyed by tool. ``None`` means it could not be scored."""
+    """One document's scores, keyed by tool.
+
+    Three states, not two, because "could not be measured" and "measured badly" are
+    different verdicts and only one of them is the document's fault:
+
+    * an ``int`` in ``scores`` -- a real measurement, comparable to a threshold;
+    * ``None`` in ``scores`` -- the document could not be converted at all, a failure;
+    * the tool's name in ``unassessed`` -- the tool ran and declined to judge, which is
+      neither. See `score_document`.
+    """
 
     path: str
     scores: dict[str, Optional[int]] = field(default_factory=dict)
+    unassessed: set[str] = field(default_factory=set)
 
     def scored(self, tool: str) -> Optional[int]:
-        """Return the score for *tool*, or ``None`` if scoring failed."""
+        """Return the score for *tool*, or ``None`` if it was not measured."""
         return self.scores.get(tool)
 
 
@@ -125,11 +135,22 @@ def expand_paths(patterns: str, root: Path) -> list[Path]:
     return found
 
 
-def score_document(tool: str, path: Path, via: str, executable: Optional[str] = None) -> tuple[Optional[int], str]:
-    """Score one document, returning ``(score, note)``.
+def score_document(
+    tool: str, path: Path, via: str, executable: Optional[str] = None
+) -> tuple[Optional[int], str, bool]:
+    """Score one document, returning ``(score, note, assessed)``.
 
-    A ``None`` score means the document could not be scored at all, which the
-    caller must treat as a failure rather than as missing data.
+    A ``None`` score means the document could not be scored at all, which the caller
+    must treat as a failure rather than as missing data.
+
+    ``assessed=False`` means something different and had been silently read as a pass:
+    the confidence report emits ``band: "not_assessed"`` with a **hardcoded score of
+    100** when no detector ran for the document's producer. `all2md.confidence` calls
+    that "a vacuous 100 that means 'no detector ran', not 'verified clean'", and it is
+    the value every Markdown, text, docx, pptx and html input returns. Reading only
+    ``score`` therefore turned ``--report-fail-under`` into a constant for those
+    formats: an empty file, a valid file and a deliberately broken file all score 100.
+    The band is the field that says so, so it is now read.
     """
     command = [executable or sys.executable, "-m", "all2md", tool, str(path), "--json"]
     if tool == "roundtrip":
@@ -137,17 +158,19 @@ def score_document(tool: str, path: Path, via: str, executable: Optional[str] = 
     proc = subprocess.run(command, capture_output=True, text=True)
     if proc.returncode != 0:
         detail = proc.stderr.strip().splitlines()
-        return None, detail[-1] if detail else f"{tool} exited {proc.returncode}"
+        return None, detail[-1] if detail else f"{tool} exited {proc.returncode}", True
     try:
         payload = json.loads(proc.stdout)
     except json.JSONDecodeError:
-        return None, "the report was not valid JSON"
+        return None, "the report was not valid JSON", True
     if isinstance(payload, list):
         payload = payload[0] if payload else {}
     score = payload.get("score")
     if not isinstance(score, int):
-        return None, "the report carried no score"
-    return score, ""
+        return None, "the report carried no score", True
+    if payload.get("band") == "not_assessed":
+        return None, "no confidence detector ran for this format", False
+    return score, "", True
 
 
 def _thresholds(args: argparse.Namespace) -> dict[str, int]:
@@ -176,6 +199,11 @@ def _summarise(rows: list[DocumentScores], thresholds: dict[str, int], calibrati
         cells = []
         for tool in thresholds:
             score = row.scored(tool)
+            if tool in row.unassessed:
+                # Never a bare number here: the underlying payload says 100, and printing
+                # it is how this read as a passing gate for every Markdown document.
+                cells.append("_not assessed_")
+                continue
             if score is None:
                 cells.append("**not convertible**")
             else:
@@ -241,15 +269,36 @@ def run(args: argparse.Namespace) -> int:
     for path in files:
         row = DocumentScores(path=path.relative_to(root).as_posix())
         for tool in thresholds:
-            score, note = score_document(tool, path, args.via, args.executable)
+            score, note, assessed = score_document(tool, path, args.via, args.executable)
             row.scores[tool] = score
-            if score is None:
+            if not assessed:
+                row.unassessed.add(tool)
+                print(f"{row.path}: {_METRIC[tool]} not assessed -- {note}", file=sys.stderr)
+            elif score is None:
                 print(f"{row.path}: {tool} could not score this document -- {note}", file=sys.stderr)
         rows.append(row)
+
+    # A threshold that judged nothing is the defect this gate exists to refuse, and it is
+    # the one the gate had itself: every root Markdown file returns an unassessed 100, so
+    # `--report-fail-under 100` could not fail. Refusing here rather than passing keeps a
+    # mixed corpus working -- only a threshold with no assessable document at all is an
+    # error, not one whose Markdown files happen to be unassessable.
+    for tool in thresholds:
+        if all(tool in row.unassessed for row in rows):
+            raise GateError(
+                f"{tool}-fail-under was set, but not one of the {len(rows)} matched "
+                f"document(s) could be assessed for {_METRIC[tool]}: all2md reports "
+                f"band 'not_assessed' for every one, which carries a placeholder score "
+                f"of 100 rather than a measurement. This threshold could only ever pass. "
+                f"Drop {tool}-fail-under, or point it at formats with "
+                f"{_METRIC[tool]} detectors."
+            )
 
     failures = []
     for row in rows:
         for tool, threshold in thresholds.items():
+            if tool in row.unassessed:
+                continue
             score = row.scored(tool)
             if score is None:
                 failures.append(f"{row.path}: could not be converted at all")
