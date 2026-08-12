@@ -39,6 +39,8 @@ PDF Documents
 Key capabilities:
 
 - Adaptive layout analysis with multi-column detection and ruling/table heuristics
+- Optional ML region labelling through the ``pdf_layout`` extra
+- OCR for scanned pages, per page rather than per document
 - Page filtering, header/footer trimming, and hyphen merging for cleaner prose
 - Rich attachment pipeline (save/base64/alt-text) shared with other formats
 - Optional word/character counts via :doc:`transforms`
@@ -47,6 +49,7 @@ Essentials:
 
 - Options class: ``PdfOptions`` (see :doc:`options`)
 - CLI prefix: ``--pdf-*``
+- In-depth guide: :doc:`pdf`
 
 .. code-block:: bash
 

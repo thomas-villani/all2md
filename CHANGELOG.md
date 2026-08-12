@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A PDF conversion guide** (`docs/source/pdf.rst`). PDF is the format all2md works hardest
+  at and the one with no dedicated page: the deepest hand-written coverage was five bullets in
+  the overview that predated layout analysis entirely, and of the twelve OCR flags, nine
+  appeared only in the generated option reference — listed, never explained. The new page
+  starts from what a PDF actually is (positioned glyphs, so every heading, table and reading
+  order is inferred) and then covers the two per-page routes through a document, layout
+  analysis and why `pdf_layout` is excluded from `all`, the table strategies and the
+  whole-word guard on the borderless fallback, column ordering, the heading/list/dehyphenation
+  rules that explain otherwise-arbitrary output, and when `auto` OCR fires — including that
+  `image_area_threshold` changed meaning as well as default this release. It records the
+  trade-offs as measured numbers rather than claims, and it is candid about the limits, such
+  as list items the PDF prints with no marker at all, which no marker rule can recover. The
+  overview and format pages now link to it instead of restating a stale summary.
 - **Every registered format's options class is now importable from both `all2md` and
   `all2md.options`.** Twenty were missing from `all2md.options` and thirty-one from the top
   level, including whole formats — `ArchiveOptions`, `EnexOptions`, `MboxOptions`,

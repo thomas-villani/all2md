@@ -137,6 +137,7 @@ Guides & References
    :caption: Advanced Topics
 
    architecture
+   pdf
    templates
    static_sites
    security

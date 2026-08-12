@@ -190,15 +190,24 @@ Format-Specific Capabilities
 PDF Processing
 ~~~~~~~~~~~~~~
 
+A PDF describes ink on a page, not a document: there are no headings, paragraphs,
+tables or reading order in the file, so everything structural all2md emits was inferred.
+
 **Advanced Features:**
 
-- Table detection using PyMuPDF's table extraction
-- Multi-column layout handling
+- Table detection across ruled, borderless and layout-predicted regions
+- Multi-column layout handling and reading-order reconstruction
+- Optional ML layout analysis via the ``pdf_layout`` extra (see :doc:`pdf`)
+- Heading inference, list-marker detection and dehyphenation
+- OCR for scanned pages, triggered automatically or on demand
 - Header and footer detection
 - Image extraction and placement
 - Page-specific processing
 
 **Technology:** PyMuPDF (pymupdf) for robust PDF parsing
+
+See :doc:`pdf` for what each inference actually does, which knobs change it, and
+what the trade-offs measure out to.
 
 .. code-block:: python
 
