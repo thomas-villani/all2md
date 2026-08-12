@@ -47,6 +47,7 @@ if TYPE_CHECKING:
         AttachmentOptionsMixin,
         LocalFileAccessOptions,
         NetworkFetchOptions,
+        OCROptions,
     )
     from all2md.options.csv import CsvOptions, CsvRendererOptions
     from all2md.options.docx import DocxOptions, DocxRendererOptions
@@ -83,6 +84,10 @@ if TYPE_CHECKING:
     from all2md.options.xlsx import XlsxOptions
     from all2md.options.yaml import YamlParserOptions, YamlRendererOptions
     from all2md.options.zip import ZipOptions
+
+    # Defined in all2md.utils.metadata, but it is the type of a field on every
+    # renderer's options, so a caller setting metadata_policy needs it from here.
+    from all2md.utils.metadata import MetadataRenderPolicy
 
 #: Exported name -> the ``all2md.options`` submodule that defines it.
 _LAZY_EXPORTS: dict[str, str] = {
@@ -125,8 +130,12 @@ _LAZY_EXPORTS: dict[str, str] = {
     "MboxOptions": "mbox",
     "MediaWikiOptions": "mediawiki",
     "MediaWikiParserOptions": "mediawiki",
+    # Really all2md.utils.metadata.MetadataRenderPolicy; base re-exports it, and the
+    # lazy table addresses submodules of this package.
+    "MetadataRenderPolicy": "base",
     "MhtmlOptions": "mhtml",
     "NetworkFetchOptions": "common",
+    "OCROptions": "common",
     "OdpOptions": "odp",
     "OdpRendererOptions": "odp",
     "OdsSpreadsheetOptions": "ods",
@@ -217,7 +226,9 @@ __all__ = [
     "BaseParserOptions",
     "BaseRendererOptions",
     "LocalFileAccessOptions",
+    "MetadataRenderPolicy",
     "NetworkFetchOptions",
+    "OCROptions",
     "ArchiveOptions",
     "AsciiDocOptions",
     "AsciiDocRendererOptions",

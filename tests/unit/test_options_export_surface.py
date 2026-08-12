@@ -40,13 +40,18 @@ def _registered_options_classes() -> set[str]:
     return names
 
 
-# Exported from ``all2md.options`` but not tied to any one format.
+# Exported from ``all2md.options`` but not tied to any one format. The last two are
+# nested configuration objects rather than a converter's own options: they are the
+# declared type of a field on an exported options class, so a caller has to be able
+# to construct one. ``test_nested_options_export_surface.py`` derives that rule.
 _NOT_FORMAT_OPTIONS = frozenset(
     {
         "BaseParserOptions",
         "BaseRendererOptions",
         "LocalFileAccessOptions",
+        "MetadataRenderPolicy",
         "NetworkFetchOptions",
+        "OCROptions",
         "UNSET",
         "create_updated_options",
     }
