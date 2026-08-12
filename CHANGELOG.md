@@ -162,6 +162,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Semgrep security scan actually scans again.** It had been reporting success without
+  reading a single rule since 2026-07-01. `semgrep/semgrep-action@v1` pins semgrep 1.36.0,
+  which cannot parse registry rules carrying `severity: MEDIUM`, so every run died on
+  `ValueError: invalid rule severity value: MEDIUM` — and the action wrapper swallowed the
+  non-zero exit. The last genuine scan was 2026-06-30 (`Found 0 findings from 1059 rules`,
+  57 seconds); every run after it finished in 11–16 seconds having loaded nothing. Because
+  `Security Scan (Semgrep)` is both a required check on `main` and a release gate, **v1.11.0
+  published through a gate that was structurally incapable of failing**.
+  `SEMGREP_APP_TOKEN` was never set either, so the old comment's reasoning about a cloud
+  ruleset described a token-authenticated scan this job had never performed. The CLI now runs
+  directly against the pinned `p/python` and `p/security-audit` rulesets, which needs no
+  token.
+  A **positive control runs first**: semgrep is pointed at a deliberately vulnerable file
+  written at run time, and the step fails if it reports *no* findings. That is the specific
+  failure that went unnoticed for six weeks — a scanner that finds nothing because it loaded
+  nothing looks exactly like a clean repository.
 - **The two external ground-truth lanes no longer disagree about which dimensions may support
   a verdict.** `block_structure_similarity` compares block-category sequences without ever
   inspecting the text underneath, so content-free output scores 1.0 on it (issue #256). The

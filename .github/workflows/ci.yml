@@ -434,19 +434,61 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
+      # `semgrep/semgrep-action@v1` was replaced because it had been reporting success
+      # without scanning anything since 2026-07-01. Its pinned semgrep 1.36.0 cannot parse
+      # registry rules carrying `severity: MEDIUM`, so every run died on
+      # `ValueError: invalid rule severity value: MEDIUM` and the wrapper swallowed the
+      # non-zero exit. The last real scan was 2026-06-30 (`Found 0 findings from 1059
+      # rules`, 57s); every run after it finished in 11-16s having read no rules, and
+      # v1.11.0 shipped through a required check that could not fail.
+      #
+      # `SEMGREP_APP_TOKEN` was also never set -- `gh secret list` has only CODECOV_TOKEN --
+      # so the removed comment's reasoning about a cloud ruleset described a
+      # token-authenticated scan this job has never performed. Running the CLI directly on
+      # the pinned registry ruleset needs no token, and `p/python` plus `p/security-audit`
+      # is the community equivalent of what `config: auto` resolved to unauthenticated.
+      - name: Install Semgrep
+        run: pip install semgrep==1.145.0
+
+      # A positive control, and it runs BEFORE the real scan so a broken ruleset fails the
+      # job on its own terms rather than being reported as a clean repository. The canary is
+      # written at run time instead of committed, so nothing else in the repo scans it and
+      # no suppression comment is needed anywhere.
+      #
+      # The logic is inverted on purpose: `--error` exits 1 when there are findings, so the
+      # control PASSES when semgrep exits non-zero. A semgrep that loads no rules exits 0
+      # here and fails the step -- which is exactly what the previous six weeks of runs
+      # would have done.
+      - name: Prove the scanner can still find something
+        run: |
+          cat > "${RUNNER_TEMP}/canary.py" <<'PY'
+          import subprocess
+
+
+          def run_it(user_input):
+              # p/python: dangerous-subprocess-use-audit
+              subprocess.call(user_input, shell=True)
+          PY
+          if semgrep scan --config p/python --config p/security-audit \
+               --error --metrics off --quiet "${RUNNER_TEMP}/canary.py"; then
+            echo "::error::Semgrep reported no findings on a deliberately vulnerable file."
+            echo "::error::The ruleset is not loading; this gate would pass on anything."
+            exit 1
+          fi
+          echo "control passed: the ruleset loads and the scanner can fail"
+
+      # False positives are suppressed per-line with `# nosemgrep: <rule-id>` -- see
+      # `benchmarks/corpus/download.py:55` for the non-literal-import suppression in the
+      # manifest generator.
       - name: Run Semgrep
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: auto
-          # Rule exclusions are intentionally NOT configured here: `--exclude-rule`
-          # is not honored by semgrep-action@v1's `config: auto` mode — the cloud
-          # ruleset ignores locally-passed args (and the action has no
-          # `semgrepArgs` input anyway). False positives are suppressed per-line
-          # with `# nosemgrep: <rule-id>` instead — see
-          # `benchmarks/corpus/download.py:55` for the non-literal-import
-          # suppression in the manifest generator.
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          semgrep scan \
+            --config p/python \
+            --config p/security-audit \
+            --error \
+            --metrics off \
+            --exclude '.cache' \
+            .
 
   security-bandit:
     name: Security Scan (Bandit)
