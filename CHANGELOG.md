@@ -7,26 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **A withdrawn PMC article no longer takes the whole born-digital lane down with it.** The
-  committed manifest pins each article's SHA-256, which guarantees what the bytes *are* but
-  says nothing about whether they are still served — and PMC reprocesses articles and drops
-  the superseded version. `PMC11000011.1` was fetched successfully one morning and 404'd that
-  same evening, from two networks, with `.2` and `.3` equally absent (#329). The lane's only
-  response was to abort the load, so a single upstream withdrawal made the corpus unscoreable
-  on any machine without a warm cache, and the monthly scheduled run would have begun failing
-  regardless of anything in this repository.
-  A 404 is now recorded rather than raised: the article lands in
-  `CorpusSnapshot.unavailable`, the snapshot stops reporting itself as `complete`, and the ids
-  appear in the payload as `corpus.articles_unavailable` (payload schema 3) and in the CLI
-  summary beside the article count. That last part is the point — a score over 65 of 66
-  articles is a different measurement from one over 66, and nothing downstream could
-  previously tell. Tolerance is capped at a tenth of the selection, and losing every article
-  is spelled out separately so a one-article run cannot pass having scored nothing. Transient
-  failures and digest mismatches are still fatal, because those are claims about the bytes
-  rather than about the object's existence.
-
 ### Added
 
 - **Content precision beside content recall on the born-digital lane**
@@ -182,6 +162,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A withdrawn PMC article no longer takes the whole born-digital lane down with it.** The
+  committed manifest pins each article's SHA-256, which guarantees what the bytes *are* but
+  says nothing about whether they are still served — and PMC reprocesses articles and drops
+  the superseded version. `PMC11000011.1` was fetched successfully one morning and 404'd that
+  same evening, from two networks, with `.2` and `.3` equally absent (#329). The lane's only
+  response was to abort the load, so a single upstream withdrawal made the corpus unscoreable
+  on any machine without a warm cache, and the monthly scheduled run would have begun failing
+  regardless of anything in this repository.
+  A 404 is now recorded rather than raised: the article lands in
+  `CorpusSnapshot.unavailable`, the snapshot stops reporting itself as `complete`, and the ids
+  appear in the payload as `corpus.articles_unavailable` (payload schema 3) and in the CLI
+  summary beside the article count. That last part is the point — a score over 65 of 66
+  articles is a different measurement from one over 66, and nothing downstream could
+  previously tell. Tolerance is capped at a tenth of the selection, and losing every article
+  is spelled out separately so a one-article run cannot pass having scored nothing. Transient
+  failures and digest mismatches are still fatal, because those are claims about the bytes
+  rather than about the object's existence.
 - **The PDF optimization page no longer compares two different corpora.** It led with
   "reduced the corpus benchmark from 21.4 minutes to 6.7 minutes — a 3.2x improvement",
   taken from the two committed reference runs' corpus-wide totals. The arithmetic is right
