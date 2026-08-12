@@ -1,13 +1,20 @@
 # all2md corpus benchmark
 
-A reproducible performance benchmark over a few hundred real-world documents
-pulled from public corpora. Useful for spotting regressions, finding files that
-break the parser, and producing comparable timing numbers across machines.
+A performance benchmark over a few hundred real-world documents pulled from public
+corpora. Useful for spotting regressions, finding files that break the parser, and
+producing comparable timing numbers across machines.
+
+**Two of the four sources are reproducible, not all four** — `arxiv` and `poi`
+resolve against upstream state that moves, so roughly 60 of 160 documents can differ
+between runs. Read
+[Reproducibility, and why only half the corpus is gated](#reproducibility-and-why-only-half-the-corpus-is-gated)
+before comparing two runs.
 
 ## What it does
 
-1. **Download** — pulls a deterministic sample from each configured source into
-   `benchmarks/corpus/.cache/<source>/` (gitignored).
+1. **Download** — pulls a sample from each configured source into
+   `benchmarks/corpus/.cache/<source>/` (gitignored). Deterministic for the sources
+   marked `reproducible = true` in `corpus.toml`; a fresh draw for the others.
 2. **Benchmark** — runs `all2md.to_markdown()` once per cached doc, captures
    per-doc timings + errors, writes `results/results_<timestamp>.json`.
 3. **Report** — renders a stratified markdown report next to the JSON

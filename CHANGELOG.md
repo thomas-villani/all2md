@@ -162,6 +162,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The PDF optimization page no longer compares two different corpora.** It led with
+  "reduced the corpus benchmark from 21.4 minutes to 6.7 minutes — a 3.2x improvement",
+  taken from the two committed reference runs' corpus-wide totals. The arithmetic is right
+  and the comparison is not: the runs cover **160 and 149 documents with 115 in common**,
+  and the `arxiv` overlap is **zero** — that source samples the most recent cs.CL
+  submissions and the runs are nine days apart. Documents present in only one run account
+  for 46% of the baseline's wall time and 86% of the optimized run's, so the headline
+  measured a change of corpus as much as a change of code. The same applies to the PDF
+  percentile rows: both runs have 80 PDFs, 30 of them different papers.
+  The page now leads with the **115 shared documents: 11.5 minutes to 55.4 seconds, a
+  12.4x improvement** — a defensible figure, and a larger one than the number it replaces.
+  The `govdocs1` rows (p50 30x, mean 12.7x) and the `000887.pdf` case study (10.7x) were
+  already sound, because that shard is fixed, and they remain.
+- **Three places called the corpus sample "deterministic" or "reproducible" when two of its
+  four sources are neither.** `corpus.toml` has marked `arxiv` and `poi`
+  `reproducible = false` all along, and `benchmarks/corpus/README.md` contradicted itself
+  between its opening line and its own reproducibility section. Roughly 60 of 160 documents
+  can differ between runs, which is exactly the trap the entry above fell into.
+- **The born-digital benchmark workflow no longer discards the scorer's exit status.** It
+  pipes into `tee` without `set -o pipefail`, so `tee` supplied the exit code and a
+  traceback in the summary file went green. The lane is ungated on fidelity by design;
+  that was never a reason to lose a hard crash as well.
 - **`report-fail-under` is a measurement again instead of a constant.** The GitHub Action
   advertises it as "fail if any document's conversion confidence falls below this score",
   and for most formats it could not fail at any threshold. `all2md report` returns a

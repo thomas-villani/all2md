@@ -1,11 +1,20 @@
 PDF Parsing Optimizations
 ==========================
 
-Between releases 1.1.0 and 1.1.1 a series of profile-driven changes reduced the
-corpus benchmark from **21.4 minutes to 6.7 minutes** — a 3.2x improvement, with
-the worst-case single file dropping from **2.1 min to 11.65 s** (10.7x). This
-page documents the methodology, the contributing changes, and the work that
-remains.
+Between releases 1.1.0 and 1.1.1 a series of profile-driven changes cut conversion
+time on the 115 documents the two benchmark runs share from **11.5 minutes to 55
+seconds** — a 12.4x improvement — with the worst-case single file dropping from
+**2.1 min to 11.65 s** (10.7x). This page documents the methodology, the
+contributing changes, and the work that remains.
+
+.. note::
+
+   Earlier revisions of this page led with "21.4 minutes to 6.7 minutes, a 3.2x
+   improvement", comparing the two runs' *corpus-wide* totals. That arithmetic is
+   right and the comparison is not: the runs cover different document sets, so the
+   figure conflates the optimization with a change of corpus. See
+   :ref:`why-corpus-wide-totals-are-not-quoted`. The shared-document figure above is
+   both defensible and larger.
 
 .. contents::
    :local:
@@ -17,10 +26,13 @@ Methodology
 The work followed a tight measure / fix / re-measure loop with three
 complementary tools shipped with the repo:
 
-* **Corpus benchmark** (``benchmarks/corpus/run.py``) — pulls a deterministic
-  sample from public corpora (arxiv, govdocs1, Apache POI, Enron), times
-  conversion of each doc, and produces stratified p50 / p95 / mean tables
-  per source and per format. See :doc:`performance` for a full reference.
+* **Corpus benchmark** (``benchmarks/corpus/run.py``) — samples public corpora
+  (arxiv, govdocs1, Apache POI, Enron), times conversion of each doc, and produces
+  stratified p50 / p95 / mean tables per source and per format. Two of the four
+  sources are reproducible run to run (``enron`` and ``govdocs1``, both frozen
+  archives); ``arxiv`` and ``poi`` track upstream state that moves, so only the
+  first two are comparable across runs. See :doc:`performance` for a full
+  reference.
 * **Single-file profiler** — for the slowest doc in each report, an isolated
   ``cProfile`` run dumps cumulative-time and self-time call graphs to attribute
   wall-clock cost to specific functions.
@@ -37,7 +49,8 @@ inspect helper verifies correctness. All three were needed.
 Headline impact
 ---------------
 
-Corpus-wide on a single 149-doc run:
+Every row below is measured over documents present in **both** runs, so the only
+thing that changed between the columns is the code:
 
 .. list-table::
    :header-rows: 1
@@ -47,38 +60,79 @@ Corpus-wide on a single 149-doc run:
      - Baseline (b0e4224)
      - Optimized (3516bc9)
      - Improvement
-   * - Total wall time
-     - 21.4 min
-     - 6.7 min
-     - 3.2x faster
-   * - Aggregate MB/s
-     - 0.08
-     - 0.37
-     - 4.6x
-   * - PDF p50
-     - 8.54 s
-     - 728 ms
-     - **11.7x faster**
-   * - PDF p95
-     - 1.1 min
-     - 13.5 s
-     - 4.9x
-   * - PDF mean
-     - 16.0 s
-     - 5.0 s
-     - 3.2x
-   * - govdocs1 p50
+   * - Shared-document total (115 docs)
+     - 11.5 min
+     - 55.4 s
+     - **12.4x faster**
+   * - govdocs1 p50 (same 50 docs)
      - 5.91 s
      - 194 ms
      - **30x faster**
-   * - govdocs1 mean
+   * - govdocs1 mean (same 50 docs)
      - 13.7 s
      - 1.08 s
      - 12.7x
+   * - Worst single file (``govdocs1/000887.pdf``)
+     - 2.1 min
+     - 11.65 s
+     - 10.7x
+
+``govdocs1`` carries the per-source rows because it is a fixed shard: the same 50
+documents in both runs.
 
 The two underlying reports — ``b0e4224-baseline.md/json`` and
 ``3516bc9-optimized.md/json`` — are committed under ``benchmarks/reference/``
 for verification.
+
+.. _why-corpus-wide-totals-are-not-quoted:
+
+Why corpus-wide totals are not quoted
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The two reference runs do not cover the same documents, because two of the four
+corpus sources resolve against upstream state that moves:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 20 20 20
+
+   * - Source
+     - Baseline
+     - Optimized
+     - In both
+   * - arxiv
+     - 30
+     - 30
+     - **0**
+   * - poi
+     - 30
+     - 19
+     - 15
+   * - govdocs1
+     - 50
+     - 50
+     - 50
+   * - enron
+     - 50
+     - 50
+     - 50
+   * - **Total**
+     - **160**
+     - **149**
+     - **115**
+
+The ``arxiv`` sample is drawn from the most recent cs.CL submissions, and the runs
+are nine days apart — so the overlap is **zero**. Documents present in only one run
+account for 46% of the baseline's wall time and 86% of the optimized run's.
+
+Any corpus-wide aggregate over those two runs therefore measures a change of corpus
+as much as a change of code, and the same applies to the PDF percentiles: both runs
+have 80 PDFs, but 30 of them are different papers. That is why this page quotes the
+shared-document total and the fixed ``govdocs1`` shard instead.
+
+The underlying property is documented in ``benchmarks/corpus/corpus.toml``, which
+marks ``arxiv`` and ``poi`` as ``reproducible = false``. It is also why the corpus
+gate scores only ``enron`` and ``govdocs1``.
 
 Case study: the file that drove the investigation
 --------------------------------------------------
