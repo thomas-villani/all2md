@@ -130,6 +130,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`python -m all2md.cli` runs the CLI instead of refusing to start.** `python -m all2md`
+  worked; the `cli` package had no `__main__.py`, so Python answered `'all2md.cli' is a
+  package and cannot be directly executed`. That fails *before* argparse sees the arguments,
+  which makes it worse than an ordinary unknown-command error: every invocation fails
+  identically no matter what follows it, so anything checking whether the CLI accepts a given
+  flag gets the same answer for a real flag and an invented one. Both entry points now reach
+  the same `main()`, and tests assert they can still *reject* an unknown flag, since an entry
+  point that cannot start looks exactly like one that accepts everything.
 - **Seven CLI flags the documentation named do not exist, and now the docs say what does.**
   Most followed one rule the docs had backwards: a boolean option generates only the flag that
   *changes* its default, so `require_https=True` yields `--html-network-no-require-https` and
