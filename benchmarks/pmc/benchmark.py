@@ -50,7 +50,10 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 
 #: 2 adds ``article_precision``. A reader that expects 1 would silently see recall with no
 #: converse and read it as the whole story, which is the misreading this lane just fixed.
-SCHEMA_VERSION = 2
+#: 3 adds ``corpus.articles_unavailable``. Under 2 a run that lost pinned articles was
+#: indistinguishable from one that scored them all, so every payload without this key has
+#: an unknown denominator rather than a complete one.
+SCHEMA_VERSION = 3
 ORACLE_SCHEMA_VERSION = 1
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
@@ -358,6 +361,10 @@ def normalize_results(
         },
         "corpus": {
             "articles_expected": snapshot.expected_articles,
+            # Named separately from `articles_expected - articles_scored`, which a `--limit`
+            # produces too: one is a sample the operator asked for, the other is corpus the
+            # run was denied.
+            "articles_unavailable": sorted(snapshot.unavailable),
             "articles_scored": len(evaluations),
             "articles_converted": sum(1 for result in evaluations if result.error is None),
             "pages_scored": len(pages),

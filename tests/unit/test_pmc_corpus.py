@@ -305,6 +305,102 @@ def test_an_incomplete_load_is_marked_incomplete(tmp_path: Path, monkeypatch: py
     assert len(snapshot.articles) == 3
 
 
+def _install_downloader_missing(monkeypatch: pytest.MonkeyPatch, gone: set[str]) -> None:
+    """Serve every article except `gone`, which 404s the way a withdrawn object does."""
+
+    def download(url: str, destination: Path, *, label: str, retries: int = 0) -> None:
+        article_id = Path(url).stem
+        if article_id in gone:
+            raise corpus.ArtifactMissingError(f"{label} does not exist: {url}")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(_pdf_bytes(article_id) if url.endswith(".pdf") else _xml_bytes(article_id))
+
+    monkeypatch.setattr(corpus, "_download", download)
+
+
+def test_a_withdrawn_article_is_reported_rather_than_aborting_the_load(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PMC withdraws superseded versions, so a pin can 404 with no retained byte changed."""
+    manifest_path = _write_manifest(tmp_path)
+    _install_downloader_missing(monkeypatch, {"PMC7000002.1"})
+
+    snapshot = corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+    assert [article.article_id for article in snapshot.articles] == ["PMC2000001.1", "PMC9000003.2"]
+    assert set(snapshot.unavailable) == {"PMC7000002.1"}
+    assert "does not exist" in snapshot.unavailable["PMC7000002.1"]
+    # The whole point: the survivors are not the pinned corpus, and the snapshot says so.
+    assert snapshot.complete is False
+    assert snapshot.expected_articles == 3
+
+
+def test_a_withdrawn_article_does_not_disturb_the_others(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every surviving article is still digest-validated, and none is silently renumbered."""
+    manifest_path = _write_manifest(tmp_path)
+    _install_downloader_missing(monkeypatch, {"PMC2000001.1"})
+
+    snapshot = corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=2)
+
+    for article in snapshot.articles:
+        assert article.pdf_path.read_bytes() == _pdf_bytes(article.article_id)
+        assert article.xml_path.read_bytes() == _xml_bytes(article.article_id)
+
+
+def test_losing_too_much_of_the_corpus_is_fatal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tolerating one withdrawal must not become tolerating the corpus dissolving."""
+    manifest_path = _write_manifest(tmp_path)
+    _install_downloader_missing(monkeypatch, {"PMC2000001.1", "PMC7000002.1"})
+
+    with pytest.raises(corpus.CorpusDownloadError, match="no longer served"):
+        corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+
+def test_a_lone_article_vanishing_is_fatal_rather_than_an_empty_pass(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A share test alone waves this through: 1 of 1 lost is not more than max(1, 0)."""
+    manifest_path = _write_manifest(tmp_path, _manifest_payload(["PMC2000001.1"]))
+    _install_downloader_missing(monkeypatch, {"PMC2000001.1"})
+
+    with pytest.raises(corpus.CorpusDownloadError, match="no longer served"):
+        corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+
+def test_a_transient_failure_is_still_fatal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Availability tolerance is for 404 alone; a flaky network must not shrink the corpus."""
+    manifest_path = _write_manifest(tmp_path)
+
+    def download(url: str, destination: Path, *, label: str, retries: int = 0) -> None:
+        raise corpus.CorpusDownloadError(f"failed to download {label}: timed out")
+
+    monkeypatch.setattr(corpus, "_download", download)
+
+    with pytest.raises(corpus.CorpusDownloadError, match="timed out"):
+        corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+
+def test_a_warm_article_survives_its_object_being_withdrawn(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cached bytes still match the pin; availability is a property of the bucket."""
+    manifest_path = _write_manifest(tmp_path)
+    _install_downloader(monkeypatch)
+    corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+    _install_downloader_missing(monkeypatch, {"PMC2000001.1", "PMC7000002.1", "PMC9000003.2"})
+    reloaded = corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+    assert reloaded.unavailable == {}
+    assert reloaded.complete is True
+
+
 @pytest.mark.parametrize("workers", [0, -1, True, "eight"])
 def test_invalid_worker_counts_are_rejected(tmp_path: Path, workers: Any) -> None:
     with pytest.raises(ValueError, match="workers must be a positive integer"):
@@ -509,6 +605,7 @@ def _snapshot_of(paths: dict[str, Path]) -> Any:
         bucket=corpus.BUCKET,
         articles=articles,
         expected_articles=len(articles),
+        unavailable={},
         complete=True,
     )
 
