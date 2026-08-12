@@ -24,6 +24,10 @@ inputs:
   report-fail-under:
     description: >-
       Fail if any document's conversion confidence falls below this score (0-100).
+      Only PDF carries confidence instrumentation today; docx, pptx, html, markdown and
+      text report a placeholder score banded "not_assessed", and the gate refuses a run
+      in which nothing could be assessed rather than passing it. Use roundtrip-fail-under
+      for those formats.
     required: false
     default: ""
   via:

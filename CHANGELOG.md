@@ -162,6 +162,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`report-fail-under` is a measurement again instead of a constant.** The GitHub Action
+  advertises it as "fail if any document's conversion confidence falls below this score",
+  and for most formats it could not fail at any threshold. `all2md report` returns a
+  hardcoded score of **100** banded `not_assessed` whenever no detector ran for the
+  document's producer — which is every markdown, text, docx, pptx and html input, PDF
+  being the only richly instrumented format. `all2md.confidence` names this "a vacuous 100
+  that means 'no detector ran', not 'verified clean'"; the gate read `score` and discarded
+  `band`, so an empty file, a valid file and a deliberately broken file all passed
+  `--report-fail-under 100` identically.
+  The gate now reads the band. An unassessed document is neither a pass nor a failure: it
+  is reported as *not assessed*, excluded from the threshold comparison, and never
+  rendered as a bare 100. If a threshold was set and **nothing** could be assessed, the run
+  is a configuration error — the same class as an empty glob, and exit 2 rather than 1, so
+  it cannot read as "your documents failed". A mixed corpus keeps working; only a wholly
+  unassessable one is refused.
+  This repo's own CI was one of the affected consumers: `--report-fail-under 100` over
+  `*.md` has been dropped from the docs gate, because Markdown can never satisfy it
+  honestly. Fidelity remains gated at 100.
 - **The two external ground-truth lanes no longer disagree about which dimensions may support
   a verdict.** `block_structure_similarity` compares block-category sequences without ever
   inspecting the text underneath, so content-free output scores 1.0 on it (issue #256). The
