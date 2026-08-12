@@ -36,12 +36,21 @@ from typing import Any, Callable, Mapping, Sequence
 from benchmarks.omnidocbench.dimensions import UNGATEABLE as SHARED_UNGATEABLE
 from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_page
 from benchmarks.pmc.alignment import TOKEN_PLACEMENT_MIN
-from benchmarks.pmc.article import RECALL_MIN, RecallReport, measure_recall, summarize
+from benchmarks.pmc.article import (
+    RECALL_MIN,
+    PrecisionReport,
+    RecallReport,
+    measure_precision,
+    measure_recall,
+    summarize,
+)
 from benchmarks.pmc.convert import convert_article, pdf_options
 from benchmarks.pmc.oracles import coverage, project_jats, to_projection
 from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 
-SCHEMA_VERSION = 1
+#: 2 adds ``article_precision``. A reader that expects 1 would silently see recall with no
+#: converse and read it as the whole story, which is the misreading this lane just fixed.
+SCHEMA_VERSION = 2
 ORACLE_SCHEMA_VERSION = 1
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
@@ -278,6 +287,7 @@ def normalize_results(
     snapshot: Any,
     evaluations: Sequence[ArticleEvaluation],
     recall: RecallReport,
+    precision: PrecisionReport,
     all2md_commit: str,
     worktree_dirty: bool = False,
     parser_runtime: Mapping[str, str],
@@ -292,6 +302,8 @@ def normalize_results(
         Per-article results.
     recall : RecallReport
         Whole-article content recall with its control.
+    precision : PrecisionReport
+        Whether the output says anything the document does not, with its control.
     all2md_commit : str
         Commit the parser was scored at.
     worktree_dirty : bool
@@ -397,6 +409,30 @@ def normalize_results(
             "control_scored": recall.control_scored,
             "discrimination": recall.recall - recall.control_recall,
         },
+        # Recall's converse, and it ships beside it rather than somewhere else because either
+        # number alone is gameable: the highest recall on this corpus comes from emitting the
+        # raw text layer with no structure at all, and the highest precision from emitting
+        # almost nothing.
+        "article_precision": {
+            "precision": precision.precision,
+            "supported": precision.supported,
+            "emitted": precision.emitted,
+            # Unsupported splits two ways, and only one of them is the parser's doing: a
+            # resequenced n-gram is the document's own words in an order the text layer does
+            # not have, which column ordering and block joins produce by design.
+            "resequenced": precision.resequenced,
+            "novel": precision.novel,
+            "novel_share": precision.novel_share,
+            # Occurrences of supported text emitted more often than the page prints it.
+            # Separate from precision because a block emitted twice is an unchanged set.
+            "duplication": precision.duplication,
+            "excess": precision.excess,
+            "occurrences": precision.occurrences,
+            "control_precision": precision.control_precision,
+            # As with recall's control: reported so a zero cannot be misread as passing.
+            "control_emitted": precision.control_emitted,
+            "discrimination": precision.precision - precision.control_precision,
+        },
         "dimensions": dimensions,
         "conversion_failures": failures,
         # Expected to be empty: this corpus was characterized as 0.0% scan-shaped. A
@@ -429,17 +465,19 @@ def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool =
     import fitz
 
     evaluations = evaluate_corpus(snapshot.articles)
-    recall = measure_recall(
-        [
-            (result.article_id, result.truth_blocks, result.emitted_text, result.pdf_text)
-            for result in evaluations
-            if result.error is None
-        ]
-    )
+    # One sequence drives both instruments, so they cannot end up describing different runs.
+    scored = [
+        (result.article_id, result.truth_blocks, result.emitted_text, result.pdf_text)
+        for result in evaluations
+        if result.error is None
+    ]
+    recall = measure_recall(scored)
+    precision = measure_precision(scored)
     return normalize_results(
         snapshot=snapshot,
         evaluations=evaluations,
         recall=recall,
+        precision=precision,
         all2md_commit=all2md_commit,
         worktree_dirty=worktree_dirty,
         parser_runtime={

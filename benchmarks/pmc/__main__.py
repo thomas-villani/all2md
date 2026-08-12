@@ -198,6 +198,24 @@ def _score(args: argparse.Namespace) -> int:
             f"      {kind:12s} attainable {counts['attainable']:5d}/{counts['scored']:<5d}"
             f"   recovered {counts['attainable_recall']:6.1%} of those"
         )
+    print()
+    precision = payload["article_precision"]
+    # Printed next to recall, not in its own section: read alone, recall rewards emitting the
+    # raw text layer and precision rewards emitting nothing.
+    print("whole-article precision: did the output say anything the document does not")
+    print(f"    supported         {precision['precision']:6.1%} of {precision['emitted']} emitted n-grams")
+    # Most of the remainder is the document's own words in an adjacency the text layer does
+    # not have, which is what ordering columns and joining blocks is *for*.
+    print(
+        f"    resequenced       {precision['resequenced'] / max(precision['emitted'], 1):6.1%}"
+        "  (the document's words, new adjacency)"
+    )
+    print(f"    novel             {precision['novel_share']:6.1%}  <- the number worth reading")
+    print(f"    duplication       {precision['duplication']:6.1%}  (supported text emitted more than once)")
+    if precision["control_emitted"]:
+        print(f"    wrong article     {precision['control_precision']:6.1%}  (want ~0%)")
+    else:
+        print("    wrong article        n/a  (needs more than one article to have a control)")
     if payload["ocr_articles"]:
         print()
         print(f"OCR fired on {len(payload['ocr_articles'])} article(s): {payload['ocr_articles']}")

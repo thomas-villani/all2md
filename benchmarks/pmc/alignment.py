@@ -209,6 +209,27 @@ def ngrams(tokens: Sequence[str]) -> set[tuple[str, ...]]:
     return {tuple(tokens[index : index + NGRAM]) for index in range(len(tokens) - NGRAM + 1)}
 
 
+def ngram_counts(tokens: Sequence[str]) -> Counter[tuple[str, ...]]:
+    """Return token `NGRAM`-grams with their occurrence counts.
+
+    The counted counterpart to `ngrams`. Placement does not care how often a phrase appears,
+    but *duplication* is only visible in the counts: text emitted twice is a set that has not
+    changed at all, and a multiset that has doubled.
+
+    Parameters
+    ----------
+    tokens : Sequence[str]
+        Normalized tokens.
+
+    Returns
+    -------
+    collections.Counter
+        N-gram occurrence counts.
+
+    """
+    return Counter(tuple(tokens[index : index + NGRAM]) for index in range(len(tokens) - NGRAM + 1))
+
+
 def page_ngrams(pdf_path: Path) -> list[set[tuple[str, ...]]]:
     """Index each PDF page by its token n-grams.
 
