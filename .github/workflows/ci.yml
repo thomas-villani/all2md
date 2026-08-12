@@ -419,12 +419,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[all,dev]"
 
+      # `--report-fail-under` is deliberately absent. Markdown has no confidence
+      # instrumentation, so `all2md report` returns a placeholder 100 banded
+      # `not_assessed` for every file here -- an empty one, a valid one and a broken one
+      # alike. Gating on it read as a second quality bar and was a constant. The gate now
+      # refuses that configuration outright rather than passing, so leaving the flag in
+      # would fail this job. Fidelity is the real bar for these documents.
       - name: Gate this branch against our own docs
         run: |
           python scripts/action_gate.py run \
             --paths '*.md' \
-            --roundtrip-fail-under 100 \
-            --report-fail-under 100
+            --roundtrip-fail-under 100
 
   security-semgrep:
     name: Security Scan (Semgrep)

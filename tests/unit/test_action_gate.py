@@ -134,7 +134,7 @@ class TestRefusalsToPass:
 
     def test_an_unconvertible_document_fails_rather_than_being_skipped(self, tmp_path, monkeypatch):
         (tmp_path / "a.md").write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (None, "boom"))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (None, "boom", True))
         assert gate.run(_args(working_directory=str(tmp_path))) == 1
 
     @pytest.mark.parametrize("threshold", [-1, 101])
@@ -147,24 +147,24 @@ class TestRefusalsToPass:
 class TestScoring:
     def test_a_score_above_the_threshold_passes(self, tmp_path, monkeypatch):
         (tmp_path / "a.md").write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (95, ""))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (95, "", True))
         assert gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=90)) == 0
 
     def test_a_score_below_the_threshold_fails(self, tmp_path, monkeypatch):
         (tmp_path / "a.md").write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (89, ""))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (89, "", True))
         assert gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=90)) == 1
 
     def test_a_score_exactly_on_the_threshold_passes(self, tmp_path, monkeypatch):
         """``--fail-under`` means *under*, matching the CLI it wraps."""
         (tmp_path / "a.md").write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (90, ""))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (90, "", True))
         assert gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=90)) == 0
 
     def test_one_bad_document_in_a_good_batch_fails_the_build(self, tmp_path, monkeypatch):
         for name in ("a.md", "b.md", "c.md"):
             (tmp_path / name).write_text("hi")
-        scores = iter([(100, ""), (50, ""), (100, "")])
+        scores = iter([(100, "", True), (50, "", True), (100, "", True)])
         monkeypatch.setattr(gate, "score_document", lambda *a, **k: next(scores))
         assert gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=90)) == 1
 
@@ -172,7 +172,7 @@ class TestScoring:
         """The batched CLI aborts on the first bad file; this must not."""
         for name in ("a.md", "b.md"):
             (tmp_path / name).write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (10, ""))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (10, "", True))
         gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=90))
         err = capsys.readouterr().err
         assert "a.md" in err and "b.md" in err
@@ -183,7 +183,7 @@ class TestScoring:
         monkeypatch.setattr(
             gate,
             "score_document",
-            lambda tool, *a, **k: (100, "") if tool == "roundtrip" else (40, ""),
+            lambda tool, *a, **k: (100, "", True) if tool == "roundtrip" else (40, "", True),
         )
         args = _args(working_directory=str(tmp_path), roundtrip_fail_under=90, report_fail_under=90)
         assert gate.run(args) == 1
@@ -206,7 +206,7 @@ class TestScoreDocument:
 
     def test_a_valid_report_yields_its_score(self, monkeypatch):
         self._fake_run(monkeypatch, stdout='{"score": 87}')
-        assert gate.score_document("roundtrip", Path("a.md"), "markdown") == (87, "")
+        assert gate.score_document("roundtrip", Path("a.md"), "markdown") == (87, "", True)
 
     def test_a_single_element_list_is_unwrapped(self, monkeypatch):
         self._fake_run(monkeypatch, stdout='[{"score": 42}]')
@@ -214,12 +214,12 @@ class TestScoreDocument:
 
     def test_a_nonzero_exit_reports_the_last_stderr_line(self, monkeypatch):
         self._fake_run(monkeypatch, returncode=4, stderr="noise\nError: Input file not found")
-        score, note = gate.score_document("roundtrip", Path("a.md"), "markdown")
+        score, note, _assessed = gate.score_document("roundtrip", Path("a.md"), "markdown")
         assert score is None and "not found" in note
 
     def test_a_silent_nonzero_exit_still_reports_something(self, monkeypatch):
         self._fake_run(monkeypatch, returncode=9, stderr="")
-        score, note = gate.score_document("roundtrip", Path("a.md"), "markdown")
+        score, note, _assessed = gate.score_document("roundtrip", Path("a.md"), "markdown")
         assert score is None and "exited 9" in note
 
     def test_unparseable_output_is_not_a_score(self, monkeypatch):
@@ -229,7 +229,7 @@ class TestScoreDocument:
     def test_a_report_without_a_score_is_not_a_score(self, monkeypatch):
         """Must not become 0 -- that reads as a real, terrible score."""
         self._fake_run(monkeypatch, stdout='{"band": "high"}')
-        score, note = gate.score_document("roundtrip", Path("a.md"), "markdown")
+        score, note, _assessed = gate.score_document("roundtrip", Path("a.md"), "markdown")
         assert score is None and "no score" in note
 
     def test_an_empty_list_is_not_a_score(self, monkeypatch):
@@ -261,13 +261,13 @@ class TestCalibrationWarning:
 
     def test_a_threshold_with_dead_headroom_is_flagged(self, tmp_path, monkeypatch, capsys):
         (tmp_path / "a.md").write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (100, ""))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (100, "", True))
         gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=80))
         assert "points of headroom" in capsys.readouterr().out
 
     def test_a_well_calibrated_threshold_is_not_flagged(self, tmp_path, monkeypatch, capsys):
         (tmp_path / "a.md").write_text("hi")
-        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (100, ""))
+        monkeypatch.setattr(gate, "score_document", lambda *a, **k: (100, "", True))
         gate.run(_args(working_directory=str(tmp_path), roundtrip_fail_under=95))
         assert "points of headroom" not in capsys.readouterr().out
 
@@ -310,6 +310,61 @@ class TestAgainstRealDocuments:
             ]
         )
         assert code == 1
+
+    def test_the_confidence_gate_refuses_a_corpus_it_cannot_assess(self, tmp_path):
+        """The defect this gate exists to refuse, which it had itself.
+
+        Markdown has no confidence detector, so `all2md report` returns a hardcoded 100
+        with `band: "not_assessed"` for every one of these files -- an empty file, a valid
+        file and a deliberately broken file alike. Reading only `score` made
+        `--report-fail-under 100` a constant, which is how this repo's own root-docs gate
+        ran for months.
+        """
+        (tmp_path / "empty.md").write_text("")
+        (tmp_path / "fine.md").write_text("# Title\n\nBody text.\n")
+        (tmp_path / "broken.md").write_text("| broken |\n|---\n\n### \n\n[x](\n")
+        code = gate.main(
+            [
+                "run",
+                "--paths",
+                "*.md",
+                "--working-directory",
+                str(tmp_path),
+                "--report-fail-under",
+                "100",
+            ]
+        )
+        # 2, not 1: this is a misconfigured gate, the same class as an empty glob, and it
+        # must not read as "your documents failed".
+        assert code == 2
+
+    def test_the_confidence_gate_still_judges_a_format_that_has_detectors(self, fixtures):
+        """The control: the refusal above must not have disabled the gate everywhere.
+
+        Without this, deleting the confidence comparison outright would satisfy the test
+        above and look like a fix. PDF is the control because it is the only producer with
+        real instrumentation -- `basic.pdf` bands `high`, where every docx, pptx, html and
+        markdown input bands `not_assessed`.
+        """
+        code = gate.main(
+            [
+                "run",
+                "--paths",
+                "basic.pdf",
+                "--working-directory",
+                str(fixtures),
+                "--report-fail-under",
+                "50",
+            ]
+        )
+        assert code == 0
+
+    def test_an_unassessed_document_is_not_rendered_as_a_hundred(self):
+        """Printing the placeholder score is how a vacuous gate reads as a passing one."""
+        row = gate.DocumentScores(path="a.md", scores={"report": None}, unassessed={"report"})
+        summary = gate._summarise([row], {"report": 100}, [])
+        assert "not assessed" in summary
+        assert "100" not in summary.split("| `a.md` |")[1].split("\n")[0]
 
     def test_a_file_that_is_not_a_document_fails(self, tmp_path):
         """Garbage in must not score as missing data and slip through."""
