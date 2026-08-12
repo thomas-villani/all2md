@@ -138,6 +138,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   flag gets the same answer for a real flag and an invented one. Both entry points now reach
   the same `main()`, and tests assert they can still *reject* an unknown flag, since an entry
   point that cannot start looks exactly like one that accepts everything.
+- **Seven CLI flags the documentation named do not exist, and now the docs say what does.**
+  Most followed one rule the docs had backwards: a boolean option generates only the flag that
+  *changes* its default, so `require_https=True` yields `--html-network-no-require-https` and
+  there is no positive form to type. Documented as `--html-network-require-https`, and worse,
+  as **"Default: Disabled"** when HTTPS is in fact required by default — the one entry where
+  believing the docs would have left someone thinking transport security was off when it was
+  on. `--html-network-max-remote-asset-bytes` was a renamed option still documented under its
+  old name *and* its old value (the real one is `--html-max-asset-size-bytes`, 50MB not 20MB).
+  `--markdown-page-separator-template` was filed under Markdown but belongs to the paginated
+  parsers, which its own `document.pdf` examples already showed. Also corrected:
+  `--pptx-slide-numbers` → `--pptx-include-slide-numbers`, `--pdf-detect-columns` →
+  `--pdf-no-detect-columns`, `--output-type` → `--output-format`, and `--rich-word-wrap`,
+  which never existed alongside the `--rich-no-word-wrap` documented directly beneath it. A
+  test now fails if any prose page names a flag the CLI will not accept.
 - **Table captions survive a Markdown round trip.** Markdown has no caption syntax, so the
   renderer demoted `Table.caption` to an italic paragraph — which a reader could see, but
   which came back as ordinary prose, so the trip lost the caption *and* gained a `Paragraph`
